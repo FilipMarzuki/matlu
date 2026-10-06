@@ -9,7 +9,7 @@
  */
 
 import { RULES } from '../observe';
-import { DECISION_SCHEMA } from '../decision';
+import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA } from '../decision';
 import { DEFAULT_OPENROUTER_MODEL } from '../roster';
 import type { Player } from '../runner';
 
@@ -33,38 +33,42 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
   // Anthropic models on OpenRouter only cache with explicit breakpoints; others cache implicitly.
   const anthropic = model.startsWith('anthropic/');
 
+  // One conversation for the whole run; the caravan road (#1251) continues it with its own schema.
+  async function send(message: string, schemaName: string, schema: object) {
+    messages.push({ role: 'user', content: message });
+    const request = () => fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'matlu artificer AI player',
+      },
+      body: JSON.stringify({
+        model,
+        messages: anthropic ? withCacheBreakpoints(messages) : messages,
+        // Usage accounting: the response then carries the actual billed cost in USD (#1231).
+        usage: { include: true },
+        ...(useSchema ? { response_format: { type: 'json_schema', json_schema: { name: schemaName, strict: true, schema } } } : {}),
+      }),
+    });
+    const res = await withRetry(request);
+    if (!res.ok) throw new Error(`OpenRouter → ${res.status}: ${await res.text()}`);
+    const data = await res.json() as {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } };
+    };
+    const text = data.choices?.[0]?.message?.content ?? '';
+    messages.push({ role: 'assistant', content: text });
+    return {
+      text,
+      usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? null },
+    };
+  }
+
   return {
     name: `openrouter:${model}`,
-    async decide(message) {
-      messages.push({ role: 'user', content: message });
-      const request = () => fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'X-Title': 'matlu artificer AI player',
-        },
-        body: JSON.stringify({
-          model,
-          messages: anthropic ? withCacheBreakpoints(messages) : messages,
-          // Usage accounting: the response then carries the actual billed cost in USD (#1231).
-          usage: { include: true },
-          ...(useSchema ? { response_format: { type: 'json_schema', json_schema: { name: 'decision', strict: true, schema: DECISION_SCHEMA } } } : {}),
-        }),
-      });
-      const res = await withRetry(request);
-      if (!res.ok) throw new Error(`OpenRouter → ${res.status}: ${await res.text()}`);
-      const data = await res.json() as {
-        choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } };
-      };
-      const text = data.choices?.[0]?.message?.content ?? '';
-      messages.push({ role: 'assistant', content: text });
-      return {
-        text,
-        usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? null },
-      };
-    },
+    decide: message => send(message, 'decision', DECISION_SCHEMA),
+    decideRoad: message => send(message, 'road_decision', ROAD_DECISION_SCHEMA),
   };
 }
 

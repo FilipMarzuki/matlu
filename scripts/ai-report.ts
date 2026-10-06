@@ -49,6 +49,14 @@ for (const m of models) {
   const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;
   console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
   console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
+  if (m.road) console.log(`  ${''.padEnd(34)} ${roadLine(m)}`);
+}
+
+/** The road in a line (#1251): how the runs that rode on ended, and what they came away with. */
+function roadLine(m: ModelSummary): string {
+  const r = m.road!;
+  const out = Object.entries(r.outcomes).map(([k, n]) => `${k} ${n}`).join(', ');
+  return `road (${r.runs} run${r.runs === 1 ? '' : 's'}): ${out} · marks ${r.marks ?? '—'} · quests ${r.quests ?? '—'} · trust ${r.trust ?? '—'}${r.invalidDays ? ` · ${r.invalidDays} invalid days` : ''}`;
 }
 
 /** The winter in a line (#1309): survival rate, grades, when and how the rest died, and the hard nights per run. */

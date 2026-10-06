@@ -6,6 +6,7 @@
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
  *   options: --runs N (default 1) --carry (each run keeps the last run's knowledge)
+ *            --road (a run that survives the thaw rides the caravan road to Mistheim, #1251)
  *            --out DIR (default ai-runs) --quiet
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
  *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
@@ -20,7 +21,7 @@ import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
-import { legacyOf, canContinue } from '../src/artificer/legacy';
+import { legacyOf, legacyOfRoad, canContinue } from '../src/artificer/legacy';
 import { validPick, TALENT_PICKS, TALENT_IDS, talentOffer, seedOf, pickRandomFromOffer, type TalentId } from '../src/artificer/talents';
 
 const args = process.argv.slice(2);
@@ -61,8 +62,10 @@ async function main(): Promise<void> {
     const player = makePlayer(n); // fresh conversation per run
     if (!quiet) console.log(`\n▶ Run ${n}/${runs} — ${player.name}`);
     // Each run is its own Warden (#1267) — unless --carry continues the last one who lived.
-    const continuing = has('carry') && carry && canContinue(carry.final);
-    const characterId = continuing ? carry!.final.character.id : aiCharacterId(player.name, `s${seed}-r${n}`);
+    // A run that rode the road ended there (#1251): that's what decides whether the Warden lived, and what carries.
+    const lastEnd = carry?.road?.final ?? carry?.final;
+    const continuing = has('carry') && lastEnd && canContinue(lastEnd);
+    const characterId = continuing ? lastEnd!.character.id : aiCharacterId(player.name, `s${seed}-r${n}`);
     // The random baseline picks a random pair from its offer (seeded); others ask for --talents, else take the first two.
     const wanted = which === 'random' && !talents.length ? pickRandomFromOffer(talentOffer(seedOf(characterId)), seed + n - 1) : talents as TalentId[];
     if (!quiet && !continuing) {
@@ -73,9 +76,17 @@ async function main(): Promise<void> {
     try {
       result = await playRun(player, {
       // Same rule as the game (#1242): only a character who lived goes on with what they learned.
-      legacy: continuing ? legacyOf(carry!.final) : undefined,
+      legacy: continuing ? (carry!.road ? legacyOfRoad(carry!.road.final) : legacyOf(carry!.final)) : undefined,
       characterId,
       talents: wanted,
+      road: has('road'),
+      onRoadTurn: t => {
+        if (quiet) return;
+        console.log(`  R${String(t.day).padStart(2)} ${t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : t.actions.join(', ') || '—'}`);
+        if (t.thoughts) console.log(`      “${t.thoughts}”`);
+        if (t.violations) console.log(`      ⚠ invariants: ${t.violations.join('; ')}`);
+        console.log(`      marks ${t.progress.marks} · trust ${t.progress.totalTrust} · quests ${t.progress.questsDone} · cond ${t.progress.vitals.condition} · food ${t.progress.stores.rawFood}`);
+      },
       onTurn: t => {
         if (quiet) return;
         const head = t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);
@@ -92,11 +103,14 @@ async function main(): Promise<void> {
     }
     spent += result.usage.cost ?? 0;
     for (const t of result.turns) if (t.violations) violations.push(`run ${n} day ${t.day}: ${t.violations.join('; ')}`);
+    for (const t of result.road?.turns ?? []) if (t.violations) violations.push(`run ${n} road day ${t.day}: ${t.violations.join('; ')}`);
     carry = result;
     results.push(result);
     const file = join(out, `${new Date().toISOString().replace(/[:.]/g, '-')}-${which}${which === 'random' ? `-${flag('mode') ?? 'legal'}` : ''}-run${n}.json`);
-    const { final: _final, ...saved } = result;
+    const { final: _final, road, ...rest } = result;
+    const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
+    if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }

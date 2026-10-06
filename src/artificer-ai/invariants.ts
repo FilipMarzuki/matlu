@@ -6,6 +6,8 @@
 
 import { SITES, type Region1State } from '../artificer/region1';
 import { maxLoad } from '../artificer/load';
+import type { RoadState } from '../artificer/road';
+import { QUESTS } from '../artificer/quests';
 
 /** Every broken invariant in `s`, as readable messages (empty when all is well). */
 export function invariantViolations(s: Region1State): string[] {
@@ -34,5 +36,30 @@ export function invariantViolations(s: Region1State): string[] {
   }
   num('strain', s.strain ?? 0);
   if (s.coldPitAt && !(s.coldPitAt in SITES)) out.push(`cold pit at unknown site ${s.coldPitAt}`);
+  return out;
+}
+
+/** Road invariants (#1251): marks never negative, trust within 0–100, no quest done twice — and the body's numbers in range. */
+export function roadInvariantViolations(r: RoadState): string[] {
+  const out: string[] = [];
+  const num = (label: string, x: number, lo = 0, hi = Infinity): void => {
+    if (!Number.isFinite(x)) out.push(`${label} is ${x}`);
+    else if (x < lo || x > hi) out.push(`${label} = ${x} outside [${lo}, ${hi}]`);
+  };
+  num('marks', r.marks);
+  for (const [id, t] of Object.entries(r.trust)) num(`trust ${id}`, t, 0, 100);
+  for (const [k, v] of Object.entries(r.stores)) num(`stores.${k}`, v);
+  const v = r.vitals;
+  num('vigor', v.vigor.current, 0, v.vigor.cap);
+  num('clarity', v.clarity.current, 0, v.clarity.cap);
+  num('condition', v.condition, 0, 100);
+  for (const [id, st] of Object.entries(r.quests)) if (!['active', 'done', 'failed', 'expired'].includes(st)) out.push(`quest ${id} has status ${st}`);
+  // A quest pays out once: its "<title> done —" line appears at most once in the journal.
+  for (const q of QUESTS) {
+    const n = r.log.filter(l => l.text.includes(`${q.title} done —`)).length;
+    if (n > 1) out.push(`quest ${q.id} completed ${n} times`);
+  }
+  if (new Set(r.known).size !== r.known.length) out.push('known recipes has duplicates');
+  if (new Set(r.techniques).size !== r.techniques.length) out.push('techniques has duplicates');
   return out;
 }

@@ -18,6 +18,10 @@
 import { ACTIONS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import type { Player } from '../runner';
+import { villageOf, type RoadActionId, type RoadState } from '../../artificer/road';
+import { peopleOf, VILLAGES } from '../../artificer/villages';
+import { QUESTS } from '../../artificer/quests';
+import { BASE_VALUE, isGood } from '../../artificer/trade';
 
 export type RandomMode = 'uniform' | 'legal';
 
@@ -88,8 +92,30 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     return day;
   }
 
+  /**
+   * A random road day (#1251): 1–5 actions. `legal` picks among things that make sense where
+   * you are (these people, these teachers, what you own); `uniform` among every id on the road.
+   */
+  function roadDay(r: RoadState): RoadActionId[] {
+    const here = mode === 'legal' ? peopleOf(villageOf(r)) : Object.values(VILLAGES).flatMap(v => v.people);
+    const goods = mode === 'legal' ? Object.entries(r.stores).filter(([, n]) => n > 0).map(([k]) => k) : Object.keys(BASE_VALUE).filter(isGood);
+    const tools = mode === 'legal' ? r.tools.map(t => t.item) : Object.keys(BASE_VALUE).filter(k => !isGood(k));
+    const options: RoadActionId[] = [
+      'rest', 'wait',
+      ...here.map(p => `talk:${p.id}` as const),
+      ...[...goods, ...tools].map(g => `sell:${g}` as const),
+      ...goods.map(g => `buy:${g}:${1 + Math.floor(rand() * 4)}` as const),
+      ...QUESTS.flatMap(q => [`accept:${q.id}`, `complete:${q.id}`] as const),
+      ...here.filter(p => p.teaches).flatMap(p => [`appraise:${p.id}` as const, ...[...p.teaches!.techniques, ...p.teaches!.recipes, ...(p.teaches!.concept ? [p.teaches!.concept] : [])].map(x => `learn:${p.id}:${x}` as const)]),
+    ];
+    return Array.from({ length: 1 + Math.floor(rand() * 5) }, () => pick(options));
+  }
+
   return {
     name: `random:${mode}`,
+    async decideRoad(_message, r) {
+      return { text: JSON.stringify({ thoughts: `random road (${mode})`, actions: roadDay(r) }), usage: { cost: 0 } };
+    },
     async decide(_message, s) {
       // Legal claims a site only once the land is scouted; uniform tries whenever.
       const site = !s.site && rand() < (mode === 'legal' ? (scouted(s.explore, 1) ? 0.6 : 0) : 0.2) ? pick(SITE_IDS) : null;

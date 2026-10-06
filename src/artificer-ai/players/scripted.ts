@@ -10,6 +10,12 @@ import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
 import { seasonOf } from '../../artificer/winter';
 import type { Player } from '../runner';
+import { daysLeftOnLeg, lessonFee, questsHere, tradeTerms, villageOf, ROAD_DAYS, ROUTE, type RoadActionId, type RoadState } from '../../artificer/road';
+import { canComplete, QUESTS } from '../../artificer/quests';
+import { peopleOf } from '../../artificer/villages';
+import { buyPrice } from '../../artificer/trade';
+import { canBeTaught, techniqueById } from '../../artificer/techniques';
+import { skillLevel } from '../../artificer/skills';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
 const a = (action: string, ring = 1, options: Record<string, string> = {}): Entry =>
@@ -129,5 +135,54 @@ export const scriptedPlayer = (): Player => {
       }
       return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, eating, queue }), usage: { cost: 0 } };
     },
+    async decideRoad(_message, r) {
+      return { text: JSON.stringify({ thoughts: `Road day ${r.day}.`, actions: scriptedRoadDay(r) }), usage: { cost: 0 } };
+    },
   };
 };
+
+// ── The road (#1251) ────────────────────────────────────────────────────────
+
+/** Quick hand-overs first, then the long jobs: a repair or a scout eats most of a day. */
+const QUEST_ORDER: Readonly<Record<string, number>> = { fetch: 0, craft: 0, repair: 1, scout: 2, deliver: 3 };
+
+/**
+ * A sensible road day (#1251), as a careful person would play it: on the wagon, rest; in a
+ * village, take every quest on offer and finish what you can, keep enough food and water
+ * for the road ahead, buy one lesson you can afford, then talk to everyone with more to tell.
+ * The day's hours decide how far down the list it gets.
+ */
+export function scriptedRoadDay(r: RoadState): RoadActionId[] {
+  const village = villageOf(r);
+  if (!village) return ['rest'];
+  const out: RoadActionId[] = [];
+  const offered = questsHere(r);
+  for (const q of offered) out.push(`accept:${q.id}`);
+  // Judge completions as if the offered ones were already taken (they will be, a moment earlier).
+  const taken = new Set([...Object.entries(r.quests).filter(([, st]) => st === 'active').map(([id]) => id), ...offered.map(q => q.id)]);
+  const doable = QUESTS.filter(q => taken.has(q.id) && q.village === village && q.needs.kind !== 'deliver' && canComplete(q, r) === null)
+    .sort((a, b) => QUEST_ORDER[a.needs.kind] - QUEST_ORDER[b.needs.kind]);
+  for (const q of doable) out.push(`complete:${q.id}`);
+  // Enough to eat for every night left, and to drink for every village night left.
+  const t = tradeTerms(r);
+  let marks = r.marks;
+  const nightsLeft = ROAD_DAYS - r.day + 1;
+  const villageNights = ROUTE.slice(r.leg).reduce((n, l, i) => n + (l.kind === 'village' ? (i === 0 ? daysLeftOnLeg(r) : l.days) : 0), 0);
+  for (const [good, need] of [['rawFood', nightsLeft - r.stores.rawFood - r.stores.rations], ['water', villageNights - r.stores.water]] as const) {
+    if (!t || need <= 0 || !t.sells.includes(good)) continue;
+    let qty = need;
+    while (qty > 0 && buyPrice(good, qty, t) > marks) qty--;
+    if (qty > 0) { out.push(`buy:${good}:${qty}`); marks -= buyPrice(good, qty, t); }
+  }
+  // One lesson a stay, if it's affordable after food: a recipe, else a technique within reach.
+  const teacher = peopleOf(village).find(p => p.teaches && lessonFee(r, p.id) <= marks);
+  if (teacher?.teaches) {
+    const tt = teacher.teaches;
+    const thing = tt.recipes.find(x => !r.known.includes(x))
+      ?? tt.techniques.find(id => { const tech = techniqueById(id); return !!tech && !r.techniques.includes(id) && canBeTaught(tech, skillLevel(r.skills, tech.skill)); });
+    if (thing) out.push(`learn:${teacher.id}:${thing}`);
+    if (!r.appraised.includes(teacher.id)) out.push(`appraise:${teacher.id}`);
+  }
+  for (const p of peopleOf(village)) if ((r.told[p.id] ?? 0) < p.lore.length) out.push(`talk:${p.id}`);
+  return out.length ? out : ['wait'];
+}

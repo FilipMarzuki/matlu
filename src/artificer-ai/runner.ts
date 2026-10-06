@@ -10,13 +10,14 @@
 import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, createRegion1, chooseSite, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import type { Calendar } from '../artificer/winter';
-import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
-import { observe } from './observe';
+import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
+import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
+import { observe, observeRoad, ROAD_RULES } from './observe';
 import { parseFocus } from '../artificer/focus';
 import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
-import { progressOf, type Progress } from './progress';
-import { invariantViolations } from './invariants';
-import { parseDecision } from './decision';
+import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
+import { invariantViolations, roadInvariantViolations } from './invariants';
+import { parseDecision, parseRoadDecision } from './decision';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
 export interface Usage {
@@ -33,6 +34,33 @@ export interface Usage {
 export interface Player {
   name: string;
   decide(message: string, state: Region1State): Promise<{ text: string; usage?: Partial<Usage> }>;
+  /**
+   * Decide a day on the caravan road (#1251), replying `{thoughts, actions}`. Optional:
+   * a player without it ends the run at the thaw, as before the road existed.
+   */
+  decideRoad?(message: string, state: RoadState): Promise<{ text: string; usage?: Partial<Usage> }>;
+}
+
+/** One road day (#1251). */
+export interface RoadTurn {
+  day: number;
+  thoughts: string;
+  actions: RoadActionId[];
+  invalid: boolean;
+  reply?: string;
+  errors?: string[];
+  violations?: string[];
+  progress: RoadProgress;
+  journal: string[];
+}
+
+/** The road part of a run that rode on (#1251). */
+export interface RoadResult {
+  turns: RoadTurn[];
+  start: RoadProgress;
+  /** The run's record, with the road's ending (`arrived`, `died`, `collapsed`). */
+  record: RunRecord;
+  final: RoadState;
 }
 
 export interface Turn {
@@ -63,6 +91,8 @@ export interface RunResult {
   /** Progression at the start of the run, before day 1 (#1229). */
   start: Progress;
   final: Region1State;
+  /** The caravan road, when the run survived the thaw and was played on (#1251). `record` stays the Reach's. */
+  road?: RoadResult;
 }
 
 export interface PlayOptions {
@@ -84,6 +114,12 @@ export interface PlayOptions {
   maxDays?: number;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
+  /**
+   * Ride on from the thaw (#1251): a run that survives plays the caravan road to Mistheim.
+   * Off by default — it adds ~18 calls a run, so the nightly roster opts in when its budget allows.
+   */
+  road?: boolean;
+  onRoadTurn?: (t: RoadTurn) => void;
 }
 
 function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn['after'] {
@@ -165,7 +201,64 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   }
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
-  return { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
+  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
+  if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
+    const decideRoad = player.decideRoad.bind(player);
+    result.road = await playRoad(s, async (message, r) => {
+      const reply = await decideRoad(message, r);
+      usage.input += reply.usage?.input ?? 0;
+      usage.output += reply.usage?.output ?? 0;
+      usage.cacheRead += reply.usage?.cacheRead ?? 0;
+      usage.cacheWrite += reply.usage?.cacheWrite ?? 0;
+      if (reply.usage?.cost !== undefined && reply.usage.cost !== null) usage.cost = (usage.cost ?? 0) + reply.usage.cost;
+      return reply.text;
+    }, opts.onRoadTurn);
+  }
+  return result;
+}
+
+/**
+ * Play the caravan road from a run that survived the thaw (#1251): one decision per
+ * road day, through the same observe → decide → validate → apply loop as Region 1.
+ * The first message carries the road's rules. An invalid reply is explained back once;
+ * actions the sim can't do are skipped, and the next day's journal says why.
+ */
+export async function playRoad(reach: Region1State, ask: (message: string, r: RoadState) => Promise<string>, onTurn?: (t: RoadTurn) => void): Promise<RoadResult> {
+  let r = createRoad(reach);
+  const start = roadProgressOf(r);
+  const turns: RoadTurn[] = [];
+  let notes: string[] = [];
+  let first = true;
+  // The road always ends at Mistheim's gates: a few days' slack, then it's a sim bug.
+  const maxDays = ROAD_DAYS + 2;
+  while (!r.outcome && r.day <= maxDays) {
+    const day = r.day;
+    const logStart = r.log.length;
+    const obs = observeRoad(r, notes);
+    let reply = await ask(first ? `${ROAD_RULES}\n\n${obs}` : obs, r);
+    first = false;
+    notes = [];
+    let parsed = parseRoadDecision(reply);
+    if (!parsed.ok) {
+      reply = await ask(`Your reply was invalid:\n- ${parsed.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "actions"} for road day ${day}.`, r);
+      parsed = parseRoadDecision(reply);
+    }
+    const actions = parsed.ok ? parsed.decision.actions : [];
+    const out = runRoadDay(r, actions);
+    r = out.state;
+    if (!parsed.ok) notes.push(`Your reply for road day ${day} was invalid twice, so the day passed with nothing done.`);
+    if (out.remaining.length) notes.push(`${out.remaining.length} action(s) didn't fit in road day ${day} and were dropped.`);
+    const v = roadInvariantViolations(r);
+    const t: RoadTurn = {
+      day, thoughts: parsed.ok ? parsed.decision.thoughts : '', actions, invalid: !parsed.ok,
+      ...(parsed.ok ? {} : { reply, errors: parsed.errors }),
+      ...(v.length ? { violations: v } : {}),
+      progress: roadProgressOf(r), journal: r.log.slice(logStart).map(l => l.text),
+    };
+    turns.push(t); onTurn?.(t);
+  }
+  if (!r.outcome) throw new Error(`the road did not resolve by road day ${maxDays} — it should always end at Mistheim`);
+  return { turns, start, record: summarizeRoad(r, reach, 1), final: r };
 }
 
 /** `{ violations }` only when something is broken, so clean transcripts stay clean. */
