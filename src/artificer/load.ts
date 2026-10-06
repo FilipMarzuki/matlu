@@ -27,16 +27,76 @@ export const WEIGHT: Readonly<Record<LoadItem, number>> = { rawFood: 1, rations:
 /** How awkward each item is to carry with no gear: loose food in your arms, long bulky wood, water with no vessel. */
 export const AWKWARDNESS: Readonly<Record<LoadItem, number>> = { rawFood: 1.5, rations: 1, water: 1.5, firewood: 1.6, materials: 1.5, stone: 1.3, hides: 1.4 };
 
-/** What gear does to awkwardness: an item's awkwardness with the gear you carry (never its weight). */
-export type Gear = Partial<Record<LoadItem, number>>;
+/**
+ * What gear does to a load (#1294): per item, its awkwardness (`awk`) and the
+ * share of its weight that counts toward the bulk (`weight` — a sled drags
+ * what's on it), plus a flat `extra` for gear that is itself a burden (the
+ * sled, dragged even when empty). Gear never touches the max load.
+ */
+export interface Gear {
+  awk: Partial<Record<LoadItem, number>>;
+  weight: Partial<Record<LoadItem, number>>;
+  extra: number;
+}
+/** A tool as carrying needs it: what it is and how well it was made (missing grade counts as sound). */
+export interface GearTool { item: string; grade?: string }
+/** Where the haul is carried: the ring, and whether there's snow underfoot (a sled runs on it). */
+export interface CarryContext { ring: number; snow: boolean }
 
-/** The awkwardness your tools give (#1291): a waterskin makes water as easy as anything. Baskets, packs and sleds come in #1294. */
-export function gearOf(tools: readonly { item: string }[]): Gear {
-  return tools.some(t => t.item === 'waterskin') ? { water: 1 } : {};
+/** The carrying gear (#1294): what each piece eases. */
+export const GEAR_ITEMS = ['basket', 'backpack', 'harness', 'sled'] as const;
+export type GearItem = typeof GEAR_ITEMS[number];
+
+/** The backpack's share off everything, and the least awkwardness it can bring anything to. */
+export const BACKPACK = 0.8;
+/** On a sled, heavy things count this share of their weight: on snow or level ground (rings 1–2), and in the broken hills (ring 3). */
+export const SLED_LEVEL = 0.5, SLED_HILLS = 0.8;
+/** The sled itself, dragged along. */
+export const SLED_EXTRA = 4;
+const SLED_ITEMS: readonly LoadItem[] = ['stone', 'firewood', 'hides'];
+
+/** Crude gear gives half the improvement (#1294). */
+const eased = (from: number, to: number, crude: boolean): number => (crude ? from - (from - to) / 2 : to);
+
+/**
+ * The gear your tools give for a haul carried in `ctx` (#1294). The basket, harness and waterskin
+ * each bring some items down to a set awkwardness; the backpack then takes a share off everything
+ * (never below 0.8); the sled — when `withSled` — lightens what's dragged on it but adds itself.
+ */
+export function gearOf(tools: readonly GearTool[], ctx: CarryContext = { ring: 1, snow: false }, withSled = true): Gear {
+  const grade = (item: string): 'crude' | 'sound' | null => {
+    const t = tools.filter(x => x.item === item);
+    if (!t.length) return null;
+    return t.some(x => x.grade !== 'crude') ? 'sound' : 'crude';
+  };
+  const awk: Partial<Record<LoadItem, number>> = {};
+  const ease = (item: LoadItem, to: number, g: 'crude' | 'sound'): void => {
+    awk[item] = Math.min(awk[item] ?? AWKWARDNESS[item], eased(AWKWARDNESS[item], to, g === 'crude'));
+  };
+  const skin = grade('waterskin'), basket = grade('basket'), harness = grade('harness'), pack = grade('backpack'), sled = grade('sled');
+  if (skin) ease('water', 1, skin);
+  if (basket) { ease('rawFood', 1, basket); ease('materials', 1, basket); }
+  if (harness) { ease('firewood', 1.1, harness); ease('stone', 1, harness); ease('hides', 1, harness); }
+  if (pack) {
+    const f = eased(1, BACKPACK, pack === 'crude');
+    for (const k of Object.keys(WEIGHT) as LoadItem[]) awk[k] = Math.max(BACKPACK, (awk[k] ?? AWKWARDNESS[k]) * f);
+  }
+  const weight: Partial<Record<LoadItem, number>> = {};
+  let extra = 0;
+  if (sled && withSled) {
+    const f = eased(1, ctx.snow || ctx.ring <= 2 ? SLED_LEVEL : SLED_HILLS, sled === 'crude');
+    for (const k of SLED_ITEMS) weight[k] = f;
+    extra = SLED_EXTRA;
+  }
+  return { awk, weight, extra };
 }
 
-const awk = (item: LoadItem, gear: Gear): number => gear[item] ?? AWKWARDNESS[item];
+const NO_GEAR: Gear = { awk: {}, weight: {}, extra: 0 };
+
 const items = (h: Haul): LoadItem[] => (Object.keys(h) as LoadItem[]).filter(k => (h[k] ?? 0) > 0);
+const awkOf = (item: LoadItem, gear: Gear): number => gear.awk[item] ?? AWKWARDNESS[item];
+/** One unit's bulk: its weight (the share that counts) × its awkwardness. */
+const bulkOf = (item: LoadItem, gear: Gear): number => WEIGHT[item] * (gear.weight[item] ?? 1) * awkOf(item, gear);
 
 /** The most weight a body can lift at all: 40 stones at STR 10, 3 more per point. Gear never raises it. */
 export const maxLoad = (stats: Pick<Stats, 'str'>): number => 40 + 3 * (stats.str - 10);
@@ -48,21 +108,21 @@ export const comfortableLoad = (stats: Pick<Stats, 'str'>): number => 0.4 * maxL
 export const rawWeight = (h: Haul): number => items(h).reduce((n, k) => n + (h[k] ?? 0) * WEIGHT[k], 0);
 
 /** How cumbersome a haul is: weight × awkwardness, with what your gear does to it. */
-export const cumbersome = (h: Haul, gear: Gear = {}): number => items(h).reduce((n, k) => n + (h[k] ?? 0) * WEIGHT[k] * awk(k, gear), 0);
+export const cumbersome = (h: Haul, gear: Gear = NO_GEAR): number => items(h).reduce((n, k) => n + (h[k] ?? 0) * bulkOf(k, gear), gear.extra);
 
 /** The overload ratio: cumbersome load over the comfortable load (1 is the edge of comfortable; #1292 makes more cost). */
-export const overloadRatio = (h: Haul, gear: Gear, stats: Pick<Stats, 'str'>): number => cumbersome(h, gear) / comfortableLoad(stats);
+export const overloadRatio = (h: Haul, gear: Gear = NO_GEAR, stats: Pick<Stats, 'str'>): number => cumbersome(h, gear) / comfortableLoad(stats);
 
 /**
  * What of a haul you can carry home (pure): units are left behind, heaviest
  * first (the most cumbersome among equals), until the raw weight and the
  * cumbersome load both fit the max.
  */
-export function fitHaul(haul: Haul, gear: Gear, stats: Pick<Stats, 'str'>): { carried: Haul; left: Haul } {
+export function fitHaul(haul: Haul, gear: Gear = NO_GEAR, stats: Pick<Stats, 'str'>): { carried: Haul; left: Haul } {
   const max = maxLoad(stats);
   const carried: Haul = { ...haul };
   const left: Haul = {};
-  const order = items(haul).sort((a, b) => WEIGHT[b] - WEIGHT[a] || WEIGHT[b] * awk(b, gear) - WEIGHT[a] * awk(a, gear));
+  const order = items(haul).sort((a, b) => WEIGHT[b] - WEIGHT[a] || bulkOf(b, gear) - bulkOf(a, gear));
   const fits = (): boolean => rawWeight(carried) <= max + 1e-9 && cumbersome(carried, gear) <= max + 1e-9;
   for (const k of order) {
     while (!fits() && (carried[k] ?? 0) > 0) {
@@ -71,6 +131,16 @@ export function fitHaul(haul: Haul, gear: Gear, stats: Pick<Stats, 'str'>): { ca
     }
   }
   return { carried, left };
+}
+
+/**
+ * The gear to carry a haul home with (#1294): with the sled or without it, whichever brings more
+ * home — and, carrying the same, the lighter load. (A sled is worth dragging only for a heavy haul.)
+ */
+export function bestGear(tools: readonly GearTool[], ctx: CarryContext, haul: Haul, stats: Pick<Stats, 'str'>): Gear {
+  const options = [gearOf(tools, ctx, false), gearOf(tools, ctx, true)];
+  const score = (g: Gear) => { const { carried } = fitHaul(haul, g, stats); return [rawWeight(carried), -cumbersome(carried, g)]; };
+  return options.reduce((best, g) => { const [a, b] = score(g), [c, d] = score(best); return a > c || (a === c && b > d) ? g : best; });
 }
 
 const NAMES: Readonly<Record<LoadItem, [string, string]>> = {

@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { fitHaul, gearOf, leftLine, overloadRatio, overloadWalk, overloadWord, type Haul } from './load';
+import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, type Haul } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
@@ -339,6 +339,7 @@ export type ActionId =
   | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'preserve'
   | 'build' | 'coldGear'
   | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
+  | 'basket' | 'backpack' | 'harness' | 'sled'
   | 'lookout' | 'study'
   | 'tinker' | 'rest'
   | 'fish' | 'coldPit';
@@ -460,6 +461,14 @@ export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 
   shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
 };
 
+/** Carrying gear (#1294): it eases how awkward a load is, never how much you can lift (see load.ts). */
+export const GEAR_RECIPES: Readonly<Record<'basket' | 'backpack' | 'harness' | 'sled', CraftRecipe>> = {
+  basket: { id: 'basket', name: 'Basket', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'basket', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['weaving'] },
+  backpack: { id: 'backpack', name: 'Backpack', inputs: [{ item: 'hides', qty: 1 }, { item: 'materials', qty: 2 }], output: { item: 'backpack', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['sealing'] },
+  harness: { id: 'harness', name: 'Harness', inputs: [{ item: 'hides', qty: 1 }, { item: 'materials', qty: 1 }], output: { item: 'harness', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['tension'] },
+  sled: { id: 'sled', name: 'Sled', inputs: [{ item: 'materials', qty: 5 }], output: { item: 'sled', qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['leverage'] },
+};
+
 /** The cold pit (#1295): a stone-lined pit that keeps raw food from spoiling. Dug at camp, it stays there. */
 export const COLD_PIT_RECIPE: CraftRecipe = { id: 'cold-pit', name: 'Cold pit', inputs: [{ item: 'stone', qty: 4 }, { item: 'materials', qty: 2 }], output: { item: 'cold-pit', qty: 1 }, tier: 0, station: null, timeBase: 4 };
 
@@ -549,7 +558,11 @@ export const COLD_GEAR_RECIPE: CraftRecipe = {
 
 const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone', 'hides'] as const;
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
-const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] } });
+// Carrying gear (#1294) does its work in load.ts, but it's still a graded tool you own — so it gets an (empty) effects entry.
+const CRAFT_WORLD = craftWorld([], [], {
+  ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] },
+  basket: { unlock: ['carry'] }, backpack: { unlock: ['carry'] }, harness: { unlock: ['carry'] }, sled: { unlock: ['carry'] },
+});
 
 /** Sound cold gear: you have some, and it isn't crude (crude gear won't hold up through a winter). */
 const roadworthyGear = (tools: readonly Tool[]): boolean =>
@@ -592,6 +605,11 @@ export const DISCOVERIES: readonly { recipe: string; name: string; concept: stri
   { recipe: 'hide-parka', name: 'Hide parka', concept: 'sealing', trigger: s => s.flags.everHide, how: 'a fresh hide in your hands — it would turn the wind' },
   { recipe: 'waterskin', name: 'Waterskin', concept: 'sealing', trigger: s => s.flags.everHide, how: 'sewn tight, a hide would carry water' },
   { recipe: 'crude-shovel', name: 'Crude shovel', concept: 'leverage', trigger: s => s.tier >= 1, how: 'digging the footings, you wanted a blade on a pole' },
+  // Carrying gear (#1294): each comes from feeling the load it would ease.
+  { recipe: 'basket', name: 'Basket', concept: 'weaving', trigger: s => s.flags.everFood, how: 'arms full of loose food, you see how a woven basket would hold it' },
+  { recipe: 'backpack', name: 'Backpack', concept: 'sealing', trigger: s => s.flags.everHide, how: 'a hide over a frame of sticks would ride on your back' },
+  { recipe: 'harness', name: 'Harness', concept: 'tension', trigger: s => s.flags.everHide && s.flags.everWood, how: 'a strap of hide across the brow would take the weight of the wood' },
+  { recipe: 'sled', name: 'Sled', concept: 'leverage', trigger: s => (s.snowDepth ?? 0) > 0 || RINGS.some(r => level(s.explore, r, 'stone') >= 2), how: 'dragged, not carried — runners would take the heavy loads' },
 ];
 
 /** The concepts you can study, and what rank 1 in each reveals. */
@@ -785,6 +803,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: s => (!s.site ? 'make camp first' : s.coldPitAt === s.site ? 'there is already a cold pit here' : craftBlocker(crafterOf(s), COLD_PIT_RECIPE)),
   },
   knife: craftAction(REGION1_RECIPES.knife, needsScout),
+  basket: craftAction(GEAR_RECIPES.basket),
+  backpack: craftAction(GEAR_RECIPES.backpack, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
+  harness: craftAction(GEAR_RECIPES.harness, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
+  sled: craftAction(GEAR_RECIPES.sled),
   snare: craftAction(REGION1_RECIPES.snare),
   waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
@@ -1001,7 +1023,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const before = { ...next.stores };
   say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1), 'action', at);
   // What you can carry home (#1291): a trip's haul is what it added to the stores, and what won't fit stays out there.
-  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt);
+  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt);
   const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   if (exposure) {
@@ -1025,10 +1047,12 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
  * (#1292): over a comfortable load, the walk home (`homeHours`, at `walkRate`) takes longer and costs more Vigor.
  * The near ring has no walk home, so there it costs nothing extra.
  */
-function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], homeHours: number, walkRate: number): void {
+function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring: Ring, homeHours: number, walkRate: number): void {
   const haul: Haul = {};
   for (const k of STORE_KEYS) { const gained = next.stores[k] - before[k]; if (gained > 0) haul[k] = gained; }
-  const gear = gearOf(next.tools);
+  // The gear that suits this haul (#1294) — the sled comes along only if it helps; it runs on snow.
+  const snow = (next.snowDepth ?? 0) > 0 || next.weatherToday === 'snow';
+  const gear = bestGear(next.tools, { ring, snow }, haul, next.character.stats);
   const { carried, left } = fitHaul(haul, gear, next.character.stats);
   for (const k of STORE_KEYS) next.stores[k] -= left[k] ?? 0;
   const line = leftLine(left);

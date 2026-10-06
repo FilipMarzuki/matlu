@@ -74,6 +74,7 @@ const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-stone': 'stonework', 'stone-knife': 'stonework', 'cold-pit': 'stonework',
   'trap-snare': 'hunting',
   'cold-gear': 'handcraft', 'hide-parka': 'handcraft', waterskin: 'handcraft', bedroll: 'handcraft',
+  basket: 'handcraft', backpack: 'handcraft', harness: 'handcraft', sled: 'woodcraft',
 };
 
 /** The skill this work trains and draws on, or null (rest, study). A recipe, when there is one, decides. */
