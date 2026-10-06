@@ -23,6 +23,35 @@ export const THREAT_WORDS: Readonly<Record<Threat, string>> = { 0: 'harmless', 1
 
 export type PanicState = 'calm' | 'shaken' | 'panicked';
 
+/**
+ * What a body does when panic takes over (#1361): lash out, run, lock up, or placate. Every
+ * Warden has one, a hidden quirk (#1362); until that is known, the commonest — flight.
+ */
+export type Response = 'fight' | 'flight' | 'freeze' | 'fawn';
+export const DEFAULT_RESPONSE: Response = 'flight';
+/** The panic-response quirks (#1362), by the response each one is. */
+export const RESPONSE_QUIRK: Readonly<Record<string, Response>> = { fighter: 'fight', runner: 'flight', freezer: 'freeze', appeaser: 'fawn' };
+/** This Warden's panic response: their quirk's, or flight. */
+export const responseOf = (w: { character: { quirks?: readonly { id: string }[] } }): Response =>
+  w.character.quirks?.map(q => RESPONSE_QUIRK[q.id]).find(Boolean) ?? DEFAULT_RESPONSE;
+
+/** Panicked: the chance instinct overrides your choice, per point of margin above 1 (#1361). */
+export const OVERRIDE_PER_MARGIN = 0.35;
+export const overrideChance = (margin: number): number => Math.min(1, Math.max(0, OVERRIDE_PER_MARGIN * (margin - 1)));
+/** Freezing loses this many hours (#1361). */
+export const FREEZE_HOURS = 2;
+/** Adrenaline, shaken or panicked (#1361): STR and AGI count this much higher for the choice. */
+export const ADRENALINE = 2;
+/** The crash after a panic (#1361): what it costs, and how much worse the hands and the night are. */
+export const CRASH_VIGOR = 10, CRASH_CLARITY = 10, SHAKING_GRADE = 1, SHAKING_SLEEP = 0.8;
+/** What instinct does, in the journal: "You meant to <choice>. <this>" */
+export const INSTINCT_LINE: Readonly<Record<Response, string>> = {
+  fight: 'Your body went for it before you could stop it.',
+  flight: 'Your legs ran.',
+  freeze: 'You couldn\'t move.',
+  fawn: 'Your hands were already holding something out.',
+};
+
 /** Below this Clarity a mind sees danger everywhere; below this Condition a body does. */
 export const FOGGY_CLARITY = 30, HURT_CONDITION = 40;
 /** Meetings survived before something stops looming (habituation). */

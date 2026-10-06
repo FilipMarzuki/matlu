@@ -15,7 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
-import { readThreat, SHAKEN_CLARITY } from './panic';
+import { readThreat, responseOf, overrideChance, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
@@ -31,7 +31,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, type Pending
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -155,7 +155,9 @@ export interface Region1State {
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
   /** Today so far. `outside` / `absorbed` (#1305): went out on the land; did study or craft work — either keeps cabin fever off. */
-  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean; exhausted?: boolean };
+  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean; exhausted?: boolean;
+    /** After a panic (#1361): shaking hands — crafts go a grade worse, and tonight's sleep is poor. */
+    shaking?: boolean };
   /** Nights in a row without food / without water (#1233); each night without costs more. */
   deprivation: { hungry: number; thirsty: number };
   /** Practice hours per skill (#1236); levels come from these. */
@@ -202,6 +204,8 @@ export interface Character {
   lastStandUsed: boolean;
   /** Base stats (#1256). */
   stats: Stats;
+  /** Quirks (#1362): character rather than gifts — a panic response, temperament, fears. Hidden until revealed. */
+  quirks?: { id: string; known: boolean }[];
 }
 
 /**
@@ -998,6 +1002,14 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   return next;
 }
 
+/** A craft made with shaking hands (#1361): one grade worse (never below crude), on the item and in the report. */
+function shakyMade(next: Region1State, made: Extract<CraftResult, { kind: 'crafted' }>): CraftResult {
+  const grade = GRADES[Math.max(0, GRADES.indexOf(made.grade) - SHAKING_GRADE)];
+  const at = next.tools.map(t => t.item).lastIndexOf(made.output.item);
+  if (at >= 0 && next.tools[at].grade === made.grade) next.tools[at] = { ...next.tools[at], grade };
+  return { ...made, grade };
+}
+
 /** After a stretch of land work that ran, roll for an encounter (#1343), and pause the day if one comes. */
 function maybeEncounter(before: Region1State, next: Region1State, item: QueueItem): void {
   const { id, ring } = parseItem(item);
@@ -1008,7 +1020,7 @@ function maybeEncounter(before: Region1State, next: Region1State, item: QueueIte
   if (!t) return;
   // How it looks, and whether you can hold (#1360). Shaken, the fright itself costs some Clarity.
   const read = readThreat(next, t);
-  next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id, perceived: read.perceived, state: read.state };
+  next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id, perceived: read.perceived, state: read.state, margin: read.perceived - read.nerve };
   next.encounterDay = next.day;
   say(next, t.text, 'hardship', at);
   if (read.state !== 'calm') {
@@ -1024,21 +1036,40 @@ function maybeEncounter(before: Region1State, next: Region1State, item: QueueIte
  */
 export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (!s.pending) return s;
-  const t = encounterById(s.pending.id);
-  const o = t?.options.find(x => x.id === optionId);
+  const p = s.pending;
+  const t = encounterById(p.id);
+  const chosen = t?.options.find(x => x.id === optionId);
   const next = clone(s);
-  if (!t || !o) { say(next, `Choice: skipped — there's no "${optionId}" here.`, 'skip'); return next; }
-  const why = unmet(next, o);
-  if (why) { say(next, `${o.label}: skipped — ${why}.`, 'skip'); return next; }
-  for (const [k, n] of Object.entries(o.cost?.stores ?? {})) next.stores[k as keyof Stores] -= n ?? 0;
-  const { tier, effect } = rollOutcome(seedOf(next.character.id), s.pending, o, chanceOf(next, o));
+  if (!t || !chosen) { say(next, `Choice: skipped — there's no "${optionId}" here.`, 'skip'); return next; }
+  const why = unmet(next, chosen);
+  if (why) { say(next, `${chosen.label}: skipped — ${why}.`, 'skip'); return next; }
+  // Panicked (#1361): instinct may take over — a seeded roll, likelier the further past holding you were.
+  // It reaches for the option that is your panic response; with none (or if you're a freezer), you freeze.
+  let o = chosen, froze = false;
+  if (p.state === 'panicked' && streamFor(seedOf(next.character.id), p.day, `panic:${p.id}`)() < overrideChance(p.margin ?? 2)) {
+    const instinct = responseOf(next);
+    const pick = instinct === 'freeze' ? undefined : t.options.find(x => x.response === instinct && !unmet(next, x));
+    if (chosen.response !== (pick ? instinct : 'freeze')) {
+      if (pick) o = pick; else froze = true;
+      say(next, `You meant to ${chosen.label.charAt(0).toLowerCase()}${chosen.label.slice(1)}. ${INSTINCT_LINE[pick ? instinct : 'freeze']}`, 'hardship');
+    }
+  }
+  if (!froze) for (const [k, n] of Object.entries(o.cost?.stores ?? {})) next.stores[k as keyof Stores] -= n ?? 0;
+  // Freezing: hours lost, and the danger decides.
+  const { tier, effect } = froze ? { tier: 'fail' as const, effect: t.freeze } : rollOutcome(seedOf(next.character.id), p, o, chanceOf(next, o));
   const v = next.vitals;
-  const pool = (p: Pool, d = 0): Pool => ({ ...p, current: Math.max(0, Math.min(p.cap, p.current + d)) });
+  const pool = (q: Pool, d = 0): Pool => ({ ...q, current: Math.max(0, Math.min(q.cap, q.current + d)) });
   next.vitals = { vigor: pool(v.vigor, effect.vigor), clarity: pool(v.clarity, effect.clarity), condition: Math.max(0, Math.min(100, v.condition + (effect.condition ?? 0))) };
   for (const [k, n] of Object.entries(effect.stores ?? {})) next.stores[k as keyof Stores] = Math.max(0, next.stores[k as keyof Stores] + (n ?? 0));
-  next.hoursToday += (o.cost?.hours ?? 0) + (effect.hours ?? 0);
+  next.hoursToday += (froze ? FREEZE_HOURS : o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
-  say(next, `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  // The crash after a panic (#1361): the adrenaline drains away and leaves you wrung out and shaking.
+  if (p.state === 'panicked') {
+    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR), clarity: pool(next.vitals.clarity, -CRASH_CLARITY) };
+    next.today = { ...next.today, shaking: true };
+    say(next, 'Afterwards the strength drains out of you all at once, and your hands won\'t stop shaking.', 'hardship');
+  }
   if (next.vitals.condition <= 0) {
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
     say(next, `Killed by ${effect.killedBy ?? 'what you met out there'}.`, 'outcome');
@@ -1246,17 +1277,19 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const at = stampFor(next, hours);
   const night = nightWork(at.light, next.stores.firewood, hours, windFire(next.weatherToday));
   // Intelligence (#1256) lifts — or, below average, lowers — the grade.
-  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
-  if (result.kind !== 'refused' && night.clarity > 1) {
+  if (made.kind !== 'refused' && night.clarity > 1) {
     const strain = Math.max(0, before.clarity.current - c.vitals.clarity.current) * (night.clarity - 1);
     next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - strain) } };
   }
   refundOverexertion(next, Math.max(0, before.condition - c.vitals.condition), tr.overexertCondition);
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
-  if (result.kind !== 'refused') next.stores.firewood = Math.max(0, next.stores.firewood - night.fire);
+  if (made.kind !== 'refused') next.stores.firewood = Math.max(0, next.stores.firewood - night.fire);
   next.tools = c.tools;
   next.concepts = c.concepts;
+  // Shaking hands after a panic (#1361): what comes off the bench is a grade worse than it would have been.
+  const result = next.today.shaking && made.kind === 'crafted' ? shakyMade(next, made) : made;
 
   // craft() doesn't report its load, so read it off the pools for nightly drift.
   next.today.loadVigor += Math.max(0, before.vigor.current - c.vitals.vigor.current);
@@ -1764,7 +1797,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const se = statEffects(next.character.stats);
   // Strain from yesterday's loads (#1293) spoils the body's recovery: 10% per point, at most half.
   const strained = next.strain ?? 0;
-  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery) * strainRecovery(strained);
+  // A panic today (#1361) means a poor night: you keep waking with your heart going.
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery) * strainRecovery(strained) * (next.today.shaking ? SHAKING_SLEEP : 1);
   const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate || lean ? 1 : NEEDS.food.clarityRecovery);
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;

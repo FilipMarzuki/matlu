@@ -15,7 +15,10 @@ const unlocks = (s: Region1State): number => s.log.filter(l => l.text === PLANNI
 describe('Planning is learned (#1350)', () => {
   // 1. A fresh Warden on day 1: no planning, and enqueue is refused.
   it('starts a fresh Warden without a queue', () => {
-    const a = newGame();
+    // A new game meets encounters (#1347), and its character id is random: keep them out of this
+    // test, or a scout that happens to meet something leaves the day paused (and the test flaky).
+    const g = newGame();
+    const a = { ...g, sim: { ...g.sim, config: { ...g.sim.config, world: { ...g.sim.config.world, encounters: false } } } };
     expect(a.sim.canPlan).toBe(false);
     expect(enqueue(a, 'scout').queue).toEqual([]);
     // …but a tap does the thing now, and the day can be ended by hand.
