@@ -14,7 +14,11 @@ import { createExploration, scout } from './exploration';
 
 const fox = encounterById('fox-at-the-treeline')!;
 const ledge = encounterById('crumbling-ledge')!;
-const warden = (extra: Partial<Region1State> = {}): Region1State => ({ ...createRegion1({ world: { ...FULL_WORLD, encounters: true } }, undefined, { id: 'w-nerve' }), ...extra });
+/** A Warden with no talents or quirks, so nothing but the rule under test moves the read. */
+const warden = (extra: Partial<Region1State> = {}): Region1State => {
+  const s = createRegion1({ world: { ...FULL_WORLD, encounters: true } }, undefined, { id: 'w-nerve' });
+  return { ...s, character: { ...s.character, talents: [], quirks: [] }, ...extra };
+};
 const withWil = (wil: number): Region1State => { const s = warden(); return { ...s, character: { ...s.character, stats: { ...s.character.stats, wil } } }; };
 
 describe('Real and perceived threat, nerve (#1360)', () => {

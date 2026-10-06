@@ -17,6 +17,7 @@ import { skillLevel, LEVELS, type SkillId, type SkillPractice } from './skills';
 import type { Stats } from './stats';
 import type { Vitals } from './vitality';
 import { fearId, type Quirk } from './quirks';
+import { talentEffects, type Talent } from './talents';
 
 /** Threat levels, 0–4. */
 export type Threat = 0 | 1 | 2 | 3 | 4;
@@ -68,7 +69,7 @@ export const SHAKEN_PENALTY = 0.15, SHAKEN_CLARITY = 5;
 export interface Perceiver {
   vitals: Pick<Vitals, 'clarity' | 'condition'>;
   skills: SkillPractice;
-  character: { stats: Stats; quirks?: readonly Quirk[] };
+  character: { stats: Stats; quirks?: readonly Quirk[]; talents?: readonly Talent[] };
   /** Encounters met and survived, by template id. */
   met?: Readonly<Record<string, number>>;
 }
@@ -92,8 +93,10 @@ const clamp = (n: number): Threat => Math.max(0, Math.min(4, n)) as Threat;
  */
 export function perceivedThreat(w: Perceiver, t: Threatening, ambient = 0): Threat {
   const met = w.met?.[t.id] ?? 0;
+  const te = talentEffects(w.character.talents ?? []);
   let p: number = t.threat;
-  if (met === 0) p += 1;
+  // The unknown looms — unless you read danger truly (Keen Eye, #1363).
+  if (met === 0 && !te.readsTrue) p += 1;
   if (ambient >= AMBIENT_LOOMS) p += 1;
   if (w.vitals.clarity.current < FOGGY_CLARITY) p += 1;
   if (w.vitals.condition < HURT_CONDITION) p += 1;
@@ -104,11 +107,14 @@ export function perceivedThreat(w: Perceiver, t: Threatening, ambient = 0): Thre
   if (quirks.some(q => q.id === 'reckless')) p -= 1;
   if (quirks.some(q => q.id === 'jumpy')) p += 1;
   if ((t.tags ?? []).some(tag => quirks.some(q => q.id === fearId(tag)))) p += 1;
+  // Talents that know a kind of danger make it smaller (Hunter's Patience: animals, #1363).
+  for (const tag of t.tags ?? []) p -= te.calmAround[tag] ?? 0;
   return clamp(p);
 }
 
 /** What you can hold: 2 at WIL 10, one more for every 4 points above (one less for every 4 below). */
-export const nerveOf = (w: Pick<Perceiver, 'character'>): number => 2 + Math.floor((w.character.stats.wil - 10) / 4);
+export const nerveOf = (w: Pick<Perceiver, 'character'>): number =>
+  2 + Math.floor((w.character.stats.wil - 10) / 4) + talentEffects(w.character.talents ?? []).nerve;
 
 /** Calm while the threat is within your nerve; shaken one past it; panicked beyond. */
 export function panicState(perceived: number, nerve: number): PanicState {

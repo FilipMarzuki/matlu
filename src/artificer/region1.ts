@@ -1090,11 +1090,15 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (p.state === 'panicked') {
     // Stoic (#1362): it passes quicker.
     const stoic = hasQuirk(next, 'stoic') ? STOIC_CRASH : 1;
-    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR * stoic), clarity: pool(next.vitals.clarity, -CRASH_CLARITY * stoic) };
+    // Surge (#1363): the body that surged doesn't pay for it in Vigor.
+    const surged = talentEffects(next.character.talents).crashVigor;
+    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR * stoic * surged), clarity: pool(next.vitals.clarity, -CRASH_CLARITY * stoic) };
     next.today = { ...next.today, shaking: true };
     say(next, 'Afterwards the strength drains out of you all at once, and your hands won\'t stop shaking.', 'hardship');
     if (stoic < 1) revealQuirk(next, 'stoic');
   }
+  // Coming through a fright grows the nerve (#1363): Steady from any, Surge from panic.
+  if (p.state && p.state !== 'calm' && !next.outcome) growFrom(next, { kind: 'fright', panicked: p.state === 'panicked' });
   // Fears (#1362): a panic that ends badly leaves one; facing its kind calmly, again and again, fades it.
   const tag = t.tags[0];
   if (p.state === 'panicked' && tier === 'fail' && tag && !hasQuirk(next, fearId(tag))) {
