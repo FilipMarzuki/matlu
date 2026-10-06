@@ -109,7 +109,12 @@ export interface ItemEffects {
 }
 
 /** An owned, graded item that has effects. */
-export interface Tool { item: string; grade: Grade }
+export interface Tool {
+  item: string;
+  grade: Grade;
+  /** The grade it was made at, once wear can take it below (#1245, #1286): tending brings it back up. */
+  crafted?: Grade;
+}
 
 /**
  * Starter effects for Region 1's tier-0/1 craftables, keyed by registry item

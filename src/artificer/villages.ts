@@ -54,6 +54,8 @@ export interface Person {
   lore: readonly LoreLine[];
   /** Set for anyone who teaches (#1249) — not only the `teacher` role: a smith or a hunter can too. */
   teaches?: Teaching;
+  /** A fellow traveller's craft (#1245): each lore line they share gives a little insight in it. */
+  concept?: string;
 }
 
 export interface Village {
@@ -197,26 +199,28 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
 /**
  * Fellow travellers (#1253): the caravan's own people, met on the wagon between villages.
  * They have no trade, quest or lessons — only company, and what they know of the road.
+ * They tell their lines in order, trust or no (#1245): the road is long, and talk is free.
+ * The tinker and the herbwife know a craft, and each line teaches a little of it.
  */
 export const TRAVELLERS: readonly Person[] = [
   p('cv-bodil', 'Bodil', 'caravaneer', 'Markfolk', 'caravan-folk', 'The caravan master: tireless, practical, and fond of every wagon like a relative.',
     { kind: 'job', job: 'keep the wagons rolling' }, [
       [0, 'Twenty-two springs I\'ve brought this caravan up the valley. Most years someone is waiting. Some years no one is.'],
-      [25, 'We stop at every inn we can reach before dark. Under an innkeeper\'s roof no one draws a blade, and the cold stays outside. That is older than any kingdom.'],
-      [50, 'I owe Hedda three barrels. She will tell you. She tells everyone.'],
+      [0, 'We stop at every inn we can reach before dark. Under an innkeeper\'s roof no one draws a blade, and the cold stays outside. That is older than any kingdom.'],
+      [0, 'I owe Hedda three barrels. She will tell you. She tells everyone.'],
     ]),
-  p('cv-pim', 'Pim', 'tinker', 'Goblins', 'bazaar-folk', 'A goblin tinker who talks to the axles and is usually right about them.',
+  { ...p('cv-pim', 'Pim', 'tinker', 'Goblins', 'bazaar-folk', 'A goblin tinker who talks to the axles and is usually right about them.',
     { kind: 'job', job: 'mend what breaks' }, [
       [0, 'Axles, buckles, lamp-wicks — if it breaks between villages, it\'s mine to fix.'],
-      [25, 'Big folk call the edge of things the margin. We call it home. You can fix nearly anything with what other people throw away.'],
-      [50, 'Old seals in the ruins are giving way where the Myst runs thin. The Compact is busier than it has been in a hundred years.'],
-    ]),
-  p('cv-ottilia', 'Ottilia', 'healer', 'Lövfolk', 'grovekin', 'The caravan\'s herbwife: soft-spoken, ancient, and quietly amused by everyone.',
+      [0, 'Big folk call the edge of things the margin. We call it home. You can fix nearly anything with what other people throw away.'],
+      [0, 'Old seals in the ruins are giving way where the Myst runs thin. The Compact is busier than it has been in a hundred years.'],
+    ]), concept: 'leverage' },
+  { ...p('cv-ottilia', 'Ottilia', 'healer', 'Lövfolk', 'grovekin', 'The caravan\'s herbwife: soft-spoken, ancient, and quietly amused by everyone.',
     { kind: 'job', job: 'tend the travellers' }, [
       [0, 'Drink, eat, sleep. Most of what ails travellers is one of those three, missing.'],
-      [25, 'A healing word works better when it is true. I cannot tell you that you will be well. I can tell you that you are not alone.'],
-      [50, 'The corruption does not make things evil. It makes them more of what they already were: more afraid, more hungry. Remember that when something on the road looks at you wrong.'],
-    ]),
+      [0, 'A healing word works better when it is true. I cannot tell you that you will be well. I can tell you that you are not alone.'],
+      [0, 'The corruption does not make things evil. It makes them more of what they already were: more afraid, more hungry. Remember that when something on the road looks at you wrong.'],
+    ]), concept: 'sealing' },
 ];
 
 /** What the road ends at (#1253): the arrival, in words. */
