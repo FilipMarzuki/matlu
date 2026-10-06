@@ -570,7 +570,7 @@ export const COLD_GEAR_RECIPE: CraftRecipe = {
 const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone', 'hides'] as const;
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
 // Carrying gear (#1294) does its work in load.ts, but it's still a graded tool you own — so it gets an (empty) effects entry.
-const CRAFT_WORLD = craftWorld([], [], {
+export const CRAFT_WORLD = craftWorld([], [], {
   ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] },
   basket: { unlock: ['carry'] }, backpack: { unlock: ['carry'] }, harness: { unlock: ['carry'] }, sled: { unlock: ['carry'] },
 });
@@ -920,8 +920,8 @@ export function chooseSite(s: Region1State, site: SiteId): Region1State {
 }
 
 /** Per-hour pull of walking to and from an outer ring. */
-const TRAVEL_VIGOR_RATE = -3;
-const TRAVEL_CLARITY_RATE = -0.5;
+export const TRAVEL_VIGOR_RATE = -3;
+export const TRAVEL_CLARITY_RATE = -0.5;
 
 /**
  * Hours a queue entry will take (its work plus any travel) — for planning

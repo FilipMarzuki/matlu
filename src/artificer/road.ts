@@ -20,11 +20,14 @@
 
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
-import { peopleOf, startingTrust, wordFrom, talk, TALK_HOURS } from './villages';
+import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS } from './villages';
 import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
-import { GRADES, type Grade } from './crafting';
-import { ACTIONS, DAY_HOURS, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
+import { GRADES, addInsight, type Grade } from './crafting';
+import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
+import { practise, skillLevel, drainMult } from './skills';
+import { techniqueEffects } from './techniques';
+import { ACTIONS, CRAFT_WORLD, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -88,6 +91,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   word: number;
   /** Caravan scrip (#1247): what you've sold for, and what you buy with. */
   marks: number;
+  /** Quests taken (#1248), by id: active until done, failed or expired. */
+  quests: Record<string, QuestStatus>;
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -128,6 +133,7 @@ export function createRoad(from: Region1State): RoadState {
     idleTalks: {},
     word: 0,
     marks: 0,
+    quests: {},
     log: [],
     outcome: null,
   };
@@ -154,6 +160,7 @@ function clone(s: RoadState): RoadState {
     trust: { ...s.trust },
     told: { ...s.told },
     idleTalks: { ...s.idleTalks },
+    quests: { ...s.quests },
     log: [...s.log],
   };
 }
@@ -175,10 +182,11 @@ export const roadLockOf = (s: RoadState): string | null =>
 /**
  * What you can do on the road so far: rest, let the day pass, talk to someone
  * in the village (#1246), or trade with its trader (#1247) — `sell:<item>`,
- * `sell:<item>:<qty|grade>`, `buy:<good>`, `buy:<good>:<qty>`. Quests and
- * teachers come in #1248–#1249.
+ * `sell:<item>:<qty|grade>`, `buy:<good>`, `buy:<good>:<qty>` — or take on
+ * and finish its quests (#1248): `accept:<questId>`, `complete:<questId>`.
+ * Teachers come in #1249.
  */
-export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}`;
+export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}`;
 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
@@ -215,6 +223,8 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
     return next;
   }
   if (id.startsWith('sell:') || id.startsWith('buy:')) return trade(next, id);
+  if (id.startsWith('accept:')) return accept(next, id.slice(7));
+  if (id.startsWith('complete:')) return complete(next, id.slice(9));
   if (id === 'wait') {
     // Let the day pass: no work, no strain.
     next.hoursToday = DAY_HOURS;
@@ -292,6 +302,109 @@ function trade(next: RoadState, id: string): RoadState {
   return next;
 }
 
+// ── Quests (#1248) ──────────────────────────────────────────────────────────
+
+/** The quests on offer where you are. */
+export const questsHere = (s: RoadState): QuestTemplate[] => availableQuests(villageOf(s), s.trust, s.quests);
+
+const nameOf = (pid: string): string => personById(pid)?.name ?? pid;
+const bump = (s: RoadState, pid: string, by: number): void => { s.trust[pid] = Math.max(0, Math.min(100, (s.trust[pid] ?? 0) + by)); };
+
+/** Take on a quest (no time): it must be offered here. A delivery hands you what to carry. */
+function accept(next: RoadState, qid: string): RoadState {
+  const quest = questsHere(next).find(x => x.id === qid);
+  if (!quest) { say(next, `Accept: skipped — no one here is offering "${qid}".`, 'skip'); return next; }
+  next.quests[qid] = 'active';
+  const n = quest.needs;
+  if (n.kind === 'deliver') next.stores[n.item] += n.qty;
+  say(next, `${nameOf(quest.giver)}: "${quest.offer}" You take on ${quest.title}.`, 'action');
+  return next;
+}
+
+/** Pay out a finished quest: marks, any item or recipe, and trust with the giver and their village. */
+function reward(next: RoadState, quest: QuestTemplate): void {
+  next.quests[quest.id] = 'done';
+  const r = quest.reward;
+  next.marks += r.marks;
+  if (r.item) next.stores[r.item.item] += r.item.qty;
+  const learnt = r.recipe && !next.known.includes(r.recipe) ? r.recipe : null;
+  if (learnt) next.known.push(learnt);
+  bump(next, quest.giver, QUEST_TRUST);
+  for (const p of peopleOf(quest.village)) if (p.id !== quest.giver) bump(next, p.id, QUEST_TRUST_VILLAGE);
+  const extras = [`${r.marks} marks`, r.item && `${r.item.qty} ${r.item.item}`, learnt && `the ${learnt} recipe`].filter(Boolean).join(', ');
+  say(next, `${nameOf(quest.giver)}: "${quest.thanks}" ${quest.title} done — ${extras}.`, 'milestone');
+}
+
+/** Spend hours of work on the road, draining as given (rates per hour). */
+function work(next: RoadState, hours: number, vigorRate: number, clarityRate: number): void {
+  const a = applyActivity(next.vitals, { hours, vigorRate, clarityRate });
+  next.vitals = a.vitals;
+  next.today.loadVigor += a.loadVigor;
+  next.today.loadClarity += a.loadClarity;
+  next.today.pushedVigor ||= a.pushedVigor;
+  next.today.pushedClarity ||= a.pushedClarity;
+  next.hoursToday += hours;
+}
+
+/** Finish a quest you've taken. A rejection says what's needed and costs no hours. */
+function complete(next: RoadState, qid: string): RoadState {
+  const quest = questById(qid);
+  if (!quest || next.quests[qid] !== 'active') { say(next, `Complete: skipped — you haven't taken on "${qid}".`, 'skip'); return next; }
+  if (quest.needs.kind !== 'deliver' && villageOf(next) !== quest.village) { say(next, `Complete: skipped — ${quest.title} is for ${nameOf(quest.giver)}, back in their village.`, 'skip'); return next; }
+  const why = canComplete(quest, next);
+  if (why) { say(next, `Complete: skipped — ${quest.title} ${why}.`, 'skip'); return next; }
+  const n = quest.needs;
+  if (n.kind === 'fetch') {
+    next.stores[n.item] -= n.qty;
+    work(next, HAND_OVER_HOURS, 0, 0);
+  } else if (n.kind === 'craft') {
+    next.tools.splice(toolFor(next.tools, n.item, n.grade), 1);
+    work(next, HAND_OVER_HOURS, 0, 0);
+  } else if (n.kind === 'repair') {
+    work(next, n.hours, REPAIR_RATES.vigorRate, REPAIR_RATES.clarityRate);
+    addInsight(next.concepts, n.concept, REPAIR_INSIGHT, CRAFT_WORLD.concepts);
+  } else if (n.kind === 'scout') {
+    // As Region 1's Scout: your scouting skill lightens the work, and Pathfinding (and Agility) the walk.
+    const lvl = skillLevel(next.skills, 'scouting');
+    const te = techniqueEffects(next.techniques, 'scout', undefined, true);
+    const walk = te.travelDrain * statEffects(next.character.stats).travel;
+    work(next, n.hours, SCOUT_RATES.vigorRate * drainMult(lvl) * te.drain, SCOUT_RATES.clarityRate * drainMult(lvl) * te.drain);
+    work(next, n.walk, TRAVEL_VIGOR_RATE * walk, TRAVEL_CLARITY_RATE * walk);
+    next.skills = practise(next.skills, 'scouting', n.hours).practice;
+  }
+  reward(next, quest);
+  return next;
+}
+
+/** The caravan leaves a village: quests still open there expire. */
+function expireQuests(next: RoadState, villageId: string): void {
+  for (const [qid, st] of Object.entries(next.quests)) {
+    const quest = questById(qid);
+    if (st !== 'active' || !quest || quest.village !== villageId || quest.needs.kind === 'deliver') continue;
+    next.quests[qid] = 'expired';
+    bump(next, quest.giver, -EXPIRE_TRUST);
+    say(next, `${quest.title} is left undone — ${nameOf(quest.giver)} watches the caravan go.`, 'hardship');
+  }
+}
+
+/** The caravan reaches a village: deliveries bound here complete, if you still have the goods. */
+function arriveWithDeliveries(next: RoadState, villageId: string): void {
+  for (const [qid, st] of Object.entries(next.quests)) {
+    const quest = questById(qid);
+    const n = quest?.needs;
+    if (st !== 'active' || !quest || n?.kind !== 'deliver' || n.to !== villageId) continue;
+    if (next.stores[n.item] >= n.qty) {
+      next.stores[n.item] -= n.qty;
+      say(next, `You hand ${n.qty} ${n.item} to ${nameOf(n.recipient)}, as promised.`, 'action');
+      reward(next, quest);
+    } else {
+      next.quests[qid] = 'failed';
+      bump(next, quest.giver, -DELIVER_FAIL_TRUST);
+      say(next, `You reach ${nameOf(n.recipient)} without the ${n.item} ${nameOf(quest.giver)} trusted you with. Word will get back.`, 'hardship');
+    }
+  }
+}
+
 /**
  * End the day: a night as in Region 1 (the caravan's barrels water you on
  * travel days; in a village you fend for yourself), then the caravan moves
@@ -325,6 +438,7 @@ export function endRoadDay(s: RoadState): RoadState {
 
   // This leg is done: the caravan moves on, on schedule.
   if (leg.kind === 'village') {
+    expireQuests(next, leg.id);
     leaveVillage(next, leg.id);
     say(next, `The caravan rolls out at dawn, leaving ${leg.name} behind.`, 'milestone');
   }
@@ -340,6 +454,7 @@ export function endRoadDay(s: RoadState): RoadState {
   if (now.kind === 'village') {
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+    arriveWithDeliveries(next, now.id);
   }
   return next;
 }
