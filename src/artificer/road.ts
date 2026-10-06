@@ -19,6 +19,8 @@
  */
 
 import { applyActivity, type Vitals } from './vitality';
+import { statEffects } from './stats';
+import { peopleOf, startingTrust, wordFrom, talk, TALK_HOURS } from './villages';
 import { survivalLock } from './focus';
 import { ACTIONS, DAY_HOURS, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
 
@@ -75,6 +77,13 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   legDay: number;
   /** How you came through the winter: hale is `thrive`, worn or broken `ragged`. Later issues key trust and standing off it. */
   arrival: 'thrive' | 'ragged';
+  /** Trust per person met (#1246), 0–100. */
+  trust: Record<string, number>;
+  /** Lore lines each person has told you, and talks since they ran out (for diminishing returns). */
+  told: Record<string, number>;
+  idleTalks: Record<string, number>;
+  /** The word that travels ahead of you (#1246): added to the next village's starting trust. */
+  word: number;
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -110,6 +119,10 @@ export function createRoad(from: Region1State): RoadState {
     leg: 0,
     legDay: 1,
     arrival: ragged ? 'ragged' : 'thrive',
+    trust: {},
+    told: {},
+    idleTalks: {},
+    word: 0,
     log: [],
     outcome: null,
   };
@@ -133,6 +146,9 @@ function clone(s: RoadState): RoadState {
     manuals: [...s.manuals],
     known: [...s.known],
     studiedToday: { ...s.studiedToday },
+    trust: { ...s.trust },
+    told: { ...s.told },
+    idleTalks: { ...s.idleTalks },
     log: [...s.log],
   };
 }
@@ -151,13 +167,43 @@ export const roadLockOf = (s: RoadState): string | null =>
 
 // ── Actions ─────────────────────────────────────────────────────────────────
 
-/** What you can do on the road so far. Travel and village verbs come in #1245–#1249. */
-export type RoadActionId = 'rest' | 'wait';
+/** What you can do on the road so far: rest, let the day pass, or talk to someone in the village (#1246). Trade, quests and teachers come in #1247–#1249. */
+export type RoadActionId = 'rest' | 'wait' | `talk:${string}`;
+
+/** The village you're in, or null on the wagon. */
+export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
+
+/** Open a village (#1246): everyone you meet starts at the arrival's trust, your Charisma, and the word that travelled ahead. */
+function openVillage(s: RoadState, id: string): void {
+  const start = startingTrust(s.arrival, statEffects(s.character.stats).trust, s.word);
+  for (const p of peopleOf(id)) if (s.trust[p.id] === undefined) s.trust[p.id] = start;
+}
+
+/** Leave a village (#1246): word of how they took to you travels to the next. */
+function leaveVillage(s: RoadState, id: string): void {
+  s.word = wordFrom(peopleOf(id).map(p => s.trust[p.id] ?? 0));
+}
 
 /** Do one thing now. Nothing happens once the road is over, or when the day's hours are spent. */
 export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   if (s.outcome || s.hoursToday >= DAY_HOURS) return s;
   const next = clone(s);
+  if (id.startsWith('talk:')) {
+    // Talk to someone here (#1246): only people in this village, and it takes a couple of hours.
+    const pid = id.slice(5);
+    const person = peopleOf(villageOf(next)).find(p => p.id === pid);
+    if (!person) { say(next, `Talk: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
+    const r = talk(person, next.trust[pid] ?? 0, next.told[pid] ?? 0, next.idleTalks[pid] ?? 0);
+    next.trust[pid] = r.trust;
+    next.told[pid] = r.told;
+    next.idleTalks[pid] = r.idleTalks;
+    const a = applyActivity(next.vitals, { hours: TALK_HOURS, vigorRate: 0, clarityRate: -1 });
+    next.vitals = a.vitals;
+    next.today.loadClarity += a.loadClarity;
+    next.hoursToday += TALK_HOURS;
+    say(next, r.line, 'action');
+    return next;
+  }
   if (id === 'wait') {
     // Let the day pass: no work, no strain.
     next.hoursToday = DAY_HOURS;
@@ -208,7 +254,10 @@ export function endRoadDay(s: RoadState): RoadState {
   if (next.legDay <= leg.days) return next;
 
   // This leg is done: the caravan moves on, on schedule.
-  if (leg.kind === 'village') say(next, `The caravan rolls out at dawn, leaving ${leg.name} behind.`, 'milestone');
+  if (leg.kind === 'village') {
+    leaveVillage(next, leg.id);
+    say(next, `The caravan rolls out at dawn, leaving ${leg.name} behind.`, 'milestone');
+  }
   if (next.leg === ROUTE.length - 1) {
     next.legDay = leg.days;
     next.outcome = { kind: 'arrived', vitals: next.vitals };
@@ -218,7 +267,10 @@ export function endRoadDay(s: RoadState): RoadState {
   next.leg += 1;
   next.legDay = 1;
   const now = legOf(next);
-  if (now.kind === 'village') say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+  if (now.kind === 'village') {
+    openVillage(next, now.id);
+    say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+  }
   return next;
 }
 
