@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -35,6 +35,8 @@ import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { meetingModal } from './caravan-view';
+import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
+import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById } from '../artificer/encounters';
 import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
@@ -381,11 +383,28 @@ function wardenTab(a: AppState): string {
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>${roadKeepsBlock(a)}</section>
+      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
+      <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
+}
+
+/**
+ * Quirks (#1364): the ones you know, by name and what they do; hidden ones only as a hint; and
+ * any fears, with how far you've come in facing them.
+ */
+function quirksBlock(c: AppState['sim']['character']): string {
+  const qs = c.quirks ?? [];
+  const known = qs.filter(q => q.known && !isFear(q.id)).map(q => `<div class="trait quirk"><b>${esc(quirkName(q.id))}</b><span class="note">${esc(QUIRKS[q.id]?.blurb ?? '')}</span></div>`);
+  const fears = qs.filter(q => isFear(q.id)).map(q => {
+    const tag = q.id.slice(5), words = FEAR_OF[tag] ?? tag, fades = tag === 'dark' ? DARK_FADES : FEAR_FADES;
+    return `<div class="trait fear"><b>${esc(quirkName(q.id))}</b><span class="down">− ${esc(words)} look${words.endsWith('s') ? '' : 's'} worse to you</span><span class="note">Face ${words.endsWith('s') ? 'them' : 'it'} calmly to fade it: ${q.faced ?? 0} of ${fades}.</span></div>`;
+  });
+  const hidden = qs.filter(q => !q.known).length;
+  const hint = hidden ? `<div class="trait hidden"><b>${hidden === 1 ? 'Something' : 'Things'} you don't know about yourself yet</b><span class="note">How you are when it's too much shows itself when it's too much.</span></div>` : '';
+  return known.join('') + fears.join('') + hint || '<p class="mood">Nothing known yet.</p>';
 }
 
 /** Marks and contacts (#1252): what the road earned, and what carries to the next road. */
@@ -544,6 +563,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
+      // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
+      + (preview.unease[i] ? `<span class="why unease u-${preview.unease[i]!.state}" title="The work wears the mind harder${preview.unease[i]!.state === 'panicked' ? ', and something out there could send you running' : ''}">🌑 ${esc(preview.unease[i]!.reasons.filter(r => r !== 'ground you know').join(' · '))} — ${preview.unease[i]!.state === 'shaken' ? "you'll be uneasy" : 'you may panic'}</span>` : '')
       + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
@@ -581,10 +602,18 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
-    ${focusChip(s)}${eatingChip(s)}
+    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}
     <span class="shours">TODAY <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
   </div>`;
+}
+
+/** Tonight, if it looks frightening (#1364): an uneasy or sleepless night, and why. */
+function nightChip(s: AppState['sim']): string {
+  const f = tonightsFright(s);
+  if (!f || f.state === 'calm' || s.outcome) return '';
+  const why = f.reasons.filter(r => r !== 'home' && !r.startsWith('a warm')).join(', ');
+  return `<span class="tag fear s-${f.state}" title="Tonight looks ${THREAT_WORDS[f.perceived]}: ${esc(why)}. ${f.state === 'shaken' ? 'You\'ll lie awake: less Clarity back.' : 'A sleepless night: much less Clarity and some Vigor back.'} Shelter, a fire, a camp you know — each helps.">🌑 ${f.state === 'shaken' ? 'UNEASY NIGHT' : 'SLEEPLESS NIGHT'}</span>`;
 }
 
 /** The status bar's verdict: readiness through the autumn; once the snow is down, whether what's laid by reaches the thaw. */
@@ -1002,7 +1031,11 @@ root.addEventListener('click', e => {
     const next = choose(state, d.choose);
     if (t && opt && !next.sim.pending) {
       const fresh = next.sim.log.slice(state.sim.log.length).map(l => l.text);
-      encounterAfter = { kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.sim.outcome };
+      encounterAfter = {
+        kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.sim.outcome,
+        // When your read was badly wrong, the outcome shows the truth (#1364).
+        truth: p ? truthLine(p.perceived ?? t.threat, t.threat, t.kind) : null,
+      };
     }
     update(next);
   }

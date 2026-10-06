@@ -196,3 +196,43 @@ export function frightOf(w: Perceiver, ambient: number, dark: boolean): { percei
 
 /** The chance a panicked stretch on the land ends in a spook. */
 export const spookChance = (margin: number): number => (margin >= 3 ? SPOOK_CHANCE[3] : margin >= 2 ? SPOOK_CHANCE[2] : 0);
+
+/** Why a stretch on the land is frightening (#1364), in words — what raised it, and what calmed it. */
+export function landReasons(x: LandScene): string[] {
+  const out: string[] = [];
+  if (x.light < DARK_LIGHT) out.push('dark'); else if (x.light < DUSK_LIGHT) out.push('dusk');
+  if (x.blizzard) out.push('blizzard'); else if (x.weather === 'fog') out.push('fog'); else if (x.weather === 'storm') out.push('storm');
+  if (x.ring === 3) out.push('the distant ring');
+  if (x.winter && x.light < DUSK_LIGHT) out.push('wolves about');
+  if (x.knownGround) out.push('ground you know');
+  return out;
+}
+
+/** Why a night is frightening (#1364), in words. */
+export function nightReasons(x: NightScene): string[] {
+  const out: string[] = [];
+  if (x.blizzard) out.push('blizzard'); else if (x.weather === 'fog') out.push('fog'); else if (x.weather === 'storm') out.push('storm');
+  if (x.winter) out.push('wolves about');
+  if (!x.sheltered) out.push('no shelter');
+  if (!x.fire) out.push('no fire');
+  if (x.fireKeptWarm) out.push('a warm shelter, the fire in');
+  if (x.campDays >= HOME_DAYS) out.push('home');
+  return out;
+}
+
+/** How you stand, in words (#1364): what the screen and the AI are told. */
+export const STATE_WORDS: Readonly<Record<PanicState, string>> = {
+  calm: 'You keep your head.',
+  shaken: 'Your heart is hammering — you\'re shaken.',
+  panicked: 'Panic. You can barely think.',
+};
+
+/**
+ * When your read was badly wrong (#1364), the outcome shows the truth: something that looked two
+ * or more steps worse than it was, or something that looked smaller than it was. Null otherwise.
+ */
+export function truthLine(perceived: number, real: number, kind: string): string | null {
+  if (perceived - real >= 2) return kind === 'animal' ? 'Looking back, it was only ever bluffing.' : 'Looking back, it was never as bad as it looked.';
+  if (perceived < real) return 'Only afterwards do you see how dangerous that was.';
+  return null;
+}
