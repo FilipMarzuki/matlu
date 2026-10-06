@@ -106,8 +106,10 @@ describe('Balance: a 30-day autumn and a 30-day winter (#1306)', () => {
     const leanTo = [1, 2, 3, 4, 5, 6].map(seed => run('cave', false, seed));
     expect(leanTo.filter(s => s.outcome?.grade === 'hale').length).toBeLessThanOrEqual(2);
     expect(leanTo.filter(s => s.outcome?.kind === 'survived').length).toBeGreaterThanOrEqual(4);
-    // In a treeline lean-to the winter wins.
-    const exposed = [1, 2, 3].map(seed => run('tree', false, seed));
-    expect(exposed.every(s => s.outcome?.kind !== 'survived' && s.day > DEFAULT_CALENDAR.winterDay)).toBe(true);
+    // In a treeline lean-to the winter wins. (Seed 2's first build falls short of materials, and since
+    // fresh food spoils (#1295) its hungry first week can end it before the snow — still not a survivor.)
+    const exposed = [1, 2, 3, 4].map(seed => run('tree', false, seed));
+    expect(exposed.every(s => s.outcome?.kind !== 'survived')).toBe(true);
+    expect(exposed.filter(s => s.day > DEFAULT_CALENDAR.winterDay).length).toBeGreaterThanOrEqual(3);
   });
 });

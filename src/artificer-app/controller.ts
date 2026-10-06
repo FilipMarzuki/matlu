@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, blockedReason, dangerOf, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, blockedReason, dangerOf, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
@@ -267,5 +267,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const forecast = isObj(sim.forecast) && Object.values(sim.forecast).every(w => WEATHER_IDS.includes(w as never)) ? { ...(sim.forecast as Region1State['forecast']) } : {};
   // …and an eating plan that isn't one of the three (or none at all, before #1305) means full rations.
   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
-  return { sim: { ...(sim as unknown as Region1State), eating, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
+  // …and a cold pit only at a real site (#1295); none before it.
+  const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
+  return { sim: { ...(sim as unknown as Region1State), eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
 }

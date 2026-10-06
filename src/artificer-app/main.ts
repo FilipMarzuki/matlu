@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -36,7 +36,7 @@ import { newGame, newRun, newCharacterId, chooseFocus, chooseEating, recordRun, 
 const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'EXPLORE', ids: ['scout', 'survey', 'track', 'lookout'] },
   { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
-  { title: 'BUILD', ids: ['build', 'coldGear'] },
+  { title: 'BUILD', ids: ['build', 'coldPit', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest'] },
 ];
@@ -44,7 +44,7 @@ const GROUPS: { title: string; ids: ActionId[] }[] = [
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
-  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣',
+  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -71,6 +71,7 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
   coldGear: () => 'eases a freezing night without enough fire · fiber or hide',
+  coldPit: s => `keeps ${coldPitHolds(s.site)} raw food from spoiling · 4 stone + 2 mat`,
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
   waterskin: () => '+1 water per trip · takes a hide',
@@ -370,7 +371,7 @@ function sitesBlock(a: AppState): string {
   const sites = (Object.keys(SITES) as SiteId[]).map(id =>
     `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
-    + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm.` : ''}</div></button>`).join('');
+    + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm${s.coldPitAt === id ? ` · cold pit (${coldPitHolds(id)} raw food)` : ''}.` : ''}</div></button>`).join('');
   return `<div class="sites">${sites}</div>${scouted(s.explore, 1) ? '<p class="mood">Pick camp here, or choose a location on a queued build.</p>' : '<p class="mood">Scout first to find somewhere to settle.</p>'}`;
 }
 
