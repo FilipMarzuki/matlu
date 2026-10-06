@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, chooseOption, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -277,6 +277,8 @@ export interface QueuePreview {
    * ignores the nightly meal, so it can miss a skip caused by eating.
    */
   warnings: (string | null)[];
+  /** How frightening each land trip will be (#1364): shaken or panicked, and why — null when calm or not on the land. */
+  unease: ({ state: 'shaken' | 'panicked'; reasons: string[] } | null)[];
   /** What each ringed trip would bring home and how heavy it is to carry (#1296); null for camp work. */
   loads: (TripLoad | null)[];
   /** A danger the Warden can see coming (a blizzard, with Intelligence 12+, #1315) — or null. The action still runs. */
@@ -296,6 +298,7 @@ export function previewQueue(a: AppState): QueuePreview {
   const warnings: (string | null)[] = [];
   const dangers: (string | null)[] = [];
   const loads: (TripLoad | null)[] = [];
+  const unease: QueuePreview['unease'] = [];
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
@@ -310,11 +313,14 @@ export function previewQueue(a: AppState): QueuePreview {
     dangers.push(reason ? null : dangerOf(projected, id, ring));
     // What the trip would bring home, and how heavy it is to carry (#1296).
     loads.push(reason ? null : tripLoad(projected, item));
+    // How it will feel out there at that hour (#1364): the dark, the weather, the distance.
+    const u = reason ? null : tripUnease(projected, item);
+    unease.push(u && u.state !== 'calm' ? { state: u.state, reasons: u.reasons } : null);
     // A refused action costs no time in the sim, so it costs none here either.
     if (!reason) hours += queueHours(item, projected);
     projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, dangers, loads, projected, before };
+  return { dayOffset, warnings, dangers, unease, loads, projected, before };
 }
 
 // ── Save / load ─────────────────────────────────────────────────────────────

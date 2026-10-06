@@ -16,7 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
-import { landAmbient, nightAmbient, frightOf, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
+import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
@@ -1047,13 +1047,48 @@ function faceFear(next: Region1State, tags: readonly string[], fades: number, at
 }
 
 /** The environment's threat out on the land at this light (#1367), and how it sits with you. Null when the world has no fear in it. */
-function landFright(s: Region1State, ring: Ring, light: number): (ReturnType<typeof frightOf> & { ambient: number }) | null {
+function landFright(s: Region1State, ring: Ring, light: number): (ReturnType<typeof frightOf> & { ambient: number; reasons: string[] }) | null {
   if (!s.config.world.encounters) return null;
-  const ambient = landAmbient({
+  const scene: LandScene = {
     light, weather: s.weatherToday ?? 'clear', blizzard: isBlizzard(s.weatherToday, s.day, s.config.calendar), ring,
     winter: seasonOf(s.day, s.config.calendar) === 'winter', knownGround: domainsOf(ring).every(d => level(s.explore, ring, d) >= 3),
-  });
-  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient };
+  };
+  const ambient = landAmbient(scene);
+  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient, reasons: landReasons(scene) };
+}
+
+/**
+ * How frightening a queued land trip will be (#1364): your state, and why — for the queue
+ * preview and the AI's observation. Null for camp work, or in a world without fear.
+ */
+export function tripUnease(s: Region1State, item: QueueItem): { state: PanicState; perceived: Threat; reasons: string[] } | null {
+  const { id, ring } = parseItem(item);
+  if (!ACTIONS[id].ringed) return null;
+  const f = landFright(s, ring, stampFor(s, queueHours(item, s)).light);
+  return f && { state: f.state, perceived: f.perceived, reasons: f.reasons };
+}
+
+/** Tonight's scene (#1367): the weather, the season, shelter, fire, and how long you've lived here. */
+function nightSceneOf(s: Region1State, fire: boolean, fireKept: boolean): NightScene {
+  return {
+    weather: s.weatherToday ?? 'clear', blizzard: isBlizzard(s.weatherToday, s.day, s.config.calendar), winter: seasonOf(s.day, s.config.calendar) === 'winter',
+    sheltered: s.tier > 0, fire, fireKeptWarm: fireKept && s.tier >= 2, campDays: s.site && s.siteDay !== undefined ? s.day - s.siteDay : 0,
+  };
+}
+
+/**
+ * How tonight looks from here (#1364): if you went to bed now, would it be a fearful night? The
+ * fire is judged as the night will judge it: kept in if the frost asks for it and there's wood
+ * enough, otherwise lit if there's any wood at all. Null in a world without fear.
+ */
+export function tonightsFright(s: Region1State): { state: PanicState; perceived: Threat; reasons: string[] } | null {
+  if (!s.config.world.encounters) return null;
+  const shelterW = Math.max(0, warmth(s) - windChill(s.weatherToday));
+  const need = feelsTemperature(s) ? fireNeed(nightTemp(s.day, s.weatherToday, s.config.calendar), shelterW) : 0;
+  const kept = need > 0 && s.stores.firewood >= need;
+  const scene = nightSceneOf(s, kept || (need === 0 && s.stores.firewood > 0), kept);
+  const f = frightOf(s, nightAmbient(scene), true);
+  return { state: f.state, perceived: f.perceived, reasons: nightReasons(scene) };
 }
 
 /** What a spook makes you do (#1367), by panic response: the journal line. */
@@ -1619,12 +1654,9 @@ export function endDay(s: Region1State): Region1State {
   // How far short of tonight's frost the shelter falls (#1306): a deep shortfall bites harder.
   const coldShortfall = cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
   // How frightening the night is (#1367): the weather, the season, the shelter and the fire — read against your nerve.
-  const nightFright = next.config.world.encounters ? frightOf(next, nightAmbient({
-    weather: next.weatherToday ?? 'clear', blizzard: isBlizzard(next.weatherToday, next.day, next.config.calendar), winter: seasonOf(next.day, next.config.calendar) === 'winter',
-    // A fire burns if it was kept in through the frost — or, on a night that asked for none, if there's wood for one.
-    sheltered: next.tier > 0, fire: fire.kept || (fire.freeze === 0 && next.stores.firewood > 0),
-    fireKeptWarm: fire.kept && next.tier >= 2, campDays: next.site && next.siteDay !== undefined ? next.day - next.siteDay : 0,
-  }), true) : null;
+  // A fire burns if it was kept in through the frost — or, on a night that asked for none, if there's wood for one.
+  const nightFright = next.config.world.encounters
+    ? frightOf(next, nightAmbient(nightSceneOf(next, fire.kept || (fire.freeze === 0 && next.stores.firewood > 0), fire.kept)), true) : null;
   const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state });
   // After a fearful night (#1367): coming through grows the nerve; a sleepless one can leave a fear of the dark; calm ones fade it.
   if (nightFright && !night.ended) {
