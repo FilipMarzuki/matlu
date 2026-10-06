@@ -564,3 +564,30 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .queue.onestep .news { margin: 0 0 8px; }
 .queue.fresh { border-radius: 10px; animation: queue-arrives 2.4s ease-out 1; box-shadow: 0 0 0 1px var(--gold); }
 @keyframes queue-arrives { from { box-shadow: 0 0 0 1px var(--gold), 0 0 22px rgba(255,224,102,.55); } to { box-shadow: 0 0 0 1px var(--gold), 0 0 0 rgba(255,224,102,0); } }
+
+/* Encounters (#1347): the day pauses — a modal over the plan */
+.enc-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); background: rgba(6,7,14,.72); backdrop-filter: blur(2px); overflow-y: auto; }
+.enc { width: min(560px, 100%); border-color: var(--amber); box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(200,146,42,.35); animation: enc-in .25s ease-out; }
+@keyframes enc-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.enc-kind { margin: 0 0 8px; font-family: var(--display); font-size: 8px; letter-spacing: 2px; color: var(--amber); }
+.enc-text { margin: 0 0 14px; font-size: 15px; line-height: 1.55; color: var(--ink); }
+.enc-options { display: grid; gap: 8px; }
+.enc-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border2); background: var(--sub); color: var(--ink); font-family: var(--body); font-size: 13.5px; cursor: pointer; }
+.enc-opt:hover:not(:disabled) { border-color: var(--teal); background: rgba(77,212,240,.06); }
+.enc-opt:disabled { opacity: .5; cursor: not-allowed; }
+.eo-label { min-width: 0; }
+.eo-meta { display: flex; gap: 8px; align-items: center; flex: none; font-size: 11px; }
+.eo-cost { color: var(--dim); }
+.eo-need { color: var(--warn); font-style: italic; }
+.odds { font-family: var(--display); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; border: 1px solid; }
+.odds.o-safe { color: var(--green); border-color: rgba(136,255,136,.5); }
+.odds.o-likely { color: var(--teal); border-color: rgba(77,212,240,.5); }
+.odds.o-risky { color: var(--warn); border-color: rgba(255,170,51,.5); }
+.odds.o-desperate { color: var(--danger); border-color: rgba(255,90,90,.6); }
+.enc-wait { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); font-style: italic; }
+.enc-chose { margin: 0 0 6px; font-size: 12px; color: var(--dim); }
+.enc-chose b { color: var(--gold); }
+.enc-result { margin: 0 0 8px; padding: 9px 12px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 13.5px; }
+.enc-result.dead { border-left-color: var(--danger); color: var(--danger); }
+.enc .runbar { margin-top: 12px; }
+@media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }

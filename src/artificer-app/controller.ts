@@ -10,13 +10,13 @@
  * and the browser storage.
  */
 
-import { ACTIONS, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, chooseOption, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
-import { FULL_WORLD, validWorld } from '../artificer/world';
+import { FULL_WORLD, validWorld, type WorldConfig } from '../artificer/world';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
@@ -32,6 +32,9 @@ export interface AppState {
   road?: RoadState;
 }
 
+/** The world a new game plays: everything on, encounters included (#1347). Older saves keep the world they were made with. */
+export const GAME_WORLD: WorldConfig = { ...FULL_WORLD, encounters: true };
+
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
 export const SAVE_VERSION = 7;
 export const SAVE_KEY = 'artificer.region1.v7';
@@ -45,7 +48,7 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
   // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned' }, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -59,7 +62,7 @@ export function newRun(from?: Region1State | RoadState): AppState {
   const c = from.character;
   // A run that rode the road carries its marks and contacts too (#1250).
   const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
-  return { sim: createRegion1({ planning: 'learned' }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
 }
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
@@ -156,6 +159,21 @@ export const queueLocked = (a: AppState): string | null =>
 export function act(a: AppState, item: QueueItem): AppState {
   if (a.sim.outcome || a.stage === 'road' || a.sim.hoursToday >= DAY_HOURS) return a;
   return { ...a, sim: runAction(a.sim, item) };
+}
+
+/** Choose an option in the encounter that's waiting (#1347). The day stays where it was until you carry on. */
+export function choose(a: AppState, optionId: string): AppState {
+  if (!a.sim.pending) return a;
+  return { ...a, sim: chooseOption(a.sim, optionId) };
+}
+
+/**
+ * Carry on after an encounter (#1347): the rest of the queue runs, as the day would have. Before
+ * planning is learned there is no queue, so you simply carry on by hand.
+ */
+export function carryOn(a: AppState): AppState {
+  if (a.sim.pending || a.sim.outcome || !a.queue.length || !a.sim.canPlan) return a;
+  return runQueuedDay(a);
 }
 
 /** End the day without a queue (#1350): the night passes. */
