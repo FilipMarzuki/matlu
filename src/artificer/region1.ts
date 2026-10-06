@@ -124,7 +124,8 @@ export interface Region1State {
   /** Concept ranks and insight, earned by crafting. */
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
-  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean };
+  /** Today so far. `outside` / `absorbed` (#1305): went out on the land; did study or craft work — either keeps cabin fever off. */
+  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean };
   /** Nights in a row without food / without water (#1233); each night without costs more. */
   deprivation: { hungry: number; thirsty: number };
   /** Practice hours per skill (#1236); levels come from these. */
@@ -145,6 +146,10 @@ export interface Region1State {
   wetHours?: number;
   /** Snow cover on the ground, 0 (bare) to 1 (deep) (#1315). Absent on saves from before it: bare. */
   snowDepth?: number;
+  /** How the Warden eats (#1305): a standing choice, set like focus. Absent: full. */
+  eating?: EatingPlan;
+  /** Days in a row cooped up — not out on the land, no study or craft (#1305). */
+  cabinDays?: number;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -960,6 +965,9 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
+  // Out on the land, or deep in study (#1305): either keeps cabin fever off.
+  if (def.ringed) next.today.outside = true;
+  if (id === 'study') next.today.absorbed = true;
   // Out in the rain, you get soaked (#1284).
   if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + workHours + travel;
   // Tough (#1263): pushing past empty costs less Condition — give back the part it spares.
@@ -1054,6 +1062,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
+  // Making something absorbs the mind (#1305).
+  if (result.kind !== 'refused') next.today.absorbed = true;
   latchMilestones(next);
   return next;
 }
@@ -1182,7 +1192,11 @@ export function endDay(s: Region1State): Region1State {
     ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0)
     : w < 0.3 && next.tier < 2;
   const freeze = keepFire(next, w);
-  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null, freeze });
+  // Cooped up (#1305): a day without going out, studying or crafting adds to the streak; any of them ends it.
+  const cooped = feelsTemperature(next) && !next.today.outside && !next.today.absorbed;
+  next.cabinDays = cooped ? (next.cabinDays ?? 0) + 1 : 0;
+  if (next.cabinDays === CABIN_FEVER_FROM) say(next, 'Cabin fever — too many days inside these walls. Your thoughts go round in circles.', 'hardship');
+  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
   if (night.ended) {
     next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
@@ -1289,6 +1303,33 @@ export function tripOdds(s: Region1State, id: ActionId, ring: Ring): 'good' | 'f
   }));
 }
 
+// ── Rationing and cabin fever (#1305) ───────────────────────────────────────
+
+/** How the Warden eats: full (a meal a night), half (every other night), or none (fasting, even with food). */
+export type EatingPlan = 'full' | 'half' | 'none';
+export const EATING_PLANS: readonly EatingPlan[] = ['full', 'half', 'none'];
+/** A lean night on half rations costs this much Condition — far less than going hungry. */
+export const LEAN_CONDITION = 1;
+/** …lets Vigor recover only this much… */
+export const LEAN_VIGOR_RECOVERY = 0.75;
+/** …and pulls the Vigor cap down, as a body on thin rations does. */
+export const LEAN_VIGOR_TARGET = -10;
+/** Cabin fever sets in on this many days cooped up in a row… */
+export const CABIN_FEVER_FROM = 3;
+/** …pulling the Clarity cap down this much per day beyond the second, to at most 20. */
+export const CABIN_FEVER_STEP = 4;
+/** Cabin fever's pull on tonight's Clarity cap target. */
+export const cabinFever = (days: number): number => (days >= CABIN_FEVER_FROM ? -Math.min(20, CABIN_FEVER_STEP * (days - (CABIN_FEVER_FROM - 1))) : 0);
+
+/** Set how the Warden eats (#1305). Takes effect tonight. */
+export function setEating(s: Region1State, plan: EatingPlan): Region1State {
+  if ((s.eating ?? 'full') === plan) return s;
+  const next = clone(s);
+  next.eating = plan;
+  say(next, plan === 'half' ? 'You put yourself on half rations — a meal every other night.' : plan === 'none' ? 'You stop eating. The food stays where it is.' : 'Back to full rations.', 'action');
+  return next;
+}
+
 /** How the thaw finds a Warden of each grade. */
 const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
   hale: 'hale, and stronger for it.',
@@ -1313,6 +1354,10 @@ export interface NightOpts {
   providedWater?: boolean;
   /** Condition lost to a freezing night without enough fire (#1303). */
   freeze?: number;
+  /** How the Warden eats tonight (#1305). Default full. */
+  eating?: EatingPlan;
+  /** Days in a row cooped up, today included (#1305): cabin fever pulls the Clarity cap down. */
+  cabinDays?: number;
 }
 
 /** The night's verdict: null if the Warden lives to see morning; otherwise how it ended. */
@@ -1387,22 +1432,27 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
 
   // Food and water are separate needs, and both are needed to recover (#1233).
   // Fresh food first; when it's gone, the winter larder (#1302).
-  const ate = next.stores.rawFood > 0 || next.stores.rations > 0;
+  // Half rations (#1305) skip every other night — a lean night, not a hungry one; fasting skips them all.
+  const plan = o.eating ?? 'full';
+  const hasFood = next.stores.rawFood > 0 || next.stores.rations > 0;
+  const lean = plan === 'half' && hasFood && next.day % 2 === 1;
+  const ate = plan !== 'none' && hasFood && !lean;
   const drank = o.providedWater || next.stores.water > 0;
-  if (next.stores.rawFood > 0) next.stores.rawFood -= 1;
+  if (ate && next.stores.rawFood > 0) next.stores.rawFood -= 1;
   else if (ate) next.stores.rations -= 1;
   if (drank && !o.providedWater) next.stores.water -= 1;
-  next.deprivation = { hungry: ate ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
+  next.deprivation = { hungry: ate || lean ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
   const running = (n: number): string => (n > 1 ? ` (${ordinal(n)} night running)` : '');
-  if (!ate) say(`Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
+  if (lean) say('Half rations — a lean night.', 'hardship');
+  else if (!ate) say(hasFood ? `Fasting — the food stays untouched${running(next.deprivation.hungry)}.` : `Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
   if (!drank) say(`Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
 
   const w = o.warmth;
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
   const tr = talentEffects(next.character.talents);
   const se = statEffects(next.character.stats);
-  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : NEEDS.food.vigorRecovery);
-  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate ? 1 : NEEDS.food.clarityRecovery);
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery);
+  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate || lean ? 1 : NEEDS.food.clarityRecovery);
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
   next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * vigorFactor, clarityRate: 5 * clarityFactor, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
@@ -1412,6 +1462,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // Constitution and Tough soften the body's losses, Willpower the mind's (#1256, #1263).
   next.vitals.condition = Math.max(0, next.vitals.condition - (NEEDS.food.condition * hungry * hc + NEEDS.water.condition * thirsty) * se.deprivationCondition * tr.deprivationCondition);
   next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - (NEEDS.food.clarity * hungry * hc + NEEDS.water.clarity * thirsty) * se.deprivationClarity);
+  if (lean) next.vitals.condition = Math.max(0, next.vitals.condition - LEAN_CONDITION * se.deprivationCondition * tr.deprivationCondition);
   // Holding a focus costs a little of the mind each night; a focused concept was turned over all day.
   if (next.focus) {
     next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - FOCUS_COST);
@@ -1442,7 +1493,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     return froze > 0 ? { ended: 'died', cause: 'cold' } : { ended: 'collapsed' };
   }
   // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
-  growFrom(next, { kind: 'night', hungry: !ate, cold: o.coldNight || froze > 0, condition: next.vitals.condition });
+  growFrom(next, { kind: 'night', hungry: !ate && !lean, cold: o.coldNight || froze > 0, condition: next.vitals.condition });
 
   const summary = {
     loadVigor: next.today.loadVigor,
@@ -1453,6 +1504,9 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
+    // Thin rations wear the body down; too long cooped up wears on the mind (#1305).
+    vigorTarget: lean ? LEAN_VIGOR_TARGET : 0,
+    clarityTarget: cabinFever(o.cabinDays ?? 0),
   };
   next.vitals = driftCapacity(next.vitals, summary);
   // Healing, scaled by Constitution (#1256).

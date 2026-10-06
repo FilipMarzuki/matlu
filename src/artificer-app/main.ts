@@ -28,7 +28,7 @@ import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLab
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -234,6 +234,14 @@ function focusChip(s: AppState['sim']): string {
   return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? `Clarity under ${below} — focus is unreliable` : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
 }
 
+/** The eating plan (#1305): tap to cycle full → half → none. */
+function eatingChip(s: AppState['sim']): string {
+  const plan = s.eating ?? 'full';
+  const label = plan === 'full' ? 'FULL' : plan === 'half' ? 'HALF' : 'NONE';
+  const tip = plan === 'full' ? 'A meal every night' : plan === 'half' ? 'A meal every other night: stretches the larder, wears the body' : 'Fasting: the food stays untouched';
+  return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${tip} — tap to change">RATIONS <b>${label}</b></button>`;
+}
+
 /** The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. */
 function focusBlock(s: AppState['sim']): string {
   const lock = survivalLockOf(s);
@@ -436,7 +444,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
-    ${focusChip(s)}
+    ${focusChip(s)}${eatingChip(s)}
     <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
     <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
   </div>`;
@@ -733,6 +741,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
+  else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; update(chooseEating(state, plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length])); }
   else if (d.q) update(enqueue(state, d.q as QueueId));
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
