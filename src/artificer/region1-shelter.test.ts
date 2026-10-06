@@ -4,6 +4,7 @@
  * src/artificer-app/controller.test.ts.
  */
 
+import { SHORT_THRESHOLDS } from './readiness';
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
@@ -13,7 +14,7 @@ import { createVitals } from './vitality';
 
 /** Scouted, settled at `site`, with plenty of materials. */
 function camp(site: 'cave' | 'tree' = 'cave', over: Partial<Region1State> = {}): Region1State {
-  const s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout'), site);
+  const s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR, thresholds: SHORT_THRESHOLDS }), 'scout'), site);
   return { ...s, stores: { ...s.stores, materials: 20 }, ...over };
 }
 
@@ -82,7 +83,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
 
   // 5. A tools-first plan also gets winter-ready in nine days (second balance canary).
   it('gets a tools-first player winter-ready in nine days', () => {
-    let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout'), 'cave');
+    let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR, thresholds: SHORT_THRESHOLDS }), 'scout'), 'cave');
     const plan = [
       ['wood', 'wood', 'knife'], ['build', 'track', 'water'], ['hunt', 'hunt', 'water'],
       ['wood', 'wood', 'snare'], ['wood', 'preserve', 'preserve'], ['wood', 'build'],

@@ -34,7 +34,16 @@ export interface ReadinessThresholds {
   condition: number;
 }
 
-export const DEFAULT_THRESHOLDS: ReadinessThresholds = { larder: 10, fuel: 12, warmth: 0.6, condition: 70 };
+/**
+ * Winter-ready for a 30-night winter (#1306): a larder of 20 rations (half
+ * the winter; fishing, snares and a careful ration plan cover the rest), 40
+ * firewood, a shelter warm enough that, with a fire kept in, a clear midwinter
+ * night isn't a cold one, and a sound body. Advice, not a gate (#1302).
+ */
+export const DEFAULT_THRESHOLDS: ReadinessThresholds = { larder: 20, fuel: 40, warmth: 0.75, condition: 70 };
+
+/** The old 13-day year's thresholds, for tests of the short game (SHORT_YEAR). */
+export const SHORT_THRESHOLDS: ReadinessThresholds = { larder: 10, fuel: 12, warmth: 0.6, condition: 70 };
 
 export type PillarKey = 'larder' | 'shelter' | 'fuel' | 'body';
 

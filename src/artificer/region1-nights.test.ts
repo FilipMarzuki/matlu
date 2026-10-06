@@ -4,6 +4,8 @@
  * Given/When/Then scenario.
  */
 
+import { COLD_NIGHT_COST, COLD_SHORTFALL_COST } from './region1';
+import { coldNightNeeds } from './weather';
 import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, runDay, chooseSite, queueHours, warmth, winterOutlook, type Region1State } from './region1';
@@ -57,8 +59,8 @@ describe('Winter nights (#1303)', () => {
     const t = nightTemp(45, 'wind');
     const cold = warden(45, 'wind', { stores: { ...warden(1, 'clear').stores, rawFood: 9, water: 9, firewood: 0 } });
     const after = night(cold);
-    // The freeze, plus the 4 of an ordinary cold night.
-    expect(100 - after.vitals.condition).toBeCloseTo(freezeLoss(t, 0, false, 1) + 4, 5);
+    // The freeze, plus the cold night itself: its base and its shortfall against the frost (#1306).
+    expect(100 - after.vitals.condition).toBeCloseTo(freezeLoss(t, 0, false, 1) + COLD_NIGHT_COST + COLD_SHORTFALL_COST * coldNightNeeds(t), 5);
     expect(lines(after)).toMatch(/No firewood — a fireless night/);
     // Sound cold gear softens it.
     const geared = night({ ...cold, coldGear: true });

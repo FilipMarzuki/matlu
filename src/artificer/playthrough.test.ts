@@ -10,6 +10,7 @@
  * canary: if tuning changes break it, this file is where you'll find out.
  */
 
+import { SHORT_THRESHOLDS } from './readiness';
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
@@ -35,7 +36,7 @@ const GOOD_PLAN: QueueId[][] = [
 
 /** Play the careful run through its nine-day plan, to day 10. */
 function playGood(): Region1State {
-  let s = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR });
+  let s = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR, thresholds: SHORT_THRESHOLDS });
   s = runAction(s, 'scout');
   s = chooseSite(s, 'cave');
   for (const day of GOOD_PLAN) {
@@ -61,7 +62,7 @@ function playWinter(from: Region1State): Region1State {
 
 /** A neglectful player: looks around once, then mostly sits about. */
 function playNeglect(): Region1State {
-  let s = runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout');
+  let s = runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR, thresholds: SHORT_THRESHOLDS }), 'scout');
   s = fastForward(s, 10, ['rest', 'rest']);
   return s;
 }

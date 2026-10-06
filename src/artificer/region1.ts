@@ -292,7 +292,7 @@ export interface WinterOutlook {
   fuelDays: number;
   /** Firewood the nights from tonight to the thaw will need (#1303). */
   fuelToThaw: number;
-  /** Shelter warmth less what a clear midwinter night needs not to be cold (negative: too cold). */
+  /** Shelter warmth, with a fire kept in (#1306), less what a clear midwinter night needs not to be cold (negative: too cold). */
   warmthMargin: number;
   /** Nights left until the thaw, tonight included. */
   nightsToThaw: number;
@@ -324,7 +324,7 @@ export function winterOutlook(s: Region1State): WinterOutlook {
     waterDays: s.stores.water,
     fuelDays,
     fuelToThaw,
-    warmthMargin: warmth(s) - coldNightNeeds(midwinter),
+    warmthMargin: warmth(s) + FIRE_WARMTH - coldNightNeeds(midwinter),
     nightsToThaw: Math.max(0, cal.thawDay - s.day),
   };
 }
@@ -655,7 +655,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: (s, b, r, _o, light, luck) => {
       const blind = level(s.explore, r, 'forage') === 0;
       // In poor light you miss most of what's there (#1281).
-      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b, luck), darkYieldMult('gather', light));
+      // …and snow cover buries what's left (#1306): deep snow, almost nothing to find.
+      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b, luck), darkYieldMult('gather', light) * snowBuries(s));
       const note = workLand(s, r, 'forage');
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
@@ -1185,18 +1186,23 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'Wet through and miserable after a day out in the rain.', 'hardship');
   }
   // Wind strips warmth from the night (#1284).
-  const w = Math.max(0, warmth(next) - windChill(next.weatherToday));
+  const shelterW = Math.max(0, warmth(next) - windChill(next.weatherToday));
+  // The night's fire (#1303): burn what the frost asks. Kept in all night, it warms the shelter too (#1306).
+  const fire = keepFire(next, shelterW);
+  const w = Math.min(1, shelterW + (fire.kept ? FIRE_WARMTH : 0));
+  const freeze = fire.freeze;
   // A cold night (#1283): the frost decides how much shelter is enough — and rain with no roof is always cold (#1284).
   // (The flat world keeps the old rule.)
   const cold = feelsTemperature(next)
     ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0)
     : w < 0.3 && next.tier < 2;
-  const freeze = keepFire(next, w);
   // Cooped up (#1305): a day without going out, studying or crafting adds to the streak; any of them ends it.
   const cooped = feelsTemperature(next) && !next.today.outside && !next.today.absorbed;
   next.cabinDays = cooped ? (next.cabinDays ?? 0) + 1 : 0;
   if (next.cabinDays === CABIN_FEVER_FROM) say(next, 'Cabin fever — too many days inside these walls. Your thoughts go round in circles.', 'hardship');
-  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays });
+  // How far short of tonight's frost the shelter falls (#1306): a deep shortfall bites harder.
+  const coldShortfall = cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
+  const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
   if (night.ended) {
     next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
@@ -1234,25 +1240,29 @@ export function endDay(s: Region1State): Region1State {
 
 /**
  * The night's fire (#1303): burn what the frost asks for, as far as the
- * woodpile goes. Returns the Condition a short or missing fire will cost.
+ * woodpile goes. Returns whether it was kept in all night (then it warms the
+ * shelter, #1306) and the Condition a short or missing fire will cost.
  * Above freezing, or in the flat world, no fire is needed.
  */
-function keepFire(next: Region1State, w: number): number {
-  if (!feelsTemperature(next)) return 0;
+function keepFire(next: Region1State, w: number): { kept: boolean; freeze: number } {
+  if (!feelsTemperature(next)) return { kept: false, freeze: 0 };
   const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
   const need = fireNeed(t, w);
-  if (need === 0) return 0;
+  if (need === 0) return { kept: false, freeze: 0 };
   const burnt = Math.min(need, next.stores.firewood);
   next.stores.firewood -= burnt;
   if (burnt === need) {
     say(next, `Kept the fire in through a ${Math.round(t)} °C night — ${burnt} firewood.`, 'action');
-    return 0;
+    return { kept: true, freeze: 0 };
   }
   say(next, burnt > 0
     ? `The firewood ran out in the night (${burnt} of the ${need} it needed). The cold crept in.`
     : `No firewood — a fireless night at ${Math.round(t)} °C.`, 'hardship');
-  return freezeLoss(t, w, next.coldGear, (need - burnt) / need);
+  return { kept: false, freeze: freezeLoss(t, w, next.coldGear, (need - burnt) / need) };
 }
+
+/** How much a fire kept in all night adds to the shelter's warmth (#1306). */
+export const FIRE_WARMTH = 0.15;
 
 /** The season the land regrows by on a day (#1304): early autumn, late autumn, or winter. */
 export function growSeason(day: number, cal: Calendar): GrowSeason {
@@ -1308,6 +1318,10 @@ export function tripOdds(s: Region1State, id: ActionId, ring: Ring): 'good' | 'f
 /** How the Warden eats: full (a meal a night), half (every other night), or none (fasting, even with food). */
 export type EatingPlan = 'full' | 'half' | 'none';
 export const EATING_PLANS: readonly EatingPlan[] = ['full', 'half', 'none'];
+/** A cold, broken night costs this much Condition (#1283)… */
+export const COLD_NIGHT_COST = 4;
+/** …plus this much for every whole unit of warmth the shelter falls short of the night's need (#1306): 3 per 0.1. */
+export const COLD_SHORTFALL_COST = 30;
 /** A lean night on half rations costs this much Condition — far less than going hungry. */
 export const LEAN_CONDITION = 1;
 /** …lets Vigor recover only this much… */
@@ -1348,6 +1362,8 @@ export interface NightOpts {
   warmth: number;
   /** A cold, broken night: exposure costs Condition (unless the Warden is cold-proof). */
   coldNight: boolean;
+  /** How far short of the night's need the shelter's warmth falls (#1306): each 0.1 short costs 3 more Condition. */
+  coldShortfall?: number;
   /** The mind was locked to survival today, so a focused concept wasn't worked on. */
   lockedToday: boolean;
   /** Someone else waters you tonight (the caravan's barrels, #1244): you don't go thirsty, and your own water is kept. */
@@ -1382,6 +1398,8 @@ function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mu
 const feelsTemperature = (s: Pick<Region1State, 'config'>): boolean => s.config.world.weather === 'seeded';
 /** How much the snow cover slows walking and felling today (#1315): none in the flat world. */
 const snowSlowFor = (s: Pick<Region1State, 'config' | 'snowDepth'>): number => (feelsTemperature(s) ? snowSlow(s.snowDepth ?? 0) : 1);
+/** How much forage the snow cover leaves findable (#1306): all of it on bare ground, none under deep snow. */
+const snowBuries = (s: Pick<Region1State, 'config' | 'snowDepth'>): number => (feelsTemperature(s) ? Math.max(0, 1 - (s.snowDepth ?? 0)) : 1);
 /** The streams are frozen hard today: water means melting snow (#1303). */
 const melting = (s: Pick<Region1State, 'config' | 'day'>): boolean => feelsTemperature(s) && meltsSnow(s.day, s.config.calendar);
 
@@ -1472,7 +1490,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   }
   // Cold-blooded (#1263) takes the edge off — or all of it, at mastery.
   if (o.coldNight && tr.coldCost > 0) {
-    next.vitals.condition = Math.max(0, next.vitals.condition - 4 * tr.coldCost);
+    next.vitals.condition = Math.max(0, next.vitals.condition - (COLD_NIGHT_COST + COLD_SHORTFALL_COST * (o.coldShortfall ?? 0)) * tr.coldCost);
     say('A cold, broken night — the exposure bites.', 'hardship');
   }
 
@@ -1509,9 +1527,9 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     clarityTarget: cabinFever(o.cabinDays ?? 0),
   };
   next.vitals = driftCapacity(next.vitals, summary);
-  // Healing, scaled by Constitution (#1256).
+  // Healing, scaled by Constitution (#1256). A cold, broken night is no rest (#1306): it heals nothing.
   const preHeal = next.vitals.condition;
-  next.vitals = recoverCondition(next.vitals, summary);
+  if (!o.coldNight) next.vitals = recoverCondition(next.vitals, summary);
   next.vitals.condition = Math.min(100, preHeal + (next.vitals.condition - preHeal) * se.heal);
   return { ended: null };
 }
