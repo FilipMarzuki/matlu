@@ -15,10 +15,10 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { ACTIONS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
+import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import type { Player } from '../runner';
-import { villageOf, type RoadActionId, type RoadState } from '../../artificer/road';
+import { villageOf, ROAD_CRAFTS, type RoadActionId, type RoadState } from '../../artificer/road';
 import { peopleOf, VILLAGES } from '../../artificer/villages';
 import { QUESTS } from '../../artificer/quests';
 import { BASE_VALUE, isGood } from '../../artificer/trade';
@@ -101,7 +101,10 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     const goods = mode === 'legal' ? Object.entries(r.stores).filter(([, n]) => n > 0).map(([k]) => k) : Object.keys(BASE_VALUE).filter(isGood);
     const tools = mode === 'legal' ? r.tools.map(t => t.item) : Object.keys(BASE_VALUE).filter(k => !isGood(k));
     const options: RoadActionId[] = [
-      'rest', 'wait',
+      'rest', 'wait', 'tend', 'help',
+      ...Object.keys(ROAD_CRAFTS).map(id => `craft:${id}` as const),
+      ...STUDY_CONCEPTS.map(c => `study:${c}` as const),
+      ...(mode === 'uniform' ? (['gather', 'wood', 'build', 'scout'] as const) : []),
       ...here.map(p => `talk:${p.id}` as const),
       ...[...goods, ...tools].map(g => `sell:${g}` as const),
       ...goods.map(g => `buy:${g}:${1 + Math.floor(rand() * 4)}` as const),

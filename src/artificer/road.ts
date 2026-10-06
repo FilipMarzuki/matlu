@@ -25,10 +25,11 @@ import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
-import { practise, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
+import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
 import { TALENTS, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
-import { ACTIONS, CRAFT_WORLD, creditedPractice, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
+import { createExploration, scout } from './exploration';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -201,9 +202,12 @@ export const roadLockOf = (s: RoadState): string | null =>
  * `sell:<item>:<qty|grade>`, `buy:<good>`, `buy:<good>:<qty>` — or take on
  * and finish its quests (#1248): `accept:<questId>`, `complete:<questId>`.
  * And from its teachers (#1249): `learn:<teacherId>:<technique|recipe|concept>`
- * and `appraise:<teacherId>`.
+ * and `appraise:<teacherId>`. Anywhere on the road your hands and mind are free
+ * (#1245): `craft:<recipe>`, `study:<concept>`, `tend`; on the wagon, `help`.
  */
-export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}`;
+export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
+  /** Region 1's camp and land work — refused on the road ("Not from the wagon"), but named so a player can try. */
+  | ActionId;
 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
@@ -233,6 +237,8 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
     const person = peopleHere(next).find(p => p.id === pid);
     if (!person) { say(next, `Talk: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
     const r = talk(person, next.trust[pid] ?? 0, next.told[pid] ?? 0, next.idleTalks[pid] ?? 0);
+    // A fellow traveller's talk (#1245) also teaches a little of their trade: insight in their concept per line told.
+    if (person.concept && r.told > (next.told[pid] ?? 0)) addInsight(next.concepts, person.concept, TRAVELLER_INSIGHT, CRAFT_WORLD.concepts);
     next.trust[pid] = r.trust;
     next.told[pid] = r.told;
     next.idleTalks[pid] = r.idleTalks;
@@ -247,6 +253,15 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   if (id.startsWith('accept:')) return accept(next, id.slice(7));
   if (id.startsWith('complete:')) return complete(next, id.slice(9));
   if (id.startsWith('learn:')) return learn(next, id.slice(6));
+  if (id.startsWith('craft:')) return wagonCraft(next, id.slice(6));
+  if (id.startsWith('study:')) return wagonStudy(next, id.slice(6));
+  if (id === 'tend') return tend(next);
+  if (id === 'help') return help(next);
+  // Region 1's camp and land work has no place on the road (#1245).
+  if (id !== 'rest' && id !== 'wait' && id in ACTIONS) {
+    say(next, `${ACTIONS[id as ActionId].name}: skipped — ${villageOf(next) ? 'Not here: that is camp work, and you are a guest in the village.' : 'Not from the wagon.'}`, 'skip');
+    return next;
+  }
   if (id.startsWith('appraise:')) return appraise(next, id.slice(9));
   if (id === 'wait') {
     // Let the day pass: no work, no strain.
@@ -426,6 +441,114 @@ function arriveWithDeliveries(next: RoadState, villageId: string): void {
       say(next, `You reach ${nameOf(n.recipient)} without the ${n.item} ${nameOf(quest.giver)} trusted you with. Word will get back.`, 'hardship');
     }
   }
+}
+
+// ── Hands and mind free (#1245) ─────────────────────────────────────────────
+
+/** A craft on the road takes this long — slow, lap work on a moving wagon — and practises its skill for as long. */
+export const WAGON_CRAFT_HOURS = 4;
+/** Helping drive and pitch camp: hours, how hard on the body, and the cook's thanks. */
+export const HELP_HOURS = 4, HELP_VIGOR_RATE = -3, HELP_FOOD = 1;
+/** Mending gear takes this long. */
+export const TEND_HOURS = 2;
+/** Insight a fellow traveller's lore line gives in their concept. */
+export const TRAVELLER_INSIGHT = 0.5;
+
+/**
+ * Which Region 1 action makes each recipe you can craft on the road: anything that needs
+ * no site or shelter (no building, no cold pit). The hide parka is cold gear made of hide.
+ */
+export const ROAD_CRAFTS: Readonly<Record<string, QueueItem>> = {
+  ...Object.fromEntries((Object.keys(ACTIONS) as ActionId[])
+    .filter(id => ACTIONS[id].recipe && id !== 'coldPit')
+    .map(id => [ACTIONS[id].recipe!.id, id])),
+  'cold-gear': 'coldGear',
+  'hide-parka': { q: 'coldGear', opts: { material: 'hide' } },
+};
+
+/** A clean Region 1 state, made once: the shape a road craft or study borrows (#1245). */
+let blank: Region1State | null = null;
+
+/**
+ * The Warden on the road in Region 1's shape, so a craft or a study runs through exactly
+ * Region 1's rules — the same grades, costs and insight. Camp, land and weather are a fair
+ * daytime with nothing in the way (the wagon is neither a camp nor the land).
+ */
+function regionView(r: RoadState): Region1State {
+  blank ??= createRegion1({}, undefined, { id: 'road-view' });
+  return {
+    ...blank,
+    day: 1, hoursToday: r.hoursToday, weatherToday: 'clear', forecast: {},
+    vitals: { vigor: { ...r.vitals.vigor }, clarity: { ...r.vitals.clarity }, condition: r.vitals.condition },
+    stores: { ...r.stores }, tools: [...r.tools], concepts: { ...r.concepts }, today: { ...r.today }, deprivation: { ...r.deprivation },
+    character: r.character, focus: r.focus, skills: { ...r.skills }, techniques: [...r.techniques], manuals: [...r.manuals],
+    known: [...r.known], studiedToday: { ...r.studiedToday }, strain: r.strain,
+    explore: scout(createExploration(), 1), log: [],
+  };
+}
+
+/** Take back what a borrowed Region 1 action changed, and its journal lines. */
+function fromView(next: RoadState, v: Region1State): void {
+  next.vitals = v.vitals;
+  next.stores = { ...v.stores };
+  next.tools = v.tools;
+  next.concepts = v.concepts;
+  next.today = v.today;
+  next.studiedToday = v.studiedToday;
+  next.known = v.known;
+  for (const l of v.log) next.log.push({ day: next.day, text: l.text, kind: l.kind });
+}
+
+/** Craft a known recipe on the road (#1245): Region 1's craft, four hours of lap work, practice to match. */
+function wagonCraft(next: RoadState, recipe: string): RoadState {
+  const item = ROAD_CRAFTS[recipe];
+  if (!item) { say(next, `Craft: skipped — ${recipe.replace(/-/g, ' ')} can't be made on the road.`, 'skip'); return next; }
+  if (!next.known.includes(recipe)) { say(next, `Craft: skipped — you don't know how to make ${recipe.replace(/-/g, ' ')} yet.`, 'skip'); return next; }
+  const view = regionView(next);
+  const id = (typeof item === 'string' ? item : item.q) as ActionId;
+  const why = blockedReason(view, id, 1, typeof item === 'string' ? {} : item.opts);
+  if (why) { say(next, `Craft: skipped — ${why}.`, 'skip'); return next; }
+  const skills = next.skills;
+  fromView(next, runAction(view, item));
+  // The road sets the hours and the practice: four hours on the wagon, credited as Region 1 credits work.
+  next.skills = skills;
+  const skill = skillFor(id, recipe);
+  if (skill) next.skills = practise(skills, skill, creditedPractice(next, skill, WAGON_CRAFT_HOURS, guidanceOn(next, skill))).practice;
+  next.hoursToday += WAGON_CRAFT_HOURS;
+  return next;
+}
+
+/** Study a concept on the road (#1245), exactly as in Region 1. */
+function wagonStudy(next: RoadState, concept: string): RoadState {
+  const view = regionView(next);
+  const opts = { concept };
+  const why = blockedReason(view, 'study', 1, opts);
+  if (why) { say(next, `Study: skipped — ${why}.`, 'skip'); return next; }
+  const after = runAction(view, { q: 'study', opts });
+  fromView(next, after);
+  next.hoursToday += after.hoursToday - view.hoursToday;
+  return next;
+}
+
+/** Mend gear (#1245): a tool worn below the grade it was made at goes back up one. */
+function tend(next: RoadState): RoadState {
+  const at = next.tools.findIndex(t => t.crafted && GRADES.indexOf(t.grade) < GRADES.indexOf(t.crafted));
+  if (at < 0) { say(next, 'Tend: skipped — nothing needs mending.', 'skip'); return next; }
+  const t = next.tools[at];
+  const grade = GRADES[GRADES.indexOf(t.grade) + 1];
+  next.tools[at] = { ...t, grade };
+  work(next, TEND_HOURS, -0.5, -1);
+  say(next, `Mended the ${t.item.replace(/-/g, ' ')} — ${grade} again.`, 'action');
+  return next;
+}
+
+/** Help drive and pitch camp (#1245): hard on the body, and the cook sees you right. Only on the wagon. */
+function help(next: RoadState): RoadState {
+  if (villageOf(next)) { say(next, 'Help: skipped — the caravan is resting in the village; there is nothing to drive or pitch.', 'skip'); return next; }
+  work(next, HELP_HOURS, HELP_VIGOR_RATE, 0);
+  next.stores.rawFood += HELP_FOOD;
+  say(next, 'You help drive the oxen and pitch camp at dusk. The cook slips you an extra portion.', 'action');
+  return next;
 }
 
 // ── Teachers (#1249) ────────────────────────────────────────────────────────

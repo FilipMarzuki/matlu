@@ -25,7 +25,7 @@ import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
-import { ROUTE, ROAD_DAYS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
@@ -256,6 +256,7 @@ PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_H
 TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
 QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
 TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend, trust 40+); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
+HANDS AND MIND (anywhere on the road): "craft:<recipe>" makes a known recipe from your stores (${WAGON_CRAFT_HOURS}h, no building), "study:<concept>" studies as in the Reach, "tend" mends worn gear. ON THE WAGON: talk to your fellow travellers (the tinker and herbwife teach a little of their craft as they talk), and "help" drive and pitch camp (${HELP_HOURS}h, hard work, the cook gives you an extra portion). Gathering, felling, building and scouting are not possible from the wagon.
 ALSO: "rest" (a few hours' rest), "wait" (let the day pass).
 
 Reply with ONLY a JSON object: {"thoughts": "<one or two sentences>", "actions": ["<action id>", ...]}. An action the sim can't do is skipped and the journal says why.`;
@@ -307,8 +308,10 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
   if (!village) {
     lines.push('');
     lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');
-    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}`);
+    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}${p.concept ? ` · knows ${p.concept}` : ''}`);
   }
+  const crafts = r.known.filter(id => ROAD_CRAFTS[id]);
+  lines.push(`YOU CAN CRAFT ON THE ROAD: ${crafts.join(', ') || 'nothing you know'} (recipes cost stores as in the Reach)`);
   if (village) {
     lines.push('');
     lines.push('PEOPLE HERE (id · role · trust · what they have for you):');

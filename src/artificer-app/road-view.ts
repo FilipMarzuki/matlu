@@ -7,12 +7,12 @@
  * happens at once and the hours tick on, and "End the day" sleeps and moves the caravan.
  */
 
-import { ROUTE, ROAD_DAYS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, FRIEND_LESSON, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
 import { techniqueById } from '../artificer/techniques';
-import { DAY_HOURS } from '../artificer/region1';
+import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -97,11 +97,13 @@ function wagonView(r: RoadState, ui: RoadUi): string {
       <p class="mood">The caravan rolls on towards ${esc(to)}. The barrels water everyone on the road; the nights are mild.</p>
       <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK</p>
       <div class="people">${travellers.map(p => personCard(r, p, p === open)).join('')}</div>
-      <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
       ${open ? personSheet(r, open) : ''}
+      ${handsFree(r, true)}
+      <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
     </section>
     <section class="box"><p class="eyebrow">NOT FROM THE WAGON</p>
       <ul class="cant">
+        <li>🪓 <b>Gathering, felling, building, scouting</b> — the wagon keeps rolling.</li>
         <li>⚖️ <b>Trading</b> — every village has a trader.</li>
         <li>❗ <b>Quests</b> — people ask for help once they trust you.</li>
         <li>📖 <b>Lessons</b> and <b>appraisals</b> — teachers live in the villages.</li>
@@ -112,6 +114,15 @@ function wagonView(r: RoadState, ui: RoadUi): string {
 }
 
 // ── Villages ────────────────────────────────────────────────────────────────
+
+/** Hands and mind free (#1245): craft what you know, study, mend — and on the wagon, help the caravan. */
+function handsFree(r: RoadState, onWagon: boolean): string {
+  const crafts = r.known.filter(id => ROAD_CRAFTS[id]);
+  return `<div class="sheetpart"><p class="fgroup">HANDS FREE — CRAFT · STUDY · MEND${onWagon ? ' · HELP' : ''}</p>
+    <div class="lessons">${crafts.map(id => act(r, `craft:${id}`, `🛠 ${esc(itemName(id))}`, WAGON_CRAFT_HOURS)).join('')}</div>
+    <div class="lessons">${STUDY_CONCEPTS.map(c => act(r, `study:${c}`, `📖 ${esc(c)}`, 3)).join('')}</div>
+    <div class="lessons">${act(r, 'tend', '🧵 MEND GEAR', TEND_HOURS)}${onWagon ? act(r, 'help', '🐂 HELP DRIVE &amp; PITCH CAMP', HELP_HOURS) : ''}</div></div>`;
+}
 
 /** A villager's mark: a portrait-sized badge, their role's colour and icon. */
 const badge = (p: Person, size = 44): string =>
@@ -216,6 +227,7 @@ function villageView(r: RoadState, ui: RoadUi): string {
   const open = people.find(p => p.id === ui.person) ?? null;
   return `<section class="box"><p class="eyebrow">${esc(VILLAGES[id].name.toUpperCase())} — TAP SOMEONE TO TALK, TRADE OR LEARN</p>
       <div class="people">${people.map(p => personCard(r, p, p === open)).join('')}</div>
+      ${handsFree(r, false)}
       <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div></section>
     ${open ? personSheet(r, open) : ''}`;
 }

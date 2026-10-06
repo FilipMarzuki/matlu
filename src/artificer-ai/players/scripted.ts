@@ -155,7 +155,7 @@ const QUEST_ORDER: Readonly<Record<string, number>> = { fetch: 0, craft: 0, repa
 export function scriptedRoadDay(r: RoadState): RoadActionId[] {
   const village = villageOf(r);
   // On the wagon: hear out the fellow travellers (#1253), then rest.
-  if (!village) return [...peopleHere(r).filter(p => (r.told[p.id] ?? 0) < p.lore.length).map(p => `talk:${p.id}` as const), 'rest'];
+  if (!village) return [...peopleHere(r).filter(p => (r.told[p.id] ?? 0) < p.lore.length).map(p => `talk:${p.id}` as const), 'help', 'rest'];
   const out: RoadActionId[] = [];
   const offered = questsHere(r);
   for (const q of offered) out.push(`accept:${q.id}`);
