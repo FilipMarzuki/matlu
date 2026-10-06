@@ -15,6 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
+import { readThreat, SHAKEN_CLARITY } from './panic';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
@@ -146,6 +147,8 @@ export interface Region1State {
   pending?: PendingEncounter | null;
   /** The last day an encounter happened — at most one a day. */
   encounterDay?: number;
+  /** Encounters met and survived, by template id (#1360): the more often, the smaller they look. Carries across runs. */
+  met?: Record<string, number>;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -255,6 +258,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   // ranks carry over (insight starts again); body, stores and land don't.
   if (legacy?.marks) s.marks = legacy.marks;
   if (legacy?.contacts?.length) s.contacts = [...legacy.contacts];
+  if (legacy?.met) s.met = { ...legacy.met };
   if (legacy) {
     for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
     for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
@@ -1002,9 +1006,15 @@ function maybeEncounter(before: Region1State, next: Region1State, item: QueueIte
   const at = stampFor(before, hours);
   const t = encounterFor(seedOf(next.character.id), next.day, at.hour, ring, seasonOf(next.day, next.config.calendar), at.light < 0.5);
   if (!t) return;
-  next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id };
+  // How it looks, and whether you can hold (#1360). Shaken, the fright itself costs some Clarity.
+  const read = readThreat(next, t);
+  next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id, perceived: read.perceived, state: read.state };
   next.encounterDay = next.day;
   say(next, t.text, 'hardship', at);
+  if (read.state !== 'calm') {
+    next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - SHAKEN_CLARITY) } };
+    say(next, read.state === 'shaken' ? 'Your heart is hammering.' : 'Panic. You can barely think.', 'hardship', at);
+  }
 }
 
 /**
@@ -1032,6 +1042,9 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (next.vitals.condition <= 0) {
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
     say(next, `Killed by ${effect.killedBy ?? 'what you met out there'}.`, 'outcome');
+  } else {
+    // Lived through it (#1360): next time it looms a little less.
+    next.met = { ...(next.met ?? {}), [t.id]: (next.met?.[t.id] ?? 0) + 1 };
   }
   return next;
 }

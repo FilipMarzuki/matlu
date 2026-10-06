@@ -72,6 +72,8 @@ export interface Legacy {
   contacts?: string[];
   /** Marks you ended the road with (#1250). */
   marks?: number;
+  /** Encounters met and survived, by template id (#1360): experience that makes them look smaller. */
+  met?: Record<string, number>;
 }
 
 export { CONTACT_TRUST } from './villages';
@@ -107,13 +109,14 @@ export function summarizeRun(s: Region1State, run: number): RunRecord {
 }
 
 /** What a run carries, wherever it ended: the knowledge, and what the road earned (#1250). */
-type Carrier = Pick<Region1State, 'known' | 'concepts' | 'skills' | 'techniques' | 'character' | 'marks' | 'contacts'>;
+type Carrier = Pick<Region1State, 'known' | 'concepts' | 'skills' | 'techniques' | 'character' | 'marks' | 'contacts' | 'met'>;
 
 /** The knowledge a Warden takes into the next run — and any marks and contacts from an earlier road. */
 export function legacyOf(s: Carrier): Legacy {
   return {
     ...(s.marks ? { marks: s.marks } : {}),
     ...(s.contacts?.length ? { contacts: [...s.contacts] } : {}),
+    ...(s.met && Object.keys(s.met).length ? { met: { ...s.met } } : {}),
     known: [...s.known],
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
     skills: carriedSkills(s.skills),

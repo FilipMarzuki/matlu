@@ -78,7 +78,7 @@ export interface RoadOutcome { kind: 'arrived' | 'died' | 'collapsed'; vitals: V
  * (so the shared night works on both); the camp, land and season are gone,
  * replaced by where on the route you are.
  */
-export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techniques' | 'manuals' | 'known' | 'studiedToday'> {
+export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techniques' | 'manuals' | 'known' | 'studiedToday' | 'met'> {
   /** Index into ROUTE. */
   leg: number;
   /** Day within the current leg, from 1. */
@@ -141,6 +141,8 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
     techniques: [...from.techniques],
     manuals: [...from.manuals],
     known: [...from.known],
+    // Encounters lived through (#1360) travel with you, so the next Reach remembers them.
+    ...(from.met ? { met: { ...from.met } } : {}),
     studiedToday: {},
     leg: 0,
     legDay: 1,
