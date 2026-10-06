@@ -198,7 +198,8 @@ export function runQueuedDay(a: AppState): AppState {
 /** Run day after day until the queue is empty (or the region resolves). */
 export function runWholeQueue(a: AppState): AppState {
   let s = a;
-  for (let i = 0; i < MAX_DAYS_PER_RUN && s.queue.length > 0 && !s.sim.outcome; i++) {
+  // A waiting encounter (#1343) stops the run of days: the choice comes first.
+  for (let i = 0; i < MAX_DAYS_PER_RUN && s.queue.length > 0 && !s.sim.outcome && !s.sim.pending; i++) {
     s = runQueuedDay(s);
   }
   return s;
