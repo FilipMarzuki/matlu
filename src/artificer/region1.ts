@@ -122,6 +122,9 @@ export interface Region1State {
   shelter: ShelterBuild;
   /** One-way "ever did X" flags behind the first-time milestones. */
   flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean; everHide: boolean };
+  /** Marks and road contacts carried from an earlier road (#1250); the next road starts with them. Absent when none. */
+  marks?: number;
+  contacts?: string[];
   /** Recipe ids you know how to make (the rest are discovered — see DISCOVERIES). */
   known: string[];
   /** Study sessions per concept today (diminishing returns; reset each night). */
@@ -232,6 +235,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   dawnWeather(s);
   // A new run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
+  if (legacy?.marks) s.marks = legacy.marks;
+  if (legacy?.contacts?.length) s.contacts = [...legacy.contacts];
   if (legacy) {
     for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
     for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };

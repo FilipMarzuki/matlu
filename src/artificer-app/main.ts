@@ -30,7 +30,7 @@ import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLab
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, currentRun, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -560,7 +560,7 @@ function outlookTag(s: AppState['sim'], ready: boolean): string {
   return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="The winter outlook">${short ? 'FALLING SHORT' : 'HOLDING'}</button>`;
 }
 
-const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { arrived: 'Reached Mistheim', survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
 
 /** The history of finished runs (newest first), with the best one marked. */
 function pastRuns(): string {
@@ -902,7 +902,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
-  else if (d.cmd === 'carry' && canContinue(state.sim)) { update(newRun(state.sim)); startIntro('carry'); }
+  else if (d.cmd === 'carry' && canContinue(currentRun(state))) { update(newRun(currentRun(state))); startIntro('carry'); }
 });
 
 render(state);

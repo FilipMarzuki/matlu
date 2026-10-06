@@ -10,11 +10,16 @@
  */
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
+import { ROUTE, type RoadState } from './road';
+import { CONTACT_TRUST } from './villages';
 import type { EndChoice, Grade as WinterGrade, Injury, OutcomeKind } from './winter';
 import type { Stats } from './stats';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
+
+/** How a run can end: any Region 1 outcome, or the road's own ends (#1250). */
+export type RunKind = OutcomeKind | 'arrived';
 
 /** One finished run, as the history shows it. */
 export interface RunRecord {
@@ -26,7 +31,12 @@ export interface RunRecord {
   /** The day the run ended: the thaw, the day the body gave out, or (old records) the day of the exit. */
   day: number;
   choice: EndChoice;
-  kind: OutcomeKind;
+  /** How the run ended: Region 1's outcome, or — for a run that rode on — how the road ended (#1250). */
+  kind: RunKind;
+  /** Where the run ended (#1250): in the Reach, or on the caravan road. Absent on older records (the Reach). */
+  stage?: 'reach' | 'road';
+  /** What the road came to (#1250), for a run that rode on: the villages reached, quests done, and marks at the end. */
+  road?: { villages: string[]; quests: number; marks: number };
   /** How the Warden came through the winter (#1302), for a survived run. Absent on older records. */
   grade?: WinterGrade;
   injury: Injury | null;
@@ -58,7 +68,13 @@ export interface Legacy {
   stats?: Stats;
   /** Talents with their tiers and discoveries (#1263). Optional so older legacies still load. */
   talents?: Talent[];
+  /** People who came to trust you on the road (#1250): trust 50+. They remember you next time. */
+  contacts?: string[];
+  /** Marks you ended the road with (#1250). */
+  marks?: number;
 }
+
+export { CONTACT_TRUST } from './villages';
 
 /** Summarise a resolved run. Throws on a run still in progress — there's nothing to record yet. */
 export function summarizeRun(s: Region1State, run: number): RunRecord {
@@ -90,9 +106,14 @@ export function summarizeRun(s: Region1State, run: number): RunRecord {
   };
 }
 
-/** The knowledge a Warden takes into the next run. */
-export function legacyOf(s: Region1State): Legacy {
+/** What a run carries, wherever it ended: the knowledge, and what the road earned (#1250). */
+type Carrier = Pick<Region1State, 'known' | 'concepts' | 'skills' | 'techniques' | 'character' | 'marks' | 'contacts'>;
+
+/** The knowledge a Warden takes into the next run — and any marks and contacts from an earlier road. */
+export function legacyOf(s: Carrier): Legacy {
   return {
+    ...(s.marks ? { marks: s.marks } : {}),
+    ...(s.contacts?.length ? { contacts: [...s.contacts] } : {}),
     known: [...s.known],
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
     skills: carriedSkills(s.skills),
@@ -102,12 +123,40 @@ export function legacyOf(s: Region1State): Legacy {
   };
 }
 
+/** What a run that rode the road carries (#1250): its knowledge, the marks in hand, and everyone who trusts you 50+. */
+export function legacyOfRoad(r: RoadState): Legacy {
+  const trusted = Object.entries(r.trust).filter(([, t]) => t >= CONTACT_TRUST).map(([id]) => id);
+  const contacts = [...new Set([...r.contacts, ...trusted])];
+  return { ...legacyOf(r), marks: r.marks, ...(contacts.length ? { contacts } : { contacts: [] }) };
+}
+
+/** The villages the road reached (#1250): every village leg up to where the caravan got to. */
+export const villagesVisited = (r: RoadState): string[] =>
+  ROUTE.slice(0, r.leg + 1).flatMap(l => (l.kind === 'village' ? [l.id] : []));
+
+/**
+ * Summarise a run that rode on (#1250): the Reach part as `summarizeRun`, then how the
+ * road ended, the day it ended (counting on from the thaw), and what it came to.
+ */
+export function summarizeRoad(r: RoadState, reach: Region1State, run: number): RunRecord {
+  if (!r.outcome) throw new Error('cannot summarise a road that has not resolved');
+  return {
+    ...summarizeRun(reach, run),
+    stage: 'road',
+    kind: r.outcome.kind,
+    day: reach.day + r.day - 1,
+    tools: r.tools.map(t => `${t.item}:${t.grade}`),
+    recipes: r.known.length,
+    road: { villages: villagesVisited(r), quests: Object.values(r.quests).filter(q => q === 'done').length, marks: r.marks },
+  };
+}
+
 /**
  * Can this character go on into another run, carrying what they learned (#1242)?
- * Only a resolved run, and only if they lived: death ends the character. Knowledge
- * never passes to anyone else.
+ * Only a resolved run (in the Reach or on the road), and only if they lived: death
+ * ends the character. Knowledge never passes to anyone else.
  */
-export const canContinue = (s: Region1State): boolean => !!s.outcome && s.outcome.kind !== 'died';
+export const canContinue = (s: { outcome: { kind: string } | null }): boolean => !!s.outcome && s.outcome.kind !== 'died';
 
 /** The next run number for a character: their own runs only, never anyone else's (#1242). */
 export function runNumberFor(history: readonly RunRecord[], characterId: string): number {
@@ -123,7 +172,7 @@ export function addRun(history: readonly RunRecord[], rec: RunRecord): RunRecord
 }
 
 /** How good each outcome is, for picking a best run. Surviving the winter beats any of the old exits. */
-export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { survived: 6, thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
+export const OUTCOME_RANK: Readonly<Record<RunKind, number>> = { arrived: 7, survived: 6, thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
 
 /** A run's rank: its outcome, and for a survived winter how well (hale over worn over broken). */
 export const runRank = (r: Pick<RunRecord, 'kind' | 'grade'>): number =>
