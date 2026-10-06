@@ -122,7 +122,7 @@ describe('Character stats (#1256)', () => {
 
   // 8. The road keeps the character's stats.
   it('keeps stats on the caravan road', () => {
-    const left = { ...warden({ cha: 14, con: 12 }), outcome: { choice: 'caravan' as const, kind: 'thrive' as const, vitals: createVitals() } };
+    const left = { ...warden({ cha: 14, con: 12 }), outcome: { choice: 'thaw' as const, kind: 'survived' as const, grade: 'hale' as const, vitals: createVitals() } };
     expect(createRoad(left).character.stats).toEqual(spread({ cha: 14, con: 12 }));
   });
 

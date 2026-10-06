@@ -108,7 +108,7 @@ describe('Talents (#1263)', () => {
     const done = { ...warden(talents), character: { ...warden().character, id: 'w-vega', talents }, outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
     expect(newRun(done).sim.character.talents).toEqual(talents);
     expect(createRegion1({}, legacyOf(done)).character.talents).toEqual(talents);
-    const rode = { ...done, outcome: { choice: 'caravan' as const, kind: 'thrive' as const, vitals: createVitals() } };
+    const rode = { ...done, outcome: { choice: 'thaw' as const, kind: 'survived' as const, grade: 'hale' as const, vitals: createVitals() } };
     expect(createRoad(rode).character.talents).toEqual(talents);
   });
 

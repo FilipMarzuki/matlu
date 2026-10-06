@@ -42,6 +42,8 @@ describe('Winter is played (#1302)', () => {
     expect(hale.day).toBe(thawDay);
     expect(hale.outcome).toMatchObject({ choice: 'thaw', kind: 'survived', grade: 'hale' });
     expect(lines(hale)).toMatch(/You made it through the winter/);
+    // The spring caravan comes for the survivors (#1307).
+    expect(hale.log.at(-1)?.text).toMatch(/The caravan comes up the thawing valley/);
     expect(thaw(55).outcome).toMatchObject({ kind: 'survived', grade: 'worn' });
     expect(thaw(25).outcome).toMatchObject({ kind: 'survived', grade: 'broken' });
     expect(gradeOf(70)).toBe('hale');

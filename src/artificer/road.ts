@@ -1,8 +1,11 @@
 /**
  * Region 1.5 — the caravan road (#1244, epic #1235).
  *
- * Leaving Greywind Reach with the caravan no longer ends the run: the Warden
- * rides to Mistheim, stopping at three villages on the way. This module is the
+ * Surviving the winter in Greywind Reach no longer ends the run: at the thaw
+ * a caravan comes up the valley (#1307), and the Warden rides with it to
+ * Mistheim, stopping at three villages on the way. The road runs in spring —
+ * mild nights, no ice — so the fixed warmth of the wagon camp and the village
+ * roofs is all the cold there is. This module is the
  * skeleton of that journey — the route, the day clock, and survival on the
  * move. People, trade, quests and teachers build on it (#1245–#1249).
  *
@@ -49,6 +52,9 @@ export const ROAD_DAYS = ROUTE.reduce((n, l) => n + l.days, 0);
  */
 export const ROAD_WARMTH: Readonly<Record<Leg['kind'], number>> = { travel: 0.6, village: 0.8 };
 
+/** The season on the road: the thaw is behind you, so no night on it is a cold one. */
+export const ROAD_SEASON = 'spring' as const;
+
 /** A ragged Warden boards half-frozen: Condition starts no higher than this. */
 export const RAGGED_CONDITION = 70;
 
@@ -67,19 +73,21 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   leg: number;
   /** Day within the current leg, from 1. */
   legDay: number;
-  /** How you left Greywind Reach — later issues key trust and standing off it. */
+  /** How you came through the winter: hale is `thrive`, worn or broken `ragged`. Later issues key trust and standing off it. */
   arrival: 'thrive' | 'ragged';
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
 
-/** Start the road from a Region 1 run that left with the caravan. Throws for any other ending. */
+/**
+ * Start the road from a Region 1 run that survived to the thaw (#1307). How the
+ * Warden came through sets the arrival: hale rides on thriving, worn or broken
+ * rides on ragged. Throws for any other ending — the dead take no road.
+ */
 export function createRoad(from: Region1State): RoadState {
   const o = from.outcome;
-  if (!o || o.choice !== 'caravan' || (o.kind !== 'thrive' && o.kind !== 'ragged')) {
-    throw new Error('the road starts only from a caravan exit (thrive or ragged)');
-  }
-  const ragged = o.kind === 'ragged';
+  if (!o || o.kind !== 'survived') throw new Error('the road starts only from a run that survived the winter');
+  const ragged = o.grade !== 'hale';
   const vitals: Vitals = { vigor: { ...from.vitals.vigor }, clarity: { ...from.vitals.clarity }, condition: from.vitals.condition };
   if (ragged) vitals.condition = Math.min(vitals.condition, RAGGED_CONDITION);
   const s: RoadState = {
@@ -105,8 +113,8 @@ export function createRoad(from: Region1State): RoadState {
     log: [],
     outcome: null,
   };
-  say(s, `You climb onto the last wagon as Greywind Reach falls behind. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
-  if (ragged) say(s, "The caravan took you in half-frozen. It'll be days before you're right.", 'hardship');
+  say(s, `You climb onto the last wagon as Greywind Reach falls behind, the valley green with ${ROAD_SEASON}. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
+  if (ragged) say(s, "The winter took a lot out of you. It'll be days on the wagon before you're right.", 'hardship');
   return s;
 }
 
