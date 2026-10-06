@@ -16,6 +16,7 @@
 import { skillLevel, LEVELS, type SkillId, type SkillPractice } from './skills';
 import type { Stats } from './stats';
 import type { Vitals } from './vitality';
+import { fearId, type Quirk } from './quirks';
 
 /** Threat levels, 0–4. */
 export type Threat = 0 | 1 | 2 | 3 | 4;
@@ -67,7 +68,7 @@ export const SHAKEN_PENALTY = 0.15, SHAKEN_CLARITY = 5;
 export interface Perceiver {
   vitals: Pick<Vitals, 'clarity' | 'condition'>;
   skills: SkillPractice;
-  character: { stats: Stats };
+  character: { stats: Stats; quirks?: readonly Quirk[] };
   /** Encounters met and survived, by template id. */
   met?: Readonly<Record<string, number>>;
 }
@@ -76,6 +77,8 @@ export interface Perceiver {
 export interface Threatening {
   id: string;
   threat: Threat;
+  /** What kind of danger it is — what fears attach to (#1362). */
+  tags?: readonly string[];
   /** The skill whose mastery makes it smaller (hunting for animals, scouting for the land). */
   field?: SkillId;
 }
@@ -96,6 +99,11 @@ export function perceivedThreat(w: Perceiver, t: Threatening, ambient = 0): Thre
   if (w.vitals.condition < HURT_CONDITION) p += 1;
   if (met >= HABITUATED) p -= 1;
   if (t.field && skillLevel(w.skills, t.field) >= FIELD_LEVEL) p -= 1;
+  // Temperament and fears (#1362): the reckless see less, the jumpy more, and a fear makes its kind loom.
+  const quirks = w.character.quirks ?? [];
+  if (quirks.some(q => q.id === 'reckless')) p -= 1;
+  if (quirks.some(q => q.id === 'jumpy')) p += 1;
+  if ((t.tags ?? []).some(tag => quirks.some(q => q.id === fearId(tag)))) p += 1;
   return clamp(p);
 }
 

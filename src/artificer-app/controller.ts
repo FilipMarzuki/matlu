@@ -21,6 +21,7 @@ import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
+import { startingQuirks, type Quirk } from '../artificer/quirks';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -403,8 +404,12 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const talents = isObj(ch) && validTalents(ch.talents) ? ch.talents.map(t => ({ ...t }))
     : isObj(ch) && Array.isArray(ch.traits) && validPick(ch.traits as string[]) ? startingTalents(ch.traits as Parameters<typeof startingTalents>[0], id)
     : [];
+  // Quirks (#1362): kept as saved; saves from before quirks roll them from the character id, as a new Warden would.
+  const savedQuirks = isObj(ch) && Array.isArray(ch.quirks) && ch.quirks.every(q => isObj(q) && typeof q.id === 'string' && typeof q.known === 'boolean')
+    ? (ch.quirks as Quirk[]).map(q => ({ ...q })) : id ? startingQuirks(seedOf(id)) : null;
+  const quirks = savedQuirks ? { quirks: savedQuirks } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;

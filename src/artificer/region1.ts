@@ -15,7 +15,8 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
-import { readThreat, responseOf, overrideChance, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
+import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
+import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
@@ -205,7 +206,7 @@ export interface Character {
   /** Base stats (#1256). */
   stats: Stats;
   /** Quirks (#1362): character rather than gifts — a panic response, temperament, fears. Hidden until revealed. */
-  quirks?: { id: string; known: boolean }[];
+  quirks?: Quirk[];
 }
 
 /**
@@ -246,7 +247,11 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     deprivation: { hungry: 0, thirsty: 0 },
     skills: start,
     // Stats (#1256): chosen at creation, or carried from this character's last run.
-    character: { id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) } },
+    character: {
+      id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) },
+      // Quirks (#1362): carried as they are, or rolled from the id — one panic response, perhaps a temperament.
+      ...((legacy?.quirks ?? (who.id ? startingQuirks(seedOf(who.id)) : undefined)) ? { quirks: (legacy?.quirks ?? startingQuirks(seedOf(who.id!))).map(q => ({ ...q })) } : {}),
+    },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
     manuals: [],
@@ -288,7 +293,7 @@ function clone(s: Region1State): Region1State {
     today: { ...s.today },
     deprivation: { ...s.deprivation },
     skills: { ...s.skills },
-    character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats } },
+    character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats }, ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}) },
     techniques: [...s.techniques],
     manuals: [...s.manuals],
     forecast: { ...s.forecast },
@@ -1002,6 +1007,14 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   return next;
 }
 
+/** Make a quirk known (#1362), with its line in the journal — once. */
+function revealQuirk(next: Region1State, id: string, at?: ReturnType<typeof stampFor>): void {
+  const r = reveal(next.character.quirks, id);
+  if (!r.revealed) return;
+  next.character = { ...next.character, quirks: r.quirks };
+  say(next, QUIRKS[id]?.revealed ?? `You learn something about yourself: ${id}.`, 'milestone', at);
+}
+
 /** A craft made with shaking hands (#1361): one grade worse (never below crude), on the item and in the report. */
 function shakyMade(next: Region1State, made: Extract<CraftResult, { kind: 'crafted' }>): CraftResult {
   const grade = GRADES[Math.max(0, GRADES.indexOf(made.grade) - SHAKING_GRADE)];
@@ -1020,6 +1033,12 @@ function maybeEncounter(before: Region1State, next: Region1State, item: QueueIte
   if (!t) return;
   // How it looks, and whether you can hold (#1360). Shaken, the fright itself costs some Clarity.
   const read = readThreat(next, t);
+  // A temperament shows itself the first time it changes how you stand (#1362).
+  for (const id of ['reckless', 'jumpy'] as const) {
+    if (!hasQuirk(next, id) || next.character.quirks!.find(q => q.id === id)!.known) continue;
+    const without = readThreat({ ...next, character: { ...next.character, quirks: next.character.quirks!.filter(q => q.id !== id) } }, t);
+    if (without.state !== read.state) revealQuirk(next, id, at);
+  }
   next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id, perceived: read.perceived, state: read.state, margin: read.perceived - read.nerve };
   next.encounterDay = next.day;
   say(next, t.text, 'hardship', at);
@@ -1052,6 +1071,9 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
     if (chosen.response !== (pick ? instinct : 'freeze')) {
       if (pick) o = pick; else froze = true;
       say(next, `You meant to ${chosen.label.charAt(0).toLowerCase()}${chosen.label.slice(1)}. ${INSTINCT_LINE[pick ? instinct : 'freeze']}`, 'hardship');
+      // The first time your panic response fires, you learn it about yourself (#1362).
+      const quirk = next.character.quirks?.find(q => RESPONSE_QUIRK[q.id]);
+      if (quirk) revealQuirk(next, quirk.id);
     }
   }
   if (!froze) for (const [k, n] of Object.entries(o.cost?.stores ?? {})) next.stores[k as keyof Stores] -= n ?? 0;
@@ -1066,9 +1088,28 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
   // The crash after a panic (#1361): the adrenaline drains away and leaves you wrung out and shaking.
   if (p.state === 'panicked') {
-    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR), clarity: pool(next.vitals.clarity, -CRASH_CLARITY) };
+    // Stoic (#1362): it passes quicker.
+    const stoic = hasQuirk(next, 'stoic') ? STOIC_CRASH : 1;
+    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR * stoic), clarity: pool(next.vitals.clarity, -CRASH_CLARITY * stoic) };
     next.today = { ...next.today, shaking: true };
     say(next, 'Afterwards the strength drains out of you all at once, and your hands won\'t stop shaking.', 'hardship');
+    if (stoic < 1) revealQuirk(next, 'stoic');
+  }
+  // Fears (#1362): a panic that ends badly leaves one; facing its kind calmly, again and again, fades it.
+  const tag = t.tags[0];
+  if (p.state === 'panicked' && tier === 'fail' && tag && !hasQuirk(next, fearId(tag))) {
+    next.character = { ...next.character, quirks: [...(next.character.quirks ?? []), { id: fearId(tag), known: true, faced: 0 }] };
+    say(next, `Something in you won't forget this. ${FEAR_OF[tag] ? FEAR_OF[tag].charAt(0).toUpperCase() + FEAR_OF[tag].slice(1) : tag} will frighten you now.`, 'hardship');
+  } else if (p.state !== 'panicked' && tier !== 'fail') {
+    for (const q of next.character.quirks ?? []) {
+      if (!isFear(q.id) || !t.tags.includes(q.id.slice(5))) continue;
+      const faced = (q.faced ?? 0) + 1;
+      const words = FEAR_OF[q.id.slice(5)] ?? q.id.slice(5);
+      next.character = { ...next.character, quirks: faced >= FEAR_FADES
+        ? next.character.quirks!.filter(x => x.id !== q.id)
+        : next.character.quirks!.map(x => (x.id === q.id ? { ...x, faced } : x)) };
+      if (faced >= FEAR_FADES) say(next, `You notice ${words} don't frighten you the way they did.`, 'milestone');
+    }
   }
   if (next.vitals.condition <= 0) {
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };

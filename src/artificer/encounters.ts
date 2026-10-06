@@ -23,6 +23,7 @@ import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
 import { ADRENALINE, SHAKEN_PENALTY, type PanicState, type Response, type Threat } from './panic';
+import { JUMPY_FLIGHT, type Quirk } from './quirks';
 
 export type EncounterKind = 'animal' | 'find' | 'person';
 
@@ -163,7 +164,7 @@ export interface Encounterer {
   stores: Stores;
   tools: readonly Tool[];
   skills: SkillPractice;
-  character: { stats: Stats; talents: readonly Talent[] };
+  character: { stats: Stats; talents: readonly Talent[]; quirks?: readonly Quirk[] };
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
 }
@@ -198,6 +199,8 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
+  // Jumpy (#1362): the startle reflex gets you away fast.
+  if (o.response === 'flight' && w.character.quirks?.some(q => q.id === 'jumpy')) p += JUMPY_FLIGHT;
   p = Math.max(0.02, Math.min(0.98, p));
   return rattled ? shakenChance(p) : p;
 }

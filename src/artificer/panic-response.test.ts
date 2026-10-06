@@ -89,7 +89,8 @@ describe('Fight, flight, freeze or fawn (#1361)', () => {
 
   // 5. Any panic: Vigor −10, Clarity −10; crafts a grade worse for the day; a poorer night.
   it('crashes after a panic: wrung out, shaking hands, a poor night', () => {
-    const s = facing(fox.id, 'panicked');
+    const plain = facing(fox.id, 'panicked');
+    const s = { ...plain, character: { ...plain.character, quirks: [{ id: 'runner', known: false }] } }; // no stoic temperament to soften it
     const after = chooseOption(s, 'back-away'); // a sure option with no costs of its own
     expect(after.vitals.vigor.current).toBe(s.vitals.vigor.current - CRASH_VIGOR);
     expect(after.vitals.clarity.current).toBe(s.vitals.clarity.current - CRASH_CLARITY);
