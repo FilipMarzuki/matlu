@@ -48,6 +48,16 @@ for (const m of models) {
   const out = Object.entries(m.outcomes).map(([k, n]) => `${k} ${n}`).join(', ');
   const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;
   console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
+  console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
+}
+
+/** The winter in a line (#1309): survival rate, grades, when and how the rest died, and the hard nights per run. */
+function survivalLine(m: ModelSummary): string {
+  const v = m.survival;
+  const grades = (['hale', 'worn', 'broken'] as const).filter(g => v.grades[g]).map(g => `${v.grades[g]} ${g}`).join(', ');
+  const deaths = Object.entries(v.deaths).map(([k, n]) => `${k} ${n}`).join(', ');
+  const nights = Object.entries(v.nights).map(([k, n]) => `${k} ${n}`).join(', ');
+  return `survived ${Math.round(v.rate * 100)}%${grades ? ` (${grades})` : ''}${v.deathDay !== null ? ` · died on day ${v.deathDay} (median) — ${deaths}` : ''}${nights ? ` · hard nights/run: ${nights}` : ''}`;
 }
 
 const spend = models.reduce((n, m) => n + (m.cost.total ?? 0), 0);
@@ -57,20 +67,34 @@ const mdFile = opt('md', '');
 if (mdFile) writeFileSync(mdFile, markdown(models, transcripts.length, spend));
 console.log(`\nreport → ${outFile}`);
 
+/**
+ * What a night of the model roster costs, measured from these runs (#1309) — so the run page
+ * says whether the nightly budget (AI_BENCH_BUDGET, default $1) needs raising or the roster trimming.
+ */
+function rosterCost(models: ModelSummary[]): string {
+  const paid = models.filter(m => m.cost.perGame !== null && m.cost.perGame > 0);
+  if (!paid.length) return '';
+  const night = paid.reduce((n, m) => n + (m.cost.perGame as number), 0);
+  return `One game per model costs about $${night.toFixed(2)} a night (${paid.length} models, from these runs). ${night > 1 ? 'That is over the default $1 AI_BENCH_BUDGET: raise it, or trim the roster.' : 'That fits the default $1 AI_BENCH_BUDGET.'}`;
+}
+
 /** A compact Markdown summary: outcomes, readiness, key progression and spend per model. */
 function markdown(models: ModelSummary[], runs: number, spend: number): string {
   const money = (x: number | null): string => (x === null ? '—' : `$${x.toFixed(3)}`);
   const pct = (m: ModelSummary): string => `${Math.round(100 * wins(m.outcomes) / m.runs)}%`;
   const last = (m: ModelSummary, k: keyof ModelSummary['series']): string => String(m.series[k].filter(v => v !== null).at(-1) ?? '—');
-  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} |`);
+  const grades = (m: ModelSummary): string => (['hale', 'worn', 'broken'] as const).map(g => m.survival.grades[g]).join(' / ');
+  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${grades(m)} | ${m.survival.deathDay ?? '—'} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} |`);
   return [
     `### Artificer AI playtest — ${runs} runs, ${models.length} players, $${spend.toFixed(2)} spent`,
     '',
-    '| Player | Runs | Won | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Player | Runs | Survived | Hale / worn / broken | Died (median day) | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ...rows,
     '',
     'End-of-run values are means over runs. The full report (charts, milestone days, action mix) is in the `ai-playtest` artifact.',
+    '',
+    rosterCost(models),
     '',
   ].join('\n');
 }
@@ -174,6 +198,9 @@ td.good { color: var(--good); font-weight: 600; } td.bad { color: var(--bad); }
   <h2>Outcomes</h2>
   <div class="scroll"><table id="outcomes"></table></div>
 
+  <h2>The winter <span class="meta">(survivors by grade; median day the others died, and of what; hard nights per run)</span></h2>
+  <div class="scroll"><table id="winter"></table></div>
+
   <h2>Progression by day</h2>
   <div class="grid" id="charts"></div>
 
@@ -229,6 +256,16 @@ function outcomes() {
       '<td>' + m.invalidDays + '</td>' +
       '<td>' + money(m.cost.perGame, m.cost.estimated) + '</td><td>' + (m.cost.perWin === null ? '<span class="na">' + (m.cost.perGame === null ? '—' : 'no win') + '</span>' : money(m.cost.perWin, m.cost.estimated)) + '</td><td>' + money(m.cost.total, m.cost.estimated) + '</td>' +
       '<td>' + m.tokens.input.toLocaleString() + '</td><td>' + Math.round(100 * m.tokens.cacheRead / Math.max(1, m.tokens.input)) + '%</td><td>' + m.tokens.output.toLocaleString() + '</td></tr>').join('') + '</tbody>';
+}
+
+function winter() {
+  const list = o => Object.entries(o).map(([k, n]) => esc(k) + ' ' + n).join(', ') || '<span class="na">—</span>';
+  document.getElementById('winter').innerHTML =
+    '<thead><tr><th>Model</th><th>Survived</th><th>Hale</th><th>Worn</th><th>Broken</th><th>Died (median day)</th><th>Causes of death</th><th>Hard nights / run</th></tr></thead><tbody>' +
+    models.map(m => { const v = m.survival; return '<tr><td><span style="display:inline-flex;vertical-align:-1px;margin-right:6px">' + sw(m) + '</span>' + esc(m.model) + '</td>' +
+      '<td class="' + (v.rate >= 0.8 ? 'good' : v.rate < 0.5 ? 'bad' : '') + '">' + Math.round(v.rate * 100) + '%</td>' +
+      '<td>' + v.grades.hale + '</td><td>' + v.grades.worn + '</td><td>' + v.grades.broken + '</td>' +
+      '<td>' + (v.deathDay ?? '<span class="na">—</span>') + '</td><td>' + list(v.deaths) + '</td><td>' + list(v.nights) + '</td></tr>'; }).join('') + '</tbody>';
 }
 
 // Four gridline steps on a "nice" scale: whole-number steps (1, 2, 5 × 10ⁿ) so counts never get 0.3 ticks.
@@ -309,7 +346,7 @@ function actions() {
     models.map(m => '<tr><td>' + esc(short(m)) + '</td>' + keys.map(k => '<td>' + (m.actions[k] ? fmt(m.actions[k]) : '<span class="na">·</span>') + '</td>').join('') + '</tr>').join('') + '</tbody>';
 }
 
-legend(); outcomes(); charts(); events(); actions();
+legend(); outcomes(); winter(); charts(); events(); actions();
 </script>
 `;
 }

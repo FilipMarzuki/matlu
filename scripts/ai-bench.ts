@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { playRun, type RunResult } from '../src/artificer-ai/runner';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
-import { ROSTER, DROPPED } from '../src/artificer-ai/roster';
+import { ROSTER, DROPPED, perYear, budgetAdvice } from '../src/artificer-ai/roster';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -29,9 +29,11 @@ const only = list('only'), skip = list('skip');
 const roster = ROSTER.filter(r => (!only.length || only.some(o => r.model.includes(o))) && !skip.some(x => r.model.includes(x)));
 const out = flag('out') ?? join('ai-runs', `bench-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`);
 
-const estimate = roster.reduce((n, r) => n + r.perGame * runs, 0);
+// A game is the whole year now (#1309): ~60 turns, scaled from the ~10-day measurements.
+const estimate = roster.reduce((n, r) => n + perYear(r) * runs, 0);
 console.log(`Roster: ${roster.length} models × ${runs} game${runs === 1 ? '' : 's'} — estimated $${estimate.toFixed(2)}${Number.isFinite(budget) ? `, budget $${budget}` : ''}`);
-for (const r of roster) console.log(`  ${r.model.padEnd(32)} ~$${r.perGame.toFixed(3)}/game  ${r.note}`);
+for (const r of roster) console.log(`  ${r.model.padEnd(32)} ~$${perYear(r).toFixed(3)}/game  ${r.note}`);
+console.log(budgetAdvice(roster, runs, budget));
 console.log(`Dropped: ${DROPPED.map(d => d.model.split('/').pop()).join(', ')}`);
 if (args.includes('--dry')) process.exit(0);
 if (!roster.length) { console.error('No models left after --only/--skip.'); process.exit(1); }

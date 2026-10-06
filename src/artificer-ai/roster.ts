@@ -4,8 +4,9 @@
  *
  * Chosen on cost vs. how well they play (see the progression report): every
  * model here reached winter-ready in its playtests at a few cents a game.
- * `perGame` is the measured cost of one ~10-day game, used for the estimate
- * the bench prints before it starts.
+ * `perGame` is the measured cost of one ~10-day game (from before winter was
+ * played). A game is now the whole year, about 60 turns (#1309), so the bench
+ * scales it up for its estimate.
  */
 
 export interface RosterEntry {
@@ -30,6 +31,26 @@ export const DROPPED: readonly { model: string; why: string }[] = [
   { model: 'google/gemini-2.5-pro', why: '$0.34/game, no better than the rest' },
   { model: 'mistralai/mistral-large-2512', why: 'overkill for this, and rate-limited upstream' },
 ];
+
+/** How many days `perGame` was measured over, and how many a game lasts now (to the thaw). */
+export const MEASURED_DAYS = 10;
+export const YEAR_DAYS = 60;
+
+/** Estimated USD for one whole-year game: the measured cost, scaled by the turns (a ceiling — caching makes later turns cheaper). */
+export const perYear = (r: RosterEntry): number => (r.perGame * YEAR_DAYS) / MEASURED_DAYS;
+
+/**
+ * Whether a budget covers a night of the roster, and if not, what to do (#1309):
+ * raise the budget to the estimate, or trim to the models it does cover —
+ * cheapest first, which is what an even spend leaves playing.
+ */
+export function budgetAdvice(roster: readonly RosterEntry[], runs: number, budget: number): string {
+  const estimate = roster.reduce((n, r) => n + perYear(r) * runs, 0);
+  if (!Number.isFinite(budget) || estimate <= budget) return `The budget covers the roster (~$${estimate.toFixed(2)}).`;
+  let left = budget, fits = 0;
+  for (const r of [...roster].sort((x, y) => perYear(x) - perYear(y))) { if (perYear(r) * runs > left) break; left -= perYear(r) * runs; fits++; }
+  return `The budget ($${budget}) covers about ${fits} of ${roster.length} models at ~$${estimate.toFixed(2)} for all: raise AI_BENCH_BUDGET to ~$${Math.ceil(estimate)}, or trim the roster.`;
+}
 
 /** The default when a single OpenRouter model is wanted and none is named. */
 export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.8-flash';
