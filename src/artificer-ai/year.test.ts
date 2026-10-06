@@ -85,7 +85,9 @@ describe('The AI plays the whole year (#1309)', () => {
     expect(deathCause(['The fire is long dead and the cold comes in. You don\'t wake. Dead of the cold.'])).toBe('cold');
     // The bench's estimate is for the whole year, and it says when the budget falls short.
     expect(perYear(ROSTER[0])).toBeCloseTo(ROSTER[0].perGame * 6, 10);
-    expect(budgetAdvice(ROSTER, 1, 1)).toMatch(/raise AI_BENCH_BUDGET/);
+    // The trimmed roster fits the nightly $1 (#1326); a smaller budget gets the advice.
+    expect(budgetAdvice(ROSTER, 1, 1)).toMatch(/covers the roster/);
+    expect(budgetAdvice(ROSTER, 1, 0.5)).toMatch(/raise AI_BENCH_BUDGET/);
     expect(budgetAdvice(ROSTER, 1, 100)).toMatch(/covers the roster/);
   });
 });

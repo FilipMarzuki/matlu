@@ -2,7 +2,7 @@
  * Let an AI play the Artificer (#1226).
  *
  *   npm run ai:play -- --player claude      [--model claude-opus-5-5] [--effort medium]
- *   npm run ai:play -- --player openrouter  [--model google/gemini-3.8-flash]
+ *   npm run ai:play -- --player openrouter  [--model anthropic/claude-haiku-4.5]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
  *   options: --runs N (default 1) --carry (each run keeps the last run's knowledge)
