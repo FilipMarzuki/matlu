@@ -221,6 +221,13 @@ export const TRAVELLERS: readonly Person[] = [
       [0, 'A healing word works better when it is true. I cannot tell you that you will be well. I can tell you that you are not alone.'],
       [0, 'The corruption does not make things evil. It makes them more of what they already were: more afraid, more hungry. Remember that when something on the road looks at you wrong.'],
     ]), concept: 'sealing' },
+  // The caravan's merchant (#1355): she trades from her painted wagon on travel days. In a village she leaves it to the village trader.
+  p('cv-runa', 'Runa', 'trader', 'Viddfolk', 'caravan-folk', 'A Viddfolk route-singer who keeps the caravan\'s accounts in songs instead of ledgers.',
+    { kind: 'item', item: 'materials', qty: 6 }, [
+      [0, 'Every road has a song, and every song has the prices in it. That is how my people remember both.'],
+      [0, 'Winter people always have stone and timber to sell and no idea what it is worth. Lucky for you, I am honest. Mostly.'],
+      [0, 'The high plains are moving. Whole herds walk east now, away from the grey. A route-singer has to learn new verses every year.'],
+    ]),
 ];
 
 /** What the road ends at (#1253): the arrival, in words. */

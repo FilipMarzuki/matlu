@@ -30,6 +30,7 @@ import { TALENTS, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
 import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
+import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -101,6 +102,10 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   discovery: Record<string, 'taught' | 'quest'>;
   /** Teachers who've appraised you in this village (#1249) — once each per stay. */
   appraised: string[];
+  /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
+  fare?: Fare | null;
+  /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
+  owesHelp?: number;
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -109,8 +114,12 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
  * Start the road from a Region 1 run that survived to the thaw (#1307). How the
  * Warden came through sets the arrival: hale rides on thriving, worn or broken
  * rides on ragged. Throws for any other ending — the dead take no road.
+ *
+ * `boarding` is what the meeting with the caravan settled (#1355): the fare is taken from your
+ * stores and marks, trust won or lost is added, and help promised is owed. Without one, the
+ * Warden simply climbs on, as before the meeting existed.
  */
-export function createRoad(from: Region1State): RoadState {
+export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
   const o = from.outcome;
   if (!o || o.kind !== 'survived') throw new Error('the road starts only from a run that survived the winter');
   const ragged = o.grade !== 'hale';
@@ -151,6 +160,15 @@ export function createRoad(from: Region1State): RoadState {
   // The caravan's own people (#1253) ride with you from the start; they know you as well as anyone in the first village will.
   const met = startingTrust(s.arrival, statEffects(s.character.stats).trust, 0);
   for (const t of TRAVELLERS) s.trust[t.id] = s.contacts.includes(t.id) ? Math.max(met, CONTACT_TRUST) : met;
+  if (boarding) {
+    // The meeting at the thaw (#1355): what was said goes in the journal, and what was agreed is settled.
+    for (const l of boarding.lines) say(s, l.speaker ? `${TRAVELLERS.find(t => t.id === l.speaker)?.name ?? l.speaker}: ${l.text}` : `You: ${l.text}`, 'action');
+    for (const [k, n] of Object.entries(boarding.paid.stores)) s.stores[k as keyof RoadState['stores']] = Math.max(0, s.stores[k as keyof RoadState['stores']] - (n ?? 0));
+    s.marks = Math.max(0, s.marks - boarding.paid.marks);
+    for (const [id, d] of Object.entries(boarding.trust)) s.trust[id] = Math.max(0, Math.min(100, (s.trust[id] ?? 0) + d));
+    s.fare = boarding.fare;
+    s.owesHelp = boarding.owesHelp;
+  }
   say(s, `You climb onto the last wagon as Greywind Reach falls behind, the valley green with ${ROAD_SEASON}. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
   if (ragged) say(s, "The winter took a lot out of you. It'll be days on the wagon before you're right.", 'hardship');
   return s;
@@ -281,9 +299,12 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   return next;
 }
 
-/** The terms the village trader offers you right now (#1247), or null when no one here is trading. */
+/**
+ * The terms the trader here offers you right now (#1247): the village trader, or on the wagon the
+ * caravan's merchant (#1355). Null when no one here is trading.
+ */
 export function tradeTerms(s: RoadState): (Terms & { trader: string; name: string; sells: readonly string[] }) | null {
-  const trader = traderAmong(peopleOf(villageOf(s)));
+  const trader = traderAmong(peopleHere(s));
   if (!trader) return null;
   const stock = TRADER_STOCK[trader.id];
   return { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
@@ -548,6 +569,11 @@ function help(next: RoadState): RoadState {
   work(next, HELP_HOURS, HELP_VIGOR_RATE, 0);
   next.stores.rawFood += HELP_FOOD;
   say(next, 'You help drive the oxen and pitch camp at dusk. The cook slips you an extra portion.', 'action');
+  // Working off the ride (#1355): each help pays a day of what you promised Bodil.
+  if (next.owesHelp) {
+    next.owesHelp -= 1;
+    say(next, next.owesHelp ? `That's a day of your passage worked off; ${next.owesHelp} to go before Hollowford.` : 'Your passage is worked off. Bodil nods to you at supper.', 'action');
+  }
   return next;
 }
 
@@ -683,6 +709,12 @@ export function endRoadDay(s: RoadState): RoadState {
   next.legDay = 1;
   const now = legOf(next);
   if (now.kind === 'village') {
+    // Help promised for the ride and never given (#1355): Bodil remembers.
+    if (next.owesHelp) {
+      next.trust['cv-bodil'] = Math.max(0, (next.trust['cv-bodil'] ?? 0) - UNPAID_HELP_TRUST);
+      say(next, `Bodil hasn't forgotten the ${next.owesHelp} day${next.owesHelp === 1 ? '' : 's'} of help you promised and never gave. She doesn't say a word about it, which is worse.`, 'hardship');
+      next.owesHelp = 0;
+    }
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
     arriveWithDeliveries(next, now.id);

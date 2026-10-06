@@ -127,7 +127,7 @@ describe('Villages and people (#1246)', () => {
       expect(p.personality.length).toBeGreaterThan(0);
     }
     expect(new Set(QUESTS.map(q => q.needs.kind))).toEqual(new Set(['fetch', 'craft', 'repair', 'scout', 'deliver']));
-    expect(TRAVELLERS).toHaveLength(3);
+    expect(TRAVELLERS).toHaveLength(4);
     for (const t of TRAVELLERS) expect(t.lore).toHaveLength(3);
     // On the wagon, the travellers are there to talk to.
     const road = createRoad(survived('hale'));
