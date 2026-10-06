@@ -61,6 +61,8 @@ export const TRADER_STOCK: Readonly<Record<string, TraderStock>> = {
   'sm-hedda': { wants: ['food', 'cloth'], sells: ['rations', 'rawFood', 'water', 'firewood'] },
   // "Mistheim buys Reach-made tools for silly money." And the Gate burns a lot of wood.
   'kg-arvid': { wants: ['tools', 'fuel'], sells: ['rawFood', 'water', 'firewood', 'materials', 'stone'] },
+  // The caravan's merchant (#1355): she buys what a winter leaves you with — timber, stone, warm things — and sells road food.
+  'cv-runa': { wants: ['raw', 'cloth'], sells: ['rawFood', 'rations', 'materials'] },
 };
 
 /** A wanted kind pays this much more. */

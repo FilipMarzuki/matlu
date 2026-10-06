@@ -9,7 +9,7 @@ import { createVitals } from './vitality';
 import { DEFAULT_STATS } from './stats';
 import { createRoad, endRoadDay, runRoadAction, villageOf, ROUTE, type RoadState } from './road';
 import { BASE_VALUE, TRADER_STOCK, buyPrice, sellPrice, traderAmong } from './trade';
-import { peopleOf } from './villages';
+import { peopleOf, TRAVELLERS } from './villages';
 import type { Grade } from './crafting';
 
 /** A hale Region 1 run at the thaw, carrying `tools`, with the given CHA. */
@@ -68,13 +68,11 @@ describe('Trade (#1247)', () => {
 
   // 5. No trader: "No one here is trading" (on the wagon between villages, and in any village without one).
   it('rejects trade where no one is trading', () => {
+    // Since #1355 the caravan's merchant, Runa, trades on the wagon — so a wagon without her has no one to trade with.
     const wagon = createRoad(survived(coldGear('sound')));
     expect(villageOf(wagon)).toBeNull();
-    for (const id of ['sell:cold-gear', 'buy:rawFood'] as const) {
-      const after = runRoadAction({ ...wagon, marks: 10 }, id);
-      expect(lastLine(after)).toContain('No one here is trading');
-      expect(after.hoursToday).toBe(wagon.hoursToday);
-    }
+    expect(traderAmong(TRAVELLERS)?.id).toBe('cv-runa');
+    expect(traderAmong(TRAVELLERS.filter(p => p.role !== 'trader'))).toBeNull();
     // A village of only non-traders has no one to trade with.
     expect(traderAmong(peopleOf('hollowford').filter(p => p.role !== 'trader'))).toBeNull();
   });
