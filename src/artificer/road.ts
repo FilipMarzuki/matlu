@@ -20,14 +20,15 @@
 
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
-import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS } from './villages';
+import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
-import { practise, skillLevel, drainMult } from './skills';
-import { techniqueEffects } from './techniques';
-import { ACTIONS, CRAFT_WORLD, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
+import { practise, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
+import { TALENTS, type TalentId } from './talents';
+import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -93,6 +94,10 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   marks: number;
   /** Quests taken (#1248), by id: active until done, failed or expired. */
   quests: Record<string, QuestStatus>;
+  /** How recipes learned on the road were come by (#1249): a teacher's lesson, or a quest's reward. */
+  discovery: Record<string, 'taught' | 'quest'>;
+  /** Teachers who've appraised you in this village (#1249) — once each per stay. */
+  appraised: string[];
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -134,6 +139,8 @@ export function createRoad(from: Region1State): RoadState {
     word: 0,
     marks: 0,
     quests: {},
+    discovery: {},
+    appraised: [],
     log: [],
     outcome: null,
   };
@@ -161,6 +168,8 @@ function clone(s: RoadState): RoadState {
     told: { ...s.told },
     idleTalks: { ...s.idleTalks },
     quests: { ...s.quests },
+    discovery: { ...s.discovery },
+    appraised: [...s.appraised],
     log: [...s.log],
   };
 }
@@ -184,9 +193,10 @@ export const roadLockOf = (s: RoadState): string | null =>
  * in the village (#1246), or trade with its trader (#1247) — `sell:<item>`,
  * `sell:<item>:<qty|grade>`, `buy:<good>`, `buy:<good>:<qty>` — or take on
  * and finish its quests (#1248): `accept:<questId>`, `complete:<questId>`.
- * Teachers come in #1249.
+ * And from its teachers (#1249): `learn:<teacherId>:<technique|recipe|concept>`
+ * and `appraise:<teacherId>`.
  */
-export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}`;
+export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}`;
 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
@@ -225,6 +235,8 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   if (id.startsWith('sell:') || id.startsWith('buy:')) return trade(next, id);
   if (id.startsWith('accept:')) return accept(next, id.slice(7));
   if (id.startsWith('complete:')) return complete(next, id.slice(9));
+  if (id.startsWith('learn:')) return learn(next, id.slice(6));
+  if (id.startsWith('appraise:')) return appraise(next, id.slice(9));
   if (id === 'wait') {
     // Let the day pass: no work, no strain.
     next.hoursToday = DAY_HOURS;
@@ -328,7 +340,7 @@ function reward(next: RoadState, quest: QuestTemplate): void {
   next.marks += r.marks;
   if (r.item) next.stores[r.item.item] += r.item.qty;
   const learnt = r.recipe && !next.known.includes(r.recipe) ? r.recipe : null;
-  if (learnt) next.known.push(learnt);
+  if (learnt) { next.known.push(learnt); next.discovery[learnt] = 'quest'; }
   bump(next, quest.giver, QUEST_TRUST);
   for (const p of peopleOf(quest.village)) if (p.id !== quest.giver) bump(next, p.id, QUEST_TRUST_VILLAGE);
   const extras = [`${r.marks} marks`, r.item && `${r.item.qty} ${r.item.item}`, learnt && `the ${learnt} recipe`].filter(Boolean).join(', ');
@@ -370,7 +382,7 @@ function complete(next: RoadState, qid: string): RoadState {
     const walk = te.travelDrain * statEffects(next.character.stats).travel;
     work(next, n.hours, SCOUT_RATES.vigorRate * drainMult(lvl) * te.drain, SCOUT_RATES.clarityRate * drainMult(lvl) * te.drain);
     work(next, n.walk, TRAVEL_VIGOR_RATE * walk, TRAVEL_CLARITY_RATE * walk);
-    next.skills = practise(next.skills, 'scouting', n.hours).practice;
+    next.skills = practise(next.skills, 'scouting', creditedPractice(next, 'scouting', n.hours, guidanceOn(next, 'scouting'))).practice;
   }
   reward(next, quest);
   return next;
@@ -404,6 +416,90 @@ function arriveWithDeliveries(next: RoadState, villageId: string): void {
     }
   }
 }
+
+// ── Teachers (#1249) ────────────────────────────────────────────────────────
+
+/** A teacher in the village you're in, by id, or null. */
+const teacherHere = (s: RoadState, tid: string): (Person & { teaches: NonNullable<Person['teaches']> }) | null => {
+  const p = peopleOf(villageOf(s)).find(x => x.id === tid);
+  return p?.teaches ? (p as Person & { teaches: NonNullable<Person['teaches']> }) : null;
+};
+
+/** Apprenticing: practice in a skill is fully guided while one of its teachers is in the village; else a manual you carry helps. */
+export const guidanceOn = (s: RoadState, skill: SkillId): Guidance =>
+  peopleOf(villageOf(s)).some(p => p.teaches?.skill === skill) ? 'teacher' : s.manuals.some(m => manualById(m)?.skill === skill) ? 'manual' : 'none';
+
+/** What a lesson with this teacher costs you now: free for a friend. */
+export const lessonFee = (s: RoadState, tid: string): number => ((s.trust[tid] ?? 0) >= FRIEND_LESSON ? 0 : LESSON_FEE);
+
+/**
+ * A lesson (#1249): a technique (within TEACH_REACH of your true level), a recipe, or a concept.
+ * Four hours, and the fee unless the teacher counts you a friend. A rejection costs no hours.
+ */
+function learn(next: RoadState, spec: string): RoadState {
+  const [tid, thing] = spec.split(':');
+  const teacher = teacherHere(next, tid);
+  if (!teacher) { say(next, `Learn: skipped — no one called ${tid} teaches here.`, 'skip'); return next; }
+  const t = teacher.teaches;
+  const tech = t.techniques.includes(thing) ? techniqueById(thing) : undefined;
+  const recipe = t.recipes.includes(thing) ? thing : null;
+  const concept = t.concept === thing ? thing : null;
+  if (!tech && !recipe && !concept) { say(next, `Learn: skipped — ${teacher.name} doesn't teach ${thing}.`, 'skip'); return next; }
+  if ((tech && next.techniques.includes(tech.id)) || (recipe && next.known.includes(recipe))) { say(next, `Learn: skipped — you already know ${thing}.`, 'skip'); return next; }
+  if (tech && !canBeTaught(tech, skillLevel(next.skills, tech.skill))) {
+    say(next, `${teacher.name} shakes their head at ${tech.name.toLowerCase()}: "Come back when you can follow it."`, 'skip');
+    return next;
+  }
+  const fee = lessonFee(next, tid);
+  if (next.marks < fee) { say(next, `Learn: skipped — ${teacher.name}'s lesson costs ${fee} marks; you have ${next.marks}.`, 'skip'); return next; }
+  next.marks -= fee;
+  work(next, LESSON_HOURS, -1, -3);
+  const paid = fee ? ` (${fee} marks)` : ' — no charge between friends';
+  if (tech) {
+    next.techniques.push(tech.id);
+    say(next, `Taught by ${teacher.name}: ${tech.name.toLowerCase()} — ${tech.how}.${paid}`, 'milestone');
+  } else if (recipe) {
+    next.known.push(recipe);
+    next.discovery[recipe] = 'taught';
+    say(next, `${teacher.name} shows you how to make the ${recipe}.${paid}`, 'milestone');
+  } else if (concept) {
+    addInsight(next.concepts, concept, LESSON_INSIGHT, CRAFT_WORLD.concepts);
+    say(next, `${teacher.name} talks you through ${concept} — it makes more sense now.${paid}`, 'milestone');
+  }
+  return next;
+}
+
+/** The talent a teacher of each skill would recognise in you (#1262). */
+const TALENT_FIELD: Partial<Record<SkillId, TalentId>> = { hunting: 'hunter', foraging: 'forager', scouting: 'keenEye', fieldcraft: 'waterfinder' };
+
+/**
+ * Honest appraisal (#1249): the one person who'll tell you your true level in their skill —
+ * whatever you think it is (#1241). Once per teacher per village. A teacher of the field also
+ * recognises a talent you didn't know you had (#1262).
+ */
+function appraise(next: RoadState, tid: string): RoadState {
+  const teacher = teacherHere(next, tid);
+  if (!teacher) { say(next, `Appraise: skipped — no one called ${tid} teaches here.`, 'skip'); return next; }
+  if (next.appraised.includes(tid)) { say(next, `Appraise: skipped — ${teacher.name} has already told you what they think.`, 'skip'); return next; }
+  next.appraised.push(tid);
+  work(next, APPRAISE_HOURS, 0, -1);
+  const skill = teacher.teaches.skill;
+  const trueLvl = skillLevel(next.skills, skill), thinks = perceivedLevel(next.skills, skill);
+  const name = SKILLS[skill].name.toLowerCase();
+  const verdict = trueLvl === thinks
+    ? `You're ${article(LEVELS[trueLvl])} ${LEVELS[trueLvl]} at ${name} — and you know it.`
+    : `You're ${article(LEVELS[trueLvl])} ${LEVELS[trueLvl]} at ${name}, whatever you think.`;
+  say(next, `${teacher.name} watches you work a while. "${verdict}"`, 'milestone');
+  const field = TALENT_FIELD[skill];
+  const hidden = field ? next.character.talents.find(x => x.id === field && !x.known) : undefined;
+  if (hidden) {
+    hidden.known = true;
+    say(next, `${teacher.name}: "You have ${article(TALENTS[hidden.id].name)} ${TALENTS[hidden.id].name.toLowerCase()}. Has no one ever told you?"`, 'milestone');
+  }
+  return next;
+}
+
+const article = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a');
 
 /**
  * End the day: a night as in Region 1 (the caravan's barrels water you on
@@ -440,6 +536,7 @@ export function endRoadDay(s: RoadState): RoadState {
   if (leg.kind === 'village') {
     expireQuests(next, leg.id);
     leaveVillage(next, leg.id);
+    next.appraised = [];
     say(next, `The caravan rolls out at dawn, leaving ${leg.name} behind.`, 'milestone');
   }
   if (next.leg === ROUTE.length - 1) {

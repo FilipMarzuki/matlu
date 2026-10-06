@@ -1204,16 +1204,23 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
 }
 
 /**
- * Log hours of practice in a skill (on a cloned state) (#1236, #1241). The true
+ * The practice hours a stretch of work credits (#1243): past Adept, practising alone counts
+ * for less — a manual or a teacher brings it back — and knowing the techniques typical of
+ * your level speeds the climb. Shared with the road, where teachers guide practice (#1249).
+ */
+export function creditedPractice(s: Pick<Region1State, 'skills' | 'techniques' | 'character'>, skill: SkillId, hours: number, guidance: Guidance): number {
+  const lvl = skillLevel(s.skills, skill);
+  return hours * talentEffects(s.character.talents).practice * guidanceRate(lvl, guidance) * techniqueFactor(s.techniques, skill, lvl);
+}
+
+/**
+ * Log hours of practice in a skill (on a cloned state) (#1236, #1241). `guidance` overrides
+ * what you have to hand (a manual, or nothing) — Region 1.5's teachers pass `'teacher'`. The true
  * level is never announced — you feel it ("comes easier"); and when your own
  * estimate drops, you're humbled.
  */
-function practiceSkill(next: Region1State, skill: SkillId, hours: number): void {
-  // Credited practice (#1243): past Adept, practising alone counts for less — a manual or a
-  // teacher brings it back — and knowing the techniques typical of your level speeds the climb.
-  const lvl = skillLevel(next.skills, skill);
-  const credited = hours * talentEffects(next.character.talents).practice
-    * guidanceRate(lvl, guidanceFor(next, skill)) * techniqueFactor(next.techniques, skill, lvl);
+export function practiceSkill(next: Region1State, skill: SkillId, hours: number, guidance?: Guidance): void {
+  const credited = creditedPractice(next, skill, hours, guidance ?? guidanceFor(next, skill));
   const { practice, levelUp, humbled } = practise(next.skills, skill, credited);
   next.skills = practice;
   const name = SKILLS[skill].name;

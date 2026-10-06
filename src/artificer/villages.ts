@@ -11,6 +11,8 @@
  * Pure data plus pure helpers; road.ts holds the state.
  */
 
+import type { SkillId } from './skills';
+
 export type Role = 'trader' | 'teacher' | 'healer' | 'elder' | 'smith' | 'hunter';
 
 /** What a person wants: an item, or a job done. Quests (#1248) are built from these. */
@@ -18,6 +20,18 @@ export type Need = { kind: 'item'; item: string; qty: number } | { kind: 'job'; 
 
 /** A lore line, shared once trust reaches `at`. */
 export interface LoreLine { at: number; text: string }
+
+/**
+ * What a teacher can teach (#1249): techniques in their skill (only within TEACH_REACH of your
+ * true level), recipes, and a concept lesson. Practice in their skill while they're in the
+ * village counts as guided.
+ */
+export interface Teaching {
+  skill: SkillId;
+  techniques: readonly string[];
+  recipes: readonly string[];
+  concept?: string;
+}
 
 export interface Person {
   id: string;
@@ -28,12 +42,14 @@ export interface Person {
   need: Need;
   /** 3–5 lines, in the order they're told, each gated by trust (0 / 25 / 50 / 75). */
   lore: readonly LoreLine[];
+  /** Set for anyone who teaches (#1249) — not only the `teacher` role: a smith or a hunter can too. */
+  teaches?: Teaching;
 }
 
 export interface Village { id: string; name: string; people: readonly Person[] }
 
-const p = (id: string, name: string, role: Role, culture: string, need: Need, lore: [number, string][]): Person =>
-  ({ id, name, role, culture, need, lore: lore.map(([at, text]) => ({ at, text })) });
+const p = (id: string, name: string, role: Role, culture: string, need: Need, lore: [number, string][], teaches?: Teaching): Person =>
+  ({ id, name, role, culture, need, lore: lore.map(([at, text]) => ({ at, text })), ...(teaches ? { teaches } : {}) });
 
 /** The three villages on the road to Mistheim (ids match road.ts's ROUTE). Placeholder content until #1253. */
 export const VILLAGES: Readonly<Record<string, Village>> = {
@@ -54,12 +70,12 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [25, 'Willow bark for pain, pine resin for wounds. The Reach grows both.'],
         [50, 'Exhaustion kills more travellers than wolves. Rest is medicine.'],
         [75, 'I came from the Reach too, once. I never went back.'],
-      ]),
+      ], { skill: 'foraging', techniques: ['greens', 'roots', 'fungi'], recipes: [] }),
       p('hf-orrin', 'Orrin', 'smith', 'ridgefolk', { kind: 'item', item: 'firewood', qty: 4 }, [
         [0, 'Bring me good stone and I\'ll show you an edge.'],
         [25, 'A crude tool is a promise you\'ll fix it later. Make it sound the first time.'],
         [50, 'The old smiths of the ridge never quenched in water. Oil, always oil.'],
-      ]),
+      ], { skill: 'woodcraft', techniques: ['grain', 'notching', 'seasoning'], recipes: [], concept: 'sharpening' }),
     ],
   },
   saltmere: {
@@ -74,12 +90,12 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [25, 'Ask the right question and a craft opens like a door.'],
         [50, 'I kept the Reach\'s survivors\' notes for twenty years. Few wrote much.'],
         [75, 'There is a tally-book somewhere in the Reach. If you found it — you were lucky.'],
-      ]),
+      ], { skill: 'handcraft', techniques: ['weave', 'sewing', 'patterns'], recipes: ['hide-parka', 'waterskin'], concept: 'sealing' }),
       p('sm-yrsa', 'Yrsa', 'hunter', 'steppe-camp', { kind: 'job', job: 'scout the mere shore' }, [
         [0, 'The mere birds come at dusk. Patience gets you more than arrows.'],
         [25, 'Snow tells you everything an animal did. Mud lies.'],
         [50, 'I tracked a wolf pack into the Reach once. They were following a Warden.'],
-      ]),
+      ], { skill: 'hunting', techniques: ['sign', 'stalking', 'dressing'], recipes: ['trap-snare'] }),
       p('sm-gunnar', 'Gunnar', 'elder', 'waterstead', { kind: 'job', job: 'clear the sluice' }, [
         [0, 'The mere is lower every year. Nobody listens to old men about water.'],
         [25, 'Saltmere was a fishing camp before it was a town. The fish remember.'],
@@ -115,7 +131,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [25, 'Stonework is patience with a hammer.'],
         [50, 'The dry-stone walls of the hold have stood three hundred years.'],
         [75, 'I could show you how. It takes a season, not a day.'],
-      ]),
+      ], { skill: 'stonework', techniques: ['cleave', 'knapping', 'drystone'], recipes: [], concept: 'joinery' }),
     ],
   },
 };
@@ -129,6 +145,13 @@ export const TALK_HOURS = 2;
 /** Trust a talk earns while someone still has something to tell you, and after (diminishing from this). */
 export const TALK_TRUST = 5, TALK_TRUST_TOLD = 2;
 export const MAX_TRUST = 100;
+
+/** A lesson (#1249) takes this long, and costs this many marks — free once the teacher's trust reaches FRIEND_LESSON. */
+export const LESSON_HOURS = 4, LESSON_FEE = 6, FRIEND_LESSON = 40;
+/** Insight a concept lesson gives. */
+export const LESSON_INSIGHT = 6;
+/** An honest appraisal takes this long; once per teacher per village stay. */
+export const APPRAISE_HOURS = 1;
 
 /** The people of a village, or none outside one. */
 export const peopleOf = (villageId: string | null): readonly Person[] => (villageId ? VILLAGES[villageId]?.people ?? [] : []);
