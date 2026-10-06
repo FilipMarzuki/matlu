@@ -9,6 +9,7 @@
  * is what travels, the way it would for a real artificer.
  */
 
+import type { Quirk } from './quirks';
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
 import { ROUTE, type RoadState } from './road';
 import { CONTACT_TRUST } from './villages';
@@ -74,6 +75,8 @@ export interface Legacy {
   marks?: number;
   /** Encounters met and survived, by template id (#1360): experience that makes them look smaller. */
   met?: Record<string, number>;
+  /** Quirks (#1362): who you are goes with you — the panic response, temperament, fears, and which you know. */
+  quirks?: Quirk[];
 }
 
 export { CONTACT_TRUST } from './villages';
@@ -123,6 +126,7 @@ export function legacyOf(s: Carrier): Legacy {
     techniques: [...s.techniques],
     stats: { ...s.character.stats },
     talents: s.character.talents.map(t => ({ ...t })),
+    ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
   };
 }
 
