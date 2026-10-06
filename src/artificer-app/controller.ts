@@ -44,7 +44,8 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
-  return { sim: createRegion1({}, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
+  // A new Warden learns to plan as they go (#1350).
+  return { sim: createRegion1({ planning: 'learned' }, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -58,7 +59,7 @@ export function newRun(from?: Region1State | RoadState): AppState {
   const c = from.character;
   // A run that rode the road carries its marks and contacts too (#1250).
   const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
-  return { sim: createRegion1({}, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned' }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
 }
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
@@ -139,8 +140,29 @@ export function deserializeHistory(raw: string | null | undefined): RunRecord[] 
 }
 
 export function enqueue(a: AppState, id: QueueItem): AppState {
-  if (a.sim.outcome || a.stage === 'road') return a;
+  // No queue until planning is learned (#1350): use `act` instead.
+  if (a.sim.outcome || a.stage === 'road' || !a.sim.canPlan) return a;
   return { ...a, queue: [...a.queue, id] };
+}
+
+/** Why the queue is closed, or null (#1350). */
+export const queueLocked = (a: AppState): string | null =>
+  a.sim.canPlan ? null : "You're taking it one thing at a time — you haven't learned to plan ahead yet.";
+
+/**
+ * Do one thing now (#1350): before planning is learned, each action runs as it's chosen.
+ * Nothing happens once the run is over or the day's hours are spent.
+ */
+export function act(a: AppState, item: QueueItem): AppState {
+  if (a.sim.outcome || a.stage === 'road' || a.sim.hoursToday >= DAY_HOURS) return a;
+  return { ...a, sim: runAction(a.sim, item) };
+}
+
+/** End the day without a queue (#1350): the night passes. */
+export function endTheDay(a: AppState): AppState {
+  if (a.sim.outcome || a.stage === 'road') return a;
+  const r = runDay(a.sim, []);
+  return { ...a, sim: r.state, queue: r.state.outcome ? [] : a.queue };
 }
 
 export function dequeueAt(a: AppState, index: number): AppState {
@@ -353,5 +375,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
   // …and a cold pit only at a real site (#1295); none before it.
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
-  return { sim: { ...(sim as unknown as Region1State), eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}) };
+  // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.
+  const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
+  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}) };
 }

@@ -22,7 +22,7 @@ import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow,
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
-import { SKILLS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
+import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
@@ -103,6 +103,12 @@ export interface Region1Config {
   thresholds: ReadinessThresholds;
   /** Which parts of the living world are on (#1279): the full world in play, the flat world for isolated tests. */
   world: WorldConfig;
+  /**
+   * Is planning learned (#1350)? `learned`: a fresh Warden has no queue until their first
+   * level-up — the app and the AI play this way. `open` (the default): planning from day 1,
+   * as tests and older saves expect.
+   */
+  planning?: 'learned' | 'open';
 }
 
 export interface Region1State {
@@ -130,6 +136,11 @@ export interface Region1State {
   /** Study sessions per concept today (diminishing returns; reset each night). */
   studiedToday: Record<string, number>;
   milestones: string[];
+  /**
+   * Can the Warden plan ahead (#1350)? A fresh Warden can't: one thing at a time, until the
+   * first time a skill's true level rises and they catch themselves thinking a step ahead.
+   */
+  canPlan: boolean;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -215,6 +226,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     known: [...STARTING_RECIPES],
     studiedToday: {},
     milestones: [],
+    // Someone who has done this before remembers how to plan; a fresh Warden learns it (#1350).
+    canPlan: config.planning !== 'learned' || SKILL_IDS.some(id => skillLevel(legacy?.skills ?? {}, id) >= 1),
     tools: [],
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
@@ -1230,6 +1243,11 @@ export function practiceSkill(next: Region1State, skill: SkillId, hours: number,
   next.skills = practice;
   const name = SKILLS[skill].name;
   if (levelUp !== null) say(next, `${SKILLS[skill].felt} — ${name.toLowerCase()} comes easier.`, 'milestone');
+  // The first level-up (#1350): the Warden notices they're thinking ahead — the plan queue opens.
+  if (levelUp !== null && !next.canPlan) {
+    next.canPlan = true;
+    say(next, PLANNING_UNLOCKED, 'milestone');
+  }
   if (humbled !== null) say(next, `The more you learn of ${name.toLowerCase()}, the more you see how little you know.`, 'action');
   learnWhatYouCan(next, skill);
 }
@@ -1766,10 +1784,18 @@ export function survivalLockOf(s: Region1State): string | null {
  * then the day ends. Returns the new state and the unrun remainder, which
  * carries into tomorrow.
  */
+/** The journal line when planning opens up (#1350). */
+export const PLANNING_UNLOCKED = 'Halfway through the work you catch yourself already thinking about the next job, and the one after. You can plan ahead now.';
+
 export function runDay(s: Region1State, queue: readonly QueueItem[]): { state: Region1State; remaining: QueueItem[] } {
   if (s.outcome) return { state: s, remaining: [...queue] };
   let state = s;
   const remaining = [...queue];
+  // One thing at a time until planning is learned (#1350): only the first action runs today.
+  if (!s.canPlan && remaining.length) {
+    state = runAction(state, remaining.shift() as QueueItem);
+    return { state: endDay(state), remaining };
+  }
   while (remaining.length > 0 && state.hoursToday < DAY_HOURS) {
     state = runAction(state, remaining.shift() as QueueItem);
   }

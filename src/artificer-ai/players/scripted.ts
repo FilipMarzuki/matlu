@@ -89,7 +89,32 @@ const dayHours = (day: Entry[], s: Region1State): number =>
  * it trades places with a later wood trip. Each run gets a
  * fresh player, so the plan is per run.
  */
-export const scriptedPlayer = (): Player => {
+export const scriptedPlayer = (): Player => stepwise(scriptedPlanner());
+
+/**
+ * Learned planning (#1350): the planner still plans a whole day, but until the Warden can
+ * plan ahead it hands that day out one action per call, and the rest (if planning opens
+ * mid-day) in one go. An empty queue ends the day.
+ */
+function stepwise(planner: Player): Player {
+  let today: { day: number; plan: { thoughts: string; site: string | null; eating?: string; queue: unknown[] } } | null = null;
+  return {
+    ...planner,
+    async decide(message, s) {
+      if (today?.day !== s.day) {
+        const r = await planner.decide(message, s);
+        today = { day: s.day, plan: JSON.parse(r.text) };
+      }
+      const p = today.plan;
+      const queue = s.canPlan ? p.queue.splice(0) : p.queue.splice(0, 1);
+      // The site is claimed once, with the day's first reply.
+      const site = p.site; p.site = null;
+      return { text: JSON.stringify({ ...p, site, queue }), usage: { cost: 0 } };
+    },
+  };
+}
+
+const scriptedPlanner = (): Player => {
   const remaining = PLAN.map(day => [...day]);
   return {
     name: 'scripted',

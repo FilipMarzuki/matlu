@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -33,7 +33,7 @@ import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
-import { newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -500,9 +500,29 @@ function paletteBlock(a: AppState, preview: Preview): string {
 const todayHours = (a: AppState, preview: Preview): number =>
   a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), a.sim.hoursToday);
 
+/**
+ * Before planning is learned (#1350): no queue — each tap does the thing now, and you end
+ * the day yourself. The latest journal line shows what just happened.
+ */
+function oneAtATime(a: AppState): string {
+  const s = a.sim;
+  const last = s.log.at(-1);
+  const spent = s.hoursToday >= DAY_HOURS;
+  return `<div class="queue onestep">
+      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">ONE THING AT A TIME</p>
+      <p class="mood" style="margin:0 0 8px">${esc(queueLocked(a) ?? '')} Tap an action to do it now.</p>
+      ${last ? `<p class="news ${last.kind}">${esc(last.text)}</p>` : ''}
+      <div class="qtot"><span>Today <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? '<span>The day is spent.</span>' : ''}</div>
+      <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>☾ END THE DAY</button></div>
+    </div>`;
+}
+
 function queueBlock(a: AppState, preview: Preview): string {
   const s = a.sim;
+  if (!s.canPlan) return oneAtATime(a);
   const resolved = s.outcome !== null;
+  // The day planning opened up (#1350): the queue arrives with a glow.
+  const fresh = s.log.some(l => l.text === PLANNING_UNLOCKED && l.day >= s.day - 1);
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -524,8 +544,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
-  return `<div class="queue">
-      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">THE QUEUE</p>
+  return `<div class="queue ${fresh ? 'fresh' : ''}">
+      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">THE QUEUE${fresh ? ' — NEW: PLAN AHEAD' : ''}</p>
       <ol>${items || `<li class="empty">Empty — tap actions to plan. A day is ${DAY_HOURS} waking hours; the queue spills into the next day and you sleep between.</li>`}</ol>
       <div class="qtot"><span>Today <b>${hrs(todayHours(a, preview))} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
       <div class="runbar">
@@ -598,7 +618,7 @@ function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
       return `<section class="box seasonbox">${seasonStrip(a)}</section><div class="plan">
-        <section class="box"><p class="eyebrow">ACTIONS — tap to add to the queue</p>${paletteBlock(a, preview)}</section>
+        <section class="box"><p class="eyebrow">ACTIONS — ${a.sim.canPlan ? 'tap to add to the queue' : 'tap to do it now'}</p>${paletteBlock(a, preview)}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div></section>
       </div>`;
@@ -810,7 +830,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({}, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
+  state = { sim: createRegion1({ planning: 'learned' }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
   render(state);
 }
 
@@ -953,7 +973,9 @@ root.addEventListener('click', e => {
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
   else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; update(chooseEating(state, plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length])); }
-  else if (d.q) update(enqueue(state, d.q as QueueId));
+  // Before planning is learned (#1350), a tap does the thing now.
+  else if (d.q) update(state.sim.canPlan ? enqueue(state, d.q as QueueId) : act(state, d.q as QueueId));
+  else if (d.cmd === 'endday') update(endTheDay(state));
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
   else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
