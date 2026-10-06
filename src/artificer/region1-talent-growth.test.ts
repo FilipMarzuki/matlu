@@ -82,7 +82,7 @@ describe('Talent growth (#1264)', () => {
     const done = { ...warden(grown), character: { ...warden(grown).character, id: 'w-vega' }, outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
     expect(newRun(done).sim.character.talents).toEqual(grown);
     expect(createRegion1({}, legacyOf(done)).character.talents).toEqual(grown);
-    expect(createRoad({ ...done, outcome: { choice: 'caravan', kind: 'thrive', vitals: createVitals() } }).character.talents).toEqual(grown);
+    expect(createRoad({ ...done, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals: createVitals() } }).character.talents).toEqual(grown);
   });
 
   // Crafting and study grow the hands and mind; the night's growth also runs through endDay.

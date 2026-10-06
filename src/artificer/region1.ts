@@ -1226,6 +1226,8 @@ export function endDay(s: Region1State): Region1State {
     const grade = gradeOf(next.vitals.condition);
     next.outcome = { choice: 'thaw', kind: 'survived', grade, vitals: next.vitals };
     say(next, `The ice breaks on the streams. You made it through the winter — ${GRADE_LINE[grade]}`, 'outcome');
+    // The spring caravan (#1307): the way on to the road.
+    say(next, 'The caravan comes up the thawing valley, wheels deep in the mud. There is room on the last wagon.', 'outcome');
     return next;
   }
   if (next.day === next.config.calendar.winterDay) say(next, 'Snow in the night, and it stays. Winter has come — hold on until the thaw.', 'milestone');
