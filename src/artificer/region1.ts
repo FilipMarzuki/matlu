@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, type Haul } from './load';
+import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, EXHAUSTED_AT, EXHAUSTED_DRAIN, type Haul } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
@@ -126,7 +126,7 @@ export interface Region1State {
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
   /** Today so far. `outside` / `absorbed` (#1305): went out on the land; did study or craft work — either keeps cabin fever off. */
-  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean };
+  today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean; exhausted?: boolean };
   /** Nights in a row without food / without water (#1233); each night without costs more. */
   deprivation: { hungry: number; thirsty: number };
   /** Practice hours per skill (#1236); levels come from these. */
@@ -151,6 +151,8 @@ export interface Region1State {
   eating?: EatingPlan;
   /** Days in a row cooped up — not out on the land, no study or craft (#1305). */
   cabinDays?: number;
+  /** Strain from carrying overloaded (#1293): spoils the night's recovery, halves each night. Absent: none. */
+  strain?: number;
   /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */
   coldPitAt?: SiteId | null;
   log: LogEntry[];
@@ -991,8 +993,10 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const at = stampFor(next, workHours + travel);
   const wd = weatherDrain(next.weatherToday, id, !!def.ringed, ring);
   const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour) * wd, dt = darkTravelDrain(at.light);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt });
+  // Exhausted from yesterday's loads (#1293): everything drains more today.
+  const ex = next.today.exhausted ? EXHAUSTED_DRAIN : 1;
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -1023,7 +1027,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const before = { ...next.stores };
   say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1), 'action', at);
   // What you can carry home (#1291): a trip's haul is what it added to the stores, and what won't fit stays out there.
-  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt);
+  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex);
   const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   if (exposure) {
@@ -1060,6 +1064,8 @@ function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring:
   const r = overloadRatio(carried, gear, next.character.stats);
   const { extraHours, extraVigor } = overloadWalk(r, homeHours, walkRate);
   if (extraHours <= 0) return;
+  // Every overloaded hour builds strain (#1293), which the nights work off.
+  next.strain = (next.strain ?? 0) + strainFrom(r, homeHours + extraHours);
   // The extra time and drain go on as one more stretch of walking (the rate covers both: drain ÷ hours).
   const w = applyActivity(next.vitals, { hours: extraHours, vigorRate: extraVigor / extraHours, clarityRate: 0 });
   next.vitals = w.vitals;
@@ -1085,7 +1091,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const sd = statDrain(next.character.stats, id, skill);
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   const te = techniqueEffects(next.techniques, id, recipe.id);
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain };
+  const ex = next.today.exhausted ? EXHAUSTED_DRAIN : 1; // exhausted from yesterday's loads (#1293)
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * ex, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * ex };
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
@@ -1350,6 +1357,11 @@ export function endDay(s: Region1State): Region1State {
   }
   if (next.day === next.config.calendar.winterDay) say(next, 'Snow in the night, and it stays. Winter has come — hold on until the thaw.', 'milestone');
   dawnWeather(next);
+  // Still strained after the night (#1293): exhausted today — all work drains more.
+  if ((next.strain ?? 0) >= EXHAUSTED_AT) {
+    next.today.exhausted = true;
+    say(next, "Your back aches from yesterday's loads.", 'hardship');
+  }
   // Tell the player when survival takes over the mind, and when it lets go.
   const lockedNow = survivalLockOf(next);
   if (lockedNow && !lockedToday) say(next, `Survival takes over your thoughts — ${lockedNow}. Your focus will have to wait.`, 'hardship');
@@ -1475,7 +1487,7 @@ const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
  * What a night needs from a Warden — shared by Region 1 and the caravan road
  * (#1244), so survival works the same wherever you sleep.
  */
-export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log'>;
+export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log' | 'strain'>;
 
 export interface NightOpts {
   /** Shelter warmth for the night, 0–1. */
@@ -1589,7 +1601,9 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
   const tr = talentEffects(next.character.talents);
   const se = statEffects(next.character.stats);
-  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery);
+  // Strain from yesterday's loads (#1293) spoils the body's recovery: 10% per point, at most half.
+  const strained = next.strain ?? 0;
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery) * strainRecovery(strained);
   const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate || lean ? 1 : NEEDS.food.clarityRecovery);
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
@@ -1631,7 +1645,9 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     return froze > 0 ? { ended: 'died', cause: 'cold' } : { ended: 'collapsed' };
   }
   // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
-  growFrom(next, { kind: 'night', hungry: !ate && !lean, cold: o.coldNight || froze > 0, condition: next.vitals.condition });
+  growFrom(next, { kind: 'night', hungry: !ate && !lean, cold: o.coldNight || froze > 0, condition: next.vitals.condition, strained: strained >= EXHAUSTED_AT });
+  // A night's rest works half the strain off.
+  if (strained > 0) next.strain = strained / 2;
 
   const summary = {
     loadVigor: next.today.loadVigor,

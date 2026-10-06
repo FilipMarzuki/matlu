@@ -186,7 +186,7 @@ export const TIER_AT: readonly number[] = [0, 0, 30, 150, 600];
 /** Something that happened that a talent may grow from. */
 export type GrowthEvent =
   | { kind: 'work'; action: ActionId; hours: number; craft?: boolean; practised?: boolean }
-  | { kind: 'night'; hungry: boolean; cold: boolean; condition: number };
+  | { kind: 'night'; hungry: boolean; cold: boolean; condition: number; strained?: boolean };
 
 /** Hours a night of hardship counts as (Light Eater, Cold-blooded, Tough). */
 export const NIGHT_GROWTH = 4;
@@ -196,7 +196,8 @@ export function growthFor(id: TalentId, e: GrowthEvent): number {
   if (e.kind === 'night') {
     if (id === 'lightEater') return e.hungry ? NIGHT_GROWTH : 0;
     if (id === 'coldBlooded') return e.cold ? NIGHT_GROWTH : 0;
-    if (id === 'tough') return e.condition < 50 ? NIGHT_GROWTH : 0;
+    // Worn down: low Condition, or strained from the loads (#1293).
+    if (id === 'tough') return e.condition < 50 || e.strained ? NIGHT_GROWTH : 0;
     return 0;
   }
   const { action: a, hours: h } = e;
