@@ -44,7 +44,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [25, 'Every spring the caravan brings someone half-dead out of the Reach. You look better than most.'],
         [50, 'My grandmother said the Reach takes one winter in three. She never said which.'],
       ]),
-      p('hf-tobin', 'Tobin', 'trader', 'caravan-folk', { kind: 'item', item: 'hides', qty: 2 }, [
+      p('hf-tobin', 'Tobin', 'trader', 'caravan-folk', { kind: 'job', job: 'carry hides to Saltmere' }, [
         [0, 'Hides, salt, a good knife — I buy what travels well.'],
         [25, 'The salt road runs through Saltmere. Prices there are honest, mostly.'],
         [50, 'Kestrel Gate taxes everything that moves. Sell before you get there.'],
@@ -55,7 +55,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [50, 'Exhaustion kills more travellers than wolves. Rest is medicine.'],
         [75, 'I came from the Reach too, once. I never went back.'],
       ]),
-      p('hf-orrin', 'Orrin', 'smith', 'ridgefolk', { kind: 'item', item: 'stone', qty: 4 }, [
+      p('hf-orrin', 'Orrin', 'smith', 'ridgefolk', { kind: 'item', item: 'firewood', qty: 4 }, [
         [0, 'Bring me good stone and I\'ll show you an edge.'],
         [25, 'A crude tool is a promise you\'ll fix it later. Make it sound the first time.'],
         [50, 'The old smiths of the ridge never quenched in water. Oil, always oil.'],
@@ -75,7 +75,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [50, 'I kept the Reach\'s survivors\' notes for twenty years. Few wrote much.'],
         [75, 'There is a tally-book somewhere in the Reach. If you found it — you were lucky.'],
       ]),
-      p('sm-yrsa', 'Yrsa', 'hunter', 'steppe-camp', { kind: 'item', item: 'hides', qty: 1 }, [
+      p('sm-yrsa', 'Yrsa', 'hunter', 'steppe-camp', { kind: 'job', job: 'scout the mere shore' }, [
         [0, 'The mere birds come at dusk. Patience gets you more than arrows.'],
         [25, 'Snow tells you everything an animal did. Mud lies.'],
         [50, 'I tracked a wolf pack into the Reach once. They were following a Warden.'],
@@ -85,7 +85,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         [25, 'Saltmere was a fishing camp before it was a town. The fish remember.'],
         [50, 'Mistheim sends for salt and never sends back what it promises.'],
       ]),
-      p('sm-liv', 'Liv', 'healer', 'refuge-keepers', { kind: 'item', item: 'water', qty: 6 }, [
+      p('sm-liv', 'Liv', 'healer', 'refuge-keepers', { kind: 'item', item: 'waterskin', qty: 1 }, [
         [0, 'Clean water first. Everything else after.'],
         [25, 'Half the fevers on the road come from bad wells.'],
         [50, 'We take in anyone the road spits out. That\'s what a refuge is.'],
