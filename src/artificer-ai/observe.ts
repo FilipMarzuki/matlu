@@ -14,7 +14,7 @@
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf,
-  tripLoad, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
+  tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
@@ -29,6 +29,8 @@ import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHer
 import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { encounterById, optionsFor, type EncounterOption } from '../artificer/encounters';
+import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
+import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
@@ -69,6 +71,10 @@ Crafts (build, coldPit, coldGear, knife, snare, waterskin, bedroll, shovel, bask
 
 ENCOUNTERS
 Out on the land (more often in the far rings, and in the dark) you may meet something: an animal, a find, a person. At most one a day. It pauses the day, and you choose what to do from the options shown. Each option says what it costs and needs, and its odds in words: safe (nothing can go wrong), likely, risky, desperate. Odds follow your stats, skills, talents and tools. The outcome is fixed for that encounter and choice. Some failures hurt badly; a few can kill. After your choice the rest of the day runs.
+
+FEAR AND PANIC
+Things look as dangerous as they seem to YOU, not as they are: the unknown, the dark or a storm, a foggy mind (Clarity under 30) and a hurt body (Condition under 40) make them look worse; meeting the same thing again and again, and skill in its field, make them look smaller. Your nerve (from WIL, and some talents) is what you can hold. If something looks one step past your nerve you are SHAKEN: careful options (fine judgement, stalking, talking) go one odds word worse, and the fright costs some Clarity. Two or more steps past and you PANIC: careful options close, and your body may override your choice with its instinct — your panic response, a quirk you may not know yet (fighters lash out, runners bolt, freezers lock up and lose hours, appeasers give something away). Shaken or panicked, adrenaline makes STR and AGI count higher for the moment. After a panic comes a crash: Vigor and Clarity drop, your hands shake (crafts a grade worse that day) and you sleep badly. A panic that ends badly can leave a lasting fear of that kind of thing; facing it calmly a few times fades it.
+The environment frightens too. Out on the land, dusk and dark, fog, storms and blizzards, the distant ring, and winter after dark all add up (ground you know well helps): shaken, the work wears the mind harder; panicked, something out there may spook you off the land — what you do then is your panic response. At night, no shelter, no fire, bad weather and winter make it hard to sleep (a lived-in camp and a warm shelter with the fire kept in help): an uneasy night returns less Clarity, a sleepless one much less, and some Vigor. The observation marks trips and nights that will frighten you.
 
 RESPONDING
 Each turn you get an observation. Reply with ONLY a JSON object, no prose, matching:
@@ -197,6 +203,12 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const knownTalents = s.character.talents.filter(t => t.known);
   const hiddenCount = s.character.talents.length - knownTalents.length;
   if (s.character.talents.length) lines.push(`TALENTS: ${knownTalents.map(t => `${TALENTS[t.id].name} (${TALENTS[t.id].blurb})`).join(' · ') || 'none known'}${hiddenCount ? ` · ${hiddenCount} hidden talent, not yet discovered` : ''}${s.character.lastStandUsed ? ' — last stand used' : ''}`);
+  // Quirks (#1365): the ones you know, your fears and how far you've come facing them — never the hidden ones.
+  const quirksLine = quirkLine(s);
+  if (quirksLine) lines.push(quirksLine);
+  // Tonight (#1365): if going to bed now would be a fearful night, and why.
+  const tonight = tonightsFright(s);
+  if (tonight && tonight.state !== 'calm') lines.push(`TONIGHT: looks ${THREAT_WORDS[tonight.perceived]} (${tonight.reasons.join(', ')}) — ${tonight.state === 'shaken' ? 'an uneasy night: less Clarity back' : 'a sleepless night: much less Clarity and some Vigor back'}. Shelter, a fire, a camp you know all help.`);
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
@@ -228,7 +240,10 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const danger = why ? null : dangerOf(s, id, r);
       // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
       const load = why ? null : tripLoad(s, queueId(id, r));
-      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}`);
+      // How it would feel out there now (#1365): shaken or panicked, and why — as the queue preview shows a person.
+      const u = why ? null : tripUnease(s, queueId(id, r));
+      const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
+      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {
@@ -302,16 +317,30 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
     `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
     ...notes.map(n => `NOTE: ${n}`),
     t.text,
+    // Your read and how you stand (#1365): how dangerous it looks to you — not what it is.
+    `YOUR READ: it looks ${THREAT_WORDS[p.perceived ?? t.threat]}. ${STATE_WORDS[p.state ?? 'calm']}`,
     `VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100 · hours used today ${s.hoursToday}/${DAY_HOURS}`,
+    ...(quirkLine(s) ? [quirkLine(s)!] : []),
     `STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · hides ${st.hides}`,
     'OPTIONS (id: what you do — cost — odds):',
     ...optionsFor(s, t).map(({ option, unmet, odds }) => {
       const cost = optionCost(option);
-      return `- ${option.id}: ${option.label}${cost ? ` — costs ${cost}` : ''} — ${unmet ? `NOT AVAILABLE (${unmet})` : odds}`;
+      const harder = option.careful && p.state === 'shaken' && !unmet ? ' (harder: you are shaken)' : '';
+      return `- ${option.id}: ${option.label}${cost ? ` — costs ${cost}` : ''} — ${unmet ? `NOT AVAILABLE (${unmet})` : odds}${harder}`;
     }),
     'Reply with ONLY {"thoughts": "<one sentence>", "choice": "<option id>"}.',
   ];
   return lines.join('\n');
+}
+
+/** Known quirks and fears, in a line (#1365); null when there's nothing known to tell. */
+function quirkLine(s: Region1State): string | null {
+  const qs = s.character.quirks ?? [];
+  const known = qs.filter(q => q.known && !isFear(q.id)).map(q => `${quirkName(q.id)} (${QUIRKS[q.id]?.blurb ?? ''})`);
+  const fears = qs.filter(q => isFear(q.id)).map(q => `${quirkName(q.id)} (makes it look worse; faced calmly ${q.faced ?? 0} of ${q.id === 'fear:dark' ? DARK_FADES : FEAR_FADES} times)`);
+  const hidden = qs.filter(q => !q.known).length;
+  if (!known.length && !fears.length && !hidden) return null;
+  return `QUIRKS: ${[...known, ...fears].join(' · ') || 'none known'}${hidden ? ` · ${hidden} not yet known (how you react when it's too much)` : ''}`;
 }
 
 /** Render a road day's observation (#1251). `notes` carries harness feedback, as in Region 1. */

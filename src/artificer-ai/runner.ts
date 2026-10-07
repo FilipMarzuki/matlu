@@ -8,9 +8,11 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, createRegion1, chooseSite, chooseOption, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, type EncounterKind, type OddsWord } from '../artificer/encounters';
+import { isFear, type Quirk } from '../artificer/quirks';
+import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
@@ -48,6 +50,49 @@ export interface Player {
   decideEncounter?(message: string, state: Region1State): Promise<{ text: string; usage?: Partial<Usage> }>;
 }
 
+/** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
+export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
+
+/** The turn's frights, read from its journal and the quirks it began and ended with; null when nothing frightened. */
+export function frightOfTurn(journal: readonly string[], before: readonly Quirk[], after: readonly Quirk[]): TurnFright | null {
+  const spookLines = Object.values(SPOOK_LINE) as string[];
+  const fears = (qs: readonly Quirk[]) => qs.filter(q => isFear(q.id)).map(q => q.id);
+  const f: TurnFright = {
+    spooks: journal.filter(l => spookLines.includes(l)).length,
+    uneasyNights: journal.filter(l => l.startsWith('You lie awake a long time')).length,
+    sleeplessNights: journal.filter(l => l.startsWith('A sleepless night')).length,
+    fearsGained: fears(after).filter(id => !fears(before).includes(id)),
+    fearsLost: fears(before).filter(id => !fears(after).includes(id)),
+  };
+  return f.spooks || f.uneasyNights || f.sleeplessNights || f.fearsGained.length || f.fearsLost.length ? f : null;
+}
+
+/**
+ * What an answered encounter looked like (#1348, #1365): the choice and its odds as seen, how you
+ * stood (calm, shaken, panicked), whether your body overrode you — what you chose and what it
+ * took instead (`freeze` for freezing) — and any quirk revealed or fear gained.
+ */
+export function encounterRecord(before: Region1State, after: Region1State, chosenId: string): EncounterChoice {
+  const p = before.pending!;
+  const t = encounterById(p.id)!;
+  const chosen = t.options.find(o => o.id === chosenId)!;
+  const lines = after.log.slice(before.log.length).map(l => l.text);
+  const overridden = lines.some(l => l.startsWith('You meant to'));
+  const taken = overridden ? (lines.includes(t.freeze.text) ? 'freeze' : t.options.find(o => o.id !== chosenId && lines.some(l => l.startsWith(`${o.label}: `)))?.id ?? 'freeze') : chosenId;
+  const knownIds = (s: Region1State) => (s.character.quirks ?? []).filter(q => q.known && !isFear(q.id)).map(q => q.id);
+  const fearIds = (s: Region1State) => (s.character.quirks ?? []).filter(q => isFear(q.id)).map(q => q.id);
+  const revealed = knownIds(after).filter(id => !knownIds(before).includes(id));
+  const fearsGained = fearIds(after).filter(id => !fearIds(before).includes(id));
+  return {
+    id: p.id, kind: t.kind, choice: chosenId, odds: oddsWord(chanceOf(before, chosen)), result: lines.join(' '),
+    state: p.state ?? 'calm',
+    ...(overridden ? { override: { chosen: chosenId, taken } } : {}),
+    ...(revealed.length ? { revealed } : {}),
+    ...(fearsGained.length ? { fearsGained } : {}),
+    ...(after.outcome?.kind === 'died' ? { died: true } : {}),
+  };
+}
+
 /** One encounter met during a turn (#1348), and what came of it. */
 export interface EncounterChoice {
   id: string;
@@ -59,6 +104,13 @@ export interface EncounterChoice {
   result: string;
   /** The choice killed the Warden. */
   died?: boolean;
+  /** How you stood when it opened (#1365). */
+  state?: PanicState;
+  /** Panic took over (#1365): what you chose, and what your body did instead (`freeze` for freezing). */
+  override?: { chosen: string; taken: string };
+  /** Quirks this encounter revealed, and fears it left (#1365). */
+  revealed?: string[];
+  fearsGained?: string[];
   /** No valid choice came back (twice, or the player can't choose), so the safest was taken. */
   forced?: boolean;
   /** For a forced choice: the last raw reply and what was wrong with it. */
@@ -104,6 +156,8 @@ export interface Turn {
   progress: Progress;
   /** Encounters met this turn and the choices made (#1348). */
   encounters?: EncounterChoice[];
+  /** What fear did this turn (#1365): spooks, fearful nights, fears gained or faded. */
+  fright?: TurnFright;
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -223,31 +277,33 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       }
       const forced = choice === null;
       const option = forced ? safestOption(s, t) : t.options.find(o => o.id === choice)!;
-      const odds = oddsWord(chanceOf(s, option));
       const key = `${p.id}@${p.day}`;
-      const logStart = s.log.length;
+      const before = s;
       s = chooseOption(s, option.id);
       if (forced && player.decideEncounter) notes.push(`You never named a valid choice in the encounter on day ${p.day}, so you took the safest: ${option.label}.`);
       met.push({
-        id: p.id, kind: t.kind, choice: option.id, odds, result: s.log.slice(logStart).map(l => l.text).join(' '),
-        ...(s.outcome?.kind === 'died' ? { died: true } : {}),
+        ...encounterRecord(before, s, option.id),
         ...(forced ? { forced: true, ...(player.decideEncounter ? { reply, errors } : {}) } : {}),
       });
       if (resolved.has(key)) twice.push(`encounter ${key} resolved twice`);
       resolved.add(key);
     }
   };
-  /** Close a turn: attach the encounters met during it, and flag one resolved twice. */
+  /** Close a turn: attach the encounters met during it and the turn's frights (#1365), and flag one resolved twice. */
   const close = (t: Turn): Turn => {
-    const out = met.length ? { ...t, encounters: met } : t;
+    const fright = frightOfTurn(t.journal, quirksAtStart, s.character.quirks ?? []);
+    const out = { ...t, ...(met.length ? { encounters: met } : {}), ...(fright ? { fright } : {}) };
     const v = twice;
     met = []; twice = [];
     return v.length ? { ...out, violations: [...(out.violations ?? []), ...v] } : out;
   };
 
   const maxDays = opts.maxDays ?? s.config.calendar.thawDay;
+  // Quirks at the start of each turn, to see which fears the turn gave and took (#1365).
+  let quirksAtStart: readonly Quirk[] = [];
   while (!s.outcome && s.day <= maxDays) {
     const day = s.day;
+    quirksAtStart = s.character.quirks ?? [];
     const logStart = s.log.length;
     // One thing at a time until planning is learned (#1350): run the first action of each reply
     // and ask again, until the player ends the day (an empty queue) or the hours run out.

@@ -12,7 +12,9 @@ import type { Progress, RoadProgress } from './progress';
 export interface Transcript {
   player: string;
   start: Progress;
-  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[]; encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean }[] }[];
+  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[];
+    encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean; state?: string; override?: { chosen: string; taken: string }; fearsGained?: string[] }[];
+    fright?: { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] } }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
   /** The caravan road, for a run that rode on (#1251). */
@@ -145,6 +147,44 @@ export interface ModelSummary {
   road: RoadSummary | null;
   /** Encounters met out on the land (#1348). */
   encounters: EncounterSummary;
+  /** What fear did (#1365). */
+  fright: FrightSummary;
+}
+
+/** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
+export interface FrightSummary {
+  /** Encounters met shaken, and panicked (totals). */
+  shaken: number;
+  panicked: number;
+  /** Times the body overrode the choice (total). */
+  overrides: number;
+  /** Per run. */
+  spooks: number;
+  uneasyNights: number;
+  sleeplessNights: number;
+  /** Fear id → how many times gained, and faded (totals). */
+  fearsGained: Record<string, number>;
+  fearsLost: Record<string, number>;
+}
+
+/** Count what fear did over a model's runs (#1365). */
+export function frightSummaryOf(runs: readonly Transcript[]): FrightSummary {
+  const f: FrightSummary = { shaken: 0, panicked: 0, overrides: 0, spooks: 0, uneasyNights: 0, sleeplessNights: 0, fearsGained: {}, fearsLost: {} };
+  const add = (m: Record<string, number>, id: string) => { m[id] = (m[id] ?? 0) + 1; };
+  for (const r of runs) for (const t of r.turns) {
+    for (const e of t.encounters ?? []) {
+      if (e.state === 'shaken') f.shaken++;
+      if (e.state === 'panicked') f.panicked++;
+      if (e.override) f.overrides++;
+    }
+    if (t.fright) {
+      f.spooks += t.fright.spooks; f.uneasyNights += t.fright.uneasyNights; f.sleeplessNights += t.fright.sleeplessNights;
+      for (const id of t.fright.fearsGained) add(f.fearsGained, id);
+      for (const id of t.fright.fearsLost) add(f.fearsLost, id);
+    }
+  }
+  const n = runs.length || 1;
+  return { ...f, spooks: round(f.spooks / n, 2)!, uneasyNights: round(f.uneasyNights / n, 2)!, sleeplessNights: round(f.sleeplessNights / n, 2)! };
 }
 
 /** How a model handles encounters (#1348). */
@@ -290,6 +330,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       survival: survivalOf(runs),
       road: roadSummaryOf(runs),
       encounters: encounterSummaryOf(runs),
+      fright: frightSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }

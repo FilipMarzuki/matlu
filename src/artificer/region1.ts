@@ -1092,7 +1092,7 @@ export function tonightsFright(s: Region1State): { state: PanicState; perceived:
 }
 
 /** What a spook makes you do (#1367), by panic response: the journal line. */
-const SPOOK_LINE: Readonly<Record<PanicResponse, string>> = {
+export const SPOOK_LINE: Readonly<Record<PanicResponse, string>> = {
   flight: 'Something moved out there, and you ran for camp — dropping half of what you carried.',
   freeze: 'You froze where you stood, every sense straining, until it passed. Hours gone, and nothing to show for them.',
   fight: 'Every nerve says go home. You push on regardless, jaw set.',
