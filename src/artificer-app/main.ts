@@ -28,6 +28,7 @@ import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS, canWorsen } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
@@ -631,10 +632,18 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
-    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${injuryChips(s)}
+    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">TODAY <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
   </div>`;
+}
+
+/** Pain (#1409): what you feel, always — sharper when you've worked through an injury. */
+function painChip(s: AppState['sim']): string {
+  const p = painOf(s);
+  if (!p) return '';
+  const tip = p >= 2 ? `Work drains your mind ${PAIN_DRAIN[p]}x${PAIN_HOURS[p] > 1 ? ` and takes ${PAIN_HOURS[p]}x as long` : ''}; tonight costs ${PAIN_NIGHT[p]} Clarity. Working through a bad injury makes it sharper.` : 'An ache. Working through a bad injury would make it sharper.';
+  return `<span class="tag pain p-${p}" title="${esc(tip)}">PAIN · ${PAIN_NAME[p].toUpperCase()}</span>`;
 }
 
 /** Each open injury (#1395): kind, severity and healing left — in the warning colour when it could get worse. */
