@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { trainingOf, type Background } from './scout';
-import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, type Injury, type Harm } from './injuries';
+import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
@@ -166,6 +166,8 @@ export interface Region1State {
   /** What comes in overnight (#1345): a snare line you reset. Paid out, and cleared, at the day's end. */
   /** Open injuries (#1286, #1392): a sprain, a hurt hand, a deep cut — each with its severity and the healing it still needs. */
   injuries?: Injury[];
+  /** First-aid kit dressings left (#1393): from the hike pack (#1400). Each treats any injury, one step better. */
+  dressings?: number;
   /** Places you remember (#1378). They belong to this run: a new run starts with none. */
   pins?: Pin[];
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
@@ -421,7 +423,7 @@ export type ActionId =
   | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
   | 'basket' | 'backpack' | 'harness' | 'sled'
   | 'lookout' | 'study'
-  | 'tinker' | 'rest'
+  | 'tinker' | 'rest' | 'treat'
   | 'fish' | 'coldPit';
 
 /** Actions that happen out on the land, in a chosen ring. */
@@ -942,6 +944,26 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   rest: {
     name: 'Rest', hours: 3, vigorRate: 4, clarityRate: 1.5,
     run: () => 'Sat a while and let the ache settle.',
+  },
+  // First aid (#1393): tend your worst untreated injury — a kit dressing if you have one, else improvised.
+  // How well is First aid's doing; a treated injury heals faster and won't worsen or fester.
+  treat: {
+    name: 'Treat an injury', hours: 1, vigorRate: 0, clarityRate: -2,
+    gate: s => {
+      const inj = worstUntreated(s.injuries);
+      if (!inj) return s.injuries?.length ? 'your injuries are already tended' : 'you have no injuries to tend';
+      return treatmentFor(inj.kind, s.stores, s.dressings ?? 0) ? null : NO_TREATMENT[inj.kind];
+    },
+    run: s => {
+      const inj = worstUntreated(s.injuries)!;
+      const plan = treatmentFor(inj.kind, s.stores, s.dressings ?? 0)!;
+      for (const [k, n] of Object.entries(plan.cost) as [keyof typeof plan.cost, number][]) s.stores[k] -= n;
+      if (plan.dressing) s.dressings = (s.dressings ?? 0) - 1;
+      // The true level does the work, as with every skill; you only *think* you know how good you are.
+      const quality = treatmentQuality(skillLevel(s.skills, 'firstaid'), plan.better);
+      s.injuries = s.injuries!.map(i => (i === inj ? { ...i, treated: quality } : i));
+      return treatLine(inj, plan.via, quality);
+    },
   },
 };
 
@@ -1637,7 +1659,8 @@ const HEAVY_WORK_ACTIONS: readonly string[] = ['build'];
 function aggravate(next: Region1State, action: string, ring: number, craft: boolean, at: LogEntry['at']): void {
   if (!next.config.world.accidents || next.outcome) return;
   for (const inj of next.injuries ?? []) {
-    if (inj.severity !== 'serious' || !strains(inj.kind, action, ring, craft)) continue;
+    // A tended injury (#1393) is protected: splinted, bound or eased, it won't give.
+    if (inj.severity !== 'serious' || inj.treated || !strains(inj.kind, action, ring, craft)) continue;
     if (streamFor(seedOf(next.character.id), next.day, `aggravate:${inj.kind}@${at?.hour ?? 0}`)() >= AGGRAVATE_CHANCE) continue;
     next.injuries = next.injuries!.map(i => (i === inj ? { ...i, severity: 'grave', heal: i.heal + HEAL_POINTS.grave - HEAL_POINTS.serious } : i));
     say(next, `You push on through it, and something gives — your ${INJURY_NAME[inj.kind]} is worse now (grave).`, 'hardship', at);
@@ -2248,10 +2271,21 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // one more, Constitution scaling it; a bad night, nothing. A deep cut bleeds you a little each night it's open. A grave
   // one, once healed, leaves its mark on the character for good.
   if (next.injuries?.length) {
-    const amount = nightHealing({ ate, drank, cold: o.coldNight, restful: next.today.loadVigor + next.today.loadClarity < STIMULUS, healFactor: se.heal });
+    // An untreated serious deep cut can fester overnight (#1393): grave, and it costs Condition.
+    next.injuries = next.injuries.map(i => {
+      if (i.kind !== 'cut' || i.severity !== 'serious' || i.treated) return i;
+      if (streamFor(seedOf(next.character.id), next.day, 'fester')() >= FESTER_CHANCE) return i;
+      next.vitals.condition = Math.max(0, next.vitals.condition - FESTER_CONDITION);
+      say(festerLine(i), 'hardship');
+      return { ...i, severity: 'grave', heal: i.heal + HEAL_POINTS.grave - HEAL_POINTS.serious };
+    });
+    const base = nightHealing({ ate, drank, cold: o.coldNight, restful: next.today.loadVigor + next.today.loadClarity < STIMULUS, healFactor: se.heal });
+    // A tended injury heals faster (#1393) — on any night that heals at all.
+    const amountFor = (i: Injury): number => (base > 0 && i.treated ? base + TREAT_BONUS[i.treated] : base);
     const healed: Injury[] = [];
     for (const i of next.injuries) {
       if (i.kind === 'cut') next.vitals.condition = Math.max(0, next.vitals.condition - CUT_BLEED);
+      const amount = amountFor(i);
       const left = Math.max(0, i.heal - amount);
       if (left > 0) { say(amount > 0 ? healingLine({ ...i, heal: left }) : notHealingLine(i), 'hardship'); continue; }
       healed.push(i);
@@ -2259,7 +2293,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
       if (harm && !next.character.harms?.includes(harm)) next.character = { ...next.character, harms: [...(next.character.harms ?? []), harm] };
       say(healedLine(i, harm), harm ? 'hardship' : 'milestone');
     }
-    next.injuries = next.injuries.filter(i => !healed.includes(i)).map(i => ({ ...i, heal: Math.max(0, i.heal - amount) }));
+    next.injuries = next.injuries.filter(i => !healed.includes(i)).map(i => ({ ...i, heal: Math.max(0, i.heal - amountFor(i)) }));
   }
   return { ended: null };
 }

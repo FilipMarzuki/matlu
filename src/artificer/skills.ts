@@ -71,7 +71,7 @@ export function toNextLevel(p: SkillPractice, id: SkillId): number {
 const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   wood: 'woodcraft', gather: 'foraging', hunt: 'hunting', track: 'hunting', quarry: 'stonework',
   water: 'fieldcraft', preserve: 'fieldcraft', scout: 'scouting', survey: 'scouting', lookout: 'scouting',
-  tinker: 'handcraft', fish: 'fieldcraft',
+  tinker: 'handcraft', fish: 'fieldcraft', treat: 'firstaid',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',

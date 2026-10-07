@@ -50,12 +50,12 @@ const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'BUILD', ids: ['build', 'coldPit', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'CARRYING GEAR', ids: ['basket', 'backpack', 'harness', 'sled'] },
-  { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest'] },
+  { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest', 'treat'] },
 ];
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
-  wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
+  wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
@@ -95,6 +95,7 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   sled: () => 'drag stone, wood & hides — half the bulk on snow or level ground · 5 mat',
   tinker: () => 'rests body, spends mind',
   rest: () => 'recovers a little',
+  treat: () => 'tends your worst injury: heals faster, won\'t worsen · a dressing, or improvised',
 };
 
 const SITE_NOTE: Record<SiteId, string> = {
