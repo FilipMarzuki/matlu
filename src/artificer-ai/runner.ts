@@ -10,7 +10,7 @@
 import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
-import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, type EncounterKind, type OddsWord } from '../artificer/encounters';
+import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { isFear, type Quirk } from '../artificer/quirks';
 import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
@@ -75,10 +75,11 @@ export function frightOfTurn(journal: readonly string[], before: readonly Quirk[
 export function encounterRecord(before: Region1State, after: Region1State, chosenId: string): EncounterChoice {
   const p = before.pending!;
   const t = encounterById(p.id)!;
-  const chosen = t.options.find(o => o.id === chosenId)!;
+  const options = stepOf(t, p.step).options;
+  const chosen = options.find(o => o.id === chosenId)!;
   const lines = after.log.slice(before.log.length).map(l => l.text);
   const overridden = lines.some(l => l.startsWith('You meant to'));
-  const taken = overridden ? (lines.includes(t.freeze.text) ? 'freeze' : t.options.find(o => o.id !== chosenId && lines.some(l => l.startsWith(`${o.label}: `)))?.id ?? 'freeze') : chosenId;
+  const taken = overridden ? (lines.includes(t.freeze.text) ? 'freeze' : options.find(o => o.id !== chosenId && lines.some(l => l.startsWith(`${o.label}: `)))?.id ?? 'freeze') : chosenId;
   const knownIds = (s: Region1State) => (s.character.quirks ?? []).filter(q => q.known && !isFear(q.id)).map(q => q.id);
   const fearIds = (s: Region1State) => (s.character.quirks ?? []).filter(q => isFear(q.id)).map(q => q.id);
   const revealed = knownIds(after).filter(id => !knownIds(before).includes(id));
@@ -276,8 +277,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         if (e.ok) choice = e.decision.choice; else errors = e.errors;
       }
       const forced = choice === null;
-      const option = forced ? safestOption(s, t) : t.options.find(o => o.id === choice)!;
-      const key = `${p.id}@${p.day}`;
+      const option = forced ? safestOption(s, t) : stepOf(t, p.step).options.find(o => o.id === choice)!;
+      // Each step of a dialogue (#1346) is its own choice; the same step twice would be a bug.
+      const key = `${p.id}@${p.day}:${p.step ?? 'start'}`;
       const before = s;
       s = chooseOption(s, option.id);
       if (forced && player.decideEncounter) notes.push(`You never named a valid choice in the encounter on day ${p.day}, so you took the safest: ${option.label}.`);

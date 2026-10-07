@@ -29,7 +29,7 @@ import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drai
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
-import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, type PendingEncounter } from './encounters';
+import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type PendingEncounter } from './encounters';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
@@ -153,6 +153,8 @@ export interface Region1State {
   met?: Record<string, number>;
   /** The day you settled the current camp (#1367): a camp lived in long enough feels like home at night. */
   siteDay?: number;
+  /** Things you did that the world may remember (#1346): fed a starving stranger, put a lost herald right. */
+  deeds?: string[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -1182,7 +1184,8 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (!s.pending) return s;
   const p = s.pending;
   const t = encounterById(p.id);
-  const chosen = t?.options.find(x => x.id === optionId);
+  const options = t ? stepOf(t, p.step).options : [];
+  const chosen = options.find(x => x.id === optionId);
   const next = clone(s);
   if (!t || !chosen) { say(next, `Choice: skipped — there's no "${optionId}" here.`, 'skip'); return next; }
   const why = unmet(next, chosen);
@@ -1192,7 +1195,7 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   let o = chosen, froze = false;
   if (p.state === 'panicked' && streamFor(seedOf(next.character.id), p.day, `panic:${p.id}`)() < overrideChance(p.margin ?? 2)) {
     const instinct = responseOf(next);
-    const pick = instinct === 'freeze' ? undefined : t.options.find(x => x.response === instinct && !unmet(next, x));
+    const pick = instinct === 'freeze' ? undefined : options.find(x => x.response === instinct && !unmet(next, x));
     if (chosen.response !== (pick ? instinct : 'freeze')) {
       if (pick) o = pick; else froze = true;
       say(next, `You meant to ${chosen.label.charAt(0).toLowerCase()}${chosen.label.slice(1)}. ${INSTINCT_LINE[pick ? instinct : 'freeze']}`, 'hardship');
@@ -1215,9 +1218,19 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
     if (next.character.talents.some(x => x.id === tid)) for (const [k, n] of Object.entries(extra ?? {})) next.stores[k as keyof Stores] += n ?? 0;
   }
   if (effect.practice) practiceSkill(next, effect.practice.skill, effect.practice.hours);
+  // What a person's dialogue can leave you with (#1346): a deed remembered, insight from talk, a map's worth of ground.
+  if (effect.deed && !(next.deeds ?? []).includes(effect.deed)) next.deeds = [...(next.deeds ?? []), effect.deed];
+  if (effect.insight) addInsight(next.concepts, effect.insight.concept, effect.insight.amount, CRAFT_WORLD.concepts);
+  if (effect.survey) next.explore = survey(next.explore, effect.survey);
   next.hoursToday += (froze ? FREEZE_HOURS : o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
   say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  // The dialogue goes on (#1346): the encounter stays open at the next step, and the day stays paused.
+  if (effect.next && !froze && next.vitals.condition > 0 && t.steps?.[effect.next]) {
+    next.pending = { ...p, step: effect.next };
+    say(next, t.steps[effect.next].text, 'hardship');
+    return next;
+  }
   // The crash after a panic (#1361): the adrenaline drains away and leaves you wrung out and shaking.
   if (p.state === 'panicked') crash(next);
   // Coming through a fright grows the nerve (#1363): Steady from any, Surge from panic.

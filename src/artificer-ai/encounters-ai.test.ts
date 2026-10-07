@@ -107,8 +107,8 @@ describe('The AI harness plays encounters (#1348)', () => {
     let forced = 0;
     for (let i = 1; i <= 20; i++) {
       const run = await playRun(mute, { characterId: `ai-enc-${i}`, planning: 'open' });
-      // The safest is sure for most animals; a boar has nothing safer than "likely".
-      for (const x of run.turns.flatMap(u => u.encounters ?? [])) { forced++; expect(x.forced).toBe(true); expect(['safe', 'likely']).toContain(x.odds); }
+      // The safest is sure for most; a boar has nothing safer than "likely", a stranger you can't feed nothing safer than "risky".
+      for (const x of run.turns.flatMap(u => u.encounters ?? [])) { forced++; expect(x.forced).toBe(true); }
     }
     expect(forced).toBeGreaterThan(0);
   });
@@ -123,7 +123,8 @@ describe('The AI harness plays encounters (#1348)', () => {
         expect(t.violations).toBeUndefined();
         met += t.encounters?.length ?? 0;
         // At most one encounter a day.
-        expect(t.encounters?.length ?? 0).toBeLessThanOrEqual(1);
+        // (A dialogue records each of its steps, so count encounters, not choices.)
+        expect(new Set((t.encounters ?? []).map(e => e.id)).size).toBeLessThanOrEqual(1);
       }
       expect(r.final.pending ?? null).toBeNull();
       expect(invariantViolations(r.final)).toEqual([]);

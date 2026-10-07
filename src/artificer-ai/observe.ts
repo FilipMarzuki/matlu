@@ -28,7 +28,7 @@ import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, 
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
-import { encounterById, optionsFor, type EncounterOption } from '../artificer/encounters';
+import { encounterById, optionsFor, stepOf, type EncounterOption } from '../artificer/encounters';
 import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
@@ -316,7 +316,7 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
   const lines = [
     `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
     ...notes.map(n => `NOTE: ${n}`),
-    t.text,
+    stepOf(t, p.step).text,
     // Your read and how you stand (#1365): how dangerous it looks to you — not what it is.
     `YOUR READ: it looks ${THREAT_WORDS[p.perceived ?? t.threat]}. ${STATE_WORDS[p.state ?? 'calm']}`,
     `VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100 · hours used today ${s.hoursToday}/${DAY_HOURS}`,
