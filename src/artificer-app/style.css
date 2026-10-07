@@ -617,3 +617,26 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .tag.fear.s-panicked { border-color: rgba(255,90,90,.6); color: var(--danger); }
 .trait.fear { border-color: rgba(255,90,90,.35); }
 .trait .down { color: var(--danger); font-size: 12px; }
+
+/* Pins (#1380): places you remember — the 📌 on the land, the list, the memory line in the prompt. */
+.chip.pin { color: var(--amber); border-color: rgba(200,146,42,.55); cursor: pointer; font-family: var(--body); }
+.chip.pin.loud { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255,224,102,.25); }
+.chip.pin[aria-expanded="true"] { background: rgba(200,146,42,.14); }
+.pins { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.pin-row { background: var(--sub); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 9px; padding: 9px 11px; display: grid; gap: 3px; min-width: 0; }
+.pin-row.loud { border-left-color: var(--gold); }
+.pin-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pin-head b { font-size: 13px; }
+.pin-meta { font-size: 11px; color: var(--dim); }
+.pin-fx { font-size: 11.5px; color: var(--ice); }
+.pin-stars { display: inline-flex; gap: 2px; color: var(--gold); font-size: 13px; letter-spacing: 1px; }
+.star { background: none; border: 0; padding: 2px 3px; font-size: 15px; color: var(--faint); cursor: pointer; line-height: 1; }
+.star.on { color: var(--gold); }
+.star:disabled { opacity: .35; cursor: not-allowed; }
+.pinbtn { justify-self: start; margin-top: 3px; background: none; border: 1px solid var(--border2); color: var(--dim); border-radius: 6px; padding: 3px 8px; font-size: 10.5px; font-family: var(--body); cursor: pointer; }
+.pinbtn:hover { border-color: var(--danger); color: var(--danger); }
+.enc-memory { margin: -6px 0 14px; font-size: 12.5px; color: var(--dim); }
+.enc-memory b { color: var(--ink); }
+.enc-memory.full { color: var(--warn); }
+.enc-memory .pinbtn { margin: 0 0 0 6px; }
+.queue li .why.pinnote { color: var(--amber); }

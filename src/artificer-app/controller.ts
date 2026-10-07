@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -199,6 +199,16 @@ export function choose(a: AppState, optionId: string): AppState {
  * Carry on after an encounter (#1347): the rest of the queue runs, as the day would have. Before
  * planning is learned there is no queue, so you simply carry on by hand.
  */
+/** Let a remembered place go (#1380). */
+export function forget(a: AppState, pinId: string): AppState {
+  return { ...a, sim: forgetPin(a.sim, pinId) };
+}
+
+/** Weigh a remembered place, ★ to ★★★ or none (#1380), as far as Memory allows. */
+export function weighPin(a: AppState, pinId: string, stars: 0 | 1 | 2 | 3): AppState {
+  return { ...a, sim: setInterest(a.sim, pinId, stars) };
+}
+
 export function carryOn(a: AppState): AppState {
   if (a.sim.pending || a.sim.outcome || !a.queue.length || !a.sim.canPlan) return a;
   return runQueuedDay(a);

@@ -96,3 +96,37 @@ export const SHELTER_PIN_WARMTH = 0.05;
 export function letGoFirst(pins: readonly Pin[] | undefined): Pin | undefined {
   return [...(pins ?? [])].sort((a, b) => (a.interest ?? 0) - (b.interest ?? 0) || a.day - b.day)[0];
 }
+
+// ── On screen (#1380) ───────────────────────────────────────────────────────
+
+/** What each place is called once you remember it. */
+export const PLACE_NAME: Readonly<Record<string, string>> = {
+  'sheltered-hollow': 'the sheltered hollow', 'deep-pool': 'the deep pool', 'berry-thicket': 'the berry thicket',
+  'stone-outcrop': 'the stone outcrop', 'strange-carving': 'the strange carving', 'sunlit-glade': 'the sunlit glade',
+};
+export const placeName = (p: Pin): string => PLACE_NAME[p.place] ?? p.place.replace(/-/g, ' ');
+
+/** What a held pin does, in a few words, for the list and the queue. */
+export function pinEffect(p: Pin): string {
+  const n = pinWeight(p);
+  switch (p.kind) {
+    case 'fishing': return `+${n} water and fish in this ring`;
+    case 'forage': return `+${n} food gathered in this ring`;
+    case 'stone': return `+${n} stone quarried in this ring`;
+    case 'shelter': return p.ring === 1 ? 'a shelter built while you hold it is warmer' : 'too far from camp to build by';
+    case 'wonder': return p.feeling === 'eerie' ? `this ring feels ${n > 1 ? 'much ' : ''}worse` : 'this ring is no worse in the dark';
+    case 'peaceful': return `this ring feels ${n > 1 ? 'much ' : ''}calmer`;
+  }
+}
+
+/** The pin effect a trip would feel (#1380), for the queue preview: "📌 the deep pool: +1 water". Null if none touches it. */
+export function tripPinNote(pins: readonly Pin[] | undefined, action: string, ring: Ring): string | null {
+  const here = (pins ?? []).filter(p => p.ring === ring);
+  const notes: string[] = [];
+  for (const p of here) {
+    const extra = pinYield([p], action, ring);
+    if (extra) notes.push(`${placeName(p)}: +${extra} ${action === 'quarry' ? 'stone' : action === 'gather' ? 'food' : action === 'fish' ? 'fish' : 'water'}`);
+    else if (p.feeling === 'peaceful' || p.feeling === 'eerie') notes.push(`${placeName(p)}: ${p.feeling === 'peaceful' ? 'calmer' : 'uneasy'}`);
+  }
+  return notes.length ? `📌 ${notes.join(' · ')}` : null;
+}

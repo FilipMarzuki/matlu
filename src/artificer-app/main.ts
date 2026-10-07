@@ -34,11 +34,13 @@ import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type Roa
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
+import { ringPinChip, ringPins, pinsList } from './pins-view';
+import { tripPinNote } from '../artificer/pins';
 import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
-import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -233,6 +235,9 @@ const expanded = new Set<number>();
 /** Which ring the palette's land actions aim at (UI-only; not saved). */
 let focusRing: Ring = 1;
 
+/** The ring whose remembered places are listed on the land (#1380), if any. */
+let pinRing: Ring | null = null;
+
 const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber', stone: 'Stone', water: 'Water', game: 'Game', routes: 'Routes' };
 
 /**
@@ -253,7 +258,8 @@ function land(a: AppState): string {
     }).join('');
     const finds = domainsOf(r).filter(d => hasFind(e, r, d)).map(d => `<span class="chip find">★ ${FINDS[d]?.name}</span>`).join('');
     const pass = r === 3 && routeKnown(a.sim) ? '<span class="chip find">★ The pass</span>' : '';
-    return `${head}<div class="res">${chips}${finds}${pass}</div>`;
+    // Places you remember there (#1380): a 📌 that lists them when tapped.
+    return `${head}<div class="res">${chips}${finds}${pass}${ringPinChip(a.sim, r, pinRing === r)}</div>${pinRing === r ? ringPins(a.sim, r) : ''}`;
   }).join('');
 }
 
@@ -562,6 +568,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
+      // What a remembered place does for this trip (#1380).
+      + (!why && ACTIONS[id].ringed && tripPinNote(preview.before[i].pins, id, ring) ? `<span class="why pinnote">${esc(tripPinNote(preview.before[i].pins, id, ring)!)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? `<span class="why unease u-${preview.unease[i]!.state}" title="The work wears the mind harder${preview.unease[i]!.state === 'panicked' ? ', and something out there could send you running' : ''}">🌑 ${esc(preview.unease[i]!.reasons.filter(r => r !== 'ground you know').join(' · '))} — ${preview.unease[i]!.state === 'shaken' ? "you'll be uneasy" : 'you may panic'}</span>` : '')
@@ -663,7 +671,8 @@ function tabBody(a: AppState, preview: Preview): string {
       </div>`;
     case 'land':
       return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
-        <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>`;
+        <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>
+        <section class="box" style="margin-top:14px"><p class="eyebrow">PINS — places you remember</p>${pinsList(a.sim)}</section>`;
     case 'warden':
       return wardenTab(a);
     case 'progress':
@@ -1010,6 +1019,10 @@ root.addEventListener('click', e => {
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  // Pins (#1380): list a ring's places, let one go, or weigh it.
+  else if (d.pinring) { const r = Number(d.pinring) as Ring; pinRing = pinRing === r ? null : r; render(state); }
+  else if (d.forget) update(forget(state, d.forget));
+  else if (d.interest) { const [id, n] = d.interest.split('|'); update(weighPin(state, id, Number(n) as 0 | 1 | 2 | 3)); }
   else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
   else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; update(chooseEating(state, plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length])); }
   // Before planning is learned (#1350), a tap does the thing now.
