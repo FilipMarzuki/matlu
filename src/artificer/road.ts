@@ -31,6 +31,9 @@ import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance
 import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
 import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
+import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
+import { streamFor } from './rng';
+import { seedOf } from './talents';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -106,6 +109,10 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   fare?: Fare | null;
   /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
   owesHelp?: number;
+  /** Road encounters are met (#1349): carried from the Reach's world. */
+  encounters?: boolean;
+  /** A road encounter waiting for your choice (#1349): the day can't go on until you make it. */
+  pending?: PendingEncounter | null;
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -158,6 +165,8 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
     appraised: [],
     log: [],
     outcome: null,
+    // Road encounters (#1349) where the Reach had them.
+    ...(from.config.world.encounters ? { encounters: true } : {}),
   };
   // The caravan's own people (#1253) ride with you from the start; they know you as well as anyone in the first village will.
   const met = startingTrust(s.arrival, statEffects(s.character.stats).trust, 0);
@@ -249,7 +258,8 @@ function leaveVillage(s: RoadState, id: string): void {
 
 /** Do one thing now. Nothing happens once the road is over, or when the day's hours are spent. */
 export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
-  if (s.outcome || s.hoursToday >= DAY_HOURS) return s;
+  // An encounter waiting (#1349): nothing else happens until you choose.
+  if (s.outcome || s.pending || s.hoursToday >= DAY_HOURS) return s;
   const next = clone(s);
   if (id.startsWith('talk:')) {
     // Talk to someone here (#1246): only people in this village, and it takes a couple of hours.
@@ -670,7 +680,7 @@ const article = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a');
  * through Mistheim's gates.
  */
 export function endRoadDay(s: RoadState): RoadState {
-  if (s.outcome) return s;
+  if (s.outcome || s.pending) return s;
   const next = clone(s);
   const leg = legOf(next);
   const night = sleepNight(next, {
@@ -692,7 +702,7 @@ export function endRoadDay(s: RoadState): RoadState {
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
   next.studiedToday = {};
   next.legDay += 1;
-  if (next.legDay <= leg.days) return next;
+  if (next.legDay <= leg.days) return dawn(next);
 
   // This leg is done: the caravan moves on, on schedule.
   if (leg.kind === 'village') {
@@ -721,12 +731,72 @@ export function endRoadDay(s: RoadState): RoadState {
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
     arriveWithDeliveries(next, now.id);
   }
+  return dawn(next);
+}
+
+// ── Road encounters (#1349) ─────────────────────────────────────────────────
+
+/** Chance of an encounter on a road day, from the wagon or in a village. At most one a day. */
+export const ROAD_ENCOUNTER_CHANCE: Readonly<Record<Leg['kind'], number>> = { travel: 0.3, village: 0.12 };
+
+/** Does an encounter meet you today on the road? A seeded roll for the day, then a seeded, weighted pick. */
+export function roadEncounterFor(seed: number, day: number, where: Leg['kind']): EncounterTemplate | null {
+  const roll = streamFor(seed, day, 'road-encounter');
+  if (roll() >= ROAD_ENCOUNTER_CHANCE[where]) return null;
+  const fits = ENCOUNTERS.filter(e => e.road === 'any' || e.road === (where === 'travel' ? 'wagon' : 'village'));
+  const total = fits.reduce((n, e) => n + e.weight, 0);
+  let pick = roll() * total;
+  for (const e of fits) { pick -= e.weight; if (pick < 0) return e; }
+  return null;
+}
+
+/** A new road day dawns (#1349): perhaps something meets you, and the day waits for your choice. */
+function dawn(next: RoadState): RoadState {
+  if (!next.encounters || next.outcome) return next;
+  const t = roadEncounterFor(seedOf(next.character.id), next.day, legOf(next).kind);
+  if (!t) return next;
+  next.pending = { id: t.id, day: next.day, hour: 8, ring: 1, action: 'road', state: 'calm', perceived: t.threat, margin: 0 };
+  say(next, t.text, 'hardship');
+  return next;
+}
+
+/**
+ * Choose in a road encounter (#1349): pay its cost, roll its seeded outcome, and apply it — to the
+ * body, the stores, your marks and the trust of the caravan's people. A lost fight can kill.
+ */
+export function chooseRoadOption(s: RoadState, optionId: string): RoadState {
+  if (!s.pending) return s;
+  const p = s.pending;
+  const t = encounterById(p.id);
+  const o = t ? stepOf(t, p.step).options.find(x => x.id === optionId) : undefined;
+  const next = clone(s);
+  if (!t || !o) { say(next, `Choice: skipped — there's no "${optionId}" here.`, 'skip'); return next; }
+  const why = encounterUnmet(next, o);
+  if (why) { say(next, `${o.label}: skipped — ${why}.`, 'skip'); return next; }
+  for (const [k, n] of Object.entries(o.cost?.stores ?? {})) next.stores[k as keyof RoadState['stores']] -= n ?? 0;
+  next.marks -= o.cost?.marks ?? 0;
+  const { tier, effect } = rollOutcome(seedOf(next.character.id), p, o, chanceOf(next, o));
+  const v = next.vitals;
+  const pool = (q: Vitals['vigor'], d = 0): Vitals['vigor'] => ({ ...q, current: Math.max(0, Math.min(q.cap, q.current + d)) });
+  next.vitals = { vigor: pool(v.vigor, effect.vigor), clarity: pool(v.clarity, effect.clarity), condition: Math.max(0, Math.min(100, v.condition + (effect.condition ?? 0) - (effect.wound ?? 0))) };
+  for (const [k, n] of Object.entries(effect.stores ?? {})) next.stores[k as keyof RoadState['stores']] = Math.max(0, next.stores[k as keyof RoadState['stores']] + (n ?? 0));
+  next.marks = Math.max(0, next.marks + (effect.marks ?? 0));
+  for (const [pid, d] of Object.entries(effect.trust ?? {})) bump(next, pid, d);
+  if (effect.practice) next.skills = practise(next.skills, effect.practice.skill, effect.practice.hours).practice;
+  next.hoursToday += (o.cost?.hours ?? 0) + (effect.hours ?? 0);
+  next.pending = null;
+  say(next, `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  if (next.vitals.condition <= 0) {
+    next.outcome = { kind: 'died', vitals: next.vitals };
+    say(next, `Killed by ${effect.killedBy ?? 'what met you on the road'}.`, 'outcome');
+  }
   return next;
 }
 
 /** Run a queue for today (until the hours run out), then end the day. Returns the unrun remainder. */
 export function runRoadDay(s: RoadState, queue: readonly RoadActionId[]): { state: RoadState; remaining: RoadActionId[] } {
-  if (s.outcome) return { state: s, remaining: [...queue] };
+  // An encounter waiting (#1349): the day can't start until it's answered.
+  if (s.outcome || s.pending) return { state: s, remaining: [...queue] };
   let state = s;
   const remaining = [...queue];
   while (remaining.length > 0 && state.hoursToday < DAY_HOURS) state = runRoadAction(state, remaining.shift() as RoadActionId);

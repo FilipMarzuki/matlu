@@ -40,7 +40,7 @@ import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
-import { choose, carryOn, forget, weighPin, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -822,7 +822,8 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${end}
     ${r.outcome ? '' : `${roadStatus(r)}${lastNews(r)}`}
     <nav class="tabbar" role="tablist">${ROAD_TABS.map(t => `<button class="tabbtn ${roadTab === t.id ? 'on' : ''}" role="tab" aria-selected="${roadTab === t.id}" data-rtab="${t.id}">${t.label}</button>`).join('')}</nav>
-    ${body}`;
+    ${body}
+    ${encounterModal(r as unknown as AppState['sim'], encounterAfter, 0)}`;
 }
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
@@ -1038,6 +1039,17 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
   // Encounters (#1347): choose an option, then carry on with the day.
+  // A road encounter (#1349): the same modal, answered on the road state.
+  else if (d.choose && state.stage === 'road' && state.road?.pending) {
+    const p = state.road.pending, t = encounterById(p.id);
+    const opt = t ? stepOf(t, p.step).options.find(o => o.id === d.choose) : undefined;
+    const next = roadChoose(state, d.choose);
+    if (t && opt && next.road && !next.road.pending) {
+      const fresh = next.road.log.slice(state.road.log.length).map(l => l.text);
+      encounterAfter = { kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.road.outcome };
+    }
+    update(next);
+  }
   else if (d.choose) {
     const p = state.sim.pending, t = p && encounterById(p.id);
     const opt = t && p ? stepOf(t, p.step).options.find(o => o.id === d.choose) : undefined;
@@ -1052,7 +1064,7 @@ root.addEventListener('click', e => {
     }
     update(next);
   }
-  else if (d.cmd === 'carryon') { encounterAfter = null; update(carryOn(state)); }
+  else if (d.cmd === 'carryon') { encounterAfter = null; if (state.stage === 'road') render(state); else update(carryOn(state)); }
   // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
   // Meeting the caravan (#1356): open the dialogue, answer, then climb aboard or watch them go.
   else if (d.cmd === 'meet') update(meetCaravan(state));
