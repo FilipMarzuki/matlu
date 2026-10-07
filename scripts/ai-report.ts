@@ -55,6 +55,14 @@ for (const m of models) {
   const fl = frightLine(m);
   if (fl) console.log(`  ${''.padEnd(34)} ${fl}`);
   if (m.pins.made) console.log(`  ${''.padEnd(34)} ${pinLine(m)}`);
+  if (m.injuries.perRun) console.log(`  ${''.padEnd(34)} ${injuryLine(m)}`);
+}
+
+/** Injuries in a line (#1395): how many and how bad, how many worsened, and the harms they left. */
+function injuryLine(m: ModelSummary): string {
+  const i = m.injuries;
+  const list = (x: Record<string, number>) => Object.entries(x).map(([k, n]) => `${k} ${n}`).join(', ');
+  return `injuries — ${i.perRun}/run (${list(i.bySeverity)}) · ${i.aggravated} worsened by work, ${i.festered} festered${Object.keys(i.harms).length ? ` · left: ${list(i.harms)}` : ''}`;
 }
 
 /** Places in a line (#1381): remembered, let go and held per run, and the kinds chosen. */

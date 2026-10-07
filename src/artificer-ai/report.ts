@@ -154,6 +154,8 @@ export interface ModelSummary {
   fright: FrightSummary;
   /** Places remembered (#1381). */
   pins: PinSummary;
+  /** Injuries (#1395): how bad, how they worsened, what they left. */
+  injuries: InjurySummary;
   /** How the caravan was met (#1357); null when no run met it. */
   meetings: MeetingSummary | null;
 }
@@ -202,6 +204,35 @@ export function pinSummaryOf(runs: readonly Transcript[]): PinSummary {
   }
   const n = runs.length || 1;
   return { made: round(made / n, 2)!, forgotten: round(forgotten / n, 2)!, held: round(held / n, 2)!, madeByKind, forgottenByKind, heldByKind };
+}
+
+/** How a model's Wardens got hurt (#1395): injuries by severity, how many worsened, and the harms they left. */
+export interface InjurySummary {
+  /** Severity → injuries suffered (totals). */
+  bySeverity: Record<string, number>;
+  /** Injuries made grave by working through them, and cuts that festered (totals). */
+  aggravated: number;
+  festered: number;
+  /** Lasting harm → times gained (totals). */
+  harms: Record<string, number>;
+  /** Injuries per run. */
+  perRun: number;
+}
+
+/** Count injuries over a model's runs (#1395), from the journal. */
+export function injurySummaryOf(runs: readonly Transcript[]): InjurySummary {
+  const s: InjurySummary = { bySeverity: {}, aggravated: 0, festered: 0, harms: {}, perRun: 0 };
+  let total = 0;
+  for (const r of runs) for (const t of r.turns) for (const l of t.journal ?? []) {
+    // An injuring accident's line ends with its severity (#1392).
+    const sev = /\((minor|serious|grave)\)$/.exec(l)?.[1];
+    if (sev && !/is mending/.test(l)) { s.bySeverity[sev] = (s.bySeverity[sev] ?? 0) + 1; total++; }
+    if (/something gives — your .* is worse now/.test(l)) s.aggravated++;
+    if (/has gone bad overnight/.test(l)) s.festered++;
+    const harm = /it has left you with (a stiff knee|a weak grip|a scar)/.exec(l)?.[1];
+    if (harm) s.harms[harm] = (s.harms[harm] ?? 0) + 1;
+  }
+  return { ...s, perRun: round(total / (runs.length || 1), 2)! };
 }
 
 /** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
@@ -385,6 +416,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       encounters: encounterSummaryOf(runs),
       fright: frightSummaryOf(runs),
       pins: pinSummaryOf(runs),
+      injuries: injurySummaryOf(runs),
       meetings: meetingSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));

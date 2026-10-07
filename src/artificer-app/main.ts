@@ -28,6 +28,7 @@ import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { INJURY_NAME, HARM_NAME, HARM_WORDS, canWorsen } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
@@ -393,6 +394,7 @@ function wardenTab(a: AppState): string {
       <p class="eyebrow" style="margin-top:16px">STATS — ${c.age !== undefined ? `age ${c.age}${isYoung(c.age) ? ', still growing' : ', grown'}` : "what you're built for"}</p>${statsBlock(c.stats, c.adult)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
       ${packBlock(a.sim)}
+      ${harmsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
       <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
@@ -588,6 +590,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       // What a remembered place does for this trip (#1380).
       + (!why && ACTIONS[id].ringed && tripPinNote(preview.before[i].pins, id, ring) ? `<span class="why pinnote">${esc(tripPinNote(preview.before[i].pins, id, ring)!)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
+      // Work that could make an injury worse (#1395).
+      + (preview.strains[i] ? `<span class="why strain" title="A serious, untreated injury: heavy work (or crafting, for a hand) has a 15% chance to make it grave. Treat it first.">${esc(preview.strains[i]!)}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? `<span class="why unease u-${preview.unease[i]!.state}" title="The work wears the mind harder${preview.unease[i]!.state === 'panicked' ? ', and something out there could send you running' : ''}">🌑 ${esc(preview.unease[i]!.reasons.filter(r => r !== 'ground you know').join(' · '))} — ${preview.unease[i]!.state === 'shaken' ? "you'll be uneasy" : 'you may panic'}</span>` : '')
       + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
@@ -627,10 +631,29 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
-    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}
+    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${injuryChips(s)}
     <span class="shours">TODAY <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
   </div>`;
+}
+
+/** Each open injury (#1395): kind, severity and healing left — in the warning colour when it could get worse. */
+function injuryChips(s: AppState['sim']): string {
+  return (s.injuries ?? []).map(i => {
+    const risk = canWorsen(i);
+    const tip = `${INJURY_NAME[i.kind]}, ${i.severity}: ${Math.ceil(i.heal)} more healing to go (a good night heals 1, a light day before it 2${i.treated ? `, +${i.treated === 'good' ? 2 : 1} for the treatment` : ''}).`
+      + (i.treated ? ` Treated (${i.treated}).` : risk ? (i.kind === 'cut' ? ' Untreated, it could fester — treat it.' : ' Untreated: heavy work could make it grave — treat it, or rest.') : ' Untreated.')
+      + (i.severity === 'grave' && !i.mended ? ' Grave: it will leave its mark when it heals.' : '');
+    return `<span class="tag inj sev-${i.severity}${risk ? ' risk' : ''}" title="${esc(tip)}">🩹 ${esc(INJURY_NAME[i.kind].toUpperCase())} · ${i.severity.toUpperCase()} · ${Math.ceil(i.heal)}</span>`;
+  }).join('');
+}
+
+/** Old wounds (#1395): what grave injuries left behind, and what each does — for good. */
+function harmsBlock(s: AppState['sim']): string {
+  const harms = s.character.harms ?? [];
+  if (!harms.length) return '';
+  return `<p class="eyebrow" style="margin-top:16px">OLD WOUNDS — what the body remembers</p>
+    <ul class="harms">${harms.map(h => `<li><b>${esc(HARM_NAME[h][0].toUpperCase() + HARM_NAME[h].slice(1))}</b> <span>${esc(HARM_WORDS[h])}</span></li>`).join('')}</ul>`;
 }
 
 /** Tonight, if it looks frightening (#1364): an uneasy or sleepless night, and why. */
