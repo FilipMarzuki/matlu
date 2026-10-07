@@ -17,7 +17,7 @@
 import type { Ring } from './exploration';
 import type { Season } from './winter';
 import type { Stores } from './region1';
-import type { Tool } from './crafting';
+import type { Grade, Tool } from './crafting';
 import type { Stats, StatId } from './stats';
 import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
@@ -67,6 +67,12 @@ export interface Effect {
   insight?: { concept: string; amount: number };
   /** A ring's ground you come to know (a delver's map): surveyed, as if you had walked it. */
   survey?: Ring;
+  /** A tool you find (#1345): an old knife in an abandoned camp, a snare on a line. */
+  tool?: { item: string; grade: Grade };
+  /** A manual you don't have yet (#1345): a page in a dead trapper's pack. Nothing more if you have them all. */
+  manual?: boolean;
+  /** Something that comes in overnight (#1345): a snare line you reset catches by morning. */
+  overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string };
 }
 
 /** How stats, skills, talents and tools move an option's chance of success. */
@@ -79,6 +85,8 @@ export interface OddsMods {
   talents?: Partial<Record<TalentId, number>>;
   /** If you carry the tool. */
   tools?: Readonly<Record<string, number>>;
+  /** With Clarity under `below`, the odds move by `add` (#1345): a tired mind shouldn't touch what it can't read. */
+  lowClarity?: { below: number; add: number };
 }
 
 export interface EncounterOption {
@@ -418,6 +426,89 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
         success: { text: '"Pass should be clear early this year, the way the snow\'s lying. The caravan won\'t dawdle."', deed: 'heard-road-early' }, fail: { text: '"Same as ever."' } },
     ],
   },
+  // ── Finds (#1345) ────────────────────────────────────────────────────────
+  // Things found while working: some useful, some a trap, some a story.
+  {
+    id: 'abandoned-camp', kind: 'find', weight: 2, threat: 0, tags: ['find'], field: 'scouting',
+    text: 'A ring of blackened stones, a lean-to fallen in on itself, a scatter of gear half under the leaves. Whoever camped here left in a hurry, or didn\'t leave.',
+    freeze: { text: 'Something about the place stops you. You stand at its edge a long while, then go on.' },
+    options: [
+      { id: 'search', label: 'Search it', cost: { hours: 2 }, odds: 0.5, careful: true, mods: { stats: { int: 0.03 }, skills: { scouting: 0.03 }, talents: { keenEye: 0.2 } },
+        success: { text: 'Under the lean-to: cord, pegs, a roll of good leather — and an old knife, notched but whole.', stores: { materials: 3 }, tool: { item: 'stone-knife', grade: 'crude' } },
+        mixed: { text: 'Cord and pegs, still good. Someone took the rest.', stores: { materials: 2 } },
+        fail: { text: 'Picked over long ago. A little cord is all.', stores: { materials: 1 } } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'You leave it to whoever left it.' }, fail: { text: 'You leave it to whoever left it.' } },
+    ],
+  },
+  {
+    id: 'buried-pack', kind: 'find', weight: 2, seasons: ['winter'], threat: 1, tags: ['dead'], field: 'scouting',
+    text: 'A strap sticks up out of the snow. You tug it: a pack, frozen stiff, half-buried in a drift.',
+    freeze: { text: 'You stand over the strap, not wanting to know what is under the snow. In the end you go on.' },
+    options: [
+      { id: 'open', label: 'Dig it out and open it', cost: { hours: 1 }, odds: 0.4, mods: { stats: { int: 0.02 }, talents: { keenEye: 0.1 } },
+        success: { text: 'Wrapped in oilcloth at the bottom of the pack: a book of notes, the ink still good.', manual: true },
+        mixed: { text: 'Hard bread and dried meat, frozen through but good.', stores: { rations: 3 } },
+        fail: { text: 'The pack is still on its owner. A trapper, by the gear, curled up against the cold. Scratched on a strip of bark in his hand: "Waited for the caravan. Should have gone down to meet it."', clarity: -8 } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'You leave the snow to keep it.' }, fail: { text: 'You leave the snow to keep it.' } },
+    ],
+  },
+  {
+    id: 'old-snare-line', kind: 'find', weight: 2, rings: [1, 2], threat: 0, tags: ['find'], field: 'hunting',
+    text: 'A line of old snares runs along a hare run, the cord greyed with weather. No one has checked them in a long time.',
+    freeze: { text: 'You stand looking at the snares, then move on.' },
+    options: [
+      { id: 'take', label: 'Take the snares', odds: 1, cost: { hours: 1 },
+        success: { text: 'The cord is weak but the loops are well made. They\'ll do.', tool: { item: 'trap-snare', grade: 'crude' } },
+        fail: { text: 'The cord is weak but the loops are well made.', tool: { item: 'trap-snare', grade: 'crude' } } },
+      { id: 'reset', label: 'Reset the line', odds: 1, cost: { hours: 1 }, careful: true,
+        success: { text: 'You reset each loop the way its maker set it, and learn something from how they sat.', practice: { skill: 'hunting', hours: 2 }, overnight: { stores: { rawFood: 2 }, text: 'The old snare line you reset caught two hares in the night — 2 raw food.' } },
+        fail: { text: 'You reset the loops.', practice: { skill: 'hunting', hours: 2 } } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'You leave the line to rot.' }, fail: { text: 'You leave the line to rot.' } },
+    ],
+  },
+  {
+    id: 'standing-stone', kind: 'find', weight: 1, rings: [2, 3], threat: 1, tags: ['uncanny'], field: 'scouting',
+    text: 'A standing stone, cracked down the middle, cut with runes no one has read in a long time. Up close it hums, just at the edge of hearing.',
+    freeze: { text: 'You stand before it, unable to look away, until the hum fades and you find yourself an hour later.' },
+    options: [
+      { id: 'study', label: 'Study the runes', cost: { hours: 2 }, odds: 0.7, careful: true, mods: { stats: { int: 0.05 } },
+        success: { text: 'A binding, you think — something meant to hold a thing shut. The shape of it stays with you.', clarity: -10, insight: { concept: 'sealing', amount: 3 } },
+        fail: { text: 'The runes swim. You get a headache and very little else.', clarity: -10, insight: { concept: 'sealing', amount: 1 } } },
+      { id: 'touch', label: 'Lay a hand on it', odds: 0.45, response: 'fight', mods: { stats: { wil: 0.04 }, lowClarity: { below: 30, add: -0.3 } },
+        success: { text: 'For a moment you understand it entirely: a seal, and what it seals. Then it is gone, and only the shape remains.', insight: { concept: 'sealing', amount: 5 } },
+        fail: { text: 'The hum goes through your hand and into your head like a nail. You come to on the ground, shaking.', clarity: -30, hours: 1 } },
+      { id: 'leave', label: 'Leave it be', odds: 1, response: 'flight', success: { text: 'You leave it humming.' }, fail: { text: 'You leave it humming.' } },
+    ],
+  },
+  {
+    id: 'glinting-sinkhole', kind: 'find', weight: 1, rings: [2, 3], threat: 2, tags: ['heights'], field: 'scouting',
+    text: 'The ground has fallen in: a sinkhole, two men deep, and at the bottom, among the roots, something glints.',
+    freeze: { text: 'You stand at the lip, staring down, until the edge crumbles under your boot and you jump back.' },
+    options: [
+      { id: 'climb-down', label: 'Climb down', odds: 0.5, response: 'fight', mods: { stats: { agi: 0.05 } },
+        success: { text: 'Down and back up with dirt to the elbows — and a knife of old, fine work, its edge still keen.', tool: { item: 'stone-knife', grade: 'fine' }, hours: 1 },
+        fail: { text: 'The side gives way and you go down with it.', wound: 25, killedBy: 'a fall into a sinkhole', hours: 1 } },
+      { id: 'rope', label: 'Lower a rope and climb down on it', requires: { stores: { materials: 2 } }, cost: { hours: 2 }, odds: 0.9, careful: true, mods: { stats: { agi: 0.02 } },
+        success: { text: 'You twist cord into a rope, tie off on a root and go down hand over hand. A knife of old, fine work, its edge still keen.', tool: { item: 'stone-knife', grade: 'fine' } },
+        fail: { text: 'The root tears out halfway down. You land hard, but you land.', wound: 8 } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'Whatever it is, it stays down there.' }, fail: { text: 'Whatever it is, it stays down there.' } },
+    ],
+  },
+  {
+    id: 'corrupted-ground', kind: 'find', weight: 1, rings: [3], threat: 2, tags: ['corruption'], field: 'scouting',
+    text: 'The ground ahead has gone grey-violet and glassy, stone and water alike. Nothing grows on it, and the stream that crosses it runs too still.',
+    freeze: { text: 'You stand at its edge, the hairs on your arms up, until you can make yourself turn back.', hours: 1 },
+    options: [
+      { id: 'go-around', label: 'Go around', odds: 1, response: 'flight', cost: { hours: 1 },
+        success: { text: 'You go the long way, keeping it in sight.' }, fail: { text: 'You go the long way, keeping it in sight.' } },
+      { id: 'cross', label: 'Cross it quickly', odds: 0.6, response: 'fight', mods: { stats: { agi: 0.03, con: 0.03 } },
+        success: { text: 'Quick, light steps. The ground rings under your feet, and lets you go.' },
+        fail: { text: 'Halfway over, the stone cuts through your boot. The wound burns cold and won\'t close clean.', wound: 15, killedBy: 'corrupted ground' } },
+      { id: 'sample', label: 'Take a sample', cost: { hours: 1 }, odds: 0.7, careful: true, mods: { stats: { int: 0.03 } },
+        success: { text: 'You chip a flake of it off into a fold of hide. It is warm. It is more stone than stone should be — more of what it was, as the herald said.', insight: { concept: 'sealing', amount: 2 } },
+        fail: { text: 'It flakes into your hand and burns. You drop it, and the burn doesn\'t fade until evening.', condition: -5, clarity: -10 } },
+    ],
+  },
 ];
 
 export const encounterById = (id: string): EncounterTemplate | undefined => ENCOUNTERS.find(e => e.id === id);
@@ -428,6 +519,8 @@ export interface Encounterer {
   tools: readonly Tool[];
   skills: SkillPractice;
   character: { stats: Stats; talents: readonly Talent[]; quirks?: readonly Quirk[] };
+  /** Clarity, for options a tired mind does worse at (#1345). Absent reads as clear. */
+  vitals?: { clarity: { current: number } };
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
 }
@@ -465,6 +558,7 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
+  if (m.lowClarity && w.vitals && w.vitals.clarity.current < m.lowClarity.below) p += m.lowClarity.add;
   // Jumpy (#1362): the startle reflex gets you away fast.
   if (o.response === 'flight' && w.character.quirks?.some(q => q.id === 'jumpy')) p += JUMPY_FLIGHT;
   p = Math.max(0.02, Math.min(0.98, p));

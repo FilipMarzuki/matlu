@@ -50,7 +50,7 @@ export const QUIRKS: Readonly<Record<string, { name: string; blurb: string; reve
 };
 
 /** The words for a fear of each tag. */
-export const FEAR_OF: Readonly<Record<string, string>> = { heights: 'heights', animal: 'wild animals', person: 'strangers', dark: 'the dark' };
+export const FEAR_OF: Readonly<Record<string, string>> = { heights: 'heights', animal: 'wild animals', person: 'strangers', dark: 'the dark', dead: 'the dead', uncanny: 'uncanny things', corruption: 'the corruption' };
 export const fearId = (tag: string): string => `fear:${tag}`;
 export const isFear = (id: string): boolean => id.startsWith('fear:');
 /** A quirk's display name: its own, or "Fear of heights". */

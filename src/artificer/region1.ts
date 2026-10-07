@@ -23,7 +23,7 @@ import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork,
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
-import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
+import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
@@ -155,6 +155,8 @@ export interface Region1State {
   siteDay?: number;
   /** Things you did that the world may remember (#1346): fed a starving stranger, put a lost herald right. */
   deeds?: string[];
+  /** What comes in overnight (#1345): a snare line you reset. Paid out, and cleared, at the day's end. */
+  overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -1222,9 +1224,14 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (effect.deed && !(next.deeds ?? []).includes(effect.deed)) next.deeds = [...(next.deeds ?? []), effect.deed];
   if (effect.insight) addInsight(next.concepts, effect.insight.concept, effect.insight.amount, CRAFT_WORLD.concepts);
   if (effect.survey) next.explore = survey(next.explore, effect.survey);
+  // What a find can leave you with (#1345): a tool, a manual you didn't have, a catch by morning.
+  if (effect.tool) next.tools.push({ ...effect.tool });
+  if (effect.overnight) next.overnight = [...(next.overnight ?? []), effect.overnight];
   next.hoursToday += (froze ? FREEZE_HOURS : o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
   say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  // A manual found (#1345) is read after the find is told.
+  if (effect.manual) { const m = MANUALS.find(x => !next.manuals.includes(x.id)); if (m) findManual(next, m.id); }
   // The dialogue goes on (#1346): the encounter stays open at the next step, and the day stays paused.
   if (effect.next && !froze && next.vitals.condition > 0 && t.steps?.[effect.next]) {
     next.pending = { ...p, step: effect.next };
@@ -1236,7 +1243,8 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   // Coming through a fright grows the nerve (#1363): Steady from any, Surge from panic.
   if (p.state && p.state !== 'calm' && !next.outcome) growFrom(next, { kind: 'fright', panicked: p.state === 'panicked' });
   // Fears (#1362): a panic that ends badly leaves one; facing its kind calmly, again and again, fades it.
-  if (p.state === 'panicked' && tier === 'fail' && t.tags[0]) gainFear(next, t.tags[0]);
+  // Only a kind of danger can leave a fear: a harmless find (`find`) can't.
+  if (p.state === 'panicked' && tier === 'fail' && t.tags[0] && FEAR_OF[t.tags[0]]) gainFear(next, t.tags[0]);
   else if (p.state !== 'panicked' && tier !== 'fail') faceFear(next, t.tags, FEAR_FADES);
   // Tough's last stand (#1263) holds here too: once a run, you cling on.
   if (next.vitals.condition <= 0 && talentEffects(next.character.talents).lastStand && !next.character.lastStandUsed) {
@@ -1662,6 +1670,12 @@ export function endDay(s: Region1State): Region1State {
     next.stores.rawFood += 1;
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
+  // What a find set going comes in overnight (#1345).
+  for (const o of next.overnight ?? []) {
+    for (const [k, n] of Object.entries(o.stores)) next.stores[k as keyof Stores] += n ?? 0;
+    say(next, o.text, 'action');
+  }
+  next.overnight = undefined;
 
   // Wet through after hours in the rain (#1284): a miserable evening.
   if (next.weatherToday === 'rain' && (next.wetHours ?? 0) >= WET_HOURS) {

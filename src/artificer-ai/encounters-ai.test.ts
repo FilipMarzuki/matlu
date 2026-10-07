@@ -100,7 +100,11 @@ describe('The AI harness plays encounters (#1348)', () => {
     const [e] = t.encounters!;
     expect(player.asked).toHaveLength(2);
     expect(player.asked[1]).toMatch(/^Your choice was invalid:\n- "bite-it" is not an option here — choose one of:/);
-    const safest = safestOption(createRegion1({ world: ON }), encounterById(e.id)!).id;
+    // The safest of what was open then (the error lists it): stores on the day decide what's open,
+    // so this can't be read off a fresh Warden's — a stranger you can't feed leaves only "turn away".
+    const open = e.errors![0].split('choose one of: ')[1].split(', ');
+    const t0 = encounterById(e.id)!;
+    const safest = safestOption(createRegion1({ world: ON }), { ...t0, options: t0.options.filter(o => open.includes(o.id)) }).id;
     expect(e).toMatchObject({ choice: safest, forced: true, reply: '{"choice":"bite-it"}', errors: [expect.stringMatching(/not an option here/)] });
     // A player that can't choose at all always gets the safest option.
     const mute: Player = { name: 'mute', decide: async () => ({ text: JSON.stringify({ thoughts: '', site: null, queue: OUTINGS }) }) };
