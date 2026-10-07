@@ -49,6 +49,7 @@ for (const m of models) {
   const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;
   console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
   console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
+  if (m.meetings) console.log(`  ${''.padEnd(34)} caravan met ${m.meetings.runs}× — fares: ${Object.entries(m.meetings.fares).map(([k, n]) => `${k} ${n}`).join(', ')}${m.meetings.forced ? ` · ${m.meetings.forced} forced answers` : ''}`);
   if (m.road) console.log(`  ${''.padEnd(34)} ${roadLine(m)}`);
   if (m.encounters.perRun) console.log(`  ${''.padEnd(34)} ${encounterLine(m)}`);
   const fl = frightLine(m);

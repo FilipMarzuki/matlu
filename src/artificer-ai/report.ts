@@ -18,6 +18,8 @@ export interface Transcript {
     pins?: { made: string[]; forgotten: string[]; held: string[] } }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
+  /** The caravan meeting at the thaw (#1357). */
+  meeting?: { steps: { step: string; choice: string; success: boolean; forced?: boolean }[]; ended: string; fare: string | null; owesHelp: number };
   /** The caravan road, for a run that rode on (#1251). */
   road?: {
     start: RoadProgress;
@@ -152,6 +154,26 @@ export interface ModelSummary {
   fright: FrightSummary;
   /** Places remembered (#1381). */
   pins: PinSummary;
+  /** How the caravan was met (#1357); null when no run met it. */
+  meetings: MeetingSummary | null;
+}
+
+/** How a model's Wardens met the caravan (#1357). */
+export interface MeetingSummary {
+  runs: number;
+  /** How the ride was paid (goods, marks, work, word, craft) — or `stayed`, for letting them pass. Counts. */
+  fares: Record<string, number>;
+  /** Answers that fell back to the safest option (total). */
+  forced: number;
+}
+
+/** Count how a model's Wardens met the caravan (#1357). */
+export function meetingSummaryOf(runs: readonly Transcript[]): MeetingSummary | null {
+  const met = runs.filter(r => r.meeting);
+  if (!met.length) return null;
+  const fares: Record<string, number> = {};
+  for (const r of met) { const k = r.meeting!.ended === 'stay' ? 'stayed' : r.meeting!.fare ?? 'none'; fares[k] = (fares[k] ?? 0) + 1; }
+  return { runs: met.length, fares, forced: met.reduce((n, r) => n + r.meeting!.steps.filter(s => s.forced).length, 0) };
 }
 
 /** What a model's Wardens chose to remember (#1381). */
@@ -363,6 +385,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       encounters: encounterSummaryOf(runs),
       fright: frightSummaryOf(runs),
       pins: pinSummaryOf(runs),
+      meetings: meetingSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }

@@ -16,7 +16,8 @@ import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
-import { observe, observeRoad, observeEncounter, ROAD_RULES } from './observe';
+import { observe, observeRoad, observeEncounter, observeMeeting, ROAD_RULES } from './observe';
+import { openMeeting, meetingOptions, safestMeetingOption, chooseInMeeting, boardingOf, type Boarding, type Fare, type Meeting, type MeetingStepId } from '../artificer/caravan-meeting';
 import { parseFocus } from '../artificer/focus';
 import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
@@ -49,6 +50,12 @@ export interface Player {
    * a player without it always takes the safest option.
    */
   decideEncounter?(message: string, state: Region1State): Promise<{ text: string; usage?: Partial<Usage> }>;
+  /**
+   * Answer the caravan master at the thaw (#1357), replying `{thoughts, choice}` like an encounter.
+   * Optional: without it, `decideEncounter` answers (a model reads the message either way);
+   * without either, the safest option is taken.
+   */
+  decideMeeting?(message: string, reach: Region1State, meeting: Meeting): Promise<{ text: string; usage?: Partial<Usage> }>;
 }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
@@ -175,6 +182,54 @@ export interface RoadTurn {
   journal: string[];
 }
 
+/** One answer in the caravan meeting (#1357): the step, the option taken, and how it went. */
+export interface MeetingTurn {
+  step: MeetingStepId;
+  choice: string;
+  success: boolean;
+  /** No valid answer came back twice (or the player can't answer): the safest option was taken. */
+  forced?: true;
+  reply?: string;
+  errors?: string[];
+}
+
+/** The caravan meeting as played (#1357): each answer, where it ended, and how the ride was paid. */
+export interface MeetingRecord { steps: MeetingTurn[]; ended: 'board' | 'stay'; fare: Fare | null; owesHelp: number }
+
+/**
+ * Play the caravan meeting (#1357): each step shown like an encounter and answered through `ask`
+ * (null: the player can't answer). An invalid answer is explained back once; after that the
+ * safest option is taken, and the step is marked forced. Returns the record, and what boards.
+ */
+export async function playMeeting(reach: Region1State, ask: ((message: string, m: Meeting) => Promise<string>) | null): Promise<{ record: MeetingRecord; boarding: Boarding | null }> {
+  let m = openMeeting(reach);
+  const steps: MeetingTurn[] = [];
+  let notes: string[] = [];
+  // A meeting is a few steps at most; a loop that doesn't end is a bug.
+  for (let i = 0; i < 6 && !m.ended; i++) {
+    const offered = meetingOptions(reach, m).map(o => ({ id: o.option.id, unmet: o.unmet }));
+    let choice: string | null = null, reply = '', errors: string[] | undefined;
+    if (ask) {
+      reply = await ask(observeMeeting(reach, m, notes), m);
+      let e = parseEncounterDecision(reply, offered);
+      if (!e.ok) {
+        reply = await ask(`Your choice was invalid:\n- ${e.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "choice"}.`, m);
+        e = parseEncounterDecision(reply, offered);
+      }
+      if (e.ok) choice = e.decision.choice; else errors = e.errors;
+    }
+    notes = [];
+    const forced = choice === null;
+    const step = m.step;
+    const option = forced ? safestMeetingOption(reach, m).id : choice!;
+    if (forced && ask) notes.push(`You never gave a valid answer, so you took the safest: ${option}.`);
+    m = chooseInMeeting(reach, m, option);
+    steps.push({ step, choice: option, success: m.last?.success ?? true, ...(forced ? { forced: true as const, ...(ask ? { reply, errors } : {}) } : {}) });
+  }
+  if (!m.ended) throw new Error('the caravan meeting did not end — it should in a few steps');
+  return { record: { steps, ended: m.ended, fare: m.fare, owesHelp: m.owesHelp }, boarding: boardingOf(m) };
+}
+
 /** The road part of a run that rode on (#1251). */
 export interface RoadResult {
   turns: RoadTurn[];
@@ -218,6 +273,8 @@ export interface RunResult {
   /** Progression at the start of the run, before day 1 (#1229). */
   start: Progress;
   final: Region1State;
+  /** The caravan meeting at the thaw, for a run that met it (#1357). */
+  meeting?: MeetingRecord;
   /** The caravan road, when the run survived the thaw and was played on (#1251). `record` stays the Reach's. */
   road?: RoadResult;
 }
@@ -446,15 +503,20 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
   if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
     const decideRoad = player.decideRoad.bind(player);
-    result.road = await playRoad(s, async (message, r) => {
-      const reply = await decideRoad(message, r);
+    const count = (reply: { text: string; usage?: Partial<Usage> }): string => {
       usage.input += reply.usage?.input ?? 0;
       usage.output += reply.usage?.output ?? 0;
       usage.cacheRead += reply.usage?.cacheRead ?? 0;
       usage.cacheWrite += reply.usage?.cacheWrite ?? 0;
       if (reply.usage?.cost !== undefined && reply.usage.cost !== null) usage.cost = (usage.cost ?? 0) + reply.usage.cost;
       return reply.text;
-    }, opts.onRoadTurn);
+    };
+    // First the caravan master (#1357): who you are and how you'll pay. Let them pass, and there's no road.
+    const reach = s;
+    const answer = player.decideMeeting ? player.decideMeeting.bind(player) : player.decideEncounter ? (msg: string) => player.decideEncounter!(msg, reach) : null;
+    const met = await playMeeting(reach, answer ? async (message, m) => count(await answer(message, reach, m)) : null);
+    result.meeting = met.record;
+    if (met.boarding) result.road = await playRoad(s, async (message, r) => count(await decideRoad(message, r)), opts.onRoadTurn, met.boarding);
   }
   return result;
 }
@@ -465,8 +527,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
  * The first message carries the road's rules. An invalid reply is explained back once;
  * actions the sim can't do are skipped, and the next day's journal says why.
  */
-export async function playRoad(reach: Region1State, ask: (message: string, r: RoadState) => Promise<string>, onTurn?: (t: RoadTurn) => void): Promise<RoadResult> {
-  let r = createRoad(reach);
+export async function playRoad(reach: Region1State, ask: (message: string, r: RoadState) => Promise<string>, onTurn?: (t: RoadTurn) => void, boarding?: Boarding): Promise<RoadResult> {
+  let r = createRoad(reach, boarding);
   const start = roadProgressOf(r);
   const turns: RoadTurn[] = [];
   let notes: string[] = [];
