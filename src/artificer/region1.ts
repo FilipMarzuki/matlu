@@ -15,7 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
-import { pinId, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
+import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
@@ -1295,6 +1295,9 @@ function revisit(next: Region1State, ring: Ring, at: LogEntry['at']): void {
   if (!here.length) return;
   if (!next.today.revisited) {
     next.today.revisited = true;
+    // A quiet line in the journal (#1380) — louder for a place you know well (★★★).
+    const known = [...here].sort((x, y) => (y.interest ?? 0) - (x.interest ?? 0))[0];
+    say(next, `You go back by ${placeName(known)} you remembered.`, known.interest === 3 ? 'milestone' : 'action', at);
     practiceSkill(next, 'memory', 1);
   }
   for (const p of here) if (p.feeling === 'awed' && !p.visited) {
