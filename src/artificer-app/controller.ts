@@ -25,7 +25,7 @@ import { startingQuirks, type Quirk } from '../artificer/quirks';
 import { SUGGESTED_PACK, validPack, readKit, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
-import { readInjury, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
+import { readInjury, atRisk, riskLine, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -303,6 +303,8 @@ export interface QueuePreview {
   loads: (TripLoad | null)[];
   /** A danger the Warden can see coming (a blizzard, with Intelligence 12+, #1315) — or null. The action still runs. */
   dangers: (string | null)[];
+  /** Work that could make a serious, untreated injury worse (#1395) — or null. */
+  strains: (string | null)[];
   /** The state after every queued action has run (no nights in between). */
   projected: Region1State;
   /** The state each entry would run in — what its options are judged against. */
@@ -317,6 +319,7 @@ export function previewQueue(a: AppState): QueuePreview {
   const dayOffset: number[] = [];
   const warnings: (string | null)[] = [];
   const dangers: (string | null)[] = [];
+  const strains: (string | null)[] = [];
   const loads: (TripLoad | null)[] = [];
   const unease: QueuePreview['unease'] = [];
   let hours = a.sim.hoursToday;
@@ -331,6 +334,10 @@ export function previewQueue(a: AppState): QueuePreview {
     const reason = blockedReason(projected, id, ring, opts);
     warnings.push(reason);
     dangers.push(reason ? null : dangerOf(projected, id, ring));
+    // Work through a serious injury (#1392) and it may give: the same rule the sim rolls (crafts strain a hand).
+    const craft = !!(ACTIONS[id].recipe || ACTIONS[id].recipeFor);
+    const risk = reason ? null : atRisk(projected.injuries, id, ring, craft);
+    strains.push(risk ? riskLine(risk) : null);
     // What the trip would bring home, and how heavy it is to carry (#1296).
     loads.push(reason ? null : tripLoad(projected, item));
     // How it will feel out there at that hour (#1364): the dark, the weather, the distance.
@@ -340,7 +347,7 @@ export function previewQueue(a: AppState): QueuePreview {
     if (!reason) hours += queueHours(item, projected);
     projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, dangers, unease, loads, projected, before };
+  return { dayOffset, warnings, dangers, strains, unease, loads, projected, before };
 }
 
 // ── Save / load ─────────────────────────────────────────────────────────────

@@ -183,3 +183,16 @@ export const HARM_LORE: Readonly<Record<Harm, string>> = {
   'weak-grip': 'The tendons healed short. Fine work will always cost you a little — but hands learn around a wound.',
   scar: 'An old cut, closed well enough. It will ache when the weather turns. That is all it will do.',
 };
+
+// ── Showing injuries (#1395) ────────────────────────────────────────────────
+
+/** An injury this work could make worse (#1395): a serious, untreated one it strains — the same rule the sim rolls. */
+export const atRisk = (injuries: readonly Injury[] | undefined, action: string, ring: number, craft: boolean): Injury | null =>
+  (injuries ?? []).find(i => i.severity === 'serious' && !i.treated && strains(i.kind, action, ring, craft)) ?? null;
+
+const SHORT_NAME: Readonly<Record<InjuryKind, string>> = { sprain: 'sprain', hand: 'hurt hand', cut: 'cut' };
+/** The queue's warning for work that could make an injury worse. */
+export const riskLine = (i: Injury): string => `🩹 could make your ${SHORT_NAME[i.kind]} worse`;
+
+/** Could this injury get worse, from work or by itself (an untreated serious cut can fester)? */
+export const canWorsen = (i: Injury): boolean => i.severity === 'serious' && !i.treated;

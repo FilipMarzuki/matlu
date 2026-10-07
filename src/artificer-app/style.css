@@ -372,6 +372,14 @@ body { min-height: 100vh; }
   .stat.hi .sv { color: var(--gold); }
   .stat.lo .sv { color: var(--dim); }
   .stat .sd { grid-column: 1 / -1; font-size: 10px; color: var(--dim); }
+  /* Injuries on screen (#1395): a chip per injury (warning colour when it could get worse), the queue's warning, old wounds. */
+  .tag.inj { border-color: var(--border2); color: var(--ink); }
+  .tag.inj.sev-grave { border-color: var(--danger); color: var(--danger); }
+  .tag.inj.risk { border-color: var(--warn); color: var(--warn); }
+  .why.strain { color: var(--warn); }
+  .harms { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .harms li { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); font-size: 12px; }
+  .harms li span { color: var(--dim); }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
