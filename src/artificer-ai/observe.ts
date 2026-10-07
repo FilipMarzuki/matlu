@@ -31,6 +31,7 @@ import { questById, canComplete, type QuestTemplate } from '../artificer/quests'
 import { encounterById, optionsFor, stepOf, type EncounterOption } from '../artificer/encounters';
 import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
+import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
@@ -76,6 +77,9 @@ FEAR AND PANIC
 Things look as dangerous as they seem to YOU, not as they are: the unknown, the dark or a storm, a foggy mind (Clarity under 30) and a hurt body (Condition under 40) make them look worse; meeting the same thing again and again, and skill in its field, make them look smaller. Your nerve (from WIL, and some talents) is what you can hold. If something looks one step past your nerve you are SHAKEN: careful options (fine judgement, stalking, talking) go one odds word worse, and the fright costs some Clarity. Two or more steps past and you PANIC: careful options close, and your body may override your choice with its instinct — your panic response, a quirk you may not know yet (fighters lash out, runners bolt, freezers lock up and lose hours, appeasers give something away). Shaken or panicked, adrenaline makes STR and AGI count higher for the moment. After a panic comes a crash: Vigor and Clarity drop, your hands shake (crafts a grade worse that day) and you sleep badly. A panic that ends badly can leave a lasting fear of that kind of thing; facing it calmly a few times fades it.
 The environment frightens too. Out on the land, dusk and dark, fog, storms and blizzards, the distant ring, and winter after dark all add up (ground you know well helps): shaken, the work wears the mind harder; panicked, something out there may spook you off the land — what you do then is your panic response. At night, no shelter, no fire, bad weather and winter make it hard to sleep (a lived-in camp and a warm shelter with the fire kept in help): an uneasy night returns less Clarity, a sleepless one much less, and some Vigor. The observation marks trips and nights that will frighten you.
 
+PLACES AND MEMORY
+Out on the land you sometimes come across a place worth remembering (a sheltered hollow, a deep pool, a berry thicket, a stone outcrop, a strange carving, a sunlit glade). It comes as an encounter: "remember" pins it, if your memory has room. You can hold 2 places (+1 per 2 INT above 10, fewer below, at least 1), plus 1 per true level of the Memory skill, which grows by remembering places (1h each) and by going back to rings where you remember one (1h, once a day). A remembered place pays off in its ring: a fishing spot +1 to water and fishing, a berry thicket +1 to gathering, an outcrop +1 to quarrying; a peaceful place makes the ring less frightening, an eerie one more; something that awed you keeps the ring no worse in the dark; a sheltered hollow in ring 1 makes a shelter you build while you remember it warmer. When memory is full, let a place go with "forget": "<pin id>". From Apprentice Memory you can weigh places with "interest" (1–2 stars; 3 from Adept): a 3-star place counts double. Places are forgotten when the run ends; Memory, the skill, carries on.
+
 RESPONDING
 Each turn you get an observation. Reply with ONLY a JSON object, no prose, matching:
 {
@@ -83,6 +87,8 @@ Each turn you get an observation. Reply with ONLY a JSON object, no prose, match
   "site": "cave" | "tree" | "river" | "hill" | null (settle or move camp before the day; null = no change),
   "focus": "concept:<name>" | "goal:shelter|larder|explore" | "skill:<name>" | "none" | null (what your mind works on; null = keep),
   "eating": "full" | "half" | "none" | null (how you eat from tonight; null = keep),
+  "forget": "<pin id>" | null (let a remembered place go, before the day; null = none),
+  "interest": [ { "pin": "<pin id>", "stars": 0 | 1 | 2 | 3 } ] (weigh remembered places once Memory allows; [] = none),
   "queue": [ { "action": string, "ring": 1 | 2 | 3, "options": [ { "key": string, "value": string } ] } ]
 }
 Use action ids exactly as listed. "ring" matters only for land actions (use 1 otherwise). "options" lets you pick choices shown for an action (e.g. {"key":"target","value":"small"} for hunt); use [] for defaults. Moving camp (site) after building abandons the shelter.
@@ -209,6 +215,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Tonight (#1365): if going to bed now would be a fearful night, and why.
   const tonight = tonightsFright(s);
   if (tonight && tonight.state !== 'calm') lines.push(`TONIGHT: looks ${THREAT_WORDS[tonight.perceived]} (${tonight.reasons.join(', ')}) — ${tonight.state === 'shaken' ? 'an uneasy night: less Clarity back' : 'a sleepless night: much less Clarity and some Vigor back'}. Shelter, a fire, a camp you know all help.`);
+  // Pins (#1381): the places you remember, how much room is left, and what each does.
+  lines.push(pinsLine(s));
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
@@ -243,7 +251,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       // How it would feel out there now (#1365): shaken or panicked, and why — as the queue preview shows a person.
       const u = why ? null : tripUnease(s, queueId(id, r));
       const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
-      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}`);
+      // What a place you remember does for this trip (#1381), as the queue preview shows a person.
+      const pin = def.ringed ? tripPinNote(s.pins, id, r) : null;
+      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {
@@ -331,6 +341,15 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
     'Reply with ONLY {"thoughts": "<one sentence>", "choice": "<option id>"}.',
   ];
   return lines.join('\n');
+}
+
+/** The places you remember, in a line (#1381): memory used of capacity, then each pin and what it does. */
+export function pinsLine(s: Region1State): string {
+  const pins = s.pins ?? [];
+  const room = pinCapacity(s), top = maxInterest(s.skills);
+  const full = pins.length >= room ? ` — FULL (to remember another, forget one first; least interesting and oldest: ${letGoFirst(pins)!.id})` : '';
+  const each = pins.map(p => `${p.id} = ${placeName(p)}, ring ${p.ring}${p.feeling ? `, ${p.feeling}` : ''}${p.interest ? `, ${p.interest} star${p.interest > 1 ? 's' : ''}` : ''}: ${pinEffect(p)}`);
+  return `PINS (memory ${pins.length}/${room}${top ? `, interest up to ${top} stars` : ', interest not yet'})${full}: ${each.length ? each.join(' · ') : 'none — places worth remembering turn up out on the land'}`;
 }
 
 /** Known quirks and fears, in a line (#1365); null when there's nothing known to tell. */
