@@ -20,7 +20,7 @@ import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS
 import { startFromPack, hasKit, kitColdCost, kitTimeMult, validPack, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
-import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
+import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, injuryView, KNOWS, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
@@ -1713,7 +1713,9 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
     if (inj.severity !== 'serious' || inj.treated || !strains(inj.kind, action, ring, craft)) continue;
     if (streamFor(seedOf(next.character.id), next.day, `aggravate:${inj.kind}@${at?.hour ?? 0}`)() >= AGGRAVATE_CHANCE) continue;
     next.injuries = next.injuries!.map(i => (i === inj ? { ...i, severity: 'grave', heal: i.heal + HEAL_POINTS.grave - HEAL_POINTS.serious } : i));
-    say(next, `You push on through it, and something gives — your ${INJURY_NAME[inj.kind]} is worse now (grave).`, 'hardship', at);
+    // What you make of it depends on what you know (#1410): untrained, only that it hurts far worse.
+    const knows = skillLevel(next.skills, 'firstaid') >= KNOWS.severity;
+    say(next, `You push on through it, and something gives — ${knows ? `your ${INJURY_NAME[inj.kind]} is worse now (grave)` : `your ${injuryView(inj, 0).name} hurts far worse now`}.`, 'hardship', at);
   }
 }
 
@@ -1814,7 +1816,8 @@ function applyAccident(next: Region1State, accident: Accident, before: Stores | 
     const severity = severityOf(seedOf(next.character.id), next.day, at?.hour ?? clockHour(next.hoursToday), tired);
     const had = next.injuries?.find(i => i.kind === a.injury);
     if (!had || HEAL_POINTS[severity] > HEAL_POINTS[had.severity]) next.injuries = [...(next.injuries ?? []).filter(i => i.kind !== a.injury), injure(a.injury, severity)];
-    line = `${line} (${severity})`;
+    // You can tell how bad it is from Apprentice First aid (#1410).
+    if (skillLevel(next.skills, 'firstaid') >= KNOWS.severity) line = `${line} (${severity})`;
   }
   if (a.kind === 'lost-haul' && before) for (const k of STORE_KEYS) next.stores[k] = Math.min(next.stores[k], before[k]);
   next.vitals = { ...next.vitals, condition: Math.max(0, next.vitals.condition - a.condition) };
@@ -2208,7 +2211,7 @@ const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
  * What a night needs from a Warden — shared by Region 1 and the caravan road
  * (#1244), so survival works the same wherever you sleep.
  */
-export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log' | 'strain' | 'injuries' | 'kit'>;
+export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log' | 'strain' | 'injuries' | 'kit' | 'skills'>;
 
 export interface NightOpts {
   /** Shelter warmth for the night, 0–1. */
@@ -2420,7 +2423,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
       if (i.kind === 'cut') next.vitals.condition = Math.max(0, next.vitals.condition - CUT_BLEED);
       const amount = amountFor(i);
       const left = Math.max(0, i.heal - amount);
-      if (left > 0) { say(amount > 0 ? healingLine({ ...i, heal: left }) : notHealingLine(i), 'hardship'); continue; }
+      const fa = skillLevel(next.skills, 'firstaid');
+      if (left > 0) { say(amount > 0 ? healingLine({ ...i, heal: left }, fa) : notHealingLine(i, fa), 'hardship'); continue; }
       healed.push(i);
       // A grave injury leaves its mark — unless a healer set it properly (#1394).
       const harm = i.severity === 'grave' && !i.mended ? HARM_OF[i.kind] : null;

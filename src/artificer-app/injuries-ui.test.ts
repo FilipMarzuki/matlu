@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegion1, type Region1State } from '../artificer/region1';
 import { FLAT_WORLD } from '../artificer/world';
 import { createExploration, scout } from '../artificer/exploration';
+import { LEVEL_HOURS } from '../artificer/skills';
 import { injure, atRisk, riskLine, canWorsen } from '../artificer/injuries';
 import { previewQueue } from './controller';
 import { injurySummaryOf, type Transcript } from '../artificer-ai/report';
@@ -15,7 +16,8 @@ import { observe } from '../artificer-ai/observe';
 
 const hurt = (over: Partial<Region1State> = {}): Region1State => {
   const s = createRegion1({ world: FLAT_WORLD }, undefined, { id: 'w-ui' });
-  return { ...s, explore: scout(scout(scout(createExploration(), 1), 2), 3), stores: { ...s.stores, materials: 10 }, ...over };
+  // A scout's Apprentice First aid (#1410): enough to know what's risky.
+  return { ...s, explore: scout(scout(scout(createExploration(), 1), 2), 3), stores: { ...s.stores, materials: 10 }, skills: { firstaid: LEVEL_HOURS[2] }, ...over };
 };
 
 describe('Injuries on screen (#1395)', () => {
@@ -23,6 +25,8 @@ describe('Injuries on screen (#1395)', () => {
     const s = hurt({ injuries: [injure('sprain', 'serious')] });
     const p = previewQueue({ sim: s, queue: ['wood', 'rest', 'gather', 'gather@3'] });
     expect(p.strains).toEqual(['🩹 could make your sprain worse', null, null, '🩹 could make your sprain worse']);
+    // Untrained in First aid, you aren't warned (#1410): the pain afterwards is your only sign.
+    expect(previewQueue({ sim: { ...s, skills: {} }, queue: ['wood'] }).strains).toEqual([null]);
     // A hurt hand: crafting strains it, felling doesn't.
     const hand = previewQueue({ sim: hurt({ injuries: [injure('hand', 'serious')] }), queue: ['knife', 'wood'] });
     expect(hand.strains).toEqual(['🩹 could make your hurt hand worse', null]);
@@ -39,7 +43,7 @@ describe('Injuries on screen (#1395)', () => {
 
   it('shows the AI its injuries and old wounds, and counts them in the report', () => {
     const s = hurt({ injuries: [injure('sprain', 'serious')], character: { ...hurt().character, harms: ['scar'] } });
-    expect(observe(s)).toMatch(/INJURIES: serious sprained ankle .*6 healing to go — untreated: heavy work could make it grave/);
+    expect(observe(s)).toMatch(/INJURIES \(as far as your first aid tells you\): serious sprained ankle, physical work and walking cost 1.3x, untreated, heavy work could make it worse/);
     expect(observe(s)).toMatch(/OLD WOUNDS: a scar \(it aches on cold nights\)/);
     const run = (journal: string[]) => ({ turns: [{ journal }] }) as unknown as Transcript;
     const summary = injurySummaryOf([

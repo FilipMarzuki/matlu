@@ -9,6 +9,7 @@ import { createRegion1, runAction, runDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { FULL_WORLD, FLAT_WORLD } from './world';
 import { createExploration, scout } from './exploration';
+import { LEVEL_HOURS } from './skills';
 import { legacyOf } from './legacy';
 import { streamFor, seedOf } from './rng';
 import { statEffects, DEFAULT_STATS } from './stats';
@@ -66,10 +67,13 @@ describe('Injuries (#1392)', () => {
     expect(nightHealing({ ...good, cold: true })).toBe(0);
 
     // In play: a restful, fed, sheltered day takes a serious sprain from 6 to 4.
-    const s = settled('w-heal', { injuries: [injure('sprain', 'serious')] });
+    // (An Adept in First aid can tell how bad it is and how long it will take, #1410.)
+    const s = settled('w-heal', { injuries: [injure('sprain', 'serious')], skills: { firstaid: LEVEL_HOURS[3] } });
     const d = runDay(s, ['rest']).state;
     expect(d.injuries).toEqual([{ kind: 'sprain', severity: 'serious', heal: 4 }]);
-    expect(d.log.some(l => l.text === 'Your sprained ankle (serious) is mending — 4 more to heal.')).toBe(true);
+    expect(d.log.some(l => l.text === 'Your sprained ankle (serious) is mending — about 4 more good nights.')).toBe(true);
+    // Untrained, you only know it's mending.
+    expect(runDay({ ...s, skills: {} }, ['rest']).state.log.some(l => l.text === 'Your ankle is mending.')).toBe(true);
     // No food: nothing mends, and the journal says why.
     const hungry = runDay({ ...s, stores: { ...s.stores, rawFood: 0 } }, ['rest']).state;
     expect(hungry.injuries).toEqual([{ kind: 'sprain', severity: 'serious', heal: 6 }]);
@@ -91,7 +95,8 @@ describe('Injuries (#1392)', () => {
 
     const out = (id: string, injuries = [injure('sprain', 'serious')]): Region1State => {
       const s = createRegion1({ world: { ...FULL_WORLD, luck: false } }, undefined, { id });
-      return { ...s, day: 3, hoursToday: 2, weatherToday: 'clear', explore: scout(createExploration(), 1), vitals: createVitals(), injuries, character: { ...s.character, talents: [], quirks: [] } };
+      // Apprentice First aid (#1410): you can tell it got worse, and how bad.
+      return { ...s, day: 3, hoursToday: 2, weatherToday: 'clear', explore: scout(createExploration(), 1), vitals: createVitals(), injuries, skills: { firstaid: LEVEL_HOURS[2] }, character: { ...s.character, talents: [], quirks: [] } };
     };
     // A Warden whose roll for the hour hits.
     let who = '';

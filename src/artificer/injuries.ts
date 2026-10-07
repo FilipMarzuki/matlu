@@ -87,11 +87,14 @@ export const HARM_WORDS: Readonly<Record<Harm, string>> = {
   'weak-grip': 'your crafts come out a little worse',
   scar: 'it aches on cold nights',
 };
-export const healingLine = (i: Injury): string =>
-  `Your ${INJURY_NAME[i.kind]} (${i.severity}) is mending — ${Math.ceil(i.heal)} more to heal.`;
+/** The night's mending, in what you understand of it (#1410): the severity from Apprentice First aid, the nights left from Adept. */
+export const healingLine = (i: Injury, firstAid: number = KNOWS.everything): string => {
+  const v = injuryView(i, firstAid);
+  return `Your ${v.name}${v.severity ? ` (${v.severity})` : ''} is mending${v.nights !== undefined ? ` — about ${v.nights} more good night${v.nights === 1 ? '' : 's'}` : ''}.`;
+};
 export const healedLine = (i: Injury, harm: Harm | null): string =>
   harm ? `Your ${INJURY_NAME[i.kind]} has healed, but it has left you with ${HARM_NAME[harm]}: ${HARM_WORDS[harm]}.` : `Your ${INJURY_NAME[i.kind]} has healed clean.`;
-export const notHealingLine = (i: Injury): string => `Your ${INJURY_NAME[i.kind]} didn't mend tonight — it needs food, water and warmth.`;
+export const notHealingLine = (i: Injury, firstAid: number = KNOWS.everything): string => `Your ${injuryView(i, firstAid).name} didn't mend tonight — it needs food, water and warmth.`;
 
 // ── Treatment (#1393) ───────────────────────────────────────────────────────
 
@@ -196,3 +199,73 @@ export const riskLine = (i: Injury): string => `🩹 could make your ${SHORT_NAM
 
 /** Could this injury get worse, from work or by itself (an untreated serious cut can fester)? */
 export const canWorsen = (i: Injury): boolean => i.severity === 'serious' && !i.treated;
+
+// ── What you understand (#1410) ─────────────────────────────────────────────
+
+/**
+ * The First aid levels at which you understand more of an injury (#1410). Pain is felt by
+ * everyone (#1409); First aid turns it into understanding.
+ */
+export const KNOWS = { badness: 1, severity: 2, nights: 3, everything: 4 } as const;
+
+/** What you understand of an injury, at a First aid level. Absent fields are what you don't know. */
+export interface InjuryView {
+  /** What you call it: "ankle" untrained, "bad sprain" at Novice, "sprained ankle" from Apprentice. */
+  name: string;
+  /** Novice: light (minor) or bad (serious or grave). */
+  badness?: 'light' | 'bad';
+  /** Apprentice: the severity — and whether heavy work could make it worse (the queue warning). */
+  severity?: Severity;
+  risk?: boolean;
+  /** Adept: about how many good nights it still needs (a treated one heals faster). */
+  nights?: number;
+  /** Journeyman: an untreated serious cut could fester; the chance of worsening; whether a grave one will leave a mark. */
+  festers?: boolean;
+  worsenChance?: number;
+  willMark?: boolean;
+  treated?: Treatment;
+}
+
+const PLAIN: Readonly<Record<InjuryKind, string>> = { sprain: 'ankle', hand: 'hand', cut: 'cut' };
+const BAD: Readonly<Record<InjuryKind, string>> = { sprain: 'sprain', hand: 'hurt hand', cut: 'cut' };
+
+/** What an injury looks like to someone with this much First aid (#1410). The screen, the journal and the AI all read it. */
+export function injuryView(i: Injury, firstAid: number): InjuryView {
+  const badness = i.severity === 'minor' ? 'light' : 'bad';
+  const v: InjuryView = {
+    name: firstAid >= KNOWS.severity ? INJURY_NAME[i.kind] : firstAid >= KNOWS.badness ? `${badness} ${BAD[i.kind]}` : PLAIN[i.kind],
+    ...(i.treated ? { treated: i.treated } : {}),
+  };
+  if (firstAid >= KNOWS.badness) v.badness = badness;
+  if (firstAid >= KNOWS.severity) { v.severity = i.severity; v.risk = canWorsen(i); }
+  if (firstAid >= KNOWS.nights) v.nights = Math.ceil(i.heal / (1 + (i.treated ? TREAT_BONUS[i.treated] : 0)));
+  if (firstAid >= KNOWS.everything) {
+    v.festers = i.kind === 'cut' && canWorsen(i);
+    if (canWorsen(i) && i.kind !== 'cut') v.worsenChance = AGGRAVATE_CHANCE;
+    v.willMark = i.severity === 'grave' && !i.mended;
+  }
+  return v;
+}
+
+/** The queue's warning (#1395) — but only for someone who knows heavy work could do it (#1410): Apprentice First aid. */
+export const riskFor = (injuries: readonly Injury[] | undefined, action: string, ring: number, craft: boolean, firstAid: number): string | null => {
+  if (firstAid < KNOWS.severity) return null;
+  const i = atRisk(injuries, action, ring, craft);
+  return i ? riskLine(i) : null;
+};
+
+/** An injury in words, as far as you understand it (#1410) — for the screen's tooltip and the AI. */
+export function injuryWords(i: Injury, firstAid: number): string {
+  const v = injuryView(i, firstAid);
+  const felt = i.kind === 'sprain' ? 'walking and heavy work are harder' : i.kind === 'hand' ? 'crafting is slower' : 'it bleeds a little each night';
+  const cost = v.severity ? (i.kind === 'cut' ? 'costs 1 Condition a night' : `${i.kind === 'sprain' ? 'physical work and walking cost' : 'crafting takes'} ${INJURY_COST[i.severity]}x`) : felt;
+  return [
+    `${v.severity ?? v.badness ?? ''} ${v.name}`.trim(),
+    cost,
+    v.nights !== undefined ? `about ${v.nights} more good night${v.nights === 1 ? '' : 's'} to heal` : null,
+    v.treated ? `treated (${v.treated})` : 'untreated',
+    v.risk && i.kind !== 'cut' ? `heavy work could make it worse${v.worsenChance ? ` (${Math.round(v.worsenChance * 100)}% each time)` : ''}` : null,
+    v.festers ? 'watch it — untreated, it could go bad' : null,
+    v.willMark ? 'it will leave its mark when it heals' : null,
+  ].filter(Boolean).join(', ');
+}
