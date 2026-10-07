@@ -77,7 +77,10 @@ describe('The AI harness remembers places (#1381)', () => {
   // 4. 30 random runs: no invariant breaks, and pins never exceed capacity.
   it('keeps every invariant across 30 random runs, never holding more than memory allows', async () => {
     let made = 0;
-    for (let seed = 1; seed <= 30; seed++) {
+    // At least 30 runs; more (up to 150) until one has remembered a place — a random player meets a
+    // place in about one run in seven and remembers it one time in four, and which runs do shifts
+    // with anything that changes how a run goes.
+    for (let seed = 1; seed <= 150 && (seed <= 30 || made === 0); seed++) {
       const r = await playRun(randomPlayer({ mode: seed % 5 === 0 ? 'uniform' : 'legal', seed }), { characterId: `ai-random-pins-${seed}` });
       for (const t of r.turns) {
         expect(t.violations).toBeUndefined();

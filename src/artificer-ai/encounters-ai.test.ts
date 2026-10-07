@@ -5,6 +5,7 @@
  * report counts encounters and the deaths they caused. One test per Given/When/Then scenario.
  */
 
+import { SUGGESTED_PACK } from '../artificer/kit';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, type Region1State } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
@@ -96,15 +97,17 @@ describe('The AI harness plays encounters (#1348)', () => {
 
   // 3. An invalid choice twice: the safest available option is taken, and the turn is marked.
   it('takes the safest option after two invalid choices, and marks it', async () => {
-    const { t, player } = await runWithEncounter(() => '{"choice":"bite-it"}');
+    const { r, t, player } = await runWithEncounter(() => '{"choice":"bite-it"}');
     const [e] = t.encounters!;
-    expect(player.asked).toHaveLength(2);
+    // Asked twice for each encounter of the run (the first try, and once more after the error).
+    expect(player.asked).toHaveLength(2 * r.turns.flatMap(u => u.encounters ?? []).length);
     expect(player.asked[1]).toMatch(/^Your choice was invalid:\n- "bite-it" is not an option here — choose one of:/);
     // The safest of what was open then (the error lists it): stores on the day decide what's open,
     // so this can't be read off a fresh Warden's — a stranger you can't feed leaves only "turn away".
     const open = e.errors![0].split('choose one of: ')[1].split(', ');
     const t0 = encounterById(e.id)!;
-    const safest = safestOption(createRegion1({ world: ON }), { ...t0, options: t0.options.filter(o => open.includes(o.id)) }).id;
+    // Judged for a Warden like the run's: a 12-year-old scout with the leader's packing list (#1398–#1400).
+    const safest = safestOption(createRegion1({ world: ON }, undefined, { background: 'scout', age: 12, pack: [...SUGGESTED_PACK] }), { ...t0, options: t0.options.filter(o => open.includes(o.id)) }).id;
     expect(e).toMatchObject({ choice: safest, forced: true, reply: '{"choice":"bite-it"}', errors: [expect.stringMatching(/not an option here/)] });
     // A player that can't choose at all always gets the safest option.
     const mute: Player = { name: 'mute', decide: async () => ({ text: JSON.stringify({ thoughts: '', site: null, queue: OUTINGS }) }) };

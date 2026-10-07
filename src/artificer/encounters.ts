@@ -14,6 +14,7 @@
  * here are a first pair for the engine; animals, finds and people come in #1344–#1346.
  */
 
+import { kitItem, type KitId } from './kit';
 import type { Ring } from './exploration';
 import type { Season } from './winter';
 import type { Stores } from './region1';
@@ -40,6 +41,8 @@ export interface Requirement {
   tool?: string;
   /** Marks in hand (#1349): the road's currency. */
   marks?: number;
+  /** Something from the hike kit (#1400). */
+  kit?: KitId;
 }
 
 /** What an outcome does. Numbers are changes (negative costs). */
@@ -238,6 +241,10 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'fight', label: 'Fight her', odds: 0.15, response: 'fight', mods: { stats: { str: 0.04, con: 0.02 }, tools: { 'stone-knife': 0.15 }, talents: { tough: 0.05 } },
         success: { text: 'Somehow you drive her off, bleeding and roaring.', wound: 10, hours: 1 },
         fail: { text: 'She is far too strong.', wound: 30, killedBy: 'a bear' } },
+      // The scout's whistle (#1400): noise is what you're taught to make.
+      { id: 'whistle', label: 'Blow your whistle, hard', requires: { kit: 'whistle' }, odds: 0.7, response: 'flight',
+        success: { text: 'Three shrill blasts. She drops to all fours, huffs, and takes the cubs away up the slope.' },
+        fail: { text: 'The noise only makes her angrier. She bluff-charges and you scramble back through the thorns.', wound: 10 } },
     ],
   },
   {
@@ -289,6 +296,10 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'fight', label: 'Fight him', odds: 0.3, response: 'fight', mods: { stats: { str: 0.03 }, skills: { hunting: 0.04 }, tools: { 'stone-knife': 0.2 } },
         success: { text: 'You bring him down. Meat for days, and a good hide.', stores: { rawFood: 4, hides: 1 }, wound: 5 },
         fail: { text: 'His tusks open your leg.', wound: 25, killedBy: 'a boar' } },
+      // The scout's whistle (#1400).
+      { id: 'whistle', label: 'Blow your whistle', requires: { kit: 'whistle' }, odds: 0.8, response: 'flight',
+        success: { text: 'One long blast. He wheels and crashes off through the undergrowth.' },
+        fail: { text: 'He doesn\'t care for whistles. He cares for you.', wound: 10 } },
     ],
   },
   {
@@ -708,6 +719,8 @@ export interface Encounterer {
   pins?: readonly Pin[];
   /** Marks in hand (#1349), on the road. */
   marks?: number;
+  /** The hike kit (#1400), in the Reach. */
+  kit?: { items: readonly KitId[] };
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
 }
@@ -728,6 +741,7 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
   if (r?.talent && !w.character.talents.some(t => t.id === r.talent)) return 'needs a gift you don\'t have';
   if (r?.stat && w.character.stats[r.stat.id] < r.stat.min) return `needs ${r.stat.id.toUpperCase()} ${r.stat.min}`;
   if (r?.tool && !w.tools.some(t => t.item === r.tool)) return `needs a ${r.tool.replace(/-/g, ' ')}`;
+  if (r?.kit && !w.kit?.items.includes(r.kit)) return `needs a ${kitItem(r.kit).name.toLowerCase()}`;
   const marks = Math.max(r?.marks ?? 0, o.cost?.marks ?? 0);
   if (marks && (w.marks ?? 0) < marks) return `needs ${marks} marks`;
   for (const [k, n] of Object.entries(needs)) if (w.stores[k as keyof Stores] < (n ?? 0)) return `needs ${n} ${k === 'rawFood' ? 'food' : k}`;

@@ -16,6 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
+import { startFromPack, hasKit, kitColdCost, kitTimeMult, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -24,7 +25,7 @@ import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
 import { clockHour, lightOver } from './clock';
-import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
+import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul, SEE_BELOW } from './darkness';
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
@@ -169,6 +170,8 @@ export interface Region1State {
   injuries?: Injury[];
   /** First-aid kit dressings left (#1393): from the hike pack (#1400). Each treats any injury, one step better. */
   dressings?: number;
+  /** The hike kit (#1400): what was packed, and the supplies that run out. Absent: no pack (tests, old saves). */
+  kit?: KitState;
   /** Places you remember (#1378). They belong to this run: a new run starts with none. */
   pins?: Pin[];
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
@@ -238,6 +241,8 @@ export interface Character {
   harms?: Harm[];
   /** Who they were before the Reach (#1398): a scout brings training. Absent: none (tests, old saves). */
   background?: Background;
+  /** What they packed for the hike (#1400), last time: the next run packs again, starting from it. */
+  pack?: KitId[];
 }
 
 /**
@@ -246,7 +251,7 @@ export interface Character {
  * as they are (tiers and discoveries) into a new run.
  */
 /** `stats` are the adult stats chosen at creation; `age` (#1399) makes them young. */
-export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background' | 'age'>> {
+export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background' | 'age' | 'pack'>> {
   chosen?: TalentId[];
 }
 
@@ -262,12 +267,15 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   // Each new run of the same character is a year on.
   const adult: Stats = { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) };
   const age = who.age ?? (legacy?.age !== undefined ? legacy.age + 1 : undefined);
+  // The hike pack (#1400): chosen now, or what this character packed last time. None: today's bare start.
+  const pack = who.pack ?? legacy?.pack;
+  const packed = pack ? startFromPack(pack) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
     vitals: createVitals(),
-    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1, rations: 0, stone: 0, hides: 0 },
+    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1 + (packed?.stores.materials ?? 0), rations: packed?.stores.rations ?? 0, stone: 0, hides: 0 },
     coldGear: false,
     explore: createExploration(),
     site: null,
@@ -280,7 +288,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     milestones: [],
     // Someone who has done this before remembers how to plan; a fresh Warden learns it (#1350).
     canPlan: config.planning !== 'learned' || SKILL_IDS.some(id => skillLevel(legacy?.skills ?? {}, id) >= 1),
-    tools: [],
+    tools: packed ? packed.tools.map(t => ({ ...t })) : [],
+    ...(packed ? { kit: { ...packed.kit, items: [...packed.kit.items] }, ...(packed.dressings ? { dressings: packed.dressings } : {}) } : {}),
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
     deprivation: { hungry: 0, thirsty: 0 },
@@ -293,6 +302,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
       // Lasting harms (#1392): an old injury goes with you.
       ...(legacy?.harms?.length ? { harms: [...legacy.harms] } : {}),
       ...(background ? { background } : {}),
+      ...(pack ? { pack: [...pack] } : {}),
     },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
@@ -343,6 +353,7 @@ function clone(s: Region1State): Region1State {
     manuals: [...s.manuals],
     ...(s.pins ? { pins: s.pins.map(p => ({ ...p })) } : {}),
     ...(s.injuries ? { injuries: s.injuries.map(i => ({ ...i })) } : {}),
+    ...(s.kit ? { kit: { ...s.kit, items: [...s.kit.items] } } : {}),
     forecast: { ...s.forecast },
     log: [...s.log],
   };
@@ -643,6 +654,13 @@ function moveCamp(next: Region1State, site: SiteId): void {
   next.shelterGrade = null;
   next.shelter = { type: null, walls: null };
   say(next, `Chose the ${SITES[site].name.toLowerCase()} as your ground${moved ? ' — the old shelter is left behind' : ''}.`, 'action');
+  // The patrol's tarp (#1400) goes up wherever you camp: a crude lean-to roof, no tree felled.
+  if (hasKit(next, 'tarp')) {
+    next.tier = 1;
+    next.shelterGrade = 'crude';
+    next.shelter = { type: 'leanto', walls: null };
+    say(next, 'You string the tarp between two trees and peg it down low — a roof, of sorts.', 'action');
+  }
 }
 
 /** Cold-weather gear: fine work for the mind. A graded tool that unlocks winter travel. */
@@ -938,15 +956,16 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       s.studiedToday = r.state.studiedToday;
       s.today.loadClarity += Math.max(0, before - s.vitals.clarity.current);
       // Intelligence (#1256): a sharper mind takes more from the same session.
-      const extra = r.gained * (statEffects(s.character.stats).insight - 1);
+      // …and a notebook to write it down in (#1400) keeps a little more of it.
+      const extra = r.gained * (statEffects(s.character.stats).insight - 1 + (hasKit(s, 'notebook') ? NOTEBOOK_INSIGHT : 0));
       if (extra !== 0) addInsight(s.concepts, concept, extra, CRAFT_WORLD.concepts);
-      // At night you read and reckon by firelight — or strain in the dark (#1281).
-      const night = nightWork(light, s.stores.firewood, 3, windFire(s.weatherToday));
+      // At night you read and reckon by firelight — or strain in the dark (#1281), unless a headlamp lights it (#1400).
+      const night = closeWork(s, light, 3);
       const strain = Math.max(0, before - s.vitals.clarity.current) * (night.clarity - 1);
-      s.stores.firewood -= night.fire;
+      spendCloseWork(s, night);
       s.vitals.clarity.current = Math.max(0, s.vitals.clarity.current - strain);
       s.today.loadClarity += strain;
-      return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).${night.fire ? ' By firelight.' : night.clarity > 1 ? ' Straining in the dark.' : ''}`;
+      return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).${night.lamp ? ' By headlamp.' : night.fire ? ' By firelight.' : night.clarity > 1 ? ' Straining in the dark.' : ''}`;
     },
   },
   tinker: {
@@ -955,7 +974,17 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   rest: {
     name: 'Rest', hours: 3, vigorRate: 4, clarityRate: 1.5,
-    run: () => 'Sat a while and let the ache settle.',
+    run: s => {
+      // The hike kit (#1400): a dry seat on a wet rock; and, once, a rainy day with a comic.
+      const pad = hasKit(s, 'sit-pad');
+      if (pad) s.vitals = { ...s.vitals, vigor: { ...s.vitals.vigor, current: Math.min(s.vitals.vigor.cap, s.vitals.vigor.current + SIT_PAD_VIGOR) } };
+      const comic = s.kit && s.kit.comic > 0 && s.weatherToday === 'rain';
+      if (comic) {
+        s.kit!.comic = 0;
+        s.vitals = { ...s.vitals, clarity: { ...s.vitals.clarity, current: Math.min(s.vitals.clarity.cap, s.vitals.clarity.current + COMIC_CLARITY) } };
+      }
+      return `Sat a while${pad ? ' on your sit pad' : ''} and let the ache settle.${comic ? ' The rain drums on and you read your comic cover to cover, again.' : ''}`;
+    },
   },
   // First aid (#1393): tend your worst untreated injury — a kit dressing if you have one, else improvised.
   // How well is First aid's doing; a treated injury heals faster and won't worsen or fester.
@@ -1041,7 +1070,7 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const snow = s ? snowSlowFor(s) : 1;
   // A blizzard slows everything out there (#1315).
   const storm = s && inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
+  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * (s ? kitTimeMult(s, id) : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
 }
 
 /**
@@ -1408,7 +1437,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const snow = snowSlowFor(next);
   // …and a blizzard slows everything out there (#1315).
   const storm = inBlizzard(next, id) ? BLIZZARD_HOURS : 1;
-  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm;
+  // A map and compass (#1400) make scouting quicker.
+  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(next, id);
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
   const td = talentDrain(next.character.talents, id);
@@ -1447,7 +1477,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (def.ringed) next.today.outside = true;
   if (id === 'study') next.today.absorbed = true;
   // Out in the rain, you get soaked (#1284).
-  if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + workHours + travel;
+  // Rain gear (#1400) keeps you dry twice as long.
+  if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + (workHours + travel) * (hasKit(next, 'rain-gear') ? RAIN_GEAR_WET : 1);
   // Tough (#1263): pushing past empty costs less Condition — give back the part it spares.
   refundOverexertion(next, r.conditionLost + t.conditionLost, tf.overexertCondition);
 
@@ -1457,7 +1488,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
   const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
   // Out in a blizzard (#1315): the white decides how you come back — if you do.
-  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) + (knowsTheCold(next.character) ? 1 : 0) - (ring - 1)) : null;
+  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) + (knowsTheCold(next.character) ? 1 : 0) + (hasKit(next, 'hat-mittens') ? 1 : 0) - (ring - 1)) : null;
   if (exposure === 'killed') {
     next.vitals.condition = 0;
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
@@ -1601,7 +1632,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
-  const night = nightWork(at.light, next.stores.firewood, hours, windFire(next.weatherToday));
+  const night = closeWork(next, at.light, hours);
   // Intelligence (#1256) lifts — or, below average, lowers — the grade.
   const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
@@ -1611,7 +1642,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   }
   refundOverexertion(next, Math.max(0, before.condition - c.vitals.condition), tr.overexertCondition);
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
-  if (made.kind !== 'refused') next.stores.firewood = Math.max(0, next.stores.firewood - night.fire);
+  if (made.kind !== 'refused') spendCloseWork(next, night);
   next.tools = c.tools;
   next.concepts = c.concepts;
   // Shaking hands after a panic (#1361): what comes off the bench is a grade worse than it would have been.
@@ -1677,6 +1708,45 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
     next.injuries = next.injuries!.map(i => (i === inj ? { ...i, severity: 'grave', heal: i.heal + HEAL_POINTS.grave - HEAL_POINTS.serious } : i));
     say(next, `You push on through it, and something gives — your ${INJURY_NAME[inj.kind]} is worse now (grave).`, 'hardship', at);
   }
+}
+
+// ── The hike kit (#1400) ────────────────────────────────────────────────────
+
+/** What the kit adds: a notebook's insight, a sit pad's rest, a comic, rain gear, dry socks, and the night's comforts. */
+export const NOTEBOOK_INSIGHT = 0.1, SIT_PAD_VIGOR = 2, COMIC_CLARITY = 3, RAIN_GEAR_WET = 0.5, SOCKS_WET = 0.5;
+export const KASA_CLARITY = 1, THERMOS_CLARITY = 4, STOVE_CLARITY = 3, PILLOW_CLARITY = 2, SWEETS_CLARITY = 6, SWEETS_BELOW = 30;
+
+/** Close work at night (#1281) with the kit (#1400): by headlamp, while the battery lasts; else a fire the steel holds in the wind and a match helps light. */
+interface CloseWork { fire: number; clarity: number; grade: number; lamp: number; match: number }
+function closeWork(s: Region1State, light: number, hours: number): CloseWork {
+  const k = s.kit;
+  if (light < SEE_BELOW && k && k.lamp >= hours) return { fire: 0, clarity: 1.2, grade: 0, lamp: hours, match: 0 };
+  const wind = hasKit(s, 'fire-steel') ? 0 : windFire(s.weatherToday);
+  const match = light < SEE_BELOW && k && k.matches > 0 ? 1 : 0;
+  const n = nightWork(light, s.stores.firewood + match, hours, wind);
+  return n.fire > 0 && match ? { ...n, fire: n.fire - 1, lamp: 0, match: 1 } : { ...n, lamp: 0, match: 0 };
+}
+function spendCloseWork(s: Region1State, n: CloseWork): void {
+  s.stores.firewood = Math.max(0, s.stores.firewood - n.fire);
+  if (s.kit && (n.lamp || n.match)) s.kit = { ...s.kit, lamp: s.kit.lamp - n.lamp, matches: s.kit.matches - n.match };
+}
+
+/** After the night (#1400): the kåsa, the thermos, the stove, the pillow, the sweets — and the phone gives up. */
+function kitNight(next: Region1State, fireKept: boolean, cold: boolean): void {
+  const k = next.kit;
+  if (!k) return;
+  const lift = (n: number, line: string) => {
+    next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.min(next.vitals.clarity.cap, next.vitals.clarity.current + n) } };
+    say(next, line, 'action');
+  };
+  const kit = { ...k };
+  if (fireKept && hasKit(next, 'kasa')) lift(KASA_CLARITY, 'A hot drink from your kåsa by the fire.');
+  if (cold && kit.thermos > 0) { kit.thermos--; lift(THERMOS_CLARITY, kit.thermos ? 'Hot blackcurrant from the thermos — still warm, somehow.' : 'The last of the thermos. It tastes of home.'); }
+  if (cold && !fireKept && kit.stove > 0) { kit.stove--; lift(STOVE_CLARITY, `A hot meal on the Trangia${kit.stove ? '' : ' — the last of the fuel'}.`); }
+  if (next.day === 1 && hasKit(next, 'pillow')) lift(PILLOW_CLARITY, "Your own pillow. It helps more than you'd have thought.");
+  if (kit.sweets > 0 && next.vitals.clarity.current < SWEETS_BELOW) { kit.sweets = 0; lift(SWEETS_CLARITY, 'You eat the Saturday sweets, every one. For a while the world is bearable.'); }
+  if (next.day === 2 && hasKit(next, 'phone')) say(next, 'Your phone dies in the night. There was never any signal out here anyway.', 'action');
+  next.kit = kit;
 }
 
 /** Crafts that knap stone or cut with a blade (#1285): double the bench risk. */
@@ -1884,8 +1954,10 @@ export function endDay(s: Region1State): Region1State {
 
   // Wet through after hours in the rain (#1284): a miserable evening.
   if (next.weatherToday === 'rain' && (next.wetHours ?? 0) >= WET_HOURS) {
-    next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - WET_CLARITY);
-    say(next, 'Wet through and miserable after a day out in the rain.', 'hardship');
+    // Dry socks to change into (#1400) take half the misery out of it.
+    const socks = hasKit(next, 'spare-socks');
+    next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - WET_CLARITY * (socks ? SOCKS_WET : 1));
+    say(next, `Wet through and miserable after a day out in the rain${socks ? ' — at least there are dry socks' : ''}.`, 'hardship');
   }
   // Wind strips warmth from the night (#1284).
   const shelterW = Math.max(0, warmth(next) - windChill(next.weatherToday));
@@ -1909,6 +1981,8 @@ export function endDay(s: Region1State): Region1State {
   const nightFright = next.config.world.encounters
     ? frightOf(next, nightAmbient(nightSceneOf(next, fire.kept || (fire.freeze === 0 && next.stores.firewood > 0), fire.kept)), true) : null;
   const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state });
+  // The hike kit's small comforts (#1400): a hot drink, a hot meal, a pillow, the sweets.
+  if (!night.ended) kitNight(next, fire.kept, cold);
   // After a fearful night (#1367): coming through grows the nerve; a sleepless one can leave a fear of the dark; calm ones fade it.
   if (nightFright && !night.ended) {
     if (nightFright.state !== 'calm') growFrom(next, { kind: 'fright', panicked: nightFright.state === 'panicked' });
@@ -2091,7 +2165,7 @@ const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
  * What a night needs from a Warden — shared by Region 1 and the caravan road
  * (#1244), so survival works the same wherever you sleep.
  */
-export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log' | 'strain' | 'injuries'>;
+export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log' | 'strain' | 'injuries' | 'kit'>;
 
 export interface NightOpts {
   /** Shelter warmth for the night, 0–1. */
@@ -2207,7 +2281,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
   // Knows the cold (#1399): a scout's winters take the edge off a cold night, like a little Cold-blooded.
   const talentFx = talentEffects(next.character.talents);
-  const tr = { ...talentFx, coldCost: talentFx.coldCost * coldWise(next.character) };
+  // Wool and a pad (#1400) help too.
+  const tr = { ...talentFx, coldCost: talentFx.coldCost * coldWise(next.character) * kitColdCost(next) };
   const se = statEffects(next.character.stats);
   // Strain from yesterday's loads (#1293) spoils the body's recovery: 10% per point, at most half.
   const strained = next.strain ?? 0;

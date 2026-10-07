@@ -22,6 +22,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
+import { SUGGESTED_PACK, validPack, readKit, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { readInjury, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
@@ -57,7 +58,7 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
   // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout', age: DEFAULT_AGE }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK] }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -444,8 +445,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const harms = harmList.length ? { harms: harmList } : {};
   // Background (#1398): a scout, if the save says so.
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
+  // The hike pack (#1400): kept if it's a pack we know.
+  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[]) ? { pack: [...(ch.pack as KitId[])] } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;
@@ -473,5 +476,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
   // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.
   const injuries = Array.isArray(sim.injuries) ? (sim.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : [];
-  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }) }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }
