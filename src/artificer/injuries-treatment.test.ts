@@ -74,7 +74,7 @@ describe('Treating injuries (#1393)', () => {
     expect(worstUntreated([injure('hand', 'minor'), injure('sprain', 'grave'), injure('cut', 'serious')])?.kind).toBe('sprain');
     expect(worstUntreated([{ ...injure('sprain', 'grave'), treated: 'good' }, injure('hand', 'minor')])?.kind).toBe('hand');
     // The AI sees it all.
-    expect(observe(t)).toMatch(/deep cut .*treated \(fair\) · first-aid dressings: 1/);
+    expect(observe(t)).toMatch(/INJURIES .*cut, .*treated \(fair\) · first-aid dressings: 1/);
   });
 
   // 3. An untreated serious deep cut: when the night's roll hits, it festers — grave, −5 Condition. A treated one never does.

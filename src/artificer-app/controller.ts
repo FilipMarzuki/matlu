@@ -25,7 +25,8 @@ import { startingQuirks, type Quirk } from '../artificer/quirks';
 import { SUGGESTED_PACK, validPack, readKit, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
-import { readInjury, atRisk, riskLine, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
+import { skillLevel } from '../artificer/skills';
+import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -336,8 +337,8 @@ export function previewQueue(a: AppState): QueuePreview {
     dangers.push(reason ? null : dangerOf(projected, id, ring));
     // Work through a serious injury (#1392) and it may give: the same rule the sim rolls (crafts strain a hand).
     const craft = !!(ACTIONS[id].recipe || ACTIONS[id].recipeFor);
-    const risk = reason ? null : atRisk(projected.injuries, id, ring, craft);
-    strains.push(risk ? riskLine(risk) : null);
+    // …but only someone who knows that (Apprentice First aid, #1410) is warned.
+    strains.push(reason ? null : riskFor(projected.injuries, id, ring, craft, skillLevel(projected.skills, 'firstaid')));
     // What the trip would bring home, and how heavy it is to carry (#1296).
     loads.push(reason ? null : tripLoad(projected, item));
     // How it will feel out there at that hour (#1364): the dark, the weather, the distance.

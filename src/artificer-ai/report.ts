@@ -227,7 +227,7 @@ export function injurySummaryOf(runs: readonly Transcript[]): InjurySummary {
     // An injuring accident's line ends with its severity (#1392).
     const sev = /\((minor|serious|grave)\)$/.exec(l)?.[1];
     if (sev && !/is mending/.test(l)) { s.bySeverity[sev] = (s.bySeverity[sev] ?? 0) + 1; total++; }
-    if (/something gives — your .* is worse now/.test(l)) s.aggravated++;
+    if (/You push on through it, and something gives/.test(l)) s.aggravated++;
     if (/has gone bad overnight/.test(l)) s.festered++;
     const harm = /it has left you with (a stiff knee|a weak grip|a scar)/.exec(l)?.[1];
     if (harm) s.harms[harm] = (s.harms[harm] ?? 0) + 1;

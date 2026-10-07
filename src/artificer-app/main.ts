@@ -22,14 +22,14 @@ import { seasonOf, MIDWINTER_AFTER, type Grade, type OutcomeKind } from '../arti
 import { daylightHours } from '../artificer/clock';
 import { dayMean, nightTemp, coldNightNeeds, isBlizzard, weatherName, BLIZZARD_HOURS, type WeatherId } from '../artificer/weather';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
+import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
-import { INJURY_NAME, HARM_NAME, HARM_WORDS, canWorsen } from '../artificer/injuries';
+import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
@@ -648,12 +648,13 @@ function painChip(s: AppState['sim']): string {
 
 /** Each open injury (#1395): kind, severity and healing left — in the warning colour when it could get worse. */
 function injuryChips(s: AppState['sim']): string {
+  // Only what your First aid lets you understand (#1410): pain (its own chip) you always feel.
+  const fa = skillLevel(s.skills, 'firstaid');
   return (s.injuries ?? []).map(i => {
-    const risk = canWorsen(i);
-    const tip = `${INJURY_NAME[i.kind]}, ${i.severity}: ${Math.ceil(i.heal)} more healing to go (a good night heals 1, a light day before it 2${i.treated ? `, +${i.treated === 'good' ? 2 : 1} for the treatment` : ''}).`
-      + (i.treated ? ` Treated (${i.treated}).` : risk ? (i.kind === 'cut' ? ' Untreated, it could fester — treat it.' : ' Untreated: heavy work could make it grave — treat it, or rest.') : ' Untreated.')
-      + (i.severity === 'grave' && !i.mended ? ' Grave: it will leave its mark when it heals.' : '');
-    return `<span class="tag inj sev-${i.severity}${risk ? ' risk' : ''}" title="${esc(tip)}">🩹 ${esc(INJURY_NAME[i.kind].toUpperCase())} · ${i.severity.toUpperCase()} · ${Math.ceil(i.heal)}</span>`;
+    const v = injuryView(i, fa);
+    const tip = `${injuryWords(i, fa)}.${fa < KNOWS.severity ? ' You can\'t tell how bad it is — the pain is your guide.' : ''}`;
+    const parts = [v.name.toUpperCase(), v.severity?.toUpperCase() ?? v.badness?.toUpperCase(), v.nights !== undefined ? `~${v.nights} NIGHT${v.nights === 1 ? '' : 'S'}` : null].filter(Boolean);
+    return `<span class="tag inj${v.severity ? ` sev-${v.severity}` : ''}${v.risk || v.festers ? ' risk' : ''}" title="${esc(tip)}">🩹 ${esc(parts.join(' · '))}</span>`;
   }).join('');
 }
 

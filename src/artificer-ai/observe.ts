@@ -11,6 +11,7 @@
  * model plays the same game a person does rather than a privileged one.
  */
 
+import { injuryWords } from '../artificer/injuries';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
 import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
@@ -23,7 +24,7 @@ import {
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
-import { SKILL_IDS, LEVELS, perceivedLevel } from '../artificer/skills';
+import { SKILL_IDS, LEVELS, perceivedLevel, skillLevel } from '../artificer/skills';
 import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
@@ -37,7 +38,7 @@ import { encounterById, optionsFor, stepOf, type EncounterOption } from '../arti
 import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
-import { INJURY_NAME, INJURY_COST, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
+import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
@@ -83,6 +84,7 @@ INJURIES are minor (60%), serious (30%) or grave (10%; 1.5x instead of 1.3x) —
 THE PACK: you set out on a weekend hike with your patrol, so you have what you packed. The knife, water bottle and sleeping bag count as your knife, waterskin and bedroll; the backpack is a sound backpack. Each item's effect is listed on the PACK line; some things run out (dressings, headlamp battery, matches, the thermos, stove fuel, the sweets).
 GROWING UP: you start as a child (11–14) and each new run of the same character is a year older. Your stats are lower now than they will be: each grows a little every year toward the adult stats chosen at creation, and is full at 18 (the body lags most: STR and CON). Every effect uses your stats as they are now. Under 18, skills learn 1.2x as fast.
 PAIN: injuries hurt. A minor or serious one aches at rest, a grave one is sharp; treated, one step less. Working through a serious untreated or a grave injury (the work that strains it) makes the pain one step sharper for the rest of the day — sharp pain after work means you are risking it. Sharp pain: work drains the mind 1.1x and the night costs 2 Clarity. Agony: 1.25x, work takes 1.1x as long, and the night costs 5.
+WHAT YOU UNDERSTAND: you always feel pain. Your First aid decides how much more you can tell: untrained, only which part hurts; Novice, whether it's light or bad; Apprentice, its severity and whether heavy work could make it worse; Adept, about how many good nights it needs; Journeyman, the signs of festering, the odds of worsening, and whether it will leave a mark. The INJURIES line shows only what you understand — use pain as your guide when it doesn't say.
 TREATMENT: "treat" (1h, at camp) tends your worst untreated injury: with a first-aid kit dressing if you have one (any injury, one step better), otherwise improvised — bind a cut (1 materials, or a hide for a better dressing), splint a sprain (1 firewood + 1 materials), ease a hurt hand with herbs (1 food). How well depends on your First aid skill: a fair treatment heals +1 a night, a good one +2 (only on nights that heal at all). A treated injury can't be worsened by work, and an untreated serious deep cut can fester overnight (10%: grave, -5 Condition). Each injury is treated once. Treating practises First aid.
 
 ENCOUNTERS
@@ -244,7 +246,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Pins (#1381): the places you remember, how much room is left, and what each does.
   lines.push(pinsLine(s));
   // Injuries (#1286): what still hurts, and for how long.
-  if (s.injuries?.length) lines.push(`INJURIES: ${s.injuries.map(i => `${i.severity} ${INJURY_NAME[i.kind]} (${i.kind === 'sprain' ? `physical work and walking cost ${INJURY_COST[i.severity]}x Vigor` : i.kind === 'hand' ? `crafting takes ${INJURY_COST[i.severity]}x as long` : 'costs 1 Condition a night'}), ${Math.ceil(i.heal)} healing to go${i.treated ? `, treated (${i.treated})` : i.severity === 'serious' ? ' — untreated: heavy work could make it grave' : ', untreated'}`).join(' · ')}${s.dressings ? ` · first-aid dressings: ${s.dressings}` : ''}`);
+  // As far as your First aid lets you understand them (#1410); pain, below, you always feel.
+  if (s.injuries?.length) lines.push(`INJURIES (as far as your first aid tells you): ${s.injuries.map(i => injuryWords(i, skillLevel(s.skills, 'firstaid'))).join(' · ')}${s.dressings ? ` · first-aid dressings: ${s.dressings}` : ''}`);
   // Pain (#1409): always felt — and sharper when you've worked through an injury.
   const pain = painOf(s);
   if (pain > 0) lines.push(`PAIN: ${PAIN_NAME[pain]}${pain >= 2 ? ` — work drains your mind ${PAIN_DRAIN[pain]}x${PAIN_HOURS[pain] > 1 ? ` and takes ${PAIN_HOURS[pain]}x as long` : ''}, and tonight will cost ${PAIN_NIGHT[pain]} Clarity` : ''}${(s.today.pain ?? 0) > restingPain(s.injuries) ? ' (worse for the work you did today)' : ''}`);
