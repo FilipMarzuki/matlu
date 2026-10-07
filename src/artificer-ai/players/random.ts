@@ -22,7 +22,7 @@ import { villageOf, ROAD_CRAFTS, type RoadActionId, type RoadState } from '../..
 import { peopleOf, VILLAGES } from '../../artificer/villages';
 import { QUESTS } from '../../artificer/quests';
 import { BASE_VALUE, isGood } from '../../artificer/trade';
-import { encounterById, unmet } from '../../artificer/encounters';
+import { encounterById, unmet, stepOf } from '../../artificer/encounters';
 
 export type RandomMode = 'uniform' | 'legal';
 
@@ -121,8 +121,9 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
   function encounterOption(s: Region1State): string {
     const t = s.pending ? encounterById(s.pending.id) : undefined;
     if (!t) return '';
-    const open = mode === 'legal' ? t.options.filter(o => !unmet(s, o)) : t.options;
-    return pick(open.length ? open : t.options).id;
+    const options = stepOf(t, s.pending!.step).options;
+    const open = mode === 'legal' ? options.filter(o => !unmet(s, o)) : options;
+    return pick(open.length ? open : options).id;
   }
 
   return {

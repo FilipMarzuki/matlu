@@ -37,7 +37,7 @@ import { encounterModal, type EncounterAfter } from './encounter-view';
 import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
-import { encounterById } from '../artificer/encounters';
+import { encounterById, stepOf } from '../artificer/encounters';
 import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
@@ -1027,12 +1027,12 @@ root.addEventListener('click', e => {
   // Encounters (#1347): choose an option, then carry on with the day.
   else if (d.choose) {
     const p = state.sim.pending, t = p && encounterById(p.id);
-    const opt = t?.options.find(o => o.id === d.choose);
+    const opt = t && p ? stepOf(t, p.step).options.find(o => o.id === d.choose) : undefined;
     const next = choose(state, d.choose);
     if (t && opt && !next.sim.pending) {
       const fresh = next.sim.log.slice(state.sim.log.length).map(l => l.text);
       encounterAfter = {
-        kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.sim.outcome,
+        kind: t.kind, scene: stepOf(t, p!.step).text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.sim.outcome,
         // When your read was badly wrong, the outcome shows the truth (#1364).
         truth: p ? truthLine(p.perceived ?? t.threat, t.threat, t.kind) : null,
       };

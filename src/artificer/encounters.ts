@@ -59,6 +59,14 @@ export interface Effect {
   practice?: { skill: SkillId; hours: number };
   /** Extra goods if you have a talent (Hunter's Patience gets more from a kill). */
   talentStores?: Partial<Record<TalentId, Partial<Record<keyof Stores, number>>>>;
+  /** A dialogue goes on (#1346): the next step's id. The encounter stays open, and the day paused. */
+  next?: string;
+  /** Something you did that the world may remember later (#1346): fed a starving stranger, put a herald right. */
+  deed?: string;
+  /** Insight a concept gains (a scholar's talk). */
+  insight?: { concept: string; amount: number };
+  /** A ring's ground you come to know (a delver's map): surveyed, as if you had walked it. */
+  survey?: Ring;
 }
 
 /** How stats, skills, talents and tools move an option's chance of success. */
@@ -84,6 +92,8 @@ export interface EncounterOption {
   mods?: OddsMods;
   /** If you meet this, the option is a sure thing (#1344): a good scout backs away from a bear safely. */
   sureIf?: Requirement;
+  /** Talking someone round (#1346): Silver Tongue makes it one odds word better. */
+  persuasion?: boolean;
   /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse; panicked, it's closed. */
   careful?: boolean;
   /** Which panic response this option is (#1361): what instinct reaches for when it takes over. */
@@ -116,12 +126,27 @@ export interface EncounterTemplate {
   field?: SkillId;
   /** What happens if you freeze (#1361): you lose hours, and the danger decides. */
   freeze: Effect;
+  /** A dialogue's later steps (#1346), by id: each with what is said and the options it gives. At most three steps in all. */
+  steps?: Readonly<Record<string, EncounterStep>>;
   options: readonly EncounterOption[];
 }
+
+/** A later step of a dialogue (#1346). */
+export interface EncounterStep { text: string; options: readonly EncounterOption[] }
+
+/** The step an encounter is on (#1346): its opening, or a later step of the dialogue. */
+export function stepOf(t: EncounterTemplate, step?: string | null): EncounterStep {
+  return (step && t.steps?.[step]) || { text: t.text, options: t.options };
+}
+
+/** The step a Warden is on in this encounter: their pending one if it's this encounter, else the opening. */
+const stepFor = (w: Encounterer, t: EncounterTemplate): EncounterStep => stepOf(t, w.pending?.id === t.id ? w.pending.step : null);
 
 /** An encounter waiting for your choice. */
 export interface PendingEncounter {
   id: string; day: number; hour: number; ring: Ring; action: string;
+  /** Where in a dialogue you are (#1346); absent at the opening. */
+  step?: string;
   /** How it looked, and how you stood, when it opened (#1360). Absent (an older save) reads as calm. */
   perceived?: Threat;
   state?: PanicState;
@@ -282,6 +307,117 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'ignore', label: 'Ignore them', odds: 1, response: 'flight', success: { text: 'You let the ravens keep their secret.' }, fail: { text: 'You let the ravens keep their secret.' } },
     ],
   },
+  // ── People (#1346) ───────────────────────────────────────────────────────
+  // The Reach isn't quite empty. Each is one of the Mistheim Peoples, met for a short dialogue.
+  {
+    id: 'lost-herald', kind: 'person', weight: 1, rings: [2, 3], threat: 0, tags: ['person'],
+    text: 'A Viddfolk herald in a mud-spattered blue coat is turning in slow circles, singing a route-song under her breath and stopping halfway through each time. "This isn\'t the line," she says. "The ley-line went east of here. Didn\'t it?"',
+    freeze: { text: 'You stand there saying nothing until she shrugs and wanders off, still singing.' },
+    options: [
+      { id: 'directions', label: 'Put her right', odds: 0.5, careful: true, mods: { skills: { scouting: 0.08 } }, sureIf: { skill: { id: 'scouting', level: 3 } },
+        success: { text: '"East of the second ridge, then follow the water." Her face clears. "I owe you. I\'ll tell the caravan someone\'s up here — they may come a day early for it."', deed: 'herald-owes-you', next: 'news' },
+        fail: { text: 'You point her the way you think is right. She looks doubtful, thanks you, and goes — the wrong way, probably.' } },
+      { id: 'water', label: 'Share your water', requires: { stores: { water: 1 } }, cost: { stores: { water: 1 } }, odds: 1, response: 'fawn',
+        success: { text: 'She drinks, and sings you the verse she remembers, the one about the Reach in spring.', clarity: 5, next: 'news' },
+        fail: { text: 'She drinks, and thanks you.' } },
+      { id: 'ignore', label: 'Leave her to it', odds: 1, response: 'flight', success: { text: 'You leave her to her song.' }, fail: { text: 'You leave her to her song.' } },
+    ],
+    steps: {
+      news: {
+        text: '"Ask me something, then," the herald says. "Heralds carry news. It\'s the only thing we carry."',
+        options: [
+          { id: 'ask-road', label: 'Ask about the road out', odds: 1, success: { text: '"The pass is open by the thaw most years. Hollowford first — the ford floods by late spring, so the caravan doesn\'t wait."' }, fail: { text: '"The road? Still there."' } },
+          { id: 'ask-corruption', label: 'Ask about the grey on the hills', odds: 0.6, persuasion: true, mods: { stats: { cha: 0.04 } },
+            success: { text: '"It isn\'t evil," she says, quietly. "It makes things more of what they already are. Remember that when something out here looks at you wrong."', insight: { concept: 'sealing', amount: 2 } },
+            fail: { text: 'She doesn\'t want to talk about that. "Not out here," she says.' } },
+        ],
+      },
+    },
+  },
+  {
+    id: 'goblin-delver', kind: 'person', weight: 1, rings: [3], threat: 1, tags: ['person'],
+    text: 'A Goblin delver squats on a boulder with a half-drawn map across her knees, chewing a pencil. She sizes you up the way a trader sizes up a cart. "Food?" she says. "I\'ll trade you for it."',
+    freeze: { text: 'You hesitate too long. She shrugs, rolls up the map, and is gone among the rocks.' },
+    options: [
+      { id: 'trade', label: 'Trade her 2 food for a look at the map', requires: { stores: { rawFood: 2 } }, cost: { stores: { rawFood: 2 } }, odds: 1,
+        success: { text: 'She lets you copy the ground she\'s walked: the gullies, the old cuts, where the stone is good.', survey: 3 }, fail: { text: 'She lets you copy the map.', survey: 3 } },
+      { id: 'haggle', label: 'Drive a hard bargain', requires: { stat: { id: 'cha', min: 13 } }, cost: { stores: { rawFood: 1 } }, odds: 0.75, persuasion: true, mods: { stats: { cha: 0.03 } },
+        success: { text: 'She laughs and gives in: one food for the whole map. "You\'d do well in the bazaar."', survey: 3 },
+        fail: { text: 'She takes the food and shows you half of it. "That\'s what one food buys."', survey: 2 } },
+      { id: 'compact', label: 'Ask her about the Compact', odds: 0.6, persuasion: true, mods: { stats: { cha: 0.04 } },
+        success: { text: '"Old seals in the ruins are giving way where the Myst runs thin," she says. "The Compact is busier than it has been in a hundred years. Don\'t poke anything that hums."', insight: { concept: 'sealing', amount: 2 } },
+        fail: { text: '"That\'s Compact business," she says, and goes back to her map.' } },
+      { id: 'refuse', label: 'Keep your food and move on', odds: 1, response: 'flight', success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'pandor-scholar', kind: 'person', weight: 1, rings: [2], threat: 0, tags: ['person'],
+    text: 'An old Pandor sits under a rock overhang with a lap full of bark-paper notes, absolutely unbothered by the weather. "Ah," he says, without looking up. "A visitor. Sit, if you like. I talk whether people listen or not."',
+    freeze: { text: 'You stand awkwardly at the edge of the overhang. He talks to his notes until you leave.' },
+    options: [
+      { id: 'listen', label: 'Sit and listen', odds: 1, careful: true,
+        success: { text: 'He talks about how a joint takes a load — the way the grain wants to run, and how to let it.', insight: { concept: 'joinery', amount: 3 }, hours: 1, next: 'teach' },
+        fail: { text: 'He talks. You listen.' } },
+      { id: 'firewood', label: 'Bring him firewood for his fire', requires: { stores: { firewood: 2 } }, cost: { stores: { firewood: 2 } }, odds: 1,
+        success: { text: 'He nods at the wood as if it were an argument well made, and presses a packet of smoked fish on you. "For later. You\'ll need it more than I will."', stores: { rations: 2 }, deed: 'warmed-the-scholar' },
+        fail: { text: 'He nods at the wood.' } },
+      { id: 'leave', label: 'Leave him to his notes', odds: 1, response: 'flight', success: { text: 'You leave him talking.' }, fail: { text: 'You leave him talking.' } },
+    ],
+    steps: {
+      teach: {
+        text: '"You listen well," the scholar says, finally looking at you. "Rare. Do you want to learn something properly, or shall I go on rambling?"',
+        options: [
+          { id: 'learn', label: 'Ask him to teach you properly', odds: 0.7, careful: true, mods: { stats: { int: 0.04 } },
+            success: { text: 'He makes you do it with your hands, twice, then a third time. It sticks.', insight: { concept: 'joinery', amount: 5 }, hours: 2 },
+            fail: { text: 'It goes over your head. He doesn\'t seem to mind.', insight: { concept: 'joinery', amount: 1 }, hours: 2 } },
+          { id: 'thank', label: 'Thank him and go', odds: 1, success: { text: '"Come back if you have questions," he says. "I will still be here. I am always still here."' }, fail: { text: 'He waves you off.' } },
+        ],
+      },
+    },
+  },
+  {
+    id: 'desperate-stranger', kind: 'person', weight: 1, rings: [1, 2], threat: 1, tags: ['person'],
+    text: 'A gaunt Markfolk man steps out onto the path ahead, hands open, eyes on your pack. "Please," he says. "I haven\'t eaten in four days."',
+    freeze: { text: 'You stand frozen. He looks at you a long moment, then turns and stumbles away into the trees.' },
+    options: [
+      { id: 'share', label: 'Share your food', requires: { stores: { rawFood: 2 } }, cost: { stores: { rawFood: 2 } }, odds: 1, response: 'fawn',
+        success: { text: 'He eats like a man who had stopped hoping. "I won\'t forget this," he says. You suspect he means it.', deed: 'fed-the-stranger' },
+        fail: { text: 'He eats.' } },
+      { id: 'turn-away', label: 'Turn him away', odds: 0.6, persuasion: true, mods: { stats: { cha: 0.03, str: 0.02 } },
+        success: { text: 'He looks at you, then at the knife at your belt, and goes.' },
+        fail: { text: 'He doesn\'t go. His hand goes to his belt.', next: 'robbery' } },
+    ],
+    steps: {
+      robbery: {
+        text: '"Then give me the pack," he says. He has a stone blade, and nothing left to lose.',
+        options: [
+          { id: 'fight', label: 'Fight him off', odds: 0.5, response: 'fight', mods: { stats: { str: 0.04, agi: 0.02 }, tools: { 'stone-knife': 0.15 }, talents: { tough: 0.05 } },
+            success: { text: 'You knock him down. He scrambles up and runs.', wound: 5 },
+            fail: { text: 'He is faster than he looks. He takes the pack and leaves you bleeding in the mud.', stores: { rawFood: -99, rations: -99, materials: -3 }, wound: 20, killedBy: 'a desperate stranger' } },
+          { id: 'give-in', label: 'Give him what he wants', odds: 1, response: 'fawn',
+            success: { text: 'You hand over the food. He takes it and runs, without a word.', stores: { rawFood: -99 } },
+            fail: { text: 'You hand over the food.', stores: { rawFood: -99 } } },
+          { id: 'talk-down', label: 'Talk him down', odds: 0.35, persuasion: true, careful: true, mods: { stats: { cha: 0.05 } },
+            success: { text: 'You talk about the caravan that comes at the thaw, and the work there will be. Slowly the blade comes down. He goes — empty-handed, but going.' },
+            fail: { text: 'He isn\'t listening any more. He grabs the pack and runs.', stores: { rawFood: -99 } } },
+        ],
+      },
+    },
+  },
+  {
+    id: 'hollowford-hunter', kind: 'person', weight: 1, rings: [1, 2], seasons: ['autumn'], threat: 0, tags: ['person'],
+    text: 'A Bergfolk hunter from Hollowford is gutting a hare by the stream. She lifts a bloody hand in greeting. "Didn\'t think anyone wintered up here any more."',
+    freeze: { text: 'You stand there. She shrugs and goes back to her hare.' },
+    options: [
+      { id: 'tips', label: 'Swap hunting tips', odds: 1, careful: true,
+        success: { text: 'She shows you how to read a run by the bent grass, and where the hares lie up in a frost.', practice: { skill: 'hunting', hours: 3 }, hours: 1 },
+        fail: { text: 'You talk hunting.' } },
+      { id: 'trade-hides', label: 'Trade a hide for meat', requires: { stores: { hides: 1 } }, cost: { stores: { hides: 1 } }, odds: 1,
+        success: { text: 'A good hide for good meat. Fair.', stores: { rawFood: 4 } }, fail: { text: 'A fair trade.', stores: { rawFood: 4 } } },
+      { id: 'news', label: 'Ask how the road is', odds: 1,
+        success: { text: '"Pass should be clear early this year, the way the snow\'s lying. The caravan won\'t dawdle."', deed: 'heard-road-early' }, fail: { text: '"Same as ever."' } },
+    ],
+  },
 ];
 
 export const encounterById = (id: string): EncounterTemplate | undefined => ENCOUNTERS.find(e => e.id === id);
@@ -332,6 +468,8 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   // Jumpy (#1362): the startle reflex gets you away fast.
   if (o.response === 'flight' && w.character.quirks?.some(q => q.id === 'jumpy')) p += JUMPY_FLIGHT;
   p = Math.max(0.02, Math.min(0.98, p));
+  // Silver Tongue (#1346): talking someone round goes one odds word better.
+  if (o.persuasion && w.character.talents.some(x => x.id === 'silverTongue')) p = silverChance(p);
   return rattled ? shakenChance(p) : p;
 }
 
@@ -347,6 +485,12 @@ function shakenChance(p: number): number {
   return Math.max(0.02, Math.min(p - SHAKEN_PENALTY, floor > 0 ? floor - 0.05 : p - SHAKEN_PENALTY));
 }
 
+/** Persuasion with a silver tongue (#1346): at least SHAKEN_PENALTY better, and always one odds word better ("risky" becomes "likely"). */
+function silverChance(p: number): number {
+  const up: Readonly<Record<OddsWord, number>> = { desperate: 0.4, risky: 0.7, likely: 0.95, safe: 0.98 };
+  return Math.min(0.98, Math.max(p + SHAKEN_PENALTY, up[oddsWord(p)] + 0.02));
+}
+
 /** The odds as words. */
 export function oddsWord(p: number): OddsWord {
   return p >= 0.95 ? 'safe' : p >= 0.7 ? 'likely' : p >= 0.4 ? 'risky' : 'desperate';
@@ -354,7 +498,7 @@ export function oddsWord(p: number): OddsWord {
 
 /** The options as a Warden sees them: availability, the reason if not, and the odds in words. */
 export function optionsFor(w: Encounterer, t: EncounterTemplate): { option: EncounterOption; unmet: string | null; odds: OddsWord }[] {
-  return t.options.map(option => ({ option, unmet: unmet(w, option), odds: oddsWord(chanceOf(w, option)) }));
+  return stepFor(w, t).options.map(option => ({ option, unmet: unmet(w, option), odds: oddsWord(chanceOf(w, option)) }));
 }
 
 /** What an option costs, as one number for breaking ties: its hours plus the goods it uses. */
@@ -367,11 +511,12 @@ export const costOf = (o: EncounterOption): number =>
  * choice. Every encounter has a sure, free option, so there is always one.
  */
 export function safestOption(w: Encounterer, t: EncounterTemplate): EncounterOption {
-  const open = t.options.filter(o => !unmet(w, o));
+  const options = stepFor(w, t).options;
+  const open = options.filter(o => !unmet(w, o));
   return open.reduce((best, o) => {
     const d = chanceOf(w, o) - chanceOf(w, best);
     return d > 0 || (d === 0 && costOf(o) < costOf(best)) ? o : best;
-  }, open[0] ?? t.options[0]);
+  }, open[0] ?? options[0]);
 }
 
 /**

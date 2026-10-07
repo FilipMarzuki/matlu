@@ -97,7 +97,8 @@ function openEncounter(s: Region1State): Region1State {
     // The roll is per day and hour, so try a few starting hours each day.
     for (const hoursToday of [0, 2, 4, 6, 8]) {
       const after = runAction({ ...scouted, day, encounterDay: undefined, hoursToday, vitals: s.vitals }, 'water');
-      if (after.pending) return after;
+      // Something with a real threat to it: a harmless passer-by (#1346) rightly leaves you calm.
+      if (after.pending && (encounterById(after.pending.id)?.threat ?? 0) >= 1) return after;
     }
   }
   throw new Error('no encounter opened in 60 days');
