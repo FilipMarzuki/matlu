@@ -75,7 +75,9 @@ describe('Winter on the land (#1315)', () => {
     const out = (e: Exposure) => {
       let i = 0;
       while (exposureFor(streamFor(seedOf(`w-${i}`), 40, 'blizzard@12')(), 0) !== e) i++;
-      const w = { ...warden(40, 'storm'), hoursToday: 6, character: { ...warden(40, 'storm').character, id: `w-${i}` } };
+      // Accidents (#1285, #1286) are their own roll: off here, so only the blizzard's exposure counts.
+      const base = warden(40, 'storm');
+      const w = { ...base, hoursToday: 6, config: { ...base.config, world: { ...base.config.world, accidents: false } }, character: { ...base.character, id: `w-${i}` } };
       return { before: w, after: runAction(w, 'gather') };
     };
     const rough = out('rough');

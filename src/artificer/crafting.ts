@@ -474,3 +474,29 @@ export function study(s: CrafterState, conceptId: string, world: CraftWorld = cr
 export function newCraftDay(s: CrafterState): CrafterState {
   return { ...clone(s), studiedToday: {} };
 }
+
+// ── Accidents (#1286) ───────────────────────────────────────────────────────
+
+/**
+ * The tool a piece of work leans on: the best-graded item whose effects serve the action (for
+ * `craft`, one that helps at the bench). Null when the work uses none.
+ */
+export function toolInUse(tools: readonly Tool[], action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): Tool | null {
+  const used = bestPerItem(tools).filter(t => {
+    const e = effects[t.item];
+    if (!e) return false;
+    if (action === 'craft') return (e.craftBonus ?? 0) > 0;
+    return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
+  });
+  return used.sort((a, b) => gradeIndex(b.grade) - gradeIndex(a.grade))[0] ?? null;
+}
+
+/** A tool knocked about in an accident: the best copy of `item` drops one grade, and a crude one breaks. */
+export function damageTool(tools: readonly Tool[], item: string): { tools: Tool[]; broke: boolean; grade: Grade | null } {
+  const best = bestPerItem(tools).find(t => t.item === item);
+  if (!best) return { tools: [...tools], broke: false, grade: null };
+  const i = tools.indexOf(best);
+  if (best.grade === 'crude') return { tools: tools.filter((_, j) => j !== i), broke: true, grade: null };
+  const grade = GRADES[gradeIndex(best.grade) - 1];
+  return { tools: tools.map((t, j) => (j === i ? { ...t, grade } : t)), broke: false, grade };
+}

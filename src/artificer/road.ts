@@ -150,6 +150,8 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
     known: [...from.known],
     // Encounters lived through (#1360) travel with you, so the next Reach remembers them.
     ...(from.met ? { met: { ...from.met } } : {}),
+    // Injuries (#1286) ride with you, and mend on the road.
+    ...(from.injuries?.length ? { injuries: from.injuries.map(i => ({ ...i })) } : {}),
     studiedToday: {},
     leg: 0,
     legDay: 1,
