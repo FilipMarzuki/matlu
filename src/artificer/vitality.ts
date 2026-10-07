@@ -98,7 +98,8 @@ export interface DaySummary {
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
 /** Enough stimulus in a day to count as "trained" rather than idle. */
-const STIMULUS = 16;
+/** A day's load under this is a light, restful one: Condition (and injuries, #1392) heal faster after it. */
+export const STIMULUS = 16;
 /** How fast capacity approaches its target each night (0..1); slow on purpose. */
 const CAP_LERP = 0.35;
 /** Fraction of an over-empty overage that is bitten off Condition. */

@@ -18,6 +18,7 @@ import type { Stats } from './stats';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
+import type { Harm } from './injuries';
 
 /** How a run can end: any Region 1 outcome, or the road's own ends (#1250). */
 export type RunKind = OutcomeKind | 'arrived';
@@ -77,6 +78,8 @@ export interface Legacy {
   met?: Record<string, number>;
   /** Quirks (#1362): who you are goes with you — the panic response, temperament, fears, and which you know. */
   quirks?: Quirk[];
+  /** Lasting harms (#1392): an old injury goes with you. */
+  harms?: Harm[];
 }
 
 export { CONTACT_TRUST } from './villages';
@@ -127,6 +130,7 @@ export function legacyOf(s: Carrier): Legacy {
     stats: { ...s.character.stats },
     talents: s.character.talents.map(t => ({ ...t })),
     ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
+    ...(s.character.harms?.length ? { harms: [...s.character.harms] } : {}),
   };
 }
 
