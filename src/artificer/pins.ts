@@ -29,6 +29,10 @@ export interface Pin {
   ring: Ring;
   day: number;
   feeling?: Feeling;
+  /** How much it interests you (#1379), once Memory is good enough to weigh places. */
+  interest?: Interest;
+  /** Been back since (#1379): the first return to an awe-inspiring place teaches something. */
+  visited?: boolean;
 }
 
 export const pinId = (place: string, ring: Ring): string => `${place}@${ring}`;
@@ -52,3 +56,43 @@ export const PIN_WORDS: Readonly<Record<PinKind, string>> = {
 
 export const FULL_MEMORY = 'your memory is full — let a place go first';
 export const ALREADY_PINNED = 'you already remember it';
+
+// ── What a held pin does (#1379) ────────────────────────────────────────────
+
+/** How much a place interests you (#1379): ★ to ★★★. Absent: simply remembered. */
+export type Interest = 1 | 2 | 3;
+
+/** A ★★★ place you know well: its effect counts double. */
+export const pinWeight = (p: Pin): number => (p.interest === 3 ? 2 : 1);
+
+/** The most interest you can give a place: none until Memory reaches Apprentice (2), ★★ there, ★★★ from Adept (3). */
+export function maxInterest(skills: SkillPractice): 0 | 2 | 3 {
+  const lvl = skillLevel(skills, 'memory');
+  return lvl >= 3 ? 3 : lvl >= 2 ? 2 : 0;
+}
+
+/** The work a kind of place makes richer, in its ring. */
+const PIN_WORK: Partial<Record<PinKind, readonly string[]>> = { fishing: ['fish', 'water'], forage: ['gather'], stone: ['quarry'] };
+
+/** Extra haul for this work in this ring, from the places you remember there: +1 each, +2 at ★★★. */
+export function pinYield(pins: readonly Pin[] | undefined, action: string, ring: Ring): number {
+  return (pins ?? []).filter(p => p.ring === ring && PIN_WORK[p.kind]?.includes(action)).reduce((n, p) => n + pinWeight(p), 0);
+}
+
+/** How the places you remember make a ring feel (#1367's ambient threat): a peaceful one −1, an eerie one +1 (doubled at ★★★). */
+export function pinAmbient(pins: readonly Pin[] | undefined, ring: Ring): number {
+  return (pins ?? []).filter(p => p.ring === ring).reduce((n, p) => n + (p.feeling === 'eerie' ? pinWeight(p) : p.feeling === 'peaceful' ? -pinWeight(p) : 0), 0);
+}
+
+/** Something that awed you there (#1379): that ring feels no worse in the dark. */
+export const awedIn = (pins: readonly Pin[] | undefined, ring: Ring): boolean => (pins ?? []).some(p => p.ring === ring && p.feeling === 'awed');
+
+/** A shelter place you remember near camp (ring 1): build while you hold it and the shelter is warmer. */
+export const shelterPin = (pins: readonly Pin[] | undefined): boolean => (pins ?? []).some(p => p.kind === 'shelter' && p.ring === 1);
+/** How much warmer (warmth is 0–1): you knew where the wind doesn't reach. */
+export const SHELTER_PIN_WARMTH = 0.05;
+
+/** The place you'd let go first when your memory is full: the least interesting, the oldest of those. A suggestion only. */
+export function letGoFirst(pins: readonly Pin[] | undefined): Pin | undefined {
+  return [...(pins ?? [])].sort((a, b) => (a.interest ?? 0) - (b.interest ?? 0) || a.day - b.day)[0];
+}
