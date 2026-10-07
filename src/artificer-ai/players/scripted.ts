@@ -5,6 +5,7 @@
  * testing the harness without an API key.
  */
 
+import { SUGGESTED_PACK } from '../../artificer/kit';
 import { blockedReason, queueHours, queueId, winterOutlook, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
 import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
@@ -171,6 +172,10 @@ const scriptedPlanner = (): Player => {
       const open = meetingOptions(reach, m).filter(o => !o.unmet).map(o => o.option.id);
       const choice = ['hail', 'hides', 'rations', 'work'].find(id => open.includes(id)) ?? safestMeetingOption(reach, m).id;
       return { text: JSON.stringify({ thoughts: 'Pay my way, or work it.', choice }), usage: { cost: 0 } };
+    },
+    // Packing (#1401): the leader's list, as every scout should.
+    async decidePack() {
+      return { text: JSON.stringify({ thoughts: "The leader's packing list.", pack: SUGGESTED_PACK }), usage: { cost: 0 } };
     },
     // An encounter (#1348): the best odds, ties going to the cheapest — never a gamble it can avoid.
     async decideEncounter(_message, s) {

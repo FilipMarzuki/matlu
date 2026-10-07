@@ -7,10 +7,10 @@
  * `parseDecision`, whoever made it.
  */
 
-import { SUGGESTED_PACK } from '../artificer/kit';
+import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, forgetPin, setInterest, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { isFear, type Quirk } from '../artificer/quirks';
@@ -18,13 +18,13 @@ import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, runRoadDay, chooseRoadOption, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
-import { observe, observeRoad, observeEncounter, observeMeeting, ROAD_RULES } from './observe';
+import { observe, observeRoad, observeEncounter, observeMeeting, observePack, ROAD_RULES } from './observe';
 import { openMeeting, meetingOptions, safestMeetingOption, chooseInMeeting, boardingOf, type Boarding, type Fare, type Meeting, type MeetingStepId } from '../artificer/caravan-meeting';
 import { parseFocus } from '../artificer/focus';
 import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
 import { invariantViolations, roadInvariantViolations } from './invariants';
-import { parseDecision, parseRoadDecision, parseEncounterDecision, type Decision, type ParseResult } from './decision';
+import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
@@ -58,7 +58,15 @@ export interface Player {
    * without either, the safest option is taken.
    */
   decideMeeting?(message: string, reach: Region1State, meeting: Meeting): Promise<{ text: string; usage?: Partial<Usage> }>;
+  /**
+   * Pack for the weekend hike before the run (#1401), replying `{thoughts, pack}`. Optional:
+   * without it, the Warden takes the leader's packing list (or what they packed last time).
+   */
+  decidePack?(message: string, state: Region1State): Promise<{ text: string; usage?: Partial<Usage> }>;
 }
+
+/** What a player packed (#1401): the pack, why, and — if two replies wouldn't do — that the last pack was kept instead. */
+export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[] }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
 export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
@@ -281,6 +289,8 @@ export interface RunResult {
   meeting?: MeetingRecord;
   /** The caravan road, when the run survived the thaw and was played on (#1251). `record` stays the Reach's. */
   road?: RoadResult;
+  /** What was packed for the hike (#1401), for a player that packs. */
+  packed?: PackRecord;
 }
 
 export interface PlayOptions {
@@ -339,7 +349,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // person's Warden, a scout (#1398), 12 years old (#1399), with the leader's packing list (#1400).
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK] });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   const turns: Turn[] = [];
@@ -356,6 +366,23 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
     return r.text;
   };
+
+  // Packing for the hike (#1401): a player that packs chooses before day 1. A reply that won't do is
+  // explained back once; after that, the pack it already has (the leader's list, or last time's) stays.
+  let packed: PackRecord | undefined;
+  if (player.decidePack) {
+    const decidePack = player.decidePack.bind(player);
+    let reply = await ask(observePack(s), decidePack);
+    let d = parsePackDecision(reply);
+    const errors = d.ok ? [] : [...d.errors];
+    if (!d.ok) {
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
+      d = parsePackDecision(reply);
+      if (!d.ok) errors.push(...d.errors);
+    }
+    if (d.ok) s = repack(s, d.decision.pack);
+    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}) } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors };
+  }
 
   // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.
   let met: EncounterChoice[] = [];
@@ -505,7 +532,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   }
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
-  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
+  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}) };
   if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
     const decideRoad = player.decideRoad.bind(player);
     const count = (reply: { text: string; usage?: Partial<Usage> }): string => {

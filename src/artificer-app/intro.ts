@@ -21,8 +21,8 @@ export type IntroKind = 'fresh' | 'carry';
  * - `title`: the closing card.
  */
 export interface Beat {
-  /** `create`: the character-creation screen (name, portrait, talents, stats) — #1239, #1258, #1263. */
-  kind: 'narration' | 'voice' | 'title' | 'create';
+  /** `create`: the character-creation screen (name, portrait, talents, stats) — #1239, #1258, #1263. `pack`: packing for the hike (#1401). */
+  kind: 'narration' | 'voice' | 'title' | 'create' | 'pack';
   lines: string[];
   /** Show the portal behind this beat. */
   portal?: boolean;
@@ -50,6 +50,8 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
           'Survive it until the thaw.',
         ],
       },
+      // The same weekend, again (#1401): pack for it, starting from last time's pack.
+      { kind: 'pack', lines: ['Friday afternoon — that Friday, again. The patrol is heading out for the weekend hike.', 'What do you pack this time?'] },
       CLOSING,
     ];
   }
@@ -61,6 +63,8 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
     { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
     { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
     { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
+    // Before any of this (#1401): the weekend hike, and what you packed for it.
+    { kind: 'pack', lines: ['Friday afternoon, before any of this. Your patrol was heading out for a weekend hike in the forest — two nights, back on Sunday.', 'What did you pack?'] },
     CLOSING,
   ];
 }
