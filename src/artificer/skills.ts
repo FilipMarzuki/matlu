@@ -19,7 +19,7 @@
 
 import type { ActionId } from './region1';
 
-export type SkillId = 'woodcraft' | 'foraging' | 'hunting' | 'stonework' | 'fieldcraft' | 'scouting' | 'handcraft' | 'memory';
+export type SkillId = 'woodcraft' | 'foraging' | 'hunting' | 'stonework' | 'fieldcraft' | 'scouting' | 'handcraft' | 'memory' | 'firstaid';
 
 /** `felt`: how a true improvement shows itself in the journal — no numbers, just the work going better. */
 export const SKILLS: Readonly<Record<SkillId, { name: string; blurb: string; felt: string }>> = {
@@ -32,6 +32,8 @@ export const SKILLS: Readonly<Record<SkillId, { name: string; blurb: string; fel
   handcraft: { name: 'Handcraft', blurb: 'weaving, sewing and fine handwork', felt: 'Your fingers work faster and truer' },
   // Memory (#1378): holding places in mind. Practised by remembering them, not by any one kind of work.
   memory: { name: 'Memory', blurb: 'holding places in mind, and finding them again', felt: 'Places stay with you more easily now' },
+  // First aid (#1398): a scout's training. Practised by treating injuries (#1393).
+  firstaid: { name: 'First aid', blurb: 'binding, splinting and looking after the hurt', felt: 'Your hands know what to do with a wound now' },
 };
 export const SKILL_IDS = Object.keys(SKILLS) as SkillId[];
 

@@ -879,7 +879,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
+  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout' }), queue: [] };
   render(state);
 }
 

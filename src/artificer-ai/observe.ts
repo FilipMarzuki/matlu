@@ -211,6 +211,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
+  // Background (#1398): a scout, trained in first aid, camp chores, map and compass.
+  if (s.character.background === 'scout') lines.push('BACKGROUND: a young scout, out on a weekend hike when this began — trained in first aid, camp chores, and map and compass');
   // Talents (#1263): only the ones the Warden knows about — never the hidden one, nor any tier.
   const knownTalents = s.character.talents.filter(t => t.known);
   const hiddenCount = s.character.talents.length - knownTalents.length;

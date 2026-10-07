@@ -9,6 +9,7 @@
  * is what travels, the way it would for a real artificer.
  */
 
+import type { Background } from './scout';
 import type { Quirk } from './quirks';
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
 import { ROUTE, type RoadState } from './road';
@@ -78,6 +79,8 @@ export interface Legacy {
   met?: Record<string, number>;
   /** Quirks (#1362): who you are goes with you — the panic response, temperament, fears, and which you know. */
   quirks?: Quirk[];
+  /** Who the character was before the Reach (#1398). */
+  background?: Background;
   /** Lasting harms (#1392): an old injury goes with you. */
   harms?: Harm[];
 }
@@ -131,6 +134,7 @@ export function legacyOf(s: Carrier): Legacy {
     talents: s.character.talents.map(t => ({ ...t })),
     ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
     ...(s.character.harms?.length ? { harms: [...s.character.harms] } : {}),
+    ...(s.character.background ? { background: s.character.background } : {}),
   };
 }
 
