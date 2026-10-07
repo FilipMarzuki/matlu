@@ -22,6 +22,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
+import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { readInjury, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
 
@@ -56,7 +57,7 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
   // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout' }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout', age: DEFAULT_AGE }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -70,7 +71,7 @@ export function newRun(from?: Region1State | RoadState): AppState {
   const c = from.character;
   // A run that rode the road carries its marks and contacts too (#1250).
   const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.adult ?? c.stats }), queue: [], stage: 'reach' };
 }
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
@@ -424,6 +425,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const stats: Stats = isObj(st) && STAT_IDS.every(id => Number.isInteger(st[id]) && (st[id] as number) >= 3 && (st[id] as number) <= 18)
     ? Object.fromEntries(STAT_IDS.map(id => [id, st[id] as number])) as Stats
     : { ...DEFAULT_STATS };
+  // Growing up (#1399): the age and the adult stats, if the save has them; without, an adult.
+  const ad = isObj(ch) ? ch.adult : undefined;
+  const grown = isObj(ch) && Number.isInteger(ch.age) && (ch.age as number) >= 1 && isObj(ad) && STAT_IDS.every(k => Number.isInteger(ad[k]) && (ad[k] as number) >= 3 && (ad[k] as number) <= 18)
+    ? { age: ch.age as number, adult: Object.fromEntries(STAT_IDS.map(k => [k, ad[k] as number])) as Stats } : {};
   // Talents (#1263): kept as saved; saves from before talents turn their two traits into known
   // talents (the same eight names) and roll a hidden one from the character id.
   const id = isObj(ch) && typeof ch.id === 'string' ? ch.id : '';
@@ -440,7 +445,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Background (#1398): a scout, if the save says so.
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks, ...harms, ...background }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;

@@ -28,6 +28,7 @@ import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
@@ -388,7 +389,7 @@ function wardenTab(a: AppState): string {
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
+      <p class="eyebrow" style="margin-top:16px">STATS — ${c.age !== undefined ? `age ${c.age}${isYoung(c.age) ? ', still growing' : ', grown'}` : "what you're built for"}</p>${statsBlock(c.stats, c.adult)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
       <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
@@ -424,10 +425,14 @@ function roadKeepsBlock(a: AppState): string {
     ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')} · trust ${Math.round(a.road?.trust[id] ?? CONTACT_TRUST)}</span></li>`; }).join('')}</ul>` : `<p class="mood">No contacts yet — anyone whose trust in you reaches ${CONTACT_TRUST} will remember you.</p>`}`;
 }
 
-/** Stats (#1256, #1258), shown exactly — unlike skills, you know your own body and mind. */
-function statsBlock(st: Stats): string {
+/**
+ * Stats (#1256, #1258), shown exactly — unlike skills, you know your own body and mind. While
+ * young (#1399), each shows what it grows to.
+ */
+function statsBlock(st: Stats, adult?: Stats): string {
   return `<div class="statgrid">${STAT_IDS.map(id => `<div class="stat ${st[id] > 10 ? 'hi' : st[id] < 10 ? 'lo' : ''}" title="${esc(STATS[id].blurb)}">`
-    + `<span class="sk">${STATS[id].short}</span><span class="sv">${st[id]}</span><span class="sd">${esc(statNote(id, st[id]))}</span></div>`).join('')}</div>`;
+    + `<span class="sk">${STATS[id].short}</span><span class="sv">${st[id]}</span>${adult && adult[id] !== st[id] ? `<span class="sg">grows to ${adult[id]}</span>` : '<span></span>'}`
+    + `<span class="sd">${esc(statNote(id, st[id]))}</span></div>`).join('')}</div>`;
 }
 
 /**
@@ -868,11 +873,11 @@ document.body.appendChild(introEl);
 
 /** What the player is choosing on the creation screen (#1239). */
 // The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
-let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS } };
+let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 
 function startIntro(kind: IntroKind): void {
-  draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS } };
+  draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
@@ -880,7 +885,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout' }), queue: [] };
+  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age }), queue: [] };
   render(state);
 }
 
@@ -942,6 +947,9 @@ function createForm(): string {
     <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
     <p class="clabel">TALENTS — choose ${TALENT_PICKS} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
     <p class="mood" style="margin:0">…and something else in you, not yet known.</p>
+    <p class="clabel">AGE — how old you are, the weekend it began</p>
+    <div class="achoices">${START_AGES.map(a => `<button type="button" class="achoice" data-age="${a}" aria-pressed="${draft.age === a}">${a}</button>`).join('')}</div>
+    <p class="mood" style="margin:0">You'll grow up over the runs, a year each; your stats grow with you.</p>
     ${statsForm()}
   </form>`;
 }
@@ -956,12 +964,14 @@ function statsForm(): string {
   const rows = STAT_IDS.map(id => {
     const v = draft.stats[id];
     const dear = v >= 13 && v < 15 ? ' dear' : '';
-    return `<div class="srow"><div class="sname"><b>${esc(STATS[id].name)}</b><span>${esc(STATS[id].blurb)}</span><span class="snote ${v > 10 ? 'up' : v < 10 ? 'cost' : ''}">${esc(statNote(id, v))}</span></div>`
+    // Growing up (#1399): what you have now, at the age chosen; the score is who you'll be at 18.
+    const now = grownStats(draft.stats, draft.age)[id];
+    return `<div class="srow"><div class="sname"><b>${esc(STATS[id].name)}</b><span>${esc(STATS[id].blurb)}</span><span class="snote ${v > 10 ? 'up' : v < 10 ? 'cost' : ''}">${esc(statNote(id, v))}</span>${now !== v ? `<span class="snow">${now} now, at ${draft.age}</span>` : ''}</div>`
       + `<div class="sstep"><button type="button" class="pill" data-stat="${id}" data-delta="-1" aria-label="Lower ${esc(STATS[id].name)}" ${canLower(draft.stats, id) ? '' : 'disabled'}>−</button>`
       + `<span class="sval">${v}</span>`
       + `<button type="button" class="pill${dear}" data-stat="${id}" data-delta="1" aria-label="Raise ${esc(STATS[id].name)} (costs ${raiseCost(v)})" title="${v >= 13 ? 'costs 2 points' : 'costs 1 point'}" ${canRaise(draft.stats, id) ? '' : 'disabled'}>+</button></div></div>`;
   }).join('');
-  return `<p class="clabel">STATS — spend ${POINT_BUDGET} points <span>(${left} left${left > 0 ? ' · unspent points are wasted' : ''}) · above 13 costs 2 · lower one to 7 to buy more</span></p>
+  return `<p class="clabel">STATS — who you'll grow up to be · spend ${POINT_BUDGET} points <span>(${left} left${left > 0 ? ' · unspent points are wasted' : ''}) · above 13 costs 2 · lower one to 7 to buy more</span></p>
     <div class="schoices">${rows}</div>`;
 }
 
@@ -969,9 +979,10 @@ function statsForm(): string {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age]');
   const creating = intro?.beats[intro.i].kind === 'create';
   if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
+  if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
   if (btn?.dataset.stat) {
     // A step up or down, only if point-buy allows it (the buttons are disabled otherwise, but check anyway).
     const id = btn.dataset.stat as StatId;

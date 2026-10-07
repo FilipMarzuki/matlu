@@ -4,6 +4,7 @@
  * per Given/When/Then scenario.
  */
 
+import { grownStats } from './growing';
 import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, setFocus, sleepNight, type Region1State } from './region1';
@@ -110,7 +111,9 @@ describe('Character stats (#1256)', () => {
     const done = { ...warden({ str: 13, int: 13 }), outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
     expect(createRegion1({}, legacyOf(done)).character.stats).toMatchObject({ str: 13, int: 13 });
     expect(newRun(done).sim.character.stats).toMatchObject({ str: 13, int: 13 });
-    expect(newGame().sim.character.stats).toEqual(DEFAULT_STATS);
+    // A new Warden is 12 (#1399): the chosen stats are the adult ones, and the current ones grow towards them.
+    expect(newGame().sim.character.adult).toEqual(DEFAULT_STATS);
+    expect(newGame().sim.character.stats).toEqual(grownStats(DEFAULT_STATS, 12));
     const raw = JSON.parse(serialize(newGame()));
     delete raw.sim.character.stats;
     expect(deserialize(JSON.stringify(raw))?.sim.character.stats).toEqual(DEFAULT_STATS);

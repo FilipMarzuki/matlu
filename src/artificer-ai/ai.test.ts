@@ -151,7 +151,11 @@ describe('AI player harness', () => {
     expect(best.series.readiness[0]).toBe(Math.round(a.start.readiness * 1000) / 10);
     expect(best.series.readiness.at(-1)).toBe(100);
     expect(best.events.shelter).toEqual({ day: 1, runs: 2 });
-    expect(best.events.ready.day).toBe(a.record.readyDay);
+    // The report's first-ready day is the turn whose end-of-turn snapshot is ready; the record's is the
+    // day the milestone was noticed — the next day when readiness came overnight.
+    expect(best.events.ready.day).toBe(a.turns.find(t => t.progress.winterReady)!.day);
+    expect(a.record.readyDay! - best.events.ready.day!).toBeGreaterThanOrEqual(0);
+    expect(a.record.readyDay! - best.events.ready.day!).toBeLessThanOrEqual(1);
     expect(best.actions.hunt).toBeGreaterThan(0);
     expect(worst).toMatchObject({ model: 'lazy/model', runs: 1, readyRuns: 0, readyDay: null });
     expect(worst.events.shelter).toEqual({ day: null, runs: 0 });

@@ -13,6 +13,7 @@
  * the same state always feels the same.
  */
 
+import { scoutNerve, type Background } from './scout';
 import { skillLevel, LEVELS, type SkillId, type SkillPractice } from './skills';
 import type { Stats } from './stats';
 import type { Vitals } from './vitality';
@@ -69,7 +70,7 @@ export const SHAKEN_PENALTY = 0.15, SHAKEN_CLARITY = 5;
 export interface Perceiver {
   vitals: Pick<Vitals, 'clarity' | 'condition'>;
   skills: SkillPractice;
-  character: { stats: Stats; quirks?: readonly Quirk[]; talents?: readonly Talent[] };
+  character: { stats: Stats; quirks?: readonly Quirk[]; talents?: readonly Talent[]; background?: Background };
   /** Encounters met and survived, by template id. */
   met?: Readonly<Record<string, number>>;
 }
@@ -114,7 +115,7 @@ export function perceivedThreat(w: Perceiver, t: Threatening, ambient = 0): Thre
 
 /** What you can hold: 2 at WIL 10, one more for every 4 points above (one less for every 4 below). */
 export const nerveOf = (w: Pick<Perceiver, 'character'>): number =>
-  2 + Math.floor((w.character.stats.wil - 10) / 4) + talentEffects(w.character.talents ?? []).nerve;
+  2 + Math.floor((w.character.stats.wil - 10) / 4) + talentEffects(w.character.talents ?? []).nerve + scoutNerve(w.character);
 
 /** Calm while the threat is within your nerve; shaken one past it; panicked beyond. */
 export function panicState(perceived: number, nerve: number): PanicState {
