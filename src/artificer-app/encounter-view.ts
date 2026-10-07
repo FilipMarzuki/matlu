@@ -25,6 +25,7 @@ const ODDS_NOTE: Readonly<Record<OddsWord, string>> = {
 function asks(o: EncounterOption): string {
   const parts: string[] = [];
   for (const [k, n] of Object.entries(o.cost?.stores ?? {})) parts.push(`${n} ${k === 'rawFood' ? 'food' : k}`);
+  if (o.cost?.marks) parts.push(`${o.cost.marks} marks`);
   if (o.cost?.hours) parts.push(`${o.cost.hours}h`);
   return parts.join(' · ');
 }
@@ -47,7 +48,7 @@ export function encounterModal(s: Region1State, after: EncounterAfter | null, wa
   const state = p?.state ?? 'calm';
   const read = p && t ? `<p class="enc-read s-${state}">It looks <b>${THREAT_WORDS[p.perceived ?? t.threat]}</b>. ${esc(STATE_WORDS[state])}</p>` : '';
   const head = p && t
-    ? `<p class="enc-kind">${KIND_ICON[t.kind]} ${KIND_WORD[t.kind]} · D${p.day} · ${esc(RING_NAME[p.ring].toUpperCase())} RING · ${clock(p.hour)}</p>${p.step && s.log.length > 1 ? `<p class="enc-result">${esc(s.log[s.log.length - 2].text)}</p>` : ''}<p class="enc-text">${esc(stepOf(t, p.step).text)}</p>${read}${t.kind === 'place' ? memoryLine(s) : ''}`
+    ? `<p class="enc-kind">${KIND_ICON[t.kind]} ${KIND_WORD[t.kind]} · ${p.action === 'road' ? `ROAD DAY ${p.day} · ON THE ROAD` : `D${p.day} · ${esc(RING_NAME[p.ring].toUpperCase())} RING · ${clock(p.hour)}`}</p>${p.step && s.log.length > 1 ? `<p class="enc-result">${esc(s.log[s.log.length - 2].text)}</p>` : ''}<p class="enc-text">${esc(stepOf(t, p.step).text)}</p>${read}${t.kind === 'place' ? memoryLine(s) : ''}`
     : '';
   const body = p && t
     ? `<div class="enc-options">${optionsFor(s, t).map(({ option, unmet, odds }) => `<button class="enc-opt" data-choose="${esc(option.id)}" ${unmet ? `disabled title="${esc(unmet)}"` : ''}>

@@ -12,7 +12,7 @@
 
 import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { createRoad, endRoadDay, runRoadAction, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
+import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -116,6 +116,12 @@ export function stayBehind(a: AppState): AppState {
 export function roadAct(a: AppState, id: RoadActionId): AppState {
   if (a.stage !== 'road' || !a.road || a.road.outcome) return a;
   return { ...a, road: runRoadAction(a.road, id) };
+}
+
+/** Answer a road encounter (#1349). */
+export function roadChoose(a: AppState, optionId: string): AppState {
+  if (a.stage !== 'road' || !a.road?.pending) return a;
+  return { ...a, road: chooseRoadOption(a.road, optionId) };
 }
 
 /** End the road day (#1252): the night, then the caravan's next move. */

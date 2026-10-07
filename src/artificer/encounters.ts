@@ -38,6 +38,8 @@ export interface Requirement {
   stores?: Partial<Record<keyof Stores, number>>;
   /** An item among your tools. */
   tool?: string;
+  /** Marks in hand (#1349): the road's currency. */
+  marks?: number;
 }
 
 /** What an outcome does. Numbers are changes (negative costs). */
@@ -74,6 +76,10 @@ export interface Effect {
   manual?: boolean;
   /** Something that comes in overnight (#1345): a snare line you reset catches by morning. */
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string };
+  /** Marks won or lost (#1349), on the road. */
+  marks?: number;
+  /** Trust won or lost (#1349), by person id — the caravan's people, on the road. */
+  trust?: Readonly<Record<string, number>>;
   /** Remember the place (#1378): a pin of this kind, with how it made you feel. */
   pin?: { kind: PinKind; feeling?: Feeling };
 }
@@ -97,7 +103,7 @@ export interface EncounterOption {
   label: string;
   requires?: Requirement;
   /** Paid when chosen, whatever the outcome. */
-  cost?: { stores?: Partial<Record<keyof Stores, number>>; hours?: number };
+  cost?: { stores?: Partial<Record<keyof Stores, number>>; hours?: number; marks?: number };
   /** Base chance of success, 0–1. */
   odds: number;
   mods?: OddsMods;
@@ -139,6 +145,8 @@ export interface EncounterTemplate {
   field?: SkillId;
   /** What happens if you freeze (#1361): you lose hours, and the danger decides. */
   freeze: Effect;
+  /** A road encounter (#1349): met from the wagon, in a village, or either — never in the Reach. */
+  road?: 'wagon' | 'village' | 'any';
   /** A dialogue's later steps (#1346), by id: each with what is said and the options it gives. At most three steps in all. */
   steps?: Readonly<Record<string, EncounterStep>>;
   options: readonly EncounterOption[];
@@ -595,6 +603,95 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
     ],
   },
+  // ── The road (#1349) ─────────────────────────────────────────────────────
+  // Met from the wagon or in a village, at most one a day; the road's currencies are marks and trust.
+  {
+    id: 'broken-axle', kind: 'find', road: 'wagon', weight: 2, threat: 0, tags: ['road'], field: 'handcraft',
+    text: 'A crack like a branch breaking, and the second wagon lurches and stops dead. The rear axle has split. Pim is already under it, swearing at it lovingly.',
+    freeze: { text: 'You stand by while the others work. It takes them all afternoon.', hours: 1 },
+    options: [
+      { id: 'help-fix', label: 'Get under it and help Pim', cost: { hours: 3 }, odds: 0.6, mods: { skills: { handcraft: 0.05, woodcraft: 0.04 }, stats: { str: 0.02 } },
+        success: { text: 'Between you, you splint it with green ash and wire. Pim slaps the axle and then you. "It\'ll hold to Mistheim. You can come under my wagon any time."', trust: { 'cv-pim': 8, 'cv-bodil': 4 }, practice: { skill: 'handcraft', hours: 2 } },
+        fail: { text: 'You hold the wrong end at the wrong moment, and the splint slips twice. Pim gets it done in the end, with a look.', vigor: -10, practice: { skill: 'handcraft', hours: 1 } } },
+      { id: 'hands', label: 'Fetch, carry and hold the lantern', cost: { hours: 2 }, odds: 1,
+        success: { text: 'Not glamorous, but somebody has to hold the lantern. Bodil notices who does.', trust: { 'cv-bodil': 3 } },
+        fail: { text: 'You hold the lantern.' } },
+      { id: 'leave', label: 'Leave it to them', odds: 1, response: 'flight',
+        success: { text: 'You stay on your wagon. Bodil glances up at you once, and goes back to work.', trust: { 'cv-bodil': -3 } },
+        fail: { text: 'You stay on your wagon.' } },
+    ],
+  },
+  {
+    id: 'bandits-at-ford', kind: 'person', road: 'wagon', weight: 1, threat: 3, tags: ['person'],
+    text: 'At the ford, four riders sit their horses in the shallows, blocking the far bank. Their leader has a crossbow across her saddle. "Toll," she calls. "Or we take it out of the wagons."',
+    freeze: { text: 'You freeze on the wagon bench. The riders take what they like from your pack while Bodil pays them off.', stores: { rawFood: -99, rations: -99 }, marks: -99 },
+    options: [
+      { id: 'pay', label: 'Pay your share of the toll', requires: { marks: 5 }, cost: { marks: 5 }, odds: 1, response: 'fawn',
+        success: { text: 'You count five marks into Bodil\'s hand. The riders let the caravan through, laughing. Bodil mutters that she\'ll pay you back in suppers.', trust: { 'cv-bodil': 5 } },
+        fail: { text: 'You pay.' } },
+      { id: 'talk', label: 'Talk them down', odds: 0.35, persuasion: true, careful: true, mods: { stats: { cha: 0.05 } },
+        success: { text: 'You point out the caravan guards, the open ground, the length of a crossbow reload. The leader considers it, spits, and waves you through for half.', marks: -2, trust: { 'cv-bodil': 8 } },
+        fail: { text: 'She isn\'t interested in your arithmetic. The toll doubles, and they take it from your pack.', stores: { rawFood: -99 }, marks: -99, trust: { 'cv-bodil': -3 } } },
+      { id: 'hide', label: 'Hide your goods and keep your head down', odds: 0.6, careful: true, response: 'freeze', mods: { stats: { agi: 0.03 }, skills: { scouting: 0.03 } },
+        success: { text: 'Your marks go in your boot, your food under the sacks. The riders search the wagon and find nothing of yours.' },
+        fail: { text: 'They find it all.', stores: { rawFood: -99, rations: -99 }, marks: -99 } },
+      { id: 'fight', label: 'Stand with the guards', odds: 0.35, response: 'fight', mods: { stats: { str: 0.04, con: 0.02 }, tools: { 'stone-knife': 0.15 }, talents: { tough: 0.05 } },
+        success: { text: 'The guards charge the ford and you go with them. The riders break and scatter. Bodil makes sure everyone hears your name.', wound: 10, trust: { 'cv-bodil': 15 } },
+        fail: { text: 'A crossbow bolt takes you in the side.', wound: 40, killedBy: 'bandits at the ford' } },
+    ],
+  },
+  {
+    id: 'stranded-traveller', kind: 'person', road: 'wagon', weight: 2, threat: 0, tags: ['person'],
+    text: 'A woman sits on a trunk by the road, her mule lame beside her, waving the caravan down. "Kestrel Gate? I\'ll pay what I can."',
+    freeze: { text: 'You say nothing. Bodil makes room for her anyway.' },
+    options: [
+      { id: 'speak-up', label: 'Ask Bodil to take her on', odds: 0.7, persuasion: true, mods: { stats: { cha: 0.04 } },
+        success: { text: 'Bodil grumbles and makes room. The woman presses a few marks on you. "For speaking up. Nobody does."', marks: 3, trust: { 'cv-bodil': 2 } },
+        fail: { text: 'Bodil shakes her head: no room. You watch the woman get smaller behind you.', clarity: -5 } },
+      { id: 'share', label: 'Give her some of your food for the walk', requires: { stores: { rawFood: 2 } }, cost: { stores: { rawFood: 2 } }, odds: 1, response: 'fawn',
+        success: { text: 'She takes it with both hands. Ottilia, watching from the next wagon, nods to you.', trust: { 'cv-ottilia': 6 } },
+        fail: { text: 'She takes it.' } },
+      { id: 'pass', label: 'Ride on', odds: 1, response: 'flight', success: { text: 'The caravan rolls past her.' }, fail: { text: 'The caravan rolls past her.' } },
+    ],
+  },
+  {
+    id: 'elk-at-the-river', kind: 'animal', road: 'wagon', weight: 2, threat: 1, tags: ['animal'], field: 'hunting',
+    text: 'Below the road, a herd of elk is crossing the spring river, calves and all, the water silver around their legs.',
+    freeze: { text: 'You watch them until the road bends away.' },
+    options: [
+      { id: 'watch', label: 'Watch them cross', odds: 1, success: { text: 'You watch until the last calf scrambles out. For an hour you forget how tired you are.', clarity: 8 }, fail: { text: 'You watch.' } },
+      { id: 'hunt', label: 'Jump down and try for one', cost: { hours: 3 }, odds: 0.35, mods: { skills: { hunting: 0.06 }, tools: { 'stone-knife': 0.1 }, talents: { hunter: 0.15 } },
+        success: { text: 'You bring a yearling down at the shallows. The cook is delighted; there is meat for everyone tonight, and you are owed a lot of suppers.', stores: { rawFood: 4 }, trust: { 'cv-bodil': 4 }, practice: { skill: 'hunting', hours: 2 } },
+        fail: { text: 'They are across and gone before you are close. You run to catch up with the wagons.', vigor: -12 } },
+    ],
+  },
+  {
+    id: 'herald-on-the-road', kind: 'person', road: 'any', weight: 1, threat: 0, tags: ['person'],
+    text: 'A Viddfolk herald in a blue coat falls in beside you, singing under her breath. "News for a song, or a song for news. Which will it be?"',
+    freeze: { text: 'You don\'t answer. She shrugs and sings to someone else.' },
+    options: [
+      { id: 'news', label: 'Ask for the news', odds: 1,
+        success: { text: '"Saltmere is short of salt, if you can believe it, and Kestrel Gate is paying well for good tools." You file it away.', clarity: 4 }, fail: { text: 'She tells you the news.' } },
+      { id: 'sing', label: 'Trade her a story of the winter for a song', odds: 0.6, persuasion: true, mods: { stats: { cha: 0.04 } },
+        success: { text: 'She makes a verse of it on the spot, and by evening half the caravan is singing about you.', trust: { 'cv-bodil': 3, 'cv-runa': 6, 'cv-pim': 3 } },
+        fail: { text: 'She listens politely. "Every winter is the hardest winter," she says, and moves on.' } },
+    ],
+  },
+  {
+    id: 'pickpocket', kind: 'person', road: 'village', weight: 2, threat: 1, tags: ['person'],
+    text: 'In the press of the market a boy bumps into you, says sorry, and is gone — and your purse is lighter.',
+    freeze: { text: 'By the time you think to move, he\'s gone, and so are your marks.', marks: -4 },
+    options: [
+      { id: 'grab', label: 'Go after him', odds: 0.5, response: 'fight', mods: { stats: { agi: 0.05 } },
+        success: { text: 'You catch him by the collar two stalls down. He hands the marks back, white-faced, and bolts.' },
+        fail: { text: 'He\'s quicker in a crowd than you are. Gone.', marks: -4, vigor: -6 } },
+      { id: 'let-go', label: 'Let him go', odds: 1, response: 'flight',
+        success: { text: 'Four marks. You hope he eats tonight.', marks: -4 }, fail: { text: 'Four marks gone.', marks: -4 } },
+      { id: 'warn', label: 'Raise a shout so the stallholders know', odds: 0.7, mods: { stats: { cha: 0.03 } },
+        success: { text: 'A baker steps into his path; the marks come back, and the stallholders nod to you the rest of the day.' },
+        fail: { text: 'Nobody looks up. The boy is gone.', marks: -4 } },
+    ],
+  },
 ];
 
 export const encounterById = (id: string): EncounterTemplate | undefined => ENCOUNTERS.find(e => e.id === id);
@@ -609,6 +706,8 @@ export interface Encounterer {
   vitals?: { clarity: { current: number } };
   /** The places you remember (#1378). */
   pins?: readonly Pin[];
+  /** Marks in hand (#1349), on the road. */
+  marks?: number;
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
 }
@@ -629,6 +728,8 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
   if (r?.talent && !w.character.talents.some(t => t.id === r.talent)) return 'needs a gift you don\'t have';
   if (r?.stat && w.character.stats[r.stat.id] < r.stat.min) return `needs ${r.stat.id.toUpperCase()} ${r.stat.min}`;
   if (r?.tool && !w.tools.some(t => t.item === r.tool)) return `needs a ${r.tool.replace(/-/g, ' ')}`;
+  const marks = Math.max(r?.marks ?? 0, o.cost?.marks ?? 0);
+  if (marks && (w.marks ?? 0) < marks) return `needs ${marks} marks`;
   for (const [k, n] of Object.entries(needs)) if (w.stores[k as keyof Stores] < (n ?? 0)) return `needs ${n} ${k === 'rawFood' ? 'food' : k}`;
   return null;
 }
@@ -690,7 +791,7 @@ export function optionsFor(w: Encounterer, t: EncounterTemplate): { option: Enco
 
 /** What an option costs, as one number for breaking ties: its hours plus the goods it uses. */
 export const costOf = (o: EncounterOption): number =>
-  (o.cost?.hours ?? 0) + Object.values(o.cost?.stores ?? {}).reduce<number>((n, x) => n + (x ?? 0), 0);
+  (o.cost?.hours ?? 0) + (o.cost?.marks ?? 0) + Object.values(o.cost?.stores ?? {}).reduce<number>((n, x) => n + (x ?? 0), 0);
 
 /**
  * The safest option you can take (#1348): the best odds, ties going to the cheapest. What a
@@ -713,7 +814,8 @@ export function safestOption(w: Encounterer, t: EncounterTemplate): EncounterOpt
 export function encounterFor(seed: number, day: number, hour: number, ring: Ring, season: Season, dark: boolean): EncounterTemplate | null {
   const roll = streamFor(seed, day, `encounter@${hour}`);
   if (roll() >= ENCOUNTER_CHANCE[ring] * (dark ? DARK_ENCOUNTER : 1)) return null;
-  const fits = ENCOUNTERS.filter(e => (!e.rings || e.rings.includes(ring)) && ((!e.seasons || e.seasons.includes(season)) || (e.orDark && dark)) && (e.dark === undefined || e.dark === dark));
+  // Road encounters (#1349) are met only on the road.
+  const fits = ENCOUNTERS.filter(e => !e.road && (!e.rings || e.rings.includes(ring)) && ((!e.seasons || e.seasons.includes(season)) || (e.orDark && dark)) && (e.dark === undefined || e.dark === dark));
   const total = fits.reduce((n, e) => n + e.weight, 0);
   let pick = roll() * total;
   for (const e of fits) { pick -= e.weight; if (pick < 0) return e; }

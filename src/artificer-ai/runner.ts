@@ -15,7 +15,7 @@ import { isFear, type Quirk } from '../artificer/quirks';
 import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
-import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
+import { createRoad, runRoadDay, chooseRoadOption, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
 import { observe, observeRoad, observeEncounter, observeMeeting, ROAD_RULES } from './observe';
 import { openMeeting, meetingOptions, safestMeetingOption, chooseInMeeting, boardingOf, type Boarding, type Fare, type Meeting, type MeetingStepId } from '../artificer/caravan-meeting';
 import { parseFocus } from '../artificer/focus';
@@ -175,6 +175,8 @@ export interface RoadTurn {
   thoughts: string;
   actions: RoadActionId[];
   invalid: boolean;
+  /** A road encounter met at the day's dawn and how it was answered (#1349). */
+  encounters?: EncounterChoice[];
   reply?: string;
   errors?: string[];
   violations?: string[];
@@ -516,7 +518,10 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     const answer = player.decideMeeting ? player.decideMeeting.bind(player) : player.decideEncounter ? (msg: string) => player.decideEncounter!(msg, reach) : null;
     const met = await playMeeting(reach, answer ? async (message, m) => count(await answer(message, reach, m)) : null);
     result.meeting = met.record;
-    if (met.boarding) result.road = await playRoad(s, async (message, r) => count(await decideRoad(message, r)), opts.onRoadTurn, met.boarding);
+    // Road encounters (#1349) are answered like the Reach's.
+    const decideEncounter = player.decideEncounter?.bind(player);
+    const choose = decideEncounter ? async (message: string, r: RoadState) => count(await decideEncounter(message, r as unknown as Region1State)) : null;
+    if (met.boarding) result.road = await playRoad(s, async (message, r) => count(await decideRoad(message, r)), opts.onRoadTurn, met.boarding, choose);
   }
   return result;
 }
@@ -527,8 +532,38 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
  * The first message carries the road's rules. An invalid reply is explained back once;
  * actions the sim can't do are skipped, and the next day's journal says why.
  */
-export async function playRoad(reach: Region1State, ask: (message: string, r: RoadState) => Promise<string>, onTurn?: (t: RoadTurn) => void, boarding?: Boarding): Promise<RoadResult> {
+export async function playRoad(reach: Region1State, ask: (message: string, r: RoadState) => Promise<string>, onTurn?: (t: RoadTurn) => void, boarding?: Boarding, choose?: ((message: string, r: RoadState) => Promise<string>) | null): Promise<RoadResult> {
   let r = createRoad(reach, boarding);
+  /**
+   * A road encounter met at dawn (#1349): shown like a Reach encounter and answered the same way.
+   * An invalid answer is explained back once; after that — or for a player that can't choose —
+   * the safest option is taken, and the encounter is marked.
+   */
+  const settle = async (): Promise<EncounterChoice[]> => {
+    const met: EncounterChoice[] = [];
+    while (r.pending && !r.outcome) {
+      const p = r.pending, t = encounterById(p.id)!;
+      const view = r as unknown as Region1State; // the encounter helpers read only what a road state shares with the Reach
+      const offered = optionsFor(view, t).map(o => ({ id: o.option.id, unmet: o.unmet }));
+      let choice: string | null = null, reply = '', errors: string[] | undefined;
+      if (choose) {
+        reply = await choose(observeEncounter(view), r);
+        let e = parseEncounterDecision(reply, offered);
+        if (!e.ok) {
+          reply = await choose(`Your choice was invalid:\n- ${e.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "choice"}.`, r);
+          e = parseEncounterDecision(reply, offered);
+        }
+        if (e.ok) choice = e.decision.choice; else errors = e.errors;
+      }
+      const forced = choice === null;
+      const option = forced ? safestOption(view, t) : stepOf(t, p.step).options.find(o => o.id === choice)!;
+      const odds = oddsWord(chanceOf(view, option));
+      const before = r.log.length;
+      r = chooseRoadOption(r, option.id);
+      met.push({ id: t.id, kind: t.kind, choice: option.id, odds, result: r.log.slice(before).map(l => l.text).join(' '), ...(r.outcome?.kind === 'died' ? { died: true } : {}), ...(forced ? { forced: true, ...(choose ? { reply, errors } : {}) } : {}) });
+    }
+    return met;
+  };
   const start = roadProgressOf(r);
   const turns: RoadTurn[] = [];
   let notes: string[] = [];
@@ -538,6 +573,12 @@ export async function playRoad(reach: Region1State, ask: (message: string, r: Ro
   while (!r.outcome && r.day <= maxDays) {
     const day = r.day;
     const logStart = r.log.length;
+    const met = await settle();
+    if (r.outcome) {
+      const t: RoadTurn = { day, thoughts: '', actions: [], invalid: false, encounters: met, progress: roadProgressOf(r), journal: r.log.slice(logStart).map(l => l.text) };
+      turns.push(t); onTurn?.(t);
+      break;
+    }
     const obs = observeRoad(r, notes);
     let reply = await ask(first ? `${ROAD_RULES}\n\n${obs}` : obs, r);
     first = false;
@@ -555,6 +596,7 @@ export async function playRoad(reach: Region1State, ask: (message: string, r: Ro
     const v = roadInvariantViolations(r);
     const t: RoadTurn = {
       day, thoughts: parsed.ok ? parsed.decision.thoughts : '', actions, invalid: !parsed.ok,
+      ...(met.length ? { encounters: met } : {}),
       ...(parsed.ok ? {} : { reply, errors: parsed.errors }),
       ...(v.length ? { violations: v } : {}),
       progress: roadProgressOf(r), journal: r.log.slice(logStart).map(l => l.text),

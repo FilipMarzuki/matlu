@@ -310,6 +310,7 @@ const questReward = (q: QuestTemplate): string =>
 /** What an option asks of you, in a few words: its hours and the goods it uses. */
 function optionCost(o: EncounterOption): string {
   const parts = Object.entries(o.cost?.stores ?? {}).map(([k, n]) => `${n} ${k === 'rawFood' ? 'food' : k}`);
+  if (o.cost?.marks) parts.push(`${o.cost.marks} marks`);
   if (o.cost?.hours) parts.push(`${o.cost.hours}h`);
   return parts.join(', ');
 }
@@ -325,14 +326,17 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
   if (!p || !t) return '';
   const v = s.vitals, st = s.stores;
   const lines = [
-    `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
+    // On the caravan road (#1349) there are no rings, and marks are part of what you have.
+    p.action === 'road'
+      ? `ENCOUNTER — road day ${p.day}, on the caravan road. The day waits until you choose.`
+      : `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
     ...notes.map(n => `NOTE: ${n}`),
     stepOf(t, p.step).text,
     // Your read and how you stand (#1365): how dangerous it looks to you — not what it is.
     `YOUR READ: it looks ${THREAT_WORDS[p.perceived ?? t.threat]}. ${STATE_WORDS[p.state ?? 'calm']}`,
     `VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100 · hours used today ${s.hoursToday}/${DAY_HOURS}`,
     ...(quirkLine(s) ? [quirkLine(s)!] : []),
-    `STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · hides ${st.hides}`,
+    `STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · hides ${st.hides}${p.action === 'road' ? ` · marks ${s.marks ?? 0}` : ''}`,
     'OPTIONS (id: what you do — cost — odds):',
     ...optionsFor(s, t).map(({ option, unmet, odds }) => {
       const cost = optionCost(option);
