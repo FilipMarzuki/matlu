@@ -8,7 +8,7 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, forgetPin, setInterest, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { isFear, type Quirk } from '../artificer/quirks';
@@ -21,7 +21,8 @@ import { parseFocus } from '../artificer/focus';
 import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
 import { invariantViolations, roadInvariantViolations } from './invariants';
-import { parseDecision, parseRoadDecision, parseEncounterDecision } from './decision';
+import { parseDecision, parseRoadDecision, parseEncounterDecision, type Decision, type ParseResult } from './decision';
+import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
 export interface Usage {
@@ -65,6 +66,48 @@ export function frightOfTurn(journal: readonly string[], before: readonly Quirk[
     fearsLost: fears(before).filter(id => !fears(after).includes(id)),
   };
   return f.spooks || f.uneasyNights || f.sleeplessNights || f.fearsGained.length || f.fearsLost.length ? f : null;
+}
+
+/** Places remembered and let go in a turn, and what's held at its end, by kind (#1381). */
+export interface TurnPins { made: PinKind[]; forgotten: PinKind[]; held: PinKind[] }
+
+/** The turn's pins, from those it began and ended with; null when none were made or let go. */
+export function pinsOfTurn(before: readonly Pin[], after: readonly Pin[]): TurnPins | null {
+  const made = after.filter(p => !before.some(b => b.id === p.id)).map(p => p.kind);
+  const forgotten = before.filter(p => !after.some(a => a.id === p.id)).map(p => p.kind);
+  return made.length || forgotten.length ? { made, forgotten, held: after.map(p => p.kind) } : null;
+}
+
+/**
+ * What's wrong with a reply's pin orders against this state (#1381): a place you don't remember,
+ * or stars your Memory can't give yet. Each comes back as an error the model can be shown.
+ */
+export function pinOrderErrors(s: Region1State, d: Decision): string[] {
+  const held = s.pins ?? [];
+  const list = held.length ? `you remember: ${held.map(p => p.id).join(', ')}` : 'you remember no places';
+  const errors: string[] = [];
+  if (d.forget && !held.some(p => p.id === d.forget)) errors.push(`forget: you don't remember "${d.forget}" — ${list}`);
+  const top = maxInterest(s.skills);
+  for (const x of d.interest ?? []) {
+    if (!held.some(p => p.id === x.pin) || x.pin === d.forget) errors.push(`interest: you don't remember "${x.pin}" — ${list}`);
+    else if (x.stars > top) errors.push(top ? `interest: your Memory can weigh places up to ${top} stars, not ${x.stars}` : "interest: your Memory isn't good enough to weigh places yet (it comes at Apprentice) — leave interest empty");
+  }
+  return errors;
+}
+
+/** A day reply, parsed and checked against the state (its pin orders, #1381). */
+function decideFor(s: Region1State, text: string): ParseResult {
+  const p = parseDecision(text);
+  if (!p.ok) return p;
+  const errors = pinOrderErrors(s, p.decision);
+  return errors.length ? { ok: false, errors } : p;
+}
+
+/** Carry out a reply's pin orders (#1381): let a place go, then weigh the rest. */
+export function applyPinOrders(s: Region1State, d: Decision): Region1State {
+  let next = d.forget ? forgetPin(s, d.forget) : s;
+  for (const x of d.interest ?? []) next = setInterest(next, x.pin, x.stars);
+  return next;
 }
 
 /**
@@ -159,6 +202,8 @@ export interface Turn {
   encounters?: EncounterChoice[];
   /** What fear did this turn (#1365): spooks, fearful nights, fears gained or faded. */
   fright?: TurnFright;
+  /** Places remembered and let go this turn, and those held at its end, by kind (#1381). */
+  pins?: TurnPins;
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -294,7 +339,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   /** Close a turn: attach the encounters met during it and the turn's frights (#1365), and flag one resolved twice. */
   const close = (t: Turn): Turn => {
     const fright = frightOfTurn(t.journal, quirksAtStart, s.character.quirks ?? []);
-    const out = { ...t, ...(met.length ? { encounters: met } : {}), ...(fright ? { fright } : {}) };
+    const pins = pinsOfTurn(pinsAtStart, s.pins ?? []);
+    const out = { ...t, ...(met.length ? { encounters: met } : {}), ...(fright ? { fright } : {}), ...(pins ? { pins } : {}) };
     const v = twice;
     met = []; twice = [];
     return v.length ? { ...out, violations: [...(out.violations ?? []), ...v] } : out;
@@ -303,9 +349,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const maxDays = opts.maxDays ?? s.config.calendar.thawDay;
   // Quirks at the start of each turn, to see which fears the turn gave and took (#1365).
   let quirksAtStart: readonly Quirk[] = [];
+  // …and the places remembered, to see which the turn made and let go (#1381).
+  let pinsAtStart: readonly Pin[] = [];
   while (!s.outcome && s.day <= maxDays) {
     const day = s.day;
     quirksAtStart = s.character.quirks ?? [];
+    pinsAtStart = s.pins ?? [];
     const logStart = s.log.length;
     // One thing at a time until planning is learned (#1350): run the first action of each reply
     // and ask again, until the player ends the day (an empty queue) or the hours run out.
@@ -318,16 +367,17 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       for (let asks = 0; asks < LOCKED_ASKS && !s.outcome && s.day === day && !s.canPlan; asks++) {
         lastReply = await ask(observe(s, notes));
         notes = [];
-        let p = parseDecision(lastReply);
+        let p = decideFor(s, lastReply);
         if (!p.ok) {
           lastReply = await ask(`Your reply was invalid:\n- ${p.errors.join('\n- ')}\nReply again with only the JSON object for day ${day}.`);
-          p = parseDecision(lastReply);
+          p = decideFor(s, lastReply);
         }
         if (!p.ok) { invalid = true; errors = p.errors; s = runDay(s, []).state; notes.push(`Your reply for day ${day} was invalid twice, so the day ended.`); break; }
         const d = p.decision;
         thoughts = d.thoughts || thoughts;
         if (d.focus) s = setFocus(s, parseFocus(d.focus));
         if (d.eating) s = setEating(s, d.eating);
+        s = applyPinOrders(s, d);
         const first = d.queue[0];
         if (!first) { s = runDay(s, []).state; break; }
         if (d.queue.length > 1) notes.push('Only your first action ran: you take things one at a time until you learn to plan ahead. You will be asked again.');
@@ -347,11 +397,11 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       // Planning opened mid-day: the rest of today is planned as usual, below.
     }
     let reply = await ask(observe(s, notes));
-    let parsed = parseDecision(reply);
+    let parsed = decideFor(s, reply);
     notes = [];
     if (!parsed.ok) {
       reply = await ask(`Your reply was invalid:\n- ${parsed.errors.join('\n- ')}\nReply again with only the JSON object for day ${day}.`);
-      parsed = parseDecision(reply);
+      parsed = decideFor(s, reply);
     }
     if (!parsed.ok) {
       s = runDay(s, []).state;
@@ -364,6 +414,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     const d = parsed.decision;
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
+    s = applyPinOrders(s, d);
     // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);

@@ -8,6 +8,7 @@ import { SITES, type Region1State } from '../artificer/region1';
 import { maxLoad } from '../artificer/load';
 import type { RoadState } from '../artificer/road';
 import { QUESTS } from '../artificer/quests';
+import { pinCapacity } from '../artificer/pins';
 
 /** Every broken invariant in `s`, as readable messages (empty when all is well). */
 export function invariantViolations(s: Region1State): string[] {
@@ -38,6 +39,10 @@ export function invariantViolations(s: Region1State): string[] {
   if (s.coldPitAt && !(s.coldPitAt in SITES)) out.push(`cold pit at unknown site ${s.coldPitAt}`);
   // Encounters (#1348): a turn never ends with one still waiting for a choice.
   if (s.pending) out.push(`encounter ${s.pending.id} still waiting at the end of the turn`);
+  // Pins (#1381): never more than memory holds, never the same place twice.
+  const pins = s.pins ?? [];
+  if (pins.length > pinCapacity(s)) out.push(`${pins.length} pins held, but memory holds ${pinCapacity(s)}`);
+  if (new Set(pins.map(p => p.id)).size !== pins.length) out.push('the same place pinned twice');
   return out;
 }
 

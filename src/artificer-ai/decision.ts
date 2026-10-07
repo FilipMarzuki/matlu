@@ -20,6 +20,10 @@ export interface Decision {
   eating?: EatingPlan | null;
   site: SiteId | null;
   queue: QueueItem[];
+  /** A place to let go of, by pin id (#1381), before the day. */
+  forget?: string;
+  /** Interest to set on remembered places, ★ 1–3 or 0 to clear (#1381), as far as Memory allows. */
+  interest?: { pin: string; stars: 0 | 1 | 2 | 3 }[];
 }
 
 const ACTION_IDS = Object.keys(ACTIONS) as ActionId[];
@@ -29,12 +33,18 @@ const SITE_IDS = Object.keys(SITES) as SiteId[];
 export const DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'focus', 'eating', 'site', 'queue'],
+  required: ['thoughts', 'focus', 'eating', 'site', 'forget', 'interest', 'queue'],
   properties: {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
     focus: { anyOf: [{ type: 'string', enum: FOCUS_KEYS }, { type: 'null' }], description: 'Set what your mind works on (e.g. "goal:larder"), "none" to clear, or null to keep it.' },
     eating: { anyOf: [{ type: 'string', enum: EATING_PLANS }, { type: 'null' }], description: 'How to eat from tonight: "full", "half" (every other night) or "none" (fast), or null to keep it.' },
     site: { anyOf: [{ type: 'string', enum: SITE_IDS }, { type: 'null' }], description: 'Settle or move camp before the day, or null.' },
+    forget: { anyOf: [{ type: 'string' }, { type: 'null' }], description: 'A remembered place to let go of, by its pin id (e.g. "deep-pool@2"), or null.' },
+    interest: {
+      type: 'array',
+      description: 'Interest to set on remembered places (0 clears, 1–3 stars), once your Memory allows; [] for none.',
+      items: { type: 'object', additionalProperties: false, required: ['pin', 'stars'], properties: { pin: { type: 'string' }, stars: { type: 'integer', minimum: 0, maximum: 3 } } },
+    },
     queue: {
       type: 'array',
       description: "The day's actions in order.",
@@ -99,6 +109,21 @@ export function parseDecision(text: string): ParseResult {
     if (typeof o.site === 'string' && (SITE_IDS as string[]).includes(o.site)) site = o.site as SiteId;
     else errors.push(`site must be one of ${SITE_IDS.join(', ')} or null`);
   }
+  // Pins (#1381): their shape here; whether the pin exists and Memory allows the stars is the runner's check.
+  let forget: string | null = null;
+  if (o.forget !== null && o.forget !== undefined) {
+    if (typeof o.forget === 'string') forget = o.forget;
+    else errors.push('forget must be a pin id (a string) or null');
+  }
+  const interest: { pin: string; stars: 0 | 1 | 2 | 3 }[] = [];
+  if (o.interest !== null && o.interest !== undefined) {
+    if (!Array.isArray(o.interest)) errors.push('interest must be an array of {"pin": string, "stars": 0–3}');
+    else o.interest.forEach((x, i) => {
+      const e = x as Record<string, unknown> | null;
+      if (!e || typeof e.pin !== 'string' || ![0, 1, 2, 3].includes(e.stars as number)) errors.push(`interest[${i}] must be {"pin": string, "stars": 0, 1, 2 or 3}`);
+      else interest.push({ pin: e.pin, stars: e.stars as 0 | 1 | 2 | 3 });
+    });
+  }
   // There are no exits since winter is played (#1302): asking for one is a mistake worth telling the player about.
   if (o.exit !== null && o.exit !== undefined) errors.push('there are no exits — survive the winter until the thaw (leave "exit" out)');
 
@@ -127,7 +152,7 @@ export function parseDecision(text: string): ParseResult {
     queue.push(Object.keys(opts).length ? { q, opts } : q);
   });
 
-  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), ...(eating ? { eating } : {}), site, queue } };
+  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), ...(eating ? { eating } : {}), site, queue, ...(forget ? { forget } : {}), ...(interest.length ? { interest } : {}) } };
 }
 
 // ── The road (#1251) ────────────────────────────────────────────────────────

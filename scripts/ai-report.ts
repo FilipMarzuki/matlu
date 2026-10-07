@@ -53,6 +53,14 @@ for (const m of models) {
   if (m.encounters.perRun) console.log(`  ${''.padEnd(34)} ${encounterLine(m)}`);
   const fl = frightLine(m);
   if (fl) console.log(`  ${''.padEnd(34)} ${fl}`);
+  if (m.pins.made) console.log(`  ${''.padEnd(34)} ${pinLine(m)}`);
+}
+
+/** Places in a line (#1381): remembered, let go and held per run, and the kinds chosen. */
+function pinLine(m: ModelSummary): string {
+  const p = m.pins;
+  const kinds = (x: Record<string, number>) => Object.entries(x).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ');
+  return `pins — ${p.made} remembered, ${p.forgotten} let go, ${p.held} held at the end /run · kinds remembered: ${kinds(p.madeByKind)}`;
 }
 
 /** Fear in a line (#1365): panics and overrides, spooks and fearful nights per run, fears gained and faded. */

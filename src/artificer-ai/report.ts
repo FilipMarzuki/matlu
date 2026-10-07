@@ -14,7 +14,8 @@ export interface Transcript {
   start: Progress;
   turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[];
     encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean; state?: string; override?: { chosen: string; taken: string }; fearsGained?: string[] }[];
-    fright?: { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] } }[];
+    fright?: { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] };
+    pins?: { made: string[]; forgotten: string[]; held: string[] } }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
   /** The caravan road, for a run that rode on (#1251). */
@@ -149,6 +150,36 @@ export interface ModelSummary {
   encounters: EncounterSummary;
   /** What fear did (#1365). */
   fright: FrightSummary;
+  /** Places remembered (#1381). */
+  pins: PinSummary;
+}
+
+/** What a model's Wardens chose to remember (#1381). */
+export interface PinSummary {
+  /** Places remembered, let go, and held at the end — mean per run. */
+  made: number;
+  forgotten: number;
+  held: number;
+  /** Pin kind → how many were remembered, let go, and held at the end (totals over all runs). */
+  madeByKind: Record<string, number>;
+  forgottenByKind: Record<string, number>;
+  heldByKind: Record<string, number>;
+}
+
+/** Count the places a model's Wardens remembered, let go, and kept to the end (#1381). */
+export function pinSummaryOf(runs: readonly Transcript[]): PinSummary {
+  const madeByKind: Record<string, number> = {}, forgottenByKind: Record<string, number> = {}, heldByKind: Record<string, number> = {};
+  const add = (m: Record<string, number>, k: string) => { m[k] = (m[k] ?? 0) + 1; };
+  let made = 0, forgotten = 0, held = 0;
+  for (const r of runs) {
+    for (const t of r.turns) for (const k of t.pins?.made ?? []) { add(madeByKind, k); made++; }
+    for (const t of r.turns) for (const k of t.pins?.forgotten ?? []) { add(forgottenByKind, k); forgotten++; }
+    // Pins change only on turns that made or let one go, so the last such turn holds what the run ended with.
+    const last = [...r.turns].reverse().find(t => t.pins);
+    for (const k of last?.pins?.held ?? []) { add(heldByKind, k); held++; }
+  }
+  const n = runs.length || 1;
+  return { made: round(made / n, 2)!, forgotten: round(forgotten / n, 2)!, held: round(held / n, 2)!, madeByKind, forgottenByKind, heldByKind };
 }
 
 /** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
@@ -331,6 +362,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       road: roadSummaryOf(runs),
       encounters: encounterSummaryOf(runs),
       fright: frightSummaryOf(runs),
+      pins: pinSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }
