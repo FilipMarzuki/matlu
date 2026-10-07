@@ -50,6 +50,15 @@ export interface Effect {
   hours?: number;
   /** If this takes Condition to 0, what the journal says killed you. */
   killedBy?: string;
+  /**
+   * A wound (#1344): base Condition lost, scaled by the body — 5% less per point of CON above 10
+   * (more below), between half and half again of the base — and softened by Tough.
+   */
+  wound?: number;
+  /** Practice a skill gets from it (watching a lynx hunt teaches hunting). */
+  practice?: { skill: SkillId; hours: number };
+  /** Extra goods if you have a talent (Hunter's Patience gets more from a kill). */
+  talentStores?: Partial<Record<TalentId, Partial<Record<keyof Stores, number>>>>;
 }
 
 /** How stats, skills, talents and tools move an option's chance of success. */
@@ -73,6 +82,8 @@ export interface EncounterOption {
   /** Base chance of success, 0–1. */
   odds: number;
   mods?: OddsMods;
+  /** If you meet this, the option is a sure thing (#1344): a good scout backs away from a bear safely. */
+  sureIf?: Requirement;
   /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse; panicked, it's closed. */
   careful?: boolean;
   /** Which panic response this option is (#1361): what instinct reaches for when it takes over. */
@@ -93,6 +104,8 @@ export interface EncounterTemplate {
   seasons?: readonly Season[];
   /** Only in the dark (light under 0.5), or only by day. */
   dark?: boolean;
+  /** Also in the dark, whatever the season (#1344): wolves are out in winter, or at dusk any time. */
+  orDark?: boolean;
   /** Relative weight among the encounters that fit. */
   weight: number;
   /** The danger it truly holds, 0–4 (#1360). What it *looks* like is panic.ts's `perceivedThreat`. */
@@ -156,6 +169,119 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
         fail: { text: 'The ledge gives way.', condition: -60, killedBy: 'a fall from a crumbling ledge' } },
     ],
   },
+  // ── Animals (#1344) ──────────────────────────────────────────────────────
+  // Animals are not evil (WORLD.md): a bear with cubs is afraid; a wolf pack in winter is hungry.
+  {
+    id: 'she-bear', kind: 'animal', weight: 2, rings: [2, 3], seasons: ['autumn'], threat: 3, tags: ['animal'], field: 'hunting',
+    text: 'A she-bear rears up out of the berry scrub, two cubs tumbling behind her. She has seen you.',
+    freeze: { text: 'You stand rooted while she huffs and slaps the ground. At last she herds the cubs away.' },
+    options: [
+      { id: 'back-away', label: 'Back away slowly, eyes down', odds: 0.75, response: 'flight', sureIf: { skill: { id: 'scouting', level: 2 } }, mods: { talents: { keenEye: 0.1 } },
+        success: { text: 'You give her all the room she wants, and she lets you go.' },
+        fail: { text: 'She bluff-charges and you go over backwards into the thorns.', wound: 10 } },
+      { id: 'drop-haul', label: 'Drop what you carry and go', odds: 0.95, response: 'flight',
+        success: { text: 'You let the pack fall and walk away. She tears into it instead of you.', stores: { rawFood: -3, materials: -2 } },
+        fail: { text: 'She follows a few steps before she turns to the pack.', stores: { rawFood: -3, materials: -2 }, vigor: -10 } },
+      { id: 'shout', label: 'Stand tall and shout', odds: 0.4, response: 'fight', mods: { stats: { str: 0.03, cha: 0.02 }, talents: { tough: 0.1 } },
+        success: { text: 'You roar back at her. She weighs you a long moment, then turns away with her cubs.' },
+        mixed: { text: 'She charges and stops short — close enough that you smell her.', clarity: -10 },
+        fail: { text: 'She doesn\'t stop.', wound: 30, killedBy: 'a bear' } },
+      { id: 'throw-food', label: 'Throw her your food', requires: { stores: { rawFood: 2 } }, cost: { stores: { rawFood: 2 } }, odds: 0.85, response: 'fawn',
+        success: { text: 'She takes the food, and the cubs take her attention. You slip away.' },
+        fail: { text: 'She takes the food — and still comes on, and you run.', vigor: -15 } },
+      { id: 'fight', label: 'Fight her', odds: 0.15, response: 'fight', mods: { stats: { str: 0.04, con: 0.02 }, tools: { 'stone-knife': 0.15 }, talents: { tough: 0.05 } },
+        success: { text: 'Somehow you drive her off, bleeding and roaring.', wound: 10, hours: 1 },
+        fail: { text: 'She is far too strong.', wound: 30, killedBy: 'a bear' } },
+    ],
+  },
+  {
+    id: 'wolf-pack', kind: 'animal', weight: 2, rings: [2, 3], seasons: ['winter'], orDark: true, threat: 3, tags: ['animal'], field: 'hunting',
+    text: 'Grey shapes slide between the trees, keeping pace with you. Wolves — four, five — hungry and patient.',
+    freeze: { text: 'You stand still. They circle, closer, closer, and one snaps at your leg before something else takes their noses away.', wound: 15, killedBy: 'wolves' },
+    options: [
+      { id: 'fire', label: 'Build a fire and wait them out', requires: { stores: { firewood: 2 } }, cost: { stores: { firewood: 2 }, hours: 3 }, odds: 1, careful: true, response: 'freeze',
+        success: { text: 'The fire holds them at the edge of the light until they lose interest.' },
+        fail: { text: 'The fire holds them at the edge of the light until they lose interest.' } },
+      { id: 'climb', label: 'Climb a tree', odds: 0.55, response: 'flight', mods: { stats: { agi: 0.05 } },
+        success: { text: 'You haul yourself up. They wait below for an hour, then drift away.', hours: 2 },
+        fail: { text: 'The branch breaks.', wound: 20, killedBy: 'wolves' } },
+      { id: 'fight', label: 'Fight', odds: 0.25, response: 'fight', mods: { stats: { str: 0.03, con: 0.03 }, tools: { 'stone-knife': 0.15 }, talents: { tough: 0.05 } },
+        success: { text: 'You hurt the first one badly enough that the pack thinks again.', wound: 10 },
+        fail: { text: 'They pull you down.', wound: 40, killedBy: 'wolves' } },
+      { id: 'retreat', label: 'Back off in step — never run', odds: 0.5, careful: true, response: 'flight', mods: { skills: { scouting: 0.06 }, talents: { keenEye: 0.1 } },
+        success: { text: 'Step by step, facing them, you reach open ground. They let you go.', hours: 1 },
+        mixed: { text: 'One darts in and opens your calf before they let you go.', wound: 10 },
+        fail: { text: 'Your nerve breaks and you run. They come.', wound: 30, killedBy: 'wolves' } },
+    ],
+  },
+  {
+    id: 'rutting-elk', kind: 'animal', weight: 2, rings: [2, 3], seasons: ['autumn'], threat: 2, tags: ['animal'], field: 'hunting',
+    text: 'A bull elk in rut steps out ahead, antlers lowered, breath steaming. He wants you gone.',
+    freeze: { text: 'You freeze. He paws the ground, bellows, and crashes off after a rival.' },
+    options: [
+      { id: 'give-way', label: 'Give way', odds: 1, response: 'flight', cost: { hours: 1 },
+        success: { text: 'You take the long way round.' }, fail: { text: 'You take the long way round.' } },
+      { id: 'hide', label: 'Get the trees between you', odds: 0.8, response: 'freeze', mods: { talents: { keenEye: 0.1 } },
+        success: { text: 'Trunks between you, he loses interest.' },
+        fail: { text: 'He comes round the trees after you.', wound: 10 } },
+      { id: 'charge-past', label: 'Dash past him', odds: 0.45, response: 'fight', mods: { stats: { agi: 0.05 } },
+        success: { text: 'You are past before he turns.' },
+        fail: { text: 'He catches you with an antler tine.', wound: 20 } },
+    ],
+  },
+  {
+    id: 'wild-boar', kind: 'animal', weight: 2, rings: [1, 2], threat: 2, tags: ['animal'], field: 'hunting',
+    text: 'A boar bursts from the undergrowth, tusks low, and stops ten paces off — bristling, deciding.',
+    freeze: { text: 'You keep perfectly still. He snorts, and trots off grumbling.' },
+    options: [
+      { id: 'climb', label: 'Climb out of reach', odds: 0.7, response: 'flight', mods: { stats: { agi: 0.04 } },
+        success: { text: 'Up on a stump, you wait him out.', hours: 1 },
+        fail: { text: 'He catches your calf as you scramble.', wound: 15 } },
+      { id: 'stand-still', label: 'Stand still', odds: 0.6, careful: true, response: 'freeze',
+        success: { text: 'He decides you are not worth it.' },
+        fail: { text: 'He decides you are.', wound: 15 } },
+      { id: 'fight', label: 'Fight him', odds: 0.3, response: 'fight', mods: { stats: { str: 0.03 }, skills: { hunting: 0.04 }, tools: { 'stone-knife': 0.2 } },
+        success: { text: 'You bring him down. Meat for days, and a good hide.', stores: { rawFood: 4, hides: 1 }, wound: 5 },
+        fail: { text: 'His tusks open your leg.', wound: 25, killedBy: 'a boar' } },
+    ],
+  },
+  {
+    id: 'lynx-kill', kind: 'animal', weight: 1, rings: [3], threat: 2, tags: ['animal'], field: 'hunting',
+    text: 'A lynx crouches over a fresh hare, ear-tufts flat, staring at you over its kill.',
+    freeze: { text: 'You stand still. The lynx drags its kill into the brush.' },
+    options: [
+      { id: 'leave', label: 'Leave it be', odds: 1, response: 'flight', success: { text: 'You go round.' }, fail: { text: 'You go round.' } },
+      { id: 'take-kill', label: 'Drive it off and take the kill', odds: 0.45, response: 'fight', mods: { stats: { str: 0.03 }, talents: { hunter: 0.15 } },
+        success: { text: 'It slinks off. The hare is yours.', stores: { rawFood: 2 } },
+        fail: { text: 'It does not give up its dinner.', wound: 12 } },
+      { id: 'watch', label: 'Watch it from a distance', odds: 1, careful: true, response: 'freeze',
+        success: { text: 'You watch how it eats, and how it listens while it eats. You learn something about patience.', practice: { skill: 'hunting', hours: 2 }, hours: 1 },
+        fail: { text: 'It slips away before you learn much.' } },
+    ],
+  },
+  {
+    id: 'wounded-deer', kind: 'animal', weight: 2, rings: [1, 2], threat: 1, tags: ['animal'], field: 'hunting',
+    text: 'A deer stumbles out of the trees, a broken leg dragging. It will not last the night.',
+    freeze: { text: 'You stand there until it limps out of sight.' },
+    options: [
+      { id: 'put-down', label: 'Put it out of its pain', requires: { tool: 'stone-knife' }, odds: 1, response: 'fight',
+        success: { text: 'Quick and clean. It will feed you, and its hide will keep you warm.', stores: { rawFood: 3, hides: 1 }, talentStores: { hunter: { rawFood: 1 } }, hours: 1 },
+        fail: { text: 'Quick and clean.' } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'You leave it to the wolves.' }, fail: { text: 'You leave it to the wolves.' } },
+    ],
+  },
+  {
+    id: 'circling-ravens', kind: 'animal', weight: 2, rings: [2], threat: 1, tags: ['animal'], field: 'scouting',
+    text: 'Ravens circle low over the next rise, calling to each other.',
+    freeze: { text: 'You watch them a long while. They settle somewhere out of sight.' },
+    options: [
+      { id: 'follow', label: 'Follow them', odds: 0.6, careful: true, mods: { skills: { scouting: 0.04 }, talents: { keenEye: 0.1 } },
+        success: { text: 'They lead you to a carcass, barely touched.', stores: { rawFood: 3, hides: 1 } },
+        mixed: { text: 'A lynx is already on it. You back away empty-handed.', hours: 1 },
+        fail: { text: 'It is a bear\'s cache — and the bear is close.', wound: 20, killedBy: 'a bear' } },
+      { id: 'ignore', label: 'Ignore them', odds: 1, response: 'flight', success: { text: 'You let the ravens keep their secret.' }, fail: { text: 'You let the ravens keep their secret.' } },
+    ],
+  },
 ];
 
 export const encounterById = (id: string): EncounterTemplate | undefined => ENCOUNTERS.find(e => e.id === id);
@@ -181,7 +307,7 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
   if (r?.talent && !w.character.talents.some(t => t.id === r.talent)) return 'needs a gift you don\'t have';
   if (r?.stat && w.character.stats[r.stat.id] < r.stat.min) return `needs ${r.stat.id.toUpperCase()} ${r.stat.min}`;
   if (r?.tool && !w.tools.some(t => t.item === r.tool)) return `needs a ${r.tool.replace(/-/g, ' ')}`;
-  for (const [k, n] of Object.entries(needs)) if (w.stores[k as keyof Stores] < (n ?? 0)) return `needs ${n} ${k}`;
+  for (const [k, n] of Object.entries(needs)) if (w.stores[k as keyof Stores] < (n ?? 0)) return `needs ${n} ${k === 'rawFood' ? 'food' : k}`;
   return null;
 }
 
@@ -191,6 +317,8 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
  */
 export function chanceOf(w: Encounterer, o: EncounterOption): number {
   if (o.odds >= 1) return 1;
+  // Sure for those who meet it (#1344) — however shaken.
+  if (o.sureIf && !unmet(w, { ...o, requires: o.sureIf, cost: undefined, careful: false })) return 1;
   const rattled = o.careful && (w.pending?.state === 'shaken' || w.pending?.state === 'panicked');
   const m = o.mods ?? {};
   let p = o.odds;
@@ -253,7 +381,7 @@ export function safestOption(w: Encounterer, t: EncounterTemplate): EncounterOpt
 export function encounterFor(seed: number, day: number, hour: number, ring: Ring, season: Season, dark: boolean): EncounterTemplate | null {
   const roll = streamFor(seed, day, `encounter@${hour}`);
   if (roll() >= ENCOUNTER_CHANCE[ring] * (dark ? DARK_ENCOUNTER : 1)) return null;
-  const fits = ENCOUNTERS.filter(e => (!e.rings || e.rings.includes(ring)) && (!e.seasons || e.seasons.includes(season)) && (e.dark === undefined || e.dark === dark));
+  const fits = ENCOUNTERS.filter(e => (!e.rings || e.rings.includes(ring)) && ((!e.seasons || e.seasons.includes(season)) || (e.orDark && dark)) && (e.dark === undefined || e.dark === dark));
   const total = fits.reduce((n, e) => n + e.weight, 0);
   let pick = roll() * total;
   for (const e of fits) { pick -= e.weight; if (pick < 0) return e; }
