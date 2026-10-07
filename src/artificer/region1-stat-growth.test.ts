@@ -14,7 +14,8 @@ import { legacyOf, COLLAPSE_CON } from './legacy';
 import { createRoad, runRoadAction } from './road';
 import { TRAVELLERS, TALK_HOURS } from './villages';
 import { newRun } from '../artificer-app/controller';
-import { DEFAULT_STATS, EXERCISE_TO_NEXT, exerciseFor, exercise, wearDown, STAT_PEAK, type Stats } from './stats';
+import { DEFAULT_STATS, EXERCISE_TO_NEXT, exerciseFrom, exercise, wearDown, skillExercise, STAT_PEAK, HARD_EXERCISE, type Stats } from './stats';
+import { LEVEL_HOURS } from './skills';
 
 /** An adult Warden, sheltered and stocked in the flat world (no accidents), with the given stats. */
 function settled(stats: Partial<Stats> = {}, over: Partial<Region1State> = {}): Region1State {
@@ -57,21 +58,30 @@ describe('Stats grow by use and wear (#1257)', () => {
     expect(EXERCISE_TO_NEXT(5)).toBe(270);
   });
 
-  // 3. Study → INT, a hunt → AGI, a craft → INT (and AGI for a handcraft).
-  it('exercises the stat the work uses', () => {
-    expect(exerciseFor('study')).toEqual(['int']);
-    expect(exerciseFor('hunt')).toEqual(['agi']);
-    expect(exerciseFor('wood')).toEqual(['str']);
-    expect(exerciseFor('knife', { recipe: true, handcraft: false })).toEqual(['int']);
-    expect(exerciseFor('basket', { recipe: true, handcraft: true })).toEqual(['int', 'agi']);
-    expect(exerciseFor('rest')).toEqual([]);
-    // In play: weaving a basket (3h, handcraft) exercises both, hour for hour.
+  // 3. The right skill builds its stat; hard work builds STR and CON, demanding mind work INT and WIL.
+  it('builds the stat the skill leans on, and more for hard work', () => {
+    const work = { hours: 4, skill: null, level: 0, vigorRate: 0, clarityRate: 0 };
+    // Study: INT, hour for hour.
+    expect(exerciseFrom({ ...work, study: true })).toEqual({ int: 4 });
+    // A hunt: Hunting builds AGI — more the better you are at it — and it's hard on the body.
+    expect(exerciseFrom({ ...work, skill: 'hunting', vigorRate: -4 })).toEqual({ agi: 4 * skillExercise(0), str: 4 * HARD_EXERCISE, con: 4 * HARD_EXERCISE });
+    expect(exerciseFrom({ ...work, skill: 'hunting', level: 4, vigorRate: -2 })).toEqual({ agi: 4 * 1.5 });
+    // Demanding mind work (Clarity −4/h or more): INT and WIL.
+    expect(exerciseFrom({ ...work, skill: 'scouting', vigorRate: -2, clarityRate: -5 })).toEqual({ agi: 2, int: 2, wil: 2 });
+    // Pushing Vigor past empty is hard work, whatever the work.
+    expect(exerciseFrom({ ...work, pushed: true })).toEqual({ str: 2, con: 2 });
+    // Light, unskilled work builds nothing.
+    expect(exerciseFrom({ ...work, vigorRate: -2, clarityRate: -1 })).toEqual({});
+    // In play: weaving a basket — Handcraft builds AGI, at an untrained half-rate.
     const s = settled();
     const b = runAction({ ...s, known: [...s.known, 'basket'] }, 'basket');
     const h = b.hoursToday - s.hoursToday;
     expect(h).toBeGreaterThan(0);
-    expect(b.character.exercise).toEqual({ int: h, agi: h });
-    // Resting exercises nothing.
+    expect(b.character.exercise).toEqual({ agi: h * skillExercise(0) });
+    // A skilled weaver's hours count for more.
+    const skilled = runAction({ ...s, known: [...s.known, 'basket'], skills: { handcraft: LEVEL_HOURS[4] } }, 'basket');
+    expect(skilled.character.exercise!.agi! / (skilled.hoursToday - s.hoursToday)).toBeCloseTo(skillExercise(4), 5);
+    // Resting builds nothing.
     expect(runAction(s, 'rest').character.exercise).toBeUndefined();
   });
 
@@ -88,7 +98,7 @@ describe('Stats grow by use and wear (#1257)', () => {
   it('steels the will when you work on with a tired mind', () => {
     const tired = runAction(settled({}, { vitals: createVitals({ clarity: 30 }) }), 'wood');
     const fresh = runAction(settled({}, { vitals: createVitals({ clarity: 60 }) }), 'wood');
-    expect(tired.character.exercise?.wil).toBe(tired.character.exercise?.str);
+    expect(tired.character.exercise?.wil).toBe(tired.hoursToday - settled().hoursToday);
     expect(fresh.character.exercise?.wil).toBeUndefined();
   });
 

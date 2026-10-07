@@ -165,18 +165,48 @@ export const STAT_PEAK = 18, STAT_LOW = 3;
 /** Exercise hours for the next point: 30 × (score − 8)², at least 30 — 10→11 takes 120h, 14→15 takes 1,080h. */
 export const EXERCISE_TO_NEXT = (score: number): number => Math.max(30, 30 * (score - 8) ** 2);
 
-/** Which work exercises which stat. A craft exercises INT, a handcraft AGI too; a build is heavy work (STR). */
-const EXERCISED_BY: Readonly<Record<string, readonly StatId[]>> = {
-  wood: ['str'], quarry: ['str'], build: ['str', 'int'],
-  hunt: ['agi'], track: ['agi'], scout: ['agi'], survey: ['agi'], lookout: ['agi'],
-  study: ['int'],
+/**
+ * The right skill builds its stat: practising a skill exercises the stat it leans on. Felling and
+ * stonework build the arms, hunting, scouting and handwork the hands and feet, fieldcraft and
+ * foraging the body's endurance, memory and first aid the head.
+ */
+export const SKILL_STAT: Readonly<Record<SkillId, StatId>> = {
+  woodcraft: 'str', stonework: 'str', hunting: 'agi', scouting: 'agi', handcraft: 'agi',
+  fieldcraft: 'con', foraging: 'con', memory: 'int', firstaid: 'int',
 };
-/** The stats a piece of work exercises, hour for hour. `craft`: a recipe (INT), `handcraft`: and a handcraft one (AGI). */
-export function exerciseFor(action: string, craft: { recipe: boolean; handcraft: boolean } = { recipe: false, handcraft: false }): StatId[] {
-  const out = new Set<StatId>(EXERCISED_BY[action] ?? []);
-  if (craft.recipe) out.add('int');
-  if (craft.handcraft) out.add('agi');
-  return [...out];
+/** Exercise per hour of skilled work, by the skill's level: untrained 0.5 … Journeyman 1.5. The better you are, the more it builds. */
+export const skillExercise = (level: number): number => 0.5 + 0.25 * level;
+/** Hard work: draining Vigor this fast (per hour, or pushing past empty) builds STR and CON; Clarity this fast, INT and WIL. */
+export const HARD_VIGOR = 4, HARD_CLARITY = 4;
+/** Exercise per hour of hard work, on top of the skill's. */
+export const HARD_EXERCISE = 0.5;
+
+/** A stretch of work, as stat growth sees it. Rates are the work's own (negative drains), before skill or tools ease it. */
+export interface Work {
+  hours: number;
+  skill: SkillId | null;
+  level: number;
+  vigorRate: number;
+  clarityRate: number;
+  /** Pushed Vigor past empty. */
+  pushed?: boolean;
+  /** Begun with a tired mind (Clarity under 40) or locked to survival: steels the will. */
+  tiredMind?: boolean;
+  /** Study: reading and working things out, INT hour for hour. */
+  study?: boolean;
+}
+
+/** The exercise hours a stretch of work gives each stat (#1257): the right skill, hard work, and a tired mind. */
+export function exerciseFrom(w: Work): Partial<Stats> {
+  const out: Partial<Stats> = {};
+  const add = (id: StatId, h: number) => { if (h > 0) out[id] = Math.round(((out[id] ?? 0) + h) * 100) / 100; };
+  if (w.hours <= 0) return out;
+  if (w.skill) add(SKILL_STAT[w.skill], w.hours * skillExercise(w.level));
+  if (w.study) add('int', w.hours);
+  if (-w.vigorRate >= HARD_VIGOR || w.pushed) { add('str', w.hours * HARD_EXERCISE); add('con', w.hours * HARD_EXERCISE); }
+  if (-w.clarityRate >= HARD_CLARITY) { add('int', w.hours * HARD_EXERCISE); add('wil', w.hours * HARD_EXERCISE); }
+  if (w.tiredMind) add('wil', w.hours);
+  return out;
 }
 
 /** WIL is exercised by work done with a tired mind (Clarity under this at the start) — or locked to survival. */

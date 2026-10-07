@@ -13,7 +13,7 @@
  */
 
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
-import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFor, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, type Stats, type StatId } from './stats';
+import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFrom, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, STAT_IDS as GROWTH_STATS, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
@@ -371,11 +371,13 @@ function clone(s: Region1State): Region1State {
 const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
 
 /**
- * Exercise stats with some hours of work (#1257) — on the Reach, on the road, or in the night —
+ * Exercise stats (#1257) — hours per stat, from work on the Reach, on the road, or the night —
  * and write a journal line for each point gained. Felt, not hidden.
  */
-export function exerciseStats(next: { character: Character; log: LogEntry[]; day: number }, ids: readonly StatId[], hours: number, at?: LogEntry['at']): void {
-  for (const id of ids) {
+export function exerciseStats(next: { character: Character; log: LogEntry[]; day: number }, gains: Partial<Stats>, at?: LogEntry['at']): void {
+  for (const id of GROWTH_STATS) {
+    const hours = gains[id] ?? 0;
+    if (hours <= 0) continue;
     const c = next.character;
     const r = exercise(c.stats, { trained: c.trained, exercise: c.exercise, wear: c.wear }, id, hours);
     next.character = { ...c, stats: r.stats, ...(r.growth.trained ? { trained: r.growth.trained } : {}), exercise: r.growth.exercise };
@@ -1507,8 +1509,11 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
-  // The work exercises its stat (#1257) — and work done with a tired mind, or locked to survival, steels the will.
-  exerciseStats(next, [...exerciseFor(id), ...(setOut.clarity < WIL_EXERCISE_BELOW || survivalLockOf(s) ? ['wil' as const] : [])], workHours, at);
+  // Stats grow (#1257): the right skill builds its stat, hard work STR and CON (or INT and WIL), and a tired mind the will.
+  exerciseStats(next, exerciseFrom({
+    hours: workHours, skill, level: lvl, vigorRate: v.vigorRate ?? def.vigorRate, clarityRate: v.clarityRate ?? def.clarityRate,
+    pushed: r.pushedVigor, tiredMind: setOut.clarity < WIL_EXERCISE_BELOW || !!survivalLockOf(s), study: id === 'study',
+  }), at);
   // Out on the land, or deep in study (#1305): either keeps cabin fever off.
   if (def.ringed) next.today.outside = true;
   if (id === 'study') next.today.absorbed = true;
@@ -1724,8 +1729,11 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
-  // Crafting exercises the head, a handcraft the hands too (#1257) — and a tired mind, the will.
-  if (result.kind !== 'refused') exerciseStats(next, [...exerciseFor(id, { recipe: true, handcraft: skill === 'handcraft' }), ...(before.clarity.current < WIL_EXERCISE_BELOW || survivalLockOf(next) ? ['wil' as const] : [])], hours, at);
+  // At the bench too (#1257): the craft's skill builds its stat, fiddly or heavy work more.
+  if (result.kind !== 'refused') exerciseStats(next, exerciseFrom({
+    hours, skill, level: lvl, vigorRate: recipe.effort?.vigorRate ?? 0, clarityRate: recipe.effort?.clarityRate ?? 0,
+    tiredMind: before.clarity.current < WIL_EXERCISE_BELOW || !!survivalLockOf(next),
+  }), at);
   // Making something absorbs the mind (#1305).
   if (result.kind !== 'refused') next.today.absorbed = true;
   latchMilestones(next);
@@ -2414,7 +2422,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
   growFrom(next, { kind: 'night', hungry: !ate && !lean, cold: o.coldNight || froze > 0, condition: next.vitals.condition, strained: strained >= EXHAUSTED_AT });
   // A long day or a hard night survived toughens the body (#1257)…
-  exerciseStats(next, ['con'], Math.max(0, hoursWorked - LONG_DAY_HOURS) + ((!ate && !lean) || !drank ? HARD_NIGHT_EXERCISE : 0));
+  exerciseStats(next, { con: Math.max(0, hoursWorked - LONG_DAY_HOURS) + ((!ate && !lean) || !drank ? HARD_NIGHT_EXERCISE : 0) });
   // …but going without for long leaves its mark: wear builds, and at its limit Constitution drops a point.
   if (next.deprivation.hungry >= WEAR_HUNGRY || next.deprivation.thirsty >= WEAR_THIRSTY) wearNight(next, next.deprivation.thirsty >= WEAR_THIRSTY);
   // A night's rest works half the strain off.

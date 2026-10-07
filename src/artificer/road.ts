@@ -280,7 +280,7 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
     next.vitals = a.vitals;
     next.today.loadClarity += a.loadClarity;
     next.hoursToday += TALK_HOURS;
-    exerciseStats(next, ['cha'], TALK_HOURS); // talking to people (#1257)
+    exerciseStats(next, { cha: TALK_HOURS }); // talking to people (#1257)
     say(next, r.line, 'action');
     return next;
   }
@@ -376,7 +376,7 @@ function trade(next: RoadState, id: string): RoadState {
   next.vitals = a.vitals;
   next.today.loadClarity += a.loadClarity;
   next.hoursToday += TRADE_HOURS;
-  exerciseStats(next, ['cha'], TRADE_HOURS); // haggling, too (#1257)
+  exerciseStats(next, { cha: TRADE_HOURS }); // haggling, too (#1257)
   return next;
 }
 
