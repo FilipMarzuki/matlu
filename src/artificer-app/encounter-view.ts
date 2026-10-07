@@ -14,8 +14,8 @@ import { THREAT_WORDS, STATE_WORDS } from '../artificer/panic';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-const KIND_ICON: Readonly<Record<EncounterKind, string>> = { animal: '🐾', find: '✦', person: '👤' };
-const KIND_WORD: Readonly<Record<EncounterKind, string>> = { animal: 'AN ANIMAL', find: 'A FIND', person: 'SOMEONE' };
+const KIND_ICON: Readonly<Record<EncounterKind, string>> = { animal: '🐾', find: '✦', person: '👤', place: '📍' };
+const KIND_WORD: Readonly<Record<EncounterKind, string>> = { animal: 'AN ANIMAL', find: 'A FIND', person: 'SOMEONE', place: 'A PLACE' };
 const ODDS_NOTE: Readonly<Record<OddsWord, string>> = {
   safe: 'nothing can go wrong', likely: 'it should go well', risky: 'it could go either way', desperate: 'it will probably go badly',
 };

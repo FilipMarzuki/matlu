@@ -15,6 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
+import { pinId, PIN_WORDS, type Pin } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
@@ -156,6 +157,8 @@ export interface Region1State {
   /** Things you did that the world may remember (#1346): fed a starving stranger, put a lost herald right. */
   deeds?: string[];
   /** What comes in overnight (#1345): a snare line you reset. Paid out, and cleared, at the day's end. */
+  /** Places you remember (#1378). They belong to this run: a new run starts with none. */
+  pins?: Pin[];
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
@@ -303,6 +306,7 @@ function clone(s: Region1State): Region1State {
     character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats }, ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}) },
     techniques: [...s.techniques],
     manuals: [...s.manuals],
+    ...(s.pins ? { pins: s.pins.map(p => ({ ...p })) } : {}),
     forecast: { ...s.forecast },
     log: [...s.log],
   };
@@ -1226,6 +1230,8 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   if (effect.survey) next.explore = survey(next.explore, effect.survey);
   // What a find can leave you with (#1345): a tool, a manual you didn't have, a catch by morning.
   if (effect.tool) next.tools.push({ ...effect.tool });
+  // Remembering a place (#1378): a pin, kept until you let it go or the run ends.
+  if (effect.pin) next.pins = [...(next.pins ?? []), { id: pinId(p.id, p.ring), place: p.id, kind: effect.pin.kind, ring: p.ring, day: p.day, ...(effect.pin.feeling ? { feeling: effect.pin.feeling } : {}) }];
   if (effect.overnight) next.overnight = [...(next.overnight ?? []), effect.overnight];
   next.hoursToday += (froze ? FREEZE_HOURS : o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
@@ -1259,6 +1265,16 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
     // Lived through it (#1360): next time it looms a little less.
     next.met = { ...(next.met ?? {}), [t.id]: (next.met?.[t.id] ?? 0) + 1 };
   }
+  return next;
+}
+
+/** Let a place go (#1378), freeing room in your memory for another. */
+export function forgetPin(s: Region1State, id: string): Region1State {
+  const pin = s.pins?.find(p => p.id === id);
+  if (!pin) return s;
+  const next = clone(s);
+  next.pins = next.pins!.filter(p => p.id !== id);
+  say(next, `You let it go: ${PIN_WORDS[pin.kind]} in the ${RING_NAME[pin.ring].toLowerCase()} ring.`, 'action');
   return next;
 }
 
