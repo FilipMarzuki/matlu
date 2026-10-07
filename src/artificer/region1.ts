@@ -16,6 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
+import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
 import { startFromPack, hasKit, kitColdCost, kitTimeMult, validPack, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
@@ -182,6 +183,8 @@ export interface Region1State {
   /** Running totals for today, fed to nightly capacity drift. */
   /** Today so far. `outside` / `absorbed` (#1305): went out on the land; did study or craft work — either keeps cabin fever off. */
   today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean; exhausted?: boolean;
+    /** The day's peak pain (#1409), from working through an injury; resting pain is worked out from the injuries. */
+    pain?: Pain;
     /** After a panic (#1361): shaking hands — crafts go a grade worse, and tonight's sleep is poor. */
     shaking?: boolean;
     /** Went back to a ring where you remember a place (#1379): Memory has had its practice today. */
@@ -1070,7 +1073,7 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const snow = s ? snowSlowFor(s) : 1;
   // A blizzard slows everything out there (#1315).
   const storm = s && inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * (s ? kitTimeMult(s, id) : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
+  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * (s ? kitTimeMult(s, id) * PAIN_HOURS[painOf(s)] : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
 }
 
 /**
@@ -1438,7 +1441,9 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // …and a blizzard slows everything out there (#1315).
   const storm = inBlizzard(next, id) ? BLIZZARD_HOURS : 1;
   // A map and compass (#1400) make scouting quicker.
-  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(next, id);
+  // Agony (#1409) slows the work.
+  const pain = painOf(next);
+  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(next, id) * PAIN_HOURS[pain];
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
   const td = talentDrain(next.character.talents, id);
@@ -1465,8 +1470,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const sprain = injuryCost(next.injuries, 'sprain');
   // A stiff knee from an old injury (#1392): the walk out costs more, for good.
   const knee = def.ringed && next.character.harms?.includes('stiff-knee') ? STIFF_KNEE_COST : 1;
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy });
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy * PAIN_DRAIN[pain] });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -1515,6 +1520,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   }
   // Working through a serious injury (#1392) can make it grave.
   if (def.ringed || HEAVY_WORK_ACTIONS.includes(id)) aggravate(next, id, ring, false, at);
+  // …and it hurts (#1409): straining a serious or grave injury makes the pain sharper.
+  feelStrain(next, id, ring, false, at);
   // Frightened out there (#1367): coming through grows the nerve, and a panic may spook you off the land.
   // A calm stretch in the dark is one more step towards not fearing it.
   if (fright && fright.state !== 'calm') landPanic(next, fright, before, workHours, at);
@@ -1616,7 +1623,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const tr = talentEffects(next.character.talents);
   const recipe = baseRecipe;
   // A hurt hand (#1286): crafting takes longer while it lasts.
-  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult * injuryCost(next.injuries, 'hand');
+  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult * injuryCost(next.injuries, 'hand') * PAIN_HOURS[painOf(next)];
   // Tools that serve this action (a shovel for building) lighten the craft's own effort.
   const mod = modifiersFor(next.tools, id);
   // Skill in the craft's field lightens the work and lifts the grade (#1236).
@@ -1628,7 +1635,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   const te = techniqueEffects(next.techniques, id, recipe.id);
   const ex = next.today.exhausted ? EXHAUSTED_DRAIN : 1; // exhausted from yesterday's loads (#1293)
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * ex, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * ex };
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * ex, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * ex * PAIN_DRAIN[painOf(next)] };
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
@@ -1682,7 +1689,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     const accident = rollAccident(worstFortune(seedOf(next.character.id), next.day, at.hour, hours), risk, hours, true);
     if (accident) applyAccident(next, accident, null, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, true), 'craft', before.vigor.current < EXHAUSTED_BELOW);
   }
-  if (result.kind !== 'refused') aggravate(next, id, 1, true, at);
+  if (result.kind !== 'refused') { aggravate(next, id, 1, true, at); feelStrain(next, id, 1, true, at); }
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
@@ -1767,6 +1774,16 @@ function kitNight(next: Region1State, fireKept: boolean, cold: boolean): void {
   if (kit.sweets > 0 && next.vitals.clarity.current < SWEETS_BELOW) { kit.sweets = 0; lift(SWEETS_CLARITY, 'You eat the Saturday sweets, every one. For a while the world is bearable.'); }
   if (next.day === 2 && hasKit(next, 'phone')) say(next, 'Your phone dies in the night. There was never any signal out here anyway.', 'action');
   next.kit = kit;
+}
+
+/** Working through an injury hurts (#1409): straining a serious untreated or grave one makes the day's pain sharper, and says so. */
+function feelStrain(next: Region1State, action: string, ring: number, craft: boolean, at: LogEntry['at']): void {
+  if (next.outcome) return;
+  const before = painOf(next);
+  const { pain, rose } = strainPain(next.injuries, before, action, ring, craft);
+  if (!rose) return;
+  next.today = { ...next.today, pain };
+  say(next, painRiseLine(rose, pain), 'hardship', at);
 }
 
 /** Crafts that knap stone or cut with a blade (#1285): double the bench risk. */
@@ -2003,6 +2020,12 @@ export function endDay(s: Region1State): Region1State {
   const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state });
   // The hike kit's small comforts (#1400): a hot drink, a hot meal, a pillow, the sweets.
   if (!night.ended) kitNight(next, fire.kept, cold);
+  // A night in pain (#1409): sharp pain keeps you restless, agony half awake.
+  const hurting = painOf(next);
+  if (!night.ended && PAIN_NIGHT[hurting] > 0) {
+    next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - PAIN_NIGHT[hurting]) } };
+    say(next, painNightLine(next.injuries, hurting), 'hardship');
+  }
   // After a fearful night (#1367): coming through grows the nerve; a sleepless one can leave a fear of the dark; calm ones fade it.
   if (nightFright && !night.ended) {
     if (nightFright.state !== 'calm') growFrom(next, { kind: 'fright', panicked: nightFright.state === 'panicked' });

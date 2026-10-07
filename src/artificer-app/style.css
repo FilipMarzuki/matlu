@@ -377,6 +377,10 @@ body { min-height: 100vh; }
   .tag.inj.sev-grave { border-color: var(--danger); color: var(--danger); }
   .tag.inj.risk { border-color: var(--warn); color: var(--warn); }
   .why.strain { color: var(--warn); }
+  /* Pain (#1409): an ache is quiet; sharp is the warning colour; agony, danger. */
+  .tag.pain { color: var(--dim); }
+  .tag.pain.p-2 { color: var(--warn); border-color: var(--warn); }
+  .tag.pain.p-3 { color: var(--danger); border-color: var(--danger); }
   .harms { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .harms li { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); font-size: 12px; }
   .harms li span { color: var(--dim); }
