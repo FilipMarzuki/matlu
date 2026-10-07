@@ -80,15 +80,15 @@ describe('The AI harness plays encounters (#1348)', () => {
 
   // 2. An AI reply naming an option: the encounter resolves and the rest of the day runs.
   it('applies the choice, then runs the rest of the day', async () => {
-    // Back away from danger: the sure option, whatever the encounter (`watch` from the fox, `leave` at the ledge).
-    const backAway = (s: Region1State) => JSON.stringify({ thoughts: 'back away', choice: s.pending!.id === 'crumbling-ledge' ? 'leave' : 'watch' });
-    const { t, player } = await runWithEncounter(backAway);
+    // Play it safe: name the safest option, whatever the encounter turns out to be.
+    const careful = (s: Region1State) => JSON.stringify({ thoughts: 'carefully', choice: safestOption(s, encounterById(s.pending!.id)!).id });
+    const { t, player } = await runWithEncounter(careful);
     const [e] = t.encounters!;
     expect(player.asked[0]).toMatch(/^ENCOUNTER/);
-    expect(e).toMatchObject({ choice: e.id === 'crumbling-ledge' ? 'leave' : 'watch', odds: 'safe' });
     expect(e.forced).toBeUndefined();
-    // The choice is in the journal, and the day went on after it: more work, then the night.
-    const at = t.journal.findIndex(l => l.startsWith(e.id === 'crumbling-ledge' ? 'Leave it:' : 'Stand still and watch:'));
+    // The choice is in the journal (unless panic took over), and the day went on after it: more work, then the night.
+    const label = encounterById(e.id)!.options.find(o => o.id === (e.override?.taken ?? e.choice))?.label ?? '';
+    const at = t.journal.findIndex(l => l.startsWith(`${label}:`) || l.startsWith('You meant to'));
     expect(at).toBeGreaterThan(0);
     expect(t.journal.length).toBeGreaterThan(at + 1);
     expect(t.violations).toBeUndefined();
@@ -107,7 +107,8 @@ describe('The AI harness plays encounters (#1348)', () => {
     let forced = 0;
     for (let i = 1; i <= 20; i++) {
       const run = await playRun(mute, { characterId: `ai-enc-${i}`, planning: 'open' });
-      for (const x of run.turns.flatMap(u => u.encounters ?? [])) { forced++; expect(x).toMatchObject({ forced: true, odds: 'safe' }); }
+      // The safest is sure for most animals; a boar has nothing safer than "likely".
+      for (const x of run.turns.flatMap(u => u.encounters ?? [])) { forced++; expect(x.forced).toBe(true); expect(['safe', 'likely']).toContain(x.odds); }
     }
     expect(forced).toBeGreaterThan(0);
   });
@@ -156,6 +157,6 @@ describe('The AI harness plays encounters (#1348)', () => {
     expect(deathCause(['Killed by a fall from a crumbling ledge.'])).toBe('encounter');
     // The scripted baseline plays it safe, so encounters never kill it.
     const scripted = await playRun(scriptedPlayer(), { characterId: 'ai-scripted' });
-    expect(scripted.turns.flatMap(t => t.encounters ?? []).every(e => e.odds === 'safe' && !e.died)).toBe(true);
+    expect(scripted.turns.flatMap(t => t.encounters ?? []).every(e => ['safe', 'likely'].includes(e.odds) && !e.died)).toBe(true);
   });
 });

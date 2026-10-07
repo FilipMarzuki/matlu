@@ -1025,6 +1025,12 @@ function crash(next: Region1State, at?: ReturnType<typeof stampFor>): void {
   if (stoic < 1) revealQuirk(next, 'stoic', at);
 }
 
+/** Condition a wound costs (#1344): 5% less per point of CON above 10, within half and half again of the base, softened by Tough. */
+function woundLoss(s: Region1State, base: number): number {
+  const con = Math.min(1.5, Math.max(0.5, 1 - 0.05 * (s.character.stats.con - 10)));
+  return Math.round(base * con * talentEffects(s.character.talents).overexertCondition);
+}
+
 /** A fear of `tag` (#1362), if you don't have one yet — with the moment it took hold. */
 function gainFear(next: Region1State, tag: string, at?: ReturnType<typeof stampFor>): void {
   if (hasQuirk(next, fearId(tag))) return;
@@ -1200,8 +1206,15 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   const { tier, effect } = froze ? { tier: 'fail' as const, effect: t.freeze } : rollOutcome(seedOf(next.character.id), p, o, chanceOf(next, o));
   const v = next.vitals;
   const pool = (q: Pool, d = 0): Pool => ({ ...q, current: Math.max(0, Math.min(q.cap, q.current + d)) });
-  next.vitals = { vigor: pool(v.vigor, effect.vigor), clarity: pool(v.clarity, effect.clarity), condition: Math.max(0, Math.min(100, v.condition + (effect.condition ?? 0))) };
+  // A wound (#1344): the body decides how bad — CON softens it, and Tough.
+  const wound = effect.wound ? woundLoss(next, effect.wound) : 0;
+  next.vitals = { vigor: pool(v.vigor, effect.vigor), clarity: pool(v.clarity, effect.clarity), condition: Math.max(0, Math.min(100, v.condition + (effect.condition ?? 0) - wound)) };
   for (const [k, n] of Object.entries(effect.stores ?? {})) next.stores[k as keyof Stores] = Math.max(0, next.stores[k as keyof Stores] + (n ?? 0));
+  // A talent that gets more from it (Hunter's Patience from a kill, #1344).
+  for (const [tid, extra] of Object.entries(effect.talentStores ?? {})) {
+    if (next.character.talents.some(x => x.id === tid)) for (const [k, n] of Object.entries(extra ?? {})) next.stores[k as keyof Stores] += n ?? 0;
+  }
+  if (effect.practice) practiceSkill(next, effect.practice.skill, effect.practice.hours);
   next.hoursToday += (froze ? FREEZE_HOURS : o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
   say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
@@ -1212,6 +1225,12 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   // Fears (#1362): a panic that ends badly leaves one; facing its kind calmly, again and again, fades it.
   if (p.state === 'panicked' && tier === 'fail' && t.tags[0]) gainFear(next, t.tags[0]);
   else if (p.state !== 'panicked' && tier !== 'fail') faceFear(next, t.tags, FEAR_FADES);
+  // Tough's last stand (#1263) holds here too: once a run, you cling on.
+  if (next.vitals.condition <= 0 && talentEffects(next.character.talents).lastStand && !next.character.lastStandUsed) {
+    next.vitals = { ...next.vitals, condition: 1 };
+    next.character = { ...next.character, lastStandUsed: true };
+    say(next, 'It should have been the end of you. It isn\'t. Condition 1 — that was your one reprieve.', 'hardship');
+  }
   if (next.vitals.condition <= 0) {
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
     say(next, `Killed by ${effect.killedBy ?? 'what you met out there'}.`, 'outcome');
