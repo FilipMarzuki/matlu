@@ -11,6 +11,8 @@
  * model plays the same game a person does rather than a privileged one.
  */
 
+import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
+import { STATS, STAT_IDS } from '../artificer/stats';
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf,
@@ -75,6 +77,7 @@ Crafts (build, coldPit, coldGear, knife, snare, waterskin, bedroll, shovel, bask
 ACCIDENTS
 Out on the land you can get hurt: about 1% per hour of work and walking, three times that in full dark, more in rain, fog, snow and storms (a storm 2.5x), 1.5x if you set out with Vigor under 20 or Clarity under 30, less with skill — never above 35% for one trip. Crafting is safer (0.5% an hour, double for knapping or a blade; worse in the dark without a fire). Rest and study are safe. Each hour has a fixed fortune, so the same work at the same hour turns out the same; moving risky work to a better hour or better weather is how you avoid it. An accident is a bruise (-2 Condition), a bad cut (-5), or a lost haul; in the worst conditions also a damaged tool (the tool the work uses drops a grade, a crude one breaks) or a sprain (physical work and walking cost 1.3x Vigor while it lasts), and a bad cut can be deep (it bleeds 1 Condition a night). At the bench, a bad slip can hurt your hand (crafting takes 1.3x as long).
 INJURIES are minor (60%), serious (30%) or grave (10%; 1.5x instead of 1.3x) — one step worse if you set out with Vigor under 20. They heal in points (minor 2, serious 6, grave 10): each night you ate, drank and slept warm heals 1, 2 after a light restful day, scaled by Constitution; a hungry, thirsty or cold night heals nothing. Heavy work (wood, quarry, hunt, build, ring 3) on a serious sprain, or crafting with a serious hurt hand, has a 15% chance to make it grave. A grave injury heals into an OLD WOUND that stays with the character for every later run: a stiff knee (walking to the far rings costs 1.1x Vigor), a weak grip (crafts a step worse at the edge of a grade) or a scar (2 Clarity lost on cold nights). Rest a serious injury rather than work through it.
+GROWING UP: you start as a child (11–14) and each new run of the same character is a year older. Your stats are lower now than they will be: each grows a little every year toward the adult stats chosen at creation, and is full at 18 (the body lags most: STR and CON). Every effect uses your stats as they are now. Under 18, skills learn 1.2x as fast.
 TREATMENT: "treat" (1h, at camp) tends your worst untreated injury: with a first-aid kit dressing if you have one (any injury, one step better), otherwise improvised — bind a cut (1 materials, or a hide for a better dressing), splint a sprain (1 firewood + 1 materials), ease a hurt hand with herbs (1 food). How well depends on your First aid skill: a fair treatment heals +1 a night, a good one +2 (only on nights that heal at all). A treated injury can't be worsened by work, and an untreated serious deep cut can fester overnight (10%: grave, -5 Condition). Each injury is treated once. Treating practises First aid.
 
 ENCOUNTERS
@@ -214,7 +217,10 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
   // Background (#1398): a scout, trained in first aid, camp chores, map and compass.
-  if (s.character.background === 'scout') lines.push('BACKGROUND: a young scout, out on a weekend hike when this began — trained in first aid, camp chores, and map and compass');
+  if (s.character.background === 'scout') lines.push('BACKGROUND: a young scout, out on a weekend hike when this began — trained in first aid, camp chores, and map and compass; knows the cold (cold nights cost 25% less, blizzard exposure a step safer)');
+  // Growing up (#1399): the age, and each stat now and grown.
+  const { age, adult } = s.character;
+  if (age !== undefined && adult) lines.push(`AGE: ${age}${isYoung(age) ? ` — still growing (skills learn ${YOUNG_PRACTICE}x as fast)` : ' — grown'} · STATS now (grown up): ${STAT_IDS.map(k => `${STATS[k].short} ${s.character.stats[k]}${adult[k] !== s.character.stats[k] ? ` (${adult[k]})` : ''}`).join(', ')}`);
   // Talents (#1263): only the ones the Warden knows about — never the hidden one, nor any tier.
   const knownTalents = s.character.talents.filter(t => t.known);
   const hiddenCount = s.character.talents.length - knownTalents.length;

@@ -16,7 +16,8 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
-import { trainingOf, type Background } from './scout';
+import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
+import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
@@ -226,8 +227,11 @@ export interface Character {
   /** Talents (#1263): two chosen (known) and one hidden, each with a tier the player never sees. */
   talents: Talent[];
   lastStandUsed: boolean;
-  /** Base stats (#1256). */
+  /** Base stats (#1256): what they are now — growing, while young (#1399), towards `adult`. Every effect reads these. */
   stats: Stats;
+  /** Growing up (#1399): their age, and the adult stats chosen at creation. Both absent: an adult (old saves, tests). */
+  age?: number;
+  adult?: Stats;
   /** Quirks (#1362): character rather than gifts — a panic response, temperament, fears. Hidden until revealed. */
   quirks?: Quirk[];
   /** Lasting harms (#1392): what grave injuries left behind — a stiff knee, a weak grip, a scar. They go with the character into every run. */
@@ -241,7 +245,8 @@ export interface Character {
  * one is rolled from `id`); `talents` carries a living character's talents
  * as they are (tiers and discoveries) into a new run.
  */
-export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background'>> {
+/** `stats` are the adult stats chosen at creation; `age` (#1399) makes them young. */
+export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background' | 'age'>> {
   chosen?: TalentId[];
 }
 
@@ -253,6 +258,10 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   for (const [k, h] of Object.entries(startingPractice(who.chosen ?? [])) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   // A scout's training (#1398): first aid, camp chores, map and compass — again, whichever is more.
   const background = who.background ?? legacy?.background;
+  // Growing up (#1399): the stats chosen (or carried) are the adult ones; a young Warden has less of them for now.
+  // Each new run of the same character is a year on.
+  const adult: Stats = { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) };
+  const age = who.age ?? (legacy?.age !== undefined ? legacy.age + 1 : undefined);
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   const s: Region1State = {
     day: 1,
@@ -278,7 +287,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     skills: start,
     // Stats (#1256): chosen at creation, or carried from this character's last run.
     character: {
-      id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) },
+      id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: grownStats(adult, age), ...(age !== undefined ? { age, adult } : {}),
       // Quirks (#1362): carried as they are, or rolled from the id — one panic response, perhaps a temperament.
       ...((legacy?.quirks ?? (who.id ? startingQuirks(seedOf(who.id)) : undefined)) ? { quirks: (legacy?.quirks ?? startingQuirks(seedOf(who.id!))).map(q => ({ ...q })) } : {}),
       // Lasting harms (#1392): an old injury goes with you.
@@ -306,6 +315,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
     const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
     say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
+    // A year on (#1399): what grew.
+    const grew = age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
+    if (grew) say(s, grew, 'milestone');
   }
   return s;
 }
@@ -1445,7 +1457,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
   const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
   // Out in a blizzard (#1315): the white decides how you come back — if you do.
-  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) - (ring - 1)) : null;
+  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) + (knowsTheCold(next.character) ? 1 : 0) - (ring - 1)) : null;
   if (exposure === 'killed') {
     next.vitals.condition = 0;
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
@@ -1713,7 +1725,8 @@ function applyAccident(next: Region1State, accident: Accident, before: Stores | 
  */
 export function creditedPractice(s: Pick<Region1State, 'skills' | 'techniques' | 'character'>, skill: SkillId, hours: number, guidance: Guidance): number {
   const lvl = skillLevel(s.skills, skill);
-  return hours * talentEffects(s.character.talents).practice * guidanceRate(lvl, guidance) * techniqueFactor(s.techniques, skill, lvl);
+  // A young mind learns fast (#1399): under 18, every hour counts for more — in the Reach and on the road.
+  return hours * talentEffects(s.character.talents).practice * guidanceRate(lvl, guidance) * techniqueFactor(s.techniques, skill, lvl) * (isYoung(s.character.age) ? YOUNG_PRACTICE : 1);
 }
 
 /**
@@ -2192,7 +2205,9 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
 
   const w = o.warmth;
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
-  const tr = talentEffects(next.character.talents);
+  // Knows the cold (#1399): a scout's winters take the edge off a cold night, like a little Cold-blooded.
+  const talentFx = talentEffects(next.character.talents);
+  const tr = { ...talentFx, coldCost: talentFx.coldCost * coldWise(next.character) };
   const se = statEffects(next.character.stats);
   // Strain from yesterday's loads (#1293) spoils the body's recovery: 10% per point, at most half.
   const strained = next.strain ?? 0;

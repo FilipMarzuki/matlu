@@ -67,7 +67,7 @@ export interface Legacy {
   skills?: SkillPractice;
   /** Techniques known (#1243). Manuals don't carry — they're possessions, left behind. */
   techniques?: string[];
-  /** Base stats (#1256). Optional so older legacies still load. */
+  /** Base stats (#1256): the adult ones (#1399). Optional so older legacies still load. */
   stats?: Stats;
   /** Talents with their tiers and discoveries (#1263). Optional so older legacies still load. */
   talents?: Talent[];
@@ -79,6 +79,8 @@ export interface Legacy {
   met?: Record<string, number>;
   /** Quirks (#1362): who you are goes with you — the panic response, temperament, fears, and which you know. */
   quirks?: Quirk[];
+  /** How old they were (#1399); the next run is a year on. Absent: an adult. */
+  age?: number;
   /** Who the character was before the Reach (#1398). */
   background?: Background;
   /** Lasting harms (#1392): an old injury goes with you. */
@@ -130,7 +132,9 @@ export function legacyOf(s: Carrier): Legacy {
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
     skills: carriedSkills(s.skills),
     techniques: [...s.techniques],
-    stats: { ...s.character.stats },
+    // The adult stats (#1399): the current ones are worked out again from them and the age.
+    stats: { ...(s.character.adult ?? s.character.stats) },
+    ...(s.character.age !== undefined ? { age: s.character.age } : {}),
     talents: s.character.talents.map(t => ({ ...t })),
     ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
     ...(s.character.harms?.length ? { harms: [...s.character.harms] } : {}),

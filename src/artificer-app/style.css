@@ -366,12 +366,18 @@ body { min-height: 100vh; }
   .sval { font: 600 18px var(--display); color: var(--gold); min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
   /* WARDEN tab stats. */
   .statgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 6px; }
-  .stat { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0 8px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); }
+  .stat { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 0 8px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); }
   .stat .sk { font-family: var(--display); font-size: 9px; letter-spacing: 1px; color: var(--teal); }
   .stat .sv { font: 600 16px var(--display); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
   .stat.hi .sv { color: var(--gold); }
   .stat.lo .sv { color: var(--dim); }
   .stat .sd { grid-column: 1 / -1; font-size: 10px; color: var(--dim); }
+  /* Growing up (#1399): what a young Warden's stat grows to, and the age picker. */
+  .stat .sg { justify-self: end; font-size: 10px; color: var(--teal); }
+  .sname .snow { font-size: 11px; color: var(--teal); }
+  .achoices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .achoice { min-width: 48px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 600 16px var(--display); cursor: pointer; }
+  .achoice[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoice b, .trait b { font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--gold); font-weight: 400; }
   .tchoice .up, .trait .up { color: var(--green); }

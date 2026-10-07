@@ -21,3 +21,20 @@ export const SCOUT_TRAINING: Readonly<SkillPractice> = { firstaid: 20, fieldcraf
 /** The practice a background brings. */
 export const trainingOf = (background: Background | undefined): SkillPractice =>
   background === 'scout' ? { ...SCOUT_TRAINING } : {};
+
+/**
+ * Knows the cold (#1399): a scout's winters — winter camps, snow caves, the patrol's ski tours.
+ * A cold night costs this much of what it would (it stacks with Cold-blooded), and blizzard
+ * exposure is one step safer. It doesn't stand in for winter gear.
+ */
+export const COLD_WISE = 0.75;
+export const knowsTheCold = (c: { background?: Background }): boolean => c.background === 'scout';
+export const coldWise = (c: { background?: Background }): number => (knowsTheCold(c) ? COLD_WISE : 1);
+
+/**
+ * Scout's nerve (#1399): night hikes and dark woods are nothing new — +1 nerve. It offsets a
+ * young Warden's lower Willpower (−2 at 12 drops a nerve step), so a child is no jumpier than an
+ * adult out there; a grown scout is a little steadier than most.
+ */
+export const SCOUT_NERVE = 1;
+export const scoutNerve = (c: { background?: Background }): number => (c.background === 'scout' ? SCOUT_NERVE : 0);

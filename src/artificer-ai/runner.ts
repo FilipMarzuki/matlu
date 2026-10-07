@@ -7,6 +7,7 @@
  * `parseDecision`, whoever made it.
  */
 
+import { DEFAULT_AGE } from '../artificer/growing';
 import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
@@ -334,10 +335,10 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const { warmth } = await import('../artificer/region1');
   // AI players play exactly like people (#1267): a character id, two talents from the seeded
   // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.) Like a
-  // person's Warden, a scout (#1398).
+  // person's Warden, a scout (#1398), 12 years old (#1399).
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout' });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   const turns: Turn[] = [];
