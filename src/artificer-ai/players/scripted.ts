@@ -17,6 +17,7 @@ import { buyPrice } from '../../artificer/trade';
 import { canBeTaught, techniqueById } from '../../artificer/techniques';
 import { skillLevel } from '../../artificer/skills';
 import { encounterById, safestOption } from '../../artificer/encounters';
+import { meetingOptions, safestMeetingOption } from '../../artificer/caravan-meeting';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
 const a = (action: string, ring = 1, options: Record<string, string> = {}): Entry =>
@@ -163,6 +164,13 @@ const scriptedPlanner = (): Player => {
     },
     async decideRoad(_message, r) {
       return { text: JSON.stringify({ thoughts: `Road day ${r.day}.`, actions: scriptedRoadDay(r) }), usage: { cost: 0 } };
+    },
+    // The caravan meeting (#1357): say hello, then pay in goods if it can — hides, then rations —
+    // and otherwise work the passage (the road days help on the wagon, which pays it back).
+    async decideMeeting(_message, reach, m) {
+      const open = meetingOptions(reach, m).filter(o => !o.unmet).map(o => o.option.id);
+      const choice = ['hail', 'hides', 'rations', 'work'].find(id => open.includes(id)) ?? safestMeetingOption(reach, m).id;
+      return { text: JSON.stringify({ thoughts: 'Pay my way, or work it.', choice }), usage: { cost: 0 } };
     },
     // An encounter (#1348): the best odds, ties going to the cheapest — never a gamble it can avoid.
     async decideEncounter(_message, s) {

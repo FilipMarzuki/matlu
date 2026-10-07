@@ -23,6 +23,7 @@ import { peopleOf, VILLAGES } from '../../artificer/villages';
 import { QUESTS } from '../../artificer/quests';
 import { BASE_VALUE, isGood } from '../../artificer/trade';
 import { encounterById, unmet, stepOf } from '../../artificer/encounters';
+import { meetingOptions } from '../../artificer/caravan-meeting';
 
 export type RandomMode = 'uniform' | 'legal';
 
@@ -130,6 +131,12 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     name: `random:${mode}`,
     async decideEncounter(_message, s) {
       return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: encounterOption(s) }), usage: { cost: 0 } };
+    },
+    // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
+    async decideMeeting(_message, reach, m) {
+      const all = meetingOptions(reach, m);
+      const open = mode === 'legal' ? all.filter(o => !o.unmet) : all;
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: pick(open.length ? open : all).option.id }), usage: { cost: 0 } };
     },
     async decideRoad(_message, r) {
       return { text: JSON.stringify({ thoughts: `random road (${mode})`, actions: roadDay(r) }), usage: { cost: 0 } };

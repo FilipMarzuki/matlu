@@ -26,11 +26,12 @@ import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
-import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
+import { peopleOf, personById, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { encounterById, optionsFor, stepOf, type EncounterOption } from '../artificer/encounters';
 import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
+import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
@@ -337,6 +338,30 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
       const cost = optionCost(option);
       const harder = option.careful && p.state === 'shaken' && !unmet ? ' (harder: you are shaken)' : '';
       return `- ${option.id}: ${option.label}${cost ? ` — costs ${cost}` : ''} — ${unmet ? `NOT AVAILABLE (${unmet})` : odds}${harder}`;
+    }),
+    'Reply with ONLY {"thoughts": "<one sentence>", "choice": "<option id>"}.',
+  ];
+  return lines.join('\n');
+}
+
+/**
+ * Meeting the caravan (#1357), shown like an encounter: who is speaking, the conversation so far,
+ * and the answers you can give — each with its cost, what it needs, and its odds in words.
+ */
+export function observeMeeting(reach: Region1State, m: Meeting, notes: readonly string[] = []): string {
+  const step = meetingStep(m);
+  const who = (id: string | null) => (id ? TRAVELLERS.find(t => t.id === id)?.name ?? id : 'You');
+  const st = reach.stores;
+  const lines = [
+    `THE CARAVAN — the thaw, day ${reach.day}. Before you climb aboard, ${who(step.speaker)} has questions.`,
+    ...notes.map(n => `NOTE: ${n}`),
+    ...m.lines.slice(-6).map(l => `${who(l.speaker)}: ${l.text}`),
+    `STORES: food ${st.rawFood} · water ${st.water} · rations ${st.rations} · hides ${st.hides} · marks ${reach.marks ?? 0}`,
+    'OPTIONS (id: what you do — cost — odds):',
+    ...meetingOptions(reach, m).map(({ option, unmet, odds }) => {
+      const cost = [...Object.entries(option.cost?.stores ?? {}).map(([k, n]) => `${n} ${k === 'rawFood' ? 'food' : k}`), ...(option.cost?.marks ? [`${option.cost.marks} marks`] : [])].join(', ');
+      const away = option.success.next === 'stay' ? ' (you stay behind: no road)' : '';
+      return `- ${option.id}: ${option.label}${cost ? ` — costs ${cost}` : ''} — ${unmet ? `NOT AVAILABLE (${unmet})` : odds}${away}`;
     }),
     'Reply with ONLY {"thoughts": "<one sentence>", "choice": "<option id>"}.',
   ];
