@@ -71,6 +71,9 @@ Each ring has domains (forage, timber, stone, water, game; routes beyond home) k
 CRAFTING
 Crafts (build, coldPit, coldGear, knife, snare, waterskin, bedroll, shovel, basket, backpack, harness, sled) are graded crude / sound / fine / masterwork by how clear your head is (Clarity), your bench (a roofed shelter is a tier-1 bench) and your tools. Crafting while foggy can fail and waste materials. Many recipes must first be discovered (by observation, finds, or the study action). Crude cold gear won't hold up through a winter; a hide parka holds even when crude.
 
+ACCIDENTS
+Out on the land you can get hurt: about 1% per hour of work and walking, three times that in full dark, more in rain, fog, snow and storms (a storm 2.5x), 1.5x if you set out with Vigor under 20 or Clarity under 30, less with skill — never above 35% for one trip. Crafting is safer (0.5% an hour, double for knapping or a blade; worse in the dark without a fire). Rest and study are safe. Each hour has a fixed fortune, so the same work at the same hour turns out the same; moving risky work to a better hour or better weather is how you avoid it. An accident is a bruise (-2 Condition), a bad cut (-5), or a lost haul.
+
 ENCOUNTERS
 Out on the land (more often in the far rings, and in the dark) you may meet something: an animal, a find, a person. At most one a day. It pauses the day, and you choose what to do from the options shown. Each option says what it costs and needs, and its odds in words: safe (nothing can go wrong), likely, risky, desperate. Odds follow your stats, skills, talents and tools. The outcome is fixed for that encounter and choice. Some failures hurt badly; a few can kill. After your choice the rest of the day runs.
 
