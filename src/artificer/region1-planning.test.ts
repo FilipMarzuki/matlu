@@ -78,17 +78,18 @@ describe('Planning is learned (#1350)', () => {
         calls++;
         asked.push(s.day);
         // Day 1: three actions per reply until the day is spent; after day 1, end every day at once.
-        const queue = s.day === 1 && calls < 4 ? ['scout', 'water', 'gather'].map(action => ({ action, ring: 1, options: [] })) : [];
+        const queue = s.day === 1 && calls < 4 ? ['gather', 'water', 'scout'].map(action => ({ action, ring: 1, options: [] })) : [];
         expect(message).toContain(s.canPlan ? 'DAY' : 'PLANNING: not yet');
         return { text: JSON.stringify({ thoughts: 'step', site: null, queue }) };
       },
     };
     const run = await playRun(player, { characterId: 'w-stub', maxDays: 61 });
     const day1 = run.turns[0];
-    // Asked more than once on day 1: each locked reply ran only its first action (scout), until the
-    // second scout levelled Scouting, planning opened, and the next reply's whole plan ran.
-    expect(asked.filter(d => d === 1).length).toBe(3);
-    expect(day1.queue).toEqual(['scout', 'scout', 'scout', 'water', 'gather']);
+    // Asked more than once on day 1: the first locked reply ran only its first action (gather), and
+    // the second gather levelled Foraging — planning opened, and the rest of that reply ran. (A scout
+    // starts with Scouting and Fieldcraft at Novice (#1398), so it's a new skill's first level that counts.)
+    expect(asked.filter(d => d === 1).length).toBe(2);
+    expect(day1.queue).toEqual(['gather', 'gather', 'water', 'scout']);
     expect(day1.journal.filter(l => l === PLANNING_UNLOCKED)).toHaveLength(1);
   }, 60_000);
 });

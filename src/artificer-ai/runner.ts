@@ -333,10 +333,11 @@ export const aiCharacterId = (name: string, salt = ''): string => `ai-${name.toL
 export async function playRun(player: Player, opts: PlayOptions = {}): Promise<RunResult> {
   const { warmth } = await import('../artificer/region1');
   // AI players play exactly like people (#1267): a character id, two talents from the seeded
-  // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.)
+  // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.) Like a
+  // person's Warden, a scout (#1398).
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout' });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   const turns: Turn[] = [];

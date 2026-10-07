@@ -8,6 +8,7 @@ import { createRegion1, runAction, type Region1State } from '../artificer/region
 import { createVitals } from '../artificer/vitality';
 import { canContinue, runNumberFor, summarizeRun, type RunRecord } from '../artificer/legacy';
 import type { OutcomeKind } from '../artificer/winter';
+import { SCOUT_TRAINING } from '../artificer/scout';
 import { newGame, newRun, recordRun, deserializeHistory, serializeHistory } from './controller';
 
 /** A resolved run for a named Warden who knows the snare and has some woodcraft. */
@@ -41,7 +42,8 @@ describe('Carry-over belongs to one character (#1242)', () => {
     expect(next.character.id).not.toBe('w-vega');
     expect(next.character.name).toBe('');
     expect(next.known).not.toContain('trap-snare');
-    expect(next.skills).toEqual({});
+    // Only what every new scout knows (#1398).
+    expect(next.skills).toEqual(SCOUT_TRAINING);
   });
 
   // 3. A fresh Warden starts with nothing, as a new person.
@@ -49,11 +51,11 @@ describe('Carry-over belongs to one character (#1242)', () => {
     const a = newGame().sim, b = newGame().sim;
     expect(a.character.id).toMatch(/^w-/);
     expect(a.character.id).not.toBe(b.character.id);
-    expect(a.skills).toEqual({});
+    expect(a.skills).toEqual(SCOUT_TRAINING); // a scout's training (#1398), nothing carried
     expect(newRun().sim.character.id).not.toBe(a.character.id);
     // An unfinished run can't be "continued" either.
     const unfinished = { ...ended('thrive'), outcome: null };
-    expect(newRun(unfinished).sim.skills).toEqual({});
+    expect(newRun(unfinished).sim.skills).toEqual(SCOUT_TRAINING);
   });
 
   // 4. Records say whose run it was.

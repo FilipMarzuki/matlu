@@ -16,6 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
+import { trainingOf, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, type Injury, type Harm } from './injuries';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
@@ -229,6 +230,8 @@ export interface Character {
   quirks?: Quirk[];
   /** Lasting harms (#1392): what grave injuries left behind — a stiff knee, a weak grip, a scar. They go with the character into every run. */
   harms?: Harm[];
+  /** Who they were before the Reach (#1398): a scout brings training. Absent: none (tests, old saves). */
+  background?: Background;
 }
 
 /**
@@ -236,7 +239,7 @@ export interface Character {
  * one is rolled from `id`); `talents` carries a living character's talents
  * as they are (tiers and discoveries) into a new run.
  */
-export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents'>> {
+export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background'>> {
   chosen?: TalentId[];
 }
 
@@ -246,6 +249,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   // Skills a Warden starts with: what a past run taught (legacy) and what a chosen talent brings, whichever is more.
   const start: SkillPractice = { ...(legacy?.skills ?? {}) };
   for (const [k, h] of Object.entries(startingPractice(who.chosen ?? [])) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
+  // A scout's training (#1398): first aid, camp chores, map and compass — again, whichever is more.
+  const background = who.background ?? legacy?.background;
+  for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -275,6 +281,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
       ...((legacy?.quirks ?? (who.id ? startingQuirks(seedOf(who.id)) : undefined)) ? { quirks: (legacy?.quirks ?? startingQuirks(seedOf(who.id!))).map(q => ({ ...q })) } : {}),
       // Lasting harms (#1392): an old injury goes with you.
       ...(legacy?.harms?.length ? { harms: [...legacy.harms] } : {}),
+      ...(background ? { background } : {}),
     },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],

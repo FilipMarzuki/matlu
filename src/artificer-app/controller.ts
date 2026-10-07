@@ -22,6 +22,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
+import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { readInjury, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
 
 export interface AppState {
@@ -55,7 +56,7 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
   // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout' }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -436,8 +437,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Lasting harms (#1392): kept as saved, if they're harms we know.
   const harmList = isObj(ch) && Array.isArray(ch.harms) ? (ch.harms as unknown[]).filter((h): h is Harm => typeof h === 'string' && h in HARM_NAME) : [];
   const harms = harmList.length ? { harms: harmList } : {};
+  // Background (#1398): a scout, if the save says so.
+  const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks, ...harms }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks, ...harms, ...background }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;
