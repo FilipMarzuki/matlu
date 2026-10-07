@@ -16,6 +16,7 @@
 import { fortuneAt } from './rng';
 import { drainMult } from './skills';
 import type { WeatherId } from './world';
+import type { InjuryKind } from './injuries';
 
 /** Base risk per hour of outdoor work or walking. */
 export const OUTDOOR_RISK = 0.01;
@@ -101,19 +102,12 @@ export const bandOf = (risk: number): Band => (risk <= 0.05 ? 'low' : risk <= 0.
 
 /** What an accident does: bruises, cuts and lost hauls (#1285); damaged tools, sprains and hurt hands (#1286). */
 export type AccidentKind = 'bruise' | 'cut' | 'lost-haul' | 'damaged-tool' | 'sprain' | 'hand';
-export interface Accident { kind: AccidentKind; band: Band; condition: number }
+/** `injury`: what it leaves you with (#1392) — a sprain, a hurt hand, or (a cut in the worst conditions) a deep cut. */
+export interface Accident { kind: AccidentKind; band: Band; condition: number; injury?: InjuryKind }
 
 /** Condition each costs. */
 export const ACCIDENT_CONDITION: Readonly<Record<AccidentKind, number>> = { bruise: 2, cut: 5, 'lost-haul': 0, 'damaged-tool': 0, sprain: 2, hand: 5 };
 
-/** An injury that lasts (#1286): a sprain (physical work and walking cost more) or a hurt hand (crafting is slower). */
-export type InjuryKind = 'sprain' | 'hand';
-export interface Injury { kind: InjuryKind; daysLeft: number }
-/** How long one lasts, in nights, and what it costs while it does. */
-export const INJURY_DAYS = 3, INJURY_COST = 1.3;
-/** What the morning journal says while it lasts. */
-export const INJURY_WORDS: Readonly<Record<InjuryKind, string>> = { sprain: 'Your sprained ankle still aches', hand: 'Your hurt hand is still stiff' };
-export const HEALED_WORDS: Readonly<Record<InjuryKind, string>> = { sprain: 'Your ankle is sound again.', hand: 'Your hand is healed.' };
 
 /**
  * Roll a piece of work's accident. `u` is the worst hour's fortune over the `hours` it spans, so it
@@ -133,7 +127,9 @@ export function rollAccident(u: number, risk: number, hours: number, craft = fal
     : band === 'medium' ? (craft || depth >= 0.5 ? 'cut' : 'lost-haul')
       : craft ? (depth < 0.6 ? 'cut' : depth < 0.85 ? 'damaged-tool' : 'hand')
         : depth < 0.25 ? 'lost-haul' : depth < 0.75 ? 'cut' : depth < 0.9 ? 'damaged-tool' : 'sprain';
-  return { kind, band, condition: ACCIDENT_CONDITION[kind] };
+  // What it leaves you with (#1392): sprains and hurt hands always; a cut only when it's the worst kind of day.
+  const injury: InjuryKind | undefined = kind === 'sprain' ? 'sprain' : kind === 'hand' ? 'hand' : kind === 'cut' && band === 'high' ? 'cut' : undefined;
+  return { kind, band, condition: ACCIDENT_CONDITION[kind], ...(injury ? { injury } : {}) };
 }
 
 /** What the journal says. */

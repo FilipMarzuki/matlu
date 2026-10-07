@@ -9,7 +9,7 @@ import { createRegion1, runAction, runDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { FULL_WORLD, FLAT_WORLD } from './world';
 import { createExploration, scout } from './exploration';
-import { rollAccident, INJURY_DAYS, type AccidentKind } from './accidents';
+import { rollAccident, type AccidentKind } from './accidents';
 import { toolInUse, damageTool } from './crafting';
 import type { Tool } from './crafting';
 
@@ -51,7 +51,8 @@ describe('Damaged tools and sprains (#1286)', () => {
     // With no tool in the work, the haul takes it instead.
     expect(runAction(grim(knocked), 'gather').stores.rawFood).toBe(grim(knocked).stores.rawFood);
     const sprained = runAction(grim(whoGets('sprain')), 'gather');
-    expect(sprained.injuries).toEqual([{ kind: 'sprain', daysLeft: INJURY_DAYS }]);
+    // How bad is rolled (#1392); a sprain needs healing before it's gone.
+    expect(sprained.injuries).toEqual([expect.objectContaining({ kind: 'sprain', severity: expect.stringMatching(/minor|serious|grave/) })]);
     // The helpers: which tool a piece of work leans on, and what a knock does to it.
     expect(toolInUse([snare, { item: 'waterskin', grade: 'fine' }], 'water')).toEqual({ item: 'waterskin', grade: 'fine' });
     expect(toolInUse([snare], 'wood')).toBeNull();
@@ -59,24 +60,18 @@ describe('Damaged tools and sprains (#1286)', () => {
     expect(damageTool([{ item: 'stone-knife', grade: 'fine', crafted: 'fine' }], 'stone-knife').tools).toEqual([{ item: 'stone-knife', grade: 'sound', crafted: 'fine' }]);
   });
 
-  // 5. A sprain with daysLeft 3: wood costs 1.3× Vigor, and after 3 nights it's gone.
-  it('makes a sprain cost more, for three nights', () => {
+  // 5. A sprain makes wood cost 1.3× Vigor while it's open; once healed (#1392: a minor one, two healing points), it's gone.
+  it('makes a sprain cost more until it heals', () => {
     const s = createRegion1({ world: FLAT_WORLD }, undefined, { id: 'w-sprain' });
-    const fresh: Region1State = { ...s, explore: scout(createExploration(), 1), stores: { ...s.stores, rawFood: 9, water: 9 } };
-    const sprained: Region1State = { ...fresh, injuries: [{ kind: 'sprain', daysLeft: 3 }] };
+    // Sheltered and stocked, so the night is a good one.
+    const fresh: Region1State = { ...s, explore: scout(createExploration(), 1), tier: 2, shelterGrade: 'sound', shelter: { type: 'leanto', walls: 'timber' }, stores: { ...s.stores, rawFood: 9, water: 9, firewood: 30 } };
+    const sprained: Region1State = { ...fresh, injuries: [{ kind: 'sprain', severity: 'minor', heal: 2 }] };
     const cost = (w: Region1State) => w.vitals.vigor.current - runAction(w, 'wood').vitals.vigor.current;
     expect(cost(sprained)).toBeCloseTo(cost(fresh) * 1.3, 5);
-    let d = sprained;
-    const lines: string[] = [];
-    for (let n = 1; n <= 3; n++) {
-      const before = d.log.length;
-      d = runDay(d, ['rest']).state;
-      lines.push(...d.log.slice(before).map(l => l.text).filter(t => /ankle/.test(t)));
-      if (n < 3) expect(d.injuries).toEqual([{ kind: 'sprain', daysLeft: 3 - n }]);
-    }
+    // A restful, fed night heals two points: a minor sprain is gone.
+    const d = runDay(sprained, ['rest']).state;
     expect(d.injuries).toEqual([]);
-    expect(lines).toEqual(['Your sprained ankle still aches — 2 more days.', 'Your sprained ankle still aches — 1 more day.', 'Your ankle is sound again.']);
-    // Healed, the wood costs what it did.
+    expect(d.log.some(l => l.text === 'Your sprained ankle has healed clean.')).toBe(true);
     expect(cost(d)).toBeCloseTo(cost({ ...d, injuries: undefined }), 5);
   });
 });

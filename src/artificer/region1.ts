@@ -15,7 +15,8 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
-import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, INJURY_DAYS, INJURY_COST, INJURY_WORDS, HEALED_WORDS, type Accident, type Injury } from './accidents';
+import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
+import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, type Injury, type Harm } from './injuries';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
@@ -28,7 +29,7 @@ import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
-import { applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
+import { STIMULUS, applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type PendingEncounter } from './encounters';
@@ -162,7 +163,7 @@ export interface Region1State {
   /** Things you did that the world may remember (#1346): fed a starving stranger, put a lost herald right. */
   deeds?: string[];
   /** What comes in overnight (#1345): a snare line you reset. Paid out, and cleared, at the day's end. */
-  /** Injuries that last a few nights (#1286): a sprain, a hurt hand. */
+  /** Open injuries (#1286, #1392): a sprain, a hurt hand, a deep cut — each with its severity and the healing it still needs. */
   injuries?: Injury[];
   /** Places you remember (#1378). They belong to this run: a new run starts with none. */
   pins?: Pin[];
@@ -226,6 +227,8 @@ export interface Character {
   stats: Stats;
   /** Quirks (#1362): character rather than gifts — a panic response, temperament, fears. Hidden until revealed. */
   quirks?: Quirk[];
+  /** Lasting harms (#1392): what grave injuries left behind — a stiff knee, a weak grip, a scar. They go with the character into every run. */
+  harms?: Harm[];
 }
 
 /**
@@ -270,6 +273,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
       id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) },
       // Quirks (#1362): carried as they are, or rolled from the id — one panic response, perhaps a temperament.
       ...((legacy?.quirks ?? (who.id ? startingQuirks(seedOf(who.id)) : undefined)) ? { quirks: (legacy?.quirks ?? startingQuirks(seedOf(who.id!))).map(q => ({ ...q })) } : {}),
+      // Lasting harms (#1392): an old injury goes with you.
+      ...(legacy?.harms?.length ? { harms: [...legacy.harms] } : {}),
     },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
@@ -312,7 +317,7 @@ function clone(s: Region1State): Region1State {
     today: { ...s.today },
     deprivation: { ...s.deprivation },
     skills: { ...s.skills },
-    character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats }, ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}) },
+    character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats }, ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}), ...(s.character.harms ? { harms: [...s.character.harms] } : {}) },
     techniques: [...s.techniques],
     manuals: [...s.manuals],
     ...(s.pins ? { pins: s.pins.map(p => ({ ...p })) } : {}),
@@ -1386,9 +1391,11 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // How you set out (#1285): tired or foggy at the start, out there you're likelier to get hurt.
   const setOut = { vigor: next.vitals.vigor.current, clarity: next.vitals.clarity.current };
   // A sprain (#1286): physical work and walking cost more while it lasts.
-  const sprain = next.injuries?.some(i => i.kind === 'sprain') ? INJURY_COST : 1;
+  const sprain = injuryCost(next.injuries, 'sprain');
+  // A stiff knee from an old injury (#1392): the walk out costs more, for good.
+  const knee = def.ringed && next.character.harms?.includes('stiff-knee') ? STIFF_KNEE_COST : 1;
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -1432,8 +1439,10 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (def.ringed && next.config.world.accidents && !next.outcome) {
     const risk = accidentRisk({ hours: workHours + travel, light: at.light, weather: next.weatherToday ?? 'clear', walking: travel > 0, blizzard: inBlizzard(next, id), vigor: setOut.vigor, clarity: setOut.clarity, skillLevel: lvl });
     const accident = rollAccident(worstFortune(seedOf(next.character.id), next.day, at.hour, workHours + travel), risk, workHours + travel);
-    if (accident) applyAccident(next, accident, before, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, false), id);
+    if (accident) applyAccident(next, accident, before, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, false), id, setOut.vigor < EXHAUSTED_BELOW);
   }
+  // Working through a serious injury (#1392) can make it grave.
+  if (def.ringed || HEAVY_WORK_ACTIONS.includes(id)) aggravate(next, id, ring, false, at);
   // Frightened out there (#1367): coming through grows the nerve, and a panic may spook you off the land.
   // A calm stretch in the dark is one more step towards not fearing it.
   if (fright && fright.state !== 'calm') landPanic(next, fright, before, workHours, at);
@@ -1535,7 +1544,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const tr = talentEffects(next.character.talents);
   const recipe = baseRecipe;
   // A hurt hand (#1286): crafting takes longer while it lasts.
-  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult * (next.injuries?.some(i => i.kind === 'hand') ? INJURY_COST : 1);
+  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult * injuryCost(next.injuries, 'hand');
   // Tools that serve this action (a shovel for building) lighten the craft's own effort.
   const mod = modifiersFor(next.tools, id);
   // Skill in the craft's field lightens the work and lifts the grade (#1236).
@@ -1553,7 +1562,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const at = stampFor(next, hours);
   const night = nightWork(at.light, next.stores.firewood, hours, windFire(next.weatherToday));
   // Intelligence (#1256) lifts — or, below average, lowers — the grade.
-  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   if (made.kind !== 'refused' && night.clarity > 1) {
     const strain = Math.max(0, before.clarity.current - c.vitals.clarity.current) * (night.clarity - 1);
@@ -1599,8 +1608,9 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     const careful = next.character.talents.find(t => t.id === 'carefulHands')?.tier ?? 0;
     const risk = craftRisk({ hours, blade: BLADE_CRAFTS.includes(recipe.id), building: !!(roof || walls), light: at.light, firelight: night.fire > 0, vigor: before.vigor.current, clarity: before.clarity.current, skillLevel: lvl, carefulTier: careful });
     const accident = rollAccident(worstFortune(seedOf(next.character.id), next.day, at.hour, hours), risk, hours, true);
-    if (accident) applyAccident(next, accident, null, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, true), 'craft');
+    if (accident) applyAccident(next, accident, null, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, true), 'craft', before.vigor.current < EXHAUSTED_BELOW);
   }
+  if (result.kind !== 'refused') aggravate(next, id, 1, true, at);
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
@@ -1610,6 +1620,23 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   return next;
 }
 
+/** Heavy camp work that strains a sprain (#1392), beside every trip out. */
+const HEAVY_WORK_ACTIONS: readonly string[] = ['build'];
+
+/**
+ * Working through a serious injury (#1392): if this work strains it, a seeded roll for the hour may
+ * make it grave — and its healing is topped up to a grave one's.
+ */
+function aggravate(next: Region1State, action: string, ring: number, craft: boolean, at: LogEntry['at']): void {
+  if (!next.config.world.accidents || next.outcome) return;
+  for (const inj of next.injuries ?? []) {
+    if (inj.severity !== 'serious' || !strains(inj.kind, action, ring, craft)) continue;
+    if (streamFor(seedOf(next.character.id), next.day, `aggravate:${inj.kind}@${at?.hour ?? 0}`)() >= AGGRAVATE_CHANCE) continue;
+    next.injuries = next.injuries!.map(i => (i === inj ? { ...i, severity: 'grave', heal: i.heal + HEAL_POINTS.grave - HEAL_POINTS.serious } : i));
+    say(next, `You push on through it, and something gives — your ${INJURY_NAME[inj.kind]} is worse now (grave).`, 'hardship', at);
+  }
+}
+
 /** Crafts that knap stone or cut with a blade (#1285): double the bench risk. */
 const BLADE_CRAFTS: readonly string[] = ['stone-knife', 'hide-parka', 'waterskin'];
 
@@ -1617,7 +1644,7 @@ const BLADE_CRAFTS: readonly string[] = ['stone-knife', 'hide-parka', 'waterskin
  * An accident's outcome (#1285): Condition lost to a bruise or a cut, or the haul lost on the way
  * back (whatever this trip added to the stores since `before`). Journalled; a cut can kill.
  */
-function applyAccident(next: Region1State, accident: Accident, before: Stores | null, at: LogEntry['at'], line: string, action: string): void {
+function applyAccident(next: Region1State, accident: Accident, before: Stores | null, at: LogEntry['at'], line: string, action: string, tired: boolean): void {
   let a = accident;
   // A damaged tool (#1286): the tool the work leans on drops a grade, a crude one breaks. With no tool in it, the haul (or, at the bench, your hand) takes it.
   if (a.kind === 'damaged-tool') {
@@ -1633,8 +1660,13 @@ function applyAccident(next: Region1State, accident: Accident, before: Stores | 
     a = before ? { ...a, kind: 'lost-haul', condition: 0 } : { ...a, kind: 'cut', condition: ACCIDENT_CONDITION.cut };
     line = before ? 'You go down hard on the way back, and lose the haul.' : 'The tool slips — a bad cut across your hand.';
   }
-  // A sprain or a hurt hand (#1286): it lasts a few nights.
-  if (a.kind === 'sprain' || a.kind === 'hand') next.injuries = [...(next.injuries ?? []).filter(i => i.kind !== a.kind), { kind: a.kind, daysLeft: INJURY_DAYS }];
+  // An injury that lasts (#1286, #1392): how bad, by a seeded roll — worse if you set out exhausted. A worse one replaces a lighter one of its kind.
+  if (a.injury) {
+    const severity = severityOf(seedOf(next.character.id), next.day, at?.hour ?? clockHour(next.hoursToday), tired);
+    const had = next.injuries?.find(i => i.kind === a.injury);
+    if (!had || HEAL_POINTS[severity] > HEAL_POINTS[had.severity]) next.injuries = [...(next.injuries ?? []).filter(i => i.kind !== a.injury), injure(a.injury, severity)];
+    line = `${line} (${severity})`;
+  }
   if (a.kind === 'lost-haul' && before) for (const k of STORE_KEYS) next.stores[k] = Math.min(next.stores[k], before[k]);
   next.vitals = { ...next.vitals, condition: Math.max(0, next.vitals.condition - a.condition) };
   say(next, line, 'hardship', at);
@@ -2203,11 +2235,24 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const preHeal = next.vitals.condition;
   if (!o.coldNight) next.vitals = recoverCondition(next.vitals, summary);
   next.vitals.condition = Math.min(100, preHeal + (next.vitals.condition - preHeal) * se.heal);
-  // Injuries mend a night at a time (#1286), wherever you sleep; the morning says how it is.
+  // An old scar (#1392) aches on a cold night.
+  if (o.coldNight && next.character.harms?.includes('scar')) next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - SCAR_ACHE);
+  // Injuries mend by the night (#1392), wherever you sleep: a good night (fed, watered, warm) a point, a light day before it
+  // one more, Constitution scaling it; a bad night, nothing. A deep cut bleeds you a little each night it's open. A grave
+  // one, once healed, leaves its mark on the character for good.
   if (next.injuries?.length) {
-    next.injuries = next.injuries.map(i => ({ ...i, daysLeft: i.daysLeft - 1 }));
-    for (const i of next.injuries) say(i.daysLeft > 0 ? `${INJURY_WORDS[i.kind]} — ${i.daysLeft} more day${i.daysLeft === 1 ? '' : 's'}.` : HEALED_WORDS[i.kind], i.daysLeft > 0 ? 'hardship' : 'milestone');
-    next.injuries = next.injuries.filter(i => i.daysLeft > 0);
+    const amount = nightHealing({ ate, drank, cold: o.coldNight, restful: next.today.loadVigor + next.today.loadClarity < STIMULUS, healFactor: se.heal });
+    const healed: Injury[] = [];
+    for (const i of next.injuries) {
+      if (i.kind === 'cut') next.vitals.condition = Math.max(0, next.vitals.condition - CUT_BLEED);
+      const left = Math.max(0, i.heal - amount);
+      if (left > 0) { say(amount > 0 ? healingLine({ ...i, heal: left }) : notHealingLine(i), 'hardship'); continue; }
+      healed.push(i);
+      const harm = i.severity === 'grave' ? HARM_OF[i.kind] : null;
+      if (harm && !next.character.harms?.includes(harm)) next.character = { ...next.character, harms: [...(next.character.harms ?? []), harm] };
+      say(healedLine(i, harm), harm ? 'hardship' : 'milestone');
+    }
+    next.injuries = next.injuries.filter(i => !healed.includes(i)).map(i => ({ ...i, heal: Math.max(0, i.heal - amount) }));
   }
   return { ended: null };
 }

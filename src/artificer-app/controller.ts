@@ -22,6 +22,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
+import { readInjury, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -361,6 +362,8 @@ function parseRoad(x: unknown): RoadState | null {
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
     marks: isNum(x.marks) ? x.marks : 0, contacts: strs(x.contacts), quests: obj(x.quests) as RoadState['quests'],
     discovery: obj(x.discovery) as RoadState['discovery'], appraised: strs(x.appraised),
+    // Injuries (#1392): an older save's `daysLeft` reads as a minor one.
+    injuries: Array.isArray(x.injuries) ? (x.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : undefined,
   };
 }
 
@@ -430,8 +433,11 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const savedQuirks = isObj(ch) && Array.isArray(ch.quirks) && ch.quirks.every(q => isObj(q) && typeof q.id === 'string' && typeof q.known === 'boolean')
     ? (ch.quirks as Quirk[]).map(q => ({ ...q })) : id ? startingQuirks(seedOf(id)) : null;
   const quirks = savedQuirks ? { quirks: savedQuirks } : {};
+  // Lasting harms (#1392): kept as saved, if they're harms we know.
+  const harmList = isObj(ch) && Array.isArray(ch.harms) ? (ch.harms as unknown[]).filter((h): h is Harm => typeof h === 'string' && h in HARM_NAME) : [];
+  const harms = harmList.length ? { harms: harmList } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...quirks, ...harms }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;
@@ -457,5 +463,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
   // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
-  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.
+  const injuries = Array.isArray(sim.injuries) ? (sim.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : [];
+  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }) }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }
