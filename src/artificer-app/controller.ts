@@ -73,7 +73,7 @@ export function newRun(from?: Region1State | RoadState): AppState {
   const c = from.character;
   // A run that rode the road carries its marks and contacts too (#1250).
   const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.adult ?? c.stats }), queue: [], stage: 'reach' };
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: legacy.stats ?? c.adult ?? c.stats }), queue: [], stage: 'reach' };
 }
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
@@ -455,8 +455,16 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
   // The hike pack (#1400): kept if it's a pack we know.
   const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[]) ? { pack: [...(ch.pack as KitId[])] } : {};
+  // Growth by use and wear (#1257): kept if they're numbers.
+  const partial = (x: unknown): Partial<Stats> | undefined => {
+    if (!isObj(x)) return undefined;
+    const out = Object.fromEntries(STAT_IDS.filter(k => typeof x[k] === 'number' && Number.isFinite(x[k])).map(k => [k, x[k] as number])) as Partial<Stats>;
+    return Object.keys(out).length ? out : undefined;
+  };
+  const tr = isObj(ch) ? partial(ch.trained) : undefined, exer = isObj(ch) ? partial(ch.exercise) : undefined;
+  const growth = { ...(tr ? { trained: tr } : {}), ...(exer ? { exercise: exer } : {}), ...(isObj(ch) && Number.isInteger(ch.wear) && (ch.wear as number) > 0 ? { wear: ch.wear as number } : {}) };
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;

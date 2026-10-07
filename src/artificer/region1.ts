@@ -13,7 +13,7 @@
  */
 
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
-import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
+import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFor, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, type Stats, type StatId } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
@@ -246,6 +246,10 @@ export interface Character {
   background?: Background;
   /** What they packed for the hike (#1400), last time: the next run packs again, starting from it. */
   pack?: KitId[];
+  /** Growth by use and wear (#1257): points gained or lost, exercise towards the next point, and wear. They carry. */
+  trained?: Partial<Stats>;
+  exercise?: Partial<Stats>;
+  wear?: number;
 }
 
 /**
@@ -299,7 +303,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     skills: start,
     // Stats (#1256): chosen at creation, or carried from this character's last run.
     character: {
-      id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: grownStats(adult, age), ...(age !== undefined ? { age, adult } : {}),
+      id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, talents, lastStandUsed: false, stats: withTraining(grownStats(adult, age), legacy?.trained), ...(age !== undefined ? { age, adult } : {}),
+      // What use and hardship made of them (#1257) goes on with them.
+      ...(legacy?.trained ? { trained: { ...legacy.trained } } : {}), ...(legacy?.exercise ? { exercise: { ...legacy.exercise } } : {}), ...(legacy?.wear ? { wear: legacy.wear } : {}),
       // Quirks (#1362): carried as they are, or rolled from the id — one panic response, perhaps a temperament.
       ...((legacy?.quirks ?? (who.id ? startingQuirks(seedOf(who.id)) : undefined)) ? { quirks: (legacy?.quirks ?? startingQuirks(seedOf(who.id!))).map(q => ({ ...q })) } : {}),
       // Lasting harms (#1392): an old injury goes with you.
@@ -363,6 +369,29 @@ function clone(s: Region1State): Region1State {
 }
 
 const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
+
+/**
+ * Exercise stats with some hours of work (#1257) — on the Reach, on the road, or in the night —
+ * and write a journal line for each point gained. Felt, not hidden.
+ */
+export function exerciseStats(next: { character: Character; log: LogEntry[]; day: number }, ids: readonly StatId[], hours: number, at?: LogEntry['at']): void {
+  for (const id of ids) {
+    const c = next.character;
+    const r = exercise(c.stats, { trained: c.trained, exercise: c.exercise, wear: c.wear }, id, hours);
+    next.character = { ...c, stats: r.stats, ...(r.growth.trained ? { trained: r.growth.trained } : {}), exercise: r.growth.exercise };
+    for (const score of r.reached) next.log.push(at ? { day: next.day, text: gainLine(id, score), kind: 'milestone', at } : { day: next.day, text: gainLine(id, score), kind: 'milestone' });
+  }
+}
+
+/** A night of long deprivation (#1257): wear builds, and at the limit costs a point of Constitution. */
+function wearNight(next: { character: Character; log: LogEntry[]; day: number }, thirst: boolean): void {
+  const c = next.character;
+  const wear = (c.wear ?? 0) + 1;
+  if (wear < WEAR_LIMIT) { next.character = { ...c, wear }; return; }
+  const r = wearDown(c.stats, { trained: c.trained, exercise: c.exercise }, 'con');
+  next.character = { ...c, stats: r.stats, trained: r.growth.trained, wear: 0 };
+  if (r.lost) next.log.push({ day: next.day, text: wearLine(thirst, r.stats.con), kind: 'hardship' });
+}
 
 /** When a piece of work starts and the light it has, from the hours already spent and how long it takes (#1280). */
 const stampFor = (s: Pick<Region1State, 'day' | 'hoursToday' | 'config'>, hours: number): { hour: number; light: number } =>
@@ -1478,6 +1507,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
+  // The work exercises its stat (#1257) — and work done with a tired mind, or locked to survival, steels the will.
+  exerciseStats(next, [...exerciseFor(id), ...(setOut.clarity < WIL_EXERCISE_BELOW || survivalLockOf(s) ? ['wil' as const] : [])], workHours, at);
   // Out on the land, or deep in study (#1305): either keeps cabin fever off.
   if (def.ringed) next.today.outside = true;
   if (id === 'study') next.today.absorbed = true;
@@ -1693,6 +1724,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
+  // Crafting exercises the head, a handcraft the hands too (#1257) — and a tired mind, the will.
+  if (result.kind !== 'refused') exerciseStats(next, [...exerciseFor(id, { recipe: true, handcraft: skill === 'handcraft' }), ...(before.clarity.current < WIL_EXERCISE_BELOW || survivalLockOf(next) ? ['wil' as const] : [])], hours, at);
   // Making something absorbs the mind (#1305).
   if (result.kind !== 'refused') next.today.absorbed = true;
   latchMilestones(next);
@@ -2380,6 +2413,10 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   }
   // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
   growFrom(next, { kind: 'night', hungry: !ate && !lean, cold: o.coldNight || froze > 0, condition: next.vitals.condition, strained: strained >= EXHAUSTED_AT });
+  // A long day or a hard night survived toughens the body (#1257)…
+  exerciseStats(next, ['con'], Math.max(0, hoursWorked - LONG_DAY_HOURS) + ((!ate && !lean) || !drank ? HARD_NIGHT_EXERCISE : 0));
+  // …but going without for long leaves its mark: wear builds, and at its limit Constitution drops a point.
+  if (next.deprivation.hungry >= WEAR_HUNGRY || next.deprivation.thirsty >= WEAR_THIRSTY) wearNight(next, next.deprivation.thirsty >= WEAR_THIRSTY);
   // A night's rest works half the strain off.
   if (strained > 0) next.strain = strained / 2;
 

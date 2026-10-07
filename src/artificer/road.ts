@@ -29,7 +29,7 @@ import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, E
 import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
 import { TALENTS, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
-import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
 import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
@@ -280,6 +280,7 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
     next.vitals = a.vitals;
     next.today.loadClarity += a.loadClarity;
     next.hoursToday += TALK_HOURS;
+    exerciseStats(next, ['cha'], TALK_HOURS); // talking to people (#1257)
     say(next, r.line, 'action');
     return next;
   }
@@ -375,6 +376,7 @@ function trade(next: RoadState, id: string): RoadState {
   next.vitals = a.vitals;
   next.today.loadClarity += a.loadClarity;
   next.hoursToday += TRADE_HOURS;
+  exerciseStats(next, ['cha'], TRADE_HOURS); // haggling, too (#1257)
   return next;
 }
 
