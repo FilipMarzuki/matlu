@@ -28,6 +28,7 @@ import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { SUGGESTED_PACK, kitItem, kitSupplies } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
@@ -391,6 +392,7 @@ function wardenTab(a: AppState): string {
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">STATS — ${c.age !== undefined ? `age ${c.age}${isYoung(c.age) ? ', still growing' : ', grown'}` : "what you're built for"}</p>${statsBlock(c.stats, c.adult)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
+      ${packBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
       <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
@@ -423,6 +425,15 @@ function roadKeepsBlock(a: AppState): string {
   return `<p class="eyebrow" style="margin-top:16px">THE ROAD — marks &amp; contacts</p>
     <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
     ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')} · trust ${Math.round(a.road?.trust[id] ?? CONTACT_TRUST)}</span></li>`; }).join('')}</ul>` : `<p class="mood">No contacts yet — anyone whose trust in you reaches ${CONTACT_TRUST} will remember you.</p>`}`;
+}
+
+/** The hike pack (#1400): what you brought, each with what it does, and what's left of what runs out. */
+function packBlock(s: AppState['sim']): string {
+  if (!s.kit) return '';
+  const left = kitSupplies(s.kit, s.dressings ?? 0);
+  return `<p class="eyebrow" style="margin-top:16px">THE PACK — what you brought on the hike</p>
+    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(kitItem(id).effect)}">${esc(kitItem(id).name)}</span>`).join('')}</div>
+    ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
 }
 
 /**
@@ -885,7 +896,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age }), queue: [] };
+  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age, pack: [...SUGGESTED_PACK] }), queue: [] };
   render(state);
 }
 

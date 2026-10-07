@@ -372,6 +372,9 @@ body { min-height: 100vh; }
   .stat.hi .sv { color: var(--gold); }
   .stat.lo .sv { color: var(--dim); }
   .stat .sd { grid-column: 1 / -1; font-size: 10px; color: var(--dim); }
+  /* The hike pack (#1400). */
+  .packlist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .packitem { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 12px; }
   /* Growing up (#1399): what a young Warden's stat grows to, and the age picker. */
   .stat .sg { justify-self: end; font-size: 10px; color: var(--teal); }
   .sname .snow { font-size: 11px; color: var(--teal); }

@@ -9,6 +9,7 @@
  * is what travels, the way it would for a real artificer.
  */
 
+import type { KitId } from './kit';
 import type { Background } from './scout';
 import type { Quirk } from './quirks';
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
@@ -79,6 +80,8 @@ export interface Legacy {
   met?: Record<string, number>;
   /** Quirks (#1362): who you are goes with you — the panic response, temperament, fears, and which you know. */
   quirks?: Quirk[];
+  /** What they packed last time (#1400): the next run starts packing from it. */
+  pack?: KitId[];
   /** How old they were (#1399); the next run is a year on. Absent: an adult. */
   age?: number;
   /** Who the character was before the Reach (#1398). */
@@ -139,6 +142,7 @@ export function legacyOf(s: Carrier): Legacy {
     ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
     ...(s.character.harms?.length ? { harms: [...s.character.harms] } : {}),
     ...(s.character.background ? { background: s.character.background } : {}),
+    ...(s.character.pack ? { pack: [...s.character.pack] } : {}),
   };
 }
 
