@@ -25,8 +25,9 @@ import { streamFor } from './rng';
 import { ADRENALINE, SHAKEN_PENALTY, type PanicState, type Response, type Threat } from './panic';
 import { JUMPY_FLIGHT, type Quirk } from './quirks';
 import { talentEffects } from './talents';
+import { pinCapacity, pinId, FULL_MEMORY, ALREADY_PINNED, type Pin, type PinKind, type Feeling } from './pins';
 
-export type EncounterKind = 'animal' | 'find' | 'person';
+export type EncounterKind = 'animal' | 'find' | 'person' | 'place';
 
 /** What an option needs before it can be chosen. All listed must hold. */
 export interface Requirement {
@@ -73,6 +74,8 @@ export interface Effect {
   manual?: boolean;
   /** Something that comes in overnight (#1345): a snare line you reset catches by morning. */
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string };
+  /** Remember the place (#1378): a pin of this kind, with how it made you feel. */
+  pin?: { kind: PinKind; feeling?: Feeling };
 }
 
 /** How stats, skills, talents and tools move an option's chance of success. */
@@ -104,6 +107,8 @@ export interface EncounterOption {
   persuasion?: boolean;
   /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse; panicked, it's closed. */
   careful?: boolean;
+  /** Remembering a place (#1378): closed when your memory is full, or you already remember it. */
+  remembers?: boolean;
   /** Which panic response this option is (#1361): what instinct reaches for when it takes over. */
   response?: Response;
   success: Effect;
@@ -509,6 +514,87 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
         fail: { text: 'It flakes into your hand and burns. You drop it, and the burn doesn\'t fade until evening.', condition: -5, clarity: -10 } },
     ],
   },
+  // ── Places (#1378) ───────────────────────────────────────────────────────
+  // Places worth remembering. Nothing here is dangerous: the question is only whether to hold on to it.
+  {
+    id: 'sheltered-hollow', kind: 'place', weight: 1, rings: [1, 2], threat: 0, tags: ['place'], field: 'scouting',
+    text: 'A hollow under a rock shoulder, out of the wind, with dry ground and a spring nearby. This would be a fine place for a shelter.',
+    freeze: { text: 'You stand looking at the hollow a while, then go on.' },
+    options: [
+      { id: 'remember', label: 'Try to remember it', odds: 1, remembers: true,
+        success: { text: 'You fix it in your mind: the shoulder of rock, the spring, the way the wind goes over.', pin: { kind: 'shelter' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You fix it in your mind.', pin: { kind: 'shelter' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Look it over', odds: 1, cost: { hours: 1 },
+        success: { text: 'You walk the ground: where the water drains, where the snow would drift.', practice: { skill: 'scouting', hours: 1 } }, fail: { text: 'You walk the ground.' } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'deep-pool', kind: 'place', weight: 1, threat: 0, tags: ['place'], field: 'fieldcraft',
+    text: 'Below a bend in the stream, a deep, dark pool. Fish hang in it, nose to the current, hardly moving. A good fishing spot.',
+    freeze: { text: 'You watch the fish a while, then go on.' },
+    options: [
+      { id: 'remember', label: 'Try to remember it', odds: 1, remembers: true,
+        success: { text: 'You mark it in your mind: the bend, the alder leaning over, the dark water.', pin: { kind: 'fishing' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You mark it in your mind.', pin: { kind: 'fishing' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Watch the fish', odds: 1, cost: { hours: 1 },
+        success: { text: 'You watch where they lie and when they rise.', practice: { skill: 'fieldcraft', hours: 1 } }, fail: { text: 'You watch them.' } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'berry-thicket', kind: 'place', weight: 1, rings: [1, 2], seasons: ['autumn'], threat: 0, tags: ['place'], field: 'foraging',
+    text: 'A thicket heavy with late berries, untouched — the birds haven\'t found it yet.',
+    freeze: { text: 'You stand at the edge of the thicket, then go on.' },
+    options: [
+      { id: 'remember', label: 'Try to remember it', odds: 1, remembers: true,
+        success: { text: 'You note the way here: past the split birch, down to the wet ground.', pin: { kind: 'forage' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You note the way here.', pin: { kind: 'forage' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Pick what you can carry', odds: 1, cost: { hours: 1 },
+        success: { text: 'You eat a handful and fill a fold of your coat.', stores: { rawFood: 2 } }, fail: { text: 'You pick some.', stores: { rawFood: 2 } } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'stone-outcrop', kind: 'place', weight: 1, rings: [2, 3], threat: 0, tags: ['place'], field: 'stonework',
+    text: 'An outcrop of good grey stone, split into slabs by the frost and lying ready to hand.',
+    freeze: { text: 'You look at the stone a while, then go on.' },
+    options: [
+      { id: 'remember', label: 'Try to remember it', odds: 1, remembers: true,
+        success: { text: 'You fix it in your mind: the grey slabs, the ridge behind.', pin: { kind: 'stone' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You fix it in your mind.', pin: { kind: 'stone' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Knock off a slab', odds: 1, cost: { hours: 1 },
+        success: { text: 'It comes away clean along the frost line.', stores: { stone: 1 } }, fail: { text: 'It comes away.', stores: { stone: 1 } } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'strange-carving', kind: 'place', weight: 1, rings: [2, 3], threat: 0, tags: ['place'], field: 'scouting',
+    text: 'Cut into a boulder, half under moss: a carving — a figure with too many hands, holding something shut. It is very old.',
+    freeze: { text: 'You stand before the carving a long while, then go on.' },
+    options: [
+      // How it strikes you is a seeded roll: some see wonder in it, some something wrong.
+      { id: 'remember', label: 'Try to remember it', odds: 0.5, remembers: true, mods: { stats: { wil: 0.03 } },
+        success: { text: 'You fix it in your mind. Whoever made it made it with care; you go on feeling small, and glad of it.', pin: { kind: 'wonder', feeling: 'awed' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You fix it in your mind, though you would rather not. Those hands stay with you all day.', pin: { kind: 'wonder', feeling: 'eerie' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Look closer', odds: 1, cost: { hours: 1 }, careful: true,
+        success: { text: 'Under the moss, the thing it holds shut is ringed with the same runes as the standing stones.', insight: { concept: 'sealing', amount: 2 } }, fail: { text: 'You look closer.' } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
+  {
+    id: 'sunlit-glade', kind: 'place', weight: 1, rings: [1, 2], dark: false, threat: 0, tags: ['place'], field: 'scouting',
+    text: 'A glade where the sun comes down through the birches and the wind doesn\'t reach. It is very quiet.',
+    freeze: { text: 'You stand in the light a while, then go on.' },
+    options: [
+      { id: 'remember', label: 'Try to remember it', odds: 1, remembers: true,
+        success: { text: 'You keep it: the light, the quiet. Somewhere to come back to.', pin: { kind: 'peaceful', feeling: 'peaceful' }, practice: { skill: 'memory', hours: 1 } },
+        fail: { text: 'You keep it.', pin: { kind: 'peaceful', feeling: 'peaceful' }, practice: { skill: 'memory', hours: 1 } } },
+      { id: 'look', label: 'Sit a while', odds: 1, cost: { hours: 1 },
+        success: { text: 'You sit with your back to a birch and let your mind go quiet.', clarity: 8 }, fail: { text: 'You sit a while.', clarity: 8 } },
+      { id: 'move-on', label: 'Move on', odds: 1, success: { text: 'You move on.' }, fail: { text: 'You move on.' } },
+    ],
+  },
 ];
 
 export const encounterById = (id: string): EncounterTemplate | undefined => ENCOUNTERS.find(e => e.id === id);
@@ -521,6 +607,8 @@ export interface Encounterer {
   character: { stats: Stats; talents: readonly Talent[]; quirks?: readonly Quirk[] };
   /** Clarity, for options a tired mind does worse at (#1345). Absent reads as clear. */
   vitals?: { clarity: { current: number } };
+  /** The places you remember (#1378). */
+  pins?: readonly Pin[];
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
 }
@@ -529,6 +617,11 @@ export interface Encounterer {
 export function unmet(w: Encounterer, o: EncounterOption): string | null {
   // Tunnel vision (#1361): panicked, fine judgement is gone.
   if (o.careful && w.pending?.state === 'panicked') return "you can't think straight";
+  // Memory (#1378): only so many places fit.
+  if (o.remembers) {
+    if (w.pending && w.pins?.some(p => p.id === pinId(w.pending!.id, w.pending!.ring))) return ALREADY_PINNED;
+    if ((w.pins?.length ?? 0) >= pinCapacity(w)) return FULL_MEMORY;
+  }
   const r = o.requires;
   const needs: Partial<Record<keyof Stores, number>> = { ...(r?.stores ?? {}) };
   for (const [k, n] of Object.entries(o.cost?.stores ?? {})) needs[k as keyof Stores] = Math.max(needs[k as keyof Stores] ?? 0, n ?? 0);
