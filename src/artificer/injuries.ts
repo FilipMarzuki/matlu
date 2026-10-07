@@ -19,8 +19,11 @@ export type InjuryKind = 'sprain' | 'hand' | 'cut';
 export type Severity = 'minor' | 'serious' | 'grave';
 export const SEVERITIES: readonly Severity[] = ['minor', 'serious', 'grave'];
 
-/** An open injury: its kind and severity, and the healing it still needs, in points. */
-export interface Injury { kind: InjuryKind; severity: Severity; heal: number }
+/** How well an injury was tended (#1393): a fair treatment heals +1 a night, a good one +2. */
+export type Treatment = 'fair' | 'good';
+
+/** An open injury: its kind and severity, the healing it still needs (in points), and how it was tended, if it was. */
+export interface Injury { kind: InjuryKind; severity: Severity; heal: number; treated?: Treatment }
 
 /** Healing a fresh injury needs, by severity. */
 export const HEAL_POINTS: Readonly<Record<Severity, number>> = { minor: 2, serious: 6, grave: 10 };
@@ -87,6 +90,60 @@ export const healedLine = (i: Injury, harm: Harm | null): string =>
   harm ? `Your ${INJURY_NAME[i.kind]} has healed, but it has left you with ${HARM_NAME[harm]}: ${HARM_WORDS[harm]}.` : `Your ${INJURY_NAME[i.kind]} has healed clean.`;
 export const notHealingLine = (i: Injury): string => `Your ${INJURY_NAME[i.kind]} didn't mend tonight — it needs food, water and warmth.`;
 
+// ── Treatment (#1393) ───────────────────────────────────────────────────────
+
+/** A treated injury heals this much more on every night that heals at all. */
+export const TREAT_BONUS: Readonly<Record<Treatment, number>> = { fair: 1, good: 2 };
+/** An untreated serious deep cut can go bad overnight: this chance a night, and it costs this much Condition. */
+export const FESTER_CHANCE = 0.1, FESTER_CONDITION = 5;
+
+/** The injury `treat` tends: the worst untreated one (most severe, then most healing to go). */
+export function worstUntreated(injuries: readonly Injury[] | undefined): Injury | null {
+  const open = (injuries ?? []).filter(i => !i.treated);
+  if (!open.length) return null;
+  return open.reduce((a, b) => (HEAL_POINTS[b.severity] > HEAL_POINTS[a.severity] || (b.severity === a.severity && b.heal > a.heal) ? b : a));
+}
+
+/** What a treatment is made with, and what it costs from the stores. */
+export type TreatVia = 'dressing' | 'cloth' | 'hide' | 'splint' | 'herbs';
+export interface TreatPlan { via: TreatVia; cost: Partial<Record<'materials' | 'hides' | 'firewood' | 'rawFood', number>>; dressing: boolean; better: boolean }
+
+/**
+ * How you'd tend an injury with what you have: a first-aid kit dressing for anything (and one step
+ * better); otherwise improvised — a cut bound with materials (or a hide, a better dressing, when
+ * there are no materials), a sprain splinted with a stick and lashing (1 firewood, 1 materials),
+ * a hurt hand eased with herbs (1 food, foraged greens). Null when you have nothing that will do.
+ */
+export function treatmentFor(kind: InjuryKind, stores: { materials: number; hides: number; firewood: number; rawFood: number }, dressings: number): TreatPlan | null {
+  if (dressings > 0) return { via: 'dressing', cost: {}, dressing: true, better: true };
+  if (kind === 'cut') return stores.materials >= 1 ? { via: 'cloth', cost: { materials: 1 }, dressing: false, better: false }
+    : stores.hides >= 1 ? { via: 'hide', cost: { hides: 1 }, dressing: false, better: true } : null;
+  if (kind === 'sprain') return stores.firewood >= 1 && stores.materials >= 1 ? { via: 'splint', cost: { firewood: 1, materials: 1 }, dressing: false, better: false } : null;
+  return stores.rawFood >= 1 ? { via: 'herbs', cost: { rawFood: 1 }, dressing: false, better: false } : null;
+}
+
+/** Why there's nothing to tend this injury with. */
+export const NO_TREATMENT: Readonly<Record<InjuryKind, string>> = {
+  cut: 'binding a cut needs a dressing, 1 materials or a hide',
+  sprain: 'a splint needs 1 firewood and 1 materials',
+  hand: 'easing a hurt hand needs herbs — 1 food',
+};
+
+/** How good a treatment is: half your First aid level, +1 for a better dressing; 2 or more is good. */
+export const treatmentQuality = (firstAidLevel: number, better: boolean): Treatment =>
+  Math.floor(firstAidLevel / 2) + (better ? 1 : 0) >= 2 ? 'good' : 'fair';
+
+const TREAT_WORDS: Readonly<Record<TreatVia, (name: string) => string>> = {
+  dressing: n => `You clean the ${n} and dress it from the first-aid kit`,
+  cloth: n => `You wash the ${n} and bind it with a strip of cloth`,
+  hide: n => `You wash the ${n} and bind it with soft hide`,
+  splint: n => `You splint the ${n} with a straight stick and lash it firm`,
+  herbs: n => `You crush yarrow and plantain into a poultice for the ${n}`,
+};
+export const treatLine = (i: Injury, via: TreatVia, quality: Treatment): string =>
+  `${TREAT_WORDS[via](INJURY_NAME[i.kind])} — ${quality === 'good' ? 'well done; it will mend faster' : 'it will mend a little faster'}.`;
+export const festerLine = (i: Injury): string => `The ${INJURY_NAME[i.kind]} has gone bad overnight — hot, red and angry. It's grave now.`;
+
 /** An injury from an older save (#1286): `daysLeft`, no severity. Read as a minor one with that much healing left. */
 export function readInjury(x: unknown): Injury | null {
   if (typeof x !== 'object' || x === null) return null;
@@ -94,5 +151,5 @@ export function readInjury(x: unknown): Injury | null {
   if (o.kind !== 'sprain' && o.kind !== 'hand' && o.kind !== 'cut') return null;
   const severity = SEVERITIES.includes(o.severity as Severity) ? o.severity as Severity : 'minor';
   const heal = typeof o.heal === 'number' ? o.heal : typeof o.daysLeft === 'number' ? o.daysLeft : HEAL_POINTS[severity];
-  return { kind: o.kind, severity, heal };
+  return { kind: o.kind, severity, heal, ...(o.treated === 'fair' || o.treated === 'good' ? { treated: o.treated } : {}) };
 }
