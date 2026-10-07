@@ -15,6 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
+import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, type Accident } from './accidents';
 import { pinId, placeName, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
@@ -1379,6 +1380,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // The dark, the weather, the distance (#1367): how frightening this stretch is. Uneasy, the work wears the mind.
   const fright = def.ringed ? landFright(next, ring, at.light) : null;
   const uneasy = fright && fright.state !== 'calm' ? UNEASE_CLARITY : 1;
+  // How you set out (#1285): tired or foggy at the start, out there you're likelier to get hurt.
+  const setOut = { vigor: next.vitals.vigor.current, clarity: next.vitals.clarity.current };
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy });
   next.vitals = t.vitals;
@@ -1419,6 +1422,12 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
     next.vitals.condition = Math.max(0, next.vitals.condition - EXPOSURE_COST[exposure] * talentEffects(next.character.talents).coldCost);
     say(next, exposure === 'lost' ? 'Lost in the white for hours — you dropped everything you carried to find the way home.'
       : exposure === 'frostbitten' ? 'The blizzard bit deep: frostbitten fingers, a face that burns.' : 'A rough few hours in the blizzard, but you came back.', 'hardship', at);
+  }
+  // Accidents (#1285): out on the land, the worst hour of the trip against its risk.
+  if (def.ringed && next.config.world.accidents && !next.outcome) {
+    const risk = accidentRisk({ hours: workHours + travel, light: at.light, weather: next.weatherToday ?? 'clear', walking: travel > 0, blizzard: inBlizzard(next, id), vigor: setOut.vigor, clarity: setOut.clarity, skillLevel: lvl });
+    const accident = rollAccident(worstFortune(seedOf(next.character.id), next.day, at.hour, workHours + travel), risk, workHours + travel);
+    if (accident) applyAccident(next, accident, before, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, false));
   }
   // Frightened out there (#1367): coming through grows the nerve, and a panic may spook you off the land.
   // A calm stretch in the dark is one more step towards not fearing it.
@@ -1579,6 +1588,13 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
   }
+  // Accidents at the bench (#1285): a slipped knife, a split stone. Separate from a failed craft — both can happen.
+  if (result.kind !== 'refused' && next.config.world.accidents) {
+    const careful = next.character.talents.find(t => t.id === 'carefulHands')?.tier ?? 0;
+    const risk = craftRisk({ hours, blade: BLADE_CRAFTS.includes(recipe.id), building: !!(roof || walls), light: at.light, firelight: night.fire > 0, vigor: before.vigor.current, clarity: before.clarity.current, skillLevel: lvl, carefulTier: careful });
+    const accident = rollAccident(worstFortune(seedOf(next.character.id), next.day, at.hour, hours), risk, hours, true);
+    if (accident) applyAccident(next, accident, null, at, accidentLine(accident, next.weatherToday ?? 'clear', at.light < DUSK_LIGHT, true));
+  }
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
@@ -1586,6 +1602,23 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   if (result.kind !== 'refused') next.today.absorbed = true;
   latchMilestones(next);
   return next;
+}
+
+/** Crafts that knap stone or cut with a blade (#1285): double the bench risk. */
+const BLADE_CRAFTS: readonly string[] = ['stone-knife', 'hide-parka', 'waterskin'];
+
+/**
+ * An accident's outcome (#1285): Condition lost to a bruise or a cut, or the haul lost on the way
+ * back (whatever this trip added to the stores since `before`). Journalled; a cut can kill.
+ */
+function applyAccident(next: Region1State, a: Accident, before: Stores | null, at: LogEntry['at'], line: string): void {
+  if (a.kind === 'lost-haul' && before) for (const k of STORE_KEYS) next.stores[k] = Math.min(next.stores[k], before[k]);
+  next.vitals = { ...next.vitals, condition: Math.max(0, next.vitals.condition - a.condition) };
+  say(next, line, 'hardship', at);
+  if (next.vitals.condition <= 0) {
+    next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
+    say(next, 'The wound goes bad, and there is no one to help. Dead of an accident.', 'outcome', at);
+  }
 }
 
 /**
