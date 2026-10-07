@@ -15,7 +15,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
-import { pinId, PIN_WORDS, type Pin } from './pins';
+import { pinId, PIN_WORDS, pinYield, pinAmbient, awedIn, shelterPin, maxInterest, SHELTER_PIN_WARMTH, type Pin, type Interest } from './pins';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
 import { landAmbient, nightAmbient, frightOf, landReasons, nightReasons, type LandScene, type NightScene, type Threat, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
@@ -66,7 +66,11 @@ export type ShelterType = 'leanto' | 'hut';
 /** The second stage: what you winterize it with. */
 export type WallMaterial = 'timber' | 'stone';
 /** The design choices behind the shelter at the current site. */
-export interface ShelterBuild { type: ShelterType | null; walls: WallMaterial | null }
+export interface ShelterBuild {
+  type: ShelterType | null; walls: WallMaterial | null;
+  /** Built where you knew the wind doesn't reach (#1379): you held a sheltered place near camp in mind. */
+  sited?: boolean;
+}
 /**
  * How well the shelter was built scales its warmth (capped at fully warm): a
  * crude lean-to leaks, a fine one holds heat. Keyed by the latest build's grade.
@@ -168,7 +172,9 @@ export interface Region1State {
   /** Today so far. `outside` / `absorbed` (#1305): went out on the land; did study or craft work — either keeps cabin fever off. */
   today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean; outside?: boolean; absorbed?: boolean; exhausted?: boolean;
     /** After a panic (#1361): shaking hands — crafts go a grade worse, and tonight's sleep is poor. */
-    shaking?: boolean };
+    shaking?: boolean;
+    /** Went back to a ring where you remember a place (#1379): Memory has had its practice today. */
+    revisited?: boolean };
   /** Nights in a row without food / without water (#1233); each night without costs more. */
   deprivation: { hungry: number; thirsty: number };
   /** Practice hours per skill (#1236); levels come from these. */
@@ -330,7 +336,7 @@ function shelterFactor(s: Region1State): number {
 /** Shelter warmth, 0..1 = site potential × the design built × how well it was built. */
 export function warmth(s: Region1State): number {
   if (!s.site) return 0;
-  return Math.min(1, SITES[s.site].warmth * shelterFactor(s) * GRADE_WARMTH[s.shelterGrade ?? 'sound']);
+  return Math.min(1, SITES[s.site].warmth * shelterFactor(s) * GRADE_WARMTH[s.shelterGrade ?? 'sound'] + (s.shelter.sited && s.tier > 0 ? SHELTER_PIN_WARMTH : 0));
 }
 
 export function readinessInput(s: Region1State): ReadinessInput {
@@ -1063,12 +1069,23 @@ function faceFear(next: Region1State, tags: readonly string[], fades: number, at
 /** The environment's threat out on the land at this light (#1367), and how it sits with you. Null when the world has no fear in it. */
 function landFright(s: Region1State, ring: Ring, light: number): (ReturnType<typeof frightOf> & { ambient: number; reasons: string[] }) | null {
   if (!s.config.world.encounters) return null;
-  const scene: LandScene = {
-    light, weather: s.weatherToday ?? 'clear', blizzard: isBlizzard(s.weatherToday, s.day, s.config.calendar), ring,
-    winter: seasonOf(s.day, s.config.calendar) === 'winter', knownGround: domainsOf(ring).every(d => level(s.explore, ring, d) >= 3),
-  };
-  const ambient = landAmbient(scene);
-  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient, reasons: landReasons(scene) };
+  const ambient = ringAmbient(s, ring, light);
+  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient, reasons: landReasons(sceneOf(s, ring, light)) };
+}
+
+/** A stretch of land as fear reads it (#1367). */
+const sceneOf = (s: Region1State, ring: Ring, light: number): LandScene => ({
+  light, weather: s.weatherToday ?? 'clear', blizzard: isBlizzard(s.weatherToday, s.day, s.config.calendar), ring,
+  winter: seasonOf(s.day, s.config.calendar) === 'winter', knownGround: domainsOf(ring).every(d => level(s.explore, ring, d) >= 3),
+});
+
+/** How frightening a ring is, 0–4, at this light (#1367) — with what the places you remember there do to it (#1379). */
+export function ringAmbient(s: Region1State, ring: Ring, light: number): Threat {
+  const scene = sceneOf(s, ring, light);
+  // The places you remember there (#1379): a peaceful glade calms the ring, an eerie carving darkens it —
+  // and something that awed you means the dark there is no worse than the day.
+  const felt = awedIn(s.pins, ring) ? Math.min(landAmbient(scene), landAmbient({ ...scene, light: 1 })) : landAmbient(scene);
+  return Math.max(0, Math.min(4, felt + pinAmbient(s.pins, ring))) as Threat;
 }
 
 /**
@@ -1268,6 +1285,40 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   return next;
 }
 
+/**
+ * Going back to a ring where you remember a place (#1379): an hour of Memory practice, once a day —
+ * and the first return to something that awed you teaches a little.
+ */
+function revisit(next: Region1State, ring: Ring, at: LogEntry['at']): void {
+  // A place found on an earlier day: today's find isn't a return to it.
+  const here = (next.pins ?? []).filter(p => p.ring === ring && p.day < next.day);
+  if (!here.length) return;
+  if (!next.today.revisited) {
+    next.today.revisited = true;
+    practiceSkill(next, 'memory', 1);
+  }
+  for (const p of here) if (p.feeling === 'awed' && !p.visited) {
+    addInsight(next.concepts, 'sealing', AWED_INSIGHT, CRAFT_WORLD.concepts);
+    say(next, 'Back by the carving. Knowing what you are looking for, you see more in it this time.', 'action', at);
+  }
+  next.pins = next.pins!.map(p => (here.includes(p) ? { ...p, visited: true } : p));
+}
+
+/** Insight from going back to something that awed you (#1379). */
+const AWED_INSIGHT = 2;
+
+/**
+ * How much a place interests you (#1379): ★ to ★★★, or none (0). You can't weigh places until
+ * Memory reaches Apprentice; ★★★ opens at Adept. Returns the state unchanged if you can't.
+ */
+export function setInterest(s: Region1State, id: string, stars: 0 | Interest): Region1State {
+  const pin = s.pins?.find(p => p.id === id);
+  if (!pin || stars > maxInterest(s.skills)) return s;
+  const next = clone(s);
+  next.pins = next.pins!.map(p => (p.id !== id ? p : stars ? { ...p, interest: stars } : (({ interest: _, ...rest }) => rest)(p)));
+  return next;
+}
+
 /** Let a place go (#1378), freeing room in your memory for another. */
 export function forgetPin(s: Region1State, id: string): Region1State {
   const pin = s.pins?.find(p => p.id === id);
@@ -1342,7 +1393,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   refundOverexertion(next, r.conditionLost + t.conditionLost, tf.overexertCondition);
 
   // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
-  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
+  // …and places you remember in that ring (#1379): a fishing spot, a berry thicket, good stone.
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0) + (def.ringed ? pinYield(next.pins, id, ring) : 0);
   // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
   const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
   // Out in a blizzard (#1315): the white decides how you come back — if you do.
@@ -1374,6 +1426,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
+  if (def.ringed) revisit(next, ring, at);
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
@@ -1507,7 +1560,9 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const walls = (Object.keys(WALL_TYPES) as WallMaterial[]).find(w => WALL_TYPES[w].recipe.id === recipe.id);
   if (result.kind === 'crafted' && (roof || walls)) {
     next.tier = roof ? 1 : 2;
-    next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
+    // A sheltered place you remember near camp (#1379): you build where the wind doesn't reach.
+    const sited = next.shelter.sited || shelterPin(next.pins);
+    next.shelter = roof ? { type: roof, walls: null, ...(sited ? { sited } : {}) } : { ...next.shelter, walls: walls ?? null, ...(sited ? { sited } : {}) };
     next.shelterGrade = result.grade;
     say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action', at);
   } else if (result.kind === 'crafted' && recipe.id === COLD_PIT_RECIPE.id) {
