@@ -7,7 +7,8 @@
  * happens at once and the hours tick on, and "End the day" sleeps and moves the caravan.
  */
 
-import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { healerTarget, INJURY_NAME, HEAL_HOURS, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, FRIEND_LESSON, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
@@ -211,6 +212,18 @@ function lessonPanel(r: RoadState, p: Person): string {
     <div class="runbar">${act(r, `appraise:${p.id}`, '⚖ HOW GOOD AM I, REALLY?', APPRAISE_HOURS, { why: r.appraised.includes(p.id) ? `${p.name} has told you already` : undefined })}</div></div>`;
 }
 
+/** A healer's care (#1394): what she'd tend, what it costs, and whether she'd set a grave injury. */
+function healPanel(r: RoadState, p: Person): string {
+  if (p.role !== 'healer') return '';
+  const trust = r.trust[p.id] ?? 0;
+  const fee = healFee(r, p.id);
+  const target = healerTarget(r.injuries, trust);
+  const why = !target ? (r.character.harms?.length ? undefined : 'Nothing to tend') : fee > r.marks ? `${fee} marks — you have ${r.marks}` : undefined;
+  const label = target ? `🌿 TEND MY ${INJURY_NAME[target.kind].toUpperCase()}` : r.character.harms?.length ? '🌿 ASK ABOUT AN OLD WOUND' : '🌿 TEND AN INJURY';
+  return `<div class="sheetpart"><p class="fgroup">HEALING — ${fee ? `${fee} marks` : 'free between friends'}${fee ? ` (free at trust ${FRIEND_HEAL})` : ''}${trust >= SET_BONE_TRUST ? ' · she will set a grave injury properly' : ` · sets a grave injury properly at trust ${SET_BONE_TRUST}`}</p>
+    <div class="runbar">${act(r, `heal:${p.id}`, label, HEAL_HOURS, { why })}</div></div>`;
+}
+
 /** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */
 function personSheet(r: RoadState, p: Person): string {
   const told = r.told[p.id] ?? 0;
@@ -218,7 +231,7 @@ function personSheet(r: RoadState, p: Person): string {
   return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
     <div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>${act(r, `talk:${p.id}`, '💬 TALK', TALK_HOURS)}</div>
-    ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}</section>`;
+    ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
 }
 
 /** A village day: everyone in it, the open sheet, and the way to end the day. */

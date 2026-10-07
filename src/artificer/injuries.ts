@@ -22,8 +22,11 @@ export const SEVERITIES: readonly Severity[] = ['minor', 'serious', 'grave'];
 /** How well an injury was tended (#1393): a fair treatment heals +1 a night, a good one +2. */
 export type Treatment = 'fair' | 'good';
 
-/** An open injury: its kind and severity, the healing it still needs (in points), and how it was tended, if it was. */
-export interface Injury { kind: InjuryKind; severity: Severity; heal: number; treated?: Treatment }
+/**
+ * An open injury: its kind and severity, the healing it still needs (in points), and how it was tended,
+ * if it was. `mended`: a healer set it properly (#1394) — a grave one then heals without a lasting harm.
+ */
+export interface Injury { kind: InjuryKind; severity: Severity; heal: number; treated?: Treatment; mended?: true }
 
 /** Healing a fresh injury needs, by severity. */
 export const HEAL_POINTS: Readonly<Record<Severity, number>> = { minor: 2, serious: 6, grave: 10 };
@@ -151,5 +154,32 @@ export function readInjury(x: unknown): Injury | null {
   if (o.kind !== 'sprain' && o.kind !== 'hand' && o.kind !== 'cut') return null;
   const severity = SEVERITIES.includes(o.severity as Severity) ? o.severity as Severity : 'minor';
   const heal = typeof o.heal === 'number' ? o.heal : typeof o.daysLeft === 'number' ? o.daysLeft : HEAL_POINTS[severity];
-  return { kind: o.kind, severity, heal, ...(o.treated === 'fair' || o.treated === 'good' ? { treated: o.treated } : {}) };
+  return { kind: o.kind, severity, heal, ...(o.treated === 'fair' || o.treated === 'good' ? { treated: o.treated } : {}), ...(o.mended === true ? { mended: true as const } : {}) };
 }
+
+// ── Healers on the road (#1394) ─────────────────────────────────────────────
+
+/** A healer's care: an hour, free for a friend (trust 40+), else this many marks; it heals this much at once. */
+export const HEAL_HOURS = 1, HEAL_FEE = 4, FRIEND_HEAL = 40, HEALER_POINTS = 2;
+/** Trust at which a healer will set a grave injury properly, so it heals without a lasting harm. */
+export const SET_BONE_TRUST = 60;
+
+/**
+ * What a healer would tend (#1394): a grave injury not yet set, if they trust you enough to set
+ * it; else the worst untreated one; else nothing.
+ */
+export function healerTarget(injuries: readonly Injury[] | undefined, trust: number): Injury | null {
+  const grave = trust >= SET_BONE_TRUST ? (injuries ?? []).find(i => i.severity === 'grave' && !i.mended) : undefined;
+  return grave ?? worstUntreated(injuries);
+}
+
+/** A healer's care applied: treated well, two points healed now, and — at trust 60+ — a grave one set properly. */
+export const healerCare = (i: Injury, trust: number): Injury =>
+  ({ ...i, treated: 'good', heal: Math.max(0, i.heal - HEALER_POINTS), ...(i.severity === 'grave' && trust >= SET_BONE_TRUST ? { mended: true as const } : {}) });
+
+/** What a healer says of an old harm (#1394): it can't be undone, but it can be understood. */
+export const HARM_LORE: Readonly<Record<Harm, string>> = {
+  'stiff-knee': 'It knitted crooked. Keep it warm and it will carry you; push it on the long walks and it will remind you.',
+  'weak-grip': 'The tendons healed short. Fine work will always cost you a little — but hands learn around a wound.',
+  scar: 'An old cut, closed well enough. It will ache when the weather turns. That is all it will do.',
+};

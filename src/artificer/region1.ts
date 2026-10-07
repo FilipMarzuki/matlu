@@ -2399,7 +2399,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
       const left = Math.max(0, i.heal - amount);
       if (left > 0) { say(amount > 0 ? healingLine({ ...i, heal: left }) : notHealingLine(i), 'hardship'); continue; }
       healed.push(i);
-      const harm = i.severity === 'grave' ? HARM_OF[i.kind] : null;
+      // A grave injury leaves its mark — unless a healer set it properly (#1394).
+      const harm = i.severity === 'grave' && !i.mended ? HARM_OF[i.kind] : null;
       if (harm && !next.character.harms?.includes(harm)) next.character = { ...next.character, harms: [...(next.character.harms ?? []), harm] };
       say(healedLine(i, harm), harm ? 'hardship' : 'milestone');
     }
