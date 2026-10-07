@@ -20,6 +20,7 @@
 
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
+import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
 import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -234,9 +235,10 @@ export const roadLockOf = (s: RoadState): string | null =>
  * and finish its quests (#1248): `accept:<questId>`, `complete:<questId>`.
  * And from its teachers (#1249): `learn:<teacherId>:<technique|recipe|concept>`
  * and `appraise:<teacherId>`. Anywhere on the road your hands and mind are free
- * (#1245): `craft:<recipe>`, `study:<concept>`, `tend`; on the wagon, `help`.
+ * (#1245): `craft:<recipe>`, `study:<concept>`, `tend`; on the wagon, `help`. A healer — Ottilia on the
+ * wagon, or the village's — tends an injury (#1394): `heal:<healerId>`.
  */
-export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
+export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `heal:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
   /** Region 1's camp and land work — refused on the road ("Not from the wagon"), but named so a player can try. */
   | ActionId;
 
@@ -285,6 +287,7 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   if (id.startsWith('accept:')) return accept(next, id.slice(7));
   if (id.startsWith('complete:')) return complete(next, id.slice(9));
   if (id.startsWith('learn:')) return learn(next, id.slice(6));
+  if (id.startsWith('heal:')) return healAt(next, id.slice(5));
   if (id.startsWith('craft:')) return wagonCraft(next, id.slice(6));
   if (id.startsWith('study:')) return wagonStudy(next, id.slice(6));
   if (id === 'tend') return tend(next);
@@ -592,6 +595,37 @@ function help(next: RoadState): RoadState {
 }
 
 // ── Teachers (#1249) ────────────────────────────────────────────────────────
+
+/** What a healer's care costs you now (#1394): free for a friend. */
+export const healFee = (s: RoadState, hid: string): number => ((s.trust[hid] ?? 0) >= FRIEND_HEAL ? 0 : HEAL_FEE);
+
+/**
+ * A healer's care (#1394): an hour with Ottilia on the wagon or the village's healer. They tend your
+ * worst untreated injury (well — a treated injury heals faster), heal two points of it at once, and —
+ * if they trust you 60+ — set a grave one properly, so it heals without leaving its mark. Free for a
+ * friend (trust 40+), else marks. With nothing to tend, they tell you about an old harm, if you have one.
+ */
+function healAt(next: RoadState, hid: string): RoadState {
+  const healer = peopleHere(next).find(p => p.id === hid && p.role === 'healer');
+  if (!healer) { say(next, `Heal: skipped — there's no healer called ${hid} here.`, 'skip'); return next; }
+  const trust = next.trust[hid] ?? 0;
+  const target = healerTarget(next.injuries, trust);
+  if (!target) {
+    const harm = next.character.harms?.[0];
+    if (harm) say(next, `${healer.name} looks at your ${HARM_NAME[harm].replace(/^an? /, '')}: "${HARM_LORE[harm]}"`, 'action');
+    else say(next, `Heal: skipped — ${healer.name} finds nothing that needs her${next.injuries?.length ? ' — your injuries are already tended' : ''}.`, 'skip');
+    return next;
+  }
+  const fee = healFee(next, hid);
+  if (next.marks < fee) { say(next, `Heal: skipped — ${healer.name} asks ${fee} marks for her care; you have ${next.marks}.`, 'skip'); return next; }
+  next.marks -= fee;
+  work(next, HEAL_HOURS, 0, -1);
+  const cared = healerCare(target, trust);
+  next.injuries = next.injuries!.map(i => (i === target ? cared : i));
+  const set = cared.mended && !target.mended;
+  say(next, `${healer.name} tends your ${INJURY_NAME[target.kind]}${set ? ' and sets it properly — it will heal straight' : ''}.${fee ? ` (${fee} marks)` : ' — no charge between friends'}`, 'milestone');
+  return next;
+}
 
 /** A teacher in the village you're in, by id, or null. */
 const teacherHere = (s: RoadState, tid: string): (Person & { teaches: NonNullable<Person['teaches']> }) | null => {
