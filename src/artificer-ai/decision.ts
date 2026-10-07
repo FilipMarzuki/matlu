@@ -8,6 +8,7 @@
  * without schema enforcement can still drift.
  */
 
+import { packProblem, type KitId } from '../artificer/kit';
 import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
 import type { RoadActionId } from '../artificer/road';
@@ -228,4 +229,30 @@ export function parseEncounterDecision(text: string, options: readonly { id: str
   if (!picked) return { ok: false, errors: [`"${o.choice}" is not an option here — ${listed}`] };
   if (picked.unmet) return { ok: false, errors: [`"${o.choice}" isn't open to you (${picked.unmet}) — ${listed}`] };
   return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', choice: o.choice } };
+}
+
+// ── Packing for the hike (#1401) ────────────────────────────────────────────
+
+export const PACK_DECISION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['thoughts', 'pack'],
+  properties: {
+    thoughts: { type: 'string', description: 'One or two sentences: what you packed and why.' },
+    pack: { type: 'array', items: { type: 'string' }, description: 'The ids of the items you pack, exactly as listed.' },
+  },
+} as const;
+
+export interface PackDecision { thoughts: string; pack: KitId[] }
+
+/** Validate a packing reply: a list of known ids, none twice, within what the pack holds. Never throws. */
+export function parsePackDecision(text: string): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
+  let raw: unknown;
+  try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
+  const o = raw as Record<string, unknown>;
+  if (!Array.isArray(o.pack) || !o.pack.every(x => typeof x === 'string')) return { ok: false, errors: ['"pack" must be a list of item ids'] };
+  const problem = packProblem(o.pack as string[]);
+  if (problem) return { ok: false, errors: [`your pack won't do: ${problem}`] };
+  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])] } };
 }

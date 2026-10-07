@@ -15,6 +15,7 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
+import { KIT_IDS, PACK_CAPACITY, packWeight, type KitId } from '../../artificer/kit';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import type { Player } from '../runner';
@@ -26,6 +27,17 @@ import { encounterById, unmet, stepOf } from '../../artificer/encounters';
 import { meetingOptions } from '../../artificer/caravan-meeting';
 
 export type RandomMode = 'uniform' | 'legal';
+
+/** Salt for the random player's packing stream (#1401). */
+const PACK_SALT = 7919;
+
+/** A random pack that fits (#1401): the list in a random order, each item taken half the time if it still fits. */
+export function randomPack(rand: () => number): KitId[] {
+  const order = [...KIT_IDS].sort(() => rand() - 0.5);
+  const pack: KitId[] = [];
+  for (const id of order) if (rand() < 0.5 && packWeight([...pack, id]) <= PACK_CAPACITY) pack.push(id);
+  return pack;
+}
 
 /** mulberry32: a tiny, fast, seedable PRNG. Math.random can't be seeded, so runs couldn't repeat. */
 export function rng(seed: number): () => number {
@@ -131,6 +143,10 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     name: `random:${mode}`,
     async decideEncounter(_message, s) {
       return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: encounterOption(s) }), usage: { cost: 0 } };
+    },
+    // Packing (#1401): a random pack that fits — from its own stream, so the rest of the run's picks don't shift.
+    async decidePack() {
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT)) }), usage: { cost: 0 } };
     },
     // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
     async decideMeeting(_message, reach, m) {

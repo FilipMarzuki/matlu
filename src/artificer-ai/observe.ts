@@ -11,7 +11,7 @@
  * model plays the same game a person does rather than a privileged one.
  */
 
-import { kitItem, kitSupplies } from '../artificer/kit';
+import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS } from '../artificer/stats';
 import {
@@ -495,4 +495,21 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     for (const l of recent.slice(-14)) lines.push(`- D${l.day} ${l.text}`);
   }
   return lines.join('\n');
+}
+
+/**
+ * The packing turn (#1401): before the run, the weekend hike — the whole list, by group, with
+ * each item's weight and what it does, what the pack holds, and what's packed now.
+ */
+export function observePack(s: Region1State): string {
+  const now = s.kit?.items ?? [];
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${KIT.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.effect}`).join('\n')}`);
+  return [
+    'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+    `Your pack holds ${PACK_CAPACITY} kg. The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
+    ...groups,
+    `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
+    `THE LEADER'S PACKING LIST (${packWeight(SUGGESTED_PACK)} kg): ${SUGGESTED_PACK.join(', ')}`,
+    'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+  ].join('\n\n');
 }

@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { repack, createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -28,7 +28,7 @@ import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
-import { SUGGESTED_PACK, kitItem, kitSupplies } from '../artificer/kit';
+import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
@@ -886,9 +886,12 @@ document.body.appendChild(introEl);
 // The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
 let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
+/** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
+let draftPack: KitId[] = [...SUGGESTED_PACK];
 
 function startIntro(kind: IntroKind): void {
   draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+  draftPack = kind === 'carry' && state.sim.kit ? [...state.sim.kit.items] : [...SUGGESTED_PACK];
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
@@ -911,6 +914,8 @@ function endIntro(): void {
 function advanceIntro(): void {
   if (!intro) return;
   if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
+  // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
+  if (intro.beats[intro.i].kind === 'pack') { state = { ...state, sim: repack(state.sim, draftPack) }; render(state); }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
@@ -926,7 +931,7 @@ function renderIntro(): void {
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
   const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name))}</p>`).join('')
-    + (b.kind === 'create' ? createForm() : '');
+    + (b.kind === 'create' ? createForm() : b.kind === 'pack' ? packForm() : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -938,13 +943,43 @@ function renderIntro(): void {
       <span class="dots" aria-hidden="true">${dots}</span>
       <span class="spacer"></span>
       ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
-      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
+      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : b.kind === 'pack' ? 'OFF WE GO ▸' : 'CONTINUE ▸'}</button>
     </div>`;
   const beatEl = introEl.querySelector('.beat');
   if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
+}
+
+/**
+ * The packing screen (#1401): the whole list, by group — each item with its weight, what it does
+ * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
+ * The weight bar and the leader's list stay at the bottom.
+ */
+function packForm(): string {
+  const kg = packWeight(draftPack);
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
+    const items = KIT.filter(k => k.group === g).map(k => {
+      const on = draftPack.includes(k.id);
+      const fits = on || packWeight([...draftPack, k.id]) <= PACK_CAPACITY;
+      return `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : "won't fit — take something out first"}">`
+        + `<span class="khead"><b>${esc(k.name)}</b>${k.sv && k.sv.toLowerCase() !== k.name.toLowerCase() ? ` <i>${esc(k.sv)}</i>` : ''}<span class="kkg">${k.weight} kg</span></span>`
+        + `<span class="keffect">${esc(k.effect)}</span><span class="knote">${esc(k.note)}</span></button>`;
+    }).join('');
+    return `<p class="clabel">${esc(KIT_GROUPS[g].toUpperCase())}</p><div class="kchoices">${items}</div>`;
+  }).join('');
+  const pct = Math.min(100, (kg / PACK_CAPACITY) * 100);
+  return `<form class="create pack" onsubmit="return false">
+    <p class="mood" style="margin:0">The backpack comes free, and the clothes you're wearing. Everything else has to fit in ${PACK_CAPACITY} kg.</p>
+    ${groups}
+    <div class="kfoot">
+      <div class="kbar" role="meter" aria-label="Pack weight" aria-valuemin="0" aria-valuemax="${PACK_CAPACITY}" aria-valuenow="${kg}"><span style="width:${pct}%"></span></div>
+      <span class="kweight"><b>${kg}</b> / ${PACK_CAPACITY} kg</span>
+      <button type="button" class="pill" data-kitcmd="leader">THE LEADER'S LIST</button>
+      <button type="button" class="pill" data-kitcmd="empty">EMPTY IT</button>
+    </div>
+  </form>`;
 }
 
 /** The creation form: name, portrait, two of four offered talents, stats. Choices live in `draft` until Continue. */
@@ -990,10 +1025,19 @@ function statsForm(): string {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age]');
-  const creating = intro?.beats[intro.i].kind === 'create';
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
+  const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
+  // Packing (#1401): tap to pack or take out; only what fits goes in.
+  if (btn?.dataset.kit) {
+    const id = btn.dataset.kit as KitId;
+    if (draftPack.includes(id)) draftPack = draftPack.filter(x => x !== id);
+    else if (validPack([...draftPack, id])) draftPack = [...draftPack, id];
+    renderIntro(); return;
+  }
+  if (btn?.dataset.kitcmd) { draftPack = btn.dataset.kitcmd === 'leader' ? [...SUGGESTED_PACK] : []; renderIntro(); return; }
   if (btn?.dataset.stat) {
     // A step up or down, only if point-buy allows it (the buttons are disabled otherwise, but check anyway).
     const id = btn.dataset.stat as StatId;
@@ -1023,7 +1067,7 @@ document.addEventListener('keydown', e => {
   const typing = (e.target as HTMLElement).tagName === 'INPUT';
   if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
   else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
-  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create') { e.preventDefault(); advanceIntro(); }
+  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create' && intro.beats[intro.i].kind !== 'pack') { e.preventDefault(); advanceIntro(); }
 });
 
 function update(next: AppState): void {

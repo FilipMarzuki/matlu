@@ -16,7 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
-import { startFromPack, hasKit, kitColdCost, kitTimeMult, type KitId, type KitState } from './kit';
+import { startFromPack, hasKit, kitColdCost, kitTimeMult, validPack, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -1711,6 +1711,26 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
 }
 
 // ── The hike kit (#1400) ────────────────────────────────────────────────────
+
+/**
+ * Pack again before setting out (#1401): on day 1, before any work, swap the pack — its tools,
+ * food, cord, dressings and supplies — for another. Refused (no change) once the day has begun,
+ * or for a pack that won't do.
+ */
+export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
+  if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack)) return s;
+  const old = s.kit ? startFromPack(s.kit.items) : null;
+  const p = startFromPack(pack);
+  const next = clone(s);
+  // On the first morning, the tools are the pack's.
+  next.tools = p.tools.map(t => ({ ...t }));
+  next.stores.rations += p.stores.rations - (old?.stores.rations ?? 0);
+  next.stores.materials += p.stores.materials - (old?.stores.materials ?? 0);
+  next.dressings = p.dressings || undefined;
+  next.kit = { ...p.kit, items: [...p.kit.items] };
+  next.character = { ...next.character, pack: [...pack] };
+  return next;
+}
 
 /** What the kit adds: a notebook's insight, a sit pad's rest, a comic, rain gear, dry socks, and the night's comforts. */
 export const NOTEBOOK_INSIGHT = 0.1, SIT_PAD_VIGOR = 2, COMIC_CLARITY = 3, RAIN_GEAR_WET = 0.5, SOCKS_WET = 0.5;
