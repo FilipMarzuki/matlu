@@ -56,9 +56,20 @@ const playtestHref = lang === 'sv' ? '/sv/playtest' : '/playtest';
           : <>Världsguiden för <strong>Core Warden</strong> — lore, biomer, väsen och mer. Utforska världen, möt dess folk och hjälp till att skapa väsen.</>
         }
       </p>
-      <a href={gameUrl} class="cta" target="_blank" rel="noopener">
-        {t(lang, 'Play Core Warden →', 'Spela Core Warden →')}
-      </a>
+      <p class="games-line">
+        {lang === 'en'
+          ? <>Two games share the Matlu multiworld: <strong>Core Warden</strong> (action RPG) and <strong>Artificer: Convergence</strong> (survival crafter).</>
+          : <>Två spel delar Matlu-multiversum: <strong>Core Warden</strong> (action-RPG) och <strong>Artificer: Convergence</strong> (överlevnadscrafting).</>
+        }
+      </p>
+      <div class="cta-row-hero">
+        <a href={gameUrl} class="cta" target="_blank" rel="noopener">
+          {t(lang, 'Play Core Warden →', 'Spela Core Warden →')}
+        </a>
+        <a href={`${gameUrl}/crafter`} class="cta cta-secondary" target="_blank" rel="noopener">
+          {t(lang, 'Play Artificer: Convergence →', 'Spela Artificer: Convergence →')}
+        </a>
+      </div>
     </div>
     <div class="hero-divider" aria-hidden="true">
       <svg
@@ -202,6 +213,32 @@ const playtestHref = lang === 'sv' ? '/sv/playtest' : '/playtest';
   }
 
   .lead strong { color: var(--text); }
+
+  .games-line {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    max-width: 500px;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .games-line strong { color: var(--text); }
+
+  .cta-row-hero {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  a.cta.cta-secondary {
+    background: var(--surface-hi);
+    color: var(--text);
+    border: 1px solid var(--gold-dim);
+    box-shadow: none;
+  }
+
+  a.cta.cta-secondary:hover  { box-shadow: 2px 2px 0 var(--gold-dim); }
+  a.cta.cta-secondary:active { box-shadow: none; transform: translate(1px, 1px); }
 
   a.cta {
     display: inline-block;
