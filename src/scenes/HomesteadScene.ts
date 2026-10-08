@@ -26,6 +26,7 @@ import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
+import { bufferShoreline } from '../world/CollisionGrid';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
 // The 60×60 grid (meadow left half, WorldForge terrain right half, mountain
@@ -405,6 +406,12 @@ export class HomesteadScene extends Phaser.Scene {
     this.occupied = new Uint8Array(this.gridW * this.gridH);
     this.walkGrid = Uint8Array.from(collisionLayer.values);
     this.roadGrid = new Uint8Array(this.gridW * this.gridH);
+
+    // Collision layer blocks deep water, but its SE-offset vs the Biome
+    // layer leaves a strip of visually-wet shore tiles walkable (#938).
+    // Grow the blocked zone by one tile around every water tile so the
+    // player stops right at the shore instead of wading into it.
+    bufferShoreline(this.walkGrid, this.biomeGrid);
 
     // Physics world stays in flat grid space
     this.physics.world.setBounds(0, 0, this.worldW, this.worldH);
