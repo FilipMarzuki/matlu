@@ -99,9 +99,20 @@ a missing build-wiki/build-dev job is fine — it means those jobs weren't trigg
 
 ## Step 5 — High-risk file check
 
-Hold (do not merge) any PR that touches:
+First run the merge gate (#1431) for every PR you plan to merge:
+
+```bash
+node .github/scripts/risk-score.mjs --pr <number> --gate
+```
+
+Exit code 3 means **hold** — it prints why (CI hasn't passed on the head commit,
+or the PR is `risk:high` and has no `human-approved` label added by a person
+after its last commit). Never merge a held PR, and never add `human-approved`
+yourself.
+
+Also hold (do not merge) any PR that touches:
 - `.github/workflows/` — CI/CD changes need human review
-- A **"Second opinion (<model>)"** review (DevCycle 3b, another model family
+- A **"Second opinion (<model>)"** review (DevCycle 3c, another model family
   via OpenRouter) with `Verdict: request-changes` — it never blocks on its own,
   but a disagreement between reviewers is a hold for human review
 - `CLAUDE.md` — project instructions

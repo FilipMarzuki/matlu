@@ -6,8 +6,12 @@
 // OpenRouter model, and posts the answer as a COMMENT review — never approve
 // or request-changes, so it can't gate the merge.
 //
+// With --focus <lens> it is a focused review instead (#1431): the prompt is
+// .agents/review-lenses/<lens>.md plus the findings shape in _shape.md, not the
+// general rules. The risk workflow runs one per lens on high-risk PRs.
+//
 // Usage:
-//   node .github/scripts/run-second-review.js --pr 123 [--dry-run] [--model <id>]
+//   node .github/scripts/run-second-review.js --pr 123 [--dry-run] [--model <id>] [--focus <lens>]
 // Env:
 //   GITHUB_TOKEN, GITHUB_REPOSITORY (owner/repo)    required
 //   OPENROUTER_API_KEY                               required unless --dry-run
@@ -33,8 +37,11 @@ const flag = (name) => {
 const prNumber = Number(flag('pr'));
 const dryRun = flag('dry-run') === 'true';
 const model = flag('model') || process.env.SECOND_REVIEW_MODEL || DEFAULT_MODEL;
+const focus = flag('focus');
 
-if (!prNumber) { console.error('Usage: run-second-review.js --pr <number> [--dry-run] [--model <id>]'); process.exit(2); }
+if (!prNumber) { console.error('Usage: run-second-review.js --pr <number> [--dry-run] [--model <id>] [--focus <lens>]'); process.exit(2); }
+// The lens names a file, so keep it to a plain name (no paths).
+if (focus && !/^[a-z][a-z0-9-]*$/.test(focus)) { console.error(`Bad --focus: ${focus}`); process.exit(2); }
 
 const repo = process.env.GITHUB_REPOSITORY;
 const ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
@@ -67,9 +74,13 @@ async function gh(pathname, { accept = 'application/vnd.github+json', method = '
 // ── Prompt ──────────────────────────────────────────────────────────────────
 function buildPrompt(pr, diff) {
   const root = path.resolve(__dirname, '..', '..');
-  const rules = fs.readFileSync(path.join(root, '.agents', 'review.md'), 'utf8')
-    .replace(/\{\{pr_number\}\}/g, String(pr.number));
-  const override = fs.readFileSync(path.join(root, '.agents', 'review-second-opinion.md'), 'utf8');
+  const read = (...p) => fs.readFileSync(path.join(root, '.agents', ...p), 'utf8');
+  // A focused review gets its lens and the findings shape; the second opinion
+  // gets the general review rules and its delivery override.
+  const rules = focus
+    ? read('review-lenses', `${focus}.md`)
+    : read('review.md').replace(/\{\{pr_number\}\}/g, String(pr.number));
+  const override = focus ? read('review-lenses', '_shape.md') : read('review-second-opinion.md');
 
   let diffText = diff;
   if (Buffer.byteLength(diffText, 'utf8') > DIFF_CAP_BYTES) {
@@ -106,7 +117,7 @@ async function review(prompt) {
       'Content-Type': 'application/json',
       // OpenRouter attribution headers (optional, shown in their dashboard).
       'HTTP-Referer': `https://github.com/${repo}`,
-      'X-Title': `${repo} second-opinion review`,
+      'X-Title': `${repo} ${focus ? `focused review (${focus})` : 'second-opinion review'}`,
     },
     body: JSON.stringify({
       model,
@@ -137,12 +148,14 @@ async function review(prompt) {
   }
 
   const { text, usedModel } = await review(prompt);
-  const verdict = /VERDICT:\s*(approve|request-changes)/i.exec(text)?.[1]?.toLowerCase() ?? 'unclear';
+  const verdict = focus
+    ? `${/FINDINGS:\s*(\d+)/i.exec(text)?.[1] ?? '?'} finding(s)`
+    : /VERDICT:\s*(approve|request-changes)/i.exec(text)?.[1]?.toLowerCase() ?? 'unclear';
 
   const body = [
-    `## Second opinion (${usedModel})`,
+    focus ? `## Focused review — ${focus} (${usedModel})` : `## Second opinion (${usedModel})`,
     '',
-    `_Verdict: **${verdict}** — advisory only; this review does not gate the merge._`,
+    `_${focus ? 'Result' : 'Verdict'}: **${verdict}** — advisory only; this review does not gate the merge._`,
     '',
     text.trim(),
     '',
@@ -153,5 +166,5 @@ async function review(prompt) {
   // COMMENT, never APPROVE / REQUEST_CHANGES: two reviewers must not be able
   // to deadlock a PR, and the merge agent's rules already read review bodies.
   await gh(`/pulls/${prNumber}/reviews`, { method: 'POST', body: { event: 'COMMENT', body } });
-  console.log(`Posted second-opinion review on #${prNumber} (${usedModel}, verdict: ${verdict}).`);
+  console.log(`Posted ${focus ? `focused (${focus})` : 'second-opinion'} review on #${prNumber} (${usedModel}, ${verdict}).`);
 })().catch((err) => { console.error(err); process.exit(1); });

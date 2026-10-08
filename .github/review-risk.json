@@ -1,0 +1,29 @@
+{
+  "$comment": "Risk rules for PR review routing (#1431). Each rule adds its weight once if any changed file matches. The total picks the tier; a high tier runs the lenses of the rules that matched. Tune the weights here, not in code.",
+  "tiers": { "medium": 3, "high": 6 },
+  "rules": [
+    { "id": "determinism", "label": "seeded randomness / golden hashes", "weight": 6, "lens": "determinism",
+      "paths": ["src/artificer/rng.ts", "storytelling/**", "mapgen/**"] },
+    { "id": "sim-core", "label": "Artificer sim core", "weight": 3, "lens": "determinism",
+      "paths": ["src/artificer/*.ts"], "exclude": ["**/*.test.ts"] },
+    { "id": "saves", "label": "save format", "weight": 4, "lens": "saves",
+      "paths": ["src/artificer-app/controller.ts", "src/artificer/legacy.ts", "src/lib/*save*.ts", "src/lib/*Save*.ts"] },
+    { "id": "workflows", "label": "CI/CD workflows and scripts", "weight": 6,
+      "paths": [".github/workflows/**", ".github/scripts/**", ".github/review-risk.json"] },
+    { "id": "instructions", "label": "agent instructions", "weight": 3,
+      "paths": ["CLAUDE.md", ".agents/**"] },
+    { "id": "build", "label": "build config / dependencies", "weight": 4,
+      "paths": ["package.json", "package-lock.json", "vite.config.ts", "vitest.config.ts", "tsconfig*.json"] },
+    { "id": "backend", "label": "Supabase / auth", "weight": 5,
+      "paths": ["supabase/**", "src/lib/supabase*.ts", "src/types/database.types.ts"] },
+    { "id": "spend", "label": "scripts that spend money", "weight": 5,
+      "paths": ["scripts/pixellab-*", "scripts/ai-*", "src/artificer-ai/players/**"] }
+  ],
+  "size": [ { "lines": 400, "weight": 1 }, { "lines": 1000, "weight": 2 } ],
+  "untested": { "label": "no test changes", "weight": 2,
+    "codePaths": ["src/**/*.ts", "storytelling/**/*.ts", "mapgen/**/*.ts", "scripts/**"],
+    "testPaths": ["**/*.test.ts", "tests/**"] },
+  "lowRisk": { "label": "docs, styles or assets only",
+    "paths": ["**/*.md", "wiki/**", "dev/**", "**/*.css", "public/**", "screenshots/**"] },
+  "defaultLens": "general"
+}

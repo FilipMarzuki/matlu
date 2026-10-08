@@ -1,8 +1,8 @@
 name: DevCycle 3b — Second opinion
 
-# A second PR review from a different model family, via OpenRouter. Fires on
-# the same event as DevCycle 3 — Review (CI passed on a pull_request) and runs
-# in parallel with it, so neither reviewer anchors the other. Posts a COMMENT
+# A second PR review from a different model family, via OpenRouter. Manual
+# only since #1431: DevCycle 3c — Risk review now runs it automatically for
+# medium- and high-risk PRs. Use this to re-run it by hand. Posts a COMMENT
 # review only — it never approves or requests changes, so it can't gate the
 # merge; DevCycle 5 — Grooming and humans read it alongside the Claude review.
 #
@@ -11,9 +11,6 @@ name: DevCycle 3b — Second opinion
 # job logs why and exits green, so forks and local runs don't break.
 
 on:
-  workflow_run:
-    workflows: ["DevCycle 2 — CI"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:

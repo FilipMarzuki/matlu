@@ -279,13 +279,21 @@ Write PR descriptions as a learning resource for someone new to this tech stack.
 
 ## Before merging a PR — always review first
 
-No PR merges without a review pass. "Merge it" means, in order:
+No PR merges without a review pass, and the depth of review scales with the PR's **risk tier** (#1431). A script scores every PR from the paths it touches, its size and whether code changed without tests — rules and weights in **`.github/review-risk.json`** — and *DevCycle 3c — Risk review* labels it and comments the reasons:
 
-1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
-2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. *DevCycle 3 — Review* and *3b — Second opinion* run after CI passes on a PR push; marking a PR ready doesn't re-run CI, so start them by hand: `workflow_dispatch` on `review-agent.yml` and `review-second-opinion.yml` with `pr_number`. Address blocking findings.
-3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves; or merge by hand when the person you work for says so after steps 1–2.
+| Tier | Typical PR | Reviews |
+| ---- | ---------- | ------- |
+| `risk:low` | docs, wiki, styles, game code with tests | self-review + *DevCycle 3 — Review* |
+| `risk:medium` | agent instructions, sim code, large diffs | + a second opinion from another model family (`REVIEW_MODEL_MEDIUM`) |
+| `risk:high` | seeded RNG / golden hashes, save format, CI workflows, build config, Supabase, paid-API scripts | + one focused review per lens (`.agents/review-lenses/`: determinism, saves, general) on a stronger model (`REVIEW_MODEL_HIGH`); **no merge until a person adds `human-approved`** — removed again if new commits are pushed |
 
-Never mark a PR ready and merge it in the same step — that skips the review agents entirely.
+"Merge it" means, in order:
+
+1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Go deeper the higher the tier: for `risk:high`, check the matching lens file's list by hand too. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
+2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. Marking ready starts *3c — Risk review*, which scores the PR, starts *DevCycle 3 — Review*, and runs the paid reviews its tier calls for. Address blocking findings; read the focused reviews' findings and fix the real ones.
+3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves (and, for `risk:high`, once a person has added `human-approved` — adding it starts DevCycle 4); or merge by hand when the person you work for says so after steps 1–2. Every merge path runs the gate `node .github/scripts/risk-score.mjs --pr N --gate` (exit 3 = hold): CI must have passed on the head commit.
+
+Never mark a PR ready and merge it in the same step — that skips the review agents entirely. **Agents never add the `human-approved` label** — on a `risk:high` PR, report the reviews' findings and ask.
 
 ## Code comments
 
@@ -384,7 +392,8 @@ Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claud
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
 | **Submission to Entity** | **on insert** (`creature_submissions`) + manual | `.agents/submission-to-entity.md` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY`, `CLAUDE_CODE_PERSONAL` → `CLAUDE_CODE_OAUTH_TOKEN` in job; `GH_TRACKER_TOKEN` (Edge Function secret) | Converts a new community creature submission into entity spec + Notion + GitHub issue; auto-dispatched via `trigger-entity-pipeline` |
-| **DevCycle 3b — Second opinion** | after DevCycle 2 — CI (parallel with Review) | `.agents/review.md` + `.agents/review-second-opinion.md` | `OPENROUTER_API_KEY`; variable `SECOND_REVIEW_MODEL` (default `google/gemini-2.5-pro`) | Reviews the PR with a different model family via OpenRouter and posts a **comment** review (never approve/request-changes). Skips drafts; exits green if the secret is unset. `node .github/scripts/run-second-review.js --pr N --dry-run` prints the prompt. |
+| **DevCycle 3c — Risk review** | after DevCycle 2 — CI; on *ready for review*; on new commits; on the `human-approved` label | `.github/review-risk.json`, `.agents/review-second-opinion.md`, `.agents/review-lenses/*.md` | `OPENROUTER_API_KEY`; variables `REVIEW_MODEL_MEDIUM` (default `google/gemini-2.5-pro`), `REVIEW_MODEL_HIGH` (default `openai/gpt-5`); optional `GH_TRACKER_TOKEN` | Scores the PR (`risk-score.mjs`), labels `risk:<tier>`, comments the reasons. Medium/high: second-opinion **comment** review; high: one focused comment review per lens. Paid reviews only after CI passed, same-repo PRs only; `pull_request_target`, so the base branch's workflow and scripts run. New commits remove `human-approved`; adding it starts DevCycle 4. `node .github/scripts/run-second-review.js --pr N --focus saves --dry-run` prints a lens prompt. |
+| **DevCycle 3b — Second opinion** | manual only (`workflow_dispatch`) | `.agents/review.md` + `.agents/review-second-opinion.md` | `OPENROUTER_API_KEY`; variable `SECOND_REVIEW_MODEL` | Re-runs the second-opinion review by hand; 3c runs it automatically for medium/high PRs. Exits green if the secret is unset. |
 | Refinement 2 — Hygiene | after Refinement 1 — Triage | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
 | DevCycle 5 — Grooming | after DevCycle 1 — Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `GITHUB_TOKEN`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files GitHub bugs |

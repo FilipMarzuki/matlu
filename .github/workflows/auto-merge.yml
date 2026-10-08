@@ -2,14 +2,22 @@ name: DevCycle 4 — Merge
 
 # Squash-merges a PR after the Review agent completes — but only if the
 # PR has been approved. This ensures every merge goes through CI + Review.
+# Also started by DevCycle 3c with a PR number when a person adds
+# `human-approved` to a high-risk PR (#1431).
 on:
   workflow_run:
     workflows: ["DevCycle 3 — Review"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to merge if it passes every gate'
+        required: true
+        type: string
 
 jobs:
   auto-merge:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -24,6 +32,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            echo "pr_number=${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           # Download the review-result artifact from the triggering Review run
           RUN_ID=${{ github.event.workflow_run.id }}
           ARTIFACT_URL=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts" \
@@ -55,8 +67,24 @@ jobs:
             echo "PR #${{ steps.find-pr.outputs.pr_number }} is NOT approved — skipping merge"
           fi
 
-      - name: Squash-merge PR
+      # The merge gate (#1431): CI passed on the head commit, and a high-risk
+      # PR has `human-approved` from a person, added after its last commit.
+      # Scored here from main's rules rather than read from the risk:* label,
+      # so a merge can't slip through before DevCycle 3c has labelled the PR.
+      - uses: actions/checkout@v7
         if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
+
+      - name: Merge gate
+        if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
+        id: risk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        # Exit 3 = hold: not a failure, so the run stays green; merge=false skips the merge.
+        run: node .github/scripts/risk-score.mjs --pr ${{ steps.find-pr.outputs.pr_number }} --gate || [ $? -eq 3 ]
+
+      - name: Squash-merge PR
+        if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0 && steps.risk.outputs.merge == 'true'
         env:
           # Use GH_TRACKER_TOKEN (PAT) so the merge fires the workflow_run
           # event Bender / Marvin listen for. GitHub suppresses workflow_run
