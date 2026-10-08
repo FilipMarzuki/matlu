@@ -9,6 +9,7 @@
 
 import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
+import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
@@ -293,6 +294,8 @@ export interface RunResult {
   packed?: PackRecord;
   /** The Warden's talents and quirks at the end (#1267): true tiers, signs, and when each hidden one came to light. */
   gifts?: GiftRecord;
+  /** The adult stat spread the Warden was made with (#1259) — chosen, or carried from the last run. */
+  spread?: Stats;
 }
 
 /** Talents and quirks, for analysis (#1267). True values — the player never sees tiers. */
@@ -349,6 +352,11 @@ export interface PlayOptions {
   characterId?: string;
   /** Talents the player wants (#1263) — taken only if both were offered, else the first two offered. */
   talents?: TalentId[];
+  /**
+   * The stat spread chosen at creation (#1259), as a person would spend their points — must be
+   * valid. Default: all 10s. Carrying on, the legacy's stats win and this is ignored.
+   */
+  stats?: Stats;
   /** The year's calendar — the default 60-day year, or a short one for tests (#1301). */
   calendar?: Calendar;
   /**
@@ -395,7 +403,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // person's Warden, a scout (#1398), 12 years old (#1399), with the leader's packing list (#1400).
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.stats && !opts.legacy ? { stats: { ...opts.stats } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  if (opts.stats && !opts.legacy && !validStats(opts.stats)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
+  const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   // Who the Warden was at the start, for the gift record (#1267): the picks, and hidden talents already found.
@@ -580,7 +590,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   }
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
-  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}), gifts: giftsOf(s, giftStart) };
+  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}), gifts: giftsOf(s, giftStart), spread };
   if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
     const decideRoad = player.decideRoad.bind(player);
     const count = (reply: { text: string; usage?: Partial<Usage> }): string => {

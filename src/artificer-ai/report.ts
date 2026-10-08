@@ -25,6 +25,8 @@ export interface Transcript {
     talents: { id: string; tier: number; chosen: boolean; foundEarlier?: boolean; signs: number; revealedDay: number | null }[];
     quirks: { id: string; known: boolean; revealedDay: number | null }[];
   };
+  /** The adult stat spread the Warden was made with (#1259). Absent on older transcripts. */
+  spread?: Record<string, number>;
   /** The caravan road, for a run that rode on (#1251). */
   road?: {
     start: RoadProgress;
@@ -163,6 +165,8 @@ export interface ModelSummary {
   injuries: InjurySummary;
   /** Talents and quirks (#1267): what was picked, how far each grew, and whether the hidden ones came to light. Null without gift records. */
   gifts: GiftSummary | null;
+  /** Stats (#1259): the spreads used, and how far each stat moved in a run. Null on transcripts without stats. */
+  stats: StatSummary | null;
   /** How the caravan was met (#1357); null when no run met it. */
   meetings: MeetingSummary | null;
 }
@@ -286,6 +290,34 @@ export function giftSummaryOf(runs: readonly Transcript[]): GiftSummary | null {
     signs: round(mean(toFind.map(t => t.signs))),
     quirkRuns: firstQuirkDays.length,
     quirkDay: round(mean(firstQuirkDays)),
+  };
+}
+
+export interface StatSummary {
+  /** Runs with stats recorded, and how many different spreads they used. */
+  runs: number;
+  spreads: number;
+  /** Mean change in each stat over a run (growth by use minus wear). */
+  change: Record<string, number>;
+  /** Each run: the spread it was made with, its stats at the start and the end, and the net points gained. */
+  perRun: { spread: string; start: string; end: string; gained: number }[];
+}
+
+const STAT_ORDER = ['str', 'con', 'agi', 'int', 'wil', 'cha'] as const;
+const statsText = (s: Record<string, number>): string => STAT_ORDER.map(k => `${k.toUpperCase()} ${s[k]}`).join(' · ');
+
+/** What the runs' stats came to (#1259): the spreads used and how far each stat moved in a run. */
+export function statSummaryOf(runs: readonly Transcript[]): StatSummary | null {
+  const rs = runs.flatMap(r => {
+    const end = r.turns.at(-1)?.progress.stats ?? r.start.stats;
+    return r.spread && r.start.stats && end ? [{ spread: r.spread, start: r.start.stats as Record<string, number>, end: end as Record<string, number> }] : [];
+  });
+  if (!rs.length) return null;
+  return {
+    runs: rs.length,
+    spreads: new Set(rs.map(r => statsText(r.spread))).size,
+    change: Object.fromEntries(STAT_ORDER.map(k => [k, round(mean(rs.map(r => r.end[k] - r.start[k])))!])),
+    perRun: rs.map(r => ({ spread: statsText(r.spread), start: statsText(r.start), end: statsText(r.end), gained: STAT_ORDER.reduce((n, k) => n + r.end[k] - r.start[k], 0) })),
   };
 }
 
@@ -472,6 +504,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       pins: pinSummaryOf(runs),
       injuries: injurySummaryOf(runs),
       gifts: giftSummaryOf(runs),
+      stats: statSummaryOf(runs),
       meetings: meetingSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
