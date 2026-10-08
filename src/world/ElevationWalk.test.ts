@@ -59,19 +59,20 @@ describe('isCliffBlocked', () => {
   });
 
   it('given a tile with a south-facing cliff edge, when standing in its south half, then movement is blocked', () => {
-    const grid = heightGrid(5, 5, { '2,2': 1 }); // south neighbour (2,3) is lower
+    // East/west neighbours match elevation so only the south drop is live.
+    const grid = heightGrid(5, 5, { '2,2': 1, '1,2': 1, '3,2': 1 }); // south neighbour (2,3) is lower
     const ramps = buildRampSet([]);
     expect(isCliffBlocked(grid, ramps, 2, 2, HALF, HALF + 1, TILE)).toBe(true);
   });
 
   it('given a tile with a south-facing cliff edge, when standing in its north half, then movement is not blocked', () => {
-    const grid = heightGrid(5, 5, { '2,2': 1 });
+    const grid = heightGrid(5, 5, { '2,2': 1, '1,2': 1, '3,2': 1 });
     const ramps = buildRampSet([]);
     expect(isCliffBlocked(grid, ramps, 2, 2, HALF, HALF - 1, TILE)).toBe(false);
   });
 
   it('given a ramp tile overlapping a cliff edge, when checking any position inside it, then movement is never blocked', () => {
-    const grid = heightGrid(5, 5, { '2,2': 1 });
+    const grid = heightGrid(5, 5, { '2,2': 1, '1,2': 1, '3,2': 1 });
     const ramps = buildRampSet([{ tx: 2, ty: 2 }]);
     expect(isCliffBlocked(grid, ramps, 2, 2, HALF, HALF + 1, TILE)).toBe(false);
     expect(isCliffBlocked(grid, ramps, 2, 2, HALF, HALF - 1, TILE)).toBe(false);
