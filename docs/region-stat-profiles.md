@@ -124,9 +124,32 @@ who choose:
 Later, when Mistheim and further regions exist, the same table grows a column
 per region.
 
+### Results (first run, 8 October)
+
+Llama 4 Maverick, three presets, the Reach plus the road. 5 games, about $2.84.
+The Haiku 4.5 runs all crashed before finishing (see the harness bugs below).
+
+| Preset (adult spread) | Runs | Outcome | Cause of death | Stats at the end (age 12) |
+|---|---|---|---|---|
+| **strong** (STR 13, CON 13) | 1 | **survived**, winter-ready day 32; the road: arrived, 52 marks | — | STR 10 · CON 11 · AGI 10 · INT 8 · WIL 8 · CHA 9 |
+| **balanced** (all 11) | 2 | died day 26, day 26 | an encounter (a bear); collapse in the cold | STR 7 · CON 8 · AGI 10 · INT 9 · WIL 9 · CHA 10 |
+| **clever** (INT 13, WIL 13) | 2 | died day 15, day 26 | collapse: hunger and cold, twice | STR 6 · CON 7 · AGI 9 · INT 11 · WIL 11 · CHA 9 |
+
+**What it suggests.** This is a tiny sample (5 games, one model), so read it as a direction, not a verdict.
+
+- **For a player who chooses, the Reach rewards the body heavily.** The only survivor leaned STR and CON. Both mind-leaning runs collapsed from deprivation, which costs Condition at −3% per point of CON.
+- **The young-Warden gap makes it sharper.** At 12, CON lags the adult value by about 3, so a clever Warden starts at CON 7.
+- **The clever build is a trap in Region 1, not just a dump-stat question.** It doesn't merely do worse; it dies. That backs the proposal in §3 (later regions must pay INT and WIL back). It also raises a Region 1 question: should INT give a mind-leaning Warden a way through? For example, better planning, preserving or shelter craft that makes up for a frail body.
+
+**Harness bugs this run exposed** (#1448, #1449):
+1. **Context overflow.** A whole-year game plus the road overflows a 200k-token context: Haiku crashed at about 203k on every run. The runner sends the whole conversation each turn, so long games need history trimming or summarising.
+2. **The budget is checked between runs, not during them.** One surviving Llama game cost $2.52 against a $0.50 cap. The context grows each turn, and a game that lives to the end is roughly 25× the cost of one that dies early.
+
+**Next:** fix the two harness bugs, then rerun with more games (5 per preset, two models), so each preset has enough runs to compare.
+
 ## 6. Follow-ups (to file once this is agreed)
 
-1. Run the bench in §5 and add the results here.
+1. Fix the two harness bugs above, then rerun the bench in §5 with 5 games per preset.
 2. Mistheim's stat hooks: CHA and INT exercise for a settled stay, and CHA, INT
    and WIL checks.
 3. A WIL off-stat test in the Reach that's visible in play: the stone and panic
@@ -135,3 +158,4 @@ per region.
    way through.
 5. Each region's profile as data, so the AI rules text and the bench report can
    show it.
+6. Region 1: decide whether INT should give a mind-leaning Warden a way through the Reach, or whether body-first is the intended lesson.
