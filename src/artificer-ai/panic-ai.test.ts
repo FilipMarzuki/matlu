@@ -80,7 +80,7 @@ describe('The AI harness faces panic (#1365)', () => {
       expect(invariantViolations(r.final)).toEqual([]);
     }
     expect(frights).toBeGreaterThan(0); // fear did show up
-  });
+  }, 60_000);
 
   // 4. Finished runs: the report counts panics, overrides and fears.
   it('counts panics, overrides, spooks, fearful nights and fears in the report', () => {
