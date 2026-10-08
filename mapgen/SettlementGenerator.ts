@@ -9,10 +9,11 @@
  *   5. Selects buildings from the building registry
  *   6. Returns a fully resolved SettlementSpec + building list
  *
- * Culture data is loaded from Supabase at runtime via `initSettlementData()`.
- * Falls back to the bundled JSON snapshot when Supabase is unavailable.
- * Building registry is still JSON-only (not yet migrated). The generator
- * never switches on culture id — all culture effects come from numeric modifiers.
+ * mapgen/ is hermetic — no Phaser, no Supabase, no src/ imports. Culture and
+ * building registry data is injected via `MapgenData` rather than fetched;
+ * callers (src/ scenes, the generate-settlement script, tests) own loading
+ * it from Supabase or the bundled JSON snapshot. The generator never
+ * switches on culture id — all culture effects come from numeric modifiers.
  *
  * ## Output compatibility
  * The output includes a `resolvedBuildings` array that maps to the same
@@ -32,17 +33,9 @@ import type {
   AdjacentResource,
 } from './SettlementSpec';
 
-import { loadMacroWorld, getTraitSlugsForCulture } from '../lib/macroWorld';
-import type { Culture, Building } from '../lib/macroWorld';
-
-// ── JSON fallback (bundled by Vite, used when Supabase unavailable) ─────────
-
-import culturesDataFallback from '../../macro-world/cultures.json';
-import buildingRegistryData from '../../macro-world/building-registry.json';
-
 // ── Types ───────────────────────────────────────────────────────────────────
 
-interface CultureDef {
+export interface CultureDef {
   id: string;
   name: string;
   spacing: number;
@@ -57,7 +50,7 @@ interface CultureDef {
   traits: string[];
 }
 
-interface BuildingRegistryEntry {
+export interface BuildingRegistryEntry {
   id: string;
   name: string;
   role: string;
@@ -72,6 +65,12 @@ interface BuildingRegistryEntry {
   placementHints: string[];
   loreHook: string;
   pathTo?: string[];
+}
+
+/** Culture + building registry data a caller must supply to the generator. */
+export interface MapgenData {
+  cultures: CultureDef[];
+  buildings: BuildingRegistryEntry[];
 }
 
 /** A building selected by the generator, ready for the layout engine. */
@@ -96,76 +95,6 @@ export interface ResolvedBuilding {
   loreHook: string;
   /** IDs of buildings this one should have a direct path to (phase 3 connector). */
   pathTo?: string[];
-}
-
-// ── Data (populated by initSettlementData, JSON fallback until then) ────────
-
-/** Map a Supabase Culture row to the internal CultureDef shape. */
-function cultureToDef(c: Culture): CultureDef {
-  return {
-    id:                  c.slug,
-    name:                c.name,
-    spacing:             c.spacing ?? 1.0,
-    organicness:         c.organicness ?? 0.5,
-    hierarchyScale:      c.hierarchy_scale ?? 1.0,
-    perimeterAwareness:  c.perimeter_awareness ?? 0.0,
-    facingBias:          c.facing_bias ?? 'random',
-    verticality:         c.verticality ?? 0.0,
-    preferredShapes:     c.preferred_shapes ?? [],
-    roofStyle:           c.roof_style ?? 'thatch',
-    streetPattern:       c.street_pattern ?? 'organic',
-    traits:              getTraitSlugsForCulture(c.id),
-  };
-}
-
-/** Map a Supabase Building row to the internal BuildingRegistryEntry shape. */
-function buildingToDef(b: Building): BuildingRegistryEntry {
-  return {
-    id:               b.slug,
-    name:             b.name,
-    role:             b.role ?? '',
-    category:         b.category ?? 'residential',
-    minTier:          b.min_tier ?? 1,
-    zone:             (b.zone ?? 'middle') as 'inner' | 'middle' | 'outer',
-    baseSizeRange:    [b.base_size_min ?? 2, b.base_size_max ?? 3],
-    baseDepthRange:   b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] : undefined,
-    heightHint:       b.height_hint ?? 'standard',
-    unlockConditions: (b.unlock_conditions ?? {}) as Record<string, unknown>,
-    count:            (b.count ?? {}) as Record<string, number>,
-    placementHints:   b.placement_hints ?? [],
-    loreHook:         b.lore_hook ?? '',
-  };
-}
-
-/** Parse the bundled JSON fallback into CultureDef[]. */
-function fallbackCultures(): CultureDef[] {
-  return culturesDataFallback.cultures as CultureDef[];
-}
-
-/** Parse the bundled JSON fallback into BuildingRegistryEntry[]. */
-function fallbackBuildings(): BuildingRegistryEntry[] {
-  return (buildingRegistryData.buildings as unknown[])
-    .filter((b: unknown) => typeof b === 'object' && b !== null && 'id' in (b as Record<string, unknown>)) as BuildingRegistryEntry[];
-}
-
-let CULTURES: CultureDef[] = fallbackCultures();
-let BUILDINGS: BuildingRegistryEntry[] = fallbackBuildings();
-
-/**
- * Load culture + building data from Supabase (falls back to bundled JSON).
- * Call this once during scene init before generating settlements.
- */
-export async function initSettlementData(): Promise<void> {
-  const mw = await loadMacroWorld();
-  if (mw) {
-    CULTURES = mw.cultures.map(cultureToDef);
-    BUILDINGS = mw.buildings.map(buildingToDef);
-    console.log(`[SettlementGenerator] loaded ${CULTURES.length} cultures, ${BUILDINGS.length} buildings from Supabase`);
-  } else {
-    CULTURES = fallbackCultures();
-    BUILDINGS = fallbackBuildings();
-    console.log(`[SettlementGenerator] using JSON fallback (${CULTURES.length} cultures, ${BUILDINGS.length} buildings)`);
-  }
 }
 
 // ── Purpose derivation ───────────────────────────────────────────────────────
@@ -520,6 +449,7 @@ function isUnlocked(
  * Returns buildings in placement priority order (inner/civic first).
  */
 export function selectBuildings(
+  data: MapgenData,
   site: SettlementSite,
   purpose: SettlementPurpose,
   tier: SettlementTier,
@@ -531,7 +461,7 @@ export function selectBuildings(
   const result: ResolvedBuilding[] = [];
   let hierarchyApplied = false;
 
-  for (const entry of BUILDINGS) {
+  for (const entry of data.buildings) {
     if (!isUnlocked(entry, purpose, tier, secondary, site, anomalies)) continue;
 
     // How many of this building at this tier?
@@ -616,12 +546,14 @@ const TIER_RADIUS: Record<SettlementTier, number> = {
  * @param site  Raw site data from the macro map
  * @param name  Display name for the settlement
  * @param rng   Seeded PRNG (mulberry32) — must be dedicated to this settlement
+ * @param data  Culture + building registry data (caller loads this; mapgen/ doesn't fetch it)
  * @returns     Full spec + resolved building list
  */
 export function generateSettlement(
   site: SettlementSite,
   name: string,
   rng: () => number,
+  data: MapgenData,
   /** Optional tier override — if provided, skips deriveTier(). */
   overrideTier?: SettlementTier,
 ): { spec: SettlementSpec; buildings: ResolvedBuilding[] } {
@@ -638,14 +570,14 @@ export function generateSettlement(
   const anomalies = rollAnomalies(tier, rng);
 
   // 5. Look up culture
-  const culture = CULTURES.find(c => c.id === site.cultureId);
+  const culture = data.cultures.find(c => c.id === site.cultureId);
 
   // 6. Derive radius (culture spacing scales the base)
   const spacingMult = culture?.spacing ?? 1.0;
   const radius = Math.round(TIER_RADIUS[tier] * spacingMult);
 
   // 7. Select buildings
-  const buildings = selectBuildings(site, purpose, tier, secondary, anomalies, culture, rng);
+  const buildings = selectBuildings(data, site, purpose, tier, secondary, anomalies, culture, rng);
 
   // 8. Build the spec
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -668,16 +600,16 @@ export function generateSettlement(
 
 // ── Utility: look up a culture by id ─────────────────────────────────────────
 
-export function getCulture(cultureId: string): CultureDef | undefined {
-  return CULTURES.find(c => c.id === cultureId);
+export function getCulture(data: MapgenData, cultureId: string): CultureDef | undefined {
+  return data.cultures.find(c => c.id === cultureId);
 }
 
-/** All loaded cultures — read-only access for UI / debug. */
-export function getAllCultures(): readonly CultureDef[] {
-  return CULTURES;
+/** All cultures in `data` — read-only access for UI / debug. */
+export function getAllCultures(data: MapgenData): readonly CultureDef[] {
+  return data.cultures;
 }
 
-/** All loaded building registry entries — read-only access for UI / debug. */
-export function getAllBuildings(): readonly BuildingRegistryEntry[] {
-  return BUILDINGS;
+/** All building registry entries in `data` — read-only access for UI / debug. */
+export function getAllBuildings(data: MapgenData): readonly BuildingRegistryEntry[] {
+  return data.buildings;
 }

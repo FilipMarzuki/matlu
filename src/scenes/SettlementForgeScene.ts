@@ -26,15 +26,14 @@
 import * as Phaser from 'phaser';
 import type {
   SettlementSite, SettlementTier, SettlementPurpose, Geography,
-} from '../world/SettlementSpec';
+} from '../../mapgen/SettlementSpec';
 import {
   generateSettlement,
-  getAllCultures,
-  initSettlementData,
   type ResolvedBuilding,
-} from '../world/SettlementGenerator';
-import { footprintSpan, placeBuildings } from '../world/SettlementPlacement';
-import type { SettlementSpec } from '../world/SettlementSpec';
+} from '../../mapgen/SettlementGenerator';
+import { footprintSpan, placeBuildings } from '../../mapgen/SettlementPlacement';
+import type { SettlementSpec } from '../../mapgen/SettlementSpec';
+import { getAllCultures, initSettlementData, getMapgenData } from '../world/mapgenData';
 import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
 // ── Sprite config types (mirrors BuildingForgeScene registry) ────────────────
@@ -763,6 +762,7 @@ export class SettlementForgeScene extends Phaser.Scene {
       { ...site, tradeRouteCount: this.currentTier * 2, nearbySettlements: this.currentTier },
       'Forge Preview',
       rng,
+      getMapgenData(),
       this.currentTier,
     );
 

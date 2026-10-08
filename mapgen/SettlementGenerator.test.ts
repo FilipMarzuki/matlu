@@ -18,7 +18,20 @@ import {
   selectBuildings,
   generateSettlement,
   getCulture,
+  type MapgenData,
+  type CultureDef,
+  type BuildingRegistryEntry,
 } from './SettlementGenerator';
+import culturesData from '../macro-world/cultures.json';
+import buildingRegistryData from '../macro-world/building-registry.json';
+
+// mapgen/ takes culture + building data as a plain argument — tests read the
+// bundled JSON registries directly rather than going through Supabase.
+const DATA: MapgenData = {
+  cultures: culturesData.cultures as CultureDef[],
+  buildings: (buildingRegistryData.buildings as unknown[])
+    .filter((b: unknown) => typeof b === 'object' && b !== null && 'id' in (b as Record<string, unknown>)) as BuildingRegistryEntry[],
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -234,7 +247,7 @@ describe('rollAnomalies', () => {
 describe('selectBuildings', () => {
   it('tier 1 outpost gets only basic buildings', () => {
     const rng = mulberry32(42);
-    const buildings = selectBuildings(bareSite(), 'logging', 1, [], [], undefined, rng);
+    const buildings = selectBuildings(DATA, bareSite(), 'logging', 1, [], [], undefined, rng);
     const ids = buildings.map(b => b.id);
 
     // Should have campfire + shelter huts + storage
@@ -254,7 +267,7 @@ describe('selectBuildings', () => {
       features: ['harbour'],
     });
     const rng = mulberry32(42);
-    const buildings = selectBuildings(site, 'fishing', 3, [], [], undefined, rng);
+    const buildings = selectBuildings(DATA, site, 'fishing', 3, [], [], undefined, rng);
     const ids = buildings.map(b => b.id);
 
     expect(ids).toContain('fishing-dock');
@@ -267,7 +280,7 @@ describe('selectBuildings', () => {
       adjacentResources: ['ore'],
     });
     const rng = mulberry32(42);
-    const buildings = selectBuildings(site, 'mining', 3, ['smithing'], [], undefined, rng);
+    const buildings = selectBuildings(DATA, site, 'mining', 3, ['smithing'], [], undefined, rng);
     const ids = buildings.map(b => b.id);
 
     expect(ids).toContain('mine-entrance');
@@ -277,13 +290,13 @@ describe('selectBuildings', () => {
   it('anomaly buildings only appear when anomaly is rolled', () => {
     const rng = mulberry32(42);
     // No anomalies rolled
-    const withoutAnomaly = selectBuildings(bareSite(), 'logging', 3, [], [], undefined, rng);
+    const withoutAnomaly = selectBuildings(DATA, bareSite(), 'logging', 3, [], [], undefined, rng);
     expect(withoutAnomaly.map(b => b.id)).not.toContain('mage-tower');
 
     // Mage tower anomaly rolled
     const rng2 = mulberry32(42);
     const anomalies = [{ type: 'mage-tower' as const, placement: 'high-ground' as const }];
-    const withAnomaly = selectBuildings(bareSite(), 'logging', 3, [], anomalies, undefined, rng2);
+    const withAnomaly = selectBuildings(DATA, bareSite(), 'logging', 3, [], anomalies, undefined, rng2);
     expect(withAnomaly.map(b => b.id)).toContain('mage-tower');
   });
 
@@ -294,7 +307,7 @@ describe('selectBuildings', () => {
       tradeRouteCount: 2,
     });
     const rng = mulberry32(42);
-    const buildings = selectBuildings(site, 'trading-hub', 4, ['military'], [], undefined, rng);
+    const buildings = selectBuildings(DATA, site, 'trading-hub', 4, ['military'], [], undefined, rng);
 
     // First building should be inner zone
     expect(buildings.length).toBeGreaterThan(0);
@@ -302,13 +315,13 @@ describe('selectBuildings', () => {
   });
 
   it('culture hierarchyScale affects first civic building size', () => {
-    const culture = getCulture('mountainhold');
+    const culture = getCulture(DATA, 'mountainhold');
     expect(culture).toBeDefined();
 
     const rng1 = mulberry32(42);
-    const withCulture = selectBuildings(bareSite(), 'logging', 3, [], [], culture, rng1);
+    const withCulture = selectBuildings(DATA, bareSite(), 'logging', 3, [], [], culture, rng1);
     const rng2 = mulberry32(42);
-    const withoutCulture = selectBuildings(bareSite(), 'logging', 3, [], [], undefined, rng2);
+    const withoutCulture = selectBuildings(DATA, bareSite(), 'logging', 3, [], [], undefined, rng2);
 
     // Find the first civic building in each
     const civicWith = withCulture.find(b => b.category === 'civic');
@@ -331,7 +344,7 @@ describe('generateSettlement', () => {
       nearbySettlements: 1,
     });
     const rng = mulberry32(12345);
-    const { spec, buildings } = generateSettlement(site, 'Grindvik', rng);
+    const { spec, buildings } = generateSettlement(site, 'Grindvik', rng, DATA);
 
     expect(spec.id).toBe('grindvik');
     expect(spec.name).toBe('Grindvik');
@@ -349,8 +362,8 @@ describe('generateSettlement', () => {
       tradeRouteCount: 1,
     });
 
-    const result1 = generateSettlement(site, 'Strandvik', mulberry32(999));
-    const result2 = generateSettlement(site, 'Strandvik', mulberry32(999));
+    const result1 = generateSettlement(site, 'Strandvik', mulberry32(999), DATA);
+    const result2 = generateSettlement(site, 'Strandvik', mulberry32(999), DATA);
 
     expect(result1.spec).toEqual(result2.spec);
     expect(result1.buildings).toEqual(result2.buildings);
@@ -363,8 +376,8 @@ describe('generateSettlement', () => {
       tradeRouteCount: 1,
     });
 
-    const result1 = generateSettlement(site, 'Town A', mulberry32(111));
-    const result2 = generateSettlement(site, 'Town A', mulberry32(222));
+    const result1 = generateSettlement(site, 'Town A', mulberry32(111), DATA);
+    const result2 = generateSettlement(site, 'Town A', mulberry32(222), DATA);
 
     // At minimum, tier or building widths should differ
     const sameTier = result1.spec.tier === result2.spec.tier;

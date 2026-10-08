@@ -42,8 +42,8 @@ jobs:
       - name: Run Playwright tests
         run: npm run test
 
-  storytelling:
-    name: Storytelling engine
+  engines:
+    name: Engines (storytelling + mapgen)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -61,6 +61,11 @@ jobs:
       # Golden-master + determinism + cross-seed invariant tests. Fast (pure
       # computation, no browser), so it runs on every push.
       - run: npm run unit:story
+
+      # Standalone strict typecheck of mapgen/ — no src/ or Supabase on the path.
+      - run: npm run mapgen:typecheck
+
+      - run: npm run unit:mapgen
 
   build-wiki:
     name: Build Matlu Codex (wiki/)

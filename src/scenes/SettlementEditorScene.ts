@@ -39,12 +39,13 @@ import {
   drawIsoDiamond, drawIsoBox,
   type IsoConfig, type IsoBoxCorners,
 } from '../lib/IsoRenderer';
+import { generateSettlement } from '../../mapgen/SettlementGenerator';
+import { footprintSpan, placeBuildings } from '../../mapgen/SettlementPlacement';
+import type { SettlementSite, SettlementTier } from '../../mapgen/SettlementSpec';
+import type { EntranceSide } from '../../mapgen/SettlementPlacement';
 import {
-  getAllCultures, getAllBuildings, generateSettlement, initSettlementData,
-} from '../world/SettlementGenerator';
-import { footprintSpan, placeBuildings } from '../world/SettlementPlacement';
-import type { SettlementSite, SettlementTier } from '../world/SettlementSpec';
-import type { EntranceSide } from '../world/SettlementPlacement';
+  getAllCultures, getAllBuildings, initSettlementData, getMapgenData,
+} from '../world/mapgenData';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -747,6 +748,7 @@ export class SettlementEditorScene extends Phaser.Scene {
       site,
       'Editor Import',
       rng,
+      getMapgenData(),
       this.forgeTier,
     );
 

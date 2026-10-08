@@ -7,7 +7,7 @@
  */
 
 import type { ResolvedBuilding } from './SettlementGenerator';
-import { aStarPath } from '../ai/AStarGrid';
+import { aStarPath } from './astar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

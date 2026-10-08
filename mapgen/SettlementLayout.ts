@@ -31,7 +31,17 @@
  * stamping building sprites and physics bodies.
  */
 
-import type { Settlement } from './Level1';
+/**
+ * Minimal shape `layoutSettlement` needs from a settlement record. src/
+ * world/Level1.ts's `Settlement` (id, name, x, y, radius, type) satisfies
+ * this structurally — kept local so mapgen/ has no src/ dependency.
+ */
+export interface LayoutSettlementInput {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+}
 
 /** One tile in world pixels — all positions snap to this grid. */
 const TILE = 16;
@@ -198,7 +208,7 @@ const TEMPLATES: Record<string, Template> = {
  * @param s    Settlement definition from Level1.SETTLEMENTS
  * @param rng  Seeded PRNG (mulberry32) — must be dedicated to this settlement
  */
-export function layoutSettlement(s: Settlement, rng: () => number): SettlementLayout {
+export function layoutSettlement(s: LayoutSettlementInput, rng: () => number): SettlementLayout {
   const template = TEMPLATES[s.id];
   if (!template) {
     // Unknown settlement — return empty layout so nothing breaks.

@@ -13,7 +13,7 @@
  */
 
 import * as Phaser from 'phaser';
-import { footprintSpan } from '../world/SettlementPlacement';
+import { footprintSpan } from '../../mapgen/SettlementPlacement';
 
 /** All the parameters needed to convert between tile and screen space. */
 export interface IsoConfig {

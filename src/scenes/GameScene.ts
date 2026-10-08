@@ -63,10 +63,11 @@ import { StormSovereign } from '../heroes/StormSovereign';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
-import { layoutSettlement } from '../world/SettlementLayout';
-import { generateSettlement, initSettlementData } from '../world/SettlementGenerator';
-import { placeBuildings } from '../world/SettlementPlacement';
-import type { SettlementSite, Geography } from '../world/SettlementSpec';
+import { layoutSettlement } from '../../mapgen/SettlementLayout';
+import { generateSettlement } from '../../mapgen/SettlementGenerator';
+import { placeBuildings } from '../../mapgen/SettlementPlacement';
+import type { SettlementSite, Geography } from '../../mapgen/SettlementSpec';
+import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
@@ -9346,7 +9347,7 @@ export class GameScene extends Phaser.Scene {
         cultureId: 'ikibeki',
       };
 
-      const { spec, buildings } = generateSettlement(site, s.name, rng, this.settlementOverlayTier);
+      const { spec, buildings } = generateSettlement(site, s.name, rng, getMapgenData(), this.settlementOverlayTier);
 
       // Placement grid size — enough tiles to cover the settlement radius.
       const gridSize = Math.max(20, Math.ceil(spec.radius / TILE_SIZE) * 2 + 4);

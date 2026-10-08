@@ -1,5 +1,5 @@
 /**
- * settlement-map-generate — write a generated settlement to a map file (#1170).
+ * generate-settlement — write a generated settlement to a map file (#1170, #1179).
  *
  *   npm run map:settlement -- --seed 42 --id settlement-demo [--geo forest] [--tier 3]
  *
@@ -7,15 +7,37 @@
  * placeBuildings), but instead of drawing the result it emits the LDtk-shaped
  * JSON that MapData.parseLdtkLevel() reads, to public/assets/maps/<id>.json.
  * No browser needed, so it runs in CI and in the terminal.
+ *
+ * mapgen/ takes culture + building data as a plain argument rather than
+ * fetching it, so this script reads the bundled JSON registries directly —
+ * the same snapshot src/ falls back to when Supabase is unreachable.
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { generateSettlement, type SettlementSite } from '../src/world/SettlementGenerator';
-import { placeBuildings } from '../src/world/SettlementPlacement';
-import { emitSettlementMap } from '../src/world/SettlementMapEmitter';
-import { mulberry32 } from '../src/lib/rng';
-import type { Geography, SettlementTier } from '../src/world/SettlementSpec';
+import { generateSettlement, type MapgenData, type CultureDef, type BuildingRegistryEntry } from '../SettlementGenerator';
+import { placeBuildings } from '../SettlementPlacement';
+import { emitSettlementMap } from '../SettlementMapEmitter';
+import type { Geography, SettlementTier, SettlementSite } from '../SettlementSpec';
+import culturesData from '../../macro-world/cultures.json';
+import buildingRegistryData from '../../macro-world/building-registry.json';
+
+/** Mulberry32 — fast, high-quality 32-bit seeded PRNG. Returns values in [0, 1). */
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return (): number => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) >>> 0;
+    return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
+  };
+}
+
+const data: MapgenData = {
+  cultures: culturesData.cultures as CultureDef[],
+  buildings: (buildingRegistryData.buildings as unknown[])
+    .filter((b: unknown) => typeof b === 'object' && b !== null && 'id' in (b as Record<string, unknown>)) as BuildingRegistryEntry[],
+};
 
 // ── Args ────────────────────────────────────────────────────────────────────
 const args = new Map<string, string>();
@@ -49,7 +71,7 @@ const site: SettlementSite = {
   cultureId: 'coastborn',
 };
 
-const { spec, buildings } = generateSettlement(site, id, mulberry32(seed), tier);
+const { spec, buildings } = generateSettlement(site, id, mulberry32(seed), data, tier);
 const gridSize = Math.ceil(spec.radius / TILE) * 3 + 8;
 const result = placeBuildings({
   buildings,
