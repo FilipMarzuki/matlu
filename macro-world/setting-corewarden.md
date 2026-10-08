@@ -56,6 +56,8 @@ The connective thread. Corruption is:
 
 The player's role as Core Warden is to understand and fight this corruption. They don't know any of the above connections at the start. They experience each threat as separate and unrelated. The realization that it's all one force is the arc.
 
+**The Artificer.** Not everyone answers the corruption with a sword. In the sibling game *Artificer: Convergence*, a journeyman of the Workshop-Towns washes up at a different coastborn settlement with the same collisions happening around them — but reads the convergence as opportunity instead of threat. Every realm that merges into Matlu leaves behind materials and principles no single world had on its own: Dvergr metallurgy walking out of the mountains, Spinolandet's bio-organic growths through old wells, human ruins older than any kingdom. Where the Core Warden fights to stop the collision, the Artificer builds through it, turning the age of convergence into the greatest workshop that has ever existed. Two answers to the same corruption, two games in the same world.
+
 ## What the Player Knows at Start
 
 Almost nothing. They are in a beastkin settlement. Things are wrong — creatures from below, strangers from the mountains, bad news from the human border. The local clans are worried but not panicked. The Highfang's council is debating. Nobody has answers.
