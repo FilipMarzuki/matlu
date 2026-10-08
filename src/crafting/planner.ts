@@ -42,12 +42,22 @@ export interface Automation {
  * - Master: you can plan a two-step job (one level of sub-goals).
  * - Artificer: you run a workshop, any depth.
  */
-export const GUILD_RANKS: readonly Automation[] = [
+// Frozen: rankByName and the AUTOMATION_* aliases hand out these very objects, so one caller
+// changing one would change it for every queue and scene.
+export const GUILD_RANKS: readonly Readonly<Automation>[] = [
   { rank: 'apprentice', label: 'Apprentice', mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
   { rank: 'journeyman', label: 'Journeyman', mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
   { rank: 'master', label: 'Master', mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
   { rank: 'artificer', label: 'Artificer', mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
-];
+].map(r => Object.freeze(r as Automation));
+
+/**
+ * Whether goals are offered at all: only if the planner may do something on its own — harvest
+ * or craft a sub-goal. Asked by what the level can do, not its name, so a copy (or a future
+ * level that keeps a rank but loses a capability) behaves the same. The queue and the scene's
+ * Make button both ask this, so they can't disagree.
+ */
+export const offersGoals = (a: Automation): boolean => a.mayHarvest || a.mayCraftSubgoals;
 
 /** The {@link Automation} for a rank — the same object as its entry in {@link GUILD_RANKS}. */
 export function rankByName(rank: GuildRank): Automation {

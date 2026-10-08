@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, GUILD_RANKS, rankByName, type Automation,
+  nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, GUILD_RANKS, rankByName, offersGoals, type Automation,
 } from './planner';
 import type { HarvestSource, Recipe } from './ActionQueue';
 
@@ -100,5 +100,12 @@ describe('guild ranks (#1195 acceptance)', () => {
   it('2. rankByName(journeyman) is GUILD_RANKS[1] and AUTOMATION_HARVEST', () => {
     expect(rankByName('journeyman')).toBe(GUILD_RANKS[1]);
     expect(rankByName('journeyman')).toBe(AUTOMATION_HARVEST);
+  });
+
+  // Goals are offered by capability, and the shared rank objects can't be changed.
+  it('offers goals only to a level that can do something, and freezes the ranks', () => {
+    expect(GUILD_RANKS.map(offersGoals)).toEqual([false, true, true, true]);
+    expect(offersGoals({ ...rankByName('journeyman'), mayHarvest: false })).toBe(false);
+    expect(Object.isFrozen(rankByName('master'))).toBe(true);
   });
 });

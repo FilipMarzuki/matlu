@@ -20,7 +20,7 @@
 import * as Phaser from 'phaser';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
-import { rankByName, type Automation } from '../crafting/planner';
+import { rankByName, offersGoals, type Automation } from '../crafting/planner';
 import { WorldFeed } from '../crafting/WorldFeed';
 import { sourcesFromMap, biomesFromMap, type NodeTypeDef } from '../crafting/mapSources';
 import { parseLdtkLevel, type LdtkLevel } from '../world/MapData';
@@ -344,8 +344,10 @@ export class CrafterScene extends Phaser.Scene {
     // Two short lines beat one long one: the world line (time) and the place
     // line (map + biomes) each stay clear of the buttons on the right.
     this.text(118, 8, `year ${this.feed.year} · ${this.feed.season} · tick ${this.tick} · yields ${yieldPct}%`, Font.body, TextColor.secondary);
-    // The guild rank you hold (#1195): the first visible piece of progression.
-    this.text(118, 26, `${this.level.identifier} · ${this.biomes.join(' + ')} · ${SIM_AUTOMATION.label}`, Font.small, TextColor.secondary);
+    // The guild rank you hold (#1195): the first visible piece of progression. With three or more
+    // biomes the full list would run under the buttons, so it becomes a count.
+    const biomes = this.biomes.length > 2 ? `${this.biomes.length} biomes` : this.biomes.join(' + ');
+    this.text(118, 26, `${this.level.identifier} · ${biomes} · ${SIM_AUTOMATION.label}`, Font.small, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [
@@ -382,7 +384,7 @@ export class CrafterScene extends Phaser.Scene {
     y += 20;
     // Every recipe here is reachable from the map's sources (buildData
     // filtered the rest), so Make only depends on automation being on.
-    const makeOn = SIM_AUTOMATION.rank !== 'apprentice';
+    const makeOn = offersGoals(SIM_AUTOMATION);
     this.recipes.forEach((r, i) => {
       const ry = y + Math.floor(i / 2) * 38;
       if (ry > PACK_Y - 44) return; // prototype: no scrolling yet

@@ -15,7 +15,7 @@
 
 import type { Inventory } from './Inventory';
 import { resolveHarvest, type ActionContext, type ResourceNodeYield, type ActionOutcome } from './actions';
-import { nextStep, rankByName, type Automation, type PlanStep } from './planner';
+import { nextStep, rankByName, offersGoals, type Automation, type PlanStep } from './planner';
 
 /** Something the player can harvest from the menu (a resource node type). */
 export interface HarvestSource {
@@ -177,8 +177,8 @@ export class ActionQueue {
    */
   enqueueGoal(recipeId: string): boolean {
     const recipe = this.recipes.get(recipeId);
-    // By rank, not by identity (#1195): a copy of the Apprentice preset refuses goals too.
-    if (!recipe || this.automation.rank === 'apprentice') return false;
+    // By what the level can do, not by identity (#1195): a copy of the Apprentice preset refuses goals too.
+    if (!recipe || !offersGoals(this.automation)) return false;
     this.queue.push(this.goalEntry(recipe, 0, []));
     return true;
   }
