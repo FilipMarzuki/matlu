@@ -40,7 +40,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -178,6 +178,8 @@ export interface Region1State {
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
+  /** Heirlooms that have taught this Warden what they hold (#1456), by item: once per item per run. */
+  taughtBy?: string[];
   /** Concept ranks and insight, earned by crafting. */
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
@@ -363,6 +365,7 @@ function clone(s: Region1State): Region1State {
     studiedToday: { ...s.studiedToday },
     milestones: [...s.milestones],
     tools: [...s.tools],
+    ...(s.taughtBy ? { taughtBy: [...s.taughtBy] } : {}),
     concepts: { ...s.concepts },
     today: { ...s.today },
     deprivation: { ...s.deprivation },
@@ -1484,6 +1487,22 @@ export function forgetPin(s: Region1State, id: string): Region1State {
   return next;
 }
 
+/**
+ * An heirloom teaches on first use (#1456): if the tool the work leans on was left by an earlier
+ * Warden and still holds its maker's understanding, that drips into this Warden's concepts — once
+ * per item per run. What you make outlasts you, and teaches whoever picks it up.
+ */
+function learnFromTool(next: Region1State, action: string): void {
+  const tool = toolInUse(next.tools, action);
+  if (!tool?.heirloom || next.taughtBy?.includes(tool.item)) return;
+  const lesson = heirloomLesson(tool);
+  if (!lesson.length) return;
+  next.taughtBy = [...(next.taughtBy ?? []), tool.item];
+  for (const l of lesson) addInsight(next.concepts, l.concept, l.insight, CRAFT_WORLD.concepts);
+  const taught = lesson.map(l => `${l.concept} +${l.insight.toFixed(0)} insight (rank ${next.concepts[l.concept]?.rank ?? 0})`).join(', ');
+  say(next, `The ${tool.item.replace(/-/g, ' ')} teaches you something of its making: ${taught}.`, 'milestone');
+}
+
 function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
@@ -1497,6 +1516,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
     if (plan.moving && plan.site) moveCamp(next, plan.site);
   }
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
+  // The tool this work leans on may have something to teach (#1456) — at the bench, or out there.
+  learnFromTool(next, recipe ? 'craft' : id);
   if (recipe) return runCraft(next, id, recipe);
 
   // Your tools make the work cheaper, quicker or richer (crafting design §2) —

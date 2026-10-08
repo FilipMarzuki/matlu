@@ -66,7 +66,7 @@ describe('More action options', () => {
 
     const rough = base({ vitals: createVitals({ clarity: 60 }), stores: { ...noHides.stores, hides: 2 } });
     const parka = runAction(rough, { q: 'coldGear', opts: { material: 'hide' } });
-    expect(parka.tools).toEqual([{ item: 'hide-parka', grade: 'crude' }]);
+    expect(parka.tools).toEqual([{ item: 'hide-parka', grade: 'crude', made: { sealing: 0 } }]); // what the maker understood goes in (#1456)
     expect(parka.stores.hides).toBe(0);
     expect(parka.coldGear).toBe(true); // crude fiber gear would not be
     expect(runAction(rough, 'coldGear').coldGear).toBe(false);

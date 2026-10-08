@@ -53,7 +53,7 @@ describe('Crafting & tools', () => {
     // An item with effects becomes a graded tool instead of a stack.
     const r2 = craft(r1.state, KNIFE);
     expect(r2.result.kind).toBe('crafted');
-    expect(r2.state.tools).toEqual([{ item: 'stone-knife', grade: 'sound' }]);
+    expect(r2.state.tools).toEqual([{ item: 'stone-knife', grade: 'sound', made: { sharpening: 0 } }]); // what the maker understood goes in (#1456)
     expect(r2.state.inventory['stone-knife']).toBeUndefined();
     // Purity.
     expect(s.inventory).toEqual({ 'plant-fiber': 5, stone: 2 });

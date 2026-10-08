@@ -30,7 +30,7 @@ describe('Region 1 crafting', () => {
 
     const s = ready();
     const made = runAction(s, 'knife');
-    expect(made.tools).toEqual([{ item: 'stone-knife', grade: 'sound' }]); // sharp mind, no bench yet
+    expect(made.tools).toEqual([{ item: 'stone-knife', grade: 'sound', made: { sharpening: 0 } }]); // sharp mind, no bench yet; the maker's rank goes in (#1456)
     expect(made.stores.materials).toBe(8);
     expect(made.hoursToday).toBe(s.hoursToday + 3);
     expect(made.vitals.clarity.current).toBeLessThan(s.vitals.clarity.current);

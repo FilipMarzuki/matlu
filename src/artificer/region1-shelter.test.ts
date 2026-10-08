@@ -57,16 +57,16 @@ describe('Region 1 shelter & cold gear crafts', () => {
   // 3. Cold gear is a graded tool; crude gear can be remade.
   it('makes cold gear a graded tool, and crude gear worth remaking', () => {
     const made = runAction(camp(), 'coldGear');
-    expect(made.tools).toEqual([{ item: 'cold-gear', grade: 'sound' }]);
+    expect(made.tools).toEqual([{ item: 'cold-gear', grade: 'sound', made: { weaving: 0 } }]); // what the maker understood goes in (#1456)
     expect(made.coldGear).toBe(true);
 
     const rough = runAction(camp('cave', { vitals: createVitals({ clarity: 60 }) }), 'coldGear');
-    expect(rough.tools).toEqual([{ item: 'cold-gear', grade: 'crude' }]);
+    expect(rough.tools).toEqual([{ item: 'cold-gear', grade: 'crude', made: { weaving: 0 } }]);
     expect(rough.coldGear).toBe(false);
     expect(rough.log.some(l => /won't hold up/.test(l.text))).toBe(true);
     // Crude gear can be remade; sound gear is kept.
     const rested = runAction({ ...rough, vitals: createVitals() }, 'coldGear');
-    expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound' });
+    expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound', made: { weaving: 0 } });
     expect(rested.coldGear).toBe(true);
     expect(runAction(made, 'coldGear').log.at(-1)?.text).toMatch(/already have sound cold gear/);
 

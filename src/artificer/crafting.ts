@@ -116,6 +116,12 @@ export interface Tool {
   crafted?: Grade;
   /** Left by an earlier Warden (#1455): an heirloom, not something this one made or packed. */
   heirloom?: boolean;
+  /**
+   * The maker's understanding (#1456): the recipe's concepts at the ranks the hand that made it
+   * had. An heirloom with this teaches those concepts to whoever uses it. Absent on pack tools
+   * and on tools made before it was recorded.
+   */
+  made?: Record<string, number>;
 }
 
 /**
@@ -260,6 +266,17 @@ export interface ConceptProgress { rank: number; insight: number }
 export const INSIGHT_TO_NEXT: readonly number[] = [6, 15, 30, 50, 80];
 /** Insight a sound craft drips into each of its concepts (scaled by grade). */
 export const CRAFT_DRIP = 2;
+/**
+ * What an heirloom teaches on first use (#1456), per concept: the maker's rank × this × the
+ * grade's multiplier. A fine knife from a rank-2 maker gives 9 — rank 1 at once, and a start on
+ * rank 2; a masterwork from a rank-3 maker nearly two ranks. A line of Wardens climbs this way.
+ */
+export const HEIRLOOM_INSIGHT = 3;
+
+/** What an heirloom has to teach, concept by concept (#1456); nothing for a tool with no `made`, or made by a rank-0 hand. */
+export function heirloomLesson(t: Tool): { concept: string; insight: number }[] {
+  return Object.entries(t.made ?? {}).filter(([, rank]) => rank > 0).map(([concept, rank]) => ({ concept, insight: rank * HEIRLOOM_INSIGHT * GRADE_MULT[t.grade] }));
+}
 /** Even a failure teaches what doesn't work. */
 export const FAIL_DRIP = 1;
 /** A focused study session's insight, before the day's diminishing return. */
@@ -431,7 +448,9 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
   } else {
     const out = recipe.output;
     if (world.effects[out.item]) {
-      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade });
+      // What the maker understood goes into the thing (#1456): the recipe's concepts at today's ranks.
+      const made = recipe.concepts?.length ? Object.fromEntries(recipe.concepts.map(c => [c, rankOf(s.concepts, c)])) : undefined;
+      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made } : {}) });
     } else {
       next.inventory[out.item] = (next.inventory[out.item] ?? 0) + out.qty;
     }
