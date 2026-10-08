@@ -1,0 +1,26 @@
+[
+  {
+    "npcId": "strandviken",
+    "barks": [
+      "Tidvattnet kom konstigt tidigt idag.",
+      "Näten behöver lagas igen i kväll.",
+      "Hörde något ropa ute på vattnet i natt."
+    ]
+  },
+  {
+    "npcId": "skogsglanten",
+    "barks": [
+      "Skogen är tystare än vanligt idag.",
+      "Marknaden öppnar snart, om du har varor.",
+      "Vildsvin har synts nära ängen igen."
+    ]
+  },
+  {
+    "npcId": "klippbyn",
+    "barks": [
+      "Vinden bits hårt här uppe.",
+      "Håll dig borta från stupkanten i dimma.",
+      "Vakterna har sett spår i snön i morse."
+    ]
+  }
+]
