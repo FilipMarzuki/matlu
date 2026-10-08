@@ -27,7 +27,7 @@ You have **3 minutes**. Do not explore the codebase open-endedly.
 ## Step 1 — Fetch PR info
 
 ```bash
-gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences
+gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences,labels
 gh pr diff {{pr_number}}
 ```
 
@@ -52,7 +52,16 @@ Check the diff against these criteria:
   `gh issue view <n> --json labels,body` (one extra call, counts toward the
   3-file budget).
 
+- **Design decisions** — if the PR body has a **Design decisions** table,
+  check each row against the diff. Is the decision what the code actually
+  does? Does its **Wrong if…** condition hold anywhere in the diff? A row
+  whose "wrong if" the diff makes true is a correctness failure: block, and
+  quote the row. Don't accept a stated reason just because it is stated.
+
 ### Should pass (comment but don't block)
+- **Unlisted decisions** — on a medium- or high-risk PR (`risk:*` label), name
+  any significant choice the diff makes that the Design decisions table leaves
+  out (or note the table is missing). Don't block for this.
 - **Naming** — variables/functions have clear, descriptive names
 - **Dead code** — no commented-out code or unused imports left behind
 - **Educational comments** — non-obvious Phaser/game-dev patterns have brief explanations (the owner is learning)

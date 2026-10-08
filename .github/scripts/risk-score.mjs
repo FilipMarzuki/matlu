@@ -14,10 +14,15 @@
 //               have passed on the head commit, and a high-risk PR needs a
 //               `human-approved` label added by a person after its last commit.
 //               Every merge path (DevCycle 4, DevCycle 5 — Grooming) runs this.
+//   node .github/scripts/risk-score.mjs --local [base]
+//     score this branch's commits since it left `base` (default origin/main), the same
+//     files the PR will show — no GitHub token. Prints `risk:<tier>`. Run it before opening a PR: a
+//     medium or high tier means the PR body needs a Design decisions section (#1433).
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY.
 // Writes tier, lenses, same_repo, draft, head_sha, ci_ok (and merge with --gate) to $GITHUB_OUTPUT.
 
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -83,6 +88,28 @@ export function scoreRisk(files, config) {
   return { score, tier, reasons: reasons.length ? reasons : ['no risk rules matched'], lenses: tier === 'high' ? [...lenses] : [] };
 }
 
+/**
+ * Parse `git diff -z --numstat -M` output into changed files (pure). Each record is
+ * `added<TAB>deleted<TAB>path<NUL>`; a rename leaves the path empty and is followed by
+ * `old<NUL>new<NUL>`. Binary files show `-` for the counts.
+ */
+export function parseNumstatZ(text) {
+  const parts = text.split('\0');
+  const files = [];
+  for (let i = 0; i < parts.length; i++) {
+    const m = /^(\d+|-)\t(\d+|-)\t(.*)$/s.exec(parts[i]);
+    if (!m) continue;
+    const count = (v) => (v === '-' ? 0 : Number(v));
+    if (m[3] === '') {
+      if (!parts[i + 1] || !parts[i + 2]) break; // truncated rename record: stop rather than invent a path
+      files.push({ filename: parts[i + 2], previous_filename: parts[i + 1], additions: count(m[1]), deletions: count(m[2]) });
+      i += 2;
+    }
+    else files.push({ filename: m[3], additions: count(m[1]), deletions: count(m[2]) });
+  }
+  return files;
+}
+
 export const loadRules = () => JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
 
 /**
@@ -106,9 +133,33 @@ async function main() {
   const prNumber = Number(flag('pr'));
   const apply = flag('apply') === 'true';
   const gate = flag('gate') === 'true';
+
+  // Local mode: no GitHub, just this checkout against the base branch.
+  const local = flag('local');
+  if (local) {
+    const base = local === 'true' ? 'origin/main' : local;
+    if (base.startsWith('-')) { console.error(`Bad base: ${base}`); process.exit(2); }
+    let out;
+    try {
+      // `base...HEAD` (three dots): the commits on this branch since it left `base` —
+      // exactly what the PR will show. Later commits on main don't count, and neither
+      // do uncommitted or untracked files, so commit first.
+      out = execFileSync('git', ['diff', '-z', '--numstat', '-M', `${base}...HEAD`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    } catch {
+      console.error(`Could not diff ${base}...HEAD (see git's error above). If ${base} is missing, \`git fetch origin main\`; in a shallow clone with no merge base, \`git fetch --unshallow origin\`.`);
+      process.exit(2);
+    }
+    const result = scoreRisk(parseNumstatZ(out), loadRules());
+    console.log(`risk:${result.tier} (score ${result.score}) — commits since ${base}`);
+    for (const r of result.reasons) console.log(`  - ${r}`);
+    if (result.lenses.length) console.log(`  lenses: ${result.lenses.join(', ')}`);
+    if (result.tier !== 'low') console.log('  → the PR body needs a "## Design decisions" section (see CLAUDE.md).');
+    return;
+  }
+
   const repo = process.env.GITHUB_REPOSITORY;
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  if (!prNumber || !repo || !token) { console.error('Usage: risk-score.mjs --pr <n> [--apply]  (needs GITHUB_TOKEN, GITHUB_REPOSITORY)'); process.exit(2); }
+  if (!prNumber || !repo || !token) { console.error('Usage: risk-score.mjs --pr <n> [--apply] [--gate]  (needs GITHUB_TOKEN, GITHUB_REPOSITORY) | --local [base]'); process.exit(2); }
 
   const gh = async (p, { method = 'GET', body } = {}) => {
     const res = await fetch(`https://api.github.com/repos/${repo}${p}`, {

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { scoreRisk, loadRules, globToRegex, mergeGate, type ChangedFile } from '../.github/scripts/risk-score.mjs';
+import { scoreRisk, loadRules, globToRegex, mergeGate, parseNumstatZ, type ChangedFile } from '../.github/scripts/risk-score.mjs';
 
 const rules = loadRules();
 const files = (...names: string[]): ChangedFile[] => names.map(filename => ({ filename, additions: 10, deletions: 2 }));
@@ -86,5 +86,31 @@ describe('Review risk score (#1431)', () => {
     expect(globToRegex('**/*.md').test('README.md')).toBe(true);
     expect(globToRegex('**/*.md').test('a/b/c.md')).toBe(true);
     expect(globToRegex('storytelling/**').test('storytelling/tick.ts')).toBe(true);
+  });
+});
+
+/** #1433 — `risk-score.mjs --local` scores this checkout's `git diff -z --numstat -M` output. */
+describe('Local risk score from git diff (#1433)', () => {
+  // 1. Docs only: low.
+  it('scores a docs-only diff low', () => {
+    const r = scoreRisk(parseNumstatZ('12\t3\tdocs/notes.md\0' + '4\t0\tdocs/other.md\0'), rules);
+    expect(r.tier).toBe('low');
+  });
+
+  // 2. The RNG: high, with the determinism reason; renames keep both paths; binaries count 0 lines.
+  it('scores an RNG change high and keeps renames and binaries', () => {
+    const files = parseNumstatZ('5\t2\tsrc/artificer/rng.ts\0' + '1\t1\t\0src/artificer/old.ts\0src/artificer/new.ts\0' + '-\t-\tpublic/a.png\0');
+    expect(files).toEqual([
+      { filename: 'src/artificer/rng.ts', additions: 5, deletions: 2 },
+      { filename: 'src/artificer/new.ts', previous_filename: 'src/artificer/old.ts', additions: 1, deletions: 1 },
+      { filename: 'public/a.png', additions: 0, deletions: 0 },
+    ]);
+    const r = scoreRisk(files, rules);
+    expect(r.tier).toBe('high');
+    expect(r.reasons.some(x => x.startsWith('seeded randomness / golden hashes'))).toBe(true);
+  });
+
+  it('stops at a truncated rename record instead of inventing a path', () => {
+    expect(parseNumstatZ('2\t0\tsrc/a.ts\0' + '1\t1\t\0src/old.ts\0')).toEqual([{ filename: 'src/a.ts', additions: 2, deletions: 0 }]);
   });
 });

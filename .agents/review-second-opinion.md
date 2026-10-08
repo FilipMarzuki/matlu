@@ -12,6 +12,10 @@ too, with these differences:
 - **Acceptance tests rule:** you can see whether the PR body has an
   "Acceptance tests" table and whether the diff adds matching test files and
   test names. Check that; you can't run them.
+- **Design decisions:** if the PR body has a **Design decisions** table, test
+  each row against the diff, especially its **Wrong if…** condition. A row the
+  diff contradicts is blocking. Name significant choices the table leaves
+  out under "Worth a look". A stated rationale is a claim, not a settled question.
 - **Your verdict does not gate the merge.** It is posted as a comment for a
   human and the merge agent to weigh against the first review. So be direct:
   a wrong "request-changes" costs a minute of reading, a missed bug costs more.

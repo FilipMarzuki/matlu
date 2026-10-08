@@ -19,3 +19,4 @@ export const CI_WORKFLOW: string;
 export const HUMAN_LABEL: string;
 export interface Approval { actor: string; actorType: string; at: string }
 export function mergeGate(input: { tier: RiskResult['tier']; ciOk: boolean; approval: Approval | null; headAt?: string }): { merge: boolean; reason: string };
+export function parseNumstatZ(text: string): ChangedFile[];

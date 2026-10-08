@@ -277,6 +277,21 @@ Write PR descriptions as a learning resource for someone new to this tech stack.
 - Links to relevant Phaser docs if applicable
 - Anything surprising or worth knowing
 
+### Design decisions (medium- and high-risk PRs)
+
+Run `node .github/scripts/risk-score.mjs --local` after committing. It scores the branch's commits since `origin/main`, the same files the PR will show, and prints `risk:<tier>`. If it prints `risk:medium` or `risk:high`, the PR body needs a **Design decisions** table (#1433). It's optional for low-risk PRs:
+
+```markdown
+## Design decisions
+| Decision | Why | Rejected alternative | Wrong if… |
+|---|---|---|---|
+| Score PRs with a script, not a model | predictable, tunable, can't be talked down by the PR text | an LLM classifier | a risky change lands in a path no rule covers |
+```
+
+- **2–5 rows**, only choices a reviewer could reasonably have made differently. Not "used TypeScript".
+- **Wrong if…** is the point: the concrete condition that would make the decision a bug. Write down the assumptions you're relying on ("a PR can't change its own rules"), because reviewers check those first.
+- Reviewers verify each row against the diff and flag decisions the diff makes that the table leaves out. A stated reason is a claim to check, not a settled question.
+
 ## Before merging a PR — always review first
 
 No PR merges without a review pass, and the depth of review scales with the PR's **risk tier** (#1431). A script scores every PR from the paths it touches, its size and whether code changed without tests — rules and weights in **`.github/review-risk.json`** — and *DevCycle 3c — Risk review* labels it and comments the reasons:
