@@ -462,7 +462,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
     return Object.keys(out).length ? out : undefined;
   };
   const tr = isObj(ch) ? partial(ch.trained) : undefined, exer = isObj(ch) ? partial(ch.exercise) : undefined;
-  const growth = { ...(tr ? { trained: tr } : {}), ...(exer ? { exercise: exer } : {}), ...(isObj(ch) && Number.isInteger(ch.wear) && (ch.wear as number) > 0 ? { wear: ch.wear as number } : {}) };
+  const pend = isObj(ch) ? partial(ch.pending) : undefined;
+  const growth = { ...(tr ? { trained: tr } : {}), ...(exer ? { exercise: exer } : {}), ...(pend ? { pending: pend } : {}), ...(isObj(ch) && Number.isInteger(ch.wear) && (ch.wear as number) > 0 ? { wear: ch.wear as number } : {}) };
   const character = isObj(ch) && typeof ch.name === 'string'
     ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };

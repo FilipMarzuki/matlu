@@ -13,7 +13,7 @@
  */
 
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
-import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFrom, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, STAT_IDS as GROWTH_STATS, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, type Stats } from './stats';
+import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFrom, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, STAT_IDS as GROWTH_STATS, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, RECOVERY_CAP, overtrainedLine, OVERTRAINED, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
@@ -250,6 +250,8 @@ export interface Character {
   trained?: Partial<Stats>;
   exercise?: Partial<Stats>;
   wear?: number;
+  /** Exercise since the last proper night (#1414), waiting on recovery to bank it. It doesn't carry into a new run. */
+  pending?: Partial<Stats>;
 }
 
 /**
@@ -371,18 +373,44 @@ function clone(s: Region1State): Region1State {
 const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
 
 /**
- * Exercise stats (#1257) — hours per stat, from work on the Reach, on the road, or the night —
- * and write a journal line for each point gained. Felt, not hidden.
+ * Exercise stats (#1257) — hours per stat, from work on the Reach, on the road, or the night. It
+ * waits as pending until a proper night's recovery banks it (#1414).
  */
-export function exerciseStats(next: { character: Character; log: LogEntry[]; day: number }, gains: Partial<Stats>, at?: LogEntry['at']): void {
+export function exerciseStats(next: { character: Character }, gains: Partial<Stats>): void {
+  const pending = { ...(next.character.pending ?? {}) };
+  let any = false;
   for (const id of GROWTH_STATS) {
-    const hours = gains[id] ?? 0;
-    if (hours <= 0) continue;
-    const c = next.character;
-    const r = exercise(c.stats, { trained: c.trained, exercise: c.exercise, wear: c.wear }, id, hours);
-    next.character = { ...c, stats: r.stats, ...(r.growth.trained ? { trained: r.growth.trained } : {}), exercise: r.growth.exercise };
-    for (const score of r.reached) next.log.push(at ? { day: next.day, text: gainLine(id, score), kind: 'milestone', at } : { day: next.day, text: gainLine(id, score), kind: 'milestone' });
+    const h = gains[id] ?? 0;
+    if (h <= 0) continue;
+    pending[id] = Math.round(((pending[id] ?? 0) + h) * 100) / 100;
+    any = true;
   }
+  if (any) next.character = { ...next.character, pending };
+}
+
+/**
+ * A proper night's recovery (#1414): bank up to RECOVERY_CAP hours of each stat's pending exercise,
+ * raising the stat when it reaches the next point, and let the rest go. The journal says each gain,
+ * and when training outran recovery.
+ */
+function recoverStats(next: { character: Character; log: LogEntry[]; day: number }): void {
+  const pending = next.character.pending;
+  if (!pending) return;
+  let wasted = 0;
+  for (const id of GROWTH_STATS) {
+    const p = pending[id] ?? 0;
+    if (p <= 0) continue;
+    const banked = Math.min(p, RECOVERY_CAP);
+    wasted += p - banked;
+    const c = next.character;
+    const r = exercise(c.stats, { trained: c.trained, exercise: c.exercise, wear: c.wear }, id, banked);
+    next.character = { ...c, stats: r.stats, ...(r.growth.trained ? { trained: r.growth.trained } : {}), exercise: r.growth.exercise };
+    for (const score of r.reached) next.log.push({ day: next.day, text: gainLine(id, score), kind: 'milestone' });
+  }
+  const { pending: _done, ...rest } = next.character;
+  next.character = rest;
+  // Said once a run, the first time it happens — a lesson, not a nightly nag.
+  if (wasted >= 1 && !next.log.some(l => l.text.startsWith(OVERTRAINED))) next.log.push({ day: next.day, text: overtrainedLine(wasted), kind: 'action' });
 }
 
 /** A night of long deprivation (#1257): wear builds, and at the limit costs a point of Constitution. */
@@ -1513,7 +1541,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   exerciseStats(next, exerciseFrom({
     hours: workHours, skill, level: lvl, vigorRate: v.vigorRate ?? def.vigorRate, clarityRate: v.clarityRate ?? def.clarityRate,
     pushed: r.pushedVigor, tiredMind: setOut.clarity < WIL_EXERCISE_BELOW || !!survivalLockOf(s), study: id === 'study',
-  }), at);
+  }));
   // Out on the land, or deep in study (#1305): either keeps cabin fever off.
   if (def.ringed) next.today.outside = true;
   if (id === 'study') next.today.absorbed = true;
@@ -1733,7 +1761,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   if (result.kind !== 'refused') exerciseStats(next, exerciseFrom({
     hours, skill, level: lvl, vigorRate: recipe.effort?.vigorRate ?? 0, clarityRate: recipe.effort?.clarityRate ?? 0,
     tiredMind: before.clarity.current < WIL_EXERCISE_BELOW || !!survivalLockOf(next),
-  }), at);
+  }));
   // Making something absorbs the mind (#1305).
   if (result.kind !== 'refused') next.today.absorbed = true;
   latchMilestones(next);
@@ -2425,6 +2453,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   exerciseStats(next, { con: Math.max(0, hoursWorked - LONG_DAY_HOURS) + ((!ate && !lean) || !drank ? HARD_NIGHT_EXERCISE : 0) });
   // …but going without for long leaves its mark: wear builds, and at its limit Constitution drops a point.
   if (next.deprivation.hungry >= WEAR_HUNGRY || next.deprivation.thirsty >= WEAR_THIRSTY) wearNight(next, next.deprivation.thirsty >= WEAR_THIRSTY);
+  // Growth comes in recovery (#1414): only a proper night — fed, watered, warm enough — banks the day's exercise.
+  if (ate && drank && !o.coldNight && froze <= 0) recoverStats(next);
   // A night's rest works half the strain off.
   if (strained > 0) next.strain = strained / 2;
 
