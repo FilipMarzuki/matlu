@@ -135,6 +135,8 @@ export interface RoadProgress {
   recipesKnown: number;
   vitals: { vigor: number; clarity: number; condition: number };
   stores: { rawFood: number; water: number };
+  /** Stats now (#1259): the road builds CHA by talking. Absent on older transcripts. */
+  stats?: Stats;
 }
 
 /** Snapshot a road state. */
@@ -154,5 +156,6 @@ export function roadProgressOf(r: RoadState): RoadProgress {
     recipesKnown: r.known.length,
     vitals: { vigor: Math.round(r.vitals.vigor.current), clarity: Math.round(r.vitals.clarity.current), condition: Math.round(r.vitals.condition) },
     stores: { rawFood: r.stores.rawFood, water: r.stores.water },
+    stats: { ...r.character.stats },
   };
 }

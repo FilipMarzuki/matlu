@@ -36,6 +36,10 @@ describe('Stats in the AI harness (#1259)', () => {
     expect('error' in parseStatSpread('str=15,con=15')).toBe(true);
     expect('error' in parseStatSpread('luck=12')).toBe(true);
     expect('error' in parseStatSpread('str=high')).toBe(true);
+    // Not a preset just because it's on Object's prototype; presets ignore case; a stat given twice is an error.
+    expect('error' in parseStatSpread('constructor')).toBe(true);
+    expect(parseStatSpread('Strong')).toEqual({ stats: STAT_PRESETS.strong });
+    expect('error' in parseStatSpread('str=13,str=11')).toBe(true);
   });
 
   // 3. A seeded random spread: always valid, varied across runs, and the same for the same seed.
@@ -56,6 +60,9 @@ describe('Stats in the AI harness (#1259)', () => {
     const summary = statSummaryOf([r as unknown as Transcript]);
     expect(summary?.perRun).toHaveLength(1);
     expect(summary?.perRun[0].spread).toBe(spreadText(spread));
+    // A run that rode on ends with the road's stats (the road builds CHA by talking).
+    const onRoad = { ...r, road: { start: {}, turns: [{ progress: { stats: { ...spread, cha: 11 } } }], record: { kind: 'arrived' } } } as unknown as Transcript;
+    expect(statSummaryOf([onRoad])?.perRun[0].end).toContain('CHA 11');
   }, 60_000);
 
   // 5. Fifty random runs: no stat leaves 3–18, nor any other invariant.

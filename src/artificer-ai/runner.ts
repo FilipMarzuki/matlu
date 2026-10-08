@@ -403,8 +403,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // person's Warden, a scout (#1398), 12 years old (#1399), with the leader's packing list (#1400).
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.stats && !opts.legacy ? { stats: { ...opts.stats } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  // A spread a person couldn't pick never reaches the sim (#1259).
   if (opts.stats && !opts.legacy && !validStats(opts.stats)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.stats && !opts.legacy ? { stats: { ...opts.stats } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
   const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);

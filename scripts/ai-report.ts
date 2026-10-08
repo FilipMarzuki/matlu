@@ -67,7 +67,7 @@ for (const m of models) {
 function statsLines(st: NonNullable<ModelSummary['stats']>): string[] {
   const moved = Object.entries(st.change).map(([k, d]) => `${k.toUpperCase()} ${d >= 0 ? '+' : ''}${d}`).join(' ');
   const head = `stats — ${st.spreads} spread${st.spreads === 1 ? '' : 's'} over ${st.runs} runs · change per run: ${moved}`;
-  const runs = st.perRun.length <= 10 ? st.perRun.map((r, i) => `  run ${i + 1}: made ${r.spread} → ended ${r.end} (${r.gained >= 0 ? '+' : ''}${r.gained})`) : [];
+  const runs = st.perRun.length <= 10 ? st.perRun.map((r, i) => `  run ${i + 1}: made ${r.spread} · started ${r.start} → ended ${r.end} (${r.gained >= 0 ? '+' : ''}${r.gained} in the run)`) : [];
   return [head, ...runs];
 }
 

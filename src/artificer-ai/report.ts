@@ -7,6 +7,8 @@
  */
 
 import type { Progress, RoadProgress } from './progress';
+import { spreadText } from './spreads';
+import { STAT_IDS, type Stats } from '../artificer/stats';
 
 /** The parts of a saved transcript the report reads (see scripts/ai-play.ts). */
 export interface Transcript {
@@ -303,21 +305,21 @@ export interface StatSummary {
   perRun: { spread: string; start: string; end: string; gained: number }[];
 }
 
-const STAT_ORDER = ['str', 'con', 'agi', 'int', 'wil', 'cha'] as const;
-const statsText = (s: Record<string, number>): string => STAT_ORDER.map(k => `${k.toUpperCase()} ${s[k]}`).join(' · ');
+const statsText = (s: Record<string, number>): string => spreadText(s as Stats);
 
 /** What the runs' stats came to (#1259): the spreads used and how far each stat moved in a run. */
 export function statSummaryOf(runs: readonly Transcript[]): StatSummary | null {
   const rs = runs.flatMap(r => {
-    const end = r.turns.at(-1)?.progress.stats ?? r.start.stats;
+    // A run that rode on ends on the road (#1251), which builds CHA by talking: take its last stats.
+    const end = r.road?.turns.at(-1)?.progress.stats ?? r.turns.at(-1)?.progress.stats ?? r.start.stats;
     return r.spread && r.start.stats && end ? [{ spread: r.spread, start: r.start.stats as Record<string, number>, end: end as Record<string, number> }] : [];
   });
   if (!rs.length) return null;
   return {
     runs: rs.length,
     spreads: new Set(rs.map(r => statsText(r.spread))).size,
-    change: Object.fromEntries(STAT_ORDER.map(k => [k, round(mean(rs.map(r => r.end[k] - r.start[k])))!])),
-    perRun: rs.map(r => ({ spread: statsText(r.spread), start: statsText(r.start), end: statsText(r.end), gained: STAT_ORDER.reduce((n, k) => n + r.end[k] - r.start[k], 0) })),
+    change: Object.fromEntries(STAT_IDS.map(k => [k, round(mean(rs.map(r => r.end[k] - r.start[k])))!])),
+    perRun: rs.map(r => ({ spread: statsText(r.spread), start: statsText(r.start), end: statsText(r.end), gained: STAT_IDS.reduce((n, k) => n + r.end[k] - r.start[k], 0) })),
   };
 }
 

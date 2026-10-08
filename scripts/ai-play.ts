@@ -120,7 +120,7 @@ async function main(): Promise<void> {
     const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
-    if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.turns.at(-1)?.progress.stats ?? result.spread)}`);
+    if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }

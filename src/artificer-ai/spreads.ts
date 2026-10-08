@@ -26,11 +26,15 @@ export const spreadText = (s: Stats): string => STAT_IDS.map(id => `${STATS[id].
  * Anything a person couldn't pick at creation is an error that says why.
  */
 export function parseStatSpread(arg: string): { stats: Stats } | { error: string } {
-  const name = arg.trim();
-  if (name in STAT_PRESETS) return { stats: { ...STAT_PRESETS[name as StatPreset] } };
+  const name = arg.trim().toLowerCase();
+  // Own keys only: `in` would also find "constructor", "toString" and the like on the prototype.
+  if (Object.hasOwn(STAT_PRESETS, name)) return { stats: { ...STAT_PRESETS[name as StatPreset] } };
   const stats: Stats = { ...DEFAULT_STATS };
+  const seen = new Set<string>();
   for (const part of name.split(',').map(p => p.trim()).filter(Boolean)) {
-    const [k, v] = part.split('=').map(x => x.trim().toLowerCase());
+    const [k, v] = part.split('=').map(x => x.trim());
+    if (seen.has(k)) return { error: `${k} is given twice` };
+    seen.add(k);
     if (!(STAT_IDS as readonly string[]).includes(k)) return { error: `unknown stat "${k}" — use ${STAT_IDS.join(', ')} or a preset (${Object.keys(STAT_PRESETS).join(', ')})` };
     const n = Number(v);
     if (!Number.isInteger(n)) return { error: `${k}=${v} is not a whole number` };
@@ -43,15 +47,15 @@ export function parseStatSpread(arg: string): { stats: Stats } | { error: string
 }
 
 /**
- * A random legal spread (seeded): lower up to two stats for points, then spend everything left
- * on random raises. Every spread a person could reach this way is possible, and the same seed
- * always gives the same spread.
+ * A random legal spread (seeded): lower stats a random number of steps (0–6, any stat, as far
+ * as the minimum of 7) for points, then spend everything left on random raises. That reaches
+ * lopsided spreads as well as even ones; the same seed always gives the same spread.
  */
 export function randomSpread(seed: number): Stats {
   const rand = rng(seed * 7919 + 17);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)];
   const s: Stats = { ...DEFAULT_STATS };
-  const lowers = Math.floor(rand() * 3);
+  const lowers = Math.floor(rand() * 7);
   for (let i = 0; i < lowers; i++) {
     const id = pick(STAT_IDS);
     if (canLower(s, id)) s[id]--;
