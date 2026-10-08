@@ -366,6 +366,17 @@ export interface PlayOptions {
   maxDays?: number;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
+  /**
+   * Stop the run once its model calls have cost this much (USD), checked after every call
+   * (#1449): one long game can cost many times a short one, so between runs is too late.
+   * Throws {@link BudgetExceeded} carrying the run so far.
+   */
+  budget?: number;
+  /**
+   * A shared spend check (#1449), for games played in parallel against one budget: called with
+   * each call's cost; return false to stop this run (it throws {@link BudgetExceeded}).
+   */
+  spendGuard?: (callCost: number) => boolean;
   /** Whether planning is learned (#1350), as for a person — the default — or open from day 1. */
   planning?: 'learned' | 'open';
   /**
@@ -390,6 +401,14 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
     food: s.stores.rawFood, water: s.stores.water, firewood: s.stores.firewood, materials: s.stores.materials, rations: s.stores.rations,
     warmth: Math.round(warmthOf(s) * 100) / 100,
   };
+}
+
+/** A run stopped because it reached its budget (#1449). `partial` is the run so far, record kind "stopped". */
+export class BudgetExceeded extends Error {
+  constructor(readonly partial: Pick<RunResult, 'player' | 'turns' | 'usage' | 'start'> & { record: { kind: 'stopped'; choice: 'budget'; day: number; readyDay: null } }) {
+    super(`budget reached ($${(partial.usage.cost ?? 0).toFixed(3)}) on day ${partial.record.day}`);
+    this.name = 'BudgetExceeded';
+  }
 }
 
 /** A stable character id for an AI player: the same name gives the same Warden (and the same talents). */
@@ -423,6 +442,11 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     usage.cacheWrite += r.usage?.cacheWrite ?? 0;
     // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
     if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
+    // The budget is checked after every call (#1449), so a long run can't blow it on its own.
+    const allowed = opts.spendGuard ? opts.spendGuard(r.usage?.cost ?? 0) : true;
+    if (!allowed || (opts.budget !== undefined && (usage.cost ?? 0) >= opts.budget)) {
+      throw new BudgetExceeded({ player: player.name, turns, usage, start, record: { kind: 'stopped', choice: 'budget', day: s.day, readyDay: null } });
+    }
     return r.text;
   };
 

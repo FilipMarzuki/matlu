@@ -11,14 +11,15 @@
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
  *            --stats str=13,int=13 | balanced | strong | clever  (the point-buy spread, as a person would pick; default all 10s;
  *                     the random baseline picks a random legal spread per run unless this is given)
- *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
+ *            --budget USD (stop once actual spend reaches this — checked after every model call, so a long
+ *                          run stops mid-game, saved as "stopped (budget)"; OpenRouter reports real cost)
  *
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, aiCharacterId, type Player, type RunResult } from '../src/artificer-ai/runner';
+import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
@@ -86,6 +87,8 @@ async function main(): Promise<void> {
       legacy: continuing ? (carry!.road ? legacyOfRoad(carry!.road.final) : legacyOf(carry!.final)) : undefined,
       characterId,
       talents: wanted,
+      // What's left of the batch budget (#1449): the runner checks it after every call.
+      ...(Number.isFinite(budget) ? { budget: budget - spent } : {}),
       // A spread given with --stats; else the random baseline rolls one per run (seeded), and others keep all 10s.
       stats: parsedStats?.stats ?? (which === 'random' ? randomSpread(seed + n - 1) : undefined),
       road: has('road'),
@@ -106,6 +109,14 @@ async function main(): Promise<void> {
       },
       });
     } catch (err) {
+      // Out of budget mid-run (#1449): keep what was played, marked as stopped, and end the batch.
+      if (err instanceof BudgetExceeded) {
+        spent += err.partial.usage.cost ?? 0;
+        const file = join(out, `${new Date().toISOString().replace(/[:.]/g, '-')}-${which}-run${n}-stopped.json`);
+        writeFileSync(file, JSON.stringify(err.partial, null, 2));
+        console.log(`\n■ Budget $${budget} reached mid-run ($${spent.toFixed(3)} spent) — run ${n} stopped on day ${err.partial.record.day}; partial transcript ${file}`);
+        break;
+      }
       // A crash is a sim bug worth seeing, not a reason to lose the rest of a batch.
       crashes.push(`run ${n} (${player.name}): ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
       continue;
