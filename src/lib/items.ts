@@ -2,8 +2,7 @@
  * items.ts — Pure utility functions for the unified item registry.
  *
  * The item registry (`item-registry.json`) is the single source of truth for
- * all items in Core Warden. It replaces the older `resources.json` which only
- * covered player-obtainable raw/refined/component items.
+ * all items in Core Warden.
  *
  * Two helpers:
  * - `playerItems()` filters the full registry to items the player can carry.

@@ -382,23 +382,11 @@ export class InventoryHUD {
   // ── Resource defs ─────────────────────────────────────────────────────
 
   private _loadResourceDefs(): void {
-    // Try to load from the unified item registry (preferred).
     const data = this.scene.cache.json.get('item-registry') as
       { items: RegistryItem[] } | undefined;
-    if (data?.items) {
-      for (const r of playerItems(data.items)) {
-        this.resourceDefs.set(r.id, { name: r.name, category: r.category as ItemCategory });
-      }
-      return;
-    }
-    // Fallback: try the old resources.json cache key (BaseForgeScene still
-    // loads it). This keeps the HUD working during gradual migration.
-    const legacy = this.scene.cache.json.get('resources') as
-      { resources: { id: string; name: string; category: ItemCategory }[] } | undefined;
-    if (legacy?.resources) {
-      for (const r of legacy.resources) {
-        this.resourceDefs.set(r.id, { name: r.name, category: r.category });
-      }
+    if (!data?.items) return;
+    for (const r of playerItems(data.items)) {
+      this.resourceDefs.set(r.id, { name: r.name, category: r.category as ItemCategory });
     }
   }
 

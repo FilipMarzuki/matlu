@@ -26,6 +26,7 @@ import { BaseManager, BASE_EVENTS } from '../systems/BaseManager';
 import { InventorySystem } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
+import { playerItems, type RegistryItem } from '../lib/items';
 
 // ── Placeable structure definitions ─────────────────────────────────────────
 
@@ -93,8 +94,8 @@ export class BaseForgeScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
-    // Resource definitions for InventoryHUD display names
-    this.load.json('resources', '/macro-world/resources.json');
+    // Item definitions for InventoryHUD display names
+    this.load.json('item-registry', '/macro-world/item-registry.json');
     // Node type definitions for the resource node demo
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
 
@@ -117,9 +118,9 @@ export class BaseForgeScene extends Phaser.Scene {
 
     // ── Inventory + HUD (test harness) ────────────────────────────────────
     const inv = new InventorySystem(this);
-    // Load resource defs for display names
-    const resDefs = this.cache.json.get('resources') as { resources: { id: string; name: string; category: string; stackMax: number }[] } | undefined;
-    if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources as never[]);
+    // Load item defs for display names
+    const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
+    if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
     // Seed with some test items so the HUD has something to show
     inv.add('wood-log', 8); inv.add('stone', 6); inv.add('iron-ore', 5);
     inv.add('plant-fiber', 12); inv.add('herb-green', 3); inv.add('coal', 2);
