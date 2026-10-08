@@ -8,6 +8,7 @@ import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { generateTreePlacements, type TreeRegistry } from '../world/TreeScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import { log } from '../lib/logger';
+import { loadAudioManifest } from '../audio/AudioLoader';
 import { NavScene } from './NavScene';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
@@ -826,89 +827,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     // ── Audio ──────────────────────────────────────────────────────────────────
-    // Phaser tries each format in order and picks the first the browser supports.
-    // .ogg is smaller and preferred; .mp3 is the fallback for Safari.
-    this.load.audio('forest-ambience', [
-      'assets/audio/forest-ambience.ogg',
-      'assets/audio/forest-ambience.mp3',
-    ]);
-    // FIL-108: ocean/shore ambience — deep ambient drone used as coastal presence
-    this.load.audio('ocean-ambience', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/underwater world.ogg',
-    ]);
-    // FIL-112: mountain wind — Cozy Tunes Pro "Gentle Breeze" loop (CC0-compatible)
-    this.load.audio('sfx-wind', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Gentle Breeze.ogg',
-    ]);
-    // FIL-110: settlement presence — soft ambient loop as distant life texture near hamlets/villages
-    this.load.audio('sfx-settlement', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg',
-    ]);
-    // FIL-117: night ambience — eerie presence sound fades in at dusk and peaks during night.
-    // Replace with a dedicated crickets/insect loop when one is sourced from freesound.org.
-    this.load.audio('night-ambience', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg',
-    ]);
-    // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
-    // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
-    // dusk → Evening Harmony, night → Polar Lights.
-    const cozyBase = 'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks';
-    this.load.audio('music-dawn',  [`${cozyBase}/Sunlight Through Leaves.ogg`]);
-    this.load.audio('music-day',   [`${cozyBase}/Whispering Woods.ogg`]);
-    this.load.audio('music-dusk',  [`${cozyBase}/Evening Harmony.ogg`]);
-    this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
-    // Phase-transition stinger: single bell strike at the moment the crossfade starts (FIL-122)
-    // impactBell_heavy_001 is distinct from _000 (sfx-swipe-hit) and _004 (sfx-swipe)
-    this.load.audio('sfx-phase-stinger', ['assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_001.ogg']);
-
-    // ── Event SFX ─────────────────────────────────────────────────────────────────
-    const ken = 'assets/audio/kenney_impact-sounds/Audio';
-    const jingles = 'assets/audio/kenney_music-jingles/Audio';
-    // Collectible pickup: warm pizzicato jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-pickup',  [`${jingles}/Pizzicato jingles/jingles_PIZZI05.ogg`]);
-    // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-portal',  [`${jingles}/Steel jingles/jingles_STEEL05.ogg`]);
-    // FIL-111: victory jingle on level completion — warm pizzicato (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-victory', [`${jingles}/Pizzicato jingles/jingles_PIZZI07.ogg`]);
-    // Cleanse swipe gesture: bright bell whoosh (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-swipe',   [`${ken}/impactBell_heavy_004.ogg`]);
-    // Swipe makes contact with an enemy: deeper bell strike (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-swipe-hit', [`${ken}/impactBell_heavy_000.ogg`]);
-    // Corrupted enemy dies: soft organic dissolve/pop (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-enemy-death', [`${ken}/impactSoft_heavy_001.ogg`]);
-    // Button hover SFX for PauseMenuScene and SettingsScene (shared audio cache)
-    this.load.audio('sfx-hover', [`${ken}/impactPlate_light_000.ogg`]);
-    // Player takes damage: dull punch impact (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-player-hit',  [`${ken}/impactPunch_medium_000.ogg`]);
-    // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)
-    this.load.audio('sfx-corruption', ['assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg']);
-
-    // Load all 5 variants for three terrain surfaces from the Kenney Impact Sounds
-    // pack (CC0). Multiple variants prevent the "machine gun" effect (identical
-    // sounds repeating feel unnatural). Three surfaces map to terrain biome values:
-    //   grass    → meadow / forest floor (biome 0.33–0.80)
-    //   concrete → rocky shore and highland rock (biome 0.25–0.33 and ≥0.80)
-    //   wood     → dense forest (biome 0.65–0.80, same range as dark terrain)
-    const kenney = 'assets/audio/kenney_impact-sounds/Audio';
-    for (let i = 0; i < 5; i++) {
-      this.load.audio(`footstep-grass-${i}`,    `${kenney}/footstep_grass_00${i}.ogg`);
-      this.load.audio(`footstep-concrete-${i}`, `${kenney}/footstep_concrete_00${i}.ogg`);
-      this.load.audio(`footstep-wood-${i}`,     `${kenney}/footstep_wood_00${i}.ogg`);
-    }
-
-    // Animal rustle — soft impact sound plays when an animal starts fleeing.
-    // Using Kenney impactSoft (CC0) as a convincing "sudden movement" sound.
-    for (let i = 0; i < 5; i++) {
-      this.load.audio(`animal-rustle-${i}`, `${kenney}/impactSoft_medium_00${i}.ogg`);
-    }
-
-    // FIL-47: ambient animal calls — positional volume/pan driven by nearest animal.
-    // Source files from Freesound.org CC0 or Kenney Animal Pack (see FIL-47 for links).
-    // Missing files are silently skipped via cache.audio.has() checks in create().
-    this.load.audio('animal-bird', 'assets/audio/animal/bird-call.ogg');
-    this.load.audio('animal-deer', 'assets/audio/animal/deer-call.ogg');
-    this.load.audio('animal-hare', 'assets/audio/animal/hare-rustle.ogg');
-    this.load.audio('animal-fox',  'assets/audio/animal/fox-bark.ogg');
+    // All sound keys/paths live in src/data/audio-manifest.json (#944) so a remote
+    // sound designer can swap files without touching scene code.
+    loadAudioManifest(this);
 
     // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
     // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)

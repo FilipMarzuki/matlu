@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
+import { loadAudioManifest } from '../audio/AudioLoader';
 import { bspGenerate, ARENA_BSP_CONFIG, BspDungeonLayout } from '../world/DungeonGen';
 import { CombatEntity } from '../entities/CombatEntity';
 import { Tinkerer } from '../entities/Tinkerer';
@@ -262,42 +263,9 @@ export class DungeonForgeScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Real 9mm pistol shot (CC0, Freesound community). OGG primary, MP3 fallback.
-    // Random pitch variation ±10% replaces the old 3-variant impactPlate cycling.
-    this.load.audio('sfx-gunshot', [
-      'assets/audio/freesound_community-9mm-pistol-shot-6349.ogg',
-      'assets/audio/freesound_community-9mm-pistol-shot-6349.mp3',
-    ]);
-    // 1911 magazine reload — plays once when the Tinkerer's mag runs dry.
-    this.load.audio('sfx-reload', [
-      'assets/audio/freesound_community-1911-reload-6248.ogg',
-      'assets/audio/freesound_community-1911-reload-6248.mp3',
-    ]);
-
-    // Tense dungeon ambience — "Cloak of Darkness" fits the arena's dark-stone aesthetic.
-    this.load.audio(
-      'combat-music',
-      'assets/audio/music-loop-bundle-2026-q1/Week 4 - Cloak of Darkness STAGE 1.ogg',
-    );
-
-    // ── Creature ambient vocalisations ────────────────────────────────────────
-    // MiniVelcrid insect chirps — 3 variants so back-to-back plays don't repeat
-    // the same sound. Source: freesound.org CC0 — search "insect chirp short"
-    // or "cricket stridulation single" and drop the OGGs into
-    // public/assets/audio/creatures/. The scene skips playback gracefully if
-    // the files are absent (audioAvailable guard in the event handler below).
-    this.load.audio('sfx-velcrid-chirp-0', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg');
-    this.load.audio('sfx-velcrid-chirp-1', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg');
-    this.load.audio('sfx-velcrid-chirp-2', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg');
-
-    // VelcridJuvenile combat sounds — placeholder CC0 audio until proper creature
-    // recordings are sourced (see scripts/download-creature-sounds.js).
-    // Aggro: alien chirp burst on first sighting; attack: mandible snap;
-    // hurt: chitin crack; death: heavy collapse with resonance.
-    this.load.audio('sfx-velcrid-aggro',  'assets/audio/creatures/mini-velcrid/mini-velcrid-aggro.ogg');
-    this.load.audio('sfx-velcrid-attack', 'assets/audio/creatures/mini-velcrid/mini-velcrid-attack.ogg');
-    this.load.audio('sfx-velcrid-hurt',   'assets/audio/creatures/mini-velcrid/mini-velcrid-hurt.ogg');
-    this.load.audio('sfx-velcrid-death',  'assets/audio/creatures/mini-velcrid/mini-velcrid-death.ogg');
+    // Sound keys/paths (gunshot, reload, combat music, Velcrid vocalisations) live
+    // in src/data/audio-manifest.json (#944) — see AudioLoader.ts.
+    loadAudioManifest(this);
 
     this.load.aseprite(
       'tinkerer',
