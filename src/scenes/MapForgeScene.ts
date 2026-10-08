@@ -24,7 +24,9 @@ import { placeBuildings } from '../../mapgen/SettlementPlacement';
 import type { SettlementSite, Geography } from '../../mapgen/SettlementSpec';
 import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { SETTLEMENTS } from '../world/Level1';
-import { tileBiomeIdx } from '../world/biomes';
+import { tileBiomeIdx, BIOMES } from '../world/biomes';
+import type { EmittedIntGridLayer, SettlementMapJson } from '../../mapgen/SettlementMapEmitter';
+import { saveMap } from '../lib/saveMap';
 
 // ── Noise constants — match GameScene exactly ────────────────────────────────
 const WORLD_W    = 4500;
@@ -56,6 +58,19 @@ export class MapForgeScene extends Phaser.Scene {
   private settlementHud?: Phaser.GameObjects.Text;
   private settlementDataReady = false;
 
+  // ── Terrain state kept for Export (#1172) ─────────────────────────────────
+  // Snapshot of the grids drawTerrain() just rendered, so Export writes
+  // exactly what's on screen rather than regenerating anything.
+  private terrainTilesX = 0;
+  private terrainTilesY = 0;
+  private terrainElev: Uint8Array = new Uint8Array(0);
+  private terrainBiome: Uint8Array = new Uint8Array(0);
+  private terrainRiver: Uint8Array = new Uint8Array(0);
+
+  // ── Export panel ───────────────────────────────────────────────────────────
+  private exportPanel: HTMLDivElement | null = null;
+  private exportId = 'mapforge-terrain';
+
   constructor() { super({ key: MapForgeScene.KEY }); }
 
   preload(): void {
@@ -83,6 +98,7 @@ export class MapForgeScene extends Phaser.Scene {
 
     this.drawTerrain();
     this.setupControls();
+    this.buildExportPanel();
 
     // Info label.
     this.add.text(8, 8,
@@ -90,6 +106,11 @@ export class MapForgeScene extends Phaser.Scene {
         fontSize: '11px', color: '#aaaaaa', fontFamily: 'monospace',
         backgroundColor: '#000000cc', padding: { x: 4, y: 2 },
       }).setScrollFactor(0).setDepth(9000);
+  }
+
+  shutdown(): void {
+    this.exportPanel?.remove();
+    this.exportPanel = null;
   }
 
   update(): void {
@@ -260,6 +281,14 @@ export class MapForgeScene extends Phaser.Scene {
         biomeGrid[i] = 0; // sea biome for rendering
       }
     }
+
+    // Keep the generated grids around for Export — the same state the
+    // player sees is what gets written to the map file (#1172).
+    this.terrainTilesX = tilesX;
+    this.terrainTilesY = tilesY;
+    this.terrainElev = elevGrid;
+    this.terrainBiome = biomeGrid;
+    this.terrainRiver = isRiver;
 
     // Render tiles with elevation offsets + cliff block stacking.
     const getE = (tx: number, ty: number) =>
@@ -494,4 +523,114 @@ export class MapForgeScene extends Phaser.Scene {
     this.settlementHud?.destroy();
     this.settlementHud = undefined;
   }
+
+  // ── Export (map file, #1172) ────────────────────────────────────────────────
+
+  /** HeightMap/Collision/PathSegments/Biome layers from the terrain state drawTerrain() produced. */
+  private buildTerrainMapJson(id: string): SettlementMapJson {
+    const cols = this.terrainTilesX;
+    const rows = this.terrainTilesY;
+    const n = cols * rows;
+
+    const heightMap = new Array<number>(n);
+    const collision = new Array<number>(n).fill(0);
+    const pathSegments = new Array<number>(n).fill(0); // MapForge has no path system yet
+    const biomeValues = new Array<number>(n);
+    const biomeLabels: string[] = [];
+    const biomeIndexOf = (label: string): number => {
+      let i = biomeLabels.indexOf(label);
+      if (i < 0) { biomeLabels.push(label); i = biomeLabels.length - 1; }
+      return i;
+    };
+
+    for (let i = 0; i < n; i++) {
+      heightMap[i] = this.terrainElev[i];
+      const isWater = this.terrainRiver[i] === 1 || this.terrainBiome[i] === 0;
+      const isCliff = this.terrainElev[i] >= 3; // MapForgeScene.getElev's top level
+      collision[i] = isWater || isCliff ? 1 : 0;
+      biomeValues[i] = biomeIndexOf(slugifyBiomeName(BIOMES[this.terrainBiome[i]]?.name ?? 'unknown'));
+    }
+
+    const grid = { __gridSize: TILE_SIZE, __cWid: cols, __cHei: rows };
+    const layers: EmittedIntGridLayer[] = [
+      { __identifier: 'HeightMap', __type: 'IntGrid', ...grid, intGridCsv: heightMap },
+      { __identifier: 'Collision', __type: 'IntGrid', ...grid, intGridCsv: collision },
+      { __identifier: 'PathSegments', __type: 'IntGrid', ...grid, intGridCsv: pathSegments },
+      { __identifier: 'Biome', __type: 'IntGrid', ...grid, intGridCsv: biomeValues },
+    ];
+
+    return {
+      identifier: id,
+      pxWid: cols * TILE_SIZE,
+      pxHei: rows * TILE_SIZE,
+      fieldInstances: [
+        { __identifier: 'metersPerTile', __value: 1 },
+        { __identifier: 'scaleLabel', __value: 'region' },
+        { __identifier: 'biomes', __value: biomeLabels },
+      ],
+      layerInstances: [
+        ...layers,
+        { __identifier: 'Entities', __type: 'Entities', ...grid, entityInstances: [] },
+      ],
+    };
+  }
+
+  private buildExportPanel(): void {
+    document.getElementById('mf-export-panel')?.remove();
+    const panel = document.createElement('div');
+    panel.id = 'mf-export-panel';
+    panel.innerHTML = `
+      <style>
+        #mf-export-panel {
+          position: fixed; right: 8px; bottom: 8px; width: 220px;
+          background: #12121eee; border: 1px solid #334; border-radius: 4px;
+          font-family: monospace; font-size: 11px; color: #ccd; padding: 8px;
+          z-index: 500; display: flex; flex-direction: column; gap: 4px;
+          box-sizing: border-box;
+        }
+        #mf-export-panel h4 { margin: 0 0 2px; color: #aaccff; font-size: 12px; }
+        #mf-export-panel label { color: #889; font-size: 10px; display: block; }
+        #mf-export-panel input {
+          width: 100%; background: #1a1a2e; color: #dde; border: 1px solid #446;
+          border-radius: 3px; padding: 2px 4px; font-family: monospace; font-size: 11px;
+          box-sizing: border-box;
+        }
+        #mf-export-panel button {
+          background: #2a2a4e; color: #aab; border: 1px solid #446;
+          border-radius: 3px; padding: 4px; cursor: pointer; font-family: monospace; font-size: 11px;
+        }
+        #mf-export-panel button:hover { background: #3a3a5e; color: #fff; }
+        #mf-export-status { color: #889; font-size: 10px; min-height: 12px; }
+      </style>
+      <h4>Export Map</h4>
+      <label>Map ID</label>
+      <input type="text" id="mf-export-id" value="${this.exportId}" />
+      <button id="mf-export-btn">⬆ Export Terrain</button>
+      <div id="mf-export-status"></div>
+    `;
+    document.body.appendChild(panel);
+    this.exportPanel = panel;
+
+    document.getElementById('mf-export-id')!.addEventListener('change', (e) => {
+      this.exportId = (e.target as HTMLInputElement).value.trim();
+    });
+    document.getElementById('mf-export-btn')!.addEventListener('click', () => { void this.exportMap(); });
+  }
+
+  private async exportMap(): Promise<void> {
+    const statusEl = document.getElementById('mf-export-status');
+    const id = this.exportId.trim();
+    if (!/^[a-z0-9-]+$/.test(id)) {
+      if (statusEl) statusEl.textContent = 'Map ID must match [a-z0-9-]+';
+      return;
+    }
+    const map = this.buildTerrainMapJson(id);
+    const path = await saveMap(id, map);
+    if (statusEl) statusEl.textContent = path ? `Saved ${path}` : 'Export failed';
+  }
+}
+
+/** "Marsh / Bog" → "marsh-bog", "Forest (Cold)" → "forest-cold". */
+function slugifyBiomeName(name: string): string {
+  return name.toLowerCase().replace(/[()]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }

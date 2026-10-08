@@ -39,13 +39,15 @@ import {
   drawIsoDiamond, drawIsoBox,
   type IsoConfig, type IsoBoxCorners,
 } from '../lib/IsoRenderer';
-import { generateSettlement } from '../../mapgen/SettlementGenerator';
+import { generateSettlement, type ResolvedBuilding } from '../../mapgen/SettlementGenerator';
 import { footprintSpan, placeBuildings } from '../../mapgen/SettlementPlacement';
 import type { SettlementSite, SettlementTier } from '../../mapgen/SettlementSpec';
-import type { EntranceSide } from '../../mapgen/SettlementPlacement';
+import type { EntranceSide, PlacedBuilding, PlacementResult, RoadTile } from '../../mapgen/SettlementPlacement';
+import { emitSettlementMap } from '../../mapgen/SettlementMapEmitter';
 import {
   getAllCultures, getAllBuildings, initSettlementData, getMapgenData,
 } from '../world/mapgenData';
+import { saveMap } from '../lib/saveMap';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -183,6 +185,12 @@ export class SettlementEditorScene extends Phaser.Scene {
   private forgeTier: SettlementTier = 3;
   private forgeCultureIdx = 0;
   private forgeSeed = 42;
+
+  // export params — the editor's own scale, matching the generator's
+  // defaults for a settlement map (mapgen/scripts/generate-settlement.ts)
+  private exportId = 'settlement-editor';
+  private exportMetersPerTile = 2;
+  private exportScaleLabel = 'settlement';
 
   constructor() { super({ key: 'SettlementEditorScene' }); }
 
@@ -863,6 +871,66 @@ export class SettlementEditorScene extends Phaser.Scene {
     }
   }
 
+  // ── Export (map file) ──────────────────────────────────────────────────────
+
+  /** Tile just outside the footprint edge the entrance faces, or undefined if no entrance. */
+  private entranceTile(b: EditorBuilding): { tx: number; ty: number } | undefined {
+    if (!b.entranceSide) return undefined;
+    const [lo, hi] = footprintSpan(b.widthT);
+    switch (b.entranceSide) {
+      case 'n': return { tx: b.tx, ty: b.ty + lo - 1 };
+      case 's': return { tx: b.tx, ty: b.ty + hi + 1 };
+      case 'w': return { tx: b.tx + lo - 1, ty: b.ty };
+      case 'e': return { tx: b.tx + hi + 1, ty: b.ty };
+    }
+  }
+
+  /** Current editor state reshaped into the PlacementResult emitSettlementMap expects. */
+  private toPlacementResult(): PlacementResult {
+    const catalogue = this.buildCatalogueMap();
+    const buildings: PlacedBuilding[] = this.state.buildings.map(b => {
+      const entry = catalogue.get(b.id);
+      const resolved: ResolvedBuilding = {
+        id: b.id,
+        role: entry?.role ?? b.id,
+        category: b.category,
+        zone: entry?.zone ?? 'middle',
+        w: b.widthT,
+        d: b.widthT,
+        heightHint: entry?.heightHint ?? 'standard',
+        placementHints: entry?.placementHints ?? [],
+        loreHook: entry?.loreHook ?? '',
+        pathTo: entry?.pathTo,
+      };
+      const entrance = this.entranceTile(b);
+      return {
+        tx: b.tx, ty: b.ty, widthT: b.widthT, depthT: b.widthT,
+        building: resolved, fallback: false,
+        entranceTx: entrance?.tx, entranceTy: entrance?.ty, entranceSide: b.entranceSide,
+      };
+    });
+    const roads: RoadTile[] = this.state.roads.map(r => ({ tx: r.tx, ty: r.ty, main: r.main }));
+    return { buildings, roads };
+  }
+
+  private async exportMap(): Promise<void> {
+    const statusEl = document.getElementById('se-export-status');
+    const id = this.exportId.trim();
+    if (!/^[a-z0-9-]+$/.test(id)) {
+      if (statusEl) statusEl.textContent = 'Map ID must match [a-z0-9-]+';
+      return;
+    }
+    const map = emitSettlementMap(this.toPlacementResult(), {
+      identifier: id,
+      gridSize: this.gridSize,
+      cellSize: this.TILE,
+      metersPerTile: this.exportMetersPerTile,
+      label: this.exportScaleLabel,
+    });
+    const path = await saveMap(id, map);
+    if (statusEl) statusEl.textContent = path ? `Saved ${path}` : 'Export failed';
+  }
+
   // ── Catalogue helper ───────────────────────────────────────────────────────
 
   private buildCatalogueMap(): Map<string, CatalogueEntry> {
@@ -980,9 +1048,28 @@ export class SettlementEditorScene extends Phaser.Scene {
 
       <div class="se-divider"></div>
       <h3>Layout</h3>
-      <button class="se-btn se-btn-full" id="se-save-btn">💾 Export JSON</button>
+      <button class="se-btn se-btn-full" id="se-save-btn">💾 Download JSON</button>
       <button class="se-btn se-btn-full" id="se-load-btn">📂 Load JSON…</button>
       <input type="file" id="se-file-input" accept=".json" style="display:none" />
+
+      <div class="se-divider"></div>
+      <h3>Export Map</h3>
+      <div>
+        <label>Map ID</label>
+        <input type="text" id="se-export-id" value="${this.exportId}" />
+      </div>
+      <div style="display:flex; gap:4px;">
+        <div style="flex:1">
+          <label>m / tile</label>
+          <input type="number" id="se-export-meters" value="${this.exportMetersPerTile}" min="0.1" step="0.1" />
+        </div>
+        <div style="flex:1">
+          <label>Scale label</label>
+          <input type="text" id="se-export-label" value="${this.exportScaleLabel}" />
+        </div>
+      </div>
+      <button class="se-btn se-btn-full" id="se-export-btn">⬆ Export Map</button>
+      <div id="se-export-status" class="se-info"></div>
 
       <div class="se-divider"></div>
       <button class="se-btn se-btn-full" id="se-back-btn">← Back to Menu (ESC)</button>
@@ -1091,6 +1178,18 @@ export class SettlementEditorScene extends Phaser.Scene {
       reader.onload = (ev) => this.loadJSONFromString(ev.target?.result as string);
       reader.readAsText(file);
     });
+
+    // Export map
+    document.getElementById('se-export-id')!.addEventListener('change', (e) => {
+      this.exportId = (e.target as HTMLInputElement).value.trim();
+    });
+    document.getElementById('se-export-meters')!.addEventListener('change', (e) => {
+      this.exportMetersPerTile = parseFloat((e.target as HTMLInputElement).value) || 2;
+    });
+    document.getElementById('se-export-label')!.addEventListener('change', (e) => {
+      this.exportScaleLabel = (e.target as HTMLInputElement).value.trim() || 'settlement';
+    });
+    document.getElementById('se-export-btn')!.addEventListener('click', () => { void this.exportMap(); });
 
     // Back button
     document.getElementById('se-back-btn')!.addEventListener('click', () => {

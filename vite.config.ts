@@ -34,9 +34,45 @@ function devSaveRegistryPlugin(): Plugin {
   };
 }
 
+/**
+ * Dev-only plugin: POST /__save-map writes a map JSON to public/assets/maps/<id>.json.
+ * Used by SettlementEditorScene and MapForgeScene's Export action (#1172) so a
+ * hand-edited map is a file on disk the same way a generated one is.
+ */
+function devSaveMapPlugin(): Plugin {
+  return {
+    name: 'dev-save-map',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-map', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { id, level } = JSON.parse(body);
+            if (typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id)) {
+              throw new Error('id must match [a-z0-9-]+');
+            }
+            const relPath = `assets/maps/${id}.json`;
+            const dest = resolve(__dirname, 'public', relPath);
+            writeFileSync(dest, JSON.stringify(level, null, 2) + '\n');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, path: `/${relPath}` }));
+          } catch (err) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     devSaveRegistryPlugin(),
+    devSaveMapPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
 
