@@ -25,7 +25,7 @@ import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
-import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
@@ -920,7 +920,9 @@ document.body.appendChild(introEl);
 
 /** What the player is choosing on the creation screen (#1239). */
 // The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
-let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+// Everyone starts as Loke for now: no portrait to pick, just your name to write.
+const STANDARD_PORTRAIT = 'loke';
+let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
@@ -928,7 +930,7 @@ let draftPack: KitId[] = [...SUGGESTED_PACK];
 // The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
 // so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
 const DRAFT_KEY = 'artificer.draft';
-const blankDraft = (): typeof draft => ({ id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
+const blankDraft = (): typeof draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
 function loadDraft(): typeof draft | null {
   try {
     const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<typeof draft> | null;
@@ -937,7 +939,7 @@ function loadDraft(): typeof draft | null {
     return {
       id: d.id,
       name: typeof d.name === 'string' ? d.name.slice(0, 24) : '',
-      portrait: PORTRAITS.some(p => p.id === d.portrait) ? d.portrait! : PORTRAITS[0].id,
+      portrait: STANDARD_PORTRAIT,
       talents: Array.isArray(d.talents) ? d.talents.filter(t => offer.includes(t)).slice(0, TALENT_PICKS) : [],
       stats: d.stats && validStats(d.stats) ? { ...d.stats } : { ...DEFAULT_STATS },
       age: START_AGES.includes(d.age as number) ? d.age! : DEFAULT_AGE,
@@ -1042,15 +1044,13 @@ function packForm(): string {
   </form>`;
 }
 
-/** The creation form: name, portrait, two of four offered talents, stats. Choices live in `draft` until Continue. */
+/** The creation form: your name (written, beside the standard portrait), two of four offered talents, age, stats. Choices live in `draft` until Continue. */
 function createForm(): string {
-  const portraits = PORTRAITS.map(p => `<button class="pchoice" data-portrait="${p.id}" aria-pressed="${draft.portrait === p.id}">${portraitEl(p.id, 64)}<span>${esc(p.label)}</span></button>`).join('');
   const offer = talentOffer(seedOf(draft.id));
   const talents = offer.map(t => `<button class="tchoice" data-talent="${t}" aria-pressed="${draft.talents.includes(t)}"><b>${esc(TALENTS[t].name)}</b><span class="up">+ ${esc(TALENTS[t].blurb)}</span></button>`).join('');
   return `<form class="create" onsubmit="return false">
-    <label class="clabel" for="wname">NAME</label>
-    <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
-    <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
+    <label class="clabel" for="wname">NAME — write it</label>
+    <div class="cwho">${portraitEl(STANDARD_PORTRAIT, 64)}<input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}"></div>
     <p class="clabel">TALENTS — choose ${TALENT_PICKS} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
     <p class="mood" style="margin:0">…and something else in you, not yet known.</p>
     <p class="clabel">AGE — how old you are, the weekend it began</p>
@@ -1088,7 +1088,6 @@ introEl.addEventListener('click', e => {
   const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
-  if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
   if (btn?.dataset.kit) {

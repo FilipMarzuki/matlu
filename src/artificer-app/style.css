@@ -412,6 +412,9 @@ body { min-height: 100vh; }
   .achoices { display: flex; flex-wrap: wrap; gap: 8px; }
   .achoice { min-width: 48px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 600 16px var(--display); cursor: pointer; }
   .achoice[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  /* The name field beside the standard portrait (no portrait picker for now). */
+  .cwho { display: flex; align-items: center; gap: 12px; }
+  .cwho .cname { flex: 1 1 auto; min-width: 0; }
   .tchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoice b, .trait b { font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--gold); font-weight: 400; }
   .tchoice .up, .trait .up { color: var(--green); }
