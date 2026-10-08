@@ -83,6 +83,8 @@ import type { PerceptionEntry } from '../systems/PerceptionSystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
+import { BarkSystem, type NpcBarkEntry } from '../systems/BarkSystem';
+import npcBarks from '../data/npcBarks.json';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -468,6 +470,8 @@ export class GameScene extends Phaser.Scene {
   perceptionSystem!: PerceptionSystem;
   discoverySystem!: DiscoverySystem;
   projectSystem!: ProjectSystem;
+  /** Ambient NPC one-liners on proximity (#948) — separate from the E-key dialog system. */
+  private barkSystem = new BarkSystem(npcBarks as NpcBarkEntry[]);
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -1799,6 +1803,7 @@ export class GameScene extends Phaser.Scene {
       this.updateAnimalAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateNpcBarks(time);
       this.updateVendorInteraction();
       this.updateLootChestInteraction();
       this.updateShrine();
@@ -8461,6 +8466,53 @@ export class GameScene extends Phaser.Scene {
         return; // only the nearest NPC counts per frame
       }
     }
+  }
+
+  /**
+   * Ambient NPC barks (#948) — a floating one-liner above an NPC's head when
+   * the player walks close, with no keypress required. Deliberately separate
+   * from updateNpcProximity(): barks are flavor, not a dialog panel, and the
+   * two systems key off the same settlementNpcs array but never block each
+   * other — a bark can pop while the "[E] Talk"-style prompt is also showing.
+   *
+   * BarkSystem (pure logic) owns the proximity radius + per-NPC cooldown +
+   * random line selection; this method only measures distance and renders.
+   */
+  private updateNpcBarks(time: number): void {
+    for (const npc of this.settlementNpcs) {
+      const sid = npc.getData('settlementId') as string;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+      const line = this.barkSystem.tryBark(sid, dist, time);
+      if (line) this.spawnBarkText(npc.x, npc.y - npc.displayHeight, line);
+    }
+  }
+
+  /**
+   * Floating bark text above an NPC's head — fades out after ~3 s. Styled
+   * like the vendor/shrine prompts (small monospace + stroke) rather than
+   * spawnFloatText's reward-popup look, since a bark is ambient flavor, not
+   * a reward notification.
+   */
+  private spawnBarkText(x: number, y: number, text: string): void {
+    const label = this.add
+      .text(x, y - 6, text, {
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#f0ead6',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(500);
+
+    this.tweens.add({
+      targets: label,
+      y: y - 26,
+      alpha: 0,
+      duration: 3000,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
   }
 
   // ── Wildlife info popup ─────────────────────────────────────────────────────
