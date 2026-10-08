@@ -53,9 +53,10 @@ describe('Stats grow by use and wear (#1257)', () => {
   it('needs much more work for each point the higher it is', () => {
     expect(EXERCISE_TO_NEXT(14)).toBe(1080);
     expect(EXERCISE_TO_NEXT(10)).toBe(120);
-    // Never less than 30h, even for a low stat.
-    expect(EXERCISE_TO_NEXT(8)).toBe(30);
+    // Never less than 120h: a low stat is no cheaper to raise than a 10.
+    expect(EXERCISE_TO_NEXT(8)).toBe(120);
     expect(EXERCISE_TO_NEXT(5)).toBe(270);
+    expect(EXERCISE_TO_NEXT(7)).toBe(120);
   });
 
   // 3. The right skill builds its stat; hard work builds STR and CON, demanding mind work INT and WIL.
