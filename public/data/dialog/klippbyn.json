@@ -1,0 +1,10 @@
+{
+  "id": "klippbyn",
+  "startNode": "start",
+  "nodes": {
+    "start": {
+      "text": "Det är kallt här uppe. Men utsikten — den ljuger aldrig.",
+      "choices": []
+    }
+  }
+}

@@ -51,6 +51,8 @@ import {
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
+import { queueDialogTreeLoad, getDialogTree } from '../dialog/loadDialogTree';
+import type { DialogTree } from '../dialog/dialogTree';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { Dustling } from '../entities/Dustling';
 import { DryShade } from '../entities/DryShade';
@@ -201,13 +203,6 @@ const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'torrent' | 'stormsovere
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
-
-/** NPC dialog lines — one per settlement, shown when the player presses E nearby. */
-const NPC_DIALOG: Record<string, string> = {
-  strandviken:  'Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.',
-  skogsglanten: 'Skogen minner om saker. Lyssna när vinden vänder.',
-  klippbyn:     'Det är kallt här uppe. Men utsikten — den ljuger aldrig.',
-};
 
 /** Portrait texture key + display name for each settlement NPC. */
 const NPC_PORTRAIT: Record<string, { portrait: string; name: string }> = {
@@ -928,6 +923,13 @@ export class GameScene extends Phaser.Scene {
 
     // ── Tree registry (trees.json) ───────────────────────────────────────────────
     this.load.json('trees-registry', 'macro-world/trees.json');
+
+    // ── Settlement NPC dialog trees (#946) ───────────────────────────────────────
+    // One JSON file per settlement under public/data/dialog/<settlementId>.json.
+    // Dropping a new file there is enough to add/edit dialog — no TS change needed.
+    for (const s of SETTLEMENTS) {
+      queueDialogTreeLoad(this, s.id);
+    }
 
     // ── Nature sprites — DISABLED ──────────────────────────────────────────────
     // Preloads removed so we can re-place decorations deliberately.
@@ -8442,9 +8444,11 @@ export class GameScene extends Phaser.Scene {
         if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
           this.npcDialogActive = true;
           const sid = npc.getData('settlementId') as string;
-          let text = NPC_DIALOG[sid] ?? 'Välkommen.';
+          const tree = getDialogTree(this, sid);
+          const startNode = tree.nodes[tree.startNode];
 
           // Active perception (#824): check tray slots 0-1 against NPC perception tags
+          let text = startNode.text;
           const entries = NPC_PERCEPTION[sid];
           if (entries) {
             const match = this.perceptionSystem.checkAndApply(entries, this);
@@ -8452,13 +8456,19 @@ export class GameScene extends Phaser.Scene {
               text += '\n\n' + match.entry.text;
             }
           }
+          // Clone rather than mutate the cached tree — repeat visits must not
+          // stack perception bonus text onto the same cached node.
+          const dialogTree: DialogTree = text === startNode.text
+            ? tree
+            : { ...tree, nodes: { ...tree.nodes, [tree.startNode]: { ...startNode, text } } };
 
           const npcInfo = NPC_PORTRAIT[sid];
           const dialogData: NpcDialogData = {
             callerKey: this.scene.key,
-            text,
+            text: '',
             speakerName: npcInfo?.name,
             portrait: npcInfo?.portrait,
+            dialogTree,
           };
           this.scene.pause();
           this.scene.launch('NpcDialogScene', dialogData as unknown as object);

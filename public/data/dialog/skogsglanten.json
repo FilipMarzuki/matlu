@@ -1,0 +1,30 @@
+{
+  "id": "skogsglanten",
+  "startNode": "start",
+  "nodes": {
+    "start": {
+      "text": "Skogen minner om saker. Lyssna när vinden vänder.",
+      "choices": [
+        { "label": "Vad menar du?", "next": "memory" },
+        { "label": "Jag lyssnar.", "next": "farewell" }
+      ]
+    },
+    "memory": {
+      "text": "Varje träd bär ett ärr från det som varit. Skogen glömmer aldrig, den bara väntar.",
+      "choices": [
+        { "label": "Vad väntar den på?", "next": "waiting" },
+        { "label": "Tack för visdomen.", "next": "farewell" }
+      ]
+    },
+    "waiting": {
+      "text": "På att någon lyssnar tillräckligt noga för att höra svaret.",
+      "choices": [
+        { "label": "Jag ska lyssna.", "next": "farewell" }
+      ]
+    },
+    "farewell": {
+      "text": "Gå försiktigt, vandrare. Skogen ser allt.",
+      "choices": []
+    }
+  }
+}

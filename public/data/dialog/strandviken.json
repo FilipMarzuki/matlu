@@ -1,0 +1,10 @@
+{
+  "id": "strandviken",
+  "startNode": "start",
+  "nodes": {
+    "start": {
+      "text": "Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.",
+      "choices": []
+    }
+  }
+}
