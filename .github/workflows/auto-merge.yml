@@ -55,8 +55,32 @@ jobs:
             echo "PR #${{ steps.find-pr.outputs.pr_number }} is NOT approved — skipping merge"
           fi
 
-      - name: Squash-merge PR
+      # High-risk PRs (#1431) wait for a person. The tier is scored here from
+      # main's rules rather than read from the risk:* label, so a merge can't
+      # slip through before DevCycle 3c has labelled the PR.
+      - uses: actions/checkout@v7
         if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
+
+      - name: Check risk tier
+        if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
+        id: risk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          PR=${{ steps.find-pr.outputs.pr_number }}
+          node .github/scripts/risk-score.mjs --pr "$PR"
+          TIER=$(grep '^tier=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          HUMAN=$(gh api "repos/${{ github.repository }}/issues/$PR/labels" --jq '[.[] | select(.name == "human-approved")] | length')
+          if [ "$TIER" = "high" ] && [ "$HUMAN" = "0" ]; then
+            echo "PR #$PR is high risk and has no human-approved label — not merging"
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "merge=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Squash-merge PR
+        if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0 && steps.risk.outputs.merge == 'true'
         env:
           # Use GH_TRACKER_TOKEN (PAT) so the merge fires the workflow_run
           # event Bender / Marvin listen for. GitHub suppresses workflow_run
