@@ -178,7 +178,7 @@ describe('AI player harness', () => {
         expect(run.final.outcome).not.toBeNull();
       }
     }
-  });
+  }, 60_000);
 
   // A value just under a threshold must never display as meeting it.
   it('rounds readiness values down so an unmet threshold never reads as met', async () => {

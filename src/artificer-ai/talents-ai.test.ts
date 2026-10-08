@@ -36,7 +36,8 @@ describe('AI talent parity (#1267)', () => {
     expect(chooseFromOffer(offer, [offer[0], outside])).toEqual(offer.slice(0, 2));
     expect(chooseFromOffer(offer, [])).toEqual(offer.slice(0, 2));
     const r = await playRun(scriptedPlayer(), { characterId: 'ai-test-2', talents: [offer[2], offer[3]] });
-    expect(r.final.character.talents.filter(t => t.known).map(t => t.id)).toEqual([offer[2], offer[3]]);
+    // The chosen ones (a hidden talent may have been discovered along the way, #1265 — it carries signs).
+    expect(r.final.character.talents.filter(t => t.known && t.signs === undefined).map(t => t.id)).toEqual([offer[2], offer[3]]);
   });
 
   // The random baseline picks a random pair from its offer — seeded, so it repeats.

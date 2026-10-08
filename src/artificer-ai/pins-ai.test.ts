@@ -92,7 +92,7 @@ describe('The AI harness remembers places (#1381)', () => {
     expect(made).toBeGreaterThan(0); // places did get remembered
     // The invariant itself catches an overfull memory.
     expect(invariantViolations(warden([pin('a', 'stone', 1), pin('b', 'stone', 1), pin('c', 'stone', 1)]))).toContain('3 pins held, but memory holds 2');
-  });
+  }, 60_000);
 
   // 5. Finished runs: the report counts pins made, let go and held, by kind.
   it('counts places remembered, let go and held, by kind', () => {

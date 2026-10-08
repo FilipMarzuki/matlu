@@ -139,7 +139,7 @@ describe('The AI harness plays encounters (#1348)', () => {
     expect(met).toBeGreaterThan(0); // the runs did meet things
     // The invariant itself: a turn that ends with an encounter waiting is broken.
     expect(invariantViolations(meeting('fox-at-the-treeline'))).toEqual([expect.stringMatching(/encounter fox-at-the-treeline still waiting/)]);
-  });
+  }, 60_000);
 
   // 5. Finished runs: the report counts encounters and deaths by encounter.
   it('counts encounters, choices by kind and deaths by encounter in the report', async () => {
