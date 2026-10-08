@@ -152,3 +152,112 @@ export function statNote(id: StatId, score: number): string {
     case 'cha': return `trust ${signed(d)} · prices ${signed(-2 * d)}% (on the road)`;
   }
 }
+
+// ── Growth by use, and wear (#1257) ─────────────────────────────────────────
+// Stats change slowly over a character's life: the work you do exercises its stat, hour for hour,
+// and enough of it raises the stat a point; hardship wears Constitution down. What's been gained
+// and lost is kept apart from the chosen (adult) stats and the age (#1399), so growing up never
+// undoes training and training never moves the potential you chose.
+
+/** The human peak and the floor: no stat rises past 18 or falls below 3. */
+export const STAT_PEAK = 18, STAT_LOW = 3;
+
+/** Exercise hours for the next point: 30 × (score − 8)², at least 120 — a low stat is never cheaper to raise than a 10 (10→11 and below: 120h; 14→15: 1,080h). */
+export const STAT_MIN_HOURS = 120;
+export const EXERCISE_TO_NEXT = (score: number): number => Math.max(STAT_MIN_HOURS, 30 * (score - 8) ** 2);
+
+/**
+ * The right skill builds its stat: practising a skill exercises the stat it leans on. Felling and
+ * stonework build the arms, hunting, scouting and handwork the hands and feet, fieldcraft and
+ * foraging the body's endurance, memory and first aid the head.
+ */
+export const SKILL_STAT: Readonly<Record<SkillId, StatId>> = {
+  woodcraft: 'str', stonework: 'str', hunting: 'agi', scouting: 'agi', handcraft: 'agi',
+  fieldcraft: 'con', foraging: 'con', memory: 'int', firstaid: 'int',
+};
+/** Exercise per hour of skilled work, by the skill's level: untrained 0.5 … Journeyman 1.5. The better you are, the more it builds. */
+export const skillExercise = (level: number): number => 0.5 + 0.25 * level;
+/** Hard work: draining Vigor this fast (per hour, or pushing past empty) builds STR and CON; Clarity this fast, INT and WIL. */
+export const HARD_VIGOR = 4, HARD_CLARITY = 4;
+/** Exercise per hour of hard work, on top of the skill's. */
+export const HARD_EXERCISE = 0.5;
+
+/** A stretch of work, as stat growth sees it. Rates are the work's own (negative drains), before skill or tools ease it. */
+export interface Work {
+  hours: number;
+  skill: SkillId | null;
+  level: number;
+  vigorRate: number;
+  clarityRate: number;
+  /** Pushed Vigor past empty. */
+  pushed?: boolean;
+  /** Begun with a tired mind (Clarity under 40) or locked to survival: steels the will. */
+  tiredMind?: boolean;
+  /** Study: reading and working things out, INT hour for hour. */
+  study?: boolean;
+}
+
+/** The exercise hours a stretch of work gives each stat (#1257): the right skill, hard work, and a tired mind. */
+export function exerciseFrom(w: Work): Partial<Stats> {
+  const out: Partial<Stats> = {};
+  const add = (id: StatId, h: number) => { if (h > 0) out[id] = Math.round(((out[id] ?? 0) + h) * 100) / 100; };
+  if (w.hours <= 0) return out;
+  if (w.skill) add(SKILL_STAT[w.skill], w.hours * skillExercise(w.level));
+  if (w.study) add('int', w.hours);
+  if (-w.vigorRate >= HARD_VIGOR || w.pushed) { add('str', w.hours * HARD_EXERCISE); add('con', w.hours * HARD_EXERCISE); }
+  if (-w.clarityRate >= HARD_CLARITY) { add('int', w.hours * HARD_EXERCISE); add('wil', w.hours * HARD_EXERCISE); }
+  if (w.tiredMind) add('wil', w.hours);
+  return out;
+}
+
+/** WIL is exercised by work done with a tired mind (Clarity under this at the start) — or locked to survival. */
+export const WIL_EXERCISE_BELOW = 40;
+/** CON: each night survived hungry or thirsty counts this much, plus every hour worked beyond this in a day. */
+export const HARD_NIGHT_EXERCISE = 4, LONG_DAY_HOURS = 10;
+/** Wear: a night at this many nights hungry (or thirsty) adds 1; at WEAR_LIMIT, CON drops a point and wear resets. */
+export const WEAR_HUNGRY = 3, WEAR_THIRSTY = 2, WEAR_LIMIT = 3;
+
+/** What the character carries of it: points gained or lost by use and wear, exercise towards the next point, and wear. */
+export interface Growth { trained?: Partial<Stats>; exercise?: Partial<Stats>; wear?: number }
+
+/** The stats now: the chosen ones as grown at this age (#1399), plus what's been gained or lost (#1257), within 3–18. */
+export function withTraining(grown: Readonly<Stats>, trained: Partial<Stats> | undefined): Stats {
+  const out = { ...grown };
+  for (const id of STAT_IDS) out[id] = Math.max(STAT_LOW, Math.min(STAT_PEAK, grown[id] + (trained?.[id] ?? 0)));
+  return out;
+}
+
+/**
+ * Exercise a stat (pure): add the hours, and while they reach the next point (and the stat is under
+ * the peak), raise it. Returns the new stats and growth, and the scores reached (for the journal).
+ */
+export function exercise(stats: Readonly<Stats>, growth: Growth, id: StatId, hours: number): { stats: Stats; growth: Growth; reached: number[] } {
+  if (hours <= 0) return { stats: { ...stats }, growth, reached: [] };
+  const s = { ...stats };
+  const trained = { ...(growth.trained ?? {}) };
+  let ex = (growth.exercise?.[id] ?? 0) + hours;
+  const reached: number[] = [];
+  while (s[id] < STAT_PEAK && ex >= EXERCISE_TO_NEXT(s[id])) {
+    ex -= EXERCISE_TO_NEXT(s[id]);
+    s[id] += 1;
+    trained[id] = (trained[id] ?? 0) + 1;
+    reached.push(s[id]);
+  }
+  // At the peak, there's nothing more to work towards.
+  if (s[id] >= STAT_PEAK) ex = 0;
+  return { stats: s, growth: { ...growth, ...(reached.length ? { trained } : {}), exercise: { ...(growth.exercise ?? {}), [id]: Math.round(ex * 100) / 100 } }, reached };
+}
+
+/** Lose a point of a stat to hardship (pure), never below the floor. */
+export function wearDown(stats: Readonly<Stats>, growth: Growth, id: StatId): { stats: Stats; growth: Growth; lost: boolean } {
+  if (stats[id] <= STAT_LOW) return { stats: { ...stats }, growth, lost: false };
+  return { stats: { ...stats, [id]: stats[id] - 1 }, growth: { ...growth, trained: { ...(growth.trained ?? {}), [id]: (growth.trained?.[id] ?? 0) - 1 } }, lost: true };
+}
+
+/** What the journal says when a stat rises — felt, not hidden. */
+const GAIN_WORDS: Readonly<Record<StatId, string>> = {
+  str: 'The heavy work has hardened your arms', agi: 'You move quicker and surer than you did', int: 'Using your head has sharpened it',
+  wil: 'Pushing on when you were spent has steeled you', con: 'Hardship has toughened you', cha: 'Talking to people has come easier',
+};
+export const gainLine = (id: StatId, score: number): string => `${GAIN_WORDS[id]} — ${STATS[id].name} ${score}.`;
+export const wearLine = (thirst: boolean, score: number): string => `${thirst ? 'Thirst' : 'Hunger'} has left its mark — Constitution ${score}.`;

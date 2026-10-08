@@ -16,7 +16,7 @@ import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1'
 import { ROUTE, type RoadState } from './road';
 import { CONTACT_TRUST } from './villages';
 import type { EndChoice, Grade as WinterGrade, Injury, OutcomeKind } from './winter';
-import type { Stats } from './stats';
+import { STAT_IDS, type Stats } from './stats';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
@@ -88,6 +88,10 @@ export interface Legacy {
   background?: Background;
   /** Lasting harms (#1392): an old injury goes with you. */
   harms?: Harm[];
+  /** Growth by use and wear (#1257): points gained or lost on top of the base stats, exercise towards the next, and wear. */
+  trained?: Partial<Stats>;
+  exercise?: Partial<Stats>;
+  wear?: number;
 }
 
 export { CONTACT_TRUST } from './villages';
@@ -136,7 +140,9 @@ export function legacyOf(s: Carrier): Legacy {
     skills: carriedSkills(s.skills),
     techniques: [...s.techniques],
     // The adult stats (#1399): the current ones are worked out again from them and the age.
-    stats: { ...(s.character.adult ?? s.character.stats) },
+    // Without an age, the base is today's stats less what use and wear made of them (#1257), kept apart.
+    stats: { ...(s.character.adult ?? baseOf(s.character.stats, s.character.trained)) },
+    ...growthOf(s),
     ...(s.character.age !== undefined ? { age: s.character.age } : {}),
     talents: s.character.talents.map(t => ({ ...t })),
     ...(s.character.quirks ? { quirks: s.character.quirks.map(q => ({ ...q })) } : {}),
@@ -144,6 +150,22 @@ export function legacyOf(s: Carrier): Legacy {
     ...(s.character.background ? { background: s.character.background } : {}),
     ...(s.character.pack ? { pack: [...s.character.pack] } : {}),
   };
+}
+
+/** The base stats under what use and wear made of them (#1257). */
+const baseOf = (stats: Stats, trained: Partial<Stats> | undefined): Stats =>
+  Object.fromEntries(STAT_IDS.map(id => [id, stats[id] - (trained?.[id] ?? 0)])) as unknown as Stats;
+
+/** A collapse costs the body something lasting (#1257): a point of Constitution. */
+export const COLLAPSE_CON = 1;
+
+/** What use and wear carry (#1257) — and a run that ended in collapse leaves CON a point lower. */
+function growthOf(s: Carrier & { outcome?: { kind: string } | null }): Pick<Legacy, 'trained' | 'exercise' | 'wear'> {
+  const c = s.character;
+  const collapsed = s.outcome?.kind === 'collapsed';
+  const trained = collapsed ? { ...(c.trained ?? {}), con: (c.trained?.con ?? 0) - COLLAPSE_CON } : c.trained;
+  const any = (x: Partial<Stats> | undefined) => !!x && Object.values(x).some(v => v);
+  return { ...(any(trained) ? { trained: { ...trained } } : {}), ...(any(c.exercise) ? { exercise: { ...c.exercise } } : {}), ...(c.wear ? { wear: c.wear } : {}) };
 }
 
 /** What a run that rode the road carries (#1250): its knowledge, the marks in hand, and everyone who trusts you 50+. */
