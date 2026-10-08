@@ -8,14 +8,9 @@
 
 import type { Region1State } from '../artificer/region1';
 import { artificerRank } from '../artificer/rank';
+import { heirloomList } from '../artificer/legacy';
 
 export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
-
-/**
- * Every Warden arrives fresh (#1455): one run each, so there's no returning. The kind stays
- * so main.ts has one word for "play the intro"; `carry` went with the same-character runs.
- */
-export type IntroKind = 'fresh';
 
 /**
  * One screen of the intro.
@@ -34,7 +29,7 @@ export interface Beat {
 const CLOSING: Beat = { kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] };
 
 /** The intro's beats for a Warden about to start `s`. */
-export function introBeats(_kind: IntroKind, s: Region1State): Beat[] {
+export function introBeats(s: Region1State): Beat[] {
   const daysToSnow = s.config.calendar.winterDay - s.day;
   const rank = artificerRank(s).toUpperCase();
   // What the last Warden left (#1455): one run each, and the tools pass on.
@@ -47,7 +42,7 @@ export function introBeats(_kind: IntroKind, s: Region1State): Beat[] {
     { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
     { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
     { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
-    ...(left.length ? [{ kind: 'voice' as const, lines: ['Someone was here before you.', `They left: ${left.map(t => `a ${t.grade} ${t.item}`).join(', ')}.`] }] : []),
+    ...(left.length ? [{ kind: 'voice' as const, lines: ['Someone was here before you.', `They left: ${heirloomList(left)}.`] }] : []),
     // Before any of this (#1401): the weekend hike, and what you packed for it.
     { kind: 'pack', lines: ['Friday afternoon, before any of this. Your patrol was heading out for a weekend hike in the forest — two nights, back on Sunday.', 'What did you pack?'] },
     CLOSING,

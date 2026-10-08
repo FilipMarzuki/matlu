@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, type Region1State } from '../artificer/region1';
 import { createVitals } from '../artificer/vitality';
-import { canContinue, legacyOfRoad, CONTACT_TRUST, type RunRecord } from '../artificer/legacy';
+import { legacyOfRoad, CONTACT_TRUST, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, ROUTE, type RoadState } from '../artificer/road';
 import type { OutcomeKind } from '../artificer/winter';
 import { currentRun, deserialize, newGame, newRun, recordRun, rideCaravan, roadAct, roadEndDay, runRoadQueuedDay, serialize, type AppState } from './controller';
@@ -65,13 +65,13 @@ describe('The road in the game (#1250)', () => {
   //    is a stranger (#1455), who gets the tools and not the marks or the friends.
   it('lists marks and contacts in the road’s legacy, but the next Warden is a stranger with the tools', () => {
     const { after } = rideToTheEnd(app(ended()));
-    const road: RoadState = { ...after.road!, marks: 12, trust: { 'hf-maren': 55, 'sm-liv': 60, 'hf-tobin': 30 }, tools: [{ item: 'stone-knife', grade: 'sound' }] };
+    const road: RoadState = { ...after.road!, marks: 12, trust: { 'hf-maren': 55, 'sm-liv': 60, 'hf-tobin': 30 }, tools: [{ item: 'stone-knife', grade: 'masterwork' }] };
     expect(legacyOfRoad(road).contacts?.sort()).toEqual(['hf-maren', 'sm-liv']);
     const next = newRun(road);
     expect(next.sim.character.id).not.toBe('w-vega');
     expect(next.sim.marks).toBeUndefined();
     expect(next.sim.contacts).toBeUndefined();
-    expect(next.sim.tools).toContainEqual({ item: 'stone-knife', grade: 'sound', heirloom: true });
+    expect(next.sim.tools).toContainEqual({ item: 'stone-knife', grade: 'masterwork', heirloom: true });
     // The same character carried through `legacyOfRoad` (as the sim still allows) starts the next road with them:
     // marks in hand, and Maren remembers you.
     const same = createRegion1({}, legacyOfRoad(road), { id: 'w-vega', name: 'Vega' });
@@ -99,12 +99,12 @@ describe('The road in the game (#1250)', () => {
     expect(deserialize(JSON.stringify({ ...JSON.parse(serialize(a)), road: { leg: 'x' } }))).toBeNull();
   });
 
-  // 5. Dying on the road: canContinue is false, and nothing carries.
+  // 5. Dying on the road ends the run there; the next Warden is a stranger with no marks or contacts.
   it('ends the character who dies on the road', () => {
     const a = rideCaravan(app(ended()));
     const dead: RoadState = { ...a.road!, marks: 9, outcome: { kind: 'died', vitals: a.road!.vitals } };
     const s: AppState = { ...a, road: dead };
-    expect(canContinue(currentRun(s))).toBe(false);
+    expect(currentRun(s).outcome?.kind).toBe('died');
     const next = newRun(currentRun(s));
     expect(next.sim.character.id).not.toBe('w-vega');
     expect(next.sim.marks).toBeUndefined();

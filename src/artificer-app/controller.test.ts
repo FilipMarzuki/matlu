@@ -139,11 +139,13 @@ describe('Artificer controller', () => {
     expect(recordRun(h, done, done)).toHaveLength(1); // already resolved before: no double record
     expect(recordRun(h, a, a)).toHaveLength(1); // not resolved: nothing to record
 
-    // The next run is someone new (#1455): the last Warden's tools pass on, their knowledge (the snare) doesn't.
-    const next = newRun(done.sim);
+    // The next run is someone new (#1455): the last Warden's tools pass on (those the next pack doesn't match), their knowledge (the snare) doesn't.
+    const finished = { ...done.sim, tools: [...done.sim.tools, { item: 'stone-knife', grade: 'masterwork' as const }] };
+    const next = newRun(finished);
     expect(next.sim.known).not.toContain('trap-snare');
     expect(next.sim.character.id).not.toBe(done.sim.character.id);
-    expect(next.sim.tools.filter(t => t.heirloom).map(t => t.item)).toEqual(bestPerItem(done.sim.tools).map(t => t.item));
+    expect(next.sim.tools.filter(t => t.heirloom)).toEqual([{ item: 'stone-knife', grade: 'masterwork', heirloom: true }]);
+    expect(bestPerItem(finished.tools).map(t => t.item)).toContain('stone-knife');
     expect(newRun(a.sim).sim.tools.some(t => t.heirloom)).toBe(false); // an unfinished run leaves nothing
 
     h = recordRun(h, a, done);

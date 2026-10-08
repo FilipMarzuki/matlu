@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { repack, createRegion1, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { repack, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -24,7 +24,7 @@ import { dayMean, nightTemp, coldNightNeeds, isBlizzard, weatherName, BLIZZARD_H
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
-import { introBeats, fillName, type Beat, type IntroKind } from './intro';
+import { introBeats, fillName, type Beat } from './intro';
 import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
@@ -45,7 +45,7 @@ import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
-import { choose, carryOn, forget, weighPin, roadChoose, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -947,11 +947,11 @@ function loadDraft(): typeof draft | null {
 const saveDraft = (): void => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* a convenience; play on */ } };
 const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
 
-function startIntro(kind: IntroKind): void {
-  draft = (kind === 'fresh' ? loadDraft() : null) ?? blankDraft();
+function startIntro(): void {
+  draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
   drawnBeat = -1;
-  intro = { beats: introBeats(kind, state.sim), i: 0 };
+  intro = { beats: introBeats(state.sim), i: 0 };
   renderIntro();
 }
 
@@ -959,7 +959,7 @@ function startIntro(kind: IntroKind): void {
 function commitCharacter(): void {
   // The sim is made again from the draft — keeping what the last Warden left (#1455), which the intro already told them about.
   const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
-  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, left.heirlooms?.length ? left : undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age, pack: [...SUGGESTED_PACK] }), queue: [] };
+  state = makeWarden({ id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, age: draft.age }, left.heirlooms?.length ? left : undefined);
   render(state);
 }
 
@@ -1166,7 +1166,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
-  else if (d.cmd === 'reset') { update(newRun(currentRun(state))); clearDraft(); startIntro('fresh'); }
+  else if (d.cmd === 'reset') { update(newRun(currentRun(state))); clearDraft(); startIntro(); }
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
@@ -1208,4 +1208,4 @@ root.addEventListener('click', e => {
 
 render(state);
 // A Warden still being made (a first visit, or after New Game) picks up where it was (#1266).
-if (!saved || loadDraft()) startIntro('fresh');
+if (!saved || loadDraft()) startIntro();

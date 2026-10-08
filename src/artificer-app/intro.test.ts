@@ -8,7 +8,7 @@ import { introBeats, artificerRank, conceptRanks, fillName } from './intro';
 
 describe('Arrival intro', () => {
   it('designates a fresh Warden as an Apprentice Artificer and closes on the motto', () => {
-    const beats = introBeats('fresh', createRegion1());
+    const beats = introBeats(createRegion1());
     const all = beats.flatMap(b => b.lines).join('\n');
     expect(beats[0]).toMatchObject({ kind: 'narration', portal: true });
     expect(all).toMatch(/Crafting knowledge exceeds threshold/);
@@ -27,19 +27,19 @@ describe('Arrival intro', () => {
     const s = createRegion1({}, { known: ['snare', 'stone-knife'], concepts: { tension: 2, sealing: 1 } });
     expect(conceptRanks(s)).toBe(3);
     expect(artificerRank(s)).toBe('Journeyman');
-    expect(introBeats('fresh', s).flatMap(b => b.lines).join('\n')).toMatch(/RANK: JOURNEYMAN/);
+    expect(introBeats(s).flatMap(b => b.lines).join('\n')).toMatch(/RANK: JOURNEYMAN/);
   });
 
   // One run per Warden (#1455): every arrival is a new person, told what the last one left.
   it('tells a new Warden what the last one left', () => {
     const s = createRegion1({}, { known: [], concepts: {}, heirlooms: [{ item: 'stone-knife', grade: 'fine', heirloom: true }] });
-    const beats = introBeats('fresh', s);
+    const beats = introBeats(s);
     const all = beats.flatMap(b => b.lines).join('\n');
     expect(all).toMatch(/Someone was here before you\./);
     expect(all).toMatch(/They left: a fine stone-knife\./);
     // Still a new person: the creation screen runs, and the heirloom line comes after registration.
     expect(beats.findIndex(b => b.lines[0] === 'Someone was here before you.')).toBeGreaterThan(beats.findIndex(b => b.kind === 'create'));
-    expect(introBeats('fresh', createRegion1()).flatMap(b => b.lines).join('\n')).not.toMatch(/Someone was here/);
+    expect(introBeats(createRegion1()).flatMap(b => b.lines).join('\n')).not.toMatch(/Someone was here/);
   });
 
   it('climbs Apprentice → Journeyman → Adept → Master', () => {

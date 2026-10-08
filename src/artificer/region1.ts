@@ -40,7 +40,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -280,6 +280,11 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const pack = who.pack ?? legacy?.pack;
   const packed = pack ? startFromPack(pack) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
+  // What this Warden packed, and what the last one left for them (#1455) — less anything the pack already matches or beats.
+  const packTools: Tool[] = packed ? packed.tools.map(t => ({ ...t })) : [];
+  const left: Tool[] = (legacy?.heirlooms ?? [])
+    .filter(h => !packTools.some(p => p.item === h.item && GRADES.indexOf(p.grade) >= GRADES.indexOf(h.grade)))
+    .map(t => ({ ...t, heirloom: true }));
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -297,8 +302,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     milestones: [],
     // Someone who has done this before remembers how to plan; a fresh Warden learns it (#1350).
     canPlan: config.planning !== 'learned' || SKILL_IDS.some(id => skillLevel(legacy?.skills ?? {}, id) >= 1),
-    // What this Warden packed, and what the last one left for them (#1455).
-    tools: [...(packed ? packed.tools.map(t => ({ ...t })) : []), ...(legacy?.heirlooms ?? []).map(t => ({ ...t, heirloom: true }))],
+    tools: [...packTools, ...left],
     ...(packed ? { kit: { ...packed.kit, items: [...packed.kit.items] }, ...(packed.dressings ? { dressings: packed.dressings } : {}) } : {}),
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
@@ -329,9 +333,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   dawnWeather(s);
   // What the last Warden left (#1455): their tools, found where they were. The game's own
   // next run carries only these; the knowledge below is the older, same-character carry.
-  if (legacy?.heirlooms?.length) {
-    say(s, `Someone was here before you. Left for you: ${legacy.heirlooms.map(t => `a ${t.grade} ${t.item}`).join(', ')}.`, 'milestone');
-  }
+  if (left.length) say(s, `Someone was here before you. Left for you: ${heirloomList(left)}.`, 'milestone');
   // A run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
   if (legacy?.marks) s.marks = legacy.marks;
@@ -820,7 +822,8 @@ const craftGate = (r: CraftRecipe, extra?: (s: Region1State) => string | null) =
   if (unknown) return unknown;
   const pre = extra?.(s) ?? null;
   if (pre) return pre;
-  const owned = s.tools.find(t => t.item === r.output.item && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
+  // An heirloom (#1455) doesn't count: making your own is how you learn, and the line shouldn't freeze at what the first Warden made.
+  const owned = s.tools.find(t => t.item === r.output.item && !t.heirloom && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
   if (owned) return `you already have a ${owned.grade} ${r.name.toLowerCase()}`;
   return craftBlocker(crafterOf(s), r);
 };

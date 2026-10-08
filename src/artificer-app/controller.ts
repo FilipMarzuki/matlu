@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -56,11 +56,18 @@ const MAX_DAYS_PER_RUN = 60;
 /** A fresh character id. App-level (not in the sim) because it needs randomness; the sim stays deterministic. */
 export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-/** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
-export function newGame(legacy?: Legacy): AppState {
-  // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: newCharacterId(), background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK] }), queue: [], stage: 'reach' };
+/**
+ * A Warden's first day from a spec, with whatever `legacy` leaves them (#1455). The one place the
+ * app makes a sim: a new game, and the creation screen's remake from the draft, both come here,
+ * so what a legacy seeds can't be dropped by one and kept by the other.
+ */
+export function makeWarden(who: WardenSpec, legacy?: Legacy): AppState {
+  // A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with the leader's packing list (#1400).
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
 }
+
+/** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
+export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharacterId() }, legacy);
 
 /**
  * Start the next run (#1455): one run per Warden, so whoever comes next is someone new —

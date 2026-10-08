@@ -109,6 +109,8 @@ export function heirloomsOf(s: Pick<Region1State, 'tools'>): Legacy {
   return { known: [], concepts: {}, heirlooms: bestPerItem(s.tools).map(t => ({ ...t, heirloom: true })) };
 }
 
+export { heirloomList } from './crafting';
+
 export { CONTACT_TRUST } from './villages';
 
 /** Summarise a resolved run. Throws on a run still in progress — there's nothing to record yet. */
@@ -210,13 +212,6 @@ export function summarizeRoad(r: RoadState, reach: Region1State, run: number): R
     road: { villages: villagesVisited(r), quests: Object.values(r.quests).filter(q => q === 'done').length, marks: r.marks },
   };
 }
-
-/**
- * Can this character go on into another run, carrying what they learned (#1242)?
- * Only a resolved run (in the Reach or on the road), and only if they lived: death
- * ends the character. Knowledge never passes to anyone else.
- */
-export const canContinue = (s: { outcome: { kind: string } | null }): boolean => !!s.outcome && s.outcome.kind !== 'died';
 
 /** The next run number for a character: their own runs only, never anyone else's (#1242). */
 export function runNumberFor(history: readonly RunRecord[], characterId: string): number {

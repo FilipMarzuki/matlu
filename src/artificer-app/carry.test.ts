@@ -13,10 +13,10 @@ import type { OutcomeKind } from '../artificer/winter';
 import { SCOUT_TRAINING } from '../artificer/scout';
 import { deserialize, newGame, newRun, recordRun, deserializeHistory, serialize, serializeHistory } from './controller';
 
-/** A resolved run for a named Warden who knows the snare, has some woodcraft, and owns a fine knife. */
+/** A resolved run for a named Warden who knows the snare, has some woodcraft, and owns a masterwork knife (better than the pack's fine one). */
 function ended(kind: OutcomeKind, id = 'w-vega'): Region1State {
   const s = createRegion1({}, undefined, { id, name: 'Vega', portrait: 'tinkerer', chosen: ['hardy', 'tough'] });
-  const worked = { ...runAction(s, 'scout'), known: [...s.known, 'trap-snare'], skills: { woodcraft: 40 }, tools: [{ item: 'stone-knife', grade: 'fine' as const }] };
+  const worked = { ...runAction(s, 'scout'), known: [...s.known, 'trap-snare'], skills: { woodcraft: 40 }, tools: [{ item: 'stone-knife', grade: 'masterwork' as const }] };
   const choice = kind === 'collapsed' || kind === 'died' ? 'collapse' as const : kind === 'crossed' || kind === 'turnedBack' ? 'solo' as const : kind === 'thrive' || kind === 'ragged' ? 'caravan' as const : 'winter' as const;
   return { ...worked, outcome: { choice, kind, vitals: createVitals() } };
 }
@@ -32,7 +32,7 @@ describe('One run per Warden (#1455), and whose run it was (#1242)', () => {
       expect(next.concepts).toEqual({});
       expect(next.known).not.toContain('trap-snare');
       expect(next.skills).toEqual(SCOUT_TRAINING); // only what every new scout knows (#1398)
-      expect(next.tools).toContainEqual({ item: 'stone-knife', grade: 'fine', heirloom: true });
+      expect(next.tools).toContainEqual({ item: 'stone-knife', grade: 'masterwork', heirloom: true });
     }
   });
 
@@ -56,7 +56,7 @@ describe('One run per Warden (#1455), and whose run it was (#1242)', () => {
     const a = newRun(ended('died'));
     const loaded = deserialize(serialize(a));
     expect(loaded?.sim.tools).toEqual(a.sim.tools);
-    expect(loaded?.sim.tools).toContainEqual({ item: 'stone-knife', grade: 'fine', heirloom: true });
+    expect(loaded?.sim.tools).toContainEqual({ item: 'stone-knife', grade: 'masterwork', heirloom: true });
   });
 
   // Records say whose run it was (#1242).

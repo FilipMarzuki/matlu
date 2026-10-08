@@ -143,6 +143,9 @@ export function scaledMult(mult: number, grade: Grade): number {
   return Math.max(COST_FLOOR, Math.min(1, 1 - (1 - mult) * GRADE_MULT[grade]));
 }
 
+/** Tools as the journal and the intro name them (#1455): "a fine stone-knife, a crude bedroll". */
+export const heirloomList = (tools: readonly Tool[]): string => tools.map(t => `a ${t.grade} ${t.item}`).join(', ');
+
 /** You only swing one axe: keep the best-graded copy of each item. */
 export function bestPerItem(tools: readonly Tool[]): Tool[] {
   const best = new Map<string, Tool>();
