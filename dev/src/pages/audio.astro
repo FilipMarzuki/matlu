@@ -1,0 +1,399 @@
+---
+/**
+ * /audio — remote sound editor (#944).
+ *
+ * Password-gated tool so a non-developer sound designer can browse every
+ * sound slot in Core Warden, preview what's currently wired up, and upload a
+ * replacement file straight to the `sound-updates` branch — no local checkout,
+ * no dev environment. Everything here is client-side: the page itself is a
+ * static shell, and /api/audio-login, /api/audio-manifest and /api/audio-upload
+ * (SSR routes, see astro.config.mjs) do the password check and GitHub API work
+ * so the GitHub token and AUDIO_EDITOR_PASSWORD never reach the browser.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Audio Editor" description="Browse and replace Core Warden's sound files.">
+  <div id="gate" class="gate">
+    <h1>Audio Editor</h1>
+    <p class="subtitle">Enter the shared password to continue.</p>
+    <form id="login-form">
+      <input id="password-input" type="password" placeholder="Password" autocomplete="current-password" />
+      <button type="submit">Unlock</button>
+    </form>
+    <p id="login-error" class="error" hidden></p>
+  </div>
+
+  <div id="editor" class="editor" hidden>
+    <div class="page-header">
+      <h1>Audio Editor</h1>
+      <button id="logout-btn" class="logout">Log out</button>
+    </div>
+    <p id="load-error" class="error" hidden></p>
+
+    <div class="filters" id="filters">
+      <button class="filter-tab active" data-category="">All</button>
+      <button class="filter-tab" data-category="music">Music</button>
+      <button class="filter-tab" data-category="sfx">SFX</button>
+      <button class="filter-tab" data-category="ambience">Ambience</button>
+      <button class="filter-tab" data-category="creature">Creature</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="sound-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Label</th>
+            <th class="hide-mobile">Description</th>
+            <th>Current file</th>
+            <th>Preview</th>
+            <th>Replace</th>
+          </tr>
+        </thead>
+        <tbody id="sound-body"></tbody>
+      </table>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .gate {
+    max-width: 360px;
+    margin: 4rem auto;
+    text-align: center;
+  }
+  .gate .subtitle { color: var(--text-dim); margin-bottom: 1.5rem; }
+  #login-form { display: flex; gap: 0.5rem; }
+  input[type='password'] {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text);
+    font-family: var(--mono);
+  }
+  button {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-family: var(--mono);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-hi); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error { color: var(--red); margin-top: 0.75rem; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1rem;
+  }
+  .logout {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .logout:hover { color: var(--text); background: transparent; }
+
+  .filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .filter-tab {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .filter-tab:hover { background: var(--surface-hi); color: var(--text); }
+  .filter-tab.active { background: var(--accent); color: #0a0a0f; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  th { color: var(--text-dim); font-family: var(--mono); font-weight: 600; font-size: 0.8rem; }
+  td code { white-space: nowrap; }
+  .current-file { font-size: 0.82rem; color: var(--text-dim); word-break: break-all; }
+  .row-status { font-size: 0.8rem; margin-top: 0.3rem; }
+  .row-status.ok { color: var(--green); }
+  .row-status.err { color: var(--red); }
+  .row-actions { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+  @media (max-width: 720px) {
+    .hide-mobile { display: none; }
+  }
+</style>
+
+<script>
+  interface AudioManifestEntry {
+    label: string;
+    description: string;
+    category: string;
+    files: string[];
+    fallback?: string[];
+    volume: number;
+    loop: boolean;
+  }
+
+  const TOKEN_KEY = 'matlu_audio_editor_token';
+  const gameUrl: string = (import.meta.env.PUBLIC_GAME_URL as string | undefined) ?? 'https://corewarden.app';
+
+  const gate        = document.getElementById('gate')!;
+  const editor       = document.getElementById('editor')!;
+  const loginForm     = document.getElementById('login-form') as HTMLFormElement;
+  const passwordInput = document.getElementById('password-input') as HTMLInputElement;
+  const loginError     = document.getElementById('login-error')!;
+  const loadError       = document.getElementById('load-error')!;
+  const soundBody        = document.getElementById('sound-body')!;
+  const filters            = document.getElementById('filters')!;
+  const logoutBtn            = document.getElementById('logout-btn')!;
+
+  let manifest: Record<string, AudioManifestEntry> = {};
+  let activeCategory = '';
+  let currentlyPlaying: HTMLAudioElement | null = null;
+
+  function showGate(message?: string): void {
+    sessionStorage.removeItem(TOKEN_KEY);
+    editor.hidden = true;
+    gate.hidden = false;
+    if (message) {
+      loginError.textContent = message;
+      loginError.hidden = false;
+    }
+  }
+
+  function showEditor(): void {
+    gate.hidden = true;
+    editor.hidden = false;
+  }
+
+  function stopPlayback(): void {
+    if (currentlyPlaying) {
+      currentlyPlaying.pause();
+      currentlyPlaying = null;
+    }
+  }
+
+  function renderTable(): void {
+    soundBody.innerHTML = '';
+    for (const [key, entry] of Object.entries(manifest)) {
+      const tr = document.createElement('tr');
+      tr.dataset.category = entry.category;
+      tr.hidden = activeCategory !== '' && entry.category !== activeCategory;
+
+      const currentFile = entry.files[0] ?? '';
+
+      tr.innerHTML = `
+        <td><code>${key}</code></td>
+        <td>${entry.label}</td>
+        <td class="hide-mobile">${entry.description}</td>
+        <td class="current-file">${currentFile}</td>
+        <td><button class="preview-btn" type="button">▶ Preview</button></td>
+        <td class="row-actions">
+          <button class="replace-btn" type="button">Replace</button>
+          <input class="file-input" type="file" accept=".ogg,.mp3,audio/ogg,audio/mpeg" hidden />
+          <div class="row-status" hidden></div>
+        </td>
+      `;
+
+      const previewBtn = tr.querySelector('.preview-btn') as HTMLButtonElement;
+      previewBtn.addEventListener('click', () => {
+        if (currentlyPlaying && previewBtn.dataset.playing === 'true') {
+          stopPlayback();
+          previewBtn.textContent = '▶ Preview';
+          previewBtn.dataset.playing = 'false';
+          return;
+        }
+        stopPlayback();
+        const audio = new Audio(`${gameUrl}/${currentFile}`);
+        currentlyPlaying = audio;
+        previewBtn.textContent = '■ Stop';
+        previewBtn.dataset.playing = 'true';
+        audio.addEventListener('ended', () => {
+          previewBtn.textContent = '▶ Preview';
+          previewBtn.dataset.playing = 'false';
+        });
+        audio.play().catch(() => {
+          previewBtn.textContent = '▶ Preview';
+          previewBtn.dataset.playing = 'false';
+        });
+      });
+
+      const replaceBtn = tr.querySelector('.replace-btn') as HTMLButtonElement;
+      const fileInput = tr.querySelector('.file-input') as HTMLInputElement;
+      const rowStatus = tr.querySelector('.row-status') as HTMLDivElement;
+      replaceBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        if (ext !== '.ogg' && ext !== '.mp3') {
+          rowStatus.textContent = 'Only .ogg or .mp3 files are accepted.';
+          rowStatus.className = 'row-status err';
+          rowStatus.hidden = false;
+          fileInput.value = '';
+          return;
+        }
+        confirmReplace(key, file, replaceBtn, rowStatus);
+      });
+
+      soundBody.appendChild(tr);
+    }
+  }
+
+  function confirmReplace(
+    key: string,
+    file: File,
+    replaceBtn: HTMLButtonElement,
+    rowStatus: HTMLDivElement
+  ): void {
+    const previewUrl = URL.createObjectURL(file);
+    const previewAudio = new Audio(previewUrl);
+
+    rowStatus.hidden = false;
+    rowStatus.className = 'row-status';
+    rowStatus.innerHTML = '';
+
+    const previewNewBtn = document.createElement('button');
+    previewNewBtn.type = 'button';
+    previewNewBtn.textContent = `▶ Preview "${file.name}"`;
+    previewNewBtn.addEventListener('click', () => {
+      stopPlayback();
+      currentlyPlaying = previewAudio;
+      previewAudio.play().catch(() => {});
+    });
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.textContent = 'Confirm replace';
+    confirmBtn.addEventListener('click', () => uploadReplacement(key, file, replaceBtn, rowStatus));
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+      stopPlayback();
+      URL.revokeObjectURL(previewUrl);
+      rowStatus.hidden = true;
+      rowStatus.innerHTML = '';
+    });
+
+    rowStatus.append(previewNewBtn, confirmBtn, cancelBtn);
+  }
+
+  async function uploadReplacement(
+    key: string,
+    file: File,
+    replaceBtn: HTMLButtonElement,
+    rowStatus: HTMLDivElement
+  ): Promise<void> {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      showGate('Session expired — log in again.');
+      return;
+    }
+
+    replaceBtn.disabled = true;
+    rowStatus.className = 'row-status';
+    rowStatus.textContent = 'Uploading…';
+
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const res = await fetch('/api/audio-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ key, filename: file.name, fileBase64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`);
+
+      rowStatus.className = 'row-status ok';
+      rowStatus.textContent = `Uploaded. Changes are on the \`${data.branch}\` branch — ping Filip to merge.`;
+    } catch (err) {
+      rowStatus.className = 'row-status err';
+      rowStatus.textContent = err instanceof Error ? err.message : String(err);
+    } finally {
+      replaceBtn.disabled = false;
+    }
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.slice(result.indexOf(',') + 1));
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function loadManifest(token: string): Promise<void> {
+    const res = await fetch('/api/audio-manifest', { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) {
+      showGate('Session expired — log in again.');
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      loadError.hidden = false;
+      loadError.textContent = data.error ?? `Failed to load manifest (${res.status})`;
+      return;
+    }
+    manifest = data.manifest;
+    loadError.hidden = true;
+    showEditor();
+    renderTable();
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.hidden = true;
+    const res = await fetch('/api/audio-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: passwordInput.value }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      loginError.textContent = data.error ?? 'Login failed';
+      loginError.hidden = false;
+      return;
+    }
+    sessionStorage.setItem(TOKEN_KEY, data.token);
+    passwordInput.value = '';
+    await loadManifest(data.token);
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    stopPlayback();
+    showGate();
+  });
+
+  filters.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.filter-tab') as HTMLButtonElement | null;
+    if (!btn) return;
+    activeCategory = btn.dataset.category ?? '';
+    filters.querySelectorAll('.filter-tab').forEach((t) => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  });
+
+  const existingToken = sessionStorage.getItem(TOKEN_KEY);
+  if (existingToken) {
+    loadManifest(existingToken);
+  }
+</script>

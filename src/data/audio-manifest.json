@@ -1,0 +1,581 @@
+{
+  "forest-ambience": {
+    "label": "Forest ambience",
+    "description": "Looping forest/birdsong bed in GameScene, volume driven by time-of-day phase",
+    "category": "ambience",
+    "files": [
+      "assets/audio/forest-ambience.ogg"
+    ],
+    "fallback": [
+      "assets/audio/forest-ambience.mp3"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "ocean-ambience": {
+    "label": "Ocean ambience",
+    "description": "Coastal presence loop, fades in near the shore (biome < 0.33)",
+    "category": "ambience",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/underwater world.ogg"
+    ],
+    "volume": 0.3,
+    "loop": true
+  },
+  "sfx-wind": {
+    "label": "Mountain wind",
+    "description": "Fades in on the mountain plateau",
+    "category": "ambience",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Gentle Breeze.ogg"
+    ],
+    "volume": 0.3,
+    "loop": true
+  },
+  "sfx-settlement": {
+    "label": "Settlement presence",
+    "description": "Soft ambient loop near hamlets/villages",
+    "category": "ambience",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg"
+    ],
+    "volume": 0.3,
+    "loop": true
+  },
+  "night-ambience": {
+    "label": "Night ambience",
+    "description": "Insect/night chorus, rises at dusk and peaks at night",
+    "category": "ambience",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "music-dawn": {
+    "label": "Dawn music",
+    "description": "Day-phase track for dawn, crossfades from night track",
+    "category": "music",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Sunlight Through Leaves.ogg"
+    ],
+    "volume": 0.2,
+    "loop": true
+  },
+  "music-day": {
+    "label": "Day music",
+    "description": "Day-phase track for morning/midday/afternoon",
+    "category": "music",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Whispering Woods.ogg"
+    ],
+    "volume": 0.3,
+    "loop": true
+  },
+  "music-dusk": {
+    "label": "Dusk music",
+    "description": "Day-phase track for dusk",
+    "category": "music",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Evening Harmony.ogg"
+    ],
+    "volume": 0.18,
+    "loop": true
+  },
+  "music-night": {
+    "label": "Night music",
+    "description": "Day-phase track for night",
+    "category": "music",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Polar Lights.ogg"
+    ],
+    "volume": 0.15,
+    "loop": true
+  },
+  "music-menu": {
+    "label": "Main menu music",
+    "description": "Looping theme on MainMenuScene",
+    "category": "music",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Wanderers Tale.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "combat-music": {
+    "label": "Combat music (Dungeon Forge)",
+    "description": "Tense arena loop for the Dungeon Forge test mode",
+    "category": "music",
+    "files": [
+      "assets/audio/music-loop-bundle-2026-q1/Week 4 - Cloak of Darkness STAGE 1.ogg"
+    ],
+    "volume": 0.4,
+    "loop": true
+  },
+  "music-ending": {
+    "label": "Ending ambient",
+    "description": "Calm hopeful ambient under the ending narrative screen",
+    "category": "music",
+    "files": [
+      "assets/audio/music-loop-bundle-2026-q1/Week 2 - Ruined Lands HOPE.ogg"
+    ],
+    "volume": 0.3,
+    "loop": true
+  },
+  "victory-fanfare": {
+    "label": "Victory fanfare",
+    "description": "Short non-looping fanfare that plays before the ending ambient loop",
+    "category": "music",
+    "files": [
+      "assets/audio/music-loop-bundle-2026-q1/Week 9 - Graceful Descent LANDING.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-click": {
+    "label": "UI click",
+    "description": "Plays on button click in menus and HUD",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactGeneric_light_003.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-hover": {
+    "label": "UI hover",
+    "description": "Plays on button hover in menus, HUD, pause/settings",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactPlate_light_000.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "sfx-phase-stinger": {
+    "label": "Phase transition stinger",
+    "description": "Single bell strike at the moment a day-phase crossfade starts",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_001.ogg"
+    ],
+    "volume": 0.15,
+    "loop": false
+  },
+  "sfx-pickup": {
+    "label": "Collectible pickup",
+    "description": "Warm pizzicato jingle on item pickup",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_music-jingles/Audio/Pizzicato jingles/jingles_PIZZI05.ogg"
+    ],
+    "volume": 0.55,
+    "loop": false
+  },
+  "sfx-portal": {
+    "label": "Portal reveal",
+    "description": "Crystalline steel jingle when the level portal appears/activates",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_music-jingles/Audio/Steel jingles/jingles_STEEL05.ogg"
+    ],
+    "volume": 0.6,
+    "loop": false
+  },
+  "sfx-victory": {
+    "label": "Victory jingle",
+    "description": "Plays on level completion",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_music-jingles/Audio/Pizzicato jingles/jingles_PIZZI07.ogg"
+    ],
+    "volume": 0.7,
+    "loop": false
+  },
+  "sfx-swipe": {
+    "label": "Cleanse swipe",
+    "description": "Bright bell whoosh on the cleanse swipe gesture",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_004.ogg"
+    ],
+    "volume": 0.35,
+    "loop": false
+  },
+  "sfx-swipe-hit": {
+    "label": "Swipe hit",
+    "description": "Deeper bell strike when a swipe makes contact with an enemy",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_000.ogg"
+    ],
+    "volume": 0.5,
+    "loop": false
+  },
+  "sfx-enemy-death": {
+    "label": "Enemy death",
+    "description": "Soft organic dissolve/pop when a corrupted enemy or animal dies",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_heavy_001.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-player-hit": {
+    "label": "Player hit",
+    "description": "Dull punch impact when the player takes damage",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactPunch_medium_000.ogg"
+    ],
+    "volume": 0.6,
+    "loop": false
+  },
+  "sfx-corruption": {
+    "label": "Corruption presence",
+    "description": "Ominous drone used as a corruption-proximity cue",
+    "category": "sfx",
+    "files": [
+      "assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "sfx-gunshot": {
+    "label": "Gunshot (Dungeon Forge)",
+    "description": "Tinkerer's pistol shot, random pitch varies ±10% per play",
+    "category": "sfx",
+    "files": [
+      "assets/audio/freesound_community-9mm-pistol-shot-6349.ogg"
+    ],
+    "fallback": [
+      "assets/audio/freesound_community-9mm-pistol-shot-6349.mp3"
+    ],
+    "volume": 0.5,
+    "loop": false
+  },
+  "sfx-reload": {
+    "label": "Reload (Dungeon Forge)",
+    "description": "Magazine reload sound when the Tinkerer's mag runs dry",
+    "category": "sfx",
+    "files": [
+      "assets/audio/freesound_community-1911-reload-6248.ogg"
+    ],
+    "fallback": [
+      "assets/audio/freesound_community-1911-reload-6248.mp3"
+    ],
+    "volume": 0.7,
+    "loop": false
+  },
+  "footstep-grass-0": {
+    "label": "Footstep — grass (variant 0)",
+    "description": "Footstep variant on meadow/forest-floor terrain (biome 0.33–0.80)",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_grass_000.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-concrete-0": {
+    "label": "Footstep — concrete (variant 0)",
+    "description": "Footstep variant on rocky shore / highland rock terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_concrete_000.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-wood-0": {
+    "label": "Footstep — wood (variant 0)",
+    "description": "Footstep variant on dense forest terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_wood_000.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-grass-1": {
+    "label": "Footstep — grass (variant 1)",
+    "description": "Footstep variant on meadow/forest-floor terrain (biome 0.33–0.80)",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_grass_001.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-concrete-1": {
+    "label": "Footstep — concrete (variant 1)",
+    "description": "Footstep variant on rocky shore / highland rock terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_concrete_001.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-wood-1": {
+    "label": "Footstep — wood (variant 1)",
+    "description": "Footstep variant on dense forest terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_wood_001.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-grass-2": {
+    "label": "Footstep — grass (variant 2)",
+    "description": "Footstep variant on meadow/forest-floor terrain (biome 0.33–0.80)",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_grass_002.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-concrete-2": {
+    "label": "Footstep — concrete (variant 2)",
+    "description": "Footstep variant on rocky shore / highland rock terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_concrete_002.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-wood-2": {
+    "label": "Footstep — wood (variant 2)",
+    "description": "Footstep variant on dense forest terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_wood_002.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-grass-3": {
+    "label": "Footstep — grass (variant 3)",
+    "description": "Footstep variant on meadow/forest-floor terrain (biome 0.33–0.80)",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_grass_003.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-concrete-3": {
+    "label": "Footstep — concrete (variant 3)",
+    "description": "Footstep variant on rocky shore / highland rock terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_concrete_003.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-wood-3": {
+    "label": "Footstep — wood (variant 3)",
+    "description": "Footstep variant on dense forest terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_wood_003.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-grass-4": {
+    "label": "Footstep — grass (variant 4)",
+    "description": "Footstep variant on meadow/forest-floor terrain (biome 0.33–0.80)",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_grass_004.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-concrete-4": {
+    "label": "Footstep — concrete (variant 4)",
+    "description": "Footstep variant on rocky shore / highland rock terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_concrete_004.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "footstep-wood-4": {
+    "label": "Footstep — wood (variant 4)",
+    "description": "Footstep variant on dense forest terrain",
+    "category": "sfx",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/footstep_wood_004.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-rustle-0": {
+    "label": "Animal rustle (variant 0)",
+    "description": "Sudden-movement sound when an animal starts fleeing",
+    "category": "creature",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_medium_000.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-rustle-1": {
+    "label": "Animal rustle (variant 1)",
+    "description": "Sudden-movement sound when an animal starts fleeing",
+    "category": "creature",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_medium_001.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-rustle-2": {
+    "label": "Animal rustle (variant 2)",
+    "description": "Sudden-movement sound when an animal starts fleeing",
+    "category": "creature",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_medium_002.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-rustle-3": {
+    "label": "Animal rustle (variant 3)",
+    "description": "Sudden-movement sound when an animal starts fleeing",
+    "category": "creature",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_medium_003.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-rustle-4": {
+    "label": "Animal rustle (variant 4)",
+    "description": "Sudden-movement sound when an animal starts fleeing",
+    "category": "creature",
+    "files": [
+      "assets/audio/kenney_impact-sounds/Audio/impactSoft_medium_004.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "animal-bird": {
+    "label": "Bird call (ambient)",
+    "description": "Positional ambient call loop for nearby bird/grouse wildlife",
+    "category": "creature",
+    "files": [
+      "assets/audio/animal/bird-call.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "animal-deer": {
+    "label": "Deer call (ambient)",
+    "description": "Positional ambient call loop for nearby deer/stag wildlife",
+    "category": "creature",
+    "files": [
+      "assets/audio/animal/deer-call.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "animal-hare": {
+    "label": "Hare rustle (ambient)",
+    "description": "Positional ambient call loop for nearby hare wildlife",
+    "category": "creature",
+    "files": [
+      "assets/audio/animal/hare-rustle.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "animal-fox": {
+    "label": "Fox bark (ambient)",
+    "description": "Positional ambient call loop for nearby fox/boar/badger wildlife",
+    "category": "creature",
+    "files": [
+      "assets/audio/animal/fox-bark.ogg"
+    ],
+    "volume": 0.25,
+    "loop": true
+  },
+  "sfx-velcrid-chirp-0": {
+    "label": "MiniVelcrid chirp (variant 0)",
+    "description": "Ambient insect chirp vocalisation for MiniVelcrid (Dungeon Forge)",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "sfx-velcrid-chirp-1": {
+    "label": "MiniVelcrid chirp (variant 1)",
+    "description": "Ambient insect chirp vocalisation for MiniVelcrid (Dungeon Forge)",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "sfx-velcrid-chirp-2": {
+    "label": "MiniVelcrid chirp (variant 2)",
+    "description": "Ambient insect chirp vocalisation for MiniVelcrid (Dungeon Forge)",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg"
+    ],
+    "volume": 0.3,
+    "loop": false
+  },
+  "sfx-velcrid-aggro": {
+    "label": "VelcridJuvenile aggro",
+    "description": "Alien chirp burst on first sighting of the player",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-aggro.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-velcrid-attack": {
+    "label": "VelcridJuvenile attack",
+    "description": "Mandible snap on attack",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-attack.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-velcrid-hurt": {
+    "label": "VelcridJuvenile hurt",
+    "description": "Chitin crack when taking damage",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-hurt.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  },
+  "sfx-velcrid-death": {
+    "label": "VelcridJuvenile death",
+    "description": "Heavy collapse with resonance on death",
+    "category": "creature",
+    "files": [
+      "assets/audio/creatures/mini-velcrid/mini-velcrid-death.ogg"
+    ],
+    "volume": 0.4,
+    "loop": false
+  }
+}
