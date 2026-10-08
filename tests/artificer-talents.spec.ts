@@ -42,8 +42,17 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
   await expect(page.locator('#wname')).toHaveValue('Signe');
   await expect(page.locator('.tchoice[aria-pressed="true"]')).toHaveCount(2);
 
+  // Past the creation screen, the game isn't saved until the intro ends: a reload here
+  // must still bring back the same Warden-to-be, not roll a new one.
+  await page.locator('[data-intro="next"]').click();
+  await expect(page.locator('.tchoice')).toHaveCount(0);
+  await page.reload();
+  await toCreation(page);
+  expect(await offerOf(page)).toEqual(offer);
+  await expect(page.locator('#wname')).toHaveValue('Signe');
+
   // Through the rest of the intro.
-  for (let i = 0; i < 6 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
+  for (let i = 0; i < 8 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
     await page.locator('[data-intro="next"]').click();
   }
 
@@ -55,5 +64,32 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
   expect(names).toEqual(expect.arrayContaining([offer[0], offer[2]]));
   await expect(page.locator('.trait.hidden', { hasText: 'A hidden gift' })).toBeVisible();
 
+  expect(errors).toEqual([]);
+});
+
+test('after New Save, a reload goes back to the Warden being made', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/artificer.html');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  // Skip through a first Warden to a saved game.
+  for (let i = 0; i < 10 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
+    if (await page.locator('.tchoice').first().isVisible()) {
+      await page.locator('#wname').fill('First');
+      await page.locator('.tchoice').nth(0).click();
+      await page.locator('.tchoice').nth(1).click();
+    }
+    await page.locator('[data-intro="next"]').click();
+  }
+  // A new save: make a second Warden, half-way, then reload.
+  await page.locator('[data-cmd="reset"]').first().click();
+  await toCreation(page);
+  const offer = await offerOf(page);
+  await page.locator('#wname').fill('Second');
+  await page.reload();
+  await toCreation(page);
+  expect(await offerOf(page)).toEqual(offer);
+  await expect(page.locator('#wname')).toHaveValue('Second');
   expect(errors).toEqual([]);
 });

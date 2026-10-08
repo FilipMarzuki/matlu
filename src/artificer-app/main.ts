@@ -922,7 +922,9 @@ document.body.appendChild(introEl);
 // The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
 // Everyone starts as Loke for now: no portrait to pick, just your name to write.
 const STANDARD_PORTRAIT = 'loke';
-let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+type Draft = { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number };
+const blankDraft = (): Draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
+let draft: Draft = blankDraft();
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
@@ -930,7 +932,6 @@ let draftPack: KitId[] = [...SUGGESTED_PACK];
 // The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
 // so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
 const DRAFT_KEY = 'artificer.draft';
-const blankDraft = (): typeof draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
 function loadDraft(): typeof draft | null {
   try {
     const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<typeof draft> | null;
@@ -940,7 +941,7 @@ function loadDraft(): typeof draft | null {
       id: d.id,
       name: typeof d.name === 'string' ? d.name.slice(0, 24) : '',
       portrait: STANDARD_PORTRAIT,
-      talents: Array.isArray(d.talents) ? d.talents.filter(t => offer.includes(t)).slice(0, TALENT_PICKS) : [],
+      talents: Array.isArray(d.talents) ? [...new Set(d.talents.filter(t => offer.includes(t)))].slice(0, TALENT_PICKS) : [],
       stats: d.stats && validStats(d.stats) ? { ...d.stats } : { ...DEFAULT_STATS },
       age: START_AGES.includes(d.age as number) ? d.age! : DEFAULT_AGE,
     };
@@ -959,7 +960,6 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  clearDraft();
   state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age, pack: [...SUGGESTED_PACK] }), queue: [] };
   render(state);
 }
@@ -968,8 +968,10 @@ function endIntro(): void {
   intro = null;
   introEl.hidden = true;
   introEl.innerHTML = '';
-  // Persist now, so a reload after the intro doesn't play it again.
+  // Persist now, so a reload after the intro doesn't play it again — and only now let the draft go:
+  // until the game is saved, a reload must bring back the same Warden-to-be (#1266).
   save(state);
+  clearDraft();
 }
 
 function advanceIntro(): void {
@@ -1085,7 +1087,7 @@ function statsForm(): string {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
@@ -1206,4 +1208,5 @@ root.addEventListener('click', e => {
 });
 
 render(state);
-if (!saved) startIntro('fresh');
+// A Warden still being made (a first visit, or after New Game) picks up where it was (#1266).
+if (!saved || loadDraft()) startIntro('fresh');
