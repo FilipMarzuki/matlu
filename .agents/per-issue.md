@@ -168,6 +168,13 @@ nothing was skipped:
 | Given …, when …, then … | `src/crafting/actions.test.ts` › "given a 2–4 lumber yield, …" |
 ```
 
+**Design decisions:** before opening the PR, run
+`node .github/scripts/risk-score.mjs --local`. If it prints `medium` or
+`high`, the PR body must also include a **Design decisions** table (format in
+CLAUDE.md → "PR descriptions"). Give 2–5 rows of decision, why, rejected
+alternative and **Wrong if…** — the condition that would make the choice a
+bug. List the assumptions your change relies on; don't pad it with obvious choices.
+
 Capture the returned PR URL — you need it for Wrap-up step 4.
 
 ### 3. Apply **one** outcome label on the GitHub issue
