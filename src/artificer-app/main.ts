@@ -25,13 +25,14 @@ import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
-import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
+import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
@@ -384,8 +385,8 @@ function wardenTab(a: AppState): string {
   // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
   const hidden = c.talents.filter(t => !t.known).length;
   const talents = c.talents.length
-    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
-      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs.</span></div>' : '')
+    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.signs !== undefined ? '<span class="found">discovered</span>' : ''}${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
+      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs in the journal.</span></div>' : '')
     : '<p class="mood">No talents — a quick-start Warden. Start a fresh Warden to choose two.</p>';
   const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
   return `<div class="cols">
@@ -512,10 +513,13 @@ function milesBlock(a: AppState): string {
   }).join('')}</ol>`;
 }
 
+/** A journal line's colour: hardship, a win, a skip — and, softly, what you learn about yourself (#1266). */
+const logClass = (l: Pick<LogEntry, 'kind' | 'text'>): string =>
+  isSelfKnowledge(l.text) ? 'hint' : l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
+
 function journal(a: AppState, limit: number): string {
   return [...a.sim.log].reverse().slice(0, limit).map((l: LogEntry) => {
-    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-    return `<li class="${cls}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
+    return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
   }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
 }
 
@@ -845,8 +849,7 @@ const wardenOnRoad = (a: AppState, r: RoadState): AppState => ({
 
 function roadJournal(r: RoadState, limit: number): string {
   return [...r.log].reverse().slice(0, limit).map(l => {
-    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-    return `<li class="${cls}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
+    return `<li class="${logClass(l)}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
   }).join('');
 }
 
@@ -917,13 +920,38 @@ document.body.appendChild(introEl);
 
 /** What the player is choosing on the creation screen (#1239). */
 // The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
-let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+// Everyone starts as Loke for now: no portrait to pick, just your name to write.
+const STANDARD_PORTRAIT = 'loke';
+type Draft = { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number };
+const blankDraft = (): Draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
+let draft: Draft = blankDraft();
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
 
+// The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
+// so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
+const DRAFT_KEY = 'artificer.draft';
+function loadDraft(): typeof draft | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<typeof draft> | null;
+    if (!d || typeof d.id !== 'string' || !d.id) return null;
+    const offer = talentOffer(seedOf(d.id));
+    return {
+      id: d.id,
+      name: typeof d.name === 'string' ? d.name.slice(0, 24) : '',
+      portrait: STANDARD_PORTRAIT,
+      talents: Array.isArray(d.talents) ? [...new Set(d.talents.filter(t => offer.includes(t)))].slice(0, TALENT_PICKS) : [],
+      stats: d.stats && validStats(d.stats) ? { ...d.stats } : { ...DEFAULT_STATS },
+      age: START_AGES.includes(d.age as number) ? d.age! : DEFAULT_AGE,
+    };
+  } catch { return null; }
+}
+const saveDraft = (): void => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* a convenience; play on */ } };
+const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
+
 function startIntro(kind: IntroKind): void {
-  draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+  draft = (kind === 'fresh' ? loadDraft() : null) ?? blankDraft();
   draftPack = kind === 'carry' && state.sim.kit ? [...state.sim.kit.items] : [...SUGGESTED_PACK];
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
@@ -940,8 +968,10 @@ function endIntro(): void {
   intro = null;
   introEl.hidden = true;
   introEl.innerHTML = '';
-  // Persist now, so a reload after the intro doesn't play it again.
+  // Persist now, so a reload after the intro doesn't play it again — and only now let the draft go:
+  // until the game is saved, a reload must bring back the same Warden-to-be (#1266).
   save(state);
+  clearDraft();
 }
 
 function advanceIntro(): void {
@@ -981,6 +1011,7 @@ function renderIntro(): void {
   const beatEl = introEl.querySelector('.beat');
   if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
+  if (b.kind === 'create') saveDraft();
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
 }
@@ -1015,15 +1046,13 @@ function packForm(): string {
   </form>`;
 }
 
-/** The creation form: name, portrait, two of four offered talents, stats. Choices live in `draft` until Continue. */
+/** The creation form: your name (written, beside the standard portrait), two of four offered talents, age, stats. Choices live in `draft` until Continue. */
 function createForm(): string {
-  const portraits = PORTRAITS.map(p => `<button class="pchoice" data-portrait="${p.id}" aria-pressed="${draft.portrait === p.id}">${portraitEl(p.id, 64)}<span>${esc(p.label)}</span></button>`).join('');
   const offer = talentOffer(seedOf(draft.id));
   const talents = offer.map(t => `<button class="tchoice" data-talent="${t}" aria-pressed="${draft.talents.includes(t)}"><b>${esc(TALENTS[t].name)}</b><span class="up">+ ${esc(TALENTS[t].blurb)}</span></button>`).join('');
   return `<form class="create" onsubmit="return false">
-    <label class="clabel" for="wname">NAME</label>
-    <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
-    <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
+    <label class="clabel" for="wname">NAME — write it</label>
+    <div class="cwho">${portraitEl(STANDARD_PORTRAIT, 64)}<input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}"></div>
     <p class="clabel">TALENTS — choose ${TALENT_PICKS} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
     <p class="mood" style="margin:0">…and something else in you, not yet known.</p>
     <p class="clabel">AGE — how old you are, the weekend it began</p>
@@ -1058,10 +1087,9 @@ function statsForm(): string {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
-  if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
   if (btn?.dataset.kit) {
@@ -1092,6 +1120,7 @@ introEl.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
   if (input.id !== 'wname') return;
   draft.name = input.value;
+  saveDraft();
   const next = introEl.querySelector<HTMLButtonElement>('[data-intro="next"]');
   if (next) next.disabled = !draftValid();
 });
@@ -1137,7 +1166,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'day') update(runQueuedDay(state));
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
-  else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  else if (d.cmd === 'reset') { update(newGame()); clearDraft(); startIntro('fresh'); }
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
@@ -1179,4 +1208,5 @@ root.addEventListener('click', e => {
 });
 
 render(state);
-if (!saved) startIntro('fresh');
+// A Warden still being made (a first visit, or after New Game) picks up where it was (#1266).
+if (!saved || loadDraft()) startIntro('fresh');

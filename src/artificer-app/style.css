@@ -7,6 +7,7 @@
     --ink: #f0f0e8; --dim: #9aa0b4; --faint: #5c6076;
     --gold: #ffe066; --teal: #4dd4f0; --amber: #c8922a;
     --green: #88ff88; --warn: #ffaa33; --danger: #ff5a5a; --ice: #9fd8ff;
+    --lilac: #c9b4ff;
     --display: "Silkscreen", "Courier New", monospace;
     --body: "Chakra Petch", system-ui, sans-serif;
   }
@@ -139,6 +140,8 @@
   .log li { font-size: 11.5px; color: var(--dim); }
   .log li .d { color: var(--teal); font-family: var(--display); font-size: 7px; margin-right: 6px; }
   .log li.bad { color: var(--warn); } .log li.good { color: var(--green); } .log li.cold { color: var(--ice); }
+  /* What you learn about yourself (#1266): hints at a hidden gift, and reveals — soft, so a watchful player notices. */
+  .log li.hint { color: var(--lilac); font-style: italic; }
 
   /* Resolve / caravan panel */
   .resolve { margin-top: 14px; border: 1px solid var(--gold); border-radius: 13px; padding: 15px; background: rgba(255,224,102,.05); }
@@ -345,9 +348,6 @@ body { min-height: 100vh; }
   .clabel span { color: var(--dim); }
   .cname { font: 600 18px var(--body); color: var(--ink); background: var(--sub); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 12px; width: 100%; }
   .cname:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
-  .pchoices { display: flex; flex-wrap: wrap; gap: 10px; }
-  .pchoice { display: grid; justify-items: center; gap: 4px; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 11px var(--body); cursor: pointer; }
-  .pchoice[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
   .tchoice, .trait { display: grid; gap: 2px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); }
   .tchoice { cursor: pointer; }
@@ -409,6 +409,9 @@ body { min-height: 100vh; }
   .achoices { display: flex; flex-wrap: wrap; gap: 8px; }
   .achoice { min-width: 48px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 600 16px var(--display); cursor: pointer; }
   .achoice[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  /* The name field beside the standard portrait (no portrait picker for now). */
+  .cwho { display: flex; align-items: center; gap: 12px; }
+  .cwho .cname { flex: 1 1 auto; min-width: 0; }
   .tchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoice b, .trait b { font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--gold); font-weight: 400; }
   .tchoice .up, .trait .up { color: var(--green); }
@@ -422,6 +425,8 @@ body { min-height: 100vh; }
   .wrank span { color: var(--dim); font-family: var(--body); letter-spacing: 0; }
   .traits { display: grid; gap: 8px; }
   .trait.hidden { border-style: dashed; background: transparent; }
+  /* A talent you worked out for yourself (#1266): a small mark, in the same soft accent as the hints that led to it. */
+  .trait .found { justify-self: start; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--lilac); color: var(--lilac); font: 7px var(--display); letter-spacing: 1px; text-transform: uppercase; }
   .concepts { margin: 0; padding-left: 18px; font-size: 12.5px; }
   .concepts span { color: var(--dim); }
   .who { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 12px var(--body); cursor: pointer; }
