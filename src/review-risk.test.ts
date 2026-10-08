@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { scoreRisk, loadRules, globToRegex, type ChangedFile } from '../.github/scripts/risk-score.mjs';
+import { scoreRisk, loadRules, globToRegex, mergeGate, type ChangedFile } from '../.github/scripts/risk-score.mjs';
 
 const rules = loadRules();
 const files = (...names: string[]): ChangedFile[] => names.map(filename => ({ filename, additions: 10, deletions: 2 }));
@@ -58,6 +58,26 @@ describe('Review risk score (#1431)', () => {
     const big = scoreRisk([{ filename: 'src/scenes/GameScene.ts', additions: 900, deletions: 200 }], rules);
     expect(big.reasons).toContain('1100 lines changed (+2)');
     expect(big.tier).toBe('medium');
+  });
+
+  it('counts a rename for the path it left', () => {
+    const r = scoreRisk([{ filename: 'src/artificer/util/rng.ts', previous_filename: 'src/artificer/rng.ts', additions: 3, deletions: 3 }], rules);
+    expect(r.tier).toBe('high');
+    expect(r.lenses).toContain('determinism');
+  });
+
+  // 5. The merge gate: CI first; a high-risk PR waits for a person's label added after the last commit.
+  it('holds a high-risk PR until a person approves after the last commit', () => {
+    const person = { actor: 'filip', actorType: 'User', at: '2026-10-08T12:00:00Z' };
+    const headAt = '2026-10-08T11:00:00Z';
+    expect(mergeGate({ tier: 'low', ciOk: true, approval: null, headAt }).merge).toBe(true);
+    expect(mergeGate({ tier: 'low', ciOk: false, approval: null, headAt }).merge).toBe(false);
+    expect(mergeGate({ tier: 'high', ciOk: true, approval: null, headAt }).merge).toBe(false);
+    expect(mergeGate({ tier: 'high', ciOk: true, approval: person, headAt }).merge).toBe(true);
+    expect(mergeGate({ tier: 'high', ciOk: false, approval: person, headAt }).merge).toBe(false);
+    // A bot adding the label, or a commit pushed after the approval: hold.
+    expect(mergeGate({ tier: 'high', ciOk: true, approval: { ...person, actorType: 'Bot' }, headAt }).merge).toBe(false);
+    expect(mergeGate({ tier: 'high', ciOk: true, approval: person, headAt: '2026-10-08T13:00:00Z' }).merge).toBe(false);
   });
 
   it('matches globs the way the rules expect', () => {
