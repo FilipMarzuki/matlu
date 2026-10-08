@@ -27,6 +27,7 @@ import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSyst
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
 import { bufferShoreline } from '../world/CollisionGrid';
+import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
 // The 60×60 grid (meadow left half, WorldForge terrain right half, mountain
@@ -48,6 +49,14 @@ const ISO_TILE_H = 16;
 // ── Cliff / elevation ─────────────────────────────────────────────────────
 const CLIFF_H = 32;  // one elevation step = one 32×32 cliff block
 
+// One ramp connecting the lowland meadow to the mid highland strip (#936).
+// (21,10) is the highland tile with the cliff edge (elev 1, drops south);
+// its south neighbour (21,11) is lowland (elev 0) but blocked in the map's
+// Collision layer — both tiles are force-unblocked below so the ramp works.
+const RAMPS: RampDef[] = [
+  { tx: 21, ty: 10, fromElev: 0, toElev: 1 },
+];
+
 /** Dual-grid tile hash (natural texture variety within a biome). */
 function wfTileHash(tx: number, ty: number): number {
   const px = Math.floor(tx / 6),       py = Math.floor(ty / 6);
@@ -58,8 +67,10 @@ function wfTileHash(tx: number, ty: number): number {
   return fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
 }
 
-function hsIsoDepth(wx: number, wy: number): number {
-  return (wx + wy) / TILE_SIZE;
+function hsIsoDepth(wx: number, wy: number, elev = 0): number {
+  // Standing higher reads visually like standing further "forward" in the
+  // iso projection, so bump depth the same way moving one tile would.
+  return (wx + wy) / TILE_SIZE + elev;
 }
 
 /**
@@ -234,6 +245,11 @@ export class HomesteadScene extends Phaser.Scene {
   private bridgeTiles: { tx: number; ty: number }[] = [];
   private debugGridGfx: Phaser.GameObjects.Graphics | null = null;
   private playerTileGfx: Phaser.GameObjects.Graphics | null = null;
+
+  // ── Elevation walkability (#936) ────────────────────────────────────────
+  private rampSet = buildRampSet(RAMPS);
+  private rampMap = buildRampMap(RAMPS);
+  private playerElev = 0;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -412,6 +428,14 @@ export class HomesteadScene extends Phaser.Scene {
     // Grow the blocked zone by one tile around every water tile so the
     // player stops right at the shore instead of wading into it.
     bufferShoreline(this.walkGrid, this.biomeGrid);
+
+    // Ramp tiles (and their lowland foot) must stay walkable even if the
+    // Collision layer blocks them — they're the designated crossing points
+    // through the cliff-edge block (#936).
+    for (const { tx, ty } of RAMPS) {
+      this.walkGrid[ty * this.gridW + tx] = 0;
+      this.walkGrid[(ty + 1) * this.gridW + tx] = 0; // south foot of the ramp
+    }
 
     // Physics world stays in flat grid space
     this.physics.world.setBounds(0, 0, this.worldW, this.worldH);
@@ -962,23 +986,13 @@ export class HomesteadScene extends Phaser.Scene {
         if (ttx < 0 || tty < 0 || ttx >= this.gridW || tty >= this.gridH) return true;
         if (this.walkGrid[tty * this.gridW + ttx] === 1) return true;
       }
-      // Sub-tile cliff-base check: if the tile to the north has a cliff
-      // dropping south, block the northern half of this tile.
+      // Sub-tile cliff-edge check: block the half of this tile nearest any
+      // south/east/west drop (ramps bypass it) — see ElevationWalk (#936).
       const ttx = Math.floor(wx / TILE_SIZE);
       const tty = Math.floor(wy / TILE_SIZE);
-      const localY = wy - tty * TILE_SIZE;  // 0-31 within the tile
-      // North neighbour drops south → block top half of this tile
-      if (tty > 0 && localY < TILE_SIZE / 2) {
-        const nElev = intGridGet(this.heightGrid, ttx, tty - 1);
-        if (nElev > intGridGet(this.heightGrid, ttx, tty)) return true;
-      }
-      // West neighbour drops east → block left half
       const localX = wx - ttx * TILE_SIZE;
-      if (ttx > 0 && localX < TILE_SIZE / 2) {
-        const wElev = intGridGet(this.heightGrid, ttx - 1, tty);
-        if (wElev > intGridGet(this.heightGrid, ttx, tty)) return true;
-      }
-      return false;
+      const localY = wy - tty * TILE_SIZE;
+      return isCliffBlocked(this.heightGrid, this.rampSet, ttx, tty, localX, localY, TILE_SIZE);
     };
 
     if (isBlocked(this.player.x, this.player.y)) {
@@ -1004,9 +1018,10 @@ export class HomesteadScene extends Phaser.Scene {
     // Offset sprite so feet land in the centre of the tile diamond.
     // The diamond centre is at (isoX, isoY + ISO_TILE_H/2) relative to
     // the north apex; shift sprite there.
+    this.playerElev = effectiveElevation(this.heightGrid, this.rampMap, this.player.x, this.player.y, TILE_SIZE);
     const { x: isoX, y: isoY } = this.worldToIso(this.player.x, this.player.y);
-    this.playerIso.setPosition(isoX, isoY + ISO_TILE_H);
-    this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
+    this.playerIso.setPosition(isoX, isoY + ISO_TILE_H - this.playerElev * CLIFF_H);
+    this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y, this.playerElev));
 
     // ── Player tile highlight — golden diamond on the tile the player occupies
     if (this.playerTileGfx) {
@@ -1015,7 +1030,8 @@ export class HomesteadScene extends Phaser.Scene {
       const pty = Math.floor(this.player.y / TILE_SIZE);
       const twx = ptx * TILE_SIZE;
       const twy = pty * TILE_SIZE;
-      const { x: tix, y: tiy } = this.worldToIso(twx, twy);
+      const { x: tix, y: tiyFlat } = this.worldToIso(twx, twy);
+      const tiy = tiyFlat - intGridGet(this.heightGrid, ptx, pty) * CLIFF_H;
       const hw = ISO_TILE_W / 2;
       const hh = ISO_TILE_H / 2;
       this.playerTileGfx.lineStyle(1.5, 0xf0c040, 0.8);
