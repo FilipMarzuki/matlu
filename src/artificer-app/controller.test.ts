@@ -8,6 +8,7 @@ import { supplied, SHORT_YEAR } from '../artificer/test-helpers';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { scouted } from '../artificer/exploration';
 import { createRegion1 } from '../artificer/region1';
+import { bestPerItem } from '../artificer/crafting';
 import { FLAT_WORLD } from '../artificer/world';
 
 /** A new game in the flat world: a fresh game's random character id would otherwise roll random weather (fog blinds a scout, #1284). */
@@ -138,11 +139,12 @@ describe('Artificer controller', () => {
     expect(recordRun(h, done, done)).toHaveLength(1); // already resolved before: no double record
     expect(recordRun(h, a, a)).toHaveLength(1); // not resolved: nothing to record
 
-    // The next run keeps what was learned (the snare, from tracking); a fresh one doesn't.
-    const kept = newRun(done.sim);
-    expect(kept.sim.known).toContain('trap-snare');
-    expect(newRun().sim.known).not.toContain('trap-snare');
-    expect(newRun(a.sim).sim.known).not.toContain('trap-snare'); // an unfinished run carries nothing
+    // The next run is someone new (#1455): the last Warden's tools pass on, their knowledge (the snare) doesn't.
+    const next = newRun(done.sim);
+    expect(next.sim.known).not.toContain('trap-snare');
+    expect(next.sim.character.id).not.toBe(done.sim.character.id);
+    expect(next.sim.tools.filter(t => t.heirloom).map(t => t.item)).toEqual(bestPerItem(done.sim.tools).map(t => t.item));
+    expect(newRun(a.sim).sim.tools.some(t => t.heirloom)).toBe(false); // an unfinished run leaves nothing
 
     h = recordRun(h, a, done);
     expect(h.map(r => r.run)).toEqual([2, 1]);

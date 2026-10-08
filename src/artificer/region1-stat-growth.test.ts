@@ -154,8 +154,8 @@ describe('Stats grow by use and wear (#1257)', () => {
     const next = createRegion1({ world: FLAT_WORLD }, legacy, { id: 'w-grow' });
     expect(next.character.stats.str).toBe(11);
     expect(next.character).toMatchObject({ trained: { str: 1 }, exercise: { str: 40, int: 7 }, wear: 1 });
-    // The game's own "go on" does the same — STR 11, not 12.
-    expect(newRun(done).sim.character.stats.str).toBe(11);
+    // The game's next run is someone new (#1455): nothing of the body goes with a stranger.
+    expect(newRun(done).sim.character.trained).toBeUndefined();
     // On the road: talking to people exercises CHA.
     const road = createRoad(done);
     const talked = runRoadAction(road, `talk:${TRAVELLERS[0].id}`);

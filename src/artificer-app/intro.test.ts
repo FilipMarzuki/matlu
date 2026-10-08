@@ -23,20 +23,23 @@ describe('Arrival intro', () => {
     expect(fillName(beats[create + 1].lines[0], '  ')).toBe('Registered: Artificer.');
   });
 
-  it('greets a returning Warden with what they kept, and ranks them by concept mastery', () => {
+  it('ranks a Warden by concept mastery', () => {
     const s = createRegion1({}, { known: ['snare', 'stone-knife'], concepts: { tension: 2, sealing: 1 } });
     expect(conceptRanks(s)).toBe(3);
     expect(artificerRank(s)).toBe('Journeyman');
-    const beats = introBeats('carry', s, 3);
+    expect(introBeats('fresh', s).flatMap(b => b.lines).join('\n')).toMatch(/RANK: JOURNEYMAN/);
+  });
+
+  // One run per Warden (#1455): every arrival is a new person, told what the last one left.
+  it('tells a new Warden what the last one left', () => {
+    const s = createRegion1({}, { known: [], concepts: {}, heirlooms: [{ item: 'stone-knife', grade: 'fine', heirloom: true }] });
+    const beats = introBeats('fresh', s);
     const all = beats.flatMap(b => b.lines).join('\n');
-    expect(beats.length).toBeLessThan(introBeats('fresh', createRegion1()).length);
-    expect(all).toMatch(/RETURNING ARTIFICER — CYCLE 3/);
-    expect(all).toMatch(/3 concept ranks/);
-    expect(all).toMatch(/RANK: JOURNEYMAN/);
-    // A returning Warden is the same person: no creation screen, greeted by name.
-    expect(beats.some(b => b.kind === 'create')).toBe(false);
-    const named = introBeats('carry', createRegion1({}, undefined, { name: 'Vega' }), 2).flatMap(b => b.lines).join('\n');
-    expect(named).toMatch(/Welcome back, Vega\./);
+    expect(all).toMatch(/Someone was here before you\./);
+    expect(all).toMatch(/They left: a fine stone-knife\./);
+    // Still a new person: the creation screen runs, and the heirloom line comes after registration.
+    expect(beats.findIndex(b => b.lines[0] === 'Someone was here before you.')).toBeGreaterThan(beats.findIndex(b => b.kind === 'create'));
+    expect(introBeats('fresh', createRegion1()).flatMap(b => b.lines).join('\n')).not.toMatch(/Someone was here/);
   });
 
   it('climbs Apprentice → Journeyman → Adept → Master', () => {

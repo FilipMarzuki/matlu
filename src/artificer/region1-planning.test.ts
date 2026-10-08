@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, runDay, PLANNING_UNLOCKED, type Region1State } from './region1';
 import { createVitals } from './vitality';
+import { legacyOf } from './legacy';
 import { newGame, newRun, enqueue, act, endTheDay, serialize, deserialize } from '../artificer-app/controller';
 import { playRun, type Player } from '../artificer-ai/runner';
 
@@ -54,9 +55,11 @@ describe('Planning is learned (#1350)', () => {
     const base = createRegion1({}, undefined, { id: 'w-back', name: 'Vega' });
     const vitals = createVitals();
     const from: Region1State = { ...base, skills: { woodcraft: 20 }, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals } };
-    expect(newRun(from).sim.canPlan).toBe(true);
-    // Someone who never levelled anything still has to learn it.
-    expect(newRun({ ...from, skills: {} }).sim.canPlan).toBe(false);
+    // The sim: a Warden who carries a levelled skill plans from day 1; one who never levelled anything still has to learn it.
+    expect(createRegion1({ planning: 'learned' }, legacyOf(from)).canPlan).toBe(true);
+    expect(createRegion1({ planning: 'learned' }, legacyOf({ ...from, skills: {} })).canPlan).toBe(false);
+    // The game's next run is someone new (#1455): they learn it again.
+    expect(newRun(from).sim.canPlan).toBe(false);
   });
 
   // 5. A save from before this change loads able to plan.

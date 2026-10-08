@@ -114,6 +114,8 @@ export interface Tool {
   grade: Grade;
   /** The grade it was made at, once wear can take it below (#1245, #1286): tending brings it back up. */
   crafted?: Grade;
+  /** Left by an earlier Warden (#1455): an heirloom, not something this one made or packed. */
+  heirloom?: boolean;
 }
 
 /**
@@ -142,7 +144,7 @@ export function scaledMult(mult: number, grade: Grade): number {
 }
 
 /** You only swing one axe: keep the best-graded copy of each item. */
-function bestPerItem(tools: readonly Tool[]): Tool[] {
+export function bestPerItem(tools: readonly Tool[]): Tool[] {
   const best = new Map<string, Tool>();
   for (const t of tools) {
     const have = best.get(t.item);

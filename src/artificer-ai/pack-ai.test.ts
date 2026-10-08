@@ -85,18 +85,16 @@ describe('Packing for the hike (#1401)', () => {
     }
   }, 30_000);
 
-  it('packs in the intro: after creation for a new Warden, and again each run from last time\'s pack', () => {
+  it('packs in the intro after creation, and each Warden packs afresh', () => {
     const fresh = introBeats('fresh', createRegion1());
     const at = fresh.findIndex(b => b.kind === 'pack');
     expect(at).toBeGreaterThan(fresh.findIndex(b => b.kind === 'create'));
     expect(fresh[at].lines.join(' ')).toMatch(/Friday afternoon, before any of this.*What did you pack\?/);
-    const carry = introBeats('carry', createRegion1(), 2);
-    expect(carry.at(-2)?.kind).toBe('pack');
-    // A character carrying on starts from what they packed last time.
+    // The knowledge legacy remembers the pack; but the game's next run is a new Warden (#1455), who packs the suggested kit again.
     const g = newGame().sim;
     const light = repack(g, ['tarp', 'kasa']);
     const done = { ...light, outcome: { choice: 'thaw' as const, kind: 'survived' as const, grade: 'hale' as const, vitals: createVitals() } };
     expect(legacyOf(done).pack).toEqual(['tarp', 'kasa']);
-    expect(newRun(done).sim.kit?.items).toEqual(['tarp', 'kasa']);
+    expect(newRun(done).sim.kit?.items).toEqual([...SUGGESTED_PACK]);
   });
 });

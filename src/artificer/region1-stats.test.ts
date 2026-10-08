@@ -110,7 +110,8 @@ describe('Character stats (#1256)', () => {
   it('carries stats with the character, and loads old saves', () => {
     const done = { ...warden({ str: 13, int: 13 }), outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
     expect(createRegion1({}, legacyOf(done)).character.stats).toMatchObject({ str: 13, int: 13 });
-    expect(newRun(done).sim.character.stats).toMatchObject({ str: 13, int: 13 });
+    // The game's next run is someone new (#1455), with the default spread.
+    expect(newRun(done).sim.character.adult).toEqual(DEFAULT_STATS);
     // A new Warden is 12 (#1399): the chosen stats are the adult ones, and the current ones grow towards them.
     expect(newGame().sim.character.adult).toEqual(DEFAULT_STATS);
     expect(newGame().sim.character.stats).toEqual(grownStats(DEFAULT_STATS, 12));

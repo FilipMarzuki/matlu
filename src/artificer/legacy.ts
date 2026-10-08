@@ -2,11 +2,14 @@
  * Legacy — the record of past runs, and what a Warden carries into the next
  * one (#1224). Part of the artificer sim core: pure, no Phaser, no storage.
  *
- * A run ends when Region 1 resolves (the thaw, or the body giving out). Its summary goes into
- * a short history, and the player can start again either fresh or *keeping
- * what they learned*: the recipes they worked out and the concepts they
- * ranked up. The body, stores, land and tools always start over — knowledge
- * is what travels, the way it would for a real artificer.
+ * A run ends when Region 1 resolves (the thaw, or the body giving out) or the road does. Its
+ * summary goes into a short history.
+ *
+ * What travels (#1455): **one run per Warden, and the items pass on.** The next Warden is
+ * someone new, and starts with the tools the last one had at the end — their heirlooms
+ * (`heirloomsOf`). Knowledge doesn't go with a stranger; it comes back through the items
+ * (#1456). The older, knowledge-carrying `legacyOf` stays for the history, the AI harness's
+ * experiments and the tests that lean on it.
  */
 
 import type { KitId } from './kit';
@@ -19,7 +22,7 @@ import type { EndChoice, Grade as WinterGrade, Injury, OutcomeKind } from './win
 import { STAT_IDS, type Stats } from './stats';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
-import type { Grade } from './crafting';
+import { bestPerItem, type Grade, type Tool } from './crafting';
 import type { Harm } from './injuries';
 
 /** How a run can end: any Region 1 outcome, or the road's own ends (#1250). */
@@ -92,6 +95,18 @@ export interface Legacy {
   trained?: Partial<Stats>;
   exercise?: Partial<Stats>;
   wear?: number;
+  /** Tools the last Warden left for this one (#1455), at the grade they were at the end. Optional so older legacies still load. */
+  heirlooms?: Tool[];
+}
+
+/**
+ * What a run leaves for the *next* Warden (#1455): its tools — one of each item, the best
+ * grade, flagged as heirlooms — and nothing of the mind. Any outcome leaves them, death
+ * included: what you made outlasts you. A `Legacy` with empty knowledge, so `createRegion1`
+ * reads it like any other.
+ */
+export function heirloomsOf(s: Pick<Region1State, 'tools'>): Legacy {
+  return { known: [], concepts: {}, heirlooms: bestPerItem(s.tools).map(t => ({ ...t, heirloom: true })) };
 }
 
 export { CONTACT_TRUST } from './villages';

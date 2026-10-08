@@ -61,17 +61,22 @@ describe('The road in the game (#1250)', () => {
     expect(h[0]).toMatchObject({ kind: 'arrived', run: 3 });
   });
 
-  // 3. Arrived with 2 people at trust 50+ and 12 marks: the next run's legacy lists them, and it starts with 12 marks.
-  it('carries marks and contacts into the same character’s next run', () => {
+  // 3. Arrived with 2 people at trust 50+ and 12 marks: the road's legacy lists them — but the game's next run
+  //    is a stranger (#1455), who gets the tools and not the marks or the friends.
+  it('lists marks and contacts in the road’s legacy, but the next Warden is a stranger with the tools', () => {
     const { after } = rideToTheEnd(app(ended()));
-    const road: RoadState = { ...after.road!, marks: 12, trust: { 'hf-maren': 55, 'sm-liv': 60, 'hf-tobin': 30 } };
+    const road: RoadState = { ...after.road!, marks: 12, trust: { 'hf-maren': 55, 'sm-liv': 60, 'hf-tobin': 30 }, tools: [{ item: 'stone-knife', grade: 'sound' }] };
     expect(legacyOfRoad(road).contacts?.sort()).toEqual(['hf-maren', 'sm-liv']);
     const next = newRun(road);
-    expect(next.sim.character.id).toBe('w-vega');
-    expect(next.sim.marks).toBe(12);
-    expect(next.sim.contacts?.sort()).toEqual(['hf-maren', 'sm-liv']);
-    // …and the next road starts with them: marks in hand, and Maren remembers you.
-    let again = createRoad({ ...next.sim, outcome: ended().outcome });
+    expect(next.sim.character.id).not.toBe('w-vega');
+    expect(next.sim.marks).toBeUndefined();
+    expect(next.sim.contacts).toBeUndefined();
+    expect(next.sim.tools).toContainEqual({ item: 'stone-knife', grade: 'sound', heirloom: true });
+    // The same character carried through `legacyOfRoad` (as the sim still allows) starts the next road with them:
+    // marks in hand, and Maren remembers you.
+    const same = createRegion1({}, legacyOfRoad(road), { id: 'w-vega', name: 'Vega' });
+    expect(same.marks).toBe(12);
+    let again = createRoad({ ...same, outcome: ended().outcome });
     expect(again.marks).toBe(12);
     while (again.leg < hollowford) again = endRoadDay(again);
     expect(again.trust['hf-maren']).toBe(CONTACT_TRUST);

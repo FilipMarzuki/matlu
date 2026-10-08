@@ -297,7 +297,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     milestones: [],
     // Someone who has done this before remembers how to plan; a fresh Warden learns it (#1350).
     canPlan: config.planning !== 'learned' || SKILL_IDS.some(id => skillLevel(legacy?.skills ?? {}, id) >= 1),
-    tools: packed ? packed.tools.map(t => ({ ...t })) : [],
+    // What this Warden packed, and what the last one left for them (#1455).
+    tools: [...(packed ? packed.tools.map(t => ({ ...t })) : []), ...(legacy?.heirlooms ?? []).map(t => ({ ...t, heirloom: true }))],
     ...(packed ? { kit: { ...packed.kit, items: [...packed.kit.items] }, ...(packed.dressings ? { dressings: packed.dressings } : {}) } : {}),
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
@@ -326,20 +327,25 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   };
   // Today's weather, and what Weather sense tells of the next two days (#1282).
   dawnWeather(s);
-  // A new run that keeps what the last Warden learned: recipes and concept
+  // What the last Warden left (#1455): their tools, found where they were. The game's own
+  // next run carries only these; the knowledge below is the older, same-character carry.
+  if (legacy?.heirlooms?.length) {
+    say(s, `Someone was here before you. Left for you: ${legacy.heirlooms.map(t => `a ${t.grade} ${t.item}`).join(', ')}.`, 'milestone');
+  }
+  // A run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
   if (legacy?.marks) s.marks = legacy.marks;
   if (legacy?.contacts?.length) s.contacts = [...legacy.contacts];
   if (legacy?.met) s.met = { ...legacy.met };
-  if (legacy) {
+  if (legacy && (legacy.known.length || Object.keys(legacy.concepts).length)) {
     for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
     for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
     const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
     say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
-    // A year on (#1399): what grew.
-    const grew = age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
-    if (grew) say(s, grew, 'milestone');
   }
+  // A year on (#1399): what grew.
+  const grew = legacy && age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
+  if (grew) say(s, grew, 'milestone');
   return s;
 }
 
@@ -1802,8 +1808,8 @@ export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
   const old = s.kit ? startFromPack(s.kit.items) : null;
   const p = startFromPack(pack);
   const next = clone(s);
-  // On the first morning, the tools are the pack's.
-  next.tools = p.tools.map(t => ({ ...t }));
+  // On the first morning, the tools are the pack's — and what the last Warden left (#1455), which no repacking touches.
+  next.tools = [...p.tools.map(t => ({ ...t })), ...s.tools.filter(t => t.heirloom).map(t => ({ ...t }))];
   next.stores.rations += p.stores.rations - (old?.stores.rations ?? 0);
   next.stores.materials += p.stores.materials - (old?.stores.materials ?? 0);
   next.dressings = p.dressings || undefined;
