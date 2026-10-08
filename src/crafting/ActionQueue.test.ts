@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from './ActionQueue';
-import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, type Automation } from './planner';
+import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, rankByName, type Automation } from './planner';
 import { Inventory } from './Inventory';
 import { MemoryStore, RecordingEmitter } from './testDoubles';
 
@@ -174,6 +174,23 @@ describe('goals (#1185 acceptance)', () => {
     const queue = new ActionQueue({ inventory, rng: mulberry32(seed), sources: G_SOURCES, recipes: G_RECIPES, automation, initialEntries });
     return { inventory, queue };
   }
+
+  // #1195 criterion 3: refusing goals goes by rank, so a copy of the Apprentice preset refuses too.
+  it('#1195-3. a copied apprentice rank refuses goals and leaves the queue empty', () => {
+    const { queue } = makeGoals(42, { ...rankByName('apprentice') });
+    expect(queue.enqueueGoal('plank')).toBe(false);
+    expect(queue.entries).toEqual([]);
+  });
+
+  // #1195 criterion 4: the Master rank plans exactly as AUTOMATION_WORKSHOP did (criterion 1 below).
+  it('#1195-4. the master rank plans like criterion 1', () => {
+    const { queue } = makeGoals(42, rankByName('master'));
+    expect(queue.enqueueGoal('plank')).toBe(true);
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'oak', elapsed: 1 });
+    expect(queue.entries[1]).toMatchObject({ kind: 'goal', recipeId: 'plank' });
+    expect(queue.entries[1].subStep).toContain('Oak');
+  });
 
   it('1. given an empty inventory and enqueueGoal(plank), tick(1): head is harvest oak, then the plank goal with subStep mentioning Oak', () => {
     const { queue } = makeGoals();

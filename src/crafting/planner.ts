@@ -18,7 +18,14 @@
 import type { Inventory } from './Inventory';
 import type { HarvestSource, Recipe } from './ActionQueue';
 
+/** The Workshop-Towns guild ranks (#1195), lowest first. Each one is an {@link Automation} level. */
+export type GuildRank = 'apprentice' | 'journeyman' | 'master' | 'artificer';
+
 export interface Automation {
+  /** The guild rank this level of help belongs to (#1195). */
+  rank: GuildRank;
+  /** The rank's name as the UI shows it. */
+  label: string;
   /** May push a harvest for a missing direct input. */
   mayHarvest: boolean;
   /** May push a sub-goal (craft) for a missing craftable input. */
@@ -27,14 +34,46 @@ export interface Automation {
   maxDepth: number;
 }
 
-/** You do everything by hand — goals aren't offered. */
-export const AUTOMATION_NONE: Automation = { mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 };
-/** You know where the wood is: harvests happen for you, crafting doesn't. */
-export const AUTOMATION_HARVEST: Automation = { mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 };
-/** You can plan a two-step job: one level of sub-goals. */
-export const AUTOMATION_WORKSHOP: Automation = { mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 };
-/** You run a workshop: any depth. */
-export const AUTOMATION_FULL: Automation = { mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity };
+/**
+ * The guild ranks (#1195), lowest first. The game is *Artificer: Convergence*, and its title
+ * names the top rank. Each rank is how much the planner may do for you:
+ * - Apprentice: you do everything by hand; goals aren't offered.
+ * - Journeyman: you know where the wood is; harvests happen for you, crafting doesn't.
+ * - Master: you can plan a two-step job (one level of sub-goals).
+ * - Artificer: you run a workshop, any depth.
+ */
+// Frozen: rankByName and the AUTOMATION_* aliases hand out these very objects, so one caller
+// changing one would change it for every queue and scene.
+export const GUILD_RANKS: readonly Readonly<Automation>[] = [
+  { rank: 'apprentice', label: 'Apprentice', mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
+  { rank: 'journeyman', label: 'Journeyman', mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
+  { rank: 'master', label: 'Master', mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
+  { rank: 'artificer', label: 'Artificer', mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
+].map(r => Object.freeze(r as Automation));
+
+/**
+ * Whether goals are offered at all: only if the planner may do something on its own — harvest
+ * or craft a sub-goal. Asked by what the level can do, not its name, so a copy (or a future
+ * level that keeps a rank but loses a capability) behaves the same. The queue and the scene's
+ * Make button both ask this, so they can't disagree.
+ */
+export const offersGoals = (a: Automation): boolean => a.mayHarvest || a.mayCraftSubgoals;
+
+/** The {@link Automation} for a rank — the same object as its entry in {@link GUILD_RANKS}. */
+export function rankByName(rank: GuildRank): Automation {
+  const found = GUILD_RANKS.find(r => r.rank === rank);
+  if (!found) throw new Error(`unknown guild rank: ${rank}`);
+  return found;
+}
+
+/** @deprecated Use `rankByName('apprentice')` or {@link GUILD_RANKS} (#1195). */
+export const AUTOMATION_NONE: Automation = GUILD_RANKS[0];
+/** @deprecated Use `rankByName('journeyman')` or {@link GUILD_RANKS} (#1195). */
+export const AUTOMATION_HARVEST: Automation = GUILD_RANKS[1];
+/** @deprecated Use `rankByName('master')` or {@link GUILD_RANKS} (#1195). */
+export const AUTOMATION_WORKSHOP: Automation = GUILD_RANKS[2];
+/** @deprecated Use `rankByName('artificer')` or {@link GUILD_RANKS} (#1195). */
+export const AUTOMATION_FULL: Automation = GUILD_RANKS[3];
 
 export type PlanStep =
   /** Every input is in the inventory: craft now. */

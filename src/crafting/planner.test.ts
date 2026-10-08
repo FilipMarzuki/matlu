@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, type Automation,
+  nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, GUILD_RANKS, rankByName, offersGoals, type Automation,
 } from './planner';
 import type { HarvestSource, Recipe } from './ActionQueue';
 
@@ -78,5 +78,34 @@ describe('nextStep (#1184 acceptance)', () => {
     const args: [ReturnType<typeof goal>, ReturnType<typeof inv>, Recipe[], HarvestSource[], Automation] =
       [goal('snare'), inv({ 'plant-fiber': 1 }), RECIPES, SOURCES, AUTOMATION_FULL];
     expect(nextStep(...args)).toEqual(nextStep(...args));
+  });
+});
+
+/** #1195 — the automation presets are the guild ranks. */
+describe('guild ranks (#1195 acceptance)', () => {
+  // 1. Four ranks, in order, with the capabilities of the old presets.
+  it('1. lists apprentice, journeyman, master, artificer with their capabilities', () => {
+    expect(GUILD_RANKS.map(r => r.rank)).toEqual(['apprentice', 'journeyman', 'master', 'artificer']);
+    expect(GUILD_RANKS.map(r => r.label)).toEqual(['Apprentice', 'Journeyman', 'Master', 'Artificer']);
+    const caps = GUILD_RANKS.map(({ mayHarvest, mayCraftSubgoals, maxDepth }) => ({ mayHarvest, mayCraftSubgoals, maxDepth }));
+    expect(caps).toEqual([
+      { mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
+    ]);
+  });
+
+  // 2. rankByName gives the same object as the list and the old alias.
+  it('2. rankByName(journeyman) is GUILD_RANKS[1] and AUTOMATION_HARVEST', () => {
+    expect(rankByName('journeyman')).toBe(GUILD_RANKS[1]);
+    expect(rankByName('journeyman')).toBe(AUTOMATION_HARVEST);
+  });
+
+  // Goals are offered by capability, and the shared rank objects can't be changed.
+  it('offers goals only to a level that can do something, and freezes the ranks', () => {
+    expect(GUILD_RANKS.map(offersGoals)).toEqual([false, true, true, true]);
+    expect(offersGoals({ ...rankByName('journeyman'), mayHarvest: false })).toBe(false);
+    expect(Object.isFrozen(rankByName('master'))).toBe(true);
   });
 });
