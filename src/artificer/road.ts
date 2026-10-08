@@ -27,9 +27,9 @@ import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
 import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
-import { TALENTS, type TalentId } from './talents';
+import { TALENTS, hasHidden, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
-import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, noticeHidden, differenceOf, hiddenless, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
 import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
@@ -262,6 +262,13 @@ function leaveVillage(s: RoadState, id: string): void {
 
 /** Do one thing now. Nothing happens once the road is over, or when the day's hours are spent. */
 export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
+  const next = runRoadActionCore(s, id);
+  // A hidden talent's hand on the road (#1265) — Silver Tongue's fairer prices and warmer welcome, say.
+  if (next !== s && hasHidden(s.character.talents)) noticeHidden(next, differenceOf(next, runRoadActionCore(hiddenless(s), id)));
+  return next;
+}
+
+function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
   // An encounter waiting (#1349): nothing else happens until you choose.
   if (s.outcome || s.pending || s.hoursToday >= DAY_HOURS) return s;
   const next = clone(s);
@@ -721,12 +728,16 @@ export function endRoadDay(s: RoadState): RoadState {
   if (s.outcome || s.pending) return s;
   const next = clone(s);
   const leg = legOf(next);
-  const night = sleepNight(next, {
+  const nightOpts = {
     warmth: ROAD_WARMTH[leg.kind],
     coldNight: false,
     lockedToday: roadLockOf(next) !== null,
     providedWater: leg.kind === 'travel',
-  });
+  };
+  // The same night without the hidden talent (#1265): did it make a difference?
+  const withoutGift = hasHidden(next.character.talents) ? clone(hiddenless(next)) : null;
+  const night = sleepNight(next, nightOpts);
+  if (withoutGift && !night.ended) { const other = sleepNight(withoutGift, nightOpts); noticeHidden(next, differenceOf(next, withoutGift, !!other.ended)); }
   if (night.ended) {
     next.outcome = { kind: night.ended, vitals: next.vitals };
     say(next, night.ended === 'died'

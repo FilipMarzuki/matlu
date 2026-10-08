@@ -27,7 +27,7 @@ export type TalentId =
   | 'steady' | 'surge';
 
 /** A talent a Warden has: which, how strong (1–4), whether they know about it, and hours of growth toward the next tier (#1264). */
-export interface Talent { id: TalentId; tier: number; known: boolean; growth?: number }
+export interface Talent { id: TalentId; tier: number; known: boolean; growth?: number; signs?: number }
 
 export const MIN_TIER = 1;
 export const MAX_TIER = 4;
@@ -191,7 +191,8 @@ export function validTalents(x: unknown): x is Talent[] {
   return x.every(t => typeof t === 'object' && t !== null && (t as Talent).id in TALENTS
     && Number.isInteger((t as Talent).tier) && (t as Talent).tier >= MIN_TIER && (t as Talent).tier <= MAX_TIER
     && typeof (t as Talent).known === 'boolean'
-    && ((t as Talent).growth === undefined || (typeof (t as Talent).growth === 'number' && (t as Talent).growth! >= 0))) && new Set(ids).size === ids.length;
+    && ((t as Talent).growth === undefined || (typeof (t as Talent).growth === 'number' && (t as Talent).growth! >= 0))
+    && ((t as Talent).signs === undefined || (Number.isInteger((t as Talent).signs) && (t as Talent).signs! >= 0))) && new Set(ids).size === ids.length;
 }
 
 // ── Growth (#1264) ──────────────────────────────────────────────────────────
@@ -274,3 +275,84 @@ export function chooseFromOffer(offer: readonly TalentId[], requested: readonly 
 
 /** A seeded random pick of two from an offer (the random baseline's choice). */
 export const pickRandomFromOffer = (offer: readonly TalentId[], seed: number): TalentId[] => shuffled(offer, seed).slice(0, TALENT_PICKS);
+
+// ── Discovery (#1265) ───────────────────────────────────────────────────────
+// A hidden talent works before you know it. When it makes a real difference — something
+// you'd notice — that's a sign. Enough signs and the journal starts to hint, then hints
+// closer, then you know. The ladder (signs → hints → reveal) is shared with the hidden
+// quirk (#1268), which keeps its own counter and its own words.
+
+/** The hint lines for a hidden gift: a vague one, a closer one, and the moment it's clear. Never the name before the reveal. */
+export interface Hints { vague: string; closer: string; reveal: string }
+
+export const HINTS: Readonly<Record<TalentId, Hints>> = {
+  hardy: { vague: 'Your back took that better than you expected.', closer: 'Heavy work leaves you less spent than it should — your body seems built for it.', reveal: 'You\'ve stopped being surprised by how much your body can take.' },
+  sharp: { vague: 'Your head stayed clearer than you\'d think after all that.', closer: 'Hours of work, and your thoughts keep their edge — your mind tires more slowly than most.', reveal: 'Your mind stays clear when other people\'s fog over.' },
+  lightEater: { vague: 'You went without, and it barely touched you.', closer: 'Hunger gnaws at you less than it should — you get by on very little.', reveal: 'You need less food than anyone you know.' },
+  carefulHands: { vague: 'That came out finer than you meant it to.', closer: 'Your hands seem to know the work better than you do.', reveal: 'Your hands are steady and sure at the bench, and it shows in everything you make.' },
+  quickLearner: { vague: 'You picked that up quickly.', closer: 'Whatever you practise comes to you faster than it should.', reveal: 'You learn by doing, and you learn fast.' },
+  coldBlooded: { vague: 'The cold bit less than you braced for.', closer: 'Nights that should have frozen you leave you only stiff.', reveal: 'The cold just doesn\'t reach you the way it reaches others.' },
+  tough: { vague: 'You should feel worse than you do.', closer: 'Hardship takes less out of you than it should — something in you holds.', reveal: 'You can take a beating, and get up again.' },
+  keenEye: { vague: 'Out on the land, your eyes find the way easily.', closer: 'You read the ground as if you\'d been here before.', reveal: 'You see what others walk past.' },
+  forager: { vague: 'There was more to find than you expected.', closer: 'Wherever you gather, your hands find the good patches.', reveal: 'The land always seems to have a little more for you.' },
+  hunter: { vague: 'The game came to you more easily than it should have.', closer: 'You wait where others would fidget, and the animals walk right to you.', reveal: 'You have a hunter\'s stillness, and the hunts show it.' },
+  waterfinder: { vague: 'You found more water than you expected.', closer: 'Water seems to find you — the springs are always where you look.', reveal: 'You can smell water before you see it.' },
+  silverTongue: { vague: 'They warmed to you quickly.', closer: 'People open up to you, and deal more fairly than you\'d expect.', reveal: 'People like you, and it makes everything easier.' },
+  steady: { vague: 'Your hands were still when they should have shaken.', closer: 'Fear passes over you and leaves you level.', reveal: 'When everyone else shakes, you don\'t.' },
+  surge: { vague: 'The fright sharpened you instead of shrinking you.', closer: 'When fear comes you get faster — and the crash after is lighter.', reveal: 'Fear makes you quick, not small.' },
+};
+
+/** Signs at which the journal hints, hints closer, and the talent is revealed. */
+export const SIGNS_VAGUE = 2, SIGNS_CLOSER = 4, SIGNS_REVEAL = 6;
+
+/** What a hidden talent changed this time, measured against the same moment without it. */
+export interface Difference {
+  /** Vigor, Clarity and Condition saved (or kept). */
+  vigor: number; clarity: number; condition: number;
+  /** Extra goods brought home, and extra skill practice (hours). */
+  yield: number; practice: number;
+  /** A better grade off the bench. */
+  grade: number;
+  /** Marks saved, and trust gained, on the road. */
+  marks: number; trust: number;
+  /** Clung on at Condition 0 (Tough's last stand) — or came through a night you otherwise wouldn't have. */
+  clung: boolean;
+}
+
+/** Whether a difference is big enough to notice: a little more brought home, 2+ points saved, or a last stand. */
+export const signOf = (d: Partial<Difference>): boolean =>
+  (d.yield ?? 0) >= 1 || (d.practice ?? 0) >= 1 || (d.grade ?? 0) > 0 || (d.marks ?? 0) >= 1 || (d.trust ?? 0) >= 2
+  || (d.vigor ?? 0) >= 2 || (d.clarity ?? 0) >= 2 || (d.condition ?? 0) >= 2 || !!d.clung;
+
+/** What a sign means on the ladder: nothing yet, a vague hint, a closer one, or the reveal. Shared with quirks (#1268). */
+export function signStep(signs: number): 'vague' | 'closer' | 'reveal' | null {
+  return signs === SIGNS_VAGUE ? 'vague' : signs === SIGNS_CLOSER ? 'closer' : signs >= SIGNS_REVEAL ? 'reveal' : null;
+}
+
+/** The line that names a revealed gift. */
+export const giftLine = (id: TalentId): string => `You have a gift: ${TALENTS[id].name}.`;
+
+/**
+ * A sign of the hidden talent (pure): count it, and return the journal lines it earns —
+ * a hint at 2 and 4, and at 6 the reveal (the talent becomes known). A known talent gives none.
+ */
+export function noticeTalent(talents: readonly Talent[]): { talents: Talent[]; lines: { text: string; reveal: boolean }[] } {
+  const lines: { text: string; reveal: boolean }[] = [];
+  const next = talents.map(t => {
+    if (t.known) return t;
+    const signs = (t.signs ?? 0) + 1;
+    const step = signStep(signs);
+    if (step === 'reveal') {
+      lines.push({ text: HINTS[t.id].reveal, reveal: true }, { text: giftLine(t.id), reveal: true });
+      return { ...t, signs, known: true };
+    }
+    if (step) lines.push({ text: HINTS[t.id][step], reveal: false });
+    return { ...t, signs };
+  });
+  return { talents: next, lines };
+}
+
+/** The talents without the hidden ones — the counterfactual a sign is measured against. */
+export const withoutHidden = (talents: readonly Talent[]): Talent[] => talents.filter(t => t.known);
+/** Whether there's a hidden talent still to find. */
+export const hasHidden = (talents: readonly Talent[]): boolean => talents.some(t => !t.known);

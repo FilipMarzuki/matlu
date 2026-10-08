@@ -12,7 +12,7 @@
  * frontend, a test, or Core Warden can all drive it identically.
  */
 
-import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
+import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, noticeTalent, signOf, withoutHidden, hasHidden, type Difference, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFrom, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, STAT_IDS as GROWTH_STATS, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, RECOVERY_CAP, overtrainedLine, OVERTRAINED, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
@@ -1162,6 +1162,8 @@ export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: A
 export function runAction(s: Region1State, item: QueueItem): Region1State {
   if (s.pending) return s;
   const next = runActionCore(s, item);
+  // Did a hidden talent make a difference (#1265)? Run the same work without it and compare.
+  if (hasHidden(s.character.talents)) noticeHidden(next, differenceOf(next, runActionCore(hiddenless(s), item)));
   maybeEncounter(s, next, item);
   return next;
 }
@@ -2089,7 +2091,11 @@ export function endDay(s: Region1State): Region1State {
   // A fire burns if it was kept in through the frost — or, on a night that asked for none, if there's wood for one.
   const nightFright = next.config.world.encounters
     ? frightOf(next, nightAmbient(nightSceneOf(next, fire.kept || (fire.freeze === 0 && next.stores.firewood > 0), fire.kept)), true) : null;
-  const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state });
+  const nightOpts: NightOpts = { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state };
+  // The same night without the hidden talent (#1265), to see whether it made a difference.
+  const withoutGift = hasHidden(next.character.talents) ? clone(hiddenless(next)) : null;
+  const night = sleepNight(next, nightOpts);
+  if (withoutGift && !night.ended) { const other = sleepNight(withoutGift, nightOpts); noticeHidden(next, differenceOf(next, withoutGift, !!other.ended)); }
   // The hike kit's small comforts (#1400): a hot drink, a hot meal, a pillow, the sweets.
   if (!night.ended) kitNight(next, fire.kept, cold);
   // A night in pain (#1409): sharp pain keeps you restless, agony half awake.
@@ -2315,6 +2321,43 @@ function growFrom(next: Pick<Region1State, 'character' | 'log' | 'day'>, e: Grow
   next.character.talents = talents;
   if (tierUps > 0) next.log.push({ day: next.day, text: TIER_UP_LINE, kind: 'milestone' });
 }
+
+/** What can show a hidden talent's hand (#1265): the pools, the goods, practice and tools — and on the road, marks and trust. */
+export type Noticed = Pick<Region1State, 'vitals' | 'stores' | 'skills' | 'tools'> & { marks?: number; trust?: Record<string, number> };
+
+const GRADE_RANK: Readonly<Record<string, number>> = { crude: 0, sound: 1, fine: 2, masterwork: 3 };
+const plus = (a: Readonly<Record<string, number | undefined>>, b: Readonly<Record<string, number | undefined>>): number =>
+  Object.keys(a).reduce((n, k) => n + Math.max(0, (a[k] ?? 0) - (b[k] ?? 0)), 0);
+
+/** What a hidden talent changed: this moment against the same moment without it. */
+export function differenceOf(withIt: Noticed, without: Noticed, clung = false): Difference {
+  const rank = (t: Noticed['tools']) => t.reduce((n, x) => n + (GRADE_RANK[x.grade] ?? 0), 0);
+  return {
+    vigor: withIt.vitals.vigor.current - without.vitals.vigor.current,
+    clarity: withIt.vitals.clarity.current - without.vitals.clarity.current,
+    condition: withIt.vitals.condition - without.vitals.condition,
+    yield: plus(withIt.stores as unknown as Record<string, number>, without.stores as unknown as Record<string, number>),
+    practice: plus(withIt.skills, without.skills),
+    grade: withIt.tools.length === without.tools.length ? rank(withIt.tools) - rank(without.tools) : 0,
+    marks: (withIt.marks ?? 0) - (without.marks ?? 0),
+    trust: plus(withIt.trust ?? {}, without.trust ?? {}),
+    clung,
+  };
+}
+
+/**
+ * A hidden talent's sign (#1265): if it made a noticeable difference, count it, and write what that
+ * earns — a hint at 2 signs and 4, and at 6 the reveal. Hints are felt, never named.
+ */
+export function noticeHidden(next: { character: Character; log: LogEntry[]; day: number }, d: Difference): void {
+  if (!hasHidden(next.character.talents) || !signOf(d)) return;
+  const r = noticeTalent(next.character.talents);
+  next.character = { ...next.character, talents: r.talents };
+  for (const l of r.lines) next.log.push({ day: next.day, text: l.text, kind: l.reveal ? 'milestone' : 'action' });
+}
+
+/** The same Warden without their hidden talent — the "what if" a sign is measured against. */
+export const hiddenless = <S extends { character: Character }>(s: S): S => ({ ...s, character: { ...s.character, talents: withoutHidden(s.character.talents) } });
 
 /** Give back the share of overexertion's Condition cost that a talent spares (Tough, #1263). */
 function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mult: number): void {
