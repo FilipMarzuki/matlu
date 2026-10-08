@@ -162,9 +162,28 @@ export function statNote(id: StatId, score: number): string {
 /** The human peak and the floor: no stat rises past 18 or falls below 3. */
 export const STAT_PEAK = 18, STAT_LOW = 3;
 
-/** Exercise hours for the next point: 30 × (score − 8)², at least 120 — a low stat is never cheaper to raise than a 10 (10→11 and below: 120h; 14→15: 1,080h). */
+/**
+ * Exercise hours for the next point by score alone: 30 × (score − 8)², at least 120 (10→11 and
+ * below: 120h; 14→15: 1,080h). A weak stat costs the floor — never more than a 10 (#1440): an
+ * untrained body gains fastest.
+ */
 export const STAT_MIN_HOURS = 120;
-export const EXERCISE_TO_NEXT = (score: number): number => Math.max(STAT_MIN_HOURS, 30 * (score - 8) ** 2);
+export const EXERCISE_TO_NEXT = (score: number): number => Math.max(STAT_MIN_HOURS, 30 * Math.max(0, score - 8) ** 2);
+
+/** The body's stats taper with training (#1440); the mind's (INT, WIL) and CHA keep the steady curve. */
+export const TAPERED: readonly StatId[] = ['str', 'con', 'agi'];
+
+/**
+ * Exercise hours for a stat's next point (#1440). For STR, CON and AGI, each point already gained by
+ * use (`trained`, net of wear) doubles the cost: 120h, 240h, 480h, 960h — the first gains come fast,
+ * then a plateau. That's the larger of this taper and the score curve, so they never stack: a weak
+ * Warden who trains pays the taper, a naturally strong one the score curve. Wear lowers `trained`,
+ * so strength lost comes back cheaper than strength never had.
+ */
+export function exerciseToNext(id: StatId, score: number, trained = 0): number {
+  const byScore = EXERCISE_TO_NEXT(score);
+  return TAPERED.includes(id) ? Math.max(byScore, STAT_MIN_HOURS * 2 ** Math.max(0, trained)) : byScore;
+}
 
 /**
  * The right skill builds its stat: practising a skill exercises the stat it leans on. Felling and
@@ -247,8 +266,9 @@ export function exercise(stats: Readonly<Stats>, growth: Growth, id: StatId, hou
   const trained = { ...(growth.trained ?? {}) };
   let ex = (growth.exercise?.[id] ?? 0) + hours;
   const reached: number[] = [];
-  while (s[id] < STAT_PEAK && ex >= EXERCISE_TO_NEXT(s[id])) {
-    ex -= EXERCISE_TO_NEXT(s[id]);
+  // Each point gained raises `trained`, so a tapered stat's next point costs more inside this loop too.
+  for (let cost = exerciseToNext(id, s[id], trained[id] ?? 0); s[id] < STAT_PEAK && ex >= cost; cost = exerciseToNext(id, s[id], trained[id] ?? 0)) {
+    ex -= cost;
     s[id] += 1;
     trained[id] = (trained[id] ?? 0) + 1;
     reached.push(s[id]);
