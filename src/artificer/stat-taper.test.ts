@@ -37,7 +37,7 @@ describe('Physical growth tapers (#1440)', () => {
     expect(exerciseToNext('str', 15, 0)).toBe(EXERCISE_TO_NEXT(15)); // a natural 15 pays the score curve
   });
 
-  // 3. Mental stats don't taper.
+  // 3. Mental stats don't taper: INT 11 with a trained point costs the score curve (270h), no doubling.
   it('keeps the steady curve for INT and WIL', () => {
     expect(exerciseToNext('int', 11, 1)).toBe(EXERCISE_TO_NEXT(11));
     expect(exerciseToNext('wil', 10, 3)).toBe(120);

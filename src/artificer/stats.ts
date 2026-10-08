@@ -267,8 +267,8 @@ export function exercise(stats: Readonly<Stats>, growth: Growth, id: StatId, hou
   let ex = (growth.exercise?.[id] ?? 0) + hours;
   const reached: number[] = [];
   // Each point gained raises `trained`, so a tapered stat's next point costs more inside this loop too.
-  while (s[id] < STAT_PEAK && ex >= exerciseToNext(id, s[id], trained[id] ?? 0)) {
-    ex -= exerciseToNext(id, s[id], trained[id] ?? 0);
+  for (let cost = exerciseToNext(id, s[id], trained[id] ?? 0); s[id] < STAT_PEAK && ex >= cost; cost = exerciseToNext(id, s[id], trained[id] ?? 0)) {
+    ex -= cost;
     s[id] += 1;
     trained[id] = (trained[id] ?? 0) + 1;
     reached.push(s[id]);
