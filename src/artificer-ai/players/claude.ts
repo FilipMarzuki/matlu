@@ -49,6 +49,8 @@ export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
       for (const m of messages) {
         if (m.role === 'assistant' && Array.isArray(m.content)) {
           m.content = m.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+          // A reply that was all thinking (cut off by max_tokens) would be left empty, which the API rejects.
+          if (!m.content.length) m.content = [{ type: 'text', text: '(no reply)' }];
         }
       }
     }
@@ -70,7 +72,7 @@ export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
     if (response.stop_reason === 'refusal') {
       throw new Error(`Claude declined the turn (${response.stop_details?.category ?? 'no category'}).`);
     }
-    // Keep the full reply (thinking included) so the history stays append-only and valid.
+    // Keep the full reply (thinking included): between history cuts (#1448) the conversation only grows, so it stays a cacheable prefix.
     messages.push({ role: 'assistant', content: response.content });
     if (response.stop_reason === 'max_tokens') {
       return { text: '', usage: usageOf(response) }; // the runner treats an empty reply as invalid and asks again

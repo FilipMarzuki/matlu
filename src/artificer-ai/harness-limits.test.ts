@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { trimHistory, HISTORY_TURNS } from './history';
 import { openRouterPlayer } from './players/openrouter';
-import { playRun, BudgetExceeded, type Player } from './runner';
+import { playRun, BudgetExceeded, type Player, type SpendLedger } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { SHORT_YEAR } from '../artificer/test-helpers';
 
@@ -56,36 +56,53 @@ describe('Bounded history (#1448)', () => {
   });
 });
 
-describe('Budget checked after every call (#1449)', () => {
-  /** The scripted player, but every call reports a cost. */
-  const costly = (each: number): Player => {
+describe('Budget checked before every call (#1449)', () => {
+  /** The scripted player, but every call (or only road calls) reports a cost. */
+  const costly = (each: number, roadOnly = false): Player => {
     const base = scriptedPlayer();
-    const wrap = <A extends unknown[]>(f: (...a: A) => Promise<{ text: string; usage?: object }>) =>
-      async (...a: A) => ({ ...(await f(...a)), usage: { cost: each } });
-    return { ...base, name: 'costly', decide: wrap(base.decide.bind(base)) };
+    const wrap = <A extends unknown[]>(f: (...a: A) => Promise<{ text: string; usage?: object }>, cost: number) =>
+      async (...a: A) => ({ ...(await f(...a)), usage: { cost } });
+    return {
+      ...base, name: 'costly',
+      decide: wrap(base.decide.bind(base), roadOnly ? 0 : each),
+      ...(base.decideRoad ? { decideRoad: wrap(base.decideRoad.bind(base), each) } : {}),
+    };
   };
 
-  // 1. --budget 0.1, $0.05 a call: the run stops after the call that reaches $0.10, and says why.
+  // 1. A $0.10 budget, $0.05 a call: no call starts once $0.10 is spent, and the partial run says why.
   it('stops the run once the budget is reached', async () => {
-    const err = await playRun(costly(0.05), { calendar: SHORT_YEAR, budget: 0.1 }).catch(e => e);
+    const ledger: SpendLedger = { spent: 0, budget: 0.1 };
+    const err = await playRun(costly(0.05), { calendar: SHORT_YEAR, ledger }).catch(e => e);
     expect(err).toBeInstanceOf(BudgetExceeded);
     const partial = (err as BudgetExceeded).partial;
     expect(partial.usage.cost).toBeCloseTo(0.1);
+    expect(ledger.spent).toBeCloseTo(0.1);
     expect(partial.record).toMatchObject({ kind: 'stopped', choice: 'budget' });
-    expect(partial.turns.length).toBeLessThanOrEqual(2);
   });
 
-  // Parallel games share one budget through a guard counted after every call (ai:bench).
-  it('stops through a shared spend guard', async () => {
-    let spent = 0;
-    const err = await playRun(costly(0.05), { calendar: SHORT_YEAR, spendGuard: c => (spent += c) < 0.15 }).catch(e => e);
-    expect(err).toBeInstanceOf(BudgetExceeded);
-    expect(spent).toBeCloseTo(0.15);
+  // Parallel games share one ledger (ai:bench): the second game can't start a call once it's spent.
+  it('shares one ledger across games', async () => {
+    const ledger: SpendLedger = { spent: 0, budget: 0.15 };
+    await playRun(costly(0.05), { calendar: SHORT_YEAR, ledger }).catch(() => null);
+    expect(ledger.spent).toBeCloseTo(0.15);
+    const second = await playRun(costly(0.05), { calendar: SHORT_YEAR, ledger }).catch(e => e);
+    expect(second).toBeInstanceOf(BudgetExceeded);
+    expect(ledger.spent).toBeCloseTo(0.15);
   });
 
-  // 2. Without a budget, or under it, the run plays out as before.
+  // The road and the caravan meeting count too: running out on the road keeps the Reach year.
+  it('checks the budget on the road, and keeps the Reach when it runs out there', async () => {
+    const ledger: SpendLedger = { spent: 0, budget: 0.5 };
+    const r = await playRun(costly(1, true), { calendar: SHORT_YEAR, planning: 'open', road: true, ledger });
+    expect(r.record.kind).toBe('survived');
+    expect(r.roadStopped).toBe('budget');
+    expect(r.road).toBeUndefined();
+    expect(ledger.spent).toBe(1);
+  }, 60_000);
+
+  // 2. Under budget, the run plays out as before.
   it('plays out when under budget', async () => {
-    const r = await playRun(costly(0.001), { calendar: SHORT_YEAR, budget: 100, planning: 'open' });
+    const r = await playRun(costly(0.001), { calendar: SHORT_YEAR, ledger: { spent: 0, budget: 100 }, planning: 'open' });
     expect(r.record.kind).not.toBe('stopped');
   }, 60_000);
 });

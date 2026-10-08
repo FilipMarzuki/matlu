@@ -95,8 +95,9 @@ type Part = { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } 
 
 /**
  * Mark the rules (system) and the newest user turn as cache breakpoints, in
- * OpenRouter's pass-through form of Anthropic's `cache_control`. The history is
- * append-only, so each request reads everything up to the previous turn from cache.
+ * OpenRouter's pass-through form of Anthropic's `cache_control`. Between history cuts
+ * (#1448) the conversation only grows, so each request reads everything up to the previous
+ * turn from cache; right after a cut, the prefix changed and one request misses.
  */
 function withCacheBreakpoints(messages: readonly ChatMessage[]): { role: ChatMessage['role']; content: string | Part[] }[] {
   const last = messages.length - 1;
