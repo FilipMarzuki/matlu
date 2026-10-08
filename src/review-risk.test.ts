@@ -109,4 +109,8 @@ describe('Local risk score from git diff (#1433)', () => {
     expect(r.tier).toBe('high');
     expect(r.reasons.some(x => x.startsWith('seeded randomness / golden hashes'))).toBe(true);
   });
+
+  it('stops at a truncated rename record instead of inventing a path', () => {
+    expect(parseNumstatZ('2\t0\tsrc/a.ts\0' + '1\t1\t\0src/old.ts\0')).toEqual([{ filename: 'src/a.ts', additions: 2, deletions: 0 }]);
+  });
 });

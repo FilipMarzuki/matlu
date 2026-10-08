@@ -27,7 +27,7 @@ You have **3 minutes**. Do not explore the codebase open-endedly.
 ## Step 1 — Fetch PR info
 
 ```bash
-gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences
+gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences,labels
 gh pr diff {{pr_number}}
 ```
 

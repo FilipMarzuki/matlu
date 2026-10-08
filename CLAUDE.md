@@ -279,7 +279,7 @@ Write PR descriptions as a learning resource for someone new to this tech stack.
 
 ### Design decisions (medium- and high-risk PRs)
 
-Run `node .github/scripts/risk-score.mjs --local` after committing. If the branch scores `risk:medium` or `risk:high`, the PR body needs a **Design decisions** table (#1433). It's optional for low-risk PRs:
+Run `node .github/scripts/risk-score.mjs --local` after committing. It scores the branch's commits since `origin/main`, the same files the PR will show, and prints `risk:<tier>`. If it prints `risk:medium` or `risk:high`, the PR body needs a **Design decisions** table (#1433). It's optional for low-risk PRs:
 
 ```markdown
 ## Design decisions

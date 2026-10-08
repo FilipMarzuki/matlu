@@ -15,8 +15,8 @@
 //               `human-approved` label added by a person after its last commit.
 //               Every merge path (DevCycle 4, DevCycle 5 — Grooming) runs this.
 //   node .github/scripts/risk-score.mjs --local [base]
-//     score this checkout's changes (committed or not) against the merge base with
-//     `base` (default origin/main) — no GitHub token. Run it before opening a PR: a
+//     score this branch's commits since it left `base` (default origin/main), the same
+//     files the PR will show — no GitHub token. Prints `risk:<tier>`. Run it before opening a PR: a
 //     medium or high tier means the PR body needs a Design decisions section (#1433).
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY.
 // Writes tier, lenses, same_repo, draft, head_sha, ci_ok (and merge with --gate) to $GITHUB_OUTPUT.
@@ -97,10 +97,14 @@ export function parseNumstatZ(text) {
   const parts = text.split('\0');
   const files = [];
   for (let i = 0; i < parts.length; i++) {
-    const m = /^(\d+|-)\t(\d+|-)\t(.*)$/s.exec(parts[i].replace(/^\n/, ''));
+    const m = /^(\d+|-)\t(\d+|-)\t(.*)$/s.exec(parts[i]);
     if (!m) continue;
     const count = (v) => (v === '-' ? 0 : Number(v));
-    if (m[3] === '') { files.push({ filename: parts[i + 2], previous_filename: parts[i + 1], additions: count(m[1]), deletions: count(m[2]) }); i += 2; }
+    if (m[3] === '') {
+      if (!parts[i + 1] || !parts[i + 2]) break; // truncated rename record: stop rather than invent a path
+      files.push({ filename: parts[i + 2], previous_filename: parts[i + 1], additions: count(m[1]), deletions: count(m[2]) });
+      i += 2;
+    }
     else files.push({ filename: m[3], additions: count(m[1]), deletions: count(m[2]) });
   }
   return files;
@@ -134,18 +138,19 @@ async function main() {
   const local = flag('local');
   if (local) {
     const base = local === 'true' ? 'origin/main' : local;
+    if (base.startsWith('-')) { console.error(`Bad base: ${base}`); process.exit(2); }
     let out;
     try {
-      // --merge-base: compare with where this branch left `base`, so other people's
-      // later commits on main don't count as this branch's changes. Includes
-      // uncommitted edits to tracked files (new files count once committed or staged).
-      out = execFileSync('git', ['diff', '-z', '--numstat', '-M', '--merge-base', base], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      // `base...HEAD` (three dots): the commits on this branch since it left `base` —
+      // exactly what the PR will show. Later commits on main don't count, and neither
+      // do uncommitted or untracked files, so commit first.
+      out = execFileSync('git', ['diff', '-z', '--numstat', '-M', `${base}...HEAD`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     } catch {
-      console.error(`Could not diff against ${base} — try \`git fetch origin main\` first.`);
+      console.error(`Could not diff ${base}...HEAD (see git's error above). If ${base} is missing, \`git fetch origin main\`; in a shallow clone with no merge base, \`git fetch --unshallow origin\`.`);
       process.exit(2);
     }
     const result = scoreRisk(parseNumstatZ(out), loadRules());
-    console.log(`Risk: ${result.tier} (score ${result.score}) vs ${base}`);
+    console.log(`risk:${result.tier} (score ${result.score}) — commits since ${base}`);
     for (const r of result.reasons) console.log(`  - ${r}`);
     if (result.lenses.length) console.log(`  lenses: ${result.lenses.join(', ')}`);
     if (result.tier !== 'low') console.log('  → the PR body needs a "## Design decisions" section (see CLAUDE.md).');
