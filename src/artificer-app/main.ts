@@ -32,6 +32,7 @@ import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artifi
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
+import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
@@ -384,8 +385,8 @@ function wardenTab(a: AppState): string {
   // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
   const hidden = c.talents.filter(t => !t.known).length;
   const talents = c.talents.length
-    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
-      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs.</span></div>' : '')
+    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.signs !== undefined ? '<span class="found">discovered</span>' : ''}${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
+      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs in the journal.</span></div>' : '')
     : '<p class="mood">No talents — a quick-start Warden. Start a fresh Warden to choose two.</p>';
   const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
   return `<div class="cols">
@@ -512,10 +513,13 @@ function milesBlock(a: AppState): string {
   }).join('')}</ol>`;
 }
 
+/** A journal line's colour: hardship, a win, a skip — and, softly, what you learn about yourself (#1266). */
+const logClass = (l: Pick<LogEntry, 'kind' | 'text'>): string =>
+  isSelfKnowledge(l.text) ? 'hint' : l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
+
 function journal(a: AppState, limit: number): string {
   return [...a.sim.log].reverse().slice(0, limit).map((l: LogEntry) => {
-    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-    return `<li class="${cls}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
+    return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
   }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
 }
 
@@ -845,8 +849,7 @@ const wardenOnRoad = (a: AppState, r: RoadState): AppState => ({
 
 function roadJournal(r: RoadState, limit: number): string {
   return [...r.log].reverse().slice(0, limit).map(l => {
-    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-    return `<li class="${cls}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
+    return `<li class="${logClass(l)}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
   }).join('');
 }
 
@@ -922,8 +925,30 @@ const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
 
+// The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
+// so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
+const DRAFT_KEY = 'artificer.draft';
+const blankDraft = (): typeof draft => ({ id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
+function loadDraft(): typeof draft | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<typeof draft> | null;
+    if (!d || typeof d.id !== 'string' || !d.id) return null;
+    const offer = talentOffer(seedOf(d.id));
+    return {
+      id: d.id,
+      name: typeof d.name === 'string' ? d.name.slice(0, 24) : '',
+      portrait: PORTRAITS.some(p => p.id === d.portrait) ? d.portrait! : PORTRAITS[0].id,
+      talents: Array.isArray(d.talents) ? d.talents.filter(t => offer.includes(t)).slice(0, TALENT_PICKS) : [],
+      stats: d.stats && validStats(d.stats) ? { ...d.stats } : { ...DEFAULT_STATS },
+      age: START_AGES.includes(d.age as number) ? d.age! : DEFAULT_AGE,
+    };
+  } catch { return null; }
+}
+const saveDraft = (): void => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* a convenience; play on */ } };
+const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
+
 function startIntro(kind: IntroKind): void {
-  draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE };
+  draft = (kind === 'fresh' ? loadDraft() : null) ?? blankDraft();
   draftPack = kind === 'carry' && state.sim.kit ? [...state.sim.kit.items] : [...SUGGESTED_PACK];
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
@@ -932,6 +957,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
+  clearDraft();
   state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, background: 'scout', age: draft.age, pack: [...SUGGESTED_PACK] }), queue: [] };
   render(state);
 }
@@ -981,6 +1007,7 @@ function renderIntro(): void {
   const beatEl = introEl.querySelector('.beat');
   if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
+  if (b.kind === 'create') saveDraft();
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
 }
@@ -1092,6 +1119,7 @@ introEl.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
   if (input.id !== 'wname') return;
   draft.name = input.value;
+  saveDraft();
   const next = introEl.querySelector<HTMLButtonElement>('[data-intro="next"]');
   if (next) next.disabled = !draftValid();
 });
@@ -1137,7 +1165,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'day') update(runQueuedDay(state));
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
-  else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  else if (d.cmd === 'reset') { update(newGame()); clearDraft(); startIntro('fresh'); }
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
