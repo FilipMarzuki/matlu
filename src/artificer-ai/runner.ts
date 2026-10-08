@@ -13,7 +13,7 @@ import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
-import { isFear, type Quirk } from '../artificer/quirks';
+import { QUIRKS, isFear, type Quirk } from '../artificer/quirks';
 import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
@@ -21,7 +21,7 @@ import { createRoad, runRoadDay, chooseRoadOption, ROAD_DAYS, type RoadActionId,
 import { observe, observeRoad, observeEncounter, observeMeeting, observePack, ROAD_RULES } from './observe';
 import { openMeeting, meetingOptions, safestMeetingOption, chooseInMeeting, boardingOf, type Boarding, type Fare, type Meeting, type MeetingStepId } from '../artificer/caravan-meeting';
 import { parseFocus } from '../artificer/focus';
-import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
+import { talentOffer, seedOf, chooseFromOffer, giftLine, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
 import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
@@ -291,6 +291,52 @@ export interface RunResult {
   road?: RoadResult;
   /** What was packed for the hike (#1401), for a player that packs. */
   packed?: PackRecord;
+  /** The Warden's talents and quirks at the end (#1267): true tiers, signs, and when each hidden one came to light. */
+  gifts?: GiftRecord;
+}
+
+/** Talents and quirks, for analysis (#1267). True values — the player never sees tiers. */
+export interface GiftRecord {
+  /**
+   * `chosen`: picked at creation. `foundEarlier`: a hidden talent found in an earlier run, so already
+   * known when this one began (neither a pick nor still to find). `revealedDay`: the day a hidden one
+   * was found this run — on the road, counted on from the thaw like the run record's day.
+   */
+  talents: { id: TalentId; tier: number; chosen: boolean; foundEarlier: boolean; signs: number; revealedDay: number | null }[];
+  quirks: { id: string; known: boolean; revealedDay: number | null }[];
+}
+
+/** Who the Warden was at the start of a run, for the gift record: the picks, and hidden talents already found. */
+export interface GiftStart { chosen: readonly TalentId[]; foundEarlier: readonly TalentId[] }
+
+/** The start of a run, read off its Warden: a known talent with signs was found (picks never gather signs). */
+export const giftStartOf = (s: Pick<Region1State, 'character'>): GiftStart => ({
+  chosen: s.character.talents.filter(t => t.known && t.signs === undefined).map(t => t.id),
+  foundEarlier: s.character.talents.filter(t => t.known && t.signs !== undefined).map(t => t.id),
+});
+
+/**
+ * The gifts a run ended with (#1267): each talent's true tier, where it came from, its signs, and the
+ * day a hidden one was revealed (from its journal line — in the Reach, or on the road when the run rode
+ * on); each quirk (fears aside — they're gained, not born with) and the day it showed itself.
+ * `end` is where the run finished: the Reach, or the road (whose days count on from the thaw).
+ */
+export function giftsOf(reach: Pick<Region1State, 'character' | 'log' | 'day'>, start: GiftStart, road?: Pick<RoadState, 'character' | 'log'>): GiftRecord {
+  const end = road ?? reach;
+  const dayOf = (text: string | undefined): number | null => {
+    if (!text) return null;
+    const inReach = reach.log.find(l => l.text === text);
+    if (inReach) return inReach.day;
+    const onRoad = road?.log.find(l => l.text === text);
+    return onRoad ? reach.day + onRoad.day - 1 : null;
+  };
+  return {
+    talents: end.character.talents.map(t => {
+      const chosen = start.chosen.includes(t.id), foundEarlier = start.foundEarlier.includes(t.id);
+      return { id: t.id, tier: t.tier, chosen, foundEarlier, signs: t.signs ?? 0, revealedDay: chosen || foundEarlier ? null : dayOf(giftLine(t.id)) };
+    }),
+    quirks: (end.character.quirks ?? []).filter(q => !isFear(q.id)).map(q => ({ id: q.id, known: q.known, revealedDay: dayOf(QUIRKS[q.id]?.revealed) })),
+  };
 }
 
 export interface PlayOptions {
@@ -352,6 +398,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
+  // Who the Warden was at the start, for the gift record (#1267): the picks, and hidden talents already found.
+  const giftStart = giftStartOf(s);
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
@@ -532,7 +580,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   }
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
-  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}) };
+  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}), gifts: giftsOf(s, giftStart) };
   if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
     const decideRoad = player.decideRoad.bind(player);
     const count = (reply: { text: string; usage?: Partial<Usage> }): string => {
@@ -552,6 +600,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     const decideEncounter = player.decideEncounter?.bind(player);
     const choose = decideEncounter ? async (message: string, r: RoadState) => count(await decideEncounter(message, r as unknown as Region1State)) : null;
     if (met.boarding) result.road = await playRoad(s, async (message, r) => count(await decideRoad(message, r)), opts.onRoadTurn, met.boarding, choose);
+    // A hidden talent can still come to light on the road: the record is the run's whole story.
+    if (result.road) result.gifts = giftsOf(s, giftStart, result.road.final);
   }
   return result;
 }

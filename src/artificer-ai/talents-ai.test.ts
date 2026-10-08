@@ -7,8 +7,10 @@ import { describe, it, expect } from 'vitest';
 import { playRun } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { observe } from './observe';
-import { TALENTS, talentOffer, seedOf, chooseFromOffer, pickRandomFromOffer, hiddenTalent } from '../artificer/talents';
+import { TALENTS, talentOffer, seedOf, chooseFromOffer, pickRandomFromOffer, hiddenTalent, MIN_TIER, MAX_TIER } from '../artificer/talents';
 import { legacyOf } from '../artificer/legacy';
+import { randomPlayer } from './players/random';
+import { giftSummaryOf, type Transcript } from './report';
 
 describe('AI talent parity (#1267)', () => {
   // An AI run is a real Warden: an id, two talents from its offer, one hidden.
@@ -67,4 +69,48 @@ describe('AI talent parity (#1267)', () => {
     expect(next.final.character.id).toBe('ai-test-4');
     expect(next.final.character.talents.map(t => t.id)).toEqual(first.final.character.talents.map(t => t.id));
   });
+
+  // 3. A finished run records its talents, their true tiers, and when the hidden one came to light.
+  it('records the talents, true tiers and the reveal day', async () => {
+    // A Warden whose hidden talent shows itself during the season (Surge, scripted) — and one whose doesn't.
+    const found = await playRun(scriptedPlayer(), { characterId: 'pace-3' });
+    const never = await playRun(scriptedPlayer(), { characterId: 'pace-0' });
+    const g = found.gifts!;
+    expect(g.talents).toHaveLength(3);
+    expect(g.talents.filter(t => t.chosen).map(t => t.id)).toEqual(talentOffer(seedOf('pace-3')).slice(0, 2));
+    const hidden = g.talents.find(t => !t.chosen)!;
+    expect(hidden.revealedDay).toBeGreaterThan(0);
+    expect(hidden.signs).toBeGreaterThanOrEqual(6);
+    // The true tier, as the sim has it.
+    expect(hidden.tier).toBe(found.final.character.talents.find(t => t.id === hidden.id)!.tier);
+    expect(never.gifts!.talents.find(t => !t.chosen)!.revealedDay).toBeNull();
+    // The quirk, and whether it showed itself.
+    expect(g.quirks.length).toBeGreaterThan(0);
+    // The report: picks, the hidden one found in 1 of 2 runs, on its day.
+    const summary = giftSummaryOf([found, never] as unknown as Transcript[])!;
+    expect(summary.runs).toBe(2);
+    expect(summary.hidden).toBe(2);
+    expect(summary.revealed).toBe(1);
+    expect(summary.revealDay).toBe(hidden.revealedDay);
+    // Carrying on: the talent found last time is known from the start — neither a pick nor still to find.
+    const next = await playRun(scriptedPlayer(), { characterId: 'pace-3', legacy: legacyOf(found.final) });
+    const again = next.gifts!.talents.find(t => t.id === hidden.id)!;
+    expect(again).toMatchObject({ chosen: false, foundEarlier: true, revealedDay: null });
+    const carried = giftSummaryOf([next] as unknown as Transcript[])!;
+    expect(carried.picked[hidden.id]).toBeUndefined();
+    expect(carried.hidden).toBe(0);
+  });
+
+  // 4. 50 random runs: tiers stay within 1–4, and never more than one hidden talent.
+  it('keeps every talent invariant across 50 random runs', async () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const r = await playRun(randomPlayer({ mode: 'legal', seed }), { characterId: `rand-gift-${seed}` });
+      const ts = r.final.character.talents;
+      expect(ts.every(t => t.tier >= MIN_TIER && t.tier <= MAX_TIER)).toBe(true);
+      expect(ts.filter(t => !t.known).length).toBeLessThanOrEqual(1);
+      expect(new Set(ts.map(t => t.id)).size).toBe(ts.length);
+      // A revealed talent has its six signs; a hidden one has fewer.
+      for (const t of ts) if (t.signs !== undefined) expect(t.known ? t.signs >= 6 : t.signs < 6).toBe(true);
+    }
+  }, 60_000);
 });
