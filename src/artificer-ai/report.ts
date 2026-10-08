@@ -22,7 +22,7 @@ export interface Transcript {
   meeting?: { steps: { step: string; choice: string; success: boolean; forced?: boolean }[]; ended: string; fare: string | null; owesHelp: number };
   /** The Warden's talents and quirks at the end (#1267): true tiers, signs, reveal days. Absent on older transcripts. */
   gifts?: {
-    talents: { id: string; tier: number; chosen: boolean; signs: number; revealedDay: number | null }[];
+    talents: { id: string; tier: number; chosen: boolean; foundEarlier?: boolean; signs: number; revealedDay: number | null }[];
     quirks: { id: string; known: boolean; revealedDay: number | null }[];
   };
   /** The caravan road, for a run that rode on (#1251). */
@@ -242,20 +242,21 @@ export function injurySummaryOf(runs: readonly Transcript[]): InjurySummary {
   return { ...s, perRun: round(total / (runs.length || 1), 2)! };
 }
 
-/** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
 /** Talents and quirks over a model's runs (#1267). */
 export interface GiftSummary {
   /** Runs with a gift record. */
   runs: number;
-  /** How often each talent was picked, and its mean true tier at the end (picked or hidden). */
+  /** How often each talent was picked at creation. */
   picked: Record<string, number>;
+  /** Each talent's mean true tier at the end of a run, picked or hidden. */
   tiers: Record<string, number>;
-  /** Hidden talents found this run, and the mean day; the mean signs a hidden one gathered. */
+  /** Hidden talents still to find at a run's start, how many came to light, on what mean day, and the mean signs they gathered. */
+  hidden: number;
   revealed: number;
   revealDay: number | null;
   signs: number | null;
-  /** Quirks that showed themselves, and the mean day. */
-  quirksRevealed: number;
+  /** Runs where at least one quirk showed itself, and the mean day of each run's first. */
+  quirkRuns: number;
   quirkDay: number | null;
 }
 
@@ -264,25 +265,31 @@ export function giftSummaryOf(runs: readonly Transcript[]): GiftSummary | null {
   const gs = runs.flatMap(r => (r.gifts ? [r.gifts] : []));
   if (!gs.length) return null;
   const picked: Record<string, number> = {}, tierSum: Record<string, number[]> = {};
-  const hidden = gs.flatMap(g => g.talents.filter(t => !t.chosen));
   for (const g of gs) for (const t of g.talents) {
     if (t.chosen) picked[t.id] = (picked[t.id] ?? 0) + 1;
     (tierSum[t.id] ??= []).push(t.tier);
   }
-  const found = hidden.filter(t => t.revealedDay !== null);
-  const quirks = gs.flatMap(g => g.quirks.filter(q => q.revealedDay !== null));
+  // Only a hidden talent not yet found when the run began can be found in it.
+  const toFind = gs.flatMap(g => g.talents.filter(t => !t.chosen && !t.foundEarlier));
+  const found = toFind.filter(t => t.revealedDay !== null);
+  const firstQuirkDays = gs.flatMap(g => {
+    const days = g.quirks.flatMap(q => (q.revealedDay !== null ? [q.revealedDay] : []));
+    return days.length ? [Math.min(...days)] : [];
+  });
   return {
     runs: gs.length,
     picked,
     tiers: Object.fromEntries(Object.entries(tierSum).map(([id, ts]) => [id, round(mean(ts))!])),
+    hidden: toFind.length,
     revealed: found.length,
     revealDay: round(mean(found.map(t => t.revealedDay!))),
-    signs: round(mean(hidden.map(t => t.signs))),
-    quirksRevealed: quirks.length,
-    quirkDay: round(mean(quirks.map(q => q.revealedDay!))),
+    signs: round(mean(toFind.map(t => t.signs))),
+    quirkRuns: firstQuirkDays.length,
+    quirkDay: round(mean(firstQuirkDays)),
   };
 }
 
+/** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
 export interface FrightSummary {
   /** Encounters met shaken, and panicked (totals). */
   shaken: number;

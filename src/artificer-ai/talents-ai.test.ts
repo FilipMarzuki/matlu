@@ -7,11 +7,10 @@ import { describe, it, expect } from 'vitest';
 import { playRun } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { observe } from './observe';
-import { TALENTS, talentOffer, seedOf, chooseFromOffer, pickRandomFromOffer, hiddenTalent } from '../artificer/talents';
+import { TALENTS, talentOffer, seedOf, chooseFromOffer, pickRandomFromOffer, hiddenTalent, MIN_TIER, MAX_TIER } from '../artificer/talents';
 import { legacyOf } from '../artificer/legacy';
 import { randomPlayer } from './players/random';
 import { giftSummaryOf, type Transcript } from './report';
-import { MIN_TIER, MAX_TIER } from '../artificer/talents';
 
 describe('AI talent parity (#1267)', () => {
   // An AI run is a real Warden: an id, two talents from its offer, one hidden.
@@ -90,8 +89,16 @@ describe('AI talent parity (#1267)', () => {
     // The report: picks, the hidden one found in 1 of 2 runs, on its day.
     const summary = giftSummaryOf([found, never] as unknown as Transcript[])!;
     expect(summary.runs).toBe(2);
+    expect(summary.hidden).toBe(2);
     expect(summary.revealed).toBe(1);
     expect(summary.revealDay).toBe(hidden.revealedDay);
+    // Carrying on: the talent found last time is known from the start — neither a pick nor still to find.
+    const next = await playRun(scriptedPlayer(), { characterId: 'pace-3', legacy: legacyOf(found.final) });
+    const again = next.gifts!.talents.find(t => t.id === hidden.id)!;
+    expect(again).toMatchObject({ chosen: false, foundEarlier: true, revealedDay: null });
+    const carried = giftSummaryOf([next] as unknown as Transcript[])!;
+    expect(carried.picked[hidden.id]).toBeUndefined();
+    expect(carried.hidden).toBe(0);
   });
 
   // 4. 50 random runs: tiers stay within 1–4, and never more than one hidden talent.

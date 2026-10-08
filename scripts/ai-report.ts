@@ -56,13 +56,13 @@ for (const m of models) {
   if (fl) console.log(`  ${''.padEnd(34)} ${fl}`);
   if (m.pins.made) console.log(`  ${''.padEnd(34)} ${pinLine(m)}`);
   if (m.injuries.perRun) console.log(`  ${''.padEnd(34)} ${injuryLine(m)}`);
-  if (m.gifts) console.log(`  ${''.padEnd(34)} ${giftLine(m.gifts)}`);
+  if (m.gifts) console.log(`  ${''.padEnd(34)} ${talentsLine(m.gifts)}`);
 }
 
-/** Talents and quirks in a line (#1267): what was picked, the hidden ones found (and when), and the quirks that showed. */
-function giftLine(g: NonNullable<ModelSummary['gifts']>): string {
-  const top = Object.entries(g.picked).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, n]) => `${id} ${n}`).join(', ');
-  return `talents — picked: ${top || 'none'} · hidden found ${g.revealed}/${g.runs}${g.revealDay !== null ? ` (day ${g.revealDay})` : ''}, ${g.signs ?? 0} signs avg · quirks shown ${g.quirksRevealed}/${g.runs}${g.quirkDay !== null ? ` (day ${g.quirkDay})` : ''}`;
+/** Talents and quirks in a line (#1267): the picks (with how far each grew), the hidden ones found and when, and the quirks that showed. */
+function talentsLine(g: NonNullable<ModelSummary['gifts']>): string {
+  const top = Object.entries(g.picked).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, n]) => `${id} ${n} (tier ${g.tiers[id]})`).join(', ');
+  return `talents — picked: ${top || 'none'} · hidden found ${g.revealed}/${g.hidden}${g.revealDay !== null ? ` (day ${g.revealDay})` : ''}, ${g.signs ?? 0} signs avg · a quirk shown in ${g.quirkRuns}/${g.runs} runs${g.quirkDay !== null ? ` (first on day ${g.quirkDay})` : ''}`;
 }
 
 /** Injuries in a line (#1395): how many and how bad, how many worsened, and the harms they left. */
