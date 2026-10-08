@@ -619,6 +619,18 @@ export class HomesteadScene extends Phaser.Scene {
       this.walkGrid[ty * this.gridW + tx] = 0;
     }
 
+    // ── Unblock road tiles ───────────────────────────────────────────────
+    // Road tiles can sit on cliff-adjacent ground that the Collision layer
+    // marked blocked; clear them so the player can walk the road's full
+    // length. Bridge tiles are unblocked separately above.
+    for (let ty = 0; ty < this.gridH; ty++) {
+      for (let tx = 0; tx < this.gridW; tx++) {
+        if (this.isRoad(tx, ty) && !this.isBridgeTile(tx, ty)) {
+          this.walkGrid[ty * this.gridW + tx] = 0;
+        }
+      }
+    }
+
     // ── Debug tile grid overlay ─────────────────────────────────────────
     // Draws iso diamond outlines: green = walkable, red = blocked.
     // Toggle with G key; off by default.
