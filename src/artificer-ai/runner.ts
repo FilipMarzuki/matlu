@@ -13,7 +13,7 @@ import { scouted } from '../artificer/exploration';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
-import { isFear, type Quirk } from '../artificer/quirks';
+import { QUIRKS, isFear, type Quirk } from '../artificer/quirks';
 import type { PanicState } from '../artificer/panic';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
@@ -21,7 +21,7 @@ import { createRoad, runRoadDay, chooseRoadOption, ROAD_DAYS, type RoadActionId,
 import { observe, observeRoad, observeEncounter, observeMeeting, observePack, ROAD_RULES } from './observe';
 import { openMeeting, meetingOptions, safestMeetingOption, chooseInMeeting, boardingOf, type Boarding, type Fare, type Meeting, type MeetingStepId } from '../artificer/caravan-meeting';
 import { parseFocus } from '../artificer/focus';
-import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
+import { talentOffer, seedOf, chooseFromOffer, giftLine, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
 import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
@@ -291,6 +291,28 @@ export interface RunResult {
   road?: RoadResult;
   /** What was packed for the hike (#1401), for a player that packs. */
   packed?: PackRecord;
+  /** The Warden's talents and quirks at the end (#1267): true tiers, signs, and when each hidden one came to light. */
+  gifts?: GiftRecord;
+}
+
+/** Talents and quirks, for analysis (#1267). True values — the player never sees tiers. */
+export interface GiftRecord {
+  /** `chosen`: known from the run's start (picked, or found in an earlier run). `revealedDay`: when a hidden one was found this run. */
+  talents: { id: TalentId; tier: number; chosen: boolean; signs: number; revealedDay: number | null }[];
+  quirks: { id: string; known: boolean; revealedDay: number | null }[];
+}
+
+/**
+ * The gifts a run ended with (#1267): each talent's true tier, whether it was chosen or hidden,
+ * its signs, and the day a hidden one was revealed (from its journal line); each quirk (fears
+ * aside — they're gained, not born with) and the day it showed itself.
+ */
+export function giftsOf(s: Pick<Region1State, 'character' | 'log'>, chosen: readonly TalentId[]): GiftRecord {
+  const dayOf = (text: string | undefined) => (text ? s.log.find(l => l.text === text)?.day ?? null : null);
+  return {
+    talents: s.character.talents.map(t => ({ id: t.id, tier: t.tier, chosen: chosen.includes(t.id), signs: t.signs ?? 0, revealedDay: chosen.includes(t.id) ? null : dayOf(giftLine(t.id)) })),
+    quirks: (s.character.quirks ?? []).filter(q => !isFear(q.id)).map(q => ({ id: q.id, known: q.known, revealedDay: dayOf(QUIRKS[q.id]?.revealed) })),
+  };
 }
 
 export interface PlayOptions {
@@ -352,6 +374,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
+  // The talents known from the start of this run (chosen, or found in an earlier run), for the gift record (#1267).
+  const startChosen = s.character.talents.filter(t => t.known).map(t => t.id);
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
@@ -532,7 +556,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   }
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
-  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}) };
+  const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}), gifts: giftsOf(s, startChosen) };
   if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
     const decideRoad = player.decideRoad.bind(player);
     const count = (reply: { text: string; usage?: Partial<Usage> }): string => {

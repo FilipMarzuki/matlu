@@ -20,6 +20,11 @@ export interface Transcript {
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
   /** The caravan meeting at the thaw (#1357). */
   meeting?: { steps: { step: string; choice: string; success: boolean; forced?: boolean }[]; ended: string; fare: string | null; owesHelp: number };
+  /** The Warden's talents and quirks at the end (#1267): true tiers, signs, reveal days. Absent on older transcripts. */
+  gifts?: {
+    talents: { id: string; tier: number; chosen: boolean; signs: number; revealedDay: number | null }[];
+    quirks: { id: string; known: boolean; revealedDay: number | null }[];
+  };
   /** The caravan road, for a run that rode on (#1251). */
   road?: {
     start: RoadProgress;
@@ -156,6 +161,8 @@ export interface ModelSummary {
   pins: PinSummary;
   /** Injuries (#1395): how bad, how they worsened, what they left. */
   injuries: InjurySummary;
+  /** Talents and quirks (#1267): what was picked, how far each grew, and whether the hidden ones came to light. Null without gift records. */
+  gifts: GiftSummary | null;
   /** How the caravan was met (#1357); null when no run met it. */
   meetings: MeetingSummary | null;
 }
@@ -236,6 +243,46 @@ export function injurySummaryOf(runs: readonly Transcript[]): InjurySummary {
 }
 
 /** How a model's Wardens stood up to fear (#1365): panics and overrides in encounters, spooks, fearful nights, fears. */
+/** Talents and quirks over a model's runs (#1267). */
+export interface GiftSummary {
+  /** Runs with a gift record. */
+  runs: number;
+  /** How often each talent was picked, and its mean true tier at the end (picked or hidden). */
+  picked: Record<string, number>;
+  tiers: Record<string, number>;
+  /** Hidden talents found this run, and the mean day; the mean signs a hidden one gathered. */
+  revealed: number;
+  revealDay: number | null;
+  signs: number | null;
+  /** Quirks that showed themselves, and the mean day. */
+  quirksRevealed: number;
+  quirkDay: number | null;
+}
+
+/** What the runs' talents and quirks came to (#1267). */
+export function giftSummaryOf(runs: readonly Transcript[]): GiftSummary | null {
+  const gs = runs.flatMap(r => (r.gifts ? [r.gifts] : []));
+  if (!gs.length) return null;
+  const picked: Record<string, number> = {}, tierSum: Record<string, number[]> = {};
+  const hidden = gs.flatMap(g => g.talents.filter(t => !t.chosen));
+  for (const g of gs) for (const t of g.talents) {
+    if (t.chosen) picked[t.id] = (picked[t.id] ?? 0) + 1;
+    (tierSum[t.id] ??= []).push(t.tier);
+  }
+  const found = hidden.filter(t => t.revealedDay !== null);
+  const quirks = gs.flatMap(g => g.quirks.filter(q => q.revealedDay !== null));
+  return {
+    runs: gs.length,
+    picked,
+    tiers: Object.fromEntries(Object.entries(tierSum).map(([id, ts]) => [id, round(mean(ts))!])),
+    revealed: found.length,
+    revealDay: round(mean(found.map(t => t.revealedDay!))),
+    signs: round(mean(hidden.map(t => t.signs))),
+    quirksRevealed: quirks.length,
+    quirkDay: round(mean(quirks.map(q => q.revealedDay!))),
+  };
+}
+
 export interface FrightSummary {
   /** Encounters met shaken, and panicked (totals). */
   shaken: number;
@@ -417,6 +464,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       fright: frightSummaryOf(runs),
       pins: pinSummaryOf(runs),
       injuries: injurySummaryOf(runs),
+      gifts: giftSummaryOf(runs),
       meetings: meetingSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));

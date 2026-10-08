@@ -282,7 +282,7 @@ Write PR descriptions as a learning resource for someone new to this tech stack.
 No PR merges without a review pass. "Merge it" means, in order:
 
 1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
-2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. *DevCycle 3 — Review* and *3b — Second opinion* run after CI passes on the PR. Address blocking findings.
+2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. *DevCycle 3 — Review* and *3b — Second opinion* run after CI passes on a PR push; marking a PR ready doesn't re-run CI, so start them by hand: `workflow_dispatch` on `review-agent.yml` and `review-second-opinion.yml` with `pr_number`. Address blocking findings.
 3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves; or merge by hand when the person you work for says so after steps 1–2.
 
 Never mark a PR ready and merge it in the same step — that skips the review agents entirely.
