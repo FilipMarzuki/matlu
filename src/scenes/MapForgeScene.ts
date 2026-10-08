@@ -19,9 +19,10 @@ import { FbmNoise } from '../lib/noise';
 import { worldToIso, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
-import { generateSettlement, initSettlementData } from '../world/SettlementGenerator';
-import { placeBuildings } from '../world/SettlementPlacement';
-import type { SettlementSite, Geography } from '../world/SettlementSpec';
+import { generateSettlement } from '../../mapgen/SettlementGenerator';
+import { placeBuildings } from '../../mapgen/SettlementPlacement';
+import type { SettlementSite, Geography } from '../../mapgen/SettlementSpec';
+import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { SETTLEMENTS } from '../world/Level1';
 import { tileBiomeIdx } from '../world/biomes';
 
@@ -404,7 +405,7 @@ export class MapForgeScene extends Phaser.Scene {
         cultureId: 'ikibeki',
       };
 
-      const { spec, buildings } = generateSettlement(site, s.name, rng, this.settlementTier);
+      const { spec, buildings } = generateSettlement(site, s.name, rng, getMapgenData(), this.settlementTier);
       const gridSize = Math.max(20, Math.ceil(spec.radius / TILE_SIZE) * 2 + 4);
       const radiusTiles = Math.floor(gridSize / 2) - 1;
 

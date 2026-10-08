@@ -19,7 +19,7 @@ import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { WORLD_TILE_SIZE } from '../lib/IsoTransform';
 import { preloadTilePacks } from '../world/TilePacks';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
-import { PATH_SEGMENT } from '../world/SettlementMapEmitter';
+import { PATH_SEGMENT } from '../../mapgen/SettlementMapEmitter';
 import { overviewTexture } from '../world/MapOverview';
 
 /** Ground tile pack for cells that aren't road or building. */

@@ -10,6 +10,7 @@ export default defineConfig({
       'wiki/src/**/*.test.ts',
       'dev/src/**/*.test.ts',
       'storytelling/**/*.test.ts',
+      'mapgen/**/*.test.ts',
     ],
     // Unit tests must never talk to Supabase. Blank the credentials so
     // src/lib/supabaseClient.ts exports null and data loaders use their
