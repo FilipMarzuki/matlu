@@ -44,7 +44,7 @@ The registries already define a full production economy:
   workbench → station → master → beyond), a `station`, a `discovery.method`
   (innate / taught / observation / experiment / reverse-engineer / memory), a
   `timeBase`, `batchable`, and the `concepts` a craft teaches.
-- **Resources** (`resources.json`) — a real chain: `raw → refined → component →
+- **Resources** (`item-registry.json`) — a real chain: `raw → refined → component →
   consumable / equipment / deployable / structure`, sourced by biome.
 - **Stations** — campfire → cookpot → kiln → smelter → foundry → tannery →
   sawmill → workshop → smithy → mech-bay → **engine-works** (simple → advanced).

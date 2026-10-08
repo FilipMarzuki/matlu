@@ -9,10 +9,6 @@ export const INVENTORY_SAVE_KEY = 'matlu_inventory';
 
 /**
  * Item categories — covers every category in item-registry.json.
- *
- * The original resources.json only had 8 categories. The unified registry
- * adds tool, weapon, document, sacred, authority, instrument, container,
- * crafted, and quest so NPC props and quest rewards are also typed.
  */
 export type ItemCategory =
   | 'raw'
@@ -62,7 +58,7 @@ export interface InventoryDeps {
  * Design:
  *  - Each unique item ID occupies one "slot" in the pack.
  *  - Slot limit caps how many distinct items the player can carry.
- *  - Stack limit (per-item, from resources.json) caps quantity per slot.
+ *  - Stack limit (per-item, from item-registry.json) caps quantity per slot.
  *  - Lore fragments are unique: max 1 per ID.
  *
  * Dependencies are injected so this runs without Phaser or a browser:
@@ -89,7 +85,7 @@ export class Inventory {
 
   /**
    * Load resource definitions so the system knows stack limits and categories.
-   * Call once after fetching resources.json (or pass the array directly).
+   * Call once after fetching item-registry.json (or pass the array directly).
    * Safe to call multiple times — later calls replace earlier defs.
    */
   loadResourceDefs(defs: ResourceDef[]): void {

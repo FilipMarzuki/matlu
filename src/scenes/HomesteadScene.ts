@@ -414,7 +414,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
-    // Load item definitions from the unified registry (replaces resources.json).
+    // Load item definitions from the unified registry.
     const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
     if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
     inv.add('flint', 4);
