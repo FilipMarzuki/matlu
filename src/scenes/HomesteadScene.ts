@@ -26,7 +26,7 @@ import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
-import { bufferShoreline } from '../world/CollisionGrid';
+import { bufferShoreline, blockTreeFootprint, type TreeSize } from '../world/CollisionGrid';
 import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
@@ -1535,6 +1535,10 @@ export class HomesteadScene extends Phaser.Scene {
           const baseScale = isMature ? 0.55 : isSapling ? 0.3 : 0.4;
           const scaleJitter = 1 + ((hash(tx, ty, 0x333) % 20) - 10) * 0.01;
           tree.setScale(baseScale * scaleJitter * forestScaleBoost);
+
+          // Block movement under the canopy (#934).
+          const treeSize: TreeSize = isMature ? 'mature' : isSapling ? 'sapling' : 'young';
+          blockTreeFootprint(this.walkGrid, this.gridW, this.gridH, tx, ty, treeSize);
         }
       }
     }

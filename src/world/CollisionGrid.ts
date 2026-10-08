@@ -34,3 +34,29 @@ export function bufferShoreline(walkGrid: Uint8Array, biomeGrid: IntGridLayer): 
     }
   }
 }
+
+export type TreeSize = 'mature' | 'young' | 'sapling';
+
+/**
+ * Mutates `walkGrid` in place: blocks the footprint of a tree planted at
+ * (tx, ty) so the player can't walk through it (#934).
+ *
+ * Mature trees take a 2×2 footprint (trunk plus a 1-tile buffer so the
+ * player doesn't clip through the canopy sprite). Young trees block only
+ * their own tile. Saplings are decorative and stay walkable.
+ */
+export function blockTreeFootprint(
+  walkGrid: Uint8Array,
+  gridW: number,
+  gridH: number,
+  tx: number,
+  ty: number,
+  size: TreeSize,
+): void {
+  if (size === 'sapling') return;
+  walkGrid[ty * gridW + tx] = 1;
+  if (size !== 'mature') return;
+  if (tx + 1 < gridW) walkGrid[ty * gridW + (tx + 1)] = 1;
+  if (ty + 1 < gridH) walkGrid[(ty + 1) * gridW + tx] = 1;
+  if (tx + 1 < gridW && ty + 1 < gridH) walkGrid[(ty + 1) * gridW + (tx + 1)] = 1;
+}
