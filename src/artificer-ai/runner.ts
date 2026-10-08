@@ -296,6 +296,8 @@ export interface RunResult {
   gifts?: GiftRecord;
   /** The adult stat spread the Warden was made with (#1259) — chosen, or carried from the last run. */
   spread?: Stats;
+  /** The budget ran out before or during the caravan road (#1449): the Reach is whole, the road isn't recorded. */
+  roadStopped?: 'budget';
 }
 
 /** Talents and quirks, for analysis (#1267). True values — the player never sees tiers. */
@@ -366,6 +368,13 @@ export interface PlayOptions {
   maxDays?: number;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
+  /**
+   * A spend ledger (#1449), shared by every run in a batch (and by games played in parallel).
+   * Every model call — the Reach, the caravan meeting and the road — adds its cost to `spent`,
+   * and no call starts once `spent` has reached `budget`: the run throws {@link BudgetExceeded}
+   * with the run so far. Checking before a call, not after, never throws away a paid reply.
+   */
+  ledger?: SpendLedger;
   /** Whether planning is learned (#1350), as for a person — the default — or open from day 1. */
   planning?: 'learned' | 'open';
   /**
@@ -392,6 +401,17 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
   };
 }
 
+/** What a batch has spent, and may spend (USD), across all its runs (#1449). */
+export interface SpendLedger { spent: number; budget: number }
+
+/** A run stopped because it reached its budget (#1449). `partial` is the run so far, record kind "stopped". */
+export class BudgetExceeded extends Error {
+  constructor(readonly partial: Pick<RunResult, 'player' | 'turns' | 'usage' | 'start'> & { record: { kind: 'stopped'; choice: 'budget'; day: number; readyDay: null } }) {
+    super(`budget reached ($${(partial.usage.cost ?? 0).toFixed(3)}) on day ${partial.record.day}`);
+    this.name = 'BudgetExceeded';
+  }
+}
+
 /** A stable character id for an AI player: the same name gives the same Warden (and the same talents). */
 export const aiCharacterId = (name: string, salt = ''): string => `ai-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${salt ? `-${salt}` : ''}`;
 
@@ -415,16 +435,28 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
 
-  const ask = async (message: string, decide = player.decide.bind(player)): Promise<string> => {
-    const r = await decide(message, s);
+  /**
+   * Every model call goes through here (#1449) — the Reach, the caravan meeting and the road:
+   * the budget is checked before the call (so no paid reply is thrown away), and its usage and
+   * cost are counted after, in this run's usage and in the batch's shared ledger.
+   */
+  const call = async (make: () => Promise<{ text: string; usage?: Partial<Usage> }>): Promise<string> => {
+    if (opts.ledger && opts.ledger.spent >= opts.ledger.budget) {
+      throw new BudgetExceeded({ player: player.name, turns, usage, start, record: { kind: 'stopped', choice: 'budget', day: s.day, readyDay: null } });
+    }
+    const r = await make();
     usage.input += r.usage?.input ?? 0;
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
     usage.cacheWrite += r.usage?.cacheWrite ?? 0;
     // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
-    if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
+    if (r.usage?.cost !== undefined && r.usage.cost !== null) {
+      usage.cost = (usage.cost ?? 0) + r.usage.cost;
+      if (opts.ledger) opts.ledger.spent += r.usage.cost;
+    }
     return r.text;
   };
+  const ask = (message: string, decide = player.decide.bind(player)): Promise<string> => call(() => decide(message, s));
 
   // Packing for the hike (#1401): a player that packs chooses before day 1. A reply that won't do is
   // explained back once; after that, the pack it already has (the leader's list, or last time's) stays.
@@ -592,27 +624,24 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
 
   if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
   const result: RunResult = { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s, ...(packed ? { packed } : {}), gifts: giftsOf(s, giftStart), spread };
-  if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) {
+  if (opts.road && s.outcome.kind === 'survived' && player.decideRoad) try {
     const decideRoad = player.decideRoad.bind(player);
-    const count = (reply: { text: string; usage?: Partial<Usage> }): string => {
-      usage.input += reply.usage?.input ?? 0;
-      usage.output += reply.usage?.output ?? 0;
-      usage.cacheRead += reply.usage?.cacheRead ?? 0;
-      usage.cacheWrite += reply.usage?.cacheWrite ?? 0;
-      if (reply.usage?.cost !== undefined && reply.usage.cost !== null) usage.cost = (usage.cost ?? 0) + reply.usage.cost;
-      return reply.text;
-    };
     // First the caravan master (#1357): who you are and how you'll pay. Let them pass, and there's no road.
     const reach = s;
     const answer = player.decideMeeting ? player.decideMeeting.bind(player) : player.decideEncounter ? (msg: string) => player.decideEncounter!(msg, reach) : null;
-    const met = await playMeeting(reach, answer ? async (message, m) => count(await answer(message, reach, m)) : null);
+    const met = await playMeeting(reach, answer ? (message, m) => call(() => answer(message, reach, m)) : null);
     result.meeting = met.record;
     // Road encounters (#1349) are answered like the Reach's.
     const decideEncounter = player.decideEncounter?.bind(player);
-    const choose = decideEncounter ? async (message: string, r: RoadState) => count(await decideEncounter(message, r as unknown as Region1State)) : null;
-    if (met.boarding) result.road = await playRoad(s, async (message, r) => count(await decideRoad(message, r)), opts.onRoadTurn, met.boarding, choose);
+    const choose = decideEncounter ? (message: string, r: RoadState) => call(() => decideEncounter(message, r as unknown as Region1State)) : null;
+    if (met.boarding) result.road = await playRoad(s, (message, r) => call(() => decideRoad(message, r)), opts.onRoadTurn, met.boarding, choose);
     // A hidden talent can still come to light on the road: the record is the run's whole story.
     if (result.road) result.gifts = giftsOf(s, giftStart, result.road.final);
+  } catch (err) {
+    // Out of budget on the road (#1449): the Reach year is whole and paid for — keep it, say why the road isn't there.
+    if (!(err instanceof BudgetExceeded)) throw err;
+    delete result.meeting;
+    result.roadStopped = 'budget';
   }
   return result;
 }

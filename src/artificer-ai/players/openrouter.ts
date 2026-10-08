@@ -12,6 +12,7 @@ import { RULES } from '../observe';
 import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA, ENCOUNTER_DECISION_SCHEMA, PACK_DECISION_SCHEMA } from '../decision';
 import { DEFAULT_OPENROUTER_MODEL } from '../roster';
 import type { Player } from '../runner';
+import { trimHistory, HISTORY_TURNS } from '../history';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -22,6 +23,8 @@ export interface OpenRouterPlayerOptions {
   apiKey?: string;
   /** Ask for schema-constrained JSON (turn off for models that reject response_format). */
   schema?: boolean;
+  /** Recent exchanges kept in the conversation (#1448); older ones are trimmed in blocks. */
+  historyTurns?: number;
 }
 
 export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
@@ -35,6 +38,8 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
 
   // One conversation for the whole run; the caravan road (#1251) continues it with its own schema.
   async function send(message: string, schemaName: string, schema: object) {
+    // Keep the rules (message 0) and a recent window (#1448): each observation is the full state.
+    trimHistory(messages, opts.historyTurns ?? HISTORY_TURNS, 1);
     messages.push({ role: 'user', content: message });
     const request = () => fetch(OPENROUTER_URL, {
       method: 'POST',
@@ -90,8 +95,9 @@ type Part = { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } 
 
 /**
  * Mark the rules (system) and the newest user turn as cache breakpoints, in
- * OpenRouter's pass-through form of Anthropic's `cache_control`. The history is
- * append-only, so each request reads everything up to the previous turn from cache.
+ * OpenRouter's pass-through form of Anthropic's `cache_control`. Between history cuts
+ * (#1448) the conversation only grows, so each request reads everything up to the previous
+ * turn from cache; right after a cut, the prefix changed and one request misses.
  */
 function withCacheBreakpoints(messages: readonly ChatMessage[]): { role: ChatMessage['role']; content: string | Part[] }[] {
   const last = messages.length - 1;

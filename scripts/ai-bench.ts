@@ -15,7 +15,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, type RunResult } from '../src/artificer-ai/runner';
+import { playRun, BudgetExceeded, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { ROSTER, DROPPED, perYear, budgetAdvice } from '../src/artificer-ai/roster';
 
@@ -38,21 +38,26 @@ console.log(`Dropped: ${DROPPED.map(d => d.model.split('/').pop()).join(', ')}`)
 if (args.includes('--dry')) process.exit(0);
 if (!roster.length) { console.error('No models left after --only/--skip.'); process.exit(1); }
 
-let spent = 0;
+// One ledger for every game, all models at once (#1449): checked before each model call.
+const ledger: SpendLedger = { spent: 0, budget };
 const results: { model: string; r: RunResult }[] = [];
 const failures: string[] = [];
 
 async function playModel(model: string): Promise<void> {
   for (let n = 1; n <= runs; n++) {
-    if (spent >= budget) { console.log(`  ${model}: budget reached, skipping game ${n}`); return; }
+    if (ledger.spent >= ledger.budget) { console.log(`  ${model}: budget reached, skipping game ${n}`); return; }
     try {
-      const r = await playRun(openRouterPlayer({ model }));
-      spent += r.usage.cost ?? 0;
+      const r = await playRun(openRouterPlayer({ model }), { ledger });
       results.push({ model, r });
       const { final: _final, ...saved } = r;
       writeFileSync(join(out, `${model.replace('/', '_')}-run${n}.json`), JSON.stringify(saved, null, 2));
-      console.log(`  ${model.padEnd(32)} game ${n}: ${r.record.kind.padEnd(8)} ready ${r.record.readyDay ?? '—'} · ${r.usage.cost === null ? 'cost ?' : `$${r.usage.cost.toFixed(3)}`} · total $${spent.toFixed(3)}`);
+      console.log(`  ${model.padEnd(32)} game ${n}: ${r.record.kind.padEnd(8)} ready ${r.record.readyDay ?? '—'} · ${r.usage.cost === null ? 'cost ?' : `$${r.usage.cost.toFixed(3)}`} · total $${ledger.spent.toFixed(3)}`);
     } catch (err) {
+      if (err instanceof BudgetExceeded) {
+        writeFileSync(join(out, `${model.replace('/', '_')}-run${n}-stopped.json`), JSON.stringify(err.partial, null, 2));
+        console.log(`  ${model.padEnd(32)} game ${n}: stopped mid-run (budget) on day ${err.partial.record.day} · total $${ledger.spent.toFixed(3)}`);
+        return;
+      }
       failures.push(`${model} game ${n}: ${err instanceof Error ? err.message : String(err)}`);
       return; // a model that errors (rate limit, outage) stops; the others carry on
     }
@@ -63,6 +68,6 @@ mkdirSync(out, { recursive: true });
 const started = Date.now();
 await Promise.all(roster.map(r => playModel(r.model)));
 
-console.log(`\nDone in ${Math.round((Date.now() - started) / 1000)}s · ${results.length} games · spent $${spent.toFixed(3)} (estimate was $${estimate.toFixed(2)})`);
+console.log(`\nDone in ${Math.round((Date.now() - started) / 1000)}s · ${results.length} games · spent $${ledger.spent.toFixed(3)} (estimate was $${estimate.toFixed(2)})`);
 if (failures.length) { console.log('Failures:'); for (const f of failures) console.log(`  ${f}`); }
 console.log(`Report: npm run ai:report -- --in ${out} --out ${join(out, 'report.html')}`);

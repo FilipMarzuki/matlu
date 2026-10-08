@@ -1,9 +1,11 @@
 /**
  * Claude as an Artificer player (#1226), via the official Anthropic SDK.
  *
- * - One conversation per run, append-only: each day adds the observation and
- *   Claude's full reply (thinking blocks included), so the run's history is a
- *   stable, cacheable prefix and thinking stays valid turn to turn.
+ * - One conversation per run: each day adds the observation and Claude's full
+ *   reply (thinking blocks included), so the history is a stable, cacheable
+ *   prefix. It's bounded (#1448): past 2 × HISTORY_TURNS exchanges the oldest are
+ *   dropped in one block, and the replies kept lose their thinking — a thinking
+ *   block belongs to the conversation that produced it, and that prefix is gone.
  * - The rules are the system prompt, marked for prompt caching; a top-level
  *   cache breakpoint also caches the growing conversation.
  * - Structured output: the reply must match DECISION_SCHEMA — or, on the caravan
@@ -19,6 +21,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { trimHistory, HISTORY_TURNS } from '../history';
 import { RULES } from '../observe';
 import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA, ENCOUNTER_DECISION_SCHEMA, PACK_DECISION_SCHEMA } from '../decision';
 import type { Player } from '../runner';
@@ -29,6 +32,8 @@ export interface ClaudePlayerOptions {
   model?: string;
   effort?: Effort;
   client?: Anthropic;
+  /** Recent exchanges kept in the conversation (#1448); older ones are trimmed in blocks. */
+  historyTurns?: number;
 }
 
 export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
@@ -38,6 +43,17 @@ export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
   const messages: Anthropic.Beta.BetaMessageParam[] = [];
 
   async function send(message: string, schema: Record<string, unknown>) {
+    // A recent window (#1448). After a cut, the kept replies keep their text but not their
+    // thinking: those blocks were written after turns that are no longer in the conversation.
+    if (trimHistory(messages, opts.historyTurns ?? HISTORY_TURNS) > 0) {
+      for (const m of messages) {
+        if (m.role === 'assistant' && Array.isArray(m.content)) {
+          m.content = m.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+          // A reply that was all thinking (cut off by max_tokens) would be left empty, which the API rejects.
+          if (!m.content.length) m.content = [{ type: 'text', text: '(no reply)' }];
+        }
+      }
+    }
     messages.push({ role: 'user', content: message });
     // Streaming keeps long thinking turns clear of HTTP timeouts; we only need the final message.
     const stream = client.beta.messages.stream({
@@ -56,7 +72,7 @@ export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
     if (response.stop_reason === 'refusal') {
       throw new Error(`Claude declined the turn (${response.stop_details?.category ?? 'no category'}).`);
     }
-    // Keep the full reply (thinking included) so the history stays append-only and valid.
+    // Keep the full reply (thinking included): between history cuts (#1448) the conversation only grows, so it stays a cacheable prefix.
     messages.push({ role: 'assistant', content: response.content });
     if (response.stop_reason === 'max_tokens') {
       return { text: '', usage: usageOf(response) }; // the runner treats an empty reply as invalid and asks again

@@ -28,10 +28,13 @@ function walk(dir: string): string[] {
 
 const transcripts: Transcript[] = [];
 let skipped = 0;
+/** Runs stopped by the budget mid-game (#1449): partial, so they're counted but kept out of the averages. */
+let stopped = 0;
 for (const f of walk(inDir)) {
   try {
     const t = JSON.parse(readFileSync(f, 'utf8'));
-    if (t.start && Array.isArray(t.turns) && t.turns.every((x: { progress?: unknown }) => x.progress)) transcripts.push(t);
+    if (t.record?.kind === 'stopped') stopped++;
+    else if (t.start && Array.isArray(t.turns) && t.turns.every((x: { progress?: unknown }) => x.progress)) transcripts.push(t);
     else skipped++;
   } catch { skipped++; }
 }
@@ -43,7 +46,7 @@ await estimateMissingCosts(transcripts);
 const models = aggregate(transcripts);
 
 // ── Text summary ──
-console.log(`\n${transcripts.length} runs, ${models.length} models${skipped ? ` (${skipped} older transcripts skipped)` : ''}\n`);
+console.log(`\n${transcripts.length} runs, ${models.length} models${skipped ? ` (${skipped} older transcripts skipped)` : ''}${stopped ? ` · ${stopped} run(s) stopped by the budget left out` : ''}\n`);
 for (const m of models) {
   const out = Object.entries(m.outcomes).map(([k, n]) => `${k} ${n}`).join(', ');
   const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;

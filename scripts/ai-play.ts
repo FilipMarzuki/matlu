@@ -11,14 +11,15 @@
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
  *            --stats str=13,int=13 | balanced | strong | clever  (the point-buy spread, as a person would pick; default all 10s;
  *                     the random baseline picks a random legal spread per run unless this is given)
- *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
+ *            --budget USD (no model call starts once actual spend has reached this, so a long run stops
+ *                          mid-game, saved as "stopped (budget)"; OpenRouter reports real cost)
  *
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, aiCharacterId, type Player, type RunResult } from '../src/artificer-ai/runner';
+import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
@@ -64,6 +65,8 @@ async function main(): Promise<void> {
   const crashes: string[] = [];
   const violations: string[] = [];
   let spent = 0;
+  const ledger: SpendLedger = { spent: 0, budget };
+  if (Number.isFinite(budget) && which === 'claude') console.log('⚠ --budget: the Claude player reports no cost, so the budget is not enforced for it.');
   let carry: RunResult | undefined;
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
@@ -86,6 +89,8 @@ async function main(): Promise<void> {
       legacy: continuing ? (carry!.road ? legacyOfRoad(carry!.road.final) : legacyOf(carry!.final)) : undefined,
       characterId,
       talents: wanted,
+      // One ledger for the whole batch (#1449): the runner checks it before every model call.
+      ...(Number.isFinite(budget) ? { ledger } : {}),
       // A spread given with --stats; else the random baseline rolls one per run (seeded), and others keep all 10s.
       stats: parsedStats?.stats ?? (which === 'random' ? randomSpread(seed + n - 1) : undefined),
       road: has('road'),
@@ -106,6 +111,15 @@ async function main(): Promise<void> {
       },
       });
     } catch (err) {
+      // Out of budget mid-run (#1449): keep what was played, marked as stopped, and end the batch.
+      if (err instanceof BudgetExceeded) {
+        spent += err.partial.usage.cost ?? 0;
+        // A run stopped before its first call has nothing worth keeping.
+        const file = err.partial.turns.length ? join(out, `${new Date().toISOString().replace(/[:.]/g, '-')}-${which}-run${n}-stopped.json`) : null;
+        if (file) writeFileSync(file, JSON.stringify(err.partial, null, 2));
+        console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — run ${n} stopped on day ${err.partial.record.day}${file ? `; partial transcript ${file}` : ''}`);
+        break;
+      }
       // A crash is a sim bug worth seeing, not a reason to lose the rest of a batch.
       crashes.push(`run ${n} (${player.name}): ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
       continue;
@@ -119,6 +133,7 @@ async function main(): Promise<void> {
     const { final: _final, road, ...rest } = result;
     const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
+    if (!quiet && result.roadStopped) console.log('  → road: not played — budget reached at the thaw');
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
