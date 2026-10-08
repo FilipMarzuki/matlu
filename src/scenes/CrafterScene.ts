@@ -20,7 +20,7 @@
 import * as Phaser from 'phaser';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
-import { AUTOMATION_NONE, AUTOMATION_WORKSHOP, type Automation } from '../crafting/planner';
+import { rankByName, type Automation } from '../crafting/planner';
 import { WorldFeed } from '../crafting/WorldFeed';
 import { sourcesFromMap, biomesFromMap, type NodeTypeDef } from '../crafting/mapSources';
 import { parseLdtkLevel, type LdtkLevel } from '../world/MapData';
@@ -58,12 +58,12 @@ interface SimSave {
 const SIM_SAVE_KEY = 'matlu_sim';
 
 /**
- * How much the sim does for the player when they press Make (#1186): with
- * WORKSHOP it harvests missing inputs and crafts one level of intermediate
+ * How much the sim does for the player when they press Make (#1186): at the
+ * Master rank (#1195) it harvests missing inputs and crafts one level of intermediate
  * recipes. A fixed constant for now — the character sheet (#1183) will
- * eventually supply this from progression. AUTOMATION_NONE hides Make.
+ * eventually supply this from progression. The Apprentice rank hides Make.
  */
-const SIM_AUTOMATION: Automation = AUTOMATION_WORKSHOP;
+const SIM_AUTOMATION: Automation = rankByName('master');
 /** Width of the Make button beside each recipe's Craft button. */
 const MAKE_W = 48;
 
@@ -344,7 +344,8 @@ export class CrafterScene extends Phaser.Scene {
     // Two short lines beat one long one: the world line (time) and the place
     // line (map + biomes) each stay clear of the buttons on the right.
     this.text(118, 8, `year ${this.feed.year} · ${this.feed.season} · tick ${this.tick} · yields ${yieldPct}%`, Font.body, TextColor.secondary);
-    this.text(118, 26, `${this.level.identifier} · ${this.biomes.join(' + ')}`, Font.small, TextColor.secondary);
+    // The guild rank you hold (#1195): the first visible piece of progression.
+    this.text(118, 26, `${this.level.identifier} · ${this.biomes.join(' + ')} · ${SIM_AUTOMATION.label}`, Font.small, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [
@@ -381,7 +382,7 @@ export class CrafterScene extends Phaser.Scene {
     y += 20;
     // Every recipe here is reachable from the map's sources (buildData
     // filtered the rest), so Make only depends on automation being on.
-    const makeOn = SIM_AUTOMATION !== AUTOMATION_NONE;
+    const makeOn = SIM_AUTOMATION.rank !== 'apprentice';
     this.recipes.forEach((r, i) => {
       const ry = y + Math.floor(i / 2) * 38;
       if (ry > PACK_Y - 44) return; // prototype: no scrolling yet

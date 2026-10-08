@@ -15,7 +15,7 @@
 
 import type { Inventory } from './Inventory';
 import { resolveHarvest, type ActionContext, type ResourceNodeYield, type ActionOutcome } from './actions';
-import { nextStep, AUTOMATION_NONE, type Automation, type PlanStep } from './planner';
+import { nextStep, rankByName, type Automation, type PlanStep } from './planner';
 
 /** Something the player can harvest from the menu (a resource node type). */
 export interface HarvestSource {
@@ -100,7 +100,7 @@ export class ActionQueue {
     this.sources = new Map(deps.sources.map(s => [s.id, s]));
     this.recipes = new Map(deps.recipes.map(r => [r.id, r]));
     this.context = deps.context ?? (() => ({}));
-    this.automation = deps.automation ?? AUTOMATION_NONE;
+    this.automation = deps.automation ?? rankByName('apprentice');
     // Copy so a caller mutating its own array can't corrupt the queue.
     // `ancestry` is copied too — it's the one nested value a saved entry has.
     this.queue = (deps.initialEntries ?? []).map(e => ({ ...e, ...(e.ancestry ? { ancestry: [...e.ancestry] } : {}) }));
@@ -177,7 +177,8 @@ export class ActionQueue {
    */
   enqueueGoal(recipeId: string): boolean {
     const recipe = this.recipes.get(recipeId);
-    if (!recipe || this.automation === AUTOMATION_NONE) return false;
+    // By rank, not by identity (#1195): a copy of the Apprentice preset refuses goals too.
+    if (!recipe || this.automation.rank === 'apprentice') return false;
     this.queue.push(this.goalEntry(recipe, 0, []));
     return true;
   }
