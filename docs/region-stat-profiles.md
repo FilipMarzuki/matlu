@@ -162,9 +162,28 @@ The Haiku 4.5 runs all crashed before finishing (see the harness bugs below).
 
 **Next:** fix the two harness bugs, then rerun with more games (5 per preset, two models), so each preset has enough runs to compare.
 
+### Results (rerun, 8 October, bounded history #1448 and per-call budget #1449)
+
+13 finished Llama 4 Maverick games (5 more were stopped by the budget). About $1.94 in total.
+
+| Preset | Finished games | Outcome | Day of death (mean) | Main cause |
+|---|---|---|---|---|
+| **strong** (STR 13, CON 13) | 4 | all died | 26, 33, 35, 35 (32) | cold, collapse in the snow |
+| **balanced** (all 11) | 4 | all died | 24, 27, 31, 37 (30) | cold, collapse |
+| **clever** (INT 13, WIL 13) | 5 | all died | 9, 24, 26, 32, 36 (25; 30 without the day-9 bear) | cold, collapse |
+
+The Haiku 4.5 games all stopped at their $0.50 cap partway through (days 26–39), but every one of them was alive and winter-ready (readiness 0.99–1.0) when it was cut off — something no Llama game of any spread managed. Haiku costs about $0.50 per month of game time, too much for routine benches.
+
+**What it shows:**
+- **Spread barely matters; winter does.** No Llama Warden of any spread survived. A body-leaning Warden lasted about 2–3 days longer on average. The first run's "strong survives, clever dies" (1 game against 2) was luck.
+- **So the clever build isn't a trap in Region 1, as far as this shows.** The question to look at is why a cheap model can't get through winter at all. Cold kills nearly every run, and readiness at death runs from 0.23 to 0.81. Haiku, on the same spreads, was fully winter-ready in every game before its budget ran out, so the wall is the player's planning, not the Warden's stats.
+- **The bounded history may have made play worse.** One full-history game and one bounded game survived earlier; 0 of 13 did here. Worth one check: the same seed with a bigger window. The cheap fix to try first is a short running summary of the player's own plan, kept in the window.
+
+**Bench size from here:** we're early, so benches look for *direction, not precision*. Use 1–2 games per preset and about $1 or less, and scale up only when a decision really hangs on a close result.
+
 ## 6. Follow-ups (to file once this is agreed)
 
-1. Fix the two harness bugs above, then rerun the bench in §5 with 5 games per preset.
+1. ~~Fix the two harness bugs above, then rerun the bench in §5 with 5 games per preset.~~ Done: #1448, #1449 and the rerun above.
 2. Mistheim's stat hooks: CHA and INT exercise for a settled stay, and CHA, INT
    and WIL checks.
 3. A WIL off-stat test in the Reach that's visible in play: the stone and panic
@@ -173,4 +192,4 @@ The Haiku 4.5 runs all crashed before finishing (see the harness bugs below).
    way through.
 5. Each region's profile as data, so the AI rules text and the bench report can
    show it.
-6. Region 1: decide whether INT should give a mind-leaning Warden a way through the Reach, or whether body-first is the intended lesson.
+6. ~~Region 1: decide whether INT should give a mind-leaning Warden a way through the Reach.~~ The rerun shows no trap: spread barely matters. Look instead at why cheap models don't get through winter (cold), and whether the bounded history hurts their play.
