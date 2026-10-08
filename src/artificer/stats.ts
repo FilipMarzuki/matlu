@@ -210,6 +210,16 @@ export function exerciseFrom(w: Work): Partial<Stats> {
   return out;
 }
 
+/**
+ * Growth comes in recovery (#1414): work builds pending exercise, and a proper night (fed, watered,
+ * not cold) banks at most this many hours of it per stat. More than that in one stretch is wasted —
+ * the body can only rebuild so much a night.
+ */
+export const RECOVERY_CAP = 4;
+/** What the journal says when training outran recovery. */
+export const OVERTRAINED = 'You pushed harder than one night can mend';
+export const overtrainedLine = (hours: number): string => `${OVERTRAINED} — ${Math.round(hours)}h of it went for nothing.`;
+
 /** WIL is exercised by work done with a tired mind (Clarity under this at the start) — or locked to survival. */
 export const WIL_EXERCISE_BELOW = 40;
 /** CON: each night survived hungry or thirsty counts this much, plus every hour worked beyond this in a day. */

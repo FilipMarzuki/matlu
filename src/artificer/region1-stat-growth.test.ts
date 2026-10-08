@@ -1,5 +1,5 @@
 /**
- * Acceptance tests for #1257 — stats grow by use and wear down with hardship. The work you do
+ * Acceptance tests for #1257 and #1414 — stats grow by use and wear down with hardship. The work you do
  * exercises its stat hour for hour; enough of it raises the stat a point. Long deprivation wears
  * Constitution down, and a collapse leaves its mark. All of it goes with the character.
  * One test per Given/When/Then scenario.
@@ -14,7 +14,7 @@ import { legacyOf, COLLAPSE_CON } from './legacy';
 import { createRoad, runRoadAction } from './road';
 import { TRAVELLERS, TALK_HOURS } from './villages';
 import { newRun } from '../artificer-app/controller';
-import { DEFAULT_STATS, EXERCISE_TO_NEXT, exerciseFrom, exercise, wearDown, skillExercise, STAT_PEAK, HARD_EXERCISE, type Stats } from './stats';
+import { RECOVERY_CAP, overtrainedLine, DEFAULT_STATS, EXERCISE_TO_NEXT, exerciseFrom, exercise, wearDown, skillExercise, STAT_PEAK, HARD_EXERCISE, type Stats } from './stats';
 import { LEVEL_HOURS } from './skills';
 
 /** An adult Warden, sheltered and stocked in the flat world (no accidents), with the given stats. */
@@ -27,17 +27,17 @@ function settled(stats: Partial<Stats> = {}, over: Partial<Region1State> = {}): 
   };
 }
 /** The same Warden, with some exercise and wear already on them. */
-const withGrowth = (s: Region1State, g: Pick<Region1State['character'], 'exercise' | 'wear' | 'trained'>): Region1State => ({ ...s, character: { ...s.character, ...g } });
+const withGrowth = (s: Region1State, g: Partial<Pick<Region1State['character'], 'exercise' | 'wear' | 'trained' | 'pending'>>): Region1State => ({ ...s, character: { ...s.character, ...g } });
 const said = (s: Region1State, text: string) => s.log.some(l => l.text === text);
 
 describe('Stats grow by use and wear (#1257)', () => {
   // 1. STR 10, 116h exercised: a stint of felling takes it to 11, with nothing left over.
   it('raises a stat a point when its exercise reaches the next', () => {
     const s = settled({ str: 10 });
-    // How many hours the felling takes (it all counts as STR exercise).
-    const hours = runAction(s, 'wood').character.exercise!.str!;
+    // How much STR a day's felling banks overnight (#1414: growth comes in recovery).
+    const hours = runDay(s, ['wood']).state.character.exercise!.str!;
     expect(hours).toBeGreaterThan(0);
-    const grown = runAction(withGrowth(s, { exercise: { str: EXERCISE_TO_NEXT(10) - hours } }), 'wood');
+    const grown = runDay(withGrowth(s, { exercise: { str: EXERCISE_TO_NEXT(10) - hours } }), ['wood']).state;
     expect(grown.character.stats.str).toBe(11);
     expect(grown.character.trained).toEqual({ str: 1 });
     expect(grown.character.exercise!.str).toBe(0);
@@ -78,12 +78,12 @@ describe('Stats grow by use and wear (#1257)', () => {
     const b = runAction({ ...s, known: [...s.known, 'basket'] }, 'basket');
     const h = b.hoursToday - s.hoursToday;
     expect(h).toBeGreaterThan(0);
-    expect(b.character.exercise).toEqual({ agi: h * skillExercise(0) });
+    expect(b.character.pending).toEqual({ agi: h * skillExercise(0) });
     // A skilled weaver's hours count for more.
     const skilled = runAction({ ...s, known: [...s.known, 'basket'], skills: { handcraft: LEVEL_HOURS[4] } }, 'basket');
-    expect(skilled.character.exercise!.agi! / (skilled.hoursToday - s.hoursToday)).toBeCloseTo(skillExercise(4), 5);
+    expect(skilled.character.pending!.agi! / (skilled.hoursToday - s.hoursToday)).toBeCloseTo(skillExercise(4), 5);
     // Resting builds nothing.
-    expect(runAction(s, 'rest').character.exercise).toBeUndefined();
+    expect(runAction(s, 'rest').character.pending).toBeUndefined();
   });
 
   // 4. A 12-hour day: the night gives CON 2h. A hungry night adds 4h.
@@ -91,16 +91,18 @@ describe('Stats grow by use and wear (#1257)', () => {
     const s = settled({}, { hoursToday: 12 });
     expect(runDay(s, []).state.character.exercise?.con).toBe(2);
     expect(runDay({ ...s, hoursToday: 8 }, []).state.character.exercise?.con).toBeUndefined();
+    // A hungry night is hard on the body — but it's no recovery, so the exercise waits for a proper night.
     const hungry = runDay({ ...s, stores: { ...s.stores, rawFood: 0 } }, []).state;
-    expect(hungry.character.exercise?.con).toBe(2 + 4);
+    expect(hungry.character.pending?.con).toBe(2 + 4);
+    expect(hungry.character.exercise).toBeUndefined();
   });
 
   // 5. Work with Clarity under 40 exercises WIL; above it, not.
   it('steels the will when you work on with a tired mind', () => {
     const tired = runAction(settled({}, { vitals: createVitals({ clarity: 30 }) }), 'wood');
     const fresh = runAction(settled({}, { vitals: createVitals({ clarity: 60 }) }), 'wood');
-    expect(tired.character.exercise?.wil).toBe(tired.hoursToday - settled().hoursToday);
-    expect(fresh.character.exercise?.wil).toBeUndefined();
+    expect(tired.character.pending?.wil).toBe(tired.hoursToday - settled().hoursToday);
+    expect(fresh.character.pending?.wil).toBeUndefined();
   });
 
   // 6. 3+ nights hungry with 2 wear: CON drops a point, wear resets, and the journal says so.
@@ -125,7 +127,7 @@ describe('Stats grow by use and wear (#1257)', () => {
     const low = withGrowth(settled({ con: 3 }, { deprivation: { hungry: 2, thirsty: 0 }, stores: { ...settled().stores, rawFood: 0 } }), { wear: 2 });
     expect(runDay(low, []).state.character.stats.con).toBe(3);
     expect(wearDown({ ...DEFAULT_STATS, con: 3 }, {}, 'con').lost).toBe(false);
-    const peak = runAction(withGrowth(settled({ str: STAT_PEAK }), { exercise: { str: 5000 } }), 'wood');
+    const peak = runDay(withGrowth(settled({ str: STAT_PEAK }), { exercise: { str: 5000 } }), ['wood']).state;
     expect(peak.character.stats.str).toBe(STAT_PEAK);
     expect(peak.character.exercise!.str).toBe(0);
   });
@@ -157,6 +159,58 @@ describe('Stats grow by use and wear (#1257)', () => {
     // On the road: talking to people exercises CHA.
     const road = createRoad(done);
     const talked = runRoadAction(road, `talk:${TRAVELLERS[0].id}`);
-    expect(talked.character.exercise?.cha).toBe(TALK_HOURS);
+    expect(talked.character.pending?.cha).toBe(TALK_HOURS);
+    // Pending exercise doesn't carry into a new run (#1414); banked exercise does.
+    const unrested = createRegion1({ world: FLAT_WORLD }, legacyOf({ ...done, character: { ...done.character, pending: { str: 3 } } }), { id: 'w-grow' });
+    expect(unrested.character.pending).toBeUndefined();
+    expect(unrested.character.exercise).toEqual({ str: 40, int: 7 });
+  });
+});
+
+describe('Stats grow in recovery (#1414)', () => {
+  // 1. A day of felling: the exercise is pending until the night.
+  it('holds the day\'s exercise until the night', () => {
+    const s = settled({ str: 10 });
+    const felled = runAction(s, 'wood');
+    expect(felled.character.pending?.str).toBeGreaterThan(0);
+    expect(felled.character.exercise).toBeUndefined();
+    const slept = runDay(s, ['wood']).state;
+    expect(slept.character.pending).toBeUndefined();
+    expect(slept.character.exercise?.str).toBe(Math.min(felled.character.pending!.str!, RECOVERY_CAP));
+  });
+
+  // 2. 6h pending and a proper night: 4h banked, 2h wasted, and the journal says so.
+  it('banks only so much a night — the rest is wasted', () => {
+    const night = runDay(withGrowth(settled(), { pending: { str: 6 } }), []).state;
+    expect(night.character.exercise?.str).toBe(RECOVERY_CAP);
+    expect(night.character.pending).toBeUndefined();
+    expect(said(night, overtrainedLine(2))).toBe(true);
+    // Only the first time in a run — after that the journal stays quiet about it.
+    expect(runDay(withGrowth(night, { pending: { str: 6 } }), []).state.log.filter(l => /went for nothing/.test(l.text))).toHaveLength(1);
+    // Under the cap, nothing is wasted.
+    const light = runDay(withGrowth(settled(), { pending: { str: 3 } }), []).state;
+    expect(light.character.exercise?.str).toBe(3);
+    expect(light.log.some(l => /went for nothing/.test(l.text))).toBe(false);
+  });
+
+  // 3. A hungry, thirsty or cold night banks nothing, and keeps the pending exercise.
+  it('grows nothing on a poor night', () => {
+    const s = withGrowth(settled(), { pending: { str: 3 } });
+    for (const poor of [
+      { ...s, stores: { ...s.stores, rawFood: 0 } },
+      { ...s, stores: { ...s.stores, water: 0 } },
+      { ...s, shelter: { type: null, walls: null }, shelterGrade: null, tier: 0, stores: { ...s.stores, firewood: 0 } },
+    ] as Region1State[]) {
+      const night = runDay(poor, []).state;
+      expect(night.character.exercise?.str).toBeUndefined();
+      expect(night.character.pending?.str).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  // 4. STR 10 at 116h, 4h pending, a proper night: STR 11.
+  it('raises the stat in the night', () => {
+    const night = runDay(withGrowth(settled({ str: 10 }), { exercise: { str: 116 }, pending: { str: 4 } }), []).state;
+    expect(night.character.stats.str).toBe(11);
+    expect(said(night, 'The heavy work has hardened your arms — Strength 11.')).toBe(true);
   });
 });
