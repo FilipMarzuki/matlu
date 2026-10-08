@@ -3,7 +3,7 @@
  * Pure-TypeScript, no Phaser or browser globals required.
  */
 import { describe, it, expect } from 'vitest';
-import { bufferShoreline } from './CollisionGrid';
+import { bufferShoreline, blockTreeFootprint } from './CollisionGrid';
 import type { IntGridLayer } from './MapData';
 
 /** 5x5 biome grid; `water` lists (tx, ty) cells that are water (value 0). Every other cell is land (value 1). */
@@ -45,5 +45,43 @@ describe('bufferShoreline', () => {
     expect(walkGrid[bridgeIndex]).toBe(1);
     walkGrid[bridgeIndex] = 0; // HomesteadScene's bridge-tile override, applied after bufferShoreline
     expect(walkGrid[bridgeIndex]).toBe(0);
+  });
+});
+
+describe('blockTreeFootprint', () => {
+  it('given a mature tree planted mid-grid, when blocking its footprint, then it blocks a 2x2 area', () => {
+    const walkGrid = new Uint8Array(25); // 5x5, all walkable
+    blockTreeFootprint(walkGrid, 5, 5, 2, 2, 'mature');
+    expect(walkGrid[2 * 5 + 2]).toBe(1); // (2,2) trunk
+    expect(walkGrid[2 * 5 + 3]).toBe(1); // (3,2) east buffer
+    expect(walkGrid[3 * 5 + 2]).toBe(1); // (2,3) south buffer
+    expect(walkGrid[3 * 5 + 3]).toBe(1); // (3,3) SE buffer
+  });
+
+  it('given a mature tree planted mid-grid, when blocking its footprint, then neighbouring tiles outside the 2x2 stay walkable', () => {
+    const walkGrid = new Uint8Array(25);
+    blockTreeFootprint(walkGrid, 5, 5, 2, 2, 'mature');
+    expect(walkGrid[1 * 5 + 2]).toBe(0); // (2,1) north of trunk
+    expect(walkGrid[2 * 5 + 1]).toBe(0); // (1,2) west of trunk
+  });
+
+  it('given a young tree, when blocking its footprint, then only its own tile is blocked', () => {
+    const walkGrid = new Uint8Array(25);
+    blockTreeFootprint(walkGrid, 5, 5, 2, 2, 'young');
+    expect(walkGrid[2 * 5 + 2]).toBe(1);
+    expect(walkGrid[2 * 5 + 3]).toBe(0);
+    expect(walkGrid[3 * 5 + 2]).toBe(0);
+  });
+
+  it('given a sapling, when blocking its footprint, then the tile stays walkable', () => {
+    const walkGrid = new Uint8Array(25);
+    blockTreeFootprint(walkGrid, 5, 5, 2, 2, 'sapling');
+    expect(walkGrid[2 * 5 + 2]).toBe(0);
+  });
+
+  it('given a mature tree planted at the grid\'s bottom-right corner, when blocking its footprint, then it clamps to bounds without throwing', () => {
+    const walkGrid = new Uint8Array(25);
+    expect(() => blockTreeFootprint(walkGrid, 5, 5, 4, 4, 'mature')).not.toThrow();
+    expect(walkGrid[4 * 5 + 4]).toBe(1); // trunk still blocked
   });
 });
