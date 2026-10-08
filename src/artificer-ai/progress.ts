@@ -11,6 +11,7 @@ import { RINGS, DOMAINS, level } from '../artificer/exploration';
 import { artificerRank, conceptRanks, type RankName } from '../artificer/rank';
 import { SKILL_IDS, skillLevel, perceivedLevel } from '../artificer/skills';
 import { villageOf, type RoadState } from '../artificer/road';
+import type { Stats } from '../artificer/stats';
 
 export interface Progress {
   /** The day about to start (a turn's snapshot is taken after its night). */
@@ -53,10 +54,19 @@ export interface Progress {
   overexertions: number;
   /** Carrying so far (#1297): stones left behind, hours walked overloaded, raw food spoiled — and strain now. */
   carry?: { leftStones: number; overloadedHours: number; spoiled: number; strain: number };
+  /**
+   * Stats (#1259): what they are now, and exercise (hours) — banked towards the next point, and
+   * pending, waiting on a proper night. Absent on transcripts from before stats were recorded.
+   */
+  stats?: Stats;
+  exercise?: { banked: Partial<Stats>; pending: Partial<Stats> };
 }
 
 const r1 = (x: number): number => Math.round(x * 10) / 10;
 const r2 = (x: number): number => Math.round(x * 100) / 100;
+/** Exercise hours to one decimal, dropping zeros so snapshots stay small. */
+const roundAll = (x: Partial<Stats> | undefined): Partial<Stats> =>
+  Object.fromEntries(Object.entries(x ?? {}).filter(([, h]) => h).map(([k, h]) => [k, r1(h as number)]));
 
 /** Snapshot the state. `startKnown` is how many recipes the run began with. */
 export function progressOf(s: Region1State, startKnown: number): Progress {
@@ -99,6 +109,8 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     focus: focusKey(s.focus),
     locked: survivalLockOf(s),
     carry: { leftStones: r1(s.tally?.leftStones ?? 0), overloadedHours: r1(s.tally?.overloadedHours ?? 0), spoiled: s.tally?.spoiled ?? 0, strain: r1(s.strain ?? 0) },
+    stats: { ...s.character.stats },
+    exercise: { banked: roundAll(s.character.exercise), pending: roundAll(s.character.pending) },
   };
 }
 
@@ -123,6 +135,8 @@ export interface RoadProgress {
   recipesKnown: number;
   vitals: { vigor: number; clarity: number; condition: number };
   stores: { rawFood: number; water: number };
+  /** Stats now (#1259): the road builds CHA by talking. Absent on older transcripts. */
+  stats?: Stats;
 }
 
 /** Snapshot a road state. */
@@ -142,5 +156,6 @@ export function roadProgressOf(r: RoadState): RoadProgress {
     recipesKnown: r.known.length,
     vitals: { vigor: Math.round(r.vitals.vigor.current), clarity: Math.round(r.vitals.clarity.current), condition: Math.round(r.vitals.condition) },
     stores: { rawFood: r.stores.rawFood, water: r.stores.water },
+    stats: { ...r.character.stats },
   };
 }

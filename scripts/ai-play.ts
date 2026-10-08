@@ -9,6 +9,8 @@
  *            --road (a run that survives the thaw rides the caravan road to Mistheim, #1251)
  *            --out DIR (default ai-runs) --quiet
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
+ *            --stats str=13,int=13 | balanced | strong | clever  (the point-buy spread, as a person would pick; default all 10s;
+ *                     the random baseline picks a random legal spread per run unless this is given)
  *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
  *
  * Writes one JSON transcript per run to --out and prints a summary table.
@@ -22,6 +24,7 @@ import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { legacyOf, legacyOfRoad, canContinue } from '../src/artificer/legacy';
+import { parseStatSpread, randomSpread, spreadText } from '../src/artificer-ai/spreads';
 import { validPick, TALENT_PICKS, TALENT_IDS, talentOffer, seedOf, pickRandomFromOffer, type TalentId } from '../src/artificer/talents';
 
 const args = process.argv.slice(2);
@@ -36,6 +39,10 @@ const quiet = has('quiet');
 const seed = Number(flag('seed') ?? 1);
 const talents = (flag('talents') ?? '').split(',').map(t => t.trim()).filter(Boolean);
 if (!validPick(talents)) { console.error(`--talents needs exactly ${TALENT_PICKS} of: ${TALENT_IDS.join(', ')}`); process.exit(1); }
+// The stat spread (#1259): checked exactly like a person's point-buy, so an AI can't start stronger.
+const statsArg = flag('stats');
+const parsedStats = statsArg !== undefined ? parseStatSpread(statsArg) : null;
+if (parsedStats && 'error' in parsedStats) { console.error(`--stats: ${parsedStats.error}`); process.exit(1); }
 const budget = flag('budget') !== undefined ? Number(flag('budget')) : Infinity;
 const usd = (x: number | null): string => (x === null ? 'cost unknown' : `$${x < 0.01 && x > 0 ? x.toFixed(4) : x.toFixed(3)}`);
 
@@ -79,6 +86,8 @@ async function main(): Promise<void> {
       legacy: continuing ? (carry!.road ? legacyOfRoad(carry!.road.final) : legacyOf(carry!.final)) : undefined,
       characterId,
       talents: wanted,
+      // A spread given with --stats; else the random baseline rolls one per run (seeded), and others keep all 10s.
+      stats: parsedStats?.stats ?? (which === 'random' ? randomSpread(seed + n - 1) : undefined),
       road: has('road'),
       onRoadTurn: t => {
         if (quiet) return;
@@ -111,6 +120,7 @@ async function main(): Promise<void> {
     const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
+    if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }

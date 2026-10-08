@@ -57,6 +57,18 @@ for (const m of models) {
   if (m.pins.made) console.log(`  ${''.padEnd(34)} ${pinLine(m)}`);
   if (m.injuries.perRun) console.log(`  ${''.padEnd(34)} ${injuryLine(m)}`);
   if (m.gifts) console.log(`  ${''.padEnd(34)} ${talentsLine(m.gifts)}`);
+  if (m.stats) for (const line of statsLines(m.stats)) console.log(`  ${''.padEnd(34)} ${line}`);
+}
+
+/**
+ * Stats (#1259): the spreads used and how far each stat moved in a run on average, then each run
+ * (up to 10 — a big random batch would drown the table): the spread it was made with and where it ended.
+ */
+function statsLines(st: NonNullable<ModelSummary['stats']>): string[] {
+  const moved = Object.entries(st.change).map(([k, d]) => `${k.toUpperCase()} ${d >= 0 ? '+' : ''}${d}`).join(' ');
+  const head = `stats — ${st.spreads} spread${st.spreads === 1 ? '' : 's'} over ${st.runs} runs · change per run: ${moved}`;
+  const runs = st.perRun.length <= 10 ? st.perRun.map((r, i) => `  run ${i + 1}: made ${r.spread} · started ${r.start} → ended ${r.end} (${r.gained >= 0 ? '+' : ''}${r.gained} in the run)`) : [];
+  return [head, ...runs];
 }
 
 /** Talents and quirks in a line (#1267): the picks (with how far each grew), the hidden ones found and when, and the quirks that showed. */

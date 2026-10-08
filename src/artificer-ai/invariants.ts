@@ -9,6 +9,7 @@ import { maxLoad } from '../artificer/load';
 import type { RoadState } from '../artificer/road';
 import { QUESTS } from '../artificer/quests';
 import { pinCapacity } from '../artificer/pins';
+import { STAT_LOW, STAT_PEAK } from '../artificer/stats';
 
 /** Every broken invariant in `s`, as readable messages (empty when all is well). */
 export function invariantViolations(s: Region1State): string[] {
@@ -36,6 +37,8 @@ export function invariantViolations(s: Region1State): string[] {
     num('tally spoiled', s.tally.spoiled);
   }
   num('strain', s.strain ?? 0);
+  // Stats (#1259): never past the peak of 18, never below 3 — whatever growth and wear do.
+  for (const [k, v] of Object.entries(s.character.stats)) num(`stats.${k}`, v, STAT_LOW, STAT_PEAK);
   if (s.coldPitAt && !(s.coldPitAt in SITES)) out.push(`cold pit at unknown site ${s.coldPitAt}`);
   // Encounters (#1348): a turn never ends with one still waiting for a choice.
   if (s.pending) out.push(`encounter ${s.pending.id} still waiting at the end of the turn`);

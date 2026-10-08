@@ -86,7 +86,9 @@ describe('Growing up (#1399)', () => {
     // The game's new Warden is a 12-year-old scout; the AI sees the age and both sets of stats.
     const g = newGame().sim;
     expect(g.character.age).toBe(12);
-    expect(observe(g)).toMatch(/AGE: 12 — still growing .*STR 6 \(10\)/);
+    // The stats now and grown up are on the STATS line (#1259); the age on its own line.
+    expect(observe(g)).toMatch(/STATS: STR 6 \(10 grown up\)/);
+    expect(observe(g)).toMatch(/AGE: 12 — still growing/);
     // A save keeps the age and the adult stats.
     expect(deserialize(serialize(newGame()))?.sim.character).toMatchObject({ age: 12, adult: DEFAULT_STATS });
   });
