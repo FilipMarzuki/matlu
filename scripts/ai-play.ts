@@ -17,6 +17,7 @@
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
 
+import { playtimeOf, playtimeSummaryOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
@@ -135,6 +136,7 @@ async function main(): Promise<void> {
     if (!quiet && result.roadStopped) console.log('  → road: not played — budget reached at the thaw');
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
+    if (!quiet) console.log(`  → a person would take about ${playtimeText(playtimeOf(result))} to play this run (#1471)`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }
@@ -151,6 +153,9 @@ async function main(): Promise<void> {
     const u = r.usage;
     console.log(`  run ${i + 1}: ${r.record.kind.padEnd(10)} day ${String(r.record.day).padStart(2)} · ready ${r.record.readyDay ?? '—'} · invalid days ${r.turns.filter(t => t.invalid).length} · tokens in ${u.input} (cache read ${u.cacheRead}, write ${u.cacheWrite}) out ${u.output} · ${usd(u.cost)}`);
   }
+  // How long a person would take (#1471): the same median the report gives.
+  const pt = playtimeSummaryOf(results);
+  if (pt) console.log(`  playtime: a person would take about ${playtimeText(pt)} per run (median of ${pt.runs}${pt.runs < results.length ? `; ${results.length - pt.runs} cut off at the thaw left out` : ''})`);
   const known = results.filter(r => r.usage.cost !== null);
   if (known.length) console.log(`  spend: $${spent.toFixed(3)} total · $${(spent / known.length).toFixed(3)} per game${known.length < results.length ? ` (${results.length - known.length} run(s) didn't report cost)` : ''}`);
   if (crashes.length) { console.log(`\nCRASHES (${crashes.length}):`); for (const c of crashes) console.log(`  ${c}`); }

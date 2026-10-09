@@ -6,6 +6,7 @@
  * Pure — the CLI (scripts/ai-report.ts) reads the files and renders the result.
  */
 
+import { playtimeSummaryOf, type Playtime } from './playtime';
 import type { Progress, RoadProgress } from './progress';
 import { spreadText } from './spreads';
 import { STAT_IDS, type Stats } from '../artificer/stats';
@@ -13,6 +14,8 @@ import { STAT_IDS, type Stats } from '../artificer/stats';
 /** The parts of a saved transcript the report reads (see scripts/ai-play.ts). */
 export interface Transcript {
   player: string;
+  /** The budget ran out at the thaw (#1449): the road wasn't played. */
+  roadStopped?: 'budget';
   start: Progress;
   turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[];
     encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean; state?: string; override?: { chosen: string; taken: string }; fearsGained?: string[] }[];
@@ -140,6 +143,8 @@ export interface ModelSummary {
   model: string;
   runs: number;
   outcomes: Record<string, number>;
+  /** How long a person would take to play these runs (#1471): the median at each pace, in minutes. */
+  playtime: (Playtime & { runs: number }) | null;
   /** Mean ready day over runs that got ready, and how many did. */
   readyDay: number | null;
   readyRuns: number;
@@ -487,6 +492,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       model,
       runs: runs.length,
       outcomes,
+      playtime: playtimeSummaryOf(runs),
       readyDay: round(mean(ready)),
       readyRuns: ready.length,
       invalidDays: runs.reduce((n, r) => n + r.turns.filter(t => t.invalid).length, 0),
