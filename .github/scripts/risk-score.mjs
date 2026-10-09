@@ -32,6 +32,8 @@ export const RULES_PATH = path.resolve(__dirname, '..', 'review-risk.json');
 export const TIERS = ['low', 'medium', 'high'];
 const MARKER = '<!-- risk-score -->';
 export const CI_WORKFLOW = 'DevCycle 2 — CI';
+/** Who posts the reviews the gate reads: the review agent and run-second-review.js both post as the workflow's GITHUB_TOKEN. */
+export const REVIEW_BOT = 'github-actions[bot]';
 
 /** A path glob as a regex: `**` crosses folders (and `**​/` may match nothing), `*` stays within one. */
 export function globToRegex(glob) {
@@ -113,8 +115,9 @@ export function parseNumstatZ(text) {
 export const loadRules = () => JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
 
 /**
- * The reviews on the head commit (pure, #1481). Only bot reviews pinned to `headSha` count — a
- * review of an older commit says nothing about this one.
+ * The reviews on the head commit (pure, #1481). Only reviews by {@link REVIEW_BOT} pinned to
+ * `headSha` count — another bot's review isn't ours, and a review of an older commit says nothing
+ * about this one.
  * - `agent`: the review agent's latest verdict (its APPROVED / CHANGES_REQUESTED review state).
  * - `second`: the second opinion — the worst verdict on this commit. A request-changes holds until
  *   a new commit, so re-running the reviewer can't wash it out; a re-run can replace an `unclear`
@@ -129,7 +132,8 @@ export function tierReviews(reviews, headSha) {
   const rank = { 'request-changes': 3, approve: 2, unclear: 1 };
   const inOrder = [...reviews].sort((a, b) => Date.parse(a.submitted_at ?? 0) - Date.parse(b.submitted_at ?? 0));
   for (const r of inOrder) {
-    if (r.commit_id !== headSha || r.user?.type !== 'Bot') continue;
+    // Only our own workflows' reviews: another bot's approval or comment mustn't stand in for theirs.
+    if (r.commit_id !== headSha || r.user?.login !== REVIEW_BOT) continue;
     if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') { out.agent = r.state === 'APPROVED' ? 'approved' : 'changes-requested'; continue; }
     const body = r.body ?? '';
     const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear) -->/.exec(body);

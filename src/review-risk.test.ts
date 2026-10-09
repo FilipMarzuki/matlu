@@ -71,7 +71,7 @@ describe('Review risk score (#1431)', () => {
   // 5. The merge gate (#1481): the tier decides which models must agree — no person's label.
   describe('merge gate: the models agree (#1481)', () => {
     const head = 'abc123';
-    const bot = { type: 'Bot' };
+    const bot = { login: 'github-actions[bot]', type: 'Bot' };
     let clock = 0;
     const at = () => `2026-10-09T12:${String(clock++).padStart(2, '0')}:00Z`;
     // The shapes run-second-review.js posts: header, then the marker on line 2.
@@ -90,6 +90,10 @@ describe('Review risk score (#1431)', () => {
       // An approval of an older commit doesn't cover this one; its latest verdict counts.
       expect(gate('low', [agent('APPROVED', 'old999')]).merge).toBe(false);
       expect(gate('low', [agent(), agent('CHANGES_REQUESTED')]).reason).toMatch(/requests changes/);
+      // Another bot's approval is not the review agent's, and can't overwrite its request.
+      const otherBot = { login: 'other-app[bot]', type: 'Bot' };
+      expect(gate('low', [{ ...agent(), user: otherBot }]).merge).toBe(false);
+      expect(gate('low', [agent('CHANGES_REQUESTED'), { ...agent(), user: otherBot }]).reason).toMatch(/requests changes/);
     });
 
     // 2. Medium: the second opinion on the head commit must approve.
@@ -103,8 +107,9 @@ describe('Review risk score (#1431)', () => {
       // A re-run can replace an unclear verdict — but can't wash out a request-changes on the same commit.
       expect(gate('medium', [agent(), second('unclear'), second('approve')]).merge).toBe(true);
       expect(gate('medium', [agent(), second('request-changes'), second('approve')]).merge).toBe(false);
-      // A person's comment shaped like one doesn't count.
-      expect(gate('medium', [agent(), { ...second('approve'), user: { type: 'User' } }]).merge).toBe(false);
+      // A person's comment shaped like one doesn't count — nor another bot's.
+      expect(gate('medium', [agent(), { ...second('approve'), user: { login: 'filip', type: 'User' } }]).merge).toBe(false);
+      expect(gate('medium', [agent(), { ...second('approve'), user: { login: 'other-app[bot]', type: 'Bot' } }]).merge).toBe(false);
     });
 
     // 3. High: + every lens on the head commit finds nothing.
