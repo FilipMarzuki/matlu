@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   modifiersFor, capBonus, capabilities, scaledMult, craft, craftGrade, craftBlocker, createCrafter, craftWorld,
   recipesFromRegistry, salvage, salvageFraction, study, studyCost, newCraftDay, DEFAULT_EFFECTS, COST_FLOOR,
-  INSIGHT_TO_NEXT, STUDY_INSIGHT, type CraftRecipe, type ItemEffects, type ConceptDef,
+  INSIGHT_TO_NEXT, STUDY_INSIGHT, bestConceptRank, meanConceptRank, type CraftRecipe, type ItemEffects, type ConceptDef,
 } from './crafting';
 import { createVitals } from './vitality';
 import recipesJson from '../../public/macro-world/recipes.json';
@@ -174,5 +174,38 @@ describe('Crafting & tools', () => {
     const world = craftWorld(recipes, conceptsJson.concepts as ConceptDef[]);
     expect(world.stationItems.has('campfire')).toBe(true);
     expect(world.concepts.bearings?.requires).toEqual(['friction:1', 'rotation:1']);
+  });
+
+  // 8. All of a recipe's concepts count (#1458): grade and salvage reward breadth across concepts;
+  // craftBlocker's gate stays lenient on the best rank.
+  it('grades and salvages from the mean concept rank, not the best', () => {
+    const AB: CraftRecipe = { ...ROPE, id: 'ab', concepts: ['a', 'b'] };
+
+    // 1. a=3, b=0 → mean 1.5, so with band 3, bench 1, tools 0, tier 0 the grade is sound, not fine.
+    const lopsided = createCrafter(createVitals(), { concepts: { a: { rank: 3, insight: 0 }, b: { rank: 0, insight: 0 } } });
+    expect(meanConceptRank(lopsided, AB)).toBe(1.5);
+    const q = { band: 3, benchTier: 1, tools: 0, conceptRank: meanConceptRank(lopsided, AB), recipeTier: 0 };
+    expect(craftGrade(q)).toBe('sound');
+    expect(craftGrade({ ...q, conceptRank: bestConceptRank(lopsided, AB) })).toBe('fine'); // today's best-rank score
+
+    // 2. a=2, b=2 → mean 2, same as best: even mastery grades as before.
+    const even = createCrafter(createVitals(), { concepts: { a: { rank: 2, insight: 0 }, b: { rank: 2, insight: 0 } } });
+    expect(meanConceptRank(even, AB)).toBe(2);
+    expect(meanConceptRank(even, AB)).toBe(bestConceptRank(even, AB));
+
+    // 3. A single-concept recipe at rank 2: nothing changes from today.
+    const SINGLE: CraftRecipe = { ...ROPE, id: 'single', concepts: ['a'] };
+    const solo = createCrafter(createVitals(), { concepts: { a: { rank: 2, insight: 0 } } });
+    expect(meanConceptRank(solo, SINGLE)).toBe(2);
+    expect(meanConceptRank(solo, SINGLE)).toBe(bestConceptRank(solo, SINGLE));
+
+    // 4. A failed craft of the [a, b] recipe at a=3, b=0 salvages 0.15 × 1.5, not 0.15 × 3.
+    expect(salvageFraction(meanConceptRank(lopsided, AB))).toBeCloseTo(0.15 * 1.5);
+    expect(salvageFraction(meanConceptRank(lopsided, AB))).not.toBeCloseTo(0.15 * 3);
+
+    // 5. A tier-2 recipe with concepts [a, b], a=1, b=0: the concept gate still passes (best rank meets tier−1).
+    const tier2: CraftRecipe = { ...ROPE, id: 'ab-t2', tier: 2, inputs: [], concepts: ['a', 'b'] };
+    const gated = createCrafter(createVitals(), { bench: { tier: 2, stations: [] }, concepts: { a: { rank: 1, insight: 0 }, b: { rank: 0, insight: 0 } } });
+    expect(craftBlocker(gated, tier2)).toBeNull();
   });
 });
