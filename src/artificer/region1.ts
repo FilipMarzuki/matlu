@@ -1155,18 +1155,27 @@ export const TRAVEL_CLARITY_RATE = -0.5;
 /**
  * Hours a queue entry will take (its work plus any travel) — for planning
  * previews. Pass the state it would run in to account for choices whose cost
- * depends on it (a brush hut takes longer than a lean-to).
+ * depends on it (a brush hut takes longer than a lean-to), and for what the
+ * run applies: your tools' speed, and for a craft a hurt hand (#1475). The
+ * multipliers are the ones `runAction` and `runCraft` use, so the plan's hours
+ * are the work's.
  */
 export function queueHours(item: QueueItem, s?: Region1State): number {
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
   const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
-  const rain = s && !recipe ? weatherHours(s.weatherToday, id) : 1;
+  // Agony (#1409) slows any work.
+  const pain = s ? PAIN_HOURS[painOf(s)] : 1;
+  // A craft: craft tools and a hurt hand (#1286), as in runCraft.
+  if (recipe) return recipe.timeBase * (s ? modifiersFor(s.tools, 'craft').timeMult * injuryCost(s.injuries, 'hand') * pain : 1);
+  const rain = s ? weatherHours(s.weatherToday, id) : 1;
   // Deep snow (#1315) slows the walk out and the felling.
   const snow = s ? snowSlowFor(s) : 1;
   // A blizzard slows everything out there (#1315).
   const storm = s && inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * (s ? kitTimeMult(s, id) * PAIN_HOURS[painOf(s)] : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
+  // Tools that speed the work (a pouch for gathering) and the hike kit (#1400), as in runAction.
+  const kit = s ? modifiersFor(s.tools, id).timeMult * kitTimeMult(s, id) : 1;
+  return (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * kit * pain + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
 }
 
 /**
