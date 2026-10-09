@@ -1153,29 +1153,51 @@ export const TRAVEL_VIGOR_RATE = -3;
 export const TRAVEL_CLARITY_RATE = -0.5;
 
 /**
- * Hours a queue entry will take (its work plus any travel) — for planning
- * previews. Pass the state it would run in to account for choices whose cost
- * depends on it (a brush hut takes longer than a lean-to), and for what the
- * run applies: your tools' speed, and for a craft a hurt hand (#1475). The
- * multipliers are the ones `runAction` and `runCraft` use, so the plan's hours
- * are the work's.
+ * A land or camp action's hours (#1475): its work — the tools' speed, rain, deep snow for the
+ * felling, a blizzard, the hike kit (#1400), pain (#1409) — and the walk to an outer ring. The run
+ * and the plan's estimate both use this, so the plan's hours are the work's.
+ */
+function actionHours(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts): { work: number; travel: number } {
+  const def = ACTIONS[id];
+  const v = def.variant?.(opts, s, ring) ?? {};
+  // Deep snow (#1315) slows the walk out and the felling; a blizzard slows everything out there.
+  const snow = snowSlowFor(s);
+  const storm = inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
+  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)];
+  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
+  return { work, travel };
+}
+
+/** A craft's or build's hours (#1475): the recipe's time, the craft tools' speed, a hurt hand (#1286) and pain — the run's and the estimate's. */
+function craftHours(s: Region1State, recipe: CraftRecipe): number {
+  return recipe.timeBase * modifiersFor(s.tools, 'craft').timeMult * injuryCost(s.injuries, 'hand') * PAIN_HOURS[painOf(s)];
+}
+
+/** Building somewhere new moves camp first — and pitches the tarp, if one's packed (#1400). Mutates `next`. */
+function moveForBuild(next: Region1State, opts: ActionOpts): void {
+  const plan = planBuild(next, opts);
+  if (plan.moving && plan.site) moveCamp(next, plan.site);
+}
+
+/**
+ * Hours a queue entry will take (its work plus any travel) — for planning previews, the AI's
+ * view and the sim's light reckoning. Pass the state it would run in: with it, the estimate is
+ * the run's own reckoning (#1475) — the same recipe (a build that moves camp builds from the new
+ * ground), the same multipliers. Without it, the base hours.
+ *
+ * Not in the estimate: what only the run can know — an accident or an encounter that cuts the
+ * work short, or the slower walk home under an overloaded haul (#1296), which depends on the haul.
  */
 export function queueHours(item: QueueItem, s?: Region1State): number {
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
-  const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
-  // Agony (#1409) slows any work.
-  const pain = s ? PAIN_HOURS[painOf(s)] : 1;
-  // A craft: craft tools and a hurt hand (#1286), as in runCraft.
-  if (recipe) return recipe.timeBase * (s ? modifiersFor(s.tools, 'craft').timeMult * injuryCost(s.injuries, 'hand') * pain : 1);
-  const rain = s ? weatherHours(s.weatherToday, id) : 1;
-  // Deep snow (#1315) slows the walk out and the felling.
-  const snow = s ? snowSlowFor(s) : 1;
-  // A blizzard slows everything out there (#1315).
-  const storm = s && inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  // Tools that speed the work (a pouch for gathering) and the hike kit (#1400), as in runAction.
-  const kit = s ? modifiersFor(s.tools, id).timeMult * kitTimeMult(s, id) : 1;
-  return (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm * kit * pain + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
+  if (!s) return (def.recipe ? def.recipe.timeBase : def.variant?.(opts, s, ring).hours ?? def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+  let at = s;
+  if (id === 'build' && planBuild(s, opts).moving) { at = clone(s); moveForBuild(at, opts); }
+  const recipe = def.recipeFor?.(at, opts) ?? def.recipe;
+  if (recipe) return craftHours(at, recipe);
+  const { work, travel } = actionHours(s, id, ring, opts);
+  return work + travel;
 }
 
 /**
@@ -1550,10 +1572,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const refused = blockedReason(next, id, ring, opts);
   if (refused) { say(next, `${def.name}${where(ring)}: skipped — ${refused}.`, 'skip'); return next; }
   // Building somewhere new moves camp first; the build then starts there from scratch.
-  if (id === 'build') {
-    const plan = planBuild(next, opts);
-    if (plan.moving && plan.site) moveCamp(next, plan.site);
-  }
+  if (id === 'build') moveForBuild(next, opts);
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
   // An heirloom's maker teaches the first time it's leaned on (#1456) — out on the land, and at the bench
   // or building too (#1469): crafts and builds go to runCraft below, so the lesson lands first.
@@ -1565,17 +1584,10 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const skill = skillFor(id);
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const v = def.variant?.(opts, next, ring) ?? {};
-  // Rain makes some work slower (#1284).
-  // Deep snow slows the felling and the walk (#1315).
-  const snow = snowSlowFor(next);
-  // …and a blizzard slows everything out there (#1315).
-  const storm = inBlizzard(next, id) ? BLIZZARD_HOURS : 1;
-  // A map and compass (#1400) make scouting quicker.
-  // Agony (#1409) slows the work.
   const pain = painOf(next);
-  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(next, id) * PAIN_HOURS[pain];
-  // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
-  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
+  // How long it takes (#1475): rain, deep snow and a blizzard (#1284, #1315), the tools, the map and
+  // compass (#1400), agony (#1409) — and the walk to an outer ring, hard on the legs, easy on the mind.
+  const { work: workHours, travel } = actionHours(next, id, ring, opts);
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -1758,7 +1770,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const tr = talentEffects(next.character.talents);
   const recipe = baseRecipe;
   // A hurt hand (#1286): crafting takes longer while it lasts.
-  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult * injuryCost(next.injuries, 'hand') * PAIN_HOURS[painOf(next)];
+  const hours = craftHours(next, recipe);
   // Tools that serve this action (a shovel for building) lighten the craft's own effort.
   const mod = modifiersFor(next.tools, id);
   // Skill in the craft's field lightens the work and lifts the grade (#1236).
