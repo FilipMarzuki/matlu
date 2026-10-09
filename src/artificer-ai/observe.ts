@@ -118,6 +118,8 @@ When an encounter pauses the day, reply instead with ONLY {"thoughts": string, "
 const pct = (x: number): string => `${Math.round(x * 100)}%`;
 const fl = (x: number): number => Math.floor(x + 1e-9);
 const r0 = (x: number): number => Math.round(x);
+/** Hours to a tenth: tools, a hurt hand and the weather make them fractional (#1475). */
+const h1 = (x: number): number => Math.round(x * 10) / 10;
 
 /** One-line yield hint per land action in a ring (same numbers the sim uses). */
 function landHint(s: Region1State, id: ActionId, r: Ring): string {
@@ -303,7 +305,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
       // What a place you remember does for this trip (#1381), as the queue preview shows a person.
       const pin = def.ringed ? tripPinNote(s.pins, id, r) : null;
-      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}`);
+      lines.push(`- ${id}${ringTag} · ${h1(queueHours(queueId(id, r), s))}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {
