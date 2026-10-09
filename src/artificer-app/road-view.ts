@@ -122,7 +122,7 @@ function handsFree(r: RoadState, onWagon: boolean): string {
   const crafts = r.known.filter(id => ROAD_CRAFTS[id]);
   return `<div class="sheetpart"><p class="fgroup">HANDS FREE — CRAFT · STUDY · MEND${onWagon ? ' · HELP' : ''}</p>
     <div class="lessons">${crafts.map(id => act(r, `craft:${id}`, `🛠 ${esc(itemName(id))}`, WAGON_CRAFT_HOURS)).join('')}</div>
-    <div class="lessons">${STUDY_CONCEPTS.map(c => act(r, `study:${c}`, `📖 ${esc(c)}`, 3)).join('')}</div>
+    <div class="lessons">${STUDY_CONCEPTS(r).map(c => act(r, `study:${c}`, `📖 ${esc(c)}`, 3)).join('')}</div>
     <div class="lessons">${act(r, 'tend', '🧵 MEND GEAR', TEND_HOURS)}${onWagon ? act(r, 'help', '🐂 HELP DRIVE &amp; PITCH CAMP', HELP_HOURS) : ''}</div></div>`;
 }
 

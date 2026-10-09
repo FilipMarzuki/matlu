@@ -270,6 +270,15 @@ export const STUDY_HOURS = 3;
 /** Insight an heirloom's maker passes to whoever leans on it, per rank of a concept it was made with — once per item, the first time it's used (#1456). */
 export const HEIRLOOM_INSIGHT = 3;
 
+/**
+ * What an heirloom has to teach, concept by concept (#1456): the maker's rank × HEIRLOOM_INSIGHT ×
+ * the grade it was *made* at where that's known (#1469) — an accident dents the tool, not what
+ * its maker understood. Nothing for a tool with no `made`, or for concepts made at rank 0.
+ */
+export function heirloomLesson(t: Tool): { concept: string; insight: number }[] {
+  return Object.entries(t.made ?? {}).filter(([, rank]) => rank > 0).map(([concept, rank]) => ({ concept, insight: rank * HEIRLOOM_INSIGHT * GRADE_MULT[t.crafted ?? t.grade] }));
+}
+
 const rankOf = (concepts: Readonly<Record<string, ConceptProgress>>, id: string): number => concepts[id]?.rank ?? 0;
 
 /** Are a concept's prerequisites met? (Unknown concepts are treated as open.) */
@@ -447,7 +456,8 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
       const made = recipe.concepts?.length && recipe.concepts.some(c => rankOf(s.concepts, c) > 0)
         ? Object.fromEntries(recipe.concepts.map(c => [c, rankOf(s.concepts, c)]))
         : undefined;
-      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made } : {}) });
+      // Each copy gets its own record (#1469), so nothing that edits one can change another.
+      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made: { ...made } } : {}) });
     } else {
       next.inventory[out.item] = (next.inventory[out.item] ?? 0) + out.qty;
     }
@@ -503,13 +513,16 @@ export function newCraftDay(s: CrafterState): CrafterState {
  * `craft`, one that helps at the bench). Null when the work uses none.
  */
 export function toolInUse(tools: readonly Tool[], action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): Tool | null {
-  const used = bestPerItem(tools).filter(t => {
-    const e = effects[t.item];
-    if (!e) return false;
-    if (action === 'craft') return (e.craftBonus ?? 0) > 0;
-    return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
-  });
+  const used = bestPerItem(tools).filter(t => toolServes(t, action, effects));
   return used.sort((a, b) => gradeIndex(b.grade) - gradeIndex(a.grade))[0] ?? null;
+}
+
+/** Does this tool's effects serve `action` (for `craft`, does it help at the bench)? */
+export function toolServes(t: Tool, action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): boolean {
+  const e = effects[t.item];
+  if (!e) return false;
+  if (action === 'craft') return (e.craftBonus ?? 0) > 0;
+  return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
 }
 
 /** A tool knocked about in an accident: the best copy of `item` drops one grade, and a crude one breaks. */
@@ -519,5 +532,7 @@ export function damageTool(tools: readonly Tool[], item: string): { tools: Tool[
   const i = tools.indexOf(best);
   if (best.grade === 'crude') return { tools: tools.filter((_, j) => j !== i), broke: true, grade: null };
   const grade = GRADES[gradeIndex(best.grade) - 1];
-  return { tools: tools.map((t, j) => (j === i ? { ...t, grade } : t)), broke: false, grade };
+  // The first knock records the grade it was made at (#1469) — what `crafted` is for: tending brings it back up,
+  // and an heirloom's lesson follows it. Nothing set it before, so road `tend` never had anything to mend.
+  return { tools: tools.map((t, j) => (j === i ? { ...t, grade, crafted: t.crafted ?? t.grade } : t)), broke: false, grade };
 }

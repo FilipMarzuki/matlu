@@ -186,9 +186,9 @@ function coldLine(s: Region1State): string | null {
   return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${s.site && s.coldPitAt === s.site ? ', cold pit' : ', no cold pit'}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
 }
 
-/** A tool, named by grade — and, while unlearned, what it still holds of its maker's knowledge (#1456). */
+/** A tool, named by grade — and, for an heirloom that hasn't taught yet, what it still holds of its maker's knowledge (#1456, #1469). */
 function toolLabel(t: Tool, taughtBy: readonly string[] | undefined): string {
-  const holds = t.made && !(taughtBy ?? []).includes(t.item)
+  const holds = t.heirloom && t.made && !(taughtBy ?? []).includes(t.item)
     ? Object.entries(t.made).filter(([, rank]) => rank > 0).map(([id, rank]) => `${id} ${rank}`).join(', ')
     : '';
   return `${t.item} (${t.grade}${holds ? `, holds ${holds}` : ''})`;

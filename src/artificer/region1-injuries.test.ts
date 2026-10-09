@@ -45,7 +45,8 @@ describe('Damaged tools and sprains (#1286)', () => {
     expect(runAction(grim(lost), 'gather').stores.rawFood).toBe(grim(lost).stores.rawFood);
     // The snare the gathering leans on drops a grade; a crude one breaks.
     const knocked = whoGets('damaged-tool', [snare]);
-    expect(runAction(grim(knocked, [snare]), 'gather').tools).toEqual([{ item: 'trap-snare', grade: 'crude' }]);
+    // …and remembers the grade it was made at (#1469), so tending can bring it back up.
+    expect(runAction(grim(knocked, [snare]), 'gather').tools).toEqual([{ item: 'trap-snare', grade: 'crude', crafted: 'sound' }]);
     expect(runAction(grim(knocked, [{ item: 'trap-snare', grade: 'crude' }]), 'gather').tools).toEqual([]);
     expect(runAction(grim(knocked, [{ item: 'trap-snare', grade: 'crude' }]), 'gather').log.some(l => /crude trap snare snaps/.test(l.text))).toBe(true);
     // With no tool in the work, the haul takes it instead.
