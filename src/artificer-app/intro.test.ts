@@ -42,8 +42,8 @@ describe('Arrival intro', () => {
     expect(introBeats(createRegion1()).flatMap(b => b.lines).join('\n')).not.toMatch(/Someone was here/);
   });
 
-  it('climbs Apprentice → Journeyman → Adept → Master', () => {
+  it('climbs Apprentice → Journeyman → Master by volume and depth (#1457)', () => {
     const at = (n: number) => artificerRank({ concepts: { a: { rank: n, insight: 0 } } });
-    expect([at(0), at(2), at(3), at(6), at(10)]).toEqual(['Apprentice', 'Apprentice', 'Journeyman', 'Adept', 'Master']);
+    expect([at(0), at(2), at(3), at(6), at(10)]).toEqual(['Apprentice', 'Apprentice', 'Journeyman', 'Journeyman', 'Master']);
   });
 });
