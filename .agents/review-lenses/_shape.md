@@ -11,10 +11,11 @@ hard: this PR was routed to you because a mistake here is expensive.
   lens, test each row's **Wrong if…** against the diff, and look for
   assumptions in your area that the author relied on but didn't list. A
   stated decision is a claim to check, not a reason to look away.
-- **Your review does not gate the merge.** It is a comment a human reads before
-  adding the `human-approved` label. A false alarm costs a minute; a missed bug
-  in this area costs a lot more. Still: no speculative findings without a
-  concrete way they go wrong.
+- **Your review gates the merge (#1481).** On a risk:high PR, any finding holds
+  the merge until a new commit, which is reviewed again. So a finding needs a
+  concrete way it goes wrong — no speculative ones, no style notes: a false
+  alarm costs a fix round, a missed bug in this area ships. Mention lesser
+  observations in your closing sentence, not as findings.
 
 ## Respond in exactly this shape
 

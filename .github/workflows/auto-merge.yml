@@ -2,8 +2,9 @@ name: DevCycle 4 — Merge
 
 # Squash-merges a PR after the Review agent completes — but only if the
 # PR has been approved. This ensures every merge goes through CI + Review.
-# Also started by DevCycle 3c with a PR number when a person adds
-# `human-approved` to a high-risk PR (#1431).
+# Also started by DevCycle 3c with a PR number when a medium- or high-risk
+# PR's model reviews have finished (#1481), so a merge isn't stranded when the
+# Review agent approved before they posted.
 on:
   workflow_run:
     workflows: ["DevCycle 3 — Review"]
@@ -14,6 +15,13 @@ on:
         description: 'PR number to merge if it passes every gate'
         required: true
         type: string
+
+# One merge run at a time (#1481): the Review agent's completion and DevCycle 3c
+# both start this, and two runs passing the gate at once would race to merge.
+# The second then finds the PR closed, and the gate holds it.
+concurrency:
+  group: devcycle-4-merge
+  cancel-in-progress: false
 
 jobs:
   auto-merge:
@@ -57,9 +65,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          APPROVED=$(gh api \
+          # Every page: a PR that went through several review rounds has more than 30 reviews.
+          # (The gate below checks the approval is the review agent's latest, on the head commit.)
+          APPROVED=$(gh api --paginate \
             "repos/${{ github.repository }}/pulls/${{ steps.find-pr.outputs.pr_number }}/reviews" \
-            --jq '[.[] | select(.state == "APPROVED")] | length')
+            --jq '.[] | select(.state == "APPROVED") | .id' | wc -l)
           echo "approved=$APPROVED" >> $GITHUB_OUTPUT
           if [ "$APPROVED" -gt 0 ]; then
             echo "PR #${{ steps.find-pr.outputs.pr_number }} is approved"
@@ -67,8 +77,9 @@ jobs:
             echo "PR #${{ steps.find-pr.outputs.pr_number }} is NOT approved — skipping merge"
           fi
 
-      # The merge gate (#1431): CI passed on the head commit, and a high-risk
-      # PR has `human-approved` from a person, added after its last commit.
+      # The merge gate (#1431, #1481): CI passed on the head commit, and the
+      # risk tier's review models agree on it — medium: the second opinion
+      # approves; high: + every focused lens finds nothing.
       # Scored here from main's rules rather than read from the risk:* label,
       # so a merge can't slip through before DevCycle 3c has labelled the PR.
       - uses: actions/checkout@v7
@@ -94,7 +105,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TRACKER_TOKEN }}
         run: |
           echo "Merging PR #${{ steps.find-pr.outputs.pr_number }}"
+          # Only the commit the gate checked: a push in between must go through CI and its reviews first.
           gh pr merge ${{ steps.find-pr.outputs.pr_number }} \
             --squash \
             --delete-branch \
+            --match-head-commit ${{ steps.risk.outputs.head_sha }} \
             --repo ${{ github.repository }}

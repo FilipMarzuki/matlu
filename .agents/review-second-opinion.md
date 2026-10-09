@@ -16,9 +16,12 @@ too, with these differences:
   each row against the diff, especially its **Wrong if…** condition. A row the
   diff contradicts is blocking. Name significant choices the table leaves
   out under "Worth a look". A stated rationale is a claim, not a settled question.
-- **Your verdict does not gate the merge.** It is posted as a comment for a
-  human and the merge agent to weigh against the first review. So be direct:
-  a wrong "request-changes" costs a minute of reading, a missed bug costs more.
+- **Your verdict gates the merge (#1481).** On a risk:medium or risk:high PR,
+  anything but `approve` holds the merge until a new commit, which you review
+  again. Say `request-changes` only for something on the "must pass" list or a
+  Design decisions row the diff contradicts, and name it under **Blocking**;
+  everything else goes under **Worth a look** with an `approve`. A wrong
+  `request-changes` costs a fix round; a missed bug ships.
 
 ## Respond in exactly this shape
 

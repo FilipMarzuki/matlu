@@ -16,7 +16,9 @@ export function globToRegex(glob: string): RegExp;
 export function scoreRisk(files: ChangedFile[], config: RiskConfig): RiskResult;
 export function loadRules(): RiskConfig;
 export const CI_WORKFLOW: string;
-export const HUMAN_LABEL: string;
-export interface Approval { actor: string; actorType: string; at: string }
-export function mergeGate(input: { tier: RiskResult['tier']; ciOk: boolean; approval: Approval | null; headAt?: string }): { merge: boolean; reason: string };
+export const REVIEW_BOT: string;
+export interface Review { commit_id: string; state?: string; submitted_at?: string; body?: string | null; user?: { login?: string; type?: string } | null }
+export interface TierReviews { agent: 'approved' | 'changes-requested' | null; second: string | null; focused: Record<string, number | null> }
+export function tierReviews(reviews: Review[], headSha: string): TierReviews;
+export function mergeGate(input: { tier: RiskResult['tier']; ciOk: boolean; open?: boolean; sameRepo?: boolean; lenses?: string[]; reviews?: TierReviews }): { merge: boolean; reason: string };
 export function parseNumstatZ(text: string): ChangedFile[];

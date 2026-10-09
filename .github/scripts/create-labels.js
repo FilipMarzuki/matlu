@@ -35,11 +35,10 @@ const LABELS = [
   { name: 'in-progress', color: '74d7c4', description: 'Currently being implemented' },
 
   // Review risk (#1431) — set on PRs by DevCycle 3c from .github/review-risk.json.
-  // `human-approved` is added by a person only; it lets DevCycle 4 merge a risk:high PR.
+  // The tier decides which review models must agree before a merge (#1481).
   { name: 'risk:low',       color: 'c2e0c6', description: 'Review risk: low — the review agent only' },
-  { name: 'risk:medium',    color: 'fbca04', description: 'Review risk: medium — plus a second-opinion model' },
-  { name: 'risk:high',      color: 'd93f0b', description: 'Review risk: high — focused reviews; merge waits for a human' },
-  { name: 'human-approved', color: '0e8a16', description: 'A person reviewed this high-risk PR and approves the merge' },
+  { name: 'risk:medium',    color: 'fbca04', description: 'Review risk: medium — the second-opinion model must approve too' },
+  { name: 'risk:high',      color: 'd93f0b', description: 'Review risk: high — plus focused reviews on a stronger model, which must find nothing' },
 
   // Triage extras — informational, applied alongside the readiness label.
   // `rework` feeds the weekly rework metric (collect-stats.js); `size:*` is the

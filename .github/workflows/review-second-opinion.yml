@@ -3,8 +3,9 @@ name: DevCycle 3b — Second opinion
 # A second PR review from a different model family, via OpenRouter. Manual
 # only since #1431: DevCycle 3c — Risk review now runs it automatically for
 # medium- and high-risk PRs. Use this to re-run it by hand. Posts a COMMENT
-# review only — it never approves or requests changes, so it can't gate the
-# merge; DevCycle 5 — Grooming and humans read it alongside the Claude review.
+# review whose verdict gates the merge of a medium- or high-risk PR (#1481):
+# the gate takes the worst verdict on the head commit, so a re-run here can
+# replace an unclear or failed review but not overrule a request-changes.
 #
 # Requires: secret OPENROUTER_API_KEY. Optional: variable SECOND_REVIEW_MODEL
 # (an OpenRouter model id, e.g. google/gemini-2.5-pro). Without the secret the
