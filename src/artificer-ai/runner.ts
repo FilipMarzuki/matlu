@@ -11,7 +11,7 @@ import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, queueHours, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { QUIRKS, isFear, type Quirk } from '../artificer/quirks';
@@ -272,6 +272,8 @@ export interface Turn {
   fright?: TurnFright;
   /** Places remembered and let go this turn, and those held at its end, by kind (#1381). */
   pins?: TurnPins;
+  /** A short plan asked about (#1473): the hours it filled, and the hours of the plan that then ran. */
+  fill?: { planned: number; then: number };
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -388,10 +390,47 @@ export interface PlayOptions {
    * playtests stay a fair picture of the game; off gives the world the sim tests use.
    */
   encounters?: boolean;
+  /**
+   * Ask once about a plan that leaves most of the day idle (#1473). Off by default, so the scripted
+   * and random baselines (and the random one's seeded choices) play as before; the scripts turn it
+   * on for model players.
+   */
+  fillDay?: boolean;
 }
 
 /** How many single actions a locked day asks for before it ends anyway (#1350). */
 const LOCKED_ASKS = 10;
+
+/**
+ * A plan filling fewer hours than this is asked about once (#1473). Llama 4 Maverick planned a
+ * median 5 of the day's 14 hours and froze around day 30; Haiku planned 12 and was ready for
+ * winter. A person sees the empty hour bar before ending the day; a model has to be told.
+ */
+export const FILL_MIN_HOURS = 8;
+
+/** How a run's short days went (#1473): how many were asked about, and how many the second answer filled. */
+export function fillTally(turns: readonly Turn[]): { asked: number; filled: number } {
+  const asked = turns.filter(t => t.fill);
+  return { asked: asked.length, filled: asked.filter(t => t.fill!.then >= FILL_MIN_HOURS).length };
+}
+
+/** Hours a day's plan would fill, rounded: the hours already used plus each action's own (with travel and weather). */
+export function plannedHours(s: Region1State, queue: readonly QueueItem[]): number {
+  return Math.round(queue.reduce((h, item) => h + queueHours(item, s), s.hoursToday));
+}
+
+/**
+ * The question for a short plan (#1473), or null when the plan isn't one: it fills under
+ * {@link FILL_MIN_HOURS}, has no rest in it (a light day on purpose), and the Warden has at least
+ * half their Vigor to spend (under that, a short day is sense, not waste). The model can fill the
+ * day or send the same plan again.
+ */
+export function fillQuestion(s: Region1State, queue: readonly QueueItem[], day: number): string | null {
+  const planned = plannedHours(s, queue);
+  const v = s.vitals.vigor, c = s.vitals.clarity;
+  if (planned >= FILL_MIN_HOURS || v.current < v.cap / 2 || queue.some(item => parseItem(item).id === 'rest')) return null;
+  return `Your plan for day ${day} fills about ${planned} of the ${DAY_HOURS} waking hours, leaving ${DAY_HOURS - planned} idle — hours you don't plan are simply lost. You have Vigor ${Math.round(v.current)}/${Math.round(v.cap)} and Clarity ${Math.round(c.current)}/${Math.round(c.cap)}. Add actions to use the day (READINESS and the WINTER OUTLOOK show what's short), or send the same plan again if a short day is what you want. Reply with only the JSON object for day ${day}.`;
+}
 
 function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn['after'] {
   return {
@@ -593,7 +632,17 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       continue;
     }
 
-    const d = parsed.decision;
+    let d = parsed.decision;
+    // A plan that leaves most of the day idle is asked about once (#1473). The answer replaces it
+    // if it parses; one that doesn't keeps the first plan, so the question never costs a day.
+    let fill: Turn['fill'];
+    const question = opts.fillDay ? fillQuestion(s, d.queue, day) : null;
+    if (question) {
+      const planned = plannedHours(s, d.queue);
+      const again = decideFor(s, await ask(question));
+      if (again.ok) d = again.decision;
+      fill = { planned, then: plannedHours(s, d.queue) };
+    }
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
     s = applyPinOrders(s, d);
@@ -620,7 +669,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     }
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
+    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, ...(fill ? { fill } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
     turns.push(t); opts.onTurn?.(t);
   }
 
