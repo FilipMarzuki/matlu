@@ -17,6 +17,7 @@
 
 import type { Inventory } from './Inventory';
 import type { HarvestSource, Recipe } from './ActionQueue';
+import { RANK_NAMES } from '../rank-names';
 
 /** The Workshop-Towns guild ranks (#1195), lowest first. Each one is an {@link Automation} level. */
 export type GuildRank = 'apprentice' | 'journeyman' | 'master' | 'artificer';
@@ -35,8 +36,9 @@ export interface Automation {
 }
 
 /**
- * The guild ranks (#1195), lowest first. The game is *Artificer: Convergence*, and its title
- * names the top rank. Each rank is how much the planner may do for you:
+ * The guild ranks (#1195), lowest first — the same four names as the artificer's concept-mastery
+ * rank (`RANK_NAMES`, #1457), so the two ladders can't drift apart again. The game is *Artificer:
+ * Convergence*, and its title names the top rank. Each rank is how much the planner may do for you:
  * - Apprentice: you do everything by hand; goals aren't offered.
  * - Journeyman: you know where the wood is; harvests happen for you, crafting doesn't.
  * - Master: you can plan a two-step job (one level of sub-goals).
@@ -45,10 +47,10 @@ export interface Automation {
 // Frozen: rankByName and the AUTOMATION_* aliases hand out these very objects, so one caller
 // changing one would change it for every queue and scene.
 export const GUILD_RANKS: readonly Readonly<Automation>[] = [
-  { rank: 'apprentice', label: 'Apprentice', mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
-  { rank: 'journeyman', label: 'Journeyman', mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
-  { rank: 'master', label: 'Master', mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
-  { rank: 'artificer', label: 'Artificer', mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
+  { rank: 'apprentice', label: RANK_NAMES[0], mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
+  { rank: 'journeyman', label: RANK_NAMES[1], mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
+  { rank: 'master', label: RANK_NAMES[2], mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
+  { rank: 'artificer', label: RANK_NAMES[3], mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
 ].map(r => Object.freeze(r as Automation));
 
 /**
