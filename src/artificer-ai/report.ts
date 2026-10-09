@@ -14,6 +14,8 @@ import { STAT_IDS, type Stats } from '../artificer/stats';
 /** The parts of a saved transcript the report reads (see scripts/ai-play.ts). */
 export interface Transcript {
   player: string;
+  /** The budget ran out at the thaw (#1449): the road wasn't played. */
+  roadStopped?: 'budget';
   start: Progress;
   turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[];
     encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean; state?: string; override?: { chosen: string; taken: string }; fearsGained?: string[] }[];

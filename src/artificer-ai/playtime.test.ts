@@ -35,6 +35,17 @@ describe('Playtime estimate (#1471)', () => {
     const added = (5 * p.roadDay + 10 * p.action + 3 * p.meetingStep + (100 / p.wpm) * 60) / 60;
     expect(minutesAt(playCounts(rode), p) - minutesAt(playCounts(base), p)).toBeCloseTo(added);
     expect(playCounts(rode)).toMatchObject({ roadDays: 5, roadActions: 10, meetingSteps: 3, words: 600 });
+    // Road encounters count with the Reach's.
+    const met: PlayRecord = { ...rode, road: { turns: [{ actions: [], encounters: [{}, {}] }] } };
+    expect(playCounts(met).encounters).toBe(1 + 2);
+  });
+
+  // A run the budget cut off at the thaw is only part of a game: left out of the summary.
+  it('leaves runs cut off at the thaw out of the summary', () => {
+    const whole: PlayRecord = { turns: reach(30, 3) };
+    const cut: PlayRecord = { turns: reach(30, 3), roadStopped: 'budget' };
+    expect(playtimeSummaryOf([whole, cut])).toEqual({ runs: 1, ...playtimeOf(whole) });
+    expect(playtimeSummaryOf([cut])).toBeNull();
   });
 
   // 3. The report gives each model the median, with the fast–careful range.

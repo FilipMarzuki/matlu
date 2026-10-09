@@ -44,6 +44,8 @@ export interface PlayRecord {
   turns: readonly { queue: readonly unknown[]; encounters?: readonly unknown[]; journal?: readonly string[] }[];
   road?: { turns: readonly { actions: readonly unknown[]; encounters?: readonly unknown[]; journal?: readonly string[] }[] };
   meeting?: { steps: readonly unknown[] };
+  /** The budget ran out at the thaw (#1449): the road wasn't played, so the run is only part of a game. */
+  roadStopped?: string;
 }
 
 /** What a person would have done in a run. */
@@ -88,7 +90,7 @@ export function playtimeOf(t: PlayRecord): Playtime {
   return { fast: Math.round(minutesAt(c, PACES.fast)), typical: Math.round(minutesAt(c, PACES.typical)), careful: Math.round(minutesAt(c, PACES.careful)) };
 }
 
-/** "38 min (22–70)" — typical, then the fast–careful range. Hours past 90 minutes. */
+/** "38 min (22 min–70 min)" — typical, then the fast–careful range; hours past 90 minutes ("1.7 h (52 min–2.9 h)"). */
 export function playtimeText(p: Playtime): string {
   const f = (m: number): string => (m >= 90 ? `${(m / 60).toFixed(1)} h` : `${m} min`);
   return `${f(p.typical)} (${f(p.fast)}–${f(p.careful)})`;
@@ -100,9 +102,14 @@ const median = (xs: readonly number[]): number => {
   return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
 };
 
-/** Over a model's runs: the median at each pace, and how many runs it covers. Null for no runs. */
+/**
+ * Over a set of runs: the median at each pace, and how many runs it covers. Runs the budget cut off
+ * at the thaw are left out — they're only part of a game, and would pull the median down. (Runs
+ * stopped mid-Reach never reach the report.) Null when no whole run is left.
+ */
 export function playtimeSummaryOf(runs: readonly PlayRecord[]): (Playtime & { runs: number }) | null {
-  if (!runs.length) return null;
-  const each = runs.map(playtimeOf);
-  return { runs: runs.length, fast: median(each.map(e => e.fast)), typical: median(each.map(e => e.typical)), careful: median(each.map(e => e.careful)) };
+  const whole = runs.filter(r => !r.roadStopped);
+  if (!whole.length) return null;
+  const each = whole.map(playtimeOf);
+  return { runs: whole.length, fast: median(each.map(e => e.fast)), typical: median(each.map(e => e.typical)), careful: median(each.map(e => e.careful)) };
 }

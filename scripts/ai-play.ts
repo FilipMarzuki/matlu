@@ -17,7 +17,7 @@
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
 
-import { playtimeOf, playtimeText } from '../src/artificer-ai/playtime';
+import { playtimeOf, playtimeSummaryOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
@@ -153,8 +153,9 @@ async function main(): Promise<void> {
     const u = r.usage;
     console.log(`  run ${i + 1}: ${r.record.kind.padEnd(10)} day ${String(r.record.day).padStart(2)} · ready ${r.record.readyDay ?? '—'} · invalid days ${r.turns.filter(t => t.invalid).length} · tokens in ${u.input} (cache read ${u.cacheRead}, write ${u.cacheWrite}) out ${u.output} · ${usd(u.cost)}`);
   }
-  // How long a person would take (#1471): typical per run, and the fast–careful range of the means.
-  if (results.length) { const pts = results.map(playtimeOf); const avg = (k: 'fast' | 'typical' | 'careful') => Math.round(pts.reduce((n, p) => n + p[k], 0) / pts.length); console.log(`  playtime: a person would take about ${playtimeText({ fast: avg('fast'), typical: avg('typical'), careful: avg('careful') })} per run (mean)`); }
+  // How long a person would take (#1471): the same median the report gives.
+  const pt = playtimeSummaryOf(results);
+  if (pt) console.log(`  playtime: a person would take about ${playtimeText(pt)} per run (median of ${pt.runs}${pt.runs < results.length ? `; ${results.length - pt.runs} cut off at the thaw left out` : ''})`);
   const known = results.filter(r => r.usage.cost !== null);
   if (known.length) console.log(`  spend: $${spent.toFixed(3)} total · $${(spent / known.length).toFixed(3)} per game${known.length < results.length ? ` (${results.length - known.length} run(s) didn't report cost)` : ''}`);
   if (crashes.length) { console.log(`\nCRASHES (${crashes.length}):`); for (const c of crashes) console.log(`  ${c}`); }
