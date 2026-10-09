@@ -23,6 +23,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipReason, contextSection } from './review-context.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -71,11 +72,36 @@ async function gh(pathname, { accept = 'application/vnd.github+json', method = '
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`GitHub ${method} ${pathname} → ${res.status}: ${await res.text()}`);
-  return accept.includes('diff') ? res.text() : res.json();
+  return accept.includes('diff') || accept.includes('raw') ? res.text() : res.json();
+}
+
+/**
+ * The PR's changed files for the prompt (#1483): each one's text at the head commit, or why it's
+ * left out. A file that can't be fetched is named, not fatal: the review still has the diff.
+ */
+async function changedFiles(pr) {
+  const files = [];
+  for (let page = 1; page <= 30; page++) {
+    const batch = await gh(`/pulls/${pr.number}/files?per_page=100&page=${page}`);
+    files.push(...batch);
+    if (batch.length < 100) break;
+  }
+  const entries = [];
+  for (const f of files) {
+    const skip = skipReason(f);
+    if (skip) { entries.push({ path: f.filename, skip }); continue; }
+    const at = f.filename.split('/').map(encodeURIComponent).join('/');
+    try {
+      entries.push({ path: f.filename, text: await gh(`/contents/${at}?ref=${pr.head.sha}`, { accept: 'application/vnd.github.raw' }) });
+    } catch (err) {
+      entries.push({ path: f.filename, skip: `couldn't be fetched (${String(err.message).slice(0, 80)})` });
+    }
+  }
+  return entries;
 }
 
 // ── Prompt ──────────────────────────────────────────────────────────────────
-function buildPrompt(pr, diff) {
+function buildPrompt(pr, diff, files = []) {
   const root = path.resolve(__dirname, '..', '..');
   const read = (...p) => fs.readFileSync(path.join(root, '.agents', ...p), 'utf8');
   // A focused review gets its lens and the findings shape; the second opinion
@@ -108,6 +134,8 @@ function buildPrompt(pr, diff) {
     '```diff',
     diffText,
     '```',
+    '',
+    contextSection(pr.head.sha, files),
   ].join('\n');
 }
 
@@ -142,7 +170,7 @@ async function review(prompt) {
 (async () => {
   const pr = await gh(`/pulls/${prNumber}`);
   const diff = await gh(`/pulls/${prNumber}`, { accept: 'application/vnd.github.diff' });
-  const prompt = buildPrompt(pr, diff);
+  const prompt = buildPrompt(pr, diff, await changedFiles(pr));
 
   if (dryRun) {
     console.log(`--- dry run: model=${model}, prompt ${prompt.length} chars ---\n`);

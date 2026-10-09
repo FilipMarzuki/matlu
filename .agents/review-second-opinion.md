@@ -7,8 +7,11 @@ too, with these differences:
 - **You cannot run commands.** Ignore every `gh ...` instruction above. The PR
   title, body, and unified diff are included below this message; that is all
   the context you get. Do not ask for more.
-- **You cannot read files.** Where the rules say "read at most 3 files for
-  context", judge from the diff alone and say so if context was missing.
+- **You cannot open files, but the changed ones are attached.** After the diff
+  comes each changed file in full at the head commit (#1483), within a size cap;
+  it lists any it left out. Where the rules say "read at most 3 files for
+  context", use those. If a judgement needs a file that isn't attached, say what
+  you'd need to see instead of guessing: a wrong `request-changes` holds the merge.
 - **Acceptance tests rule:** you can see whether the PR body has an
   "Acceptance tests" table and whether the diff adds matching test files and
   test names. Check that; you can't run them.
