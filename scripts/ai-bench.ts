@@ -13,6 +13,7 @@
  * then: npm run ai:report -- --in <that dir>
  */
 
+import { playtimeOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { playRun, BudgetExceeded, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
@@ -51,7 +52,7 @@ async function playModel(model: string): Promise<void> {
       results.push({ model, r });
       const { final: _final, ...saved } = r;
       writeFileSync(join(out, `${model.replace('/', '_')}-run${n}.json`), JSON.stringify(saved, null, 2));
-      console.log(`  ${model.padEnd(32)} game ${n}: ${r.record.kind.padEnd(8)} ready ${r.record.readyDay ?? '—'} · ${r.usage.cost === null ? 'cost ?' : `$${r.usage.cost.toFixed(3)}`} · total $${ledger.spent.toFixed(3)}`);
+      console.log(`  ${model.padEnd(32)} game ${n}: ${r.record.kind.padEnd(8)} ready ${r.record.readyDay ?? '—'} · ${r.usage.cost === null ? 'cost ?' : `$${r.usage.cost.toFixed(3)}`} · total $${ledger.spent.toFixed(3)} · a person: ${playtimeText(playtimeOf(r))}`);
     } catch (err) {
       if (err instanceof BudgetExceeded) {
         writeFileSync(join(out, `${model.replace('/', '_')}-run${n}-stopped.json`), JSON.stringify(err.partial, null, 2));
