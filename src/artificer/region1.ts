@@ -818,6 +818,21 @@ export const STUDY_CONCEPTS = (s: { concepts: Readonly<Record<string, ConceptPro
     .map(c => c.id),
 ];
 
+/**
+ * Why a focus can't turn this concept over now, or null (#1478): one the Warden hasn't come across
+ * (the study gate's rule), or one they've mastered — the insight would go nowhere. Checked when
+ * focus is set, when a save loads, on the AI's reply, and each night before insight lands.
+ */
+export function focusRefusal(s: { concepts: Readonly<Record<string, ConceptProgress>> }, id: string): string | null {
+  if (!STUDY_CONCEPTS(s).includes(id)) return `you haven't come across ${id} yet`;
+  if ((s.concepts[id]?.rank ?? 0) >= (CRAFT_WORLD.concepts[id]?.ranks ?? 3)) return `you've mastered ${id}`;
+  return null;
+}
+
+/** The concepts a focus can turn over now (#1478): open to this Warden, and not yet mastered. */
+export const FOCUS_OPEN = (s: { concepts: Readonly<Record<string, ConceptProgress>> }): readonly string[] =>
+  STUDY_CONCEPTS(s).filter(c => !focusRefusal(s, c));
+
 export const knows = (s: Region1State, r: CraftRecipe): boolean => s.known.includes(r.id);
 const unknownRecipe = (s: Region1State, r: CraftRecipe): string | null => (knows(s, r) ? null : `you haven't worked out how to make a ${r.name.toLowerCase()} yet`);
 
@@ -2545,7 +2560,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // Holding a focus costs a little of the mind each night; a focused concept was turned over all day.
   if (next.focus) {
     next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - FOCUS_COST);
-    if (next.focus.kind === 'concept' && !o.lockedToday) {
+    // Only a concept the Warden can turn over (#1478) — whatever path set the focus (a save, the road).
+    if (next.focus.kind === 'concept' && !o.lockedToday && !focusRefusal(next, next.focus.id)) {
       addInsight(next.concepts, next.focus.id, CONCEPT_PER_HOUR * hoursWorked * reliability(clarityAtDusk, se.unreliableBelow), CRAFT_WORLD.concepts);
     }
   }
@@ -2638,10 +2654,11 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
 /** Set (or clear, with null) what the mind is working on (#1238). Free: it costs no hours. */
 export function setFocus(s: Region1State, focus: Focus | null): Region1State {
   const next = clone(s);
-  // A concept can be turned over only once the Warden has come across it — the study gate's rule
+  // A concept can be turned over only once the Warden has come across it, and until it's mastered
   // (#1478). Refused, the focus stays what it was.
-  if (focus?.kind === 'concept' && !STUDY_CONCEPTS(s).includes(focus.id)) {
-    say(next, `You can't turn your mind to ${focus.id} — you haven't come across ${focus.id} yet.`, 'skip');
+  const why = focus?.kind === 'concept' ? focusRefusal(s, focus.id) : null;
+  if (why) {
+    say(next, `You can't turn your mind to ${focus!.id} — ${why}.`, 'skip');
     return next;
   }
   next.focus = focus;

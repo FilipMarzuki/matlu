@@ -11,7 +11,7 @@ import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, focusRefusal, FOCUS_OPEN, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { QUIRKS, isFear, type Quirk } from '../artificer/quirks';
@@ -114,11 +114,21 @@ export function pinOrderErrors(s: Region1State, d: Decision): string[] {
   return errors;
 }
 
-/** A day reply, parsed and checked against the state (its pin orders, #1381). */
+/**
+ * What's wrong with a reply's focus against this state (#1478): a concept the Warden can't turn over
+ * now. Shown back as an invalid reply, so the model hears it at once instead of in the journal.
+ */
+export function focusErrors(s: Region1State, d: Decision): string[] {
+  const f = d.focus ? parseFocus(d.focus) : null;
+  const why = f?.kind === 'concept' ? focusRefusal(s, f.id) : null;
+  return why ? [`focus: ${why} — concepts you can focus on now: ${FOCUS_OPEN(s).join(', ') || 'none'}`] : [];
+}
+
+/** A day reply, parsed and checked against the state (its pin orders, #1381, and its focus, #1478). */
 function decideFor(s: Region1State, text: string): ParseResult {
   const p = parseDecision(text);
   if (!p.ok) return p;
-  const errors = pinOrderErrors(s, p.decision);
+  const errors = [...pinOrderErrors(s, p.decision), ...focusErrors(s, p.decision)];
   return errors.length ? { ok: false, errors } : p;
 }
 

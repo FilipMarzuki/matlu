@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, STUDY_CONCEPTS,
+  readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
@@ -270,7 +270,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Lasting harms (#1392): what grave injuries left.
   if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${HARM_WORDS[h]})`).join(' · ')}`);
   const lock = survivalLockOf(s);
-  lines.push(`FOCUS: ${focusKey(s.focus)} · concepts open: ${STUDY_CONCEPTS(s).join(', ')}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
+  lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''} · concepts open: ${FOCUS_OPEN(s).join(', ') || 'none'}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
   lines.push(`SKILLS (self-assessed — your true level may differ): ${practised.length ? practised.map(id => `${id} ${LEVELS[perceivedLevel(s.skills, id)]}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);

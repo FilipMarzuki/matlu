@@ -10,9 +10,12 @@ import { describe, it, expect } from 'vitest';
 import { STEADY_WORLD } from './test-helpers';
 import { createRegion1, runAction, chooseSite, endDay, setFocus, STUDY_CONCEPTS, CRAFT_WORLD, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { parseFocus, focusKey } from './focus';
+import { parseFocus, focusKey, focusLabel } from './focus';
 import { parseDecision } from '../artificer-ai/decision';
 import { observe } from '../artificer-ai/observe';
+import { focusErrors } from '../artificer-ai/runner';
+import { newGame, serialize, deserialize } from '../artificer-app/controller';
+import registry from '../../public/macro-world/concepts.json';
 
 const fresh = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
 /** A roofed, fed and watered camp at nightfall, after a long day's work. */
@@ -56,6 +59,43 @@ describe('Focus follows the concept web (#1478)', () => {
     const root = join(__dirname, '..', '..');
     expect(existsSync(join(root, 'macro-world', 'concepts.json'))).toBe(false);
     expect(existsSync(join(root, 'public', 'macro-world', 'concepts.json'))).toBe(true);
-    expect(Object.keys(CRAFT_WORLD.concepts)).toHaveLength(34);
+    expect(Object.keys(CRAFT_WORLD.concepts)).toHaveLength(registry.concepts.length);
+  });
+
+  // Self-review: the same rule wherever a focus comes from.
+  it('refuses a mastered concept: its insight would go nowhere', () => {
+    const base = fresh();
+    const s = { ...base, concepts: { ...base.concepts, sealing: { rank: 2, insight: 0 } } }; // sealing caps at 2
+    const after = setFocus(s, parseFocus('concept:sealing'));
+    expect(after.focus).toBeNull();
+    expect(after.log.at(-1)?.text).toMatch(/you've mastered sealing/);
+  });
+
+  it('drops a stored focus the Warden can’t turn over when a save loads', () => {
+    const a = newGame();
+    const raw = JSON.parse(serialize({ ...a, sim: { ...a.sim, focus: { kind: 'concept', id: 'friction' } } }));
+    expect(deserialize(JSON.stringify(raw))?.sim.focus).toBeNull();
+    const ok = JSON.parse(serialize({ ...a, sim: { ...a.sim, focus: { kind: 'concept', id: 'joinery' } } }));
+    expect(deserialize(JSON.stringify(ok))?.sim.focus).toEqual({ kind: 'concept', id: 'joinery' });
+  });
+
+  it('teaches nothing at night through a focus set around the gate', () => {
+    // As a save or the road could hand it over: friction, which nothing has shown this Warden.
+    const s = camp({ focus: { kind: 'concept', id: 'friction' } });
+    expect(endDay(s).concepts.friction?.insight ?? 0).toBe(0);
+  });
+
+  it('tells the AI at once, as an invalid reply, which concepts it can focus on', () => {
+    const d = (focus: string) => ({ thoughts: '', focus, site: null, queue: [] });
+    expect(focusErrors(fresh(), d('concept:friction'))).toEqual([
+      "focus: you haven't come across friction yet — concepts you can focus on now: joinery, tension, sealing, leverage, sharpening, weaving",
+    ]);
+    expect(focusErrors(fresh(), d('concept:joinery'))).toEqual([]);
+    expect(focusErrors(fresh(), d('goal:larder'))).toEqual([]);
+  });
+
+  it('names web concepts as the registry does', () => {
+    expect(focusLabel({ kind: 'concept', id: 'gear-train' })).toBe('Gear Train');
+    expect(focusLabel({ kind: 'concept', id: 'joinery' })).toBe('Joinery');
   });
 });

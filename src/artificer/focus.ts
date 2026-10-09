@@ -31,6 +31,8 @@ export const GOAL_IDS = Object.keys(GOALS) as GoalId[];
  * they've met — is checked when focus is set (`setFocus`), by the same rule as study.
  */
 export const FOCUS_CONCEPTS: readonly string[] = conceptsRegistry.concepts.map(c => c.id);
+/** Concept names as the registry gives them ("Gear Train", not "Gear-train"). */
+const CONCEPT_NAMES: Readonly<Record<string, string>> = Object.fromEntries(conceptsRegistry.concepts.map(c => [c.id, c.name]));
 
 /** What the locked mind works on instead: staying alive. */
 export const SURVIVAL_ACTIONS: readonly ActionId[] = ['water', 'gather', 'hunt', 'wood', 'build', 'preserve'];
@@ -79,7 +81,7 @@ export function focusLabel(f: Focus | null): string {
   if (!f) return 'None';
   if (f.kind === 'goal') return GOALS[f.id].name;
   if (f.kind === 'skill') return SKILLS[f.id].name;
-  return f.id[0].toUpperCase() + f.id.slice(1);
+  return CONCEPT_NAMES[f.id] ?? f.id[0].toUpperCase() + f.id.slice(1);
 }
 
 /** 1 when the mind is clear enough to hold focus; 0.5 when frayed. Willpower moves the threshold (#1256). */
