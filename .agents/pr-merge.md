@@ -124,7 +124,7 @@ For each PR in the planned order:
 
 ### If mergeable (clean):
 ```bash
-gh pr merge <number> --squash --delete-branch
+gh pr merge <number> --squash --delete-branch --match-head-commit <head sha the gate checked>
 ```
 
 ### If conflicting (dirty) after a prior merge shifted main:
@@ -141,7 +141,9 @@ If conflicts arise during rebase:
 2. Run `npm run typecheck` to verify the resolution compiles.
 3. `git add <files> && git rebase --continue`
 4. `git push --force-with-lease origin <branch>`
-5. Then merge: `gh pr merge <number> --squash --delete-branch`
+5. **Don't merge it in this run.** The rebased commit hasn't had CI or its
+   tier's reviews; they run on the push, and DevCycle 4 merges it once the gate
+   passes on the new head.
 
 If you cannot resolve a conflict confidently, skip the PR and note it in
 the summary as "needs manual rebase".

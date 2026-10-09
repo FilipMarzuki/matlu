@@ -302,7 +302,7 @@ No PR merges without a review pass, and the depth of review scales with the PR's
 | `risk:medium` | agent instructions, sim code, large diffs | + a second opinion from another model family (`REVIEW_MODEL_MEDIUM`) says `approve` |
 | `risk:high` | seeded RNG / golden hashes, save format, CI workflows, build config, Supabase, paid-API scripts | + one focused review per lens (`.agents/review-lenses/`: determinism, saves, general) on a stronger model (`REVIEW_MODEL_HIGH`) finds nothing |
 
-The models' verdicts count on the head commit only: a new commit re-runs the reviews. A held PR's reviews can be re-run with `workflow_dispatch` on *DevCycle 3c* (PR number).
+The verdicts count on the head commit only, and the review agent must approve that commit too. A new commit re-runs the reviews. Re-running *DevCycle 3c* (`workflow_dispatch`, PR number) replaces an unclear or failed review, but a `request-changes` or a finding holds until a new commit.
 
 "Merge it" means, in order:
 

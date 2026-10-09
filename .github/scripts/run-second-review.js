@@ -175,6 +175,8 @@ async function review(prompt) {
 
   // COMMENT, never APPROVE / REQUEST_CHANGES: GitHub's review state stays the
   // review agent's; the merge gate (risk-score.mjs, #1481) reads this body's marker.
-  await gh(`/pulls/${prNumber}/reviews`, { method: 'POST', body: { event: 'COMMENT', body } });
+  // Pinned to the commit whose diff the model read (#1481): posted unpinned, GitHub stamps the
+  // review on whatever the head is by now, and the gate would count it for a newer commit.
+  await gh(`/pulls/${prNumber}/reviews`, { method: 'POST', body: { event: 'COMMENT', body, commit_id: pr.head.sha } });
   console.log(`Posted ${focus ? `focused (${focus})` : 'second-opinion'} review on #${prNumber} (${usedModel}, ${verdict}).`);
 })().catch((err) => { console.error(err); process.exit(1); });

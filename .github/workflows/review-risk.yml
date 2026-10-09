@@ -178,10 +178,11 @@ jobs:
           SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_HIGH || 'openai/gpt-5' }}
         run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }} --focus ${{ matrix.lens }}
 
-  # The tier's reviews are in (#1481): ask DevCycle 4 to merge. It checks the
-  # review agent's approval and runs the gate itself, so a PR whose models
-  # disagree, or whose review agent hasn't finished, is held there — and when
-  # the review agent finishes later, its own completion starts DevCycle 4 again.
+  # The tier's reviews are in (#1481): ask DevCycle 4 to merge. Its gate checks
+  # that the review agent approves the head commit and the tier's models agree,
+  # so a PR whose models disagree, or whose review agent hasn't finished, is held
+  # there — and when the review agent finishes later, its own completion starts
+  # DevCycle 4 again.
   merge-check:
     needs: [score, second-opinion, focused]
     if: >
@@ -193,6 +194,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # A review that failed leaves the gate waiting for it: say so, rather than hold in silence.
+      - name: Note a failed review
+        if: needs.second-opinion.result == 'failure' || needs.focused.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/issues/${{ needs.score.outputs.pr_number }}/comments" \
+            -f body="A model review (second opinion: ${{ needs.second-opinion.result }}, focused: ${{ needs.focused.result }}) failed, so the merge gate is waiting for it. Re-run *DevCycle 3c — Risk review* with this PR number (Actions → workflow_dispatch)."
       - name: Start DevCycle 4 — Merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

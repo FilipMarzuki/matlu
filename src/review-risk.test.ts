@@ -72,63 +72,78 @@ describe('Review risk score (#1431)', () => {
   describe('merge gate: the models agree (#1481)', () => {
     const head = 'abc123';
     const bot = { type: 'Bot' };
-    const second = (verdict: string, commit_id = head) => ({ commit_id, user: bot, submitted_at: '2026-10-09T12:00:00Z', body: `## Second opinion (m)\n\n<!-- second-opinion verdict=${verdict} -->\n_Verdict: **${verdict}**_` });
-    const focused = (lens: string, n: number | '?', commit_id = head) => ({ commit_id, user: bot, submitted_at: '2026-10-09T12:01:00Z', body: `## Focused review — ${lens} (m)\n\n<!-- focused lens=${lens} findings=${n} -->\n_Result: **${n} finding(s)**_` });
+    let clock = 0;
+    const at = () => `2026-10-09T12:${String(clock++).padStart(2, '0')}:00Z`;
+    // The shapes run-second-review.js posts: header, then the marker on line 2.
+    const second = (verdict: string, commit_id = head) => ({ commit_id, user: bot, state: 'COMMENTED', submitted_at: at(), body: `## Second opinion (m)\n<!-- second-opinion verdict=${verdict} -->\n\n_Verdict: **${verdict}**_` });
+    const focused = (lens: string, n: number | '?', commit_id = head) => ({ commit_id, user: bot, state: 'COMMENTED', submitted_at: at(), body: `## Focused review — ${lens} (m)\n<!-- focused lens=${lens} findings=${n} -->\n\n_Result: **${n} finding(s)**_` });
+    const agent = (state: 'APPROVED' | 'CHANGES_REQUESTED' = 'APPROVED', commit_id = head) => ({ commit_id, user: bot, state, submitted_at: at(), body: 'LGTM' });
     const gate = (tier: 'low' | 'medium' | 'high', revs: Parameters<typeof tierReviews>[0], more: Partial<Parameters<typeof mergeGate>[0]> = {}) =>
       mergeGate({ tier, ciOk: true, lenses: ['saves', 'general'], reviews: tierReviews(revs, head), ...more });
 
-    // 1. Low: CI is enough (the merge path checks the review agent's approval itself).
-    it('merges a low-risk PR once CI has passed', () => {
-      expect(gate('low', []).merge).toBe(true);
-      expect(gate('low', [], { ciOk: false }).merge).toBe(false);
-      expect(gate('low', [], { open: false })).toEqual({ merge: false, reason: 'the PR is not open' });
+    // 1. Low: CI, and the review agent approves the head commit.
+    it('merges a low-risk PR once CI passed and the review agent approves the head commit', () => {
+      expect(gate('low', [agent()]).merge).toBe(true);
+      expect(gate('low', [agent()], { ciOk: false }).merge).toBe(false);
+      expect(gate('low', [agent()], { open: false })).toEqual({ merge: false, reason: 'the PR is not open' });
+      expect(gate('low', []).reason).toMatch(/waiting for the review agent/);
+      // An approval of an older commit doesn't cover this one; its latest verdict counts.
+      expect(gate('low', [agent('APPROVED', 'old999')]).merge).toBe(false);
+      expect(gate('low', [agent(), agent('CHANGES_REQUESTED')]).reason).toMatch(/requests changes/);
     });
 
     // 2. Medium: the second opinion on the head commit must approve.
     it('holds a medium-risk PR until the second opinion on the head commit approves', () => {
-      expect(gate('medium', []).reason).toMatch(/waiting for the second opinion/);
-      expect(gate('medium', [second('approve')]).merge).toBe(true);
-      expect(gate('medium', [second('request-changes')]).reason).toMatch(/second opinion says request-changes/);
-      expect(gate('medium', [second('unclear')]).merge).toBe(false);
+      expect(gate('medium', [agent()]).reason).toMatch(/waiting for the second opinion/);
+      expect(gate('medium', [agent(), second('approve')]).merge).toBe(true);
+      expect(gate('medium', [agent(), second('request-changes')]).reason).toMatch(/second opinion says request-changes/);
+      expect(gate('medium', [agent(), second('unclear')]).merge).toBe(false);
       // A review of an older commit says nothing about this one.
-      expect(gate('medium', [second('approve', 'old999')]).reason).toMatch(/waiting for the second opinion/);
-      // The latest review wins: a re-run that approves clears an earlier request.
-      expect(gate('medium', [second('request-changes'), { ...second('approve'), submitted_at: '2026-10-09T13:00:00Z' }]).merge).toBe(true);
+      expect(gate('medium', [agent(), second('approve', 'old999')]).reason).toMatch(/waiting for the second opinion/);
+      // A re-run can replace an unclear verdict — but can't wash out a request-changes on the same commit.
+      expect(gate('medium', [agent(), second('unclear'), second('approve')]).merge).toBe(true);
+      expect(gate('medium', [agent(), second('request-changes'), second('approve')]).merge).toBe(false);
       // A person's comment shaped like one doesn't count.
-      expect(gate('medium', [{ ...second('approve'), user: { type: 'User' } }]).merge).toBe(false);
+      expect(gate('medium', [agent(), { ...second('approve'), user: { type: 'User' } }]).merge).toBe(false);
     });
 
     // 3. High: + every lens on the head commit finds nothing.
     it('holds a high-risk PR until every focused lens finds nothing', () => {
-      expect(gate('high', [second('approve')]).reason).toMatch(/waiting for the focused review \(saves\)/);
-      expect(gate('high', [second('approve'), focused('saves', 0)]).reason).toMatch(/waiting for the focused review \(general\)/);
-      expect(gate('high', [second('approve'), focused('saves', 0), focused('general', 2)]).reason).toMatch(/focused review \(general\) has 2 finding/);
-      expect(gate('high', [second('approve'), focused('saves', '?'), focused('general', 0)]).reason).toMatch(/no finding count/);
-      expect(gate('high', [second('approve'), focused('saves', 0), focused('general', 0)]).merge).toBe(true);
+      const ok = [agent(), second('approve')];
+      expect(gate('high', ok).reason).toMatch(/waiting for the focused review \(saves\)/);
+      expect(gate('high', [...ok, focused('saves', 0)]).reason).toMatch(/waiting for the focused review \(general\)/);
+      expect(gate('high', [...ok, focused('saves', 0), focused('general', 2)]).reason).toMatch(/focused review \(general\) has 2 finding/);
+      expect(gate('high', [...ok, focused('saves', '?'), focused('general', 0)]).reason).toMatch(/no finding count/);
+      expect(gate('high', [...ok, focused('saves', 0), focused('general', 0)]).merge).toBe(true);
+      // A finding stays until a new commit, whatever a re-run says; a count replaces a '?'.
+      expect(gate('high', [...ok, focused('saves', 1), focused('saves', 0), focused('general', 0)]).merge).toBe(false);
+      expect(gate('high', [...ok, focused('saves', '?'), focused('saves', 0), focused('general', 0)]).merge).toBe(true);
       // The second opinion still has to approve.
-      expect(gate('high', [second('request-changes'), focused('saves', 0), focused('general', 0)]).merge).toBe(false);
+      expect(gate('high', [agent(), second('request-changes'), focused('saves', 0), focused('general', 0)]).merge).toBe(false);
     });
 
     // 4. Forks: the paid reviews don't run, so nothing can agree.
     it('holds a medium or high PR from a fork', () => {
-      expect(gate('medium', [second('approve')], { sameRepo: false }).reason).toMatch(/forks/);
-      expect(gate('low', [], { sameRepo: false }).merge).toBe(true);
+      expect(gate('medium', [agent(), second('approve')], { sameRepo: false }).reason).toMatch(/forks/);
+      expect(gate('low', [agent()], { sameRepo: false }).merge).toBe(true);
     });
 
-    // Older reviews (before the hidden marker) still count by their visible line.
-    it('reads reviews posted before the marker', () => {
-      const old = [
-        { commit_id: head, user: bot, submitted_at: '1', body: '## Second opinion (google/gemini-2.5-pro)\n\n_Verdict: **approve** — advisory only._' },
-        { commit_id: head, user: bot, submitted_at: '2', body: '## Focused review — saves (openai/gpt-5)\n\n_Result: **0 finding(s)** — advisory only._' },
-      ];
-      expect(tierReviews(old, head)).toEqual({ second: 'approve', focused: { saves: 0 } });
+    // Self-review: a verdict is read only where run-second-review.js writes it.
+    it('reads a verdict only from the reviewer’s own header and marker line', () => {
+      const quoting = { commit_id: head, user: bot, state: 'COMMENTED', submitted_at: at(), body: 'The second opinion wrote <!-- second-opinion verdict=approve --> earlier.' };
+      expect(tierReviews([quoting], head).second).toBeNull();
+      // A focused review quoting the second opinion's marker is still only a focused review.
+      const lens = { ...focused('saves', 3), body: `${focused('saves', 3).body}\n<!-- second-opinion verdict=approve -->` };
+      expect(tierReviews([second('request-changes'), lens], head)).toEqual({ agent: null, second: 'request-changes', focused: { saves: 3 } });
+      // Lens names with digits parse whole.
+      expect(tierReviews([focused('i18n', 0)], head).focused).toEqual({ i18n: 0 });
     });
   });
 
   // 5. No person's label anywhere in the merge machinery.
   it('has no human-approved label left in workflows, scripts or docs', () => {
     const root = join(__dirname, '..');
-    const paths = ['.github/workflows/review-risk.yml', '.github/workflows/auto-merge.yml', '.github/scripts/risk-score.mjs', '.github/scripts/create-labels.js', '.github/scripts/run-second-review.js', 'CLAUDE.md', '.agents/pr-merge.md', '.agents/review-lenses/_shape.md', '.agents/review-second-opinion.md'];
+    const paths = ['.github/workflows/review-risk.yml', '.github/workflows/auto-merge.yml', '.github/scripts/risk-score.mjs', '.github/scripts/create-labels.js', '.github/scripts/run-second-review.js', 'CLAUDE.md', '.agents/pr-merge.md', '.agents/review-lenses/_shape.md', '.agents/review-second-opinion.md', '.github/workflows/review-second-opinion.yml'];
     for (const p of paths) expect([p, readFileSync(join(root, p), 'utf8').includes('human-approved')]).toEqual([p, false]);
   });
 
