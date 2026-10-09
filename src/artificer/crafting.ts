@@ -222,7 +222,7 @@ export interface QualityInput {
   benchTier: number;
   /** {@link toolBonus}, 0..2. */
   tools: number;
-  /** Your best rank among the recipe's concepts, 0..3. */
+  /** Mean rank across the recipe's concepts, 0..3 — may be fractional for multi-concept recipes. */
   conceptRank: number;
   /** The recipe's tier; anything past tier 1 is harder. */
   recipeTier: number;
@@ -368,6 +368,13 @@ export function bestConceptRank(s: CrafterState, recipe: CraftRecipe): number {
   return Math.max(0, ...(recipe.concepts ?? []).map(c => rankOf(s.concepts, c)));
 }
 
+/** Mean rank across a recipe's concepts (0 if it has none): mastery means knowing all of them, not just one. */
+export function meanConceptRank(s: CrafterState, recipe: CraftRecipe): number {
+  const concepts = recipe.concepts ?? [];
+  if (concepts.length === 0) return 0;
+  return concepts.reduce((sum, c) => sum + rankOf(s.concepts, c), 0) / concepts.length;
+}
+
 /**
  * Why this recipe can't be attempted right now, or null if it can. Refusals
  * are free — nothing is spent. Concept gate: the recipe's explicit
@@ -410,7 +417,7 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
   if (reason) return { state: s, result: { kind: 'refused', reason } };
 
   const next = clone(s);
-  const rank = bestConceptRank(s, recipe);
+  const rank = meanConceptRank(s, recipe);
   const grade = craftGrade({ band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: rank, recipeTier: recipe.tier });
 
   // The session's cost — your tools can make bench work itself cheaper.
