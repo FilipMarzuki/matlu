@@ -1,0 +1,18 @@
+{
+  "_doc": "Vendor shop inventories for Core Warden. Each vendor lists item IDs from item-registry.json plus a shop-specific cost. ShopScene.ts looks up name/icon/description/effect from the registry entry — editing this file is enough to add or reprice a shop item, no TS changes needed.",
+  "vendors": {
+    "strandviken": [
+      { "itemId": "heal-small", "cost": 8 },
+      { "itemId": "heal-large", "cost": 18 }
+    ],
+    "skogsglanten": [
+      { "itemId": "heal-small", "cost": 8 },
+      { "itemId": "heal-large", "cost": 18 },
+      { "itemId": "cleanse-boost", "cost": 22 }
+    ],
+    "klippbyn": [
+      { "itemId": "heal-large", "cost": 18 },
+      { "itemId": "cleanse-boost", "cost": 22 }
+    ]
+  }
+}

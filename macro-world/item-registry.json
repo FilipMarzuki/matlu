@@ -1230,7 +1230,9 @@
       "category": "consumable",
       "stackMax": 1,
       "playerObtainable": false,
-      "icon": null
+      "icon": null,
+      "shopEffect": "cleanse_pct",
+      "shopValue": 5
     },
     {
       "id": "cooked-meal",
@@ -1271,7 +1273,9 @@
       "category": "consumable",
       "stackMax": 1,
       "playerObtainable": false,
-      "icon": null
+      "icon": null,
+      "shopEffect": "heal",
+      "shopValue": 60
     },
     {
       "id": "heal-small",
@@ -1279,7 +1283,9 @@
       "category": "consumable",
       "stackMax": 1,
       "playerObtainable": false,
-      "icon": null
+      "icon": null,
+      "shopEffect": "heal",
+      "shopValue": 25
     },
     {
       "id": "healing-salve",
