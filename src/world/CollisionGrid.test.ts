@@ -3,7 +3,7 @@
  * Pure-TypeScript, no Phaser or browser globals required.
  */
 import { describe, it, expect } from 'vitest';
-import { bufferShoreline, blockTreeFootprint } from './CollisionGrid';
+import { bufferShoreline, blockTreeFootprint, roadOverlayVisible } from './CollisionGrid';
 import type { IntGridLayer } from './MapData';
 
 /** 5x5 biome grid; `water` lists (tx, ty) cells that are water (value 0). Every other cell is land (value 1). */
@@ -83,5 +83,38 @@ describe('blockTreeFootprint', () => {
     const walkGrid = new Uint8Array(25);
     expect(() => blockTreeFootprint(walkGrid, 5, 5, 4, 4, 'mature')).not.toThrow();
     expect(walkGrid[4 * 5 + 4]).toBe(1); // trunk still blocked
+  });
+});
+
+describe('roadOverlayVisible', () => {
+  // Road runs along ty=2 from tx=0..4; the bridge sits at (2,2). Tiles
+  // (1,2) and (3,2) are the banks immediately beside the bridge — the ones
+  // #931 reports as a gap when the Biome layer marks them as water.
+  const isRoad = (tx: number, ty: number) => ty === 2 && tx >= 0 && tx <= 4;
+  const isBridgeTile = (tx: number, ty: number) => tx === 2 && ty === 2;
+
+  it('given a bank tile beside the bridge classified as water, when checking overlay visibility, then it renders', () => {
+    const isWater = (tx: number, ty: number) => tx === 1 && ty === 2;
+    expect(roadOverlayVisible(1, 2, isRoad, isWater, isBridgeTile)).toBe(true);
+  });
+
+  it('given a water-classified road tile not adjacent to any bridge tile, when checking overlay visibility, then it stays hidden', () => {
+    const isWater = (tx: number, ty: number) => tx === 0 && ty === 2;
+    expect(roadOverlayVisible(0, 2, isRoad, isWater, isBridgeTile)).toBe(false);
+  });
+
+  it('given an ordinary land road tile, when checking overlay visibility, then it renders', () => {
+    const isWater = () => false;
+    expect(roadOverlayVisible(4, 2, isRoad, isWater, isBridgeTile)).toBe(true);
+  });
+
+  it('given the bridge tile itself, when checking overlay visibility, then it stays hidden (bridge renders separately)', () => {
+    const isWater = (tx: number, ty: number) => tx === 2 && ty === 2;
+    expect(roadOverlayVisible(2, 2, isRoad, isWater, isBridgeTile)).toBe(false);
+  });
+
+  it('given a tile that is not on the road at all, when checking overlay visibility, then it stays hidden', () => {
+    const isWater = () => false;
+    expect(roadOverlayVisible(1, 3, isRoad, isWater, isBridgeTile)).toBe(false);
   });
 });
