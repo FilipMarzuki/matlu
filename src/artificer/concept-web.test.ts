@@ -5,12 +5,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, ACTIONS, CRAFT_WORLD, STUDY_CONCEPTS } from './region1';
+import { createRegion1, runAction, ACTIONS, CRAFT_WORLD, STUDY_CONCEPTS, type Region1State } from './region1';
 import { addInsight, type ConceptProgress } from './crafting';
 
 const REGION_1_CONCEPTS = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
 
-const conceptChoices = (s: Parameters<typeof ACTIONS.study.options>[0]): string[] =>
+const conceptChoices = (s: Region1State): string[] =>
   (ACTIONS.study.options?.(s, {}) ?? []).find(g => g.key === 'concept')?.choices.map(c => c.value) ?? [];
 
 describe('Concept web (#1459)', () => {
@@ -32,7 +32,7 @@ describe('Concept web (#1459)', () => {
 
   // 3. Meeting the prerequisites opens the concept, and it appears among the study options.
   it('opens a concept once its prerequisites are met, and lists it as a study option', () => {
-    const s: ReturnType<typeof createRegion1> = {
+    const s: Region1State = {
       ...createRegion1(),
       concepts: { friction: { rank: 1, insight: 0 }, rotation: { rank: 1, insight: 0 } },
     };

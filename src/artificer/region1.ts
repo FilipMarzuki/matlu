@@ -40,7 +40,8 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
+import conceptsRegistry from '../../macro-world/concepts.json';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -742,7 +743,7 @@ export const COLD_GEAR_RECIPE: CraftRecipe = {
 const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone', 'hides'] as const;
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
 // Carrying gear (#1294) does its work in load.ts, but it's still a graded tool you own — so it gets an (empty) effects entry.
-export const CRAFT_WORLD = craftWorld([], [], {
+export const CRAFT_WORLD = craftWorld([], conceptsRegistry.concepts as ConceptDef[], {
   ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] },
   basket: { unlock: ['carry'] }, backpack: { unlock: ['carry'] }, harness: { unlock: ['carry'] }, sled: { unlock: ['carry'] },
 });
@@ -795,8 +796,19 @@ export const DISCOVERIES: readonly { recipe: string; name: string; concept: stri
   { recipe: 'sled', name: 'Sled', concept: 'leverage', trigger: s => (s.snowDepth ?? 0) > 0 || RINGS.some(r => level(s.explore, r, 'stone') >= 2), how: 'dragged, not carried — runners would take the heavy loads' },
 ];
 
-/** The concepts you can study, and what rank 1 in each reveals. */
-export const STUDY_CONCEPTS: readonly string[] = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
+/** The six concepts every Warden starts open on; the rest of the web opens by prerequisite. */
+const REGION_1_CONCEPTS: readonly string[] = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
+
+/**
+ * The concepts open to study: the six Region 1 ones, plus any concept in the
+ * wider web whose prerequisites this Warden has met.
+ */
+export const STUDY_CONCEPTS = (s: { concepts: Readonly<Record<string, ConceptProgress>> }): readonly string[] => [
+  ...REGION_1_CONCEPTS,
+  ...Object.values(CRAFT_WORLD.concepts)
+    .filter(c => !REGION_1_CONCEPTS.includes(c.id) && c.requires?.length && conceptOpen(s.concepts, c))
+    .map(c => c.id),
+];
 
 export const knows = (s: Region1State, r: CraftRecipe): boolean => s.known.includes(r.id);
 const unknownRecipe = (s: Region1State, r: CraftRecipe): string | null => (knows(s, r) ? null : `you haven't worked out how to make a ${r.name.toLowerCase()} yet`);
@@ -1012,7 +1024,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   study: {
     name: 'Study', hours: 3, vigorRate: 0, clarityRate: 0,
     gate: (s, _r, o) => studyConcept(crafterOf(s), o.concept ?? 'joinery', CRAFT_WORLD).reason ?? null,
-    options: (s, o) => [choiceGroup('concept', 'Concept', o.concept ?? 'joinery', STUDY_CONCEPTS.map(c => {
+    options: (s, o) => [choiceGroup('concept', 'Concept', o.concept ?? 'joinery', STUDY_CONCEPTS(s).map(c => {
       const reveals = DISCOVERIES.filter(d => d.concept === c && !s.known.includes(d.recipe)).map(d => d.name.toLowerCase());
       return { value: c, label: c[0].toUpperCase() + c.slice(1), note: `rank ${s.concepts[c]?.rank ?? 0}${reveals.length ? ` · rank 1 reveals ${reveals.join(', ')}` : ''}`, blocked: null };
     }))],
