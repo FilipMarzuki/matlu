@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { summarizeRun, bestRun, canContinue, type RunRecord } from './legacy';
+import { summarizeRun, bestRun, type RunRecord } from './legacy';
 
 function camp(over: Partial<Region1State> = {}): Region1State {
   let s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
@@ -47,7 +47,5 @@ describe('Collapse and death (#1234)', () => {
     const collapsed = { ...rec, run: 3, kind: 'collapsed' } as RunRecord;
     expect(bestRun([rec, collapsed])?.kind).toBe('collapsed');
     expect(bestRun([rec, collapsed, grim])?.kind).toBe('grim');
-    // Death ends the character: nothing can be carried on from it (#1242).
-    expect(canContinue(s)).toBe(false);
   });
 });

@@ -5,7 +5,7 @@
  *   npm run ai:play -- --player openrouter  [--model anthropic/claude-haiku-4.5]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
- *   options: --runs N (default 1) --carry (each run keeps the last run's knowledge)
+ *   options: --runs N (default 1) --carry (each run starts with the last run's tools, #1455)
  *            --road (a run that survives the thaw rides the caravan road to Mistheim, #1251)
  *            --out DIR (default ai-runs) --quiet
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
@@ -24,7 +24,7 @@ import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
-import { legacyOf, legacyOfRoad, canContinue } from '../src/artificer/legacy';
+import { heirloomsOf } from '../src/artificer/legacy';
 import { parseStatSpread, randomSpread, spreadText } from '../src/artificer-ai/spreads';
 import { validPick, TALENT_PICKS, TALENT_IDS, talentOffer, seedOf, pickRandomFromOffer, type TalentId } from '../src/artificer/talents';
 
@@ -71,22 +71,21 @@ async function main(): Promise<void> {
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
     if (!quiet) console.log(`\n▶ Run ${n}/${runs} — ${player.name}`);
-    // Each run is its own Warden (#1267) — unless --carry continues the last one who lived.
-    // A run that rode the road ended there (#1251): that's what decides whether the Warden lived, and what carries.
+    // Each run is its own Warden (#1267, #1455). With --carry, the new one starts with the last
+    // one's heirlooms: the tools it ended with, wherever it ended (#1251: the road, if it rode).
     const lastEnd = carry?.road?.final ?? carry?.final;
-    const continuing = has('carry') && lastEnd && canContinue(lastEnd);
-    const characterId = continuing ? lastEnd!.character.id : aiCharacterId(player.name, `s${seed}-r${n}`);
+    const characterId = aiCharacterId(player.name, `s${seed}-r${n}`);
     // The random baseline picks a random pair from its offer (seeded); others ask for --talents, else take the first two.
     const wanted = which === 'random' && !talents.length ? pickRandomFromOffer(talentOffer(seedOf(characterId)), seed + n - 1) : talents as TalentId[];
-    if (!quiet && !continuing) {
+    if (!quiet) {
       const offer = talentOffer(seedOf(characterId));
       if (talents.length && !talents.every(t => offer.includes(t as TalentId))) console.log(`  (--talents ${talents.join(',')} not both offered — offer was ${offer.join(', ')}; taking the first two)`);
     }
     let result: RunResult;
     try {
       result = await playRun(player, {
-      // Same rule as the game (#1242): only a character who lived goes on with what they learned.
-      legacy: continuing ? (carry!.road ? legacyOfRoad(carry!.road.final) : legacyOf(carry!.final)) : undefined,
+      // Same rule as the game (#1455): the items pass on, the mind doesn't.
+      legacy: has('carry') && lastEnd ? heirloomsOf(lastEnd) : undefined,
       characterId,
       talents: wanted,
       // One ledger for the whole batch (#1449): the runner checks it before every model call.

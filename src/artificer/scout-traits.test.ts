@@ -106,8 +106,9 @@ describe('Growing up (#1399)', () => {
     expect(birthdayLine(STRONG, 13)).toMatch(/^You're 13 now — taller than last winter, and /);
     expect(birthdayLine(STRONG, 18)).toBe("You're 18 now — grown, and as strong as you'll be.");
     expect(birthdayLine(STRONG, 19)).toBeNull();
-    // Carrying on in the app: the adult stats go on, not the young ones.
-    expect(newRun(done).sim.character).toMatchObject({ age: 13, adult: STRONG, stats: grownStats(STRONG, 13) });
+    // The game's next run is someone new (#1455): 12 again, and not this one's build.
+    expect(newRun(done).sim.character.age).toBe(12);
+    expect(newRun(done).sim.character.adult).not.toEqual(STRONG);
   });
 
   // 5. Ten hours of practice: twelve while young, ten for an adult.

@@ -106,8 +106,9 @@ describe('Talents (#1263)', () => {
   it('carries talents to the next run and the road', () => {
     const talents: Talent[] = [known('forager', 2), known('hardy'), { id: 'tough', tier: 3, known: false }];
     const done = { ...warden(talents), character: { ...warden().character, id: 'w-vega', talents }, outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
-    expect(newRun(done).sim.character.talents).toEqual(talents);
     expect(createRegion1({}, legacyOf(done)).character.talents).toEqual(talents);
+    // The game's next run is someone new (#1455): talents of their own.
+    expect(newRun(done).sim.character.talents).not.toEqual(talents);
     const rode = { ...done, outcome: { choice: 'thaw' as const, kind: 'survived' as const, grade: 'hale' as const, vitals: createVitals() } };
     expect(createRoad(rode).character.talents).toEqual(talents);
   });

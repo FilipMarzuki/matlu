@@ -40,7 +40,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -280,6 +280,11 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const pack = who.pack ?? legacy?.pack;
   const packed = pack ? startFromPack(pack) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
+  // What this Warden packed, and what the last one left for them (#1455) — less anything the pack already matches or beats.
+  const packTools: Tool[] = packed ? packed.tools.map(t => ({ ...t })) : [];
+  const left: Tool[] = (legacy?.heirlooms ?? [])
+    .filter(h => !packTools.some(p => p.item === h.item && GRADES.indexOf(p.grade) >= GRADES.indexOf(h.grade)))
+    .map(t => ({ ...t, heirloom: true }));
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -297,7 +302,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     milestones: [],
     // Someone who has done this before remembers how to plan; a fresh Warden learns it (#1350).
     canPlan: config.planning !== 'learned' || SKILL_IDS.some(id => skillLevel(legacy?.skills ?? {}, id) >= 1),
-    tools: packed ? packed.tools.map(t => ({ ...t })) : [],
+    tools: [...packTools, ...left],
     ...(packed ? { kit: { ...packed.kit, items: [...packed.kit.items] }, ...(packed.dressings ? { dressings: packed.dressings } : {}) } : {}),
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
@@ -326,20 +331,23 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   };
   // Today's weather, and what Weather sense tells of the next two days (#1282).
   dawnWeather(s);
-  // A new run that keeps what the last Warden learned: recipes and concept
+  // What the last Warden left (#1455): their tools, found where they were. The game's own
+  // next run carries only these; the knowledge below is the older, same-character carry.
+  if (left.length) say(s, `Someone was here before you. Left for you: ${heirloomList(left)}.`, 'milestone');
+  // A run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
   if (legacy?.marks) s.marks = legacy.marks;
   if (legacy?.contacts?.length) s.contacts = [...legacy.contacts];
   if (legacy?.met) s.met = { ...legacy.met };
-  if (legacy) {
+  if (legacy && (legacy.known.length || Object.keys(legacy.concepts).length)) {
     for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
     for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
     const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
     say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
-    // A year on (#1399): what grew.
-    const grew = age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
-    if (grew) say(s, grew, 'milestone');
   }
+  // A year on (#1399): what grew.
+  const grew = legacy && age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
+  if (grew) say(s, grew, 'milestone');
   return s;
 }
 
@@ -814,7 +822,8 @@ const craftGate = (r: CraftRecipe, extra?: (s: Region1State) => string | null) =
   if (unknown) return unknown;
   const pre = extra?.(s) ?? null;
   if (pre) return pre;
-  const owned = s.tools.find(t => t.item === r.output.item && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
+  // An heirloom (#1455) doesn't count: making your own is how you learn, and the line shouldn't freeze at what the first Warden made.
+  const owned = s.tools.find(t => t.item === r.output.item && !t.heirloom && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
   if (owned) return `you already have a ${owned.grade} ${r.name.toLowerCase()}`;
   return craftBlocker(crafterOf(s), r);
 };
@@ -1802,8 +1811,8 @@ export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
   const old = s.kit ? startFromPack(s.kit.items) : null;
   const p = startFromPack(pack);
   const next = clone(s);
-  // On the first morning, the tools are the pack's.
-  next.tools = p.tools.map(t => ({ ...t }));
+  // On the first morning, the tools are the pack's — and what the last Warden left (#1455), which no repacking touches.
+  next.tools = [...p.tools.map(t => ({ ...t })), ...s.tools.filter(t => t.heirloom).map(t => ({ ...t }))];
   next.stores.rations += p.stores.rations - (old?.stores.rations ?? 0);
   next.stores.materials += p.stores.materials - (old?.stores.materials ?? 0);
   next.dressings = p.dressings || undefined;

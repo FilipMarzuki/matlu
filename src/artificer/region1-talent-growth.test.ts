@@ -80,8 +80,9 @@ describe('Talent growth (#1264)', () => {
   it('carries growth and tiers over', () => {
     const grown = [t('hardy', 2, 40), t('forager', 3, 160, false)];
     const done = { ...warden(grown), character: { ...warden(grown).character, id: 'w-vega' }, outcome: { choice: 'winter' as const, kind: 'grim' as const, vitals: createVitals() } };
-    expect(newRun(done).sim.character.talents).toEqual(grown);
     expect(createRegion1({}, legacyOf(done)).character.talents).toEqual(grown);
+    // The game's next run is someone new (#1455): their own talents, ungrown.
+    expect(newRun(done).sim.character.talents).not.toEqual(grown);
     expect(createRoad({ ...done, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals: createVitals() } }).character.talents).toEqual(grown);
   });
 

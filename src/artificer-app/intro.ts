@@ -7,12 +7,10 @@
  */
 
 import type { Region1State } from '../artificer/region1';
-import { artificerRank, conceptRanks } from '../artificer/rank';
+import { artificerRank } from '../artificer/rank';
+import { heirloomList } from '../artificer/legacy';
 
 export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
-
-/** Fresh = a brand-new Warden; carry = a new run that kept what the last one learned. */
-export type IntroKind = 'fresh' | 'carry';
 
 /**
  * One screen of the intro.
@@ -31,30 +29,11 @@ export interface Beat {
 const CLOSING: Beat = { kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] };
 
 /** The intro's beats for a Warden about to start `s`. */
-export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
+export function introBeats(s: Region1State): Beat[] {
   const daysToSnow = s.config.calendar.winterDay - s.day;
   const rank = artificerRank(s).toUpperCase();
-
-  if (kind === 'carry') {
-    const ranks = conceptRanks(s);
-    return [
-      { kind: 'narration', portal: true, lines: ['The seam opens again.', 'You know this fall now — you brace before you land.'] },
-      {
-        kind: 'voice',
-        lines: [
-          '⟨ RETURNING ARTIFICER — CYCLE ' + run + ' ⟩',
-          ...(s.character.name ? [`Welcome back, ${s.character.name}.`] : []),
-          `Knowledge retained: ${s.known.length} recipes${ranks ? `, ${ranks} concept rank${ranks === 1 ? '' : 's'}` : ''}.`,
-          `RANK: ${rank}`,
-          `Winter arrives in ${daysToSnow} days.`,
-          'Survive it until the thaw.',
-        ],
-      },
-      // The same weekend, again (#1401): pack for it, starting from last time's pack.
-      { kind: 'pack', lines: ['Friday afternoon — that Friday, again. The patrol is heading out for the weekend hike.', 'What do you pack this time?'] },
-      CLOSING,
-    ];
-  }
+  // What the last Warden left (#1455): one run each, and the tools pass on.
+  const left = s.tools.filter(t => t.heirloom);
 
   return [
     { kind: 'narration', portal: true, lines: ['A seam opens in the air.', 'Light folds inward — and you fall through it.'] },
@@ -63,6 +42,7 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
     { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
     { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
     { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
+    ...(left.length ? [{ kind: 'voice' as const, lines: ['Someone was here before you.', `They left: ${heirloomList(left)}.`] }] : []),
     // Before any of this (#1401): the weekend hike, and what you packed for it.
     { kind: 'pack', lines: ['Friday afternoon, before any of this. Your patrol was heading out for a weekend hike in the forest — two nights, back on Sunday.', 'What did you pack?'] },
     CLOSING,

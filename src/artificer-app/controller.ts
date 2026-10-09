@@ -10,8 +10,8 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
-import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
+import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
+import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
@@ -56,27 +56,30 @@ const MAX_DAYS_PER_RUN = 60;
 /** A fresh character id. App-level (not in the sim) because it needs randomness; the sim stays deterministic. */
 export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-/** A brand-new Warden: a new character, knowing nothing. */
-export function newGame(): AppState {
-  // A new Warden learns to plan as they go (#1350).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: newCharacterId(), background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK] }), queue: [], stage: 'reach' };
+/**
+ * A Warden's first day from a spec, with whatever `legacy` leaves them (#1455). The one place the
+ * app makes a sim: a new game, and the creation screen's remake from the draft, both come here,
+ * so what a legacy seeds can't be dropped by one and kept by the other.
+ */
+export function makeWarden(who: WardenSpec, legacy?: Legacy): AppState {
+  // A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with the leader's packing list (#1400).
+  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
 }
+
+/** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
+export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharacterId() }, legacy);
 
 /**
- * Start the next run. If `from` is a resolved run whose character lived, that
- * same character goes on — same id, name, portrait, stats and talents — keeping what
- * they learned (#1242). Otherwise (no run, unfinished, or the character died)
- * it's a new Warden with nothing carried.
+ * Start the next run (#1455): one run per Warden, so whoever comes next is someone new —
+ * and they find what the last one left. `from` is the resolved run, in the Reach or on the
+ * road, whose tools pass on as heirlooms; nothing of the mind goes with a stranger. No run,
+ * or one still going: a plain new Warden with nothing.
  */
 export function newRun(from?: Region1State | RoadState): AppState {
-  if (!from || !canContinue(from)) return newGame();
-  const c = from.character;
-  // A run that rode the road carries its marks and contacts too (#1250).
-  const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: legacy.stats ?? c.adult ?? c.stats }), queue: [], stage: 'reach' };
+  return newGame(from?.outcome ? heirloomsOf(from) : undefined);
 }
 
-/** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
+/** Where the run ended up: the road once it has begun, else the Reach. What `newRun` takes the heirlooms from. */
 export const currentRun = (a: AppState): Region1State | RoadState => (a.stage === 'road' && a.road ? a.road : a.sim);
 
 // ── The caravan road (#1250) ────────────────────────────────────────────────

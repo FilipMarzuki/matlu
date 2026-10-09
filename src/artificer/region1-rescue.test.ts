@@ -7,7 +7,6 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, RESCUE_WITHIN, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { canContinue } from './legacy';
 
 /** A fed and watered Warden in a cave camp on `day`, at Condition 0: tonight they collapse. */
 function spent(day: number): Region1State {
@@ -37,13 +36,12 @@ describe('Collapse in the wilderness (#1323)', () => {
     const s = endDay(spent(58));
     expect(s.outcome).toMatchObject({ kind: 'collapsed', choice: 'collapse' });
     expect(last(s)).toMatch(/caravan's traders/);
-    expect(canContinue(s)).toBe(true);
     // A day earlier, the caravan is still too far off.
     expect(endDay(spent(57)).outcome?.kind).toBe('died');
   });
 
-  // 4. Death by collapse ends the character.
-  it('ends the character after a collapse no one finds', () => {
-    expect(canContinue(endDay(spent(45)))).toBe(false);
+  // 4. A collapse no one finds is death.
+  it('ends the run in death after a collapse no one finds', () => {
+    expect(endDay(spent(45)).outcome?.kind).toBe('died');
   });
 });
