@@ -52,6 +52,12 @@ describe('Changed files in full for the paid reviewers (#1483)', () => {
     expect(skipReason({ filename: 'package-lock.json', status: 'modified' })).toBe('lockfile');
     expect(skipReason({ filename: 'public/assets/sprites/fox/idle.png', status: 'added' })).toBe('binary');
     expect(skipReason({ filename: 'public/assets/sprite-manifest.json', status: 'modified' })).toBe('generated');
+    // Files that hold credentials when they exist: only their diff goes out, never the whole file.
+    for (const f of ['.env', '.env.local', 'wiki/.env.production', '.npmrc', 'certs/server.pem', 'deploy/id_ed25519', 'keys/app.p12']) {
+      expect([f, skipReason({ filename: f, status: 'modified' })]).toEqual([f, expect.stringMatching(/^may hold credentials/)]);
+    }
+    expect(skipReason({ filename: '.env.example', status: 'modified' })).toBeNull();
+    expect(skipReason({ filename: 'src/keyboard.ts', status: 'modified' })).toBeNull();
     const big = 'x'.repeat(FILE_CAP_BYTES + 1);
     const text = contextSection(sha, [
       { path: 'package-lock.json', skip: 'lockfile' },

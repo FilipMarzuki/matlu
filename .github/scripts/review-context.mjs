@@ -24,6 +24,10 @@ export const MAX_LISTED = 50;
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|skills-lock\.json)$/;
 const BINARY = /\.(png|jpe?g|gif|webp|ico|bmp|svgz|mp3|ogg|wav|m4a|flac|woff2?|ttf|otf|zip|gz|tgz|pdf|psd|aseprite|glb|bin)$/i;
 const GENERATED = /(^|\/)(dist|build|node_modules)\/|\.min\.(js|css)$|(^|\/)[\w-]*manifest\.json$/;
+// Files that hold credentials when they exist at all (env files, keys, certificates, auth rc files).
+// The repo is public, so anything committed is already readable; this keeps it that way if it ever
+// goes private. Templates like `.env.example` hold no secrets and go in.
+const CREDENTIALS = /(^|\/)(\.env(\.(?!example$)[^/]+)?|\.npmrc|\.netrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519))$|\.(pem|key|p12|pfx|jks|keystore|crt|cer|der|gpg)$/i;
 
 /**
  * Why a changed file isn't attached in full, or null when it is. `file` is a GitHub PR-files
@@ -32,6 +36,7 @@ const GENERATED = /(^|\/)(dist|build|node_modules)\/|\.min\.(js|css)$|(^|\/)[\w-
  */
 export function skipReason(file) {
   if (file.status === 'removed') return 'removed (its diff shows what went)';
+  if (CREDENTIALS.test(file.filename)) return 'may hold credentials (only its diff goes to the reviewer)';
   if (LOCKFILE.test(file.filename)) return 'lockfile';
   if (BINARY.test(file.filename)) return 'binary';
   if (GENERATED.test(file.filename)) return 'generated';
