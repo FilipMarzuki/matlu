@@ -22,7 +22,7 @@ export const MAX_FILES = 40;
 export const MAX_LISTED = 50;
 
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|skills-lock\.json)$/;
-const BINARY = /\.(png|jpe?g|gif|webp|ico|bmp|svgz|mp3|ogg|wav|m4a|flac|woff2?|ttf|otf|zip|gz|tgz|pdf|psd|aseprite|glb|bin)$/i;
+const BINARY = /\.(png|jpe?g|gif|webp|avif|heic|ico|bmp|svgz|mp3|ogg|wav|m4a|flac|mp4|webm|mov|woff2?|ttf|otf|zip|gz|tgz|tar|7z|rar|bz2|xz|br|pdf|psd|kra|aseprite|glb|wasm|bin|jar|apk|aab|class|so|dll|exe)$/i;
 const GENERATED = /(^|\/)(dist|build|node_modules)\/|\.min\.(js|css)$|(^|\/)[\w-]*manifest\.json$/;
 // Files that hold credentials when they exist at all (env files, keys, certificates, auth rc files).
 // The repo is public, so anything committed is already readable; this keeps it that way if it ever
@@ -61,16 +61,24 @@ export function noRoom(acc, { totalCap = TOTAL_CAP_BYTES, maxFiles = MAX_FILES }
 }
 
 /**
- * Tally a file of `size` bytes that was read: null if it goes in, else why not. Every file read
- * counts towards MAX_FILES, attached or not. The script keeps the same tally while fetching that
+ * A binary file the name didn't give away (the BINARY list can't name every format): read as
+ * text, it has a NUL byte or bytes that aren't UTF-8 (decoded as U+FFFD), as git judges it.
+ */
+const looksBinary = (text) => /[\u0000\uFFFD]/.test(text);
+
+/**
+ * Tally a file that was read (`text`): null if it goes in, else why not. Every file read counts
+ * towards MAX_FILES, attached or not. The script keeps the same tally while fetching that
  * contextSection keeps while laying out, so the two agree on what goes in.
  */
-export function admit(acc, size, caps = {}) {
+export function admit(acc, text, caps = {}) {
   const fileCap = caps.fileCap ?? FILE_CAP_BYTES;
   const totalCap = caps.totalCap ?? TOTAL_CAP_BYTES;
   const full = noRoom(acc, caps);
   if (full) return full;
   acc.count += 1;
+  if (looksBinary(text)) return 'binary';
+  const size = Buffer.byteLength(text, 'utf8');
   if (size > fileCap) return `${kb(size)} KB, over the ${kb(fileCap)} KB cap per file`;
   if (acc.bytes + size > totalCap) return `over the ${kb(totalCap)} KB total for files in full`;
   acc.bytes += size;
@@ -96,7 +104,7 @@ export function contextSection(sha, entries, caps = {}) {
   const left = [];
   const acc = { count: 0, bytes: 0 };
   for (const e of entries) {
-    const why = e.skip ?? admit(acc, Buffer.byteLength(e.text, 'utf8'), caps);
+    const why = e.skip ?? admit(acc, e.text, caps);
     if (why) { left.push(`- \`${shown(e.path)}\` — ${why}`); continue; }
     const fence = fenceFor(e.text);
     attached.push(`### ${shown(e.path)}\n\n${fence}${langOf(e.path)}\n${e.text.endsWith('\n') ? e.text : `${e.text}\n`}${fence}`);

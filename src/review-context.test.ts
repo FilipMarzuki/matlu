@@ -19,8 +19,8 @@ function fetchLoop(n: number, read: (i: number) => string) {
     fetches++;
     try {
       const text = read(i);
-      admit(acc, Buffer.byteLength(text, 'utf8'));
-      return { path: f.filename, text };
+      const why = admit(acc, text);
+      return why ? { path: f.filename, skip: why } : { path: f.filename, text };
     } catch (err) {
       acc.count += 1;
       return { path: f.filename, skip: `couldn't be fetched (${String((err as Error).message).replace(/\s+/g, ' ').slice(0, 80)})` };
@@ -57,6 +57,12 @@ describe('Changed files in full for the paid reviewers (#1483)', () => {
       expect([f, skipReason({ filename: f, status: 'modified' })]).toEqual([f, expect.stringMatching(/^may hold credentials/)]);
     }
     expect(skipReason({ filename: '.env.example', status: 'modified' })).toBeNull();
+    // A binary the name gives away isn't even read; one it doesn't is caught by its bytes, as git does.
+    expect(skipReason({ filename: 'art/hero.kra', status: 'added' })).toBe('binary');
+    const odd = contextSection(sha, [{ path: 'art/hero.xcf', text: 'gimp xcf v011\u0000\u0000\u0001' }, { path: 'art/b.dat', text: 'PK\u0003\u0004\uFFFD\uFFFD' }]);
+    expect(odd).toContain('- `art/hero.xcf` — binary');
+    expect(odd).toContain('- `art/b.dat` — binary');
+    expect(odd).not.toMatch(/^### /m);
     expect(skipReason({ filename: 'src/keyboard.ts', status: 'modified' })).toBeNull();
     const big = 'x'.repeat(FILE_CAP_BYTES + 1);
     const text = contextSection(sha, [

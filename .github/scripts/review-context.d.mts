@@ -6,6 +6,6 @@ export const MAX_LISTED: number;
 type Caps = { fileCap?: number; totalCap?: number; maxFiles?: number; maxListed?: number };
 type Tally = { count: number; bytes: number };
 export function noRoom(acc: Tally, caps?: Caps): string | null;
-export function admit(acc: Tally, size: number, caps?: Caps): string | null;
+export function admit(acc: Tally, text: string, caps?: Caps): string | null;
 export function skipReason(file: { filename: string; status?: string }): string | null;
 export function contextSection(sha: string, entries: ({ path: string; text: string } | { path: string; skip: string })[], caps?: Caps): string;

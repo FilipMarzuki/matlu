@@ -95,8 +95,9 @@ async function changedFiles(pr) {
     const at = f.filename.split('/').map(encodeURIComponent).join('/');
     try {
       const text = await gh(`/contents/${at}?ref=${pr.head.sha}`, { accept: 'application/vnd.github.raw' });
-      admit(acc, Buffer.byteLength(text, 'utf8'));
-      entries.push({ path: f.filename, text });
+      // Keep the text only if it goes in: 40 big files held for nothing would be a lot of memory.
+      const why = admit(acc, text);
+      entries.push(why ? { path: f.filename, skip: why } : { path: f.filename, text });
     } catch (err) {
       acc.count += 1; // a failed read is still a request
       entries.push({ path: f.filename, skip: `couldn't be fetched (${String(err.message).replace(/\s+/g, ' ').slice(0, 80)})` });
