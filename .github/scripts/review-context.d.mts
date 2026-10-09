@@ -2,7 +2,8 @@
 export const FILE_CAP_BYTES: number;
 export const TOTAL_CAP_BYTES: number;
 export const MAX_FILES: number;
-type Caps = { fileCap?: number; totalCap?: number; maxFiles?: number };
+export const MAX_LISTED: number;
+type Caps = { fileCap?: number; totalCap?: number; maxFiles?: number; maxListed?: number };
 type Tally = { count: number; bytes: number };
 export function noRoom(acc: Tally, caps?: Caps): string | null;
 export function admit(acc: Tally, size: number, caps?: Caps): string | null;

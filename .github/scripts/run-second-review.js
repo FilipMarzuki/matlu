@@ -98,7 +98,8 @@ async function changedFiles(pr) {
       admit(acc, Buffer.byteLength(text, 'utf8'));
       entries.push({ path: f.filename, text });
     } catch (err) {
-      entries.push({ path: f.filename, skip: `couldn't be fetched (${String(err.message).slice(0, 80)})` });
+      acc.count += 1; // a failed read is still a request
+      entries.push({ path: f.filename, skip: `couldn't be fetched (${String(err.message).replace(/\s+/g, ' ').slice(0, 80)})` });
     }
   }
   return entries;
