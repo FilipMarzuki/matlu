@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
+import { ACTIONS, focusRefusal, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -478,9 +478,12 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const character = isObj(ch) && typeof ch.name === 'string'
     ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
-  // …and saves from before focus (#1238) have none; a stored focus is re-validated.
+  // …and saves from before focus (#1238) have none; a stored focus is re-validated — a concept
+  // only if this Warden can still turn it over (#1478).
   const f = sim.focus;
-  const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  const savedConcepts = (isObj(sim.concepts) ? sim.concepts : {}) as Region1State['concepts'];
+  const focus = parsed?.kind === 'concept' && focusRefusal({ concepts: savedConcepts }, parsed.id) ? null : parsed;
   // …and saves from before techniques/manuals (#1243) start with none.
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
   // …and saves from before the living world (#1279) play the full world.

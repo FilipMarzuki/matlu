@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -26,7 +26,7 @@ import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat } from './intro';
 import { portraitById, portraitStyle } from './portraits';
-import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
+import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
@@ -370,7 +370,8 @@ function focusBlock(s: AppState['sim']): string {
     `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
   const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
   const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises 3x as fast')).join('');
-  const concepts = FOCUS_CONCEPTS.map(c => chip(`concept:${c}`, c[0].toUpperCase() + c.slice(1), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
+  // The concepts open to this Warden and not yet mastered (#1478): the six, and the web as it opens.
+  const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
   return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. Water, food, wood and shelter work goes better; learning waits until it passes.</p>` : ''}
     <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${statEffects(s.character.stats).unreliableBelow} Clarity it's halved.</p>
     <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
