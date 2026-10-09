@@ -23,7 +23,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { skipReason, contextSection } from './review-context.mjs';
+import { skipReason, contextSection, noRoom, admit } from './review-context.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +78,7 @@ async function gh(pathname, { accept = 'application/vnd.github+json', method = '
 /**
  * The PR's changed files for the prompt (#1483): each one's text at the head commit, or why it's
  * left out. A file that can't be fetched is named, not fatal: the review still has the diff.
+ * Fetching stops once nothing more could go in (the same tally contextSection keeps).
  */
 async function changedFiles(pr) {
   const files = [];
@@ -87,12 +88,15 @@ async function changedFiles(pr) {
     if (batch.length < 100) break;
   }
   const entries = [];
+  const acc = { count: 0, bytes: 0 };
   for (const f of files) {
-    const skip = skipReason(f);
+    const skip = skipReason(f) ?? noRoom(acc);
     if (skip) { entries.push({ path: f.filename, skip }); continue; }
     const at = f.filename.split('/').map(encodeURIComponent).join('/');
     try {
-      entries.push({ path: f.filename, text: await gh(`/contents/${at}?ref=${pr.head.sha}`, { accept: 'application/vnd.github.raw' }) });
+      const text = await gh(`/contents/${at}?ref=${pr.head.sha}`, { accept: 'application/vnd.github.raw' });
+      admit(acc, Buffer.byteLength(text, 'utf8'));
+      entries.push({ path: f.filename, text });
     } catch (err) {
       entries.push({ path: f.filename, skip: `couldn't be fetched (${String(err.message).slice(0, 80)})` });
     }

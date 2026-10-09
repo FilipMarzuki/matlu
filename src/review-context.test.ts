@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { skipReason, contextSection, FILE_CAP_BYTES } from '../.github/scripts/review-context.mjs';
+import { skipReason, contextSection, noRoom, admit, FILE_CAP_BYTES, TOTAL_CAP_BYTES, MAX_FILES } from '../.github/scripts/review-context.mjs';
 
 const sha = 'c0243029abcdef';
 
@@ -46,6 +46,30 @@ describe('Changed files in full for the paid reviewers (#1483)', () => {
     const capped = contextSection(sha, [{ path: 'a.ts', text: 'aaaa' }, { path: 'b.ts', text: 'bbbb' }], { fileCap: 10, totalCap: 6 });
     expect(capped).toContain('### a.ts');
     expect(capped).toMatch(/- `b\.ts` — over the \d+ KB total for files in full/);
+  });
+
+  // Each file is a request in each review job, against the repo's hourly API limit: a PR with
+  // hundreds of files fetches only what can go in, and the fetch loop and the layout agree.
+  it('fetches at most MAX_FILES files for a huge PR', () => {
+    const files = Array.from({ length: 300 }, (_, i) => ({ filename: `src/f${i}.ts`, status: 'modified' }));
+    // The script's loop (run-second-review.js changedFiles), with a counting fake fetch.
+    let fetches = 0;
+    const acc = { count: 0, bytes: 0 };
+    const entries = files.map((f) => {
+      const skip = skipReason(f) ?? noRoom(acc);
+      if (skip) return { path: f.filename, skip };
+      fetches++;
+      const text = `export const v = ${fetches};\n`;
+      admit(acc, Buffer.byteLength(text, 'utf8'));
+      return { path: f.filename, text };
+    });
+    expect(fetches).toBe(MAX_FILES);
+    const text = contextSection(sha, entries);
+    expect(text.match(/^### /gm)).toHaveLength(MAX_FILES);
+    expect(text).toContain(`- \`src/f${MAX_FILES}.ts\` — past the ${MAX_FILES} files attached in full`);
+    // The total stops fetching too: once it's spent, nothing more is fetched.
+    expect(noRoom({ count: 1, bytes: TOTAL_CAP_BYTES })).toMatch(/total for files in full/);
+    expect(noRoom({ count: 1, bytes: 10 })).toBeNull();
   });
 
   // 3. A removed file: only its diff.

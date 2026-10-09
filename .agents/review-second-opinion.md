@@ -5,8 +5,8 @@ wrote this PR. The review rules above (from `.agents/review.md`) apply to you
 too, with these differences:
 
 - **You cannot run commands.** Ignore every `gh ...` instruction above. The PR
-  title, body, and unified diff are included below this message; that is all
-  the context you get. Do not ask for more.
+  title, body, unified diff and changed files (next point) are included below
+  this message; that is all the context you get.
 - **You cannot open files, but the changed ones are attached.** After the diff
   comes each changed file in full at the head commit (#1483), within a size cap;
   it lists any it left out. Where the rules say "read at most 3 files for

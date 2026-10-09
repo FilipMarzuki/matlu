@@ -12,6 +12,8 @@
 export const FILE_CAP_BYTES = 50_000;
 /** All the attached files together stay under this (about 30k tokens). */
 export const TOTAL_CAP_BYTES = 120_000;
+/** At most this many files go in whole: each is one request, in each review job, against the repo's hourly API limit. */
+export const MAX_FILES = 40;
 
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|skills-lock\.json)$/;
 const BINARY = /\.(png|jpe?g|gif|webp|ico|bmp|svgz|mp3|ogg|wav|m4a|flac|woff2?|ttf|otf|zip|gz|tgz|pdf|psd|aseprite|glb|bin)$/i;
@@ -37,21 +39,47 @@ const fenceFor = (text) => '`'.repeat(Math.max(3, ...[...text.matchAll(/`+/g)].m
 const kb = (n) => Math.round(n / 1000);
 
 /**
+ * Why nothing more can go in, given the files already in (`acc` = { count, bytes }), or null.
+ * The script checks this before each fetch, so a PR with hundreds of files costs at most
+ * MAX_FILES requests a review, not one per file.
+ */
+export function noRoom(acc, { totalCap = TOTAL_CAP_BYTES, maxFiles = MAX_FILES } = {}) {
+  if (acc.count >= maxFiles) return `past the ${maxFiles} files attached in full`;
+  if (acc.bytes >= totalCap) return `over the ${kb(totalCap)} KB total for files in full`;
+  return null;
+}
+
+/**
+ * Whether a file of `size` bytes goes in: null if it does (and `acc` counts it), else why not.
+ * The script keeps the same tally while fetching that contextSection keeps while laying out, so
+ * the two agree on what goes in.
+ */
+export function admit(acc, size, caps = {}) {
+  const fileCap = caps.fileCap ?? FILE_CAP_BYTES;
+  const totalCap = caps.totalCap ?? TOTAL_CAP_BYTES;
+  if (size > fileCap) return `${kb(size)} KB, over the ${kb(fileCap)} KB cap per file`;
+  const full = noRoom(acc, caps);
+  if (full) return full;
+  if (acc.bytes + size > totalCap) return `over the ${kb(totalCap)} KB total for files in full`;
+  acc.count += 1;
+  acc.bytes += size;
+  return null;
+}
+
+/**
  * The prompt section with the changed files in full (pure). `entries`: in the PR's order,
  * { path, text } for a fetched file or { path, skip } for one left out. Files over the per-file
- * cap, or past the total, are named instead of attached. Empty when no file changed.
+ * cap, or past the total or the file count, are named instead of attached. Empty when no file
+ * changed.
  */
-export function contextSection(sha, entries, { fileCap = FILE_CAP_BYTES, totalCap = TOTAL_CAP_BYTES } = {}) {
+export function contextSection(sha, entries, caps = {}) {
   if (!entries.length) return '';
   const attached = [];
   const left = [];
-  let total = 0;
+  const acc = { count: 0, bytes: 0 };
   for (const e of entries) {
-    if (e.skip) { left.push(`- \`${e.path}\` — ${e.skip}`); continue; }
-    const size = Buffer.byteLength(e.text, 'utf8');
-    if (size > fileCap) { left.push(`- \`${e.path}\` — ${kb(size)} KB, over the ${kb(fileCap)} KB cap per file`); continue; }
-    if (total + size > totalCap) { left.push(`- \`${e.path}\` — over the ${kb(totalCap)} KB total for files in full`); continue; }
-    total += size;
+    const why = e.skip ?? admit(acc, Buffer.byteLength(e.text, 'utf8'), caps);
+    if (why) { left.push(`- \`${e.path}\` — ${why}`); continue; }
     const fence = fenceFor(e.text);
     attached.push(`### ${e.path}\n\n${fence}${langOf(e.path)}\n${e.text.endsWith('\n') ? e.text : `${e.text}\n`}${fence}`);
   }
