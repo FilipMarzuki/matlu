@@ -20,7 +20,7 @@
 import { playtimeOf, playtimeSummaryOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
+import { playRun, aiCharacterId, BudgetExceeded, fillTally, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
@@ -94,6 +94,8 @@ async function main(): Promise<void> {
       // A spread given with --stats; else the random baseline rolls one per run (seeded), and others keep all 10s.
       stats: parsedStats?.stats ?? (which === 'random' ? randomSpread(seed + n - 1) : undefined),
       road: has('road'),
+      // Model players are asked once about a day left mostly idle (#1473); the baselines play as before.
+      fillDay: which === 'claude' || which === 'openrouter',
       onRoadTurn: t => {
         if (quiet) return;
         console.log(`  R${String(t.day).padStart(2)} ${t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : t.actions.join(', ') || '—'}`);
@@ -137,6 +139,8 @@ async function main(): Promise<void> {
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
     if (!quiet) console.log(`  → a person would take about ${playtimeText(playtimeOf(result))} to play this run (#1471)`);
+    const fills = fillTally(result.turns);
+    if (!quiet && fills.asked) console.log(`  → asked about ${fills.asked} short day(s); ${fills.filled} filled on the second answer (#1473)`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }

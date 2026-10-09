@@ -27,6 +27,7 @@ import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './
 import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
+import { todayHours } from '../artificer-app/controller';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
 export interface Usage {
@@ -272,6 +273,8 @@ export interface Turn {
   fright?: TurnFright;
   /** Places remembered and let go this turn, and those held at its end, by kind (#1381). */
   pins?: TurnPins;
+  /** A short plan asked about (#1473): the hours it filled, the hours of the plan that then ran, and whether the answer was invalid (the first plan ran). */
+  fill?: { planned: number; then: number; invalid?: true };
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -388,10 +391,56 @@ export interface PlayOptions {
    * playtests stay a fair picture of the game; off gives the world the sim tests use.
    */
   encounters?: boolean;
+  /**
+   * Ask once about a plan that leaves most of the day idle (#1473). Off by default, so the scripted
+   * and random baselines (and the random one's seeded choices) play as before; the scripts turn it
+   * on for model players.
+   */
+  fillDay?: boolean;
 }
 
 /** How many single actions a locked day asks for before it ends anyway (#1350). */
 const LOCKED_ASKS = 10;
+
+const round1 = (h: number): number => Math.round(h * 10) / 10;
+
+/**
+ * A plan filling fewer hours than this is asked about once (#1473). Llama 4 Maverick planned a
+ * median 5 of the day's 14 hours and froze around day 30; Haiku planned 12 and was ready for
+ * winter. A person sees the empty hour bar before ending the day; a model has to be told.
+ */
+export const FILL_MIN_HOURS = 8;
+
+/** How a run's short days went (#1473): how many were asked about, and how many the second answer filled. */
+export function fillTally(turns: readonly Turn[]): { asked: number; filled: number } {
+  const asked = turns.filter(t => t.fill);
+  return { asked: asked.length, filled: asked.filter(t => t.fill!.then >= FILL_MIN_HOURS).length };
+}
+
+/**
+ * Hours a day's plan would fill: exactly what the app's TODAY bar shows a person — the hours used,
+ * plus each entry that would run today, judged in the state the entries before it leave. A refused
+ * action (a site not chosen, a ring not scouted) fills nothing.
+ */
+export function plannedHours(s: Region1State, queue: readonly QueueItem[]): number {
+  return todayHours({ sim: s, queue: [...queue] });
+}
+
+/**
+ * A short plan (#1473), or null when the plan isn't one: it fills under {@link FILL_MIN_HOURS},
+ * has no rest in it (a light day on purpose), and the Warden has at least half their Vigor to spend
+ * (under that, a short day is sense, not waste). Returns the hours it fills and the question.
+ */
+export function fillQuestion(s: Region1State, queue: readonly QueueItem[]): { planned: number; text: string } | null {
+  const planned = plannedHours(s, queue);
+  const v = s.vitals.vigor, c = s.vitals.clarity;
+  if (planned >= FILL_MIN_HOURS || v.current < v.cap / 2 || queue.some(item => parseItem(item).id === 'rest')) return null;
+  const h = Math.round(planned);
+  return {
+    planned,
+    text: `Your plan for day ${s.day} fills about ${h} of the ${DAY_HOURS} waking hours, leaving ${DAY_HOURS - h} idle — hours you don't plan are simply lost. You have Vigor ${Math.round(v.current)}/${Math.round(v.cap)} and Clarity ${Math.round(c.current)}/${Math.round(c.cap)}. Add actions to use the day (READINESS and the WINTER OUTLOOK show what's short), or send the same plan again if a short day is what you want. Reply with only the JSON object for day ${s.day}, with the whole day's queue: the actions you keep and the ones you add.`,
+  };
+}
 
 function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn['after'] {
   return {
@@ -593,7 +642,21 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       continue;
     }
 
-    const d = parsed.decision;
+    let d = parsed.decision;
+    // A plan that leaves most of the day idle is asked about once (#1473). The answer's queue
+    // replaces the plan if it parses (anything else the answer leaves unset — site, focus, eating,
+    // pin orders — keeps the first reply's); one that doesn't keeps the first plan, so the question
+    // never costs a day. It's an extra, optional call: with the budget spent, the paid plan just runs.
+    let fill: Turn['fill'];
+    const short = opts.fillDay && !(opts.ledger && opts.ledger.spent >= opts.ledger.budget) ? fillQuestion(s, d.queue) : null;
+    if (short) {
+      const again = decideFor(s, await ask(short.text));
+      if (again.ok) {
+        const a = again.decision;
+        d = { ...d, ...a, site: a.site ?? d.site, focus: a.focus ?? d.focus, eating: a.eating ?? d.eating, forget: a.forget ?? d.forget, interest: a.interest ?? d.interest, thoughts: a.thoughts || d.thoughts };
+      } else notes.push(`Your answer about day ${day}'s short plan was invalid (${again.errors[0]}), so your first plan ran.`);
+      fill = { planned: round1(short.planned), then: round1(plannedHours(s, d.queue)), ...(again.ok ? {} : { invalid: true }) };
+    }
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
     s = applyPinOrders(s, d);
@@ -620,7 +683,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     }
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
+    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, ...(fill ? { fill } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
     turns.push(t); opts.onTurn?.(t);
   }
 

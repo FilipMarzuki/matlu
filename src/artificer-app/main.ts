@@ -45,7 +45,7 @@ import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
-import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -547,10 +547,6 @@ function paletteBlock(a: AppState, preview: Preview): string {
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
   }).join('')}</div></div>`).join('');
 }
-
-/** Today's planned hours (only entries that would run today and not be skipped). */
-const todayHours = (a: AppState, preview: Preview): number =>
-  a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), a.sim.hoursToday);
 
 /**
  * Before planning is learned (#1350): no queue — each tap does the thing now, and you end
