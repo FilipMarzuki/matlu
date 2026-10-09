@@ -2638,6 +2638,12 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
 /** Set (or clear, with null) what the mind is working on (#1238). Free: it costs no hours. */
 export function setFocus(s: Region1State, focus: Focus | null): Region1State {
   const next = clone(s);
+  // A concept can be turned over only once the Warden has come across it — the study gate's rule
+  // (#1478). Refused, the focus stays what it was.
+  if (focus?.kind === 'concept' && !STUDY_CONCEPTS(s).includes(focus.id)) {
+    say(next, `You can't turn your mind to ${focus.id} — you haven't come across ${focus.id} yet.`, 'skip');
+    return next;
+  }
   next.focus = focus;
   return next;
 }

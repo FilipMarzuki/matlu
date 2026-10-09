@@ -9,6 +9,7 @@
 
 import type { ActionId } from './region1';
 import { SKILLS, SKILL_IDS, type SkillId } from './skills';
+import conceptsRegistry from '../../public/macro-world/concepts.json';
 
 export type GoalId = 'shelter' | 'larder' | 'explore';
 
@@ -24,8 +25,12 @@ export const GOALS: Readonly<Record<GoalId, { name: string; actions: readonly Ac
 };
 export const GOAL_IDS = Object.keys(GOALS) as GoalId[];
 
-/** The concepts a focus can turn over (the studyable ones). */
-export const FOCUS_CONCEPTS: readonly string[] = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
+/**
+ * Every concept in the registry (#1478): any can be named as a focus. Whether this Warden can turn
+ * it over yet — one of the Region 1 six, one they have a grasp of, or one whose prerequisites
+ * they've met — is checked when focus is set (`setFocus`), by the same rule as study.
+ */
+export const FOCUS_CONCEPTS: readonly string[] = conceptsRegistry.concepts.map(c => c.id);
 
 /** What the locked mind works on instead: staying alive. */
 export const SURVIVAL_ACTIONS: readonly ActionId[] = ['water', 'gather', 'hunt', 'wood', 'build', 'preserve'];

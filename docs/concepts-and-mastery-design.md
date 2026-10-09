@@ -8,7 +8,7 @@
 An artificer is powered by **mastery of concepts**. Mastery has two sides:
 
 - **volume** — how many concepts you understand (joinery, tension, sealing… the web in
-  `macro-world/concepts.json`);
+  `public/macro-world/concepts.json`);
 - **depth** — how well you understand each (its rank, 1–3).
 
 It works in two places. In your own hands at the bench: a deeper, broader mind makes
@@ -70,10 +70,11 @@ best rank (lenient to attempt, rewarding to master). Every concept still drips i
 
 ### 5. The concept web (#1459)
 
-Load `concepts.json` into the sim: 31 concepts with prerequisites (`bearings` needs
+Load `concepts.json` into the sim: 34 concepts with prerequisites (`bearings` needs
 `friction:1` and `rotation:1`) and their own rank caps. Study offers what is *open* for
 this Warden: Region 1's six, plus whatever prerequisites have unlocked. Volume has
-somewhere to go.
+somewhere to go. Focus follows the same list (#1478): a Warden can turn over any concept
+open to them while they work.
 
 ## What this adds up to
 

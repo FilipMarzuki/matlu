@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf,
+  readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, STUDY_CONCEPTS,
   tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
@@ -63,7 +63,7 @@ Seven skills improve by use: every hour of work trains the skill it uses (woodcr
 Techniques are what a skill level looks like in practice (e.g. reading the grain, still hunting, smoke curing): each gives a concrete edge (yield, lighter work, better grades). Easy ones you work out alone with practice, hard ones take much longer alone, and some can only be taught — by a teacher or a manual found while scouting the far rings. A manual also makes practice in its skill more efficient. Past Adept, practising alone gets steadily slower; knowing the techniques of your level speeds the climb.
 
 FOCUS
-Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or in the last 3 days of autumn if you're not ready.
+Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day (any concept open to you: the FOCUS line lists them). goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or in the last 3 days of autumn if you're not ready.
 
 THE LAND
 Snow lies on the ground in winter and deepens with each snowfall: deep snow makes the walk out and wood cutting take up to half again as long. Once the cold is deep (from about day 36) the lake ice is thick enough to fish through (fish: a slow, steady catch). A winter storm is a blizzard. You can still go out, but everything out there takes half again as long, hauls come back poorer, and the cold may frostbite you, lose you in the white (and your haul with it), or kill you outright; further rings are worse, sound cold gear helps. Camp work (crafting, study, rest) is safe.
@@ -270,7 +270,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Lasting harms (#1392): what grave injuries left.
   if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${HARM_WORDS[h]})`).join(' · ')}`);
   const lock = survivalLockOf(s);
-  lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
+  lines.push(`FOCUS: ${focusKey(s.focus)} · concepts open: ${STUDY_CONCEPTS(s).join(', ')}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
   lines.push(`SKILLS (self-assessed — your true level may differ): ${practised.length ? practised.map(id => `${id} ${LEVELS[perceivedLevel(s.skills, id)]}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
