@@ -119,7 +119,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     const options: RoadActionId[] = [
       'rest', 'wait', 'tend', 'help',
       ...Object.keys(ROAD_CRAFTS).map(id => `craft:${id}` as const),
-      ...STUDY_CONCEPTS.map(c => `study:${c}` as const),
+      ...STUDY_CONCEPTS(r).map(c => `study:${c}` as const),
       ...(mode === 'uniform' ? (['gather', 'wood', 'build', 'scout'] as const) : []),
       ...here.map(p => `talk:${p.id}` as const),
       ...[...goods, ...tools].map(g => `sell:${g}` as const),
