@@ -62,6 +62,11 @@ export interface QueuedAction {
   ancestry?: string[];
   /** What the goal is waiting on right now, e.g. "harvesting Oak". */
   subStep?: string;
+  /**
+   * The harvest the goal pushed and is waiting on (#1192): its source and the item it went for.
+   * `lost` when the harvest brought some but the pack had no room for any — the goal can't progress.
+   */
+  awaiting?: { sourceId: string; itemId: string; lost?: true };
 }
 
 export interface ActionQueueDeps {
@@ -78,9 +83,9 @@ export interface ActionQueueDeps {
    */
   automation?: Automation;
   /**
-   * Called when an action resolves, to supply the current world conditions
-   * (yield multiplier, season, …). Keeps the queue ignorant of where they
-   * come from — the sim passes a WorldFeed, tests pass a literal.
+   * Called when an action resolves, and when a goal plans its next step (#1192), to supply the
+   * current world conditions (yield multiplier, season, biome). Keeps the queue ignorant of where
+   * they come from — the sim passes a WorldFeed, tests pass a literal.
    */
   context?: () => Partial<ActionContext>;
 }
@@ -102,8 +107,8 @@ export class ActionQueue {
     this.context = deps.context ?? (() => ({}));
     this.automation = deps.automation ?? rankByName('apprentice');
     // Copy so a caller mutating its own array can't corrupt the queue.
-    // `ancestry` is copied too — it's the one nested value a saved entry has.
-    this.queue = (deps.initialEntries ?? []).map(e => ({ ...e, ...(e.ancestry ? { ancestry: [...e.ancestry] } : {}) }));
+    // `ancestry` and `awaiting` are copied too — the nested values a saved entry has.
+    this.queue = (deps.initialEntries ?? []).map(e => ({ ...e, ...(e.ancestry ? { ancestry: [...e.ancestry] } : {}), ...(e.awaiting ? { awaiting: { ...e.awaiting } } : {}) }));
   }
 
   /** Queued actions, head first. Read-only snapshot for rendering/saving. */
@@ -242,8 +247,22 @@ export class ActionQueue {
       const recipe = this.recipes.get(goal.recipeId ?? goal.target);
       const depth = goal.depth ?? 0;
       const ancestry = goal.ancestry ?? [];
+      const name = this.nameOf(goal);
+
+      // The harvest this goal pushed brought what it went for, but the pack couldn't take any
+      // (#1192): another harvest would go the same way, so the goal gives up instead.
+      const lost = goal.awaiting?.lost ? goal.awaiting.itemId : null;
+      delete goal.awaiting;
+      if (lost) {
+        this.block(`${name}: blocked — no room in the pack for ${lost}`, outcomes);
+        continue;
+      }
+
+      // The planner sees the conditions as they stand now (#1192): a source that gives none of
+      // the item this season, in this biome or in this year isn't one.
+      const { season, biome, yieldMultiplier } = this.context();
       const step: PlanStep = recipe
-        ? nextStep({ recipeId: recipe.id, depth }, this.inventory, [...this.recipes.values()], [...this.sources.values()], this.automation, ancestry)
+        ? nextStep({ recipeId: recipe.id, depth }, this.inventory, [...this.recipes.values()], [...this.sources.values()], this.automation, ancestry, { season, biome, yieldMultiplier })
         : { kind: 'blocked', itemId: goal.target, reason: 'no-source' };
 
       if (step.kind === 'craft') {
@@ -255,14 +274,14 @@ export class ActionQueue {
           this.queue[0] = entry;
           return;
         }
-        this.queue.shift();
-        outcomes.push({ items: [], log: [`${goal.label}: blocked — inputs went missing`] });
+        this.block(`${name}: blocked — inputs went missing`, outcomes);
         continue;
       }
 
       if (step.kind === 'harvest') {
         const src = this.sources.get(step.sourceId)!;
         goal.subStep = `harvesting ${src.label}`;
+        goal.awaiting = { sourceId: src.id, itemId: step.itemId };
         this.queue.unshift({
           kind: 'harvest',
           target: src.id,
@@ -281,18 +300,44 @@ export class ActionQueue {
         continue;
       }
 
-      this.queue.shift();
-      outcomes.push({ items: [], log: [`${recipe?.name ?? goal.target}: blocked — ${blockedReason(step)}`] });
+      this.block(`${name}: blocked — ${blockedReason(step)}`, outcomes);
     }
+  }
+
+  /**
+   * Drop the goal at the head as blocked, with `line` in the log — and the goals waiting on it.
+   * Left in place, a parent would plan the same sub-goal straight back, block again, and loop
+   * without ever spending a tick. The parents sit right behind it, one level up each (a sub-goal
+   * is pushed in front of its parent, which waits), so the walk stops at depth 0 and never takes
+   * a goal the player queued on its own.
+   */
+  private block(line: string, outcomes: ActionOutcome[]): void {
+    const goal = this.queue.shift()!;
+    const log = [line];
+    let child = goal;
+    while ((child.depth ?? 0) > 0 && this.queue[0]?.kind === 'goal' && (this.queue[0].depth ?? 0) === (child.depth ?? 0) - 1) {
+      const parent = this.queue.shift()!;
+      log.push(`${this.nameOf(parent)}: blocked — needs ${this.nameOf(child)}`);
+      child = parent;
+    }
+    outcomes.push({ items: [], log });
+  }
+
+  /** A goal's recipe name ("Plank"), or its target if the recipe is gone from the data. */
+  private nameOf(goal: QueuedAction): string {
+    return this.recipes.get(goal.recipeId ?? goal.target)?.name ?? goal.target;
   }
 
   /** Pop the head, resolve it, apply the result to the inventory. */
   private complete(): ActionOutcome {
     const action = this.queue.shift()!;
     const outcome = this.resolve(action);
+    // A goal waiting on this harvest sits right behind it (#1192).
+    const waiting = action.kind === 'harvest' && this.queue[0]?.kind === 'goal' ? this.queue[0].awaiting : undefined;
     for (const { itemId, qty } of outcome.items) {
       const added = this.inventory.add(itemId, qty);
       if (added < qty) outcome.log.push(`Pack full — lost ${qty - added} ${itemId}`);
+      if (waiting && itemId === waiting.itemId && added === 0) waiting.lost = true;
     }
     return outcome;
   }
@@ -325,5 +370,8 @@ function blockedReason(step: Extract<PlanStep, { kind: 'blocked' }>): string {
     case 'automation': return `${step.itemId} needs more automation than you have`;
     case 'depth': return `${step.itemId} is too many steps away`;
     case 'cycle': return `${step.itemId} would need itself to be made`;
+    case 'unavailable':
+      if (step.season) return `nothing here gives ${step.itemId} in ${step.season}`;
+      return step.year ? `nothing gives ${step.itemId} in a year like this` : `nothing here gives ${step.itemId}`;
   }
 }

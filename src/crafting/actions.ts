@@ -99,6 +99,27 @@ function occursIn(y: ResourceNodeYield, biome: string | string[] | undefined): b
   return y.biomes.includes('any') || here.some(b => y.biomes!.includes(b));
 }
 
+/** The context's yield multiplier, times the season's scale for a seasonal yield. */
+function scaleOf(y: ResourceNodeYield, ctx: Omit<Partial<ActionContext>, 'rng'>): number {
+  const seasonal = (ctx.season !== undefined && SEASON_YIELD[ctx.season]) || 1;
+  return (ctx.yieldMultiplier ?? 1) * (y.seasonal ? seasonal : 1);
+}
+
+/**
+ * What one harvest of this yield gives on average under these conditions (#1192): the same biome
+ * gate, scaling and rounding as {@link resolveHarvest}, averaged over every roll from min to max.
+ * 0 when it can't drop here, or rounds to nothing — oak's 1 fibre × winter's 0.25.
+ */
+export function expectedHarvest(y: ResourceNodeYield, ctx: Omit<Partial<ActionContext>, 'rng'> = {}): number {
+  if (!occursIn(y, ctx.biome)) return 0;
+  const scale = scaleOf(y, ctx);
+  // Yield ranges are a few units wide, so averaging every roll is cheap and exact.
+  const lo = Math.min(y.min, y.max), hi = Math.max(y.min, y.max);
+  let sum = 0;
+  for (let roll = lo; roll <= hi; roll++) sum += Math.max(0, Math.round(roll * scale));
+  return sum / (hi - lo + 1);
+}
+
 /**
  * Roll every yield once, scale by the context's yield multiplier (and, for
  * seasonal yields, by the season), and drop anything that rounds to zero —
@@ -110,14 +131,11 @@ function occursIn(y: ResourceNodeYield, biome: string | string[] | undefined): b
  */
 export function resolveHarvest(yields: ResourceNodeYield[], ctx: ActionContext): ActionOutcome {
   const outcome: ActionOutcome = { items: [], log: [] };
-  const multiplier = ctx.yieldMultiplier ?? 1;
-  const seasonal = (ctx.season !== undefined && SEASON_YIELD[ctx.season]) || 1;
   for (const y of yields) {
     // Skip before rolling so a gated yield doesn't consume an rng value —
     // keeps seeded runs identical whether or not a biome is set.
     if (!occursIn(y, ctx.biome)) continue;
-    const scale = multiplier * (y.seasonal ? seasonal : 1);
-    const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * scale));
+    const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * scaleOf(y, ctx)));
     if (qty <= 0) continue;
     outcome.items.push({ itemId: y.itemId, qty });
     outcome.log.push(`+${qty} ${y.itemId}`);

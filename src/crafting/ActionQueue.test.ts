@@ -295,3 +295,123 @@ describe('goals (#1185 acceptance)', () => {
     expect(inventory.getQty('wood-log')).toBe(2);
   });
 });
+
+// #1192: a goal no longer harvests forever. The planner sees the season, biome and year, so a
+// source that gives none of the item now isn't picked; a haul the pack can't take ends the goal;
+// and a blocked sub-goal takes the goals waiting on it down too, instead of hanging tick().
+describe('goals that can\u2019t progress stop (#1192 acceptance)', () => {
+  const B_PLANK: Recipe = { id: 'plank', name: 'Plank', inputs: [{ item: 'wood-log', qty: 2 }], output: { item: 'plank', qty: 1 }, timeBase: 3 };
+  const B_ROPE: Recipe = { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, timeBase: 2 };
+  const B_SNARE: Recipe = { id: 'snare', name: 'Snare', inputs: [{ item: 'rope', qty: 1 }], output: { item: 'snare', qty: 1 }, timeBase: 3 };
+  const B_OAK: HarvestSource = {
+    id: 'oak', label: 'Oak Tree', durationTicks: 5,
+    yields: [{ itemId: 'wood-log', min: 1, max: 2 }, { itemId: 'plant-fiber', min: 1, max: 1, seasonal: true }],
+  };
+  const B_MEADOW: HarvestSource = { id: 'meadow', label: 'Meadow', yields: [{ itemId: 'plant-fiber', min: 1, max: 1 }], durationTicks: 2 };
+
+  function makeQ(o: { context?: () => object; sources?: HarvestSource[]; automation?: Automation; seed?: number; slotLimit?: number } = {}) {
+    const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore(), ...(o.slotLimit ? { slotLimit: o.slotLimit } : {}) });
+    const queue = new ActionQueue({
+      inventory, rng: mulberry32(o.seed ?? 3), sources: o.sources ?? [B_OAK, B_MEADOW], recipes: [B_PLANK, B_ROPE, B_SNARE],
+      automation: o.automation ?? AUTOMATION_HARVEST, context: o.context ?? (() => ({})),
+    });
+    return { inventory, queue };
+  }
+  const isBlocked = (o: { log: string[] }) => o.log.some(l => l.includes('blocked'));
+
+  it('3. given yieldMultiplier 0 and a plank goal, tick(100): empty queue and inventory, one blocked outcome naming wood-log', () => {
+    const { inventory, queue } = makeQ({ context: () => ({ yieldMultiplier: 0 }) });
+    queue.enqueueGoal('plank');
+    const outcomes = queue.tick(100);
+    expect(queue.entries).toHaveLength(0);
+    expect(inventory.entries()).toEqual([]);
+    // No harvest is wasted: the year is known when the goal plans (the issue allows up to N+1).
+    expect(outcomes).toEqual([{ items: [], log: ['Plank: blocked — nothing gives wood-log in a year like this'] }]);
+  });
+
+  it('4. given a rope goal in spring, tick(100): rope made, never blocked — the same outcomes as with no season', () => {
+    const spring = makeQ({ context: () => ({ season: 'spring' }) });
+    spring.queue.enqueueGoal('rope');
+    const outcomes = spring.queue.tick(100);
+    expect(spring.inventory.getQty('rope')).toBe(1);
+    expect(spring.queue.entries).toHaveLength(0);
+    expect(outcomes.some(isBlocked)).toBe(false);
+    const plain = makeQ();
+    plain.queue.enqueueGoal('rope');
+    expect(plain.queue.tick(100)).toEqual(outcomes);
+  });
+
+  it('never gives up on a source that can roll nothing but gives on average', () => {
+    // Copper 0–1, like the Ore Vein: three empty harvests in a row happen, and aren't a dead end.
+    const VEIN: HarvestSource = { id: 'vein', label: 'Ore Vein', yields: [{ itemId: 'copper-ore', min: 0, max: 1 }], durationTicks: 2 };
+    const WIRE: Recipe = { id: 'wire', name: 'Wire', inputs: [{ item: 'copper-ore', qty: 3 }], output: { item: 'wire', qty: 1 }, timeBase: 2 };
+    for (let seed = 1; seed <= 200; seed++) {
+      const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+      const queue = new ActionQueue({ inventory, rng: mulberry32(seed), sources: [VEIN], recipes: [WIRE], automation: AUTOMATION_HARVEST });
+      queue.enqueueGoal('wire');
+      expect(queue.tick(1000).some(isBlocked)).toBe(false);
+      expect(inventory.getQty('wire')).toBe(1);
+    }
+  });
+
+  it('the queue asks the planner with its season: a winter rope goal goes to the meadow', () => {
+    const { inventory, queue } = makeQ({ context: () => ({ season: 'winter' }) });
+    queue.enqueueGoal('rope');
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'meadow' });
+    queue.tick(100);
+    expect(inventory.getQty('rope')).toBe(1);
+  });
+
+  it('with only the oak in winter, the rope goal is blocked at once, naming the season', () => {
+    const { queue } = makeQ({ context: () => ({ season: 'winter' }), sources: [B_OAK] });
+    queue.enqueueGoal('rope');
+    expect(queue.tick(100)).toEqual([{ items: [], log: ['Rope: blocked — nothing here gives plant-fiber in winter'] }]);
+  });
+
+  it('a haul the pack has no room for ends the goal, instead of harvesting forever', () => {
+    // One slot, already holding stone: the fibre the meadow gives can't go in.
+    const { inventory, queue } = makeQ({ sources: [B_MEADOW], slotLimit: 1 });
+    inventory.add('stone', 1);
+    queue.enqueueGoal('rope');
+    const outcomes = queue.tick(100);
+    expect(queue.entries).toHaveLength(0);
+    expect(outcomes).toHaveLength(2);
+    expect(outcomes[0].log).toContain('Pack full — lost 1 plant-fiber');
+    expect(outcomes[1].log).toEqual(['Rope: blocked — no room in the pack for plant-fiber']);
+  });
+
+  it('a lost haul is saved with the goal: a restored queue ends it too', () => {
+    const { inventory, queue } = makeQ({ sources: [B_MEADOW], slotLimit: 1 });
+    inventory.add('stone', 1);
+    queue.enqueueGoal('rope');
+    queue.tick(B_MEADOW.durationTicks); // the harvest completes and is lost; the goal hasn't looked yet
+    const saved = JSON.parse(JSON.stringify(queue.entries)) as QueuedAction[];
+    expect(saved[0].awaiting).toEqual({ sourceId: 'meadow', itemId: 'plant-fiber', lost: true });
+    const restored = new ActionQueue({ inventory, rng: mulberry32(3), sources: [B_MEADOW], recipes: [B_ROPE], automation: AUTOMATION_HARVEST, initialEntries: saved });
+    expect(restored.tick(100)).toEqual([{ items: [], log: ['Rope: blocked — no room in the pack for plant-fiber'] }]);
+  });
+
+  // Before #1192, a blocked sub-goal was dropped and its parent planned the same sub-goal straight
+  // back: tick() never returned. The winter block would have made that common.
+  it('a sub-goal that can\u2019t be made drops the goals waiting on it, instead of looping without a tick', () => {
+    const winter = makeQ({ context: () => ({ season: 'winter' }), sources: [B_OAK], automation: AUTOMATION_WORKSHOP });
+    winter.queue.enqueueGoal('snare');
+    expect(winter.queue.tick(1)).toEqual([{ items: [], log: ['Rope: blocked — nothing here gives plant-fiber in winter', 'Snare: blocked — needs Rope'] }]);
+    expect(winter.queue.entries).toHaveLength(0);
+    // The same with no source at all — the case that hung before.
+    const none = makeQ({ sources: [], automation: AUTOMATION_WORKSHOP });
+    none.queue.enqueueGoal('snare');
+    expect(none.queue.tick(1)).toEqual([{ items: [], log: ['Rope: blocked — no source of plant-fiber', 'Snare: blocked — needs Rope'] }]);
+  });
+
+  it('a second goal the player queued is tried on its own, not dropped with the first', () => {
+    const { queue } = makeQ({ context: () => ({ season: 'winter' }), sources: [B_OAK], automation: AUTOMATION_WORKSHOP });
+    queue.enqueueGoal('snare');
+    queue.enqueueGoal('snare');
+    const outcomes = queue.tick(1);
+    // Each snare fails for itself, one outcome each.
+    expect(outcomes).toHaveLength(2);
+    for (const o of outcomes) expect(o.log).toEqual(['Rope: blocked — nothing here gives plant-fiber in winter', 'Snare: blocked — needs Rope']);
+  });
+});
