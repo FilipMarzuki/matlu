@@ -12,6 +12,7 @@
  */
 
 import { injuryWords } from '../artificer/injuries';
+import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
 import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
@@ -185,6 +186,14 @@ function coldLine(s: Region1State): string | null {
   return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${s.site && s.coldPitAt === s.site ? ', cold pit' : ', no cold pit'}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
 }
 
+/** A tool, named by grade — and, while unlearned, what it still holds of its maker's knowledge (#1456). */
+function toolLabel(t: Tool, taughtBy: readonly string[] | undefined): string {
+  const holds = t.made && !(taughtBy ?? []).includes(t.item)
+    ? Object.entries(t.made).filter(([, rank]) => rank > 0).map(([id, rank]) => `${id} ${rank}`).join(', ')
+    : '';
+  return `${t.item} (${t.grade}${holds ? `, holds ${holds}` : ''})`;
+}
+
 /** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
 export function observe(s: Region1State, notes: readonly string[] = []): string {
   const cal = s.config.calendar;
@@ -221,7 +230,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} (${o.fuelToThaw} needed to the thaw, tonight ${nightFuel(s)}) · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
 
   lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
-  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade})`).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
+  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => toolLabel(x, s.taughtBy)).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
