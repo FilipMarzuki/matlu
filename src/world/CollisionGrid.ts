@@ -49,13 +49,20 @@ export function bufferShoreline(walkGrid: Uint8Array, biomeGrid: IntGridLayer): 
  * walkable ground, so only they get the exception.
  */
 export function roadOverlayVisible(
-  _tx: number,
-  _ty: number,
-  _isRoad: (tx: number, ty: number) => boolean,
-  _isWater: (tx: number, ty: number) => boolean,
-  _isBridgeTile: (tx: number, ty: number) => boolean,
+  tx: number,
+  ty: number,
+  isRoad: (tx: number, ty: number) => boolean,
+  isWater: (tx: number, ty: number) => boolean,
+  isBridgeTile: (tx: number, ty: number) => boolean,
 ): boolean {
-  throw new Error('not implemented');
+  if (!isRoad(tx, ty) || isBridgeTile(tx, ty)) return false;
+  if (!isWater(tx, ty)) return true;
+  return (
+    isBridgeTile(tx - 1, ty) ||
+    isBridgeTile(tx + 1, ty) ||
+    isBridgeTile(tx, ty - 1) ||
+    isBridgeTile(tx, ty + 1)
+  );
 }
 
 export type TreeSize = 'mature' | 'young' | 'sapling';

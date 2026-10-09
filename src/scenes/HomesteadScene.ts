@@ -26,7 +26,7 @@ import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
-import { bufferShoreline, blockTreeFootprint, type TreeSize } from '../world/CollisionGrid';
+import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, type TreeSize } from '../world/CollisionGrid';
 import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
@@ -592,8 +592,18 @@ export class HomesteadScene extends Phaser.Scene {
         }
 
         // ── Road overlay ─────────────────────────────────────────────────
-        // Skip bridge tiles (rendered separately) and water tiles
-        if (this.isRoad(tx, ty) && !isWater && !this.isBridgeTile(tx, ty) && tileElev === 0) {
+        // Skip bridge tiles (rendered separately). Water-classified bank
+        // tiles beside a bridge still get the overlay (#931) — otherwise
+        // the Biome layer's wider water band leaves a 1-tile visual gap
+        // between the road and the bridge.
+        if (
+          roadOverlayVisible(
+            tx, ty,
+            (x, y) => this.isRoad(x, y),
+            (x, y) => intGridGet(this.biomeGrid, x, y) === 0,
+            (x, y) => this.isBridgeTile(x, y),
+          ) && tileElev === 0
+        ) {
           let mask = 0;
           if (tx === 0 || this.isRoad(tx - 1, ty)) mask |= 1;  // NW
           if (this.isRoad(tx, ty - 1))              mask |= 2;  // NE
