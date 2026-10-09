@@ -70,4 +70,8 @@ describe('Concept web (#1459)', () => {
     expect(STUDY_CONCEPTS(grasped)).toContain('friction');
     expect(conceptChoices(grasped)).toContain('friction');
   });
+  // Self-review: a legacy from before the caps (sealing 3) starts a run at the cap.
+  it('clamps carried concept ranks to their caps', () => {
+    expect(createRegion1({}, { known: [], concepts: { sealing: 3, joinery: 3 } }).concepts).toMatchObject({ sealing: { rank: 2 }, joinery: { rank: 3 } });
+  });
 });

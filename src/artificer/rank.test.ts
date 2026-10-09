@@ -24,23 +24,23 @@ describe('artificerRank', () => {
       return ranks;
     };
     expect(conceptRanks(withConcepts(noDepth(0)))).toBe(0);
-    expect(artificerRank(withConcepts(noDepth(0)))).toBe('Apprentice');
-    expect(artificerRank(withConcepts(noDepth(3)))).toBe('Journeyman');
-    expect(artificerRank(withConcepts(noDepth(8)))).toBe('Journeyman');
-    expect(artificerRank(withConcepts(noDepth(15)))).toBe('Journeyman');
+    expect(artificerRank(withConcepts(noDepth(0)), {})).toBe('Apprentice');
+    expect(artificerRank(withConcepts(noDepth(3)), {})).toBe('Journeyman');
+    expect(artificerRank(withConcepts(noDepth(8)), {})).toBe('Journeyman');
+    expect(artificerRank(withConcepts(noDepth(15)), {})).toBe('Journeyman');
   });
 
   it('given a total of 8 with one concept at its full rank, is Master; a total of 15 with two at full rank, is Artificer', () => {
     // One concept at its full rank (3), the rest short of it.
-    expect(artificerRank(withConcepts([3, 2, 2, 1]))).toBe('Master');
+    expect(artificerRank(withConcepts([3, 2, 2, 1]), {})).toBe('Master');
     // Two concepts at their full rank, the rest short of it.
-    expect(artificerRank(withConcepts([3, 3, 2, 2, 2, 1, 2]))).toBe('Artificer');
+    expect(artificerRank(withConcepts([3, 3, 2, 2, 2, 1, 2]), {})).toBe('Artificer');
   });
 
   // #1469, 5. With the concept web loaded, a concept at its own full rank counts as full: sealing and leverage stop at 2.
   it('given the loaded definitions, counts a 2-rank concept at rank 2 as full', () => {
     const twos = { concepts: { sealing: { rank: 2, insight: 0 }, leverage: { rank: 2, insight: 0 }, tension: { rank: 2, insight: 0 }, weaving: { rank: 2, insight: 0 } } };
-    expect(artificerRank(twos)).toBe('Journeyman'); // 8 ranks, none at 3
+    expect(artificerRank(twos, {})).toBe('Journeyman'); // 8 ranks, none at 3
     expect(artificerRank(twos, CRAFT_WORLD.concepts)).toBe('Master'); // 8 ranks, sealing and leverage full
   });
 

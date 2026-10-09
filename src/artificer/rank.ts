@@ -47,7 +47,8 @@ function conceptsAtFullRank(s: Pick<Region1State, 'concepts'>, defs: Defs): numb
 }
 
 /** The rank the voice gives you: the highest whose thresholds your concept ranks meet. */
-export function artificerRank(s: Pick<Region1State, 'concepts'>, defs: Defs = {}): RankName {
+// `defs` is required (#1469): forgetting it would silently treat every concept as 3 ranks. Pass `{}` for that on purpose.
+export function artificerRank(s: Pick<Region1State, 'concepts'>, defs: Defs): RankName {
   const total = conceptRanks(s);
   const atFullRank = conceptsAtFullRank(s, defs);
   return [...RANKS].reverse().find(r => total >= r.minTotal && atFullRank >= r.minAtFullRank)!.name;

@@ -532,5 +532,7 @@ export function damageTool(tools: readonly Tool[], item: string): { tools: Tool[
   const i = tools.indexOf(best);
   if (best.grade === 'crude') return { tools: tools.filter((_, j) => j !== i), broke: true, grade: null };
   const grade = GRADES[gradeIndex(best.grade) - 1];
-  return { tools: tools.map((t, j) => (j === i ? { ...t, grade } : t)), broke: false, grade };
+  // The first knock records the grade it was made at (#1469) — what `crafted` is for: tending brings it back up,
+  // and an heirloom's lesson follows it. Nothing set it before, so road `tend` never had anything to mend.
+  return { tools: tools.map((t, j) => (j === i ? { ...t, grade, crafted: t.crafted ?? t.grade } : t)), broke: false, grade };
 }

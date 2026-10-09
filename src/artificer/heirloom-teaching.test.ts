@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { craft, createCrafter, craftWorld, addInsight, heirloomLesson, HEIRLOOM_INSIGHT, GRADE_MULT, type CraftRecipe, type ConceptProgress, type Tool } from './crafting';
+import { craft, createCrafter, craftWorld, addInsight, heirloomLesson, damageTool, HEIRLOOM_INSIGHT, GRADE_MULT, type CraftRecipe, type ConceptProgress, type Tool } from './crafting';
 import { createVitals } from './vitality';
 import { createRegion1, runAction, type Region1State } from './region1';
 import { heirloomsOf } from './legacy';
@@ -121,4 +121,27 @@ describe('Heirloom teaching follow-up (#1469)', () => {
     expect(heirloomLesson({ ...knife, grade: 'sound', crafted: 'fine' })).toEqual([{ concept: 'sharpening', insight: 2 * HEIRLOOM_INSIGHT * GRADE_MULT.fine }]);
     expect(heirloomLesson({ ...knife, grade: 'sound' })).toEqual([{ concept: 'sharpening', insight: 2 * HEIRLOOM_INSIGHT * GRADE_MULT.sound }]);
   });
+  // Self-review: the first knock records the grade it was made at, so the lesson keeps it.
+  it('given an heirloom knocked down a grade, damageTool records what it was made at', () => {
+    const dented = damageTool([knife], 'stone-knife').tools[0];
+    expect(dented).toEqual({ ...knife, grade: 'sound', crafted: 'fine' });
+    expect(heirloomLesson(dented)[0].insight).toBe(2 * HEIRLOOM_INSIGHT * GRADE_MULT.fine);
+    // A second knock keeps the original.
+    expect(damageTool([dented], 'stone-knife').tools[0]).toEqual({ ...knife, grade: 'crude', crafted: 'fine' });
+  });
+
+  // Self-review: crafting leans on the knife too (it helps at the bench), so the lesson lands there.
+  it('given an heirloom knife, crafting with it teaches', () => {
+    const s = { ...huntReady([knife]) };
+    const made = runAction({ ...s, stores: { ...s.stores, materials: 6 } }, 'knife');
+    expect(made.taughtBy).toEqual(['stone-knife']);
+  });
+
+  // Self-review: an heirloom shadowed by your own better copy isn't the one in hand, so it doesn't teach.
+  it('given your own better copy of the same item, the shadowed heirloom does not teach', () => {
+    const hunted = runAction(huntReady([{ ...knife, grade: 'crude' }, { item: 'stone-knife', grade: 'masterwork' }]), 'hunt');
+    expect(hunted.taughtBy).toBeUndefined();
+    expect(hunted.concepts.sharpening).toBeUndefined();
+  });
 });
+

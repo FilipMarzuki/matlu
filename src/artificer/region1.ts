@@ -40,7 +40,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from '../../public/macro-world/concepts.json';
 
@@ -345,7 +345,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   if (legacy?.met) s.met = { ...legacy.met };
   if (legacy && (legacy.known.length || Object.keys(legacy.concepts).length)) {
     for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
-    for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
+    // Clamped to the concept's own cap (#1469): a legacy from before the web was loaded can hold sealing 3.
+    for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank: Math.min(rank, CRAFT_WORLD.concepts[id]?.ranks ?? rank), insight: 0 };
     const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
     say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
   }
@@ -1515,9 +1516,10 @@ export function forgetPin(s: Region1State, id: string): Region1State {
  * leans on teaches, not only the best-graded one; and a lesson stays with the tool until it has
  * somewhere to go (a concept at its full rank, or still locked, takes nothing and spends nothing).
  */
-function teachFromTool(next: Region1State, action: string): void {
-  for (const tool of next.tools) {
-    if (!tool.heirloom || (next.taughtBy ?? []).includes(tool.item) || !toolServes(tool, action, CRAFT_WORLD.effects)) continue;
+function teachFromTool(next: Region1State, actions: readonly string[]): void {
+  // The copies the work actually uses: one of each item, the best (an heirloom shadowed by your own better one isn't in hand).
+  for (const tool of bestPerItem(next.tools)) {
+    if (!tool.heirloom || (next.taughtBy ?? []).includes(tool.item) || !actions.some(a => toolServes(tool, a, CRAFT_WORLD.effects))) continue;
     const gained: string[] = [];
     for (const l of heirloomLesson(tool)) {
       const before = next.concepts[l.concept] ?? { rank: 0, insight: 0 };
@@ -1544,10 +1546,10 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
     if (plan.moving && plan.site) moveCamp(next, plan.site);
   }
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
+  // An heirloom's maker teaches the first time it's leaned on (#1456) — out on the land, and at the bench
+  // or building too (#1469): crafts and builds go to runCraft below, so the lesson lands first.
+  teachFromTool(next, recipe ? [id, 'craft'] : [id]);
   if (recipe) return runCraft(next, id, recipe);
-
-  // An heirloom's maker teaches the first time it's leaned on (#1456).
-  teachFromTool(next, id);
   // Your tools make the work cheaper, quicker or richer (crafting design §2) —
   // and your skill in the field makes it cheaper still, richer, and gets more from the tools (#1236).
   const mod = modifiersFor(next.tools, id);

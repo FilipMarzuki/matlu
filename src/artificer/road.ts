@@ -663,6 +663,8 @@ function learn(next: RoadState, spec: string): RoadState {
   const concept = t.concept === thing ? thing : null;
   if (!tech && !recipe && !concept) { say(next, `Learn: skipped — ${teacher.name} doesn't teach ${thing}.`, 'skip'); return next; }
   if ((tech && next.techniques.includes(tech.id)) || (recipe && next.known.includes(recipe))) { say(next, `Learn: skipped — you already know ${thing}.`, 'skip'); return next; }
+  // A concept already at its own full rank (#1469: sealing and leverage stop at 2) has nothing left to teach — don't take the fee.
+  if (concept && (next.concepts[concept]?.rank ?? 0) >= (CRAFT_WORLD.concepts[concept]?.ranks ?? 3)) { say(next, `Learn: skipped — you already understand ${concept} as far as it goes.`, 'skip'); return next; }
   if (tech && !canBeTaught(tech, skillLevel(next.skills, tech.skill))) {
     say(next, `${teacher.name} shakes their head at ${tech.name.toLowerCase()}: "Come back when you can follow it."`, 'skip');
     return next;

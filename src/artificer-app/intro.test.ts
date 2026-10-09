@@ -26,7 +26,7 @@ describe('Arrival intro', () => {
   it('ranks a Warden by concept mastery', () => {
     const s = createRegion1({}, { known: ['snare', 'stone-knife'], concepts: { tension: 2, sealing: 1 } });
     expect(conceptRanks(s)).toBe(3);
-    expect(artificerRank(s)).toBe('Journeyman');
+    expect(artificerRank(s, {})).toBe('Journeyman');
     expect(introBeats(s).flatMap(b => b.lines).join('\n')).toMatch(/RANK: JOURNEYMAN/);
   });
 
@@ -43,7 +43,7 @@ describe('Arrival intro', () => {
   });
 
   it('climbs Apprentice → Journeyman → Master by volume and depth (#1457)', () => {
-    const at = (n: number) => artificerRank({ concepts: { a: { rank: n, insight: 0 } } });
+    const at = (n: number) => artificerRank({ concepts: { a: { rank: n, insight: 0 } } }, {});
     expect([at(0), at(2), at(3), at(6), at(10)]).toEqual(['Apprentice', 'Apprentice', 'Journeyman', 'Journeyman', 'Master']);
   });
 });
