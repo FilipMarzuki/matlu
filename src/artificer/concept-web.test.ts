@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, ACTIONS, CRAFT_WORLD, STUDY_CONCEPTS, type Region1State } from './region1';
 import { addInsight, type ConceptProgress } from './crafting';
+import registry from '../../public/macro-world/concepts.json';
 
 const REGION_1_CONCEPTS = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
 
@@ -14,9 +15,12 @@ const conceptChoices = (s: Region1State): string[] =>
   (ACTIONS.study.options?.(s, {}) ?? []).find(g => g.key === 'concept')?.choices.map(c => c.value) ?? [];
 
 describe('Concept web (#1459)', () => {
-  // 1. The full 31-concept web is loaded, with its prerequisites intact.
-  it('loads concepts.json: 31 concepts, and bearings requires friction:1 and rotation:1', () => {
-    expect(Object.keys(CRAFT_WORLD.concepts)).toHaveLength(31);
+  // 1. The full web is loaded, with its prerequisites intact. (#1469: the full tech tree in public/ — 34 concepts,
+  //    including precision, which sharpening 2 opens in the Reach; the root macro-world/ copy has only 31.)
+  it('loads concepts.json: the whole registry, and bearings requires friction:1 and rotation:1', () => {
+    expect(Object.keys(CRAFT_WORLD.concepts)).toHaveLength(registry.concepts.length);
+    expect(registry.concepts.length).toBe(34);
+    expect(CRAFT_WORLD.concepts.precision?.requires).toEqual(['sharpening:2']);
     expect(CRAFT_WORLD.concepts.bearings?.requires).toEqual(['friction:1', 'rotation:1']);
   });
 
@@ -53,5 +57,17 @@ describe('Concept web (#1459)', () => {
     const s = createRegion1();
     expect(conceptChoices(s).slice().sort()).toEqual(REGION_1_CONCEPTS.slice().sort());
     expect(STUDY_CONCEPTS(s).slice().sort()).toEqual(REGION_1_CONCEPTS.slice().sort());
+  });
+
+  // #1469, 7. The gate refuses what the list doesn't offer — not only the menu — and a grasp of a concept puts it on the list.
+  it('refuses a concept nothing has shown the Warden, and lists one they have a grasp of', () => {
+    const s = createRegion1();
+    const after = runAction(s, { q: 'study', opts: { concept: 'friction' } });
+    expect(after.log.at(-1)?.text).toMatch(/haven't come across friction/);
+    expect(after.vitals).toEqual(s.vitals);
+    expect(after.concepts.friction).toBeUndefined();
+    const grasped: Region1State = { ...s, concepts: { friction: { rank: 0, insight: 2 } } };
+    expect(STUDY_CONCEPTS(grasped)).toContain('friction');
+    expect(conceptChoices(grasped)).toContain('friction');
   });
 });

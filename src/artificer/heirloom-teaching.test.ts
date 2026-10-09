@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { craft, createCrafter, craftWorld, addInsight, HEIRLOOM_INSIGHT, GRADE_MULT, type CraftRecipe, type ConceptProgress, type Tool } from './crafting';
+import { craft, createCrafter, craftWorld, addInsight, heirloomLesson, HEIRLOOM_INSIGHT, GRADE_MULT, type CraftRecipe, type ConceptProgress, type Tool } from './crafting';
 import { createVitals } from './vitality';
 import { createRegion1, runAction, type Region1State } from './region1';
 import { heirloomsOf } from './legacy';
@@ -82,5 +82,43 @@ describe('Items carry the maker\'s understanding (#1456)', () => {
 
     const roundTripped: Region1State = JSON.parse(JSON.stringify(next));
     expect(roundTripped.tools).toEqual(next.tools);
+  });
+});
+
+/** #1469 — only heirlooms teach; every heirloom in use teaches; a lesson waits for room; lessons follow the grade made at. */
+describe('Heirloom teaching follow-up (#1469)', () => {
+  const knife: Tool = { item: 'stone-knife', grade: 'fine', heirloom: true, made: { sharpening: 2 } };
+
+  // 1. Your own tool doesn't teach you back what you put into it.
+  it('given the Warden’s own tool with made, using it teaches nothing', () => {
+    const own = runAction(huntReady([{ ...knife, heirloom: undefined }]), 'hunt');
+    expect(own.concepts.sharpening).toBeUndefined();
+    expect(own.taughtBy).toBeUndefined();
+  });
+
+  // 2. Two heirlooms that both serve the action: both teach.
+  it('given two heirlooms serving hunt, both teach', () => {
+    const skinning: Tool = { item: 'skinning-knife', grade: 'sound', heirloom: true, made: { sharpening: 1 } };
+    const hunted = runAction(huntReady([knife, skinning]), 'hunt');
+    const expected: Record<string, ConceptProgress> = {};
+    addInsight(expected, 'sharpening', 2 * HEIRLOOM_INSIGHT * GRADE_MULT.fine, {});
+    addInsight(expected, 'sharpening', 1 * HEIRLOOM_INSIGHT * GRADE_MULT.sound, {});
+    expect(hunted.concepts.sharpening).toEqual(expected.sharpening);
+    expect(hunted.taughtBy).toEqual(['stone-knife', 'skinning-knife']);
+  });
+
+  // 3. A concept already at its full rank takes nothing — and the lesson isn't spent.
+  it('given sharpening at its full rank, the knife keeps its lesson', () => {
+    const full = { ...huntReady([knife]), concepts: { sharpening: { rank: 3, insight: 0 } } };
+    const hunted = runAction(full, 'hunt');
+    expect(hunted.concepts.sharpening).toEqual({ rank: 3, insight: 0 });
+    expect(hunted.taughtBy).toBeUndefined();
+    expect(hunted.log.some(l => /teaches you/.test(l.text))).toBe(false);
+  });
+
+  // 4. A knife made fine and since dented to sound teaches at fine.
+  it('given a dented heirloom, the lesson follows the grade it was made at', () => {
+    expect(heirloomLesson({ ...knife, grade: 'sound', crafted: 'fine' })).toEqual([{ concept: 'sharpening', insight: 2 * HEIRLOOM_INSIGHT * GRADE_MULT.fine }]);
+    expect(heirloomLesson({ ...knife, grade: 'sound' })).toEqual([{ concept: 'sharpening', insight: 2 * HEIRLOOM_INSIGHT * GRADE_MULT.sound }]);
   });
 });

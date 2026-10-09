@@ -6,7 +6,7 @@
  * so it can be unit-tested; main.ts decides how it looks and when it plays.
  */
 
-import type { Region1State } from '../artificer/region1';
+import { CRAFT_WORLD, type Region1State } from '../artificer/region1';
 import { artificerRank } from '../artificer/rank';
 import { heirloomList } from '../artificer/legacy';
 
@@ -31,7 +31,7 @@ const CLOSING: Beat = { kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YO
 /** The intro's beats for a Warden about to start `s`. */
 export function introBeats(s: Region1State): Beat[] {
   const daysToSnow = s.config.calendar.winterDay - s.day;
-  const rank = artificerRank(s).toUpperCase();
+  const rank = artificerRank(s, CRAFT_WORLD.concepts).toUpperCase();
   // What the last Warden left (#1455): one run each, and the tools pass on.
   const left = s.tools.filter(t => t.heirloom);
 

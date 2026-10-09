@@ -9,12 +9,19 @@
  */
 
 import type { Region1State } from './region1';
+import type { ConceptDef } from './crafting';
 import { RANK_NAMES, type RankName } from '../rank-names';
 
 export type { RankName };
 
-/** A concept's full rank absent a per-concept override — matches `addInsight`'s default in crafting.ts. */
+/**
+ * A concept's full rank absent a definition — matches `addInsight`'s default in crafting.ts. With
+ * the concept web loaded (#1459), each concept has its own (sealing and leverage stop at 2); callers
+ * pass `CRAFT_WORLD.concepts` so those count as full (#1469). This module stays free of runtime sim
+ * imports, so the crafter scene can share the rank names without pulling the sim in.
+ */
 const FULL_RANK = 3;
+type Defs = Readonly<Record<string, ConceptDef>>;
 
 /**
  * Artificer ranks: a total-ranks floor, and (for the top two rungs) a floor
@@ -35,13 +42,13 @@ export function conceptRanks(s: Pick<Region1State, 'concepts'>): number {
 }
 
 /** How many concepts have reached their full rank — the "depth" of what you understand. */
-function conceptsAtFullRank(s: Pick<Region1State, 'concepts'>): number {
-  return Object.values(s.concepts).filter(c => c.rank >= FULL_RANK).length;
+function conceptsAtFullRank(s: Pick<Region1State, 'concepts'>, defs: Defs): number {
+  return Object.entries(s.concepts).filter(([id, c]) => c.rank > 0 && c.rank >= (defs[id]?.ranks ?? FULL_RANK)).length;
 }
 
 /** The rank the voice gives you: the highest whose thresholds your concept ranks meet. */
-export function artificerRank(s: Pick<Region1State, 'concepts'>): RankName {
+export function artificerRank(s: Pick<Region1State, 'concepts'>, defs: Defs = {}): RankName {
   const total = conceptRanks(s);
-  const atFullRank = conceptsAtFullRank(s);
+  const atFullRank = conceptsAtFullRank(s, defs);
   return [...RANKS].reverse().find(r => total >= r.minTotal && atFullRank >= r.minAtFullRank)!.name;
 }

@@ -40,8 +40,9 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, conceptOpen, GRADES, GRADE_MULT, HEIRLOOM_INSIGHT, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
-import conceptsRegistry from '../../macro-world/concepts.json';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
+// The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
+import conceptsRegistry from '../../public/macro-world/concepts.json';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -803,13 +804,16 @@ export const DISCOVERIES: readonly { recipe: string; name: string; concept: stri
 const REGION_1_CONCEPTS: readonly string[] = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
 
 /**
- * The concepts open to study: the six Region 1 ones, plus any concept in the
- * wider web whose prerequisites this Warden has met.
+ * The concepts open to study: the six Region 1 ones; any concept this Warden already has a grasp
+ * of (a rank, or insight from a lesson or an heirloom — #1469); and any concept in the wider web
+ * whose prerequisites they've met. One with no prerequisites that nothing has shown them
+ * (friction, combustion…) stays out of reach — and the study gate refuses it, not only the menu.
  */
 export const STUDY_CONCEPTS = (s: { concepts: Readonly<Record<string, ConceptProgress>> }): readonly string[] => [
   ...REGION_1_CONCEPTS,
   ...Object.values(CRAFT_WORLD.concepts)
-    .filter(c => !REGION_1_CONCEPTS.includes(c.id) && c.requires?.length && conceptOpen(s.concepts, c))
+    .filter(c => !REGION_1_CONCEPTS.includes(c.id) && (
+      (s.concepts[c.id]?.rank ?? 0) > 0 || (s.concepts[c.id]?.insight ?? 0) > 0 || (c.requires?.length && conceptOpen(s.concepts, c))))
     .map(c => c.id),
 ];
 
@@ -1026,7 +1030,12 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   study: {
     name: 'Study', hours: 3, vigorRate: 0, clarityRate: 0,
-    gate: (s, _r, o) => studyConcept(crafterOf(s), o.concept ?? 'joinery', CRAFT_WORLD).reason ?? null,
+    // Locked (naming what it needs), mastered or too foggy first; then a concept that's open but that nothing has
+    // shown you yet (#1469) — the road's study and an AI's reply come through here too, not only the menu.
+    gate: (s, _r, o) => {
+      const concept = o.concept ?? 'joinery';
+      return studyConcept(crafterOf(s), concept, CRAFT_WORLD).reason ?? (STUDY_CONCEPTS(s).includes(concept) ? null : `you haven't come across ${concept} yet`);
+    },
     options: (s, o) => [choiceGroup('concept', 'Concept', o.concept ?? 'joinery', STUDY_CONCEPTS(s).map(c => {
       const reveals = DISCOVERIES.filter(d => d.concept === c && !s.known.includes(d.recipe)).map(d => d.name.toLowerCase());
       return { value: c, label: c[0].toUpperCase() + c.slice(1), note: `rank ${s.concepts[c]?.rank ?? 0}${reveals.length ? ` · rank 1 reveals ${reveals.join(', ')}` : ''}`, blocked: null };
@@ -1500,19 +1509,26 @@ export function forgetPin(s: Region1State, id: string): Region1State {
 }
 
 /**
- * What an heirloom's maker put into it (#1456): the first time the holder leans on it (via
- * {@link toolInUse}), each concept it was `made` with teaches at the maker's rank, scaled by
- * the tool's grade — once per item, per run. A tool made at rank 0 in every concept teaches
- * nothing, by design.
+ * What an heirloom's maker put into it (#1456): the first time the work leans on it, each concept
+ * it was `made` with teaches at the maker's rank — once per item, per run. Only heirlooms teach
+ * (#1469): your own tool doesn't give you back what you put into it. Every heirloom the action
+ * leans on teaches, not only the best-graded one; and a lesson stays with the tool until it has
+ * somewhere to go (a concept at its full rank, or still locked, takes nothing and spends nothing).
  */
 function teachFromTool(next: Region1State, action: string): void {
-  const tool = toolInUse(next.tools, action);
-  if (!tool?.made || (next.taughtBy ?? []).includes(tool.item)) return;
-  next.taughtBy = [...(next.taughtBy ?? []), tool.item];
-  const taught = Object.entries(tool.made).filter(([, rank]) => rank > 0);
-  if (!taught.length) return;
-  for (const [id, rank] of taught) addInsight(next.concepts, id, rank * HEIRLOOM_INSIGHT * GRADE_MULT[tool.grade], CRAFT_WORLD.concepts);
-  say(next, `The ${tool.item.replace(/-/g, ' ')} teaches you what its maker knew: ${taught.map(([id]) => id).join(', ')}.`, 'milestone');
+  for (const tool of next.tools) {
+    if (!tool.heirloom || (next.taughtBy ?? []).includes(tool.item) || !toolServes(tool, action, CRAFT_WORLD.effects)) continue;
+    const gained: string[] = [];
+    for (const l of heirloomLesson(tool)) {
+      const before = next.concepts[l.concept] ?? { rank: 0, insight: 0 };
+      addInsight(next.concepts, l.concept, l.insight, CRAFT_WORLD.concepts);
+      const after = next.concepts[l.concept];
+      if (after && (after.rank !== before.rank || after.insight !== before.insight)) gained.push(l.concept);
+    }
+    if (!gained.length) continue;
+    next.taughtBy = [...(next.taughtBy ?? []), tool.item];
+    say(next, `The ${tool.item.replace(/-/g, ' ')} teaches you what its maker knew: ${gained.join(', ')}.`, 'milestone');
+  }
 }
 
 function runActionCore(s: Region1State, item: QueueItem): Region1State {

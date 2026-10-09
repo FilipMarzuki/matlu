@@ -4,7 +4,7 @@
  * models. Pure: a snapshot is read off the sim state, nothing more.
  */
 
-import { warmth, readinessInput, survivalLockOf, type Region1State } from '../artificer/region1';
+import { CRAFT_WORLD, warmth, readinessInput, survivalLockOf, type Region1State } from '../artificer/region1';
 import { focusKey } from '../artificer/focus';
 import { pillars, isWinterReady, type PillarKey } from '../artificer/readiness';
 import { RINGS, DOMAINS, level } from '../artificer/exploration';
@@ -78,7 +78,7 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
 
   return {
     day: s.day,
-    rank: artificerRank(s),
+    rank: artificerRank(s, CRAFT_WORLD.concepts),
     concepts: Object.fromEntries(Object.entries(s.concepts).map(([k, c]) => [k, { rank: c.rank, insight: r1(c.insight) }])),
     conceptRanks: conceptRanks(s),
     insight: r1(Object.values(s.concepts).reduce((n, c) => n + c.insight, 0)),
