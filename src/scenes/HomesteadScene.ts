@@ -28,6 +28,7 @@ import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
 import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, type TreeSize } from '../world/CollisionGrid';
 import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
+import { scatterRocks, hashTile } from '../world/RockScatter';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
 // The 60×60 grid (meadow left half, WorldForge terrain right half, mountain
@@ -675,12 +676,13 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Placeholder textures ──────────────────────────────────────────────
     const textures: [string, number, number, number][] = [
-      ['rn-tree',  24, 40, 0x3a7a28],
-      ['rn-rock',  20, 16, 0x7a7265],
-      ['rn-ore',   18, 20, 0xd4793a],
-      ['rn-herb',  16, 16, 0x7ab33a],
-      ['rn-berry', 18, 20, 0x8b3ab3],
-      ['rn-water', 22, 14, 0x3a7ab3],
+      ['rn-tree',    24, 40, 0x3a7a28],
+      ['rn-rock',    20, 16, 0x7a7265],
+      ['rn-boulder', 40, 32, 0x6b6358],
+      ['rn-ore',     18, 20, 0xd4793a],
+      ['rn-herb',    16, 16, 0x7ab33a],
+      ['rn-berry',   18, 20, 0x8b3ab3],
+      ['rn-water',   22, 14, 0x3a7ab3],
     ];
     for (const [key, w, h, colour] of textures) {
       if (!this.textures.exists(key)) {
@@ -763,6 +765,11 @@ export class HomesteadScene extends Phaser.Scene {
         this.nodesInRange.add(obj as ResourceNode);
       });
     }
+
+    // ── Rock / boulder scatter (#937) ────────────────────────────────────
+    // Runs after resource nodes so it can skip tiles they occupy, and after
+    // the player's spawn tile is known so it never blocks the spawn point.
+    this.scatterRocks(15, 20);
 
     // ── Tap-to-target ────────────────────────────────────────────────────
     this.events.on('resource-node:targeted', (node: ResourceNode) => {
@@ -1563,6 +1570,63 @@ export class HomesteadScene extends Phaser.Scene {
           blockTreeFootprint(this.walkGrid, this.gridW, this.gridH, tx, ty, treeSize);
         }
       }
+    }
+  }
+
+  // ── Rock / boulder scatter (#937) ───────────────────────────────────
+  // Natural obstacles along cliff edges and the shore, plus a sparse
+  // meadow scatter for variety. Placement decisions live in the pure
+  // RockScatter module (unit-tested without Phaser); this method only
+  // applies them: mark the walkGrid blocked and render a sprite.
+
+  /** @param spawnTx/@param spawnTy — player spawn tile, kept clear of rocks. */
+  private scatterRocks(spawnTx: number, spawnTy: number): void {
+    // Tiles already claimed by a node, so rocks don't overlap gatherables.
+    const nodeSet = new Set<string>();
+    for (const n of this.resourceNodes) {
+      const nwx = n.getData('worldX') as number;
+      const nwy = n.getData('worldY') as number;
+      nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
+    }
+
+    const placements = scatterRocks({
+      gridW: this.gridW,
+      gridH: this.gridH,
+      elevationAt: (tx, ty) => intGridGet(this.heightGrid, tx, ty),
+      isBlocked: (tx, ty) => this.walkGrid[ty * this.gridW + tx] === 1,
+      isRoad: (tx, ty) => this.isRoad(tx, ty),
+      isOccupied: (tx, ty) => this.occupied[ty * this.gridW + tx] === 1,
+      isResourceNode: (tx, ty) => nodeSet.has(`${tx},${ty}`),
+      // Same wavy shoreline formula as the water check in scatterTrees —
+      // true for dry land within 2 tiles of the water's edge.
+      isNearShore: (tx, ty) => {
+        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+        const distToShore = shoreEdge - ty;
+        return distToShore >= 0 && distToShore <= 2;
+      },
+      spawnTx,
+      spawnTy,
+    });
+
+    for (const { tx, ty, size } of placements) {
+      for (let dx = 0; dx < size; dx++) {
+        for (let dy = 0; dy < size; dy++) {
+          this.walkGrid[(ty + dy) * this.gridW + (tx + dx)] = 1;
+        }
+      }
+
+      const jx = ((hashTile(tx, ty, 0x7A1) % 16) - 8) * 0.5;
+      const jy = ((hashTile(tx, ty, 0x7A2) % 16) - 8) * 0.5;
+      const footPx = size * TILE_SIZE;
+      const wx = tx * TILE_SIZE + footPx / 2 + jx;
+      const wy = ty * TILE_SIZE + footPx / 2 + jy;
+      const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
+
+      const rock = this.add.image(isoX, isoY, size === 2 ? 'rn-boulder' : 'rn-rock');
+      rock.setOrigin(0.5, 0.8);
+      rock.setDepth(hsIsoDepth(wx, wy));
+      const scaleJitter = 1 + ((hashTile(tx, ty, 0x7A3) % 20) - 10) * 0.01;
+      rock.setScale((size === 2 ? 1.0 : 0.8) * scaleJitter);
     }
   }
 
