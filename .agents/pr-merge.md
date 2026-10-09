@@ -99,28 +99,22 @@ a missing build-wiki/build-dev job is fine — it means those jobs weren't trigg
 
 ## Step 5 — High-risk file check
 
-First run the merge gate (#1431) for every PR you plan to merge:
+First run the merge gate (#1431, #1481) for every PR you plan to merge:
 
 ```bash
 node .github/scripts/risk-score.mjs --pr <number> --gate
 ```
 
-Exit code 3 means **hold** — it prints why (CI hasn't passed on the head commit,
-or the PR is `risk:high` and has no `human-approved` label added by a person
-after its last commit). Never merge a held PR, and never add `human-approved`
-yourself.
+Exit code 3 means **hold**. It prints why: CI hasn't passed on the head commit, or
+the PR's risk tier hasn't had its review models agree on that commit —
+`risk:medium` needs the second opinion to approve, and `risk:high` also needs
+every focused lens to find nothing. Never merge a held PR.
 
-Also hold (do not merge) any PR that touches:
-- `.github/workflows/` — CI/CD changes need human review
-- A **"Second opinion (<model>)"** review (DevCycle 3c, another model family
-  via OpenRouter) with `Verdict: request-changes` — it never blocks on its own,
-  but a disagreement between reviewers is a hold for human review
-- `CLAUDE.md` — project instructions
-- `vite.config.ts` or `tsconfig.json` — build config
-- `package.json` — only hold if `dependencies` or `devDependencies` changed
-  (script-only changes are fine)
-
-Post a comment: "PR merge agent: holding for human review — touches [files]."
+The gate is the whole high-risk check. A PR touching workflows, CI scripts,
+`CLAUDE.md`, `.agents/`, build config or dependencies scores `risk:medium` or
+`risk:high` (rules in `.github/review-risk.json`), so stronger models review it and
+must agree. No PR waits for a person: people decide game design, and
+implementation merges on the models' reviews.
 
 ---
 

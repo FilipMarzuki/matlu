@@ -2,8 +2,9 @@ name: DevCycle 4 — Merge
 
 # Squash-merges a PR after the Review agent completes — but only if the
 # PR has been approved. This ensures every merge goes through CI + Review.
-# Also started by DevCycle 3c with a PR number when a person adds
-# `human-approved` to a high-risk PR (#1431).
+# Also started by DevCycle 3c with a PR number when a medium- or high-risk
+# PR's model reviews have finished (#1481), so a merge isn't stranded when the
+# Review agent approved before they posted.
 on:
   workflow_run:
     workflows: ["DevCycle 3 — Review"]
@@ -67,8 +68,9 @@ jobs:
             echo "PR #${{ steps.find-pr.outputs.pr_number }} is NOT approved — skipping merge"
           fi
 
-      # The merge gate (#1431): CI passed on the head commit, and a high-risk
-      # PR has `human-approved` from a person, added after its last commit.
+      # The merge gate (#1431, #1481): CI passed on the head commit, and the
+      # risk tier's review models agree on it — medium: the second opinion
+      # approves; high: + every focused lens finds nothing.
       # Scored here from main's rules rather than read from the risk:* label,
       # so a merge can't slip through before DevCycle 3c has labelled the PR.
       - uses: actions/checkout@v7

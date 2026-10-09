@@ -3,14 +3,18 @@ name: DevCycle 3c — Risk review
 # Risk-based review routing (#1431). A script — not a model — scores each PR
 # from the paths it touches, its size and whether code changed without tests
 # (rules: .github/review-risk.json), labels it risk:low / risk:medium / risk:high
-# and comments the reasons. The tier decides how much review it gets:
+# and comments the reasons. The tier decides which review models must agree
+# before DevCycle 4 merges (#1481) — never a person; people decide game design:
 #
-#   low     DevCycle 3 — Review only (the Claude review agent)
+#   low     DevCycle 3 — Review (the Claude review agent) approves
 #   medium  + a second opinion from another model family (REVIEW_MODEL_MEDIUM)
+#             says approve
 #   high    + one focused pass per lens (determinism, saves, general) on a
-#             stronger model (REVIEW_MODEL_HIGH), and no merge until a person
-#             adds the `human-approved` label (checked by risk-score.mjs --gate
-#             in every merge path)
+#             stronger model (REVIEW_MODEL_HIGH) finds nothing
+#
+# risk-score.mjs --gate checks this in every merge path, on the head commit only:
+# a new commit re-runs the reviews. When the paid reviews finish, this starts
+# DevCycle 4, so a merge isn't stranded when the review agent approved first.
 #
 # Triggers:
 #   - CI passed on a non-draft PR          → score + paid reviews
@@ -19,18 +23,16 @@ name: DevCycle 3c — Risk review
 #     doesn't re-run CI, so nothing else would). If CI is still running, the
 #     CI-passed trigger above does it instead — never both, so no paid review
 #     runs twice.
-#   - new commits pushed                   → remove `human-approved`: an approval
-#     covers the code a person saw, not what came after
-#   - the `human-approved` label is added  → start DevCycle 4 — Merge for the PR
-#   - workflow_dispatch with a PR number   → score + paid reviews
+#   - workflow_dispatch with a PR number   → score + paid reviews (re-run a held
+#     PR's reviews)
 #
 # Safety: PR events use `pull_request_target`, so this file runs as it is on the
 # base branch, never as a PR edited it, and every job checks out the base
 # branch — a PR can't change the rules or the workflow it is judged by. No job
 # runs the PR's code. Paid model calls only run for PRs from this repo.
 #
-# Requires: secret OPENROUTER_API_KEY (without it the review steps log why and
-# exit green). Optional variables: REVIEW_MODEL_MEDIUM, REVIEW_MODEL_HIGH
+# Requires: secret OPENROUTER_API_KEY. Without it the review steps log why and
+# exit green, but post nothing — so the gate holds every medium and high PR. Optional variables: REVIEW_MODEL_MEDIUM, REVIEW_MODEL_HIGH
 # (OpenRouter model ids). Other workflows are started with this run's own
 # GITHUB_TOKEN (`actions: write` below): a workflow_dispatch sent with it does
 # start a run, unlike most events it causes. GH_TRACKER_TOKEN can't — it has no
@@ -41,7 +43,7 @@ on:
     workflows: ["DevCycle 2 — CI"]
     types: [completed]
   pull_request_target:
-    types: [ready_for_review, labeled, synchronize]
+    types: [ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -49,10 +51,9 @@ on:
         required: true
         type: string
 
-# One group per PR and event (and label, so adding some other label can't
-# replace a pending `human-approved` run in the queue).
+# One group per PR and event.
 concurrency:
-  group: risk-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.run_id }}-${{ github.event.action || github.event_name }}-${{ github.event.label.name || '' }}
+  group: risk-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.run_id }}-${{ github.event.action || github.event_name }}
   cancel-in-progress: false
 
 permissions:
@@ -177,33 +178,18 @@ jobs:
           SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_HIGH || 'openai/gpt-5' }}
         run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }} --focus ${{ matrix.lens }}
 
-  # New commits: an earlier human approval no longer covers the PR.
-  # (The merge gate also checks the label is newer than the head commit.)
-  stale-approval:
+  # The tier's reviews are in (#1481): ask DevCycle 4 to merge. It checks the
+  # review agent's approval and runs the gate itself, so a PR whose models
+  # disagree, or whose review agent hasn't finished, is held there — and when
+  # the review agent finishes later, its own completion starts DevCycle 4 again.
+  merge-check:
+    needs: [score, second-opinion, focused]
     if: >
-      github.event_name == 'pull_request_target' &&
-      github.event.action == 'synchronize' &&
-      contains(github.event.pull_request.labels.*.name, 'human-approved')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Remove human-approved
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/human-approved"
-          gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            -f body="New commits since \`human-approved\` was added — removed it. Add it again after looking at the new changes."
-
-  # A person approved a high-risk PR: ask DevCycle 4 to merge it. DevCycle 4
-  # still checks the Review agent's approval, CI and the gate itself.
-  human-approved:
-    if: >
-      github.event_name == 'pull_request_target' &&
-      github.event.action == 'labeled' &&
-      github.event.label.name == 'human-approved' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.draft == false
+      !cancelled() &&
+      needs.score.outputs.draft != 'true' &&
+      needs.score.outputs.same_repo == 'true' &&
+      needs.score.outputs.ci_ok == 'true' &&
+      (needs.score.outputs.tier == 'medium' || needs.score.outputs.tier == 'high')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -212,4 +198,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run auto-merge.yml --repo ${{ github.repository }} \
-            -f pr_number=${{ github.event.pull_request.number }}
+            -f pr_number=${{ needs.score.outputs.pr_number }}

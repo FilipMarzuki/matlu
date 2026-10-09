@@ -3,16 +3,17 @@
 //
 // The score comes from a script, not a model: weights in .github/review-risk.json
 // for the paths a PR touches, its size, and whether code changed without tests.
-// The tier decides the review — low: the review agent; medium: + the OpenRouter
-// second opinion; high: + focused lens passes on a stronger model, and a human
-// approves before DevCycle 4 merges.
+// The tier decides which review models must agree before a merge (#1481) — low:
+// the review agent; medium: + the OpenRouter second opinion approves; high: + every
+// focused lens pass (a stronger model) finds nothing. People decide game design;
+// implementation merges on the models' reviews, never on a person's label.
 //
 // Usage:
 //   node .github/scripts/risk-score.mjs --pr 123 [--apply] [--gate]
 //     --apply   label the PR risk:<tier> and post/update a comment with the reasons
 //     --gate    may this PR be merged now? Exits 0 if yes, 3 if it must wait: CI must
-//               have passed on the head commit, and a high-risk PR needs a
-//               `human-approved` label added by a person after its last commit.
+//               have passed on the head commit, and the tier's model reviews must
+//               have reported on it with nothing blocking (see mergeGate).
 //               Every merge path (DevCycle 4, DevCycle 5 — Grooming) runs this.
 //   node .github/scripts/risk-score.mjs --local [base]
 //     score this branch's commits since it left `base` (default origin/main), the same
@@ -31,7 +32,6 @@ export const RULES_PATH = path.resolve(__dirname, '..', 'review-risk.json');
 export const TIERS = ['low', 'medium', 'high'];
 const MARKER = '<!-- risk-score -->';
 export const CI_WORKFLOW = 'DevCycle 2 — CI';
-export const HUMAN_LABEL = 'human-approved';
 
 /** A path glob as a regex: `**` crosses folders (and `**​/` may match nothing), `*` stays within one. */
 export function globToRegex(glob) {
@@ -113,17 +113,53 @@ export function parseNumstatZ(text) {
 export const loadRules = () => JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
 
 /**
- * May a PR be merged now (pure)? `ciOk`: CI passed on the head commit. `approval`: the
- * latest time `human-approved` was added — who added it and when — or null if it isn't on
- * the PR. `headAt`: when the head commit was made. Returns { merge, reason }.
+ * The tier's model reviews on the head commit (pure, #1481): the latest second-opinion verdict
+ * and the latest focused-review finding count per lens. Only bot reviews on `headSha` count —
+ * a review of an older commit says nothing about this one. Reads the hidden marker
+ * run-second-review.js writes, or (older reviews) its visible verdict line.
+ * Returns { second: 'approve' | 'request-changes' | 'unclear' | null, focused: { [lens]: n | null } }
+ * (null finding count: the model didn't say).
  */
-export function mergeGate({ tier, ciOk, approval, headAt }) {
+export function tierReviews(reviews, headSha) {
+  const out = { second: null, focused: {} };
+  const inOrder = [...reviews].sort((a, b) => Date.parse(a.submitted_at ?? 0) - Date.parse(b.submitted_at ?? 0));
+  for (const r of inOrder) {
+    if (r.commit_id !== headSha || r.user?.type !== 'Bot' || !r.body) continue;
+    const so = /<!-- second-opinion verdict=([a-z-]+) -->/.exec(r.body)
+      ?? (r.body.startsWith('## Second opinion') ? /Verdict: \*\*([a-z-]+)\*\*/.exec(r.body) : null);
+    if (so) { out.second = so[1]; continue; }
+    const fo = /<!-- focused lens=([a-z-]+) findings=(\d+|\?) -->/.exec(r.body);
+    const lens = fo?.[1] ?? /^## Focused review — ([a-z-]+)/.exec(r.body)?.[1];
+    if (!lens) continue;
+    const n = fo?.[2] ?? /Result: \*\*(\d+|\?) finding/.exec(r.body)?.[1] ?? '?';
+    out.focused[lens] = n === '?' ? null : Number(n);
+  }
+  return out;
+}
+
+/**
+ * May a PR be merged now (pure, #1481)? The tier decides which models must agree:
+ * - low: CI passed on the head commit (the review agent's approval is checked by the merge path);
+ * - medium: + the second opinion on the head commit approves;
+ * - high: + every lens the tier runs has a focused review on the head commit with 0 findings.
+ * A request-changes, an unclear verdict, a finding or a missing review holds it; a new commit
+ * re-runs the reviews. No person's label is involved. Returns { merge, reason }.
+ */
+export function mergeGate({ tier, ciOk, open = true, sameRepo = true, lenses = [], reviews = { second: null, focused: {} } }) {
+  if (!open) return { merge: false, reason: 'the PR is not open' };
   if (!ciOk) return { merge: false, reason: `${CI_WORKFLOW} has not passed on the head commit` };
-  if (tier !== 'high') return { merge: true, reason: `risk:${tier}` };
-  if (!approval) return { merge: false, reason: `risk:high — waiting for a person to add \`${HUMAN_LABEL}\`` };
-  if (approval.actorType !== 'User') return { merge: false, reason: `\`${HUMAN_LABEL}\` was added by ${approval.actor} (a ${approval.actorType}), not a person` };
-  if (headAt && Date.parse(approval.at) < Date.parse(headAt)) return { merge: false, reason: `\`${HUMAN_LABEL}\` predates the latest commit — approve again` };
-  return { merge: true, reason: `risk:high, ${HUMAN_LABEL} by ${approval.actor}` };
+  if (tier === 'low') return { merge: true, reason: 'risk:low' };
+  if (!sameRepo) return { merge: false, reason: `risk:${tier} — the model reviews don't run for PRs from forks; a person merges it` };
+  if (!reviews.second) return { merge: false, reason: `risk:${tier} — waiting for the second opinion on the head commit` };
+  if (reviews.second !== 'approve') return { merge: false, reason: `risk:${tier} — the second opinion says ${reviews.second}` };
+  if (tier === 'medium') return { merge: true, reason: 'risk:medium, the second opinion approves' };
+  for (const lens of lenses) {
+    const n = reviews.focused[lens];
+    if (n === undefined) return { merge: false, reason: `risk:high — waiting for the focused review (${lens}) on the head commit` };
+    if (n === null) return { merge: false, reason: `risk:high — the focused review (${lens}) gave no finding count; re-run it` };
+    if (n > 0) return { merge: false, reason: `risk:high — the focused review (${lens}) has ${n} finding(s)` };
+  }
+  return { merge: true, reason: `risk:high, the second opinion approves and ${lenses.length ? `the focused reviews (${lenses.join(', ')}) find nothing` : 'no lens applies'}` };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -189,27 +225,25 @@ async function main() {
 
   let verdict;
   if (gate) {
-    const has = pr.labels.some(l => l.name === HUMAN_LABEL);
-    let approval = null;
-    if (has) {
-      const events = [];
-      for (let page = 1; page <= 10; page++) {
-        const batch = await gh(`/issues/${prNumber}/events?per_page=100&page=${page}`) ?? [];
-        events.push(...batch);
-        if (batch.length < 100) break;
-      }
-      const last = events.filter(e => e.event === 'labeled' && e.label?.name === HUMAN_LABEL).at(-1);
-      if (last) approval = { actor: last.actor?.login, actorType: last.actor?.type, at: last.created_at };
+    // The tier's model reviews (#1481): every review on the PR, filtered to the head commit.
+    const reviews = [];
+    for (let page = 1; page <= 10; page++) {
+      const batch = await gh(`/pulls/${prNumber}/reviews?per_page=100&page=${page}`) ?? [];
+      reviews.push(...batch);
+      if (batch.length < 100) break;
     }
-    const commit = await gh(`/commits/${headSha}`);
-    verdict = mergeGate({ tier: result.tier, ciOk, approval, headAt: commit?.commit?.committer?.date });
+    verdict = mergeGate({ tier: result.tier, ciOk, open: pr.state === 'open', sameRepo, lenses: result.lenses, reviews: tierReviews(reviews, headSha) });
     console.log(`Merge gate: ${verdict.merge ? 'may merge' : 'hold'} — ${verdict.reason}`);
   }
 
   if (apply) {
     for (const t of TIERS) if (t !== result.tier && pr.labels.some(l => l.name === `risk:${t}`)) await gh(`/issues/${prNumber}/labels/${encodeURIComponent(`risk:${t}`)}`, { method: 'DELETE' });
     await gh(`/issues/${prNumber}/labels`, { method: 'POST', body: { labels: [`risk:${result.tier}`] } });
-    const what = { low: 'the review agent', medium: 'the review agent + a second opinion from another model family', high: `the review agent + a second opinion + focused passes (${result.lenses.join(', ')}); merge waits for a \`human-approved\` label` }[result.tier];
+    const what = {
+      low: 'the review agent',
+      medium: 'the review agent + a second opinion from another model family, which must approve',
+      high: `the review agent + a second opinion, which must approve + focused passes (${result.lenses.join(', ')}) on a stronger model, which must find nothing`,
+    }[result.tier];
     const body = [MARKER, `**Review risk: ${result.tier}** (score ${result.score}) — reviews: ${what}.`, '', ...result.reasons.map(r => `- ${r}`), '', '_Rules: `.github/review-risk.json` (#1431)._'].join('\n');
     const comments = await gh(`/issues/${prNumber}/comments?per_page=100`);
     const mine = comments.find(c => c.body?.startsWith(MARKER));

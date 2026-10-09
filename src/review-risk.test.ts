@@ -4,8 +4,10 @@
  * against the real rules file, .github/review-risk.json.
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { scoreRisk, loadRules, globToRegex, mergeGate, parseNumstatZ, type ChangedFile } from '../.github/scripts/risk-score.mjs';
+import { scoreRisk, loadRules, globToRegex, mergeGate, tierReviews, parseNumstatZ, type ChangedFile } from '../.github/scripts/risk-score.mjs';
 
 const rules = loadRules();
 const files = (...names: string[]): ChangedFile[] => names.map(filename => ({ filename, additions: 10, deletions: 2 }));
@@ -66,18 +68,68 @@ describe('Review risk score (#1431)', () => {
     expect(r.lenses).toContain('determinism');
   });
 
-  // 5. The merge gate: CI first; a high-risk PR waits for a person's label added after the last commit.
-  it('holds a high-risk PR until a person approves after the last commit', () => {
-    const person = { actor: 'filip', actorType: 'User', at: '2026-10-08T12:00:00Z' };
-    const headAt = '2026-10-08T11:00:00Z';
-    expect(mergeGate({ tier: 'low', ciOk: true, approval: null, headAt }).merge).toBe(true);
-    expect(mergeGate({ tier: 'low', ciOk: false, approval: null, headAt }).merge).toBe(false);
-    expect(mergeGate({ tier: 'high', ciOk: true, approval: null, headAt }).merge).toBe(false);
-    expect(mergeGate({ tier: 'high', ciOk: true, approval: person, headAt }).merge).toBe(true);
-    expect(mergeGate({ tier: 'high', ciOk: false, approval: person, headAt }).merge).toBe(false);
-    // A bot adding the label, or a commit pushed after the approval: hold.
-    expect(mergeGate({ tier: 'high', ciOk: true, approval: { ...person, actorType: 'Bot' }, headAt }).merge).toBe(false);
-    expect(mergeGate({ tier: 'high', ciOk: true, approval: person, headAt: '2026-10-08T13:00:00Z' }).merge).toBe(false);
+  // 5. The merge gate (#1481): the tier decides which models must agree — no person's label.
+  describe('merge gate: the models agree (#1481)', () => {
+    const head = 'abc123';
+    const bot = { type: 'Bot' };
+    const second = (verdict: string, commit_id = head) => ({ commit_id, user: bot, submitted_at: '2026-10-09T12:00:00Z', body: `## Second opinion (m)\n\n<!-- second-opinion verdict=${verdict} -->\n_Verdict: **${verdict}**_` });
+    const focused = (lens: string, n: number | '?', commit_id = head) => ({ commit_id, user: bot, submitted_at: '2026-10-09T12:01:00Z', body: `## Focused review — ${lens} (m)\n\n<!-- focused lens=${lens} findings=${n} -->\n_Result: **${n} finding(s)**_` });
+    const gate = (tier: 'low' | 'medium' | 'high', revs: Parameters<typeof tierReviews>[0], more: Partial<Parameters<typeof mergeGate>[0]> = {}) =>
+      mergeGate({ tier, ciOk: true, lenses: ['saves', 'general'], reviews: tierReviews(revs, head), ...more });
+
+    // 1. Low: CI is enough (the merge path checks the review agent's approval itself).
+    it('merges a low-risk PR once CI has passed', () => {
+      expect(gate('low', []).merge).toBe(true);
+      expect(gate('low', [], { ciOk: false }).merge).toBe(false);
+      expect(gate('low', [], { open: false })).toEqual({ merge: false, reason: 'the PR is not open' });
+    });
+
+    // 2. Medium: the second opinion on the head commit must approve.
+    it('holds a medium-risk PR until the second opinion on the head commit approves', () => {
+      expect(gate('medium', []).reason).toMatch(/waiting for the second opinion/);
+      expect(gate('medium', [second('approve')]).merge).toBe(true);
+      expect(gate('medium', [second('request-changes')]).reason).toMatch(/second opinion says request-changes/);
+      expect(gate('medium', [second('unclear')]).merge).toBe(false);
+      // A review of an older commit says nothing about this one.
+      expect(gate('medium', [second('approve', 'old999')]).reason).toMatch(/waiting for the second opinion/);
+      // The latest review wins: a re-run that approves clears an earlier request.
+      expect(gate('medium', [second('request-changes'), { ...second('approve'), submitted_at: '2026-10-09T13:00:00Z' }]).merge).toBe(true);
+      // A person's comment shaped like one doesn't count.
+      expect(gate('medium', [{ ...second('approve'), user: { type: 'User' } }]).merge).toBe(false);
+    });
+
+    // 3. High: + every lens on the head commit finds nothing.
+    it('holds a high-risk PR until every focused lens finds nothing', () => {
+      expect(gate('high', [second('approve')]).reason).toMatch(/waiting for the focused review \(saves\)/);
+      expect(gate('high', [second('approve'), focused('saves', 0)]).reason).toMatch(/waiting for the focused review \(general\)/);
+      expect(gate('high', [second('approve'), focused('saves', 0), focused('general', 2)]).reason).toMatch(/focused review \(general\) has 2 finding/);
+      expect(gate('high', [second('approve'), focused('saves', '?'), focused('general', 0)]).reason).toMatch(/no finding count/);
+      expect(gate('high', [second('approve'), focused('saves', 0), focused('general', 0)]).merge).toBe(true);
+      // The second opinion still has to approve.
+      expect(gate('high', [second('request-changes'), focused('saves', 0), focused('general', 0)]).merge).toBe(false);
+    });
+
+    // 4. Forks: the paid reviews don't run, so nothing can agree.
+    it('holds a medium or high PR from a fork', () => {
+      expect(gate('medium', [second('approve')], { sameRepo: false }).reason).toMatch(/forks/);
+      expect(gate('low', [], { sameRepo: false }).merge).toBe(true);
+    });
+
+    // Older reviews (before the hidden marker) still count by their visible line.
+    it('reads reviews posted before the marker', () => {
+      const old = [
+        { commit_id: head, user: bot, submitted_at: '1', body: '## Second opinion (google/gemini-2.5-pro)\n\n_Verdict: **approve** — advisory only._' },
+        { commit_id: head, user: bot, submitted_at: '2', body: '## Focused review — saves (openai/gpt-5)\n\n_Result: **0 finding(s)** — advisory only._' },
+      ];
+      expect(tierReviews(old, head)).toEqual({ second: 'approve', focused: { saves: 0 } });
+    });
+  });
+
+  // 5. No person's label anywhere in the merge machinery.
+  it('has no human-approved label left in workflows, scripts or docs', () => {
+    const root = join(__dirname, '..');
+    const paths = ['.github/workflows/review-risk.yml', '.github/workflows/auto-merge.yml', '.github/scripts/risk-score.mjs', '.github/scripts/create-labels.js', '.github/scripts/run-second-review.js', 'CLAUDE.md', '.agents/pr-merge.md', '.agents/review-lenses/_shape.md', '.agents/review-second-opinion.md'];
+    for (const p of paths) expect([p, readFileSync(join(root, p), 'utf8').includes('human-approved')]).toEqual([p, false]);
   });
 
   it('matches globs the way the rules expect', () => {
