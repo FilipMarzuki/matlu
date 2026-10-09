@@ -31,8 +31,10 @@ name: DevCycle 3c — Risk review
 #
 # Requires: secret OPENROUTER_API_KEY (without it the review steps log why and
 # exit green). Optional variables: REVIEW_MODEL_MEDIUM, REVIEW_MODEL_HIGH
-# (OpenRouter model ids). Optional secret GH_TRACKER_TOKEN for starting other
-# workflows (falls back to GITHUB_TOKEN).
+# (OpenRouter model ids). Other workflows are started with this run's own
+# GITHUB_TOKEN (`actions: write` below): a workflow_dispatch sent with it does
+# start a run, unlike most events it causes. GH_TRACKER_TOKEN can't — it has no
+# Actions permission, and every dispatch made with it failed (#1476).
 
 on:
   workflow_run:
@@ -118,8 +120,11 @@ jobs:
 
       - name: Start DevCycle 3 — Review (marked ready, CI already passed)
         if: github.event.action == 'ready_for_review' && steps.score.outputs.ci_ok == 'true'
+        # The paid reviews below need this job to succeed; a failed dispatch
+        # mustn't take them down with it (#1476).
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GH_TRACKER_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run review-agent.yml --repo ${{ github.repository }} \
             -f pr_number=${{ steps.find-pr.outputs.pr_number }}
@@ -204,7 +209,7 @@ jobs:
     steps:
       - name: Start DevCycle 4 — Merge
         env:
-          GH_TOKEN: ${{ secrets.GH_TRACKER_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run auto-merge.yml --repo ${{ github.repository }} \
             -f pr_number=${{ github.event.pull_request.number }}
