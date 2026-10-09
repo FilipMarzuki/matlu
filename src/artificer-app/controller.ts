@@ -354,6 +354,14 @@ export function previewQueue(a: AppState): QueuePreview {
   return { dayOffset, warnings, dangers, strains, unease, loads, projected, before };
 }
 
+/**
+ * Today's planned hours: those already used, plus every entry that would run today and not be
+ * refused. The app's TODAY bar, and the number the AI harness asks a model about (#1473).
+ */
+export function todayHours(a: AppState, preview: QueuePreview = previewQueue(a)): number {
+  return a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), a.sim.hoursToday);
+}
+
 // ── Save / load ─────────────────────────────────────────────────────────────
 
 export function serialize(a: AppState): string {
