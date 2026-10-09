@@ -35,6 +35,36 @@ export function bufferShoreline(walkGrid: Uint8Array, biomeGrid: IntGridLayer): 
   }
 }
 
+/**
+ * Whether a road tile's overlay sprite should render despite the Biome layer
+ * classifying it as water (#931).
+ *
+ * The A* road path and the Biome layer disagree right at a river crossing:
+ * tiles the path treats as ordinary walkable ground can still carry the
+ * Biome layer's water id, because the biome band is baked slightly wider
+ * than the river's actual crossable band. Skipping the overlay on every
+ * water-classified tile (the old behaviour) left a 1-tile visual gap where
+ * the road touches the bridge. Bank tiles immediately beside a bridge tile
+ * are the only water-classified tiles on the road path that are actually
+ * walkable ground, so only they get the exception.
+ */
+export function roadOverlayVisible(
+  tx: number,
+  ty: number,
+  isRoad: (tx: number, ty: number) => boolean,
+  isWater: (tx: number, ty: number) => boolean,
+  isBridgeTile: (tx: number, ty: number) => boolean,
+): boolean {
+  if (!isRoad(tx, ty) || isBridgeTile(tx, ty)) return false;
+  if (!isWater(tx, ty)) return true;
+  return (
+    isBridgeTile(tx - 1, ty) ||
+    isBridgeTile(tx + 1, ty) ||
+    isBridgeTile(tx, ty - 1) ||
+    isBridgeTile(tx, ty + 1)
+  );
+}
+
 export type TreeSize = 'mature' | 'young' | 'sapling';
 
 /**
