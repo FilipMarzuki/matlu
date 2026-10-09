@@ -84,4 +84,43 @@ describe('Items carry the maker’s understanding (#1456)', () => {
     const after = runAction(before, 'preserve');
     expect(observe(after)).toMatch(/TOOLS: stone-knife \(fine\)/);
   });
+
+  // Self-review: every heirloom the work leans on teaches, not only the best-graded one.
+  it('teaches from every heirloom the action leans on', () => {
+    const skinning: Tool = { item: 'skinning-knife', grade: 'sound', heirloom: true, made: { sharpening: 1 } };
+    const s = runAction(warden([KNIFE, skinning]), 'preserve'); // both serve preserving
+    expect(s.taughtBy).toEqual(['stone-knife', 'skinning-knife']);
+    expect(s.concepts.sharpening).toEqual({ rank: 1, insight: 9 + 3 - INSIGHT_TO_NEXT[0] });
+    // A same-item heirloom shadowed by your own better copy still teaches: you handle it either way.
+    const shadowed = runAction(warden([{ item: 'stone-knife', grade: 'masterwork' }, { ...KNIFE, grade: 'sound' }]), 'preserve');
+    expect(shadowed.taughtBy).toEqual(['stone-knife']);
+  });
+
+  // Self-review: a lesson that lands on a maxed (or, with the web loaded, locked) concept isn't spent.
+  it('keeps the lesson while the concept has no room for it', () => {
+    const mastered = { ...warden([KNIFE]), concepts: { sharpening: { rank: 3, insight: 0 } } };
+    const s = runAction(mastered, 'preserve');
+    expect(s.concepts.sharpening).toEqual({ rank: 3, insight: 0 });
+    expect(s.taughtBy).toBeUndefined();
+    expect(s.log.some(l => /teaches you/.test(l.text))).toBe(false);
+    expect(observe(s)).toMatch(/holds sharpening 2/);
+  });
+
+  // Self-review: the lesson follows the grade the tool was made at, and the journal says the exact amount.
+  it('scales by the grade it was made at, and reports fractions', () => {
+    const dented: Tool = { ...KNIFE, grade: 'sound', crafted: 'fine' };
+    expect(heirloomLesson(dented)[0].insight).toBe(2 * HEIRLOOM_INSIGHT * GRADE_MULT.fine);
+    const crude = runAction(warden([{ item: 'stone-knife', grade: 'crude', heirloom: true, made: { sharpening: 1 } }]), 'preserve');
+    expect(crude.concepts.sharpening).toEqual({ rank: 0, insight: 1.5 });
+    expect(crude.log.map(l => l.text).join('\n')).toMatch(/sharpening \+1\.5 insight \(rank 0\)/);
+  });
+
+  // Self-review: each copy of a multi-quantity craft carries its own record.
+  it('gives each crafted copy its own record', () => {
+    const maker = createCrafter(createVitals(), { inventory: { cord: 2 }, concepts: { tension: { rank: 2, insight: 0 } } });
+    const two = craft(maker, { ...SNARE, output: { item: 'trap-snare', qty: 2 } }).state.tools;
+    expect(two).toHaveLength(2);
+    expect(two[0].made).toEqual(two[1].made);
+    expect(two[0].made).not.toBe(two[1].made);
+  });
 });

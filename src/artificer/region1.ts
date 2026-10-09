@@ -40,7 +40,7 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, toolServes, damageTool, heirloomList, heirloomLesson, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -1488,19 +1488,26 @@ export function forgetPin(s: Region1State, id: string): Region1State {
 }
 
 /**
- * An heirloom teaches on first use (#1456): if the tool the work leans on was left by an earlier
- * Warden and still holds its maker's understanding, that drips into this Warden's concepts — once
- * per item per run. What you make outlasts you, and teaches whoever picks it up.
+ * Heirlooms teach on first use (#1456): every tool the work leans on that was left by an earlier
+ * Warden and still holds its maker's understanding drips that into this Warden's concepts — once
+ * per item per run, and only once it has something to give (a maxed or still-locked concept keeps
+ * the lesson for later). What you make outlasts you, and teaches whoever picks it up.
  */
 function learnFromTool(next: Region1State, action: string): void {
-  const tool = toolInUse(next.tools, action);
-  if (!tool?.heirloom || next.taughtBy?.includes(tool.item)) return;
-  const lesson = heirloomLesson(tool);
-  if (!lesson.length) return;
-  next.taughtBy = [...(next.taughtBy ?? []), tool.item];
-  for (const l of lesson) addInsight(next.concepts, l.concept, l.insight, CRAFT_WORLD.concepts);
-  const taught = lesson.map(l => `${l.concept} +${l.insight.toFixed(0)} insight (rank ${next.concepts[l.concept]?.rank ?? 0})`).join(', ');
-  say(next, `The ${tool.item.replace(/-/g, ' ')} teaches you something of its making: ${taught}.`, 'milestone');
+  const taught = next.taughtBy ?? [];
+  for (const tool of next.tools) {
+    if (!tool.heirloom || taught.includes(tool.item) || !toolServes(tool, action, CRAFT_WORLD.effects)) continue;
+    const gained: string[] = [];
+    for (const l of heirloomLesson(tool)) {
+      const before = next.concepts[l.concept] ?? { rank: 0, insight: 0 };
+      addInsight(next.concepts, l.concept, l.insight, CRAFT_WORLD.concepts);
+      const after = next.concepts[l.concept];
+      if (after && (after.rank !== before.rank || after.insight !== before.insight)) gained.push(`${l.concept} +${+l.insight.toFixed(1)} insight (rank ${after.rank})`);
+    }
+    if (!gained.length) continue;
+    next.taughtBy = [...(next.taughtBy ?? []), tool.item];
+    say(next, `The ${tool.item.replace(/-/g, ' ')} teaches you something of its making: ${gained.join(', ')}.`, 'milestone');
+  }
 }
 
 function runActionCore(s: Region1State, item: QueueItem): Region1State {

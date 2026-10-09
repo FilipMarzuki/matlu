@@ -273,9 +273,13 @@ export const CRAFT_DRIP = 2;
  */
 export const HEIRLOOM_INSIGHT = 3;
 
-/** What an heirloom has to teach, concept by concept (#1456); nothing for a tool with no `made`, or made by a rank-0 hand. */
+/**
+ * What an heirloom has to teach, concept by concept (#1456); nothing for a tool with no `made`, or
+ * made by a rank-0 hand. Scaled by the grade it was *made* at where that's known: a knock in an
+ * accident dents the tool, not what its maker understood.
+ */
 export function heirloomLesson(t: Tool): { concept: string; insight: number }[] {
-  return Object.entries(t.made ?? {}).filter(([, rank]) => rank > 0).map(([concept, rank]) => ({ concept, insight: rank * HEIRLOOM_INSIGHT * GRADE_MULT[t.grade] }));
+  return Object.entries(t.made ?? {}).filter(([, rank]) => rank > 0).map(([concept, rank]) => ({ concept, insight: rank * HEIRLOOM_INSIGHT * GRADE_MULT[t.crafted ?? t.grade] }));
 }
 /** Even a failure teaches what doesn't work. */
 export const FAIL_DRIP = 1;
@@ -449,8 +453,9 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
     const out = recipe.output;
     if (world.effects[out.item]) {
       // What the maker understood goes into the thing (#1456): the recipe's concepts at today's ranks.
+      // The ranks as you sat down to it; the craft's own drip (below) comes after. Each copy gets its own record.
       const made = recipe.concepts?.length ? Object.fromEntries(recipe.concepts.map(c => [c, rankOf(s.concepts, c)])) : undefined;
-      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made } : {}) });
+      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made: { ...made } } : {}) });
     } else {
       next.inventory[out.item] = (next.inventory[out.item] ?? 0) + out.qty;
     }
@@ -506,13 +511,16 @@ export function newCraftDay(s: CrafterState): CrafterState {
  * `craft`, one that helps at the bench). Null when the work uses none.
  */
 export function toolInUse(tools: readonly Tool[], action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): Tool | null {
-  const used = bestPerItem(tools).filter(t => {
-    const e = effects[t.item];
-    if (!e) return false;
-    if (action === 'craft') return (e.craftBonus ?? 0) > 0;
-    return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
-  });
+  const used = bestPerItem(tools).filter(t => toolServes(t, action, effects));
   return used.sort((a, b) => gradeIndex(b.grade) - gradeIndex(a.grade))[0] ?? null;
+}
+
+/** Does this tool's effects serve `action` (for `craft`, does it help at the bench)? */
+export function toolServes(t: Tool, action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): boolean {
+  const e = effects[t.item];
+  if (!e) return false;
+  if (action === 'craft') return (e.craftBonus ?? 0) > 0;
+  return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
 }
 
 /** A tool knocked about in an accident: the best copy of `item` drops one grade, and a crude one breaks. */

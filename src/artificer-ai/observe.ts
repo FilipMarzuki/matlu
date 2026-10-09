@@ -16,7 +16,7 @@ import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } fr
 import { HEAL_HOURS, HEAL_FEE, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
 import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
-import { heirloomLesson, type Tool } from '../artificer/crafting';
+import type { Tool } from '../artificer/crafting';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
@@ -223,8 +223,12 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
 
   lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
   // An heirloom still holding its maker's understanding (#1456) says so: using it teaches.
-  const holds = (x: Tool): string => (x.heirloom && !s.taughtBy?.includes(x.item) ? heirloomLesson(x).map(l => `${l.concept} ${x.made![l.concept]}`).join(', ') : '');
-  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade}${holds(x) ? `, holds ${holds(x)}` : ''})`).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
+  const holds = (x: Tool): string => {
+    if (!x.heirloom || s.taughtBy?.includes(x.item)) return '';
+    const held = Object.entries(x.made ?? {}).filter(([, r]) => r > 0).map(([c, r]) => `${c} ${r}`).join(', ');
+    return held ? `, holds ${held}` : '';
+  };
+  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade}${holds(x)})`).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
