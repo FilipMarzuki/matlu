@@ -109,3 +109,41 @@ describe('guild ranks (#1195 acceptance)', () => {
     expect(Object.isFrozen(rankByName('master'))).toBe(true);
   });
 });
+
+// #1192: a source that gives nothing of the item right now — out of season, or gated to a biome
+// the settlement doesn't have — is no source. The planner sees the season and biome the harvest will.
+describe('nextStep sees the season and the biome (#1192 acceptance)', () => {
+  // The issue's fixtures: Oak gives wood and (seasonal) fibre; round(1 × 0.25) = 0 fibre in winter.
+  const S_OAK: HarvestSource = {
+    id: 'oak', label: 'Oak Tree', durationTicks: 5,
+    yields: [{ itemId: 'wood-log', min: 1, max: 2 }, { itemId: 'plant-fiber', min: 1, max: 1, seasonal: true }],
+  };
+
+  it('1. given rope, [oak, meadow] and winter → harvest meadow (oak’s fibre is 0 in winter)', () => {
+    // Without a season the two tie and map order keeps oak — the loop the issue found.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK, MEADOW], AUTOMATION_HARVEST))
+      .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'plant-fiber' });
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK, MEADOW], AUTOMATION_HARVEST, [], { season: 'winter' }))
+      .toEqual({ kind: 'harvest', sourceId: 'meadow', itemId: 'plant-fiber' });
+  });
+
+  it('2. given rope, [oak] only and winter → blocked: nothing gives plant-fiber now', () => {
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK], AUTOMATION_HARVEST, [], { season: 'winter' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable', season: 'winter' });
+    // In spring the oak's fibre is back.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK], AUTOMATION_HARVEST, [], { season: 'spring' }))
+      .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'plant-fiber' });
+  });
+
+  it('a yield gated to a biome the settlement lacks is no source', () => {
+    const MARSH: HarvestSource = { id: 'marsh', label: 'Marsh', durationTicks: 2, yields: [{ itemId: 'plant-fiber', min: 2, max: 2, biomes: ['wetland'] }] };
+    // The marsh would win on yield (2 > 1), but its fibre doesn't drop in the forest.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH, MEADOW], AUTOMATION_HARVEST, [], { biome: 'forest' }))
+      .toEqual({ kind: 'harvest', sourceId: 'meadow', itemId: 'plant-fiber' });
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH], AUTOMATION_HARVEST, [], { biome: 'forest' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable' });
+    // In winter too, the biome is the reason, not the season.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH], AUTOMATION_HARVEST, [], { biome: 'forest', season: 'winter' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable' });
+  });
+});

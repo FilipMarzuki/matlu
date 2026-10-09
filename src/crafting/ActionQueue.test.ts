@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from './ActionQueue';
+import { ActionQueue, BARREN_LIMIT, type HarvestSource, type Recipe, type QueuedAction } from './ActionQueue';
 import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, rankByName, type Automation } from './planner';
 import { Inventory } from './Inventory';
 import { MemoryStore, RecordingEmitter } from './testDoubles';
@@ -293,5 +293,98 @@ describe('goals (#1185 acceptance)', () => {
     expect(queue.entries[0]).toMatchObject({ kind: 'craft', target: 'plank', elapsed: 1 });
     expect(queue.entries[1]).toMatchObject({ kind: 'goal', target: 'plank' });
     expect(inventory.getQty('wood-log')).toBe(2);
+  });
+});
+
+// #1192: a goal whose harvest keeps coming back with none of what it needs gives up, instead of
+// harvesting forever; and the planner it asks sees the season the harvest will happen in.
+describe('barren harvests (#1192 acceptance)', () => {
+  const B_PLANK: Recipe = { id: 'plank', name: 'Plank', inputs: [{ item: 'wood-log', qty: 2 }], output: { item: 'plank', qty: 1 }, timeBase: 3 };
+  const B_ROPE: Recipe = { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, timeBase: 2 };
+  const B_OAK: HarvestSource = {
+    id: 'oak', label: 'Oak Tree', durationTicks: 5,
+    yields: [{ itemId: 'wood-log', min: 1, max: 2 }, { itemId: 'plant-fiber', min: 1, max: 1, seasonal: true }],
+  };
+  const B_MEADOW: HarvestSource = { id: 'meadow', label: 'Meadow', yields: [{ itemId: 'plant-fiber', min: 1, max: 1 }], durationTicks: 2 };
+
+  function makeBarren(context: () => object, sources = [B_OAK, B_MEADOW], initialEntries?: QueuedAction[]) {
+    const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+    const queue = new ActionQueue({ inventory, rng: mulberry32(3), sources, recipes: [B_PLANK, B_ROPE], automation: AUTOMATION_HARVEST, context, initialEntries });
+    return { inventory, queue };
+  }
+  const isBlocked = (o: { log: string[] }) => o.log.some(l => l.includes('blocked'));
+
+  it('3. given yieldMultiplier 0 and a plank goal, tick(100): empty queue and inventory, at most N+1 harvests then one blocked naming wood-log', () => {
+    const { inventory, queue } = makeBarren(() => ({ yieldMultiplier: 0 }));
+    queue.enqueueGoal('plank');
+    const outcomes = queue.tick(100);
+    expect(queue.entries).toHaveLength(0);
+    expect(inventory.getQty('wood-log')).toBe(0);
+    expect(inventory.getQty('plank')).toBe(0);
+    const at = outcomes.findIndex(isBlocked);
+    expect(at).toBeGreaterThan(0);
+    expect(at).toBeLessThanOrEqual(BARREN_LIMIT + 1);
+    expect(outcomes).toHaveLength(at + 1);
+    expect(outcomes.slice(0, at).every(o => o.log.some(l => l.includes('nothing found')))).toBe(true);
+    expect(outcomes[at].log[0]).toMatch(/^Plank: blocked — .*wood-log/);
+  });
+
+  it('4. given a rope goal in spring, tick(100): rope made, never blocked — the same outcomes as with no season', () => {
+    const spring = makeBarren(() => ({ season: 'spring' }));
+    spring.queue.enqueueGoal('rope');
+    const outcomes = spring.queue.tick(100);
+    expect(spring.inventory.getQty('rope')).toBe(1);
+    expect(spring.queue.entries).toHaveLength(0);
+    expect(outcomes.some(isBlocked)).toBe(false);
+    const plain = makeBarren(() => ({}));
+    plain.queue.enqueueGoal('rope');
+    expect(plain.queue.tick(100)).toEqual(outcomes);
+  });
+
+  it('the queue asks the planner with its season: a winter rope goal goes to the meadow', () => {
+    const { inventory, queue } = makeBarren(() => ({ season: 'winter' }));
+    queue.enqueueGoal('rope');
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'meadow' });
+    queue.tick(100);
+    expect(inventory.getQty('rope')).toBe(1);
+  });
+
+  it('with only the oak in winter, the rope goal is blocked at once, naming the season', () => {
+    const { queue } = makeBarren(() => ({ season: 'winter' }), [B_OAK]);
+    queue.enqueueGoal('rope');
+    const outcomes = queue.tick(100);
+    expect(outcomes).toEqual([{ items: [], log: ['Rope: blocked — nothing here gives plant-fiber in winter'] }]);
+  });
+
+  // Before #1192, a blocked sub-goal was dropped and its parent planned the same sub-goal straight
+  // back: tick() never returned. The winter 'unavailable' block would have made that common.
+  it('a sub-goal that can’t be made drops the goals waiting on it, instead of looping without a tick', () => {
+    const B_SNARE: Recipe = { id: 'snare', name: 'Snare', inputs: [{ item: 'rope', qty: 1 }], output: { item: 'snare', qty: 1 }, timeBase: 3 };
+    const nested = (sources: HarvestSource[], context: () => object) => {
+      const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+      const queue = new ActionQueue({ inventory, rng: mulberry32(3), sources, recipes: [B_ROPE, B_SNARE], automation: AUTOMATION_WORKSHOP, context });
+      queue.enqueueGoal('snare');
+      return { queue, outcomes: queue.tick(1) };
+    };
+    const winter = nested([B_OAK], () => ({ season: 'winter' }));
+    expect(winter.outcomes).toEqual([{ items: [], log: ['Rope: blocked — nothing here gives plant-fiber in winter', 'Snare: blocked — needs Rope'] }]);
+    expect(winter.queue.entries).toHaveLength(0);
+    // The same with no source at all — the case that hung before.
+    const none = nested([], () => ({}));
+    expect(none.outcomes).toEqual([{ items: [], log: ['Rope: blocked — no source of plant-fiber', 'Snare: blocked — needs Rope'] }]);
+    expect(none.queue.entries).toHaveLength(0);
+  });
+
+  it('the barren count is saved with the goal: a restored queue gives up on time', () => {
+    const first = makeBarren(() => ({ yieldMultiplier: 0 }));
+    first.queue.enqueueGoal('plank');
+    // Two barren harvests, then save mid-plan.
+    first.queue.tick(2 * B_OAK.durationTicks);
+    const saved = JSON.parse(JSON.stringify(first.queue.entries)) as QueuedAction[];
+    const second = makeBarren(() => ({ yieldMultiplier: 0 }), [B_OAK, B_MEADOW], saved);
+    const outcomes = second.queue.tick(100);
+    expect(outcomes.filter(o => !isBlocked(o))).toHaveLength(BARREN_LIMIT - 2);
+    expect(outcomes.at(-1)!.log[0]).toMatch(/^Plank: blocked/);
   });
 });

@@ -17,6 +17,7 @@
 
 import type { Inventory } from './Inventory';
 import type { HarvestSource, Recipe } from './ActionQueue';
+import { expectedHarvest, type ActionContext } from './actions';
 import { RANK_NAMES } from '../rank-names';
 
 /** The Workshop-Towns guild ranks (#1195), lowest first. Each one is an {@link Automation} level. */
@@ -84,17 +85,27 @@ export type PlanStep =
   | { kind: 'harvest'; sourceId: string; itemId: string }
   /** Push a goal for `recipeId`, which makes `itemId`. */
   | { kind: 'subgoal'; recipeId: string; itemId: string }
-  /** Can't make progress on `itemId`, and why. */
-  | { kind: 'blocked'; itemId: string; reason: 'no-source' | 'automation' | 'depth' | 'cycle' };
+  /**
+   * Can't make progress on `itemId`, and why. `unavailable` (#1192): a source has it, but none
+   * gives any of it here and now — out of season (`season` says which), or gated to another biome.
+   */
+  | { kind: 'blocked'; itemId: string; reason: 'no-source' | 'automation' | 'depth' | 'cycle' | 'unavailable'; season?: string };
+
+/** The conditions a harvest will happen in, as far as the planner can foresee them (#1192). */
+export type HarvestConditions = Pick<Partial<ActionContext>, 'season' | 'biome'>;
 
 /** Only what the planner reads; a real Inventory satisfies this. */
 export type InventoryView = Pick<Inventory, 'has' | 'getQty'>;
 
-/** Expected quantity of `itemId` from one harvest of `source`, 0 if it doesn't yield it. */
-function expectedYield(source: HarvestSource, itemId: string): number {
+/**
+ * Expected quantity of `itemId` from one harvest of `source` in these conditions, 0 if it doesn't
+ * yield it — or yields it, but not here or not this season (#1192). With no conditions it's the
+ * yield table's own average, as before.
+ */
+function expectedYield(source: HarvestSource, itemId: string, conditions: HarvestConditions = {}): number {
   return source.yields
     .filter(y => y.itemId === itemId)
-    .reduce((sum, y) => sum + (y.min + y.max) / 2, 0);
+    .reduce((sum, y) => sum + expectedHarvest(y, conditions), 0);
 }
 
 export function nextStep(
@@ -105,6 +116,12 @@ export function nextStep(
   automation: Automation,
   /** Recipe ids on the goal stack above this one — re-entering one is a cycle. */
   ancestry: string[] = [],
+  /**
+   * The season and biome the harvest will happen in (#1192). A source that gives none of the item
+   * in them isn't a candidate, so a winter goal doesn't harvest oak for fibre forever. The yield
+   * multiplier is left out on purpose: a bad year is the queue's barren guard's to catch.
+   */
+  conditions: HarvestConditions = {},
 ): PlanStep {
   const recipe = recipes.find(r => r.id === goal.recipeId);
   if (!recipe) return { kind: 'blocked', itemId: goal.recipeId, reason: 'no-source' };
@@ -129,10 +146,10 @@ export function nextStep(
     }
   }
 
-  // 2. Harvest it. Highest expected yield per trip wins; ties keep map order.
-  const yielders = sources.filter(s => expectedYield(s, itemId) > 0);
+  // 2. Harvest it. Highest expected yield per trip, in this season and biome, wins; ties keep map order.
+  const yielders = sources.filter(s => expectedYield(s, itemId, conditions) > 0);
   if (yielders.length > 0 && automation.mayHarvest) {
-    const best = yielders.reduce((a, b) => (expectedYield(b, itemId) > expectedYield(a, itemId) ? b : a));
+    const best = yielders.reduce((a, b) => (expectedYield(b, itemId, conditions) > expectedYield(a, itemId, conditions) ? b : a));
     return { kind: 'harvest', sourceId: best.id, itemId };
   }
 
@@ -144,5 +161,12 @@ export function nextStep(
     if (goal.depth >= automation.maxDepth) return { kind: 'blocked', itemId, reason: 'depth' };
   }
   if (yielders.length > 0) return { kind: 'blocked', itemId, reason: 'automation' };
+  // A source has it, but not here or not now (#1192). Harvesting is out of reach either way without automation.
+  if (sources.some(s => expectedYield(s, itemId) > 0)) {
+    if (!automation.mayHarvest) return { kind: 'blocked', itemId, reason: 'automation' };
+    // Name the season only when it's the cause: the item would drop here in another season.
+    const outOfSeason = !!conditions.season && sources.some(s => expectedYield(s, itemId, { biome: conditions.biome }) > 0);
+    return { kind: 'blocked', itemId, reason: 'unavailable', ...(outOfSeason ? { season: conditions.season } : {}) };
+  }
   return { kind: 'blocked', itemId, reason: 'no-source' };
 }
