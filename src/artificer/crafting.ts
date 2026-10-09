@@ -116,6 +116,8 @@ export interface Tool {
   crafted?: Grade;
   /** Left by an earlier Warden (#1455): an heirloom, not something this one made or packed. */
   heirloom?: boolean;
+  /** The maker's rank in each of the recipe's concepts, at the moment it was made (#1456): what the tool has to teach. */
+  made?: Record<string, number>;
 }
 
 /**
@@ -265,6 +267,8 @@ export const FAIL_DRIP = 1;
 /** A focused study session's insight, before the day's diminishing return. */
 export const STUDY_INSIGHT = 8;
 export const STUDY_HOURS = 3;
+/** Insight an heirloom's maker passes to whoever leans on it, per rank of a concept it was made with — once per item, the first time it's used (#1456). */
+export const HEIRLOOM_INSIGHT = 3;
 
 const rankOf = (concepts: Readonly<Record<string, ConceptProgress>>, id: string): number => concepts[id]?.rank ?? 0;
 
@@ -438,7 +442,12 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
   } else {
     const out = recipe.output;
     if (world.effects[out.item]) {
-      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade });
+      // What the maker's hand brings to the item (#1456): the recipe's concepts, at the ranks the crafter had going
+      // in — omitted when every one is rank 0, since there'd be nothing for it to teach.
+      const made = recipe.concepts?.length && recipe.concepts.some(c => rankOf(s.concepts, c) > 0)
+        ? Object.fromEntries(recipe.concepts.map(c => [c, rankOf(s.concepts, c)]))
+        : undefined;
+      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made } : {}) });
     } else {
       next.inventory[out.item] = (next.inventory[out.item] ?? 0) + out.qty;
     }
