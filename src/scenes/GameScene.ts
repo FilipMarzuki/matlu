@@ -935,7 +935,7 @@ export class GameScene extends Phaser.Scene {
     const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
       { species: 'wolf',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 48 },
       { species: 'lynx',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
-      { species: 'wildcat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
+      { species: 'wildcat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 48 },
       { species: 'bear',         anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 48 },
       { species: 'squirrel',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
       { species: 'hedgehog',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },

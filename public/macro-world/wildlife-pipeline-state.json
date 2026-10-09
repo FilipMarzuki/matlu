@@ -19,7 +19,27 @@
       "registryWired": true,
       "preloadWired": true,
       "auditPassed": true
+    },
+    "wildcat": {
+      "status": "complete",
+      "pixellabCharacterId": "1c72503c-ab7f-46df-9cdc-c7806fb789eb",
+      "characterApproved": true,
+      "animations": {
+        "idle": { "status": "done", "directions": 8 },
+        "walk": { "status": "done", "directions": 8 },
+        "run": { "status": "done", "directions": 8 },
+        "sneak": { "status": "done", "directions": 8 },
+        "alert": { "status": "done", "directions": 8 },
+        "eat": { "status": "done", "directions": 1 },
+        "sleep": { "status": "done", "directions": 1 },
+        "death": { "status": "done", "directions": 1 },
+        "drink": { "status": "done", "directions": 1 }
+      },
+      "registryWired": true,
+      "preloadWired": true,
+      "auditPassed": true,
+      "note": "Character + all 9 animations were already generated and committed to the repo ahead of this issue (see #928 PR). This session wired the fauna-registry entry, fixed a preload frame-size bug (32px -> 48px), renamed eat/sleep/death/drink/attack from _s to _se to match the loader convention, repaired a corrupted idle_ne frame, and removed leftover raw-download duplicate files."
     }
   },
-  "queue": ["wildcat", "buzzard", "hedgehog", "squirrel", "heron", "owl", "snake", "bear", "woodpecker"]
+  "queue": ["buzzard", "hedgehog", "squirrel", "heron", "owl", "snake", "bear", "woodpecker"]
 }
