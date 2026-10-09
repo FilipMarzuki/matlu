@@ -8,11 +8,12 @@ Database: Supabase (leaderboard via `matlu_runs` table)
 
 ## Sites
 
-This repo contains three deployable projects:
+This repo contains four deployable projects:
 
 | Project | Directory | Vercel project | Purpose |
 | ------- | --------- | -------------- | ------- |
 | **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) | The Phaser 3 game |
+| **Artificer: Convergence** | `/` (root) | `artificer` — artificer.corewarden.app | Survival crafter in the Matlu multiworld. Same build as Core Warden — `VITE_DEFAULT_ROUTE=crafter` makes `/` resolve to `CrafterScene`. |
 | **Matlu Codex** | `wiki/` | `matlu-codex` — [codex.corewarden.com](https://codex.corewarden.com) | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
 | **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
 

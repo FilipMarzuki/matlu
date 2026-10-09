@@ -41,6 +41,7 @@ import { HomesteadScene } from './scenes/HomesteadScene';
 import { AssetViewerScene } from './scenes/AssetViewerScene';
 import { CraftForgeScene } from './scenes/CraftForgeScene';
 import { CrafterScene } from './scenes/CrafterScene';
+import { isArtificerHost, resolveRoute } from './routing';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
@@ -73,7 +74,14 @@ import { CrafterScene } from './scenes/CrafterScene';
 //   /mapforge       → MapForgeScene        (alias)
 //   /recolor     → RecolorTestScene      (spike #703 — programmatic sprite recoloring)
 //   /            → MainMenuScene         (default — full game flow)
-const path = window.location.pathname.replace(/\/$/, '');
+//
+// Artificer: Convergence (#1193) ships on this same bundle as its own site:
+// VITE_DEFAULT_ROUTE=crafter (set on the Vercel project) — or, before that
+// env var is configured on a preview deploy, an `artificer.` hostname —
+// makes `/` resolve as if it were `/crafter`. Every explicit path above
+// still works unchanged on every host.
+document.title = isArtificerHost(window.location.hostname, import.meta.env) ? 'Artificer: Convergence' : 'Matlu';
+const path = resolveRoute(window.location.pathname, window.location.hostname, import.meta.env);
 const sceneOrder = (() => {
   const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, DungeonForgeScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, PlotForgeScene, BaseForgeScene, HomesteadScene, AssetViewerScene, SettlementScene, SettlementEditorScene, RecolorTestScene, MapForgeScene, CraftingMenuScene, CraftForgeScene, CrafterScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];

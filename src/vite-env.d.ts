@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_BETTERSTACK_DSN?: string;
   /** Matlu Codex URL — used for the in-game playtest feedback link. Defaults to production URL. */
   readonly VITE_WIKI_URL?: string;
+  /** Scene route `/` resolves as if it were `/<this>` (e.g. "crafter" for the Artificer: Convergence site). */
+  readonly VITE_DEFAULT_ROUTE?: string;
 }
 
 interface ImportMeta {

@@ -30,6 +30,7 @@ import { DEFAULT_SPEC } from '../../storytelling/world-spec.js';
 import { localStorageStore, nullEmitter, type SaveStore } from '../crafting/ports';
 import { playerItems, itemIconPath, type RegistryItem } from '../lib/items';
 import { Color, TextColor, Font } from '../ui/theme';
+import { isArtificerHost } from '../routing';
 import recipesData from '../../macro-world/recipes.json';
 import itemRegistryData from '../../macro-world/item-registry.json';
 
@@ -133,6 +134,8 @@ export class CrafterScene extends Phaser.Scene {
   private tick = 0;
   private seed = 0;
   private paused = false;
+  /** On the artificer.* site (#1193), Menu (Esc) returns here instead of Core Warden's main menu. */
+  private readonly artificer = isArtificerHost(window.location.hostname, import.meta.env);
 
   constructor() {
     super('CrafterScene');
@@ -167,7 +170,7 @@ export class CrafterScene extends Phaser.Scene {
     const kb = this.input.keyboard;
     kb?.on('keydown-SPACE', () => this.skip());
     kb?.on('keydown-P', () => this.togglePause());
-    kb?.on('keydown-ESC', () => this.scene.start('MainMenuScene'));
+    kb?.on('keydown-ESC', () => this.scene.start(this.artificer ? 'CrafterScene' : 'MainMenuScene'));
 
     this.scale.on('resize', this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', this.layout, this));
@@ -339,7 +342,7 @@ export class CrafterScene extends Phaser.Scene {
     this.panel(0, 0, DW, HEADER_H, Color.panelBgSub);
     // The pause marker lives in the heading, not the status line — with a
     // multi-biome settlement the status line already runs to the buttons.
-    this.text(12, 12, this.paused ? 'PAUSED' : 'CRAFTER', Font.heading, ACCENT_GOLD);
+    this.text(12, 12, this.paused ? 'PAUSED' : 'ARTIFICER', Font.heading, ACCENT_GOLD);
     const yieldPct = Math.round(this.feed.yieldMultiplier * 100);
     // Two short lines beat one long one: the world line (time) and the place
     // line (map + biomes) each stay clear of the buttons on the right.
@@ -352,7 +355,7 @@ export class CrafterScene extends Phaser.Scene {
     let x = DW - 12;
     for (const [label, fn] of [
       ['Reset', () => this.reset()],
-      ['Menu (Esc)', () => this.scene.start('MainMenuScene')],
+      ['Menu (Esc)', () => this.scene.start(this.artificer ? 'CrafterScene' : 'MainMenuScene')],
       ['Skip ▶▶ (Space)', () => this.skip()],
       [this.paused ? 'Run (P)' : 'Pause (P)', () => this.togglePause()],
     ] as const) {
