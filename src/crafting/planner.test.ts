@@ -135,6 +135,14 @@ describe('nextStep sees the season and the biome (#1192 acceptance)', () => {
       .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'plant-fiber' });
   });
 
+  it('a year whose yields leave none of the item: blocked, naming the year', () => {
+    expect(nextStep(goal('plank'), inv(), RECIPES, [PINE, OAK], AUTOMATION_HARVEST, [], { yieldMultiplier: 0 }))
+      .toEqual({ kind: 'blocked', itemId: 'wood-log', reason: 'unavailable', year: true });
+    // Without automation to harvest, that's the reason, whatever the year.
+    expect(nextStep(goal('plank'), inv(), RECIPES, [PINE, OAK], AUTOMATION_NONE, [], { yieldMultiplier: 0 }))
+      .toEqual({ kind: 'blocked', itemId: 'wood-log', reason: 'automation' });
+  });
+
   it('a yield gated to a biome the settlement lacks is no source', () => {
     const MARSH: HarvestSource = { id: 'marsh', label: 'Marsh', durationTicks: 2, yields: [{ itemId: 'plant-fiber', min: 2, max: 2, biomes: ['wetland'] }] };
     // The marsh would win on yield (2 > 1), but its fibre doesn't drop in the forest.

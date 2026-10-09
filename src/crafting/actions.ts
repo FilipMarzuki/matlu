@@ -113,9 +113,11 @@ function scaleOf(y: ResourceNodeYield, ctx: Omit<Partial<ActionContext>, 'rng'>)
 export function expectedHarvest(y: ResourceNodeYield, ctx: Omit<Partial<ActionContext>, 'rng'> = {}): number {
   if (!occursIn(y, ctx.biome)) return 0;
   const scale = scaleOf(y, ctx);
+  // Yield ranges are a few units wide, so averaging every roll is cheap and exact.
+  const lo = Math.min(y.min, y.max), hi = Math.max(y.min, y.max);
   let sum = 0;
-  for (let roll = y.min; roll <= y.max; roll++) sum += Math.max(0, Math.round(roll * scale));
-  return sum / (y.max - y.min + 1);
+  for (let roll = lo; roll <= hi; roll++) sum += Math.max(0, Math.round(roll * scale));
+  return sum / (hi - lo + 1);
 }
 
 /**
