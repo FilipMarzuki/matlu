@@ -11,8 +11,9 @@
  *   - Vite builds artificer.html alone. Its output keeps the file's name, so it's renamed to
  *     index.html afterwards; asset URLs are absolute (/assets/…), so the rename is safe.
  *   - publicDir is off: public/ holds the whole game's art (hundreds of MB). The few sprites the
- *     Artificer shows are found by scanning its source for "/assets/…" strings and copied in, so a
- *     new portrait is picked up without a hand-kept list. A missing one fails the build.
+ *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
+ *     strings and copied in, so a new portrait is picked up without a hand-kept list. A missing one
+ *     fails the build. A URL built at runtime (`/assets/${x}.png`) isn't seen: name assets whole.
  */
 
 import { build } from 'vite';
@@ -24,12 +25,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'artificer', 'dist');
 const SOURCES = ['src/artificer', 'src/artificer-app', 'src/artificer-ai'];
 
-/** Every non-test .ts file under a directory. */
+/** Every non-test .ts file and every .json file (content such as content/concepts.json) under a directory. */
 function sources(dir) {
   return readdirSync(dir).flatMap(f => {
     const p = join(dir, f);
     if (statSync(p).isDirectory()) return sources(p);
-    return f.endsWith('.ts') && !f.endsWith('.test.ts') ? [p] : [];
+    return (f.endsWith('.ts') && !f.endsWith('.test.ts')) || f.endsWith('.json') ? [p] : [];
   });
 }
 
