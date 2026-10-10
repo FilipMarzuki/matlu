@@ -22,9 +22,9 @@
     "description": "(optional) Flavor/lore text"
   },
   "_stats": {
-    "totalItems": 264,
+    "totalItems": 263,
     "categories": {
-      "raw": 64,
+      "raw": 63,
       "refined": 34,
       "component": 36,
       "consumable": 28,
@@ -42,7 +42,7 @@
       "quest": 1
     },
     "withIcon": 80,
-    "pendingIcon": 184
+    "pendingIcon": 183
   },
   "items": [
     {
@@ -317,20 +317,6 @@
         "taiga",
         "tundra",
         "mountain"
-      ]
-    },
-    {
-      "id": "game-meat",
-      "name": "Game Meat",
-      "category": "raw",
-      "stackMax": 10,
-      "playerObtainable": true,
-      "icon": null,
-      "source": [
-        "hunting"
-      ],
-      "biomes": [
-        "any"
       ]
     },
     {
