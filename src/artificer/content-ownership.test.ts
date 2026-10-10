@@ -4,8 +4,12 @@
  * The owner's call (2026-10-10): "Artificer will be the master for the material and concepts going
  * forward as we are moving beyond our earlier drafts." Artificer's concepts live in
  * src/artificer/content/concepts.json and its materials, recipes and items in its own code. The
- * Homestead's registries are earlier drafts, frozen as they are: Artificer doesn't read them, and
- * a change to one fails here until it's deliberately re-pinned.
+ * Homestead's material, recipe and concept registries are earlier drafts, frozen as they are:
+ * Artificer doesn't read them, and a change to one fails here until it's deliberately re-pinned.
+ *
+ * Other Homestead data is fair game. For the Reach's settlements (#1541) the owner chose to read
+ * the Building Forge's own files (building-registry.json, the layout fields of cultures.json), so
+ * a building edited in the forge shows up in Artificer towns.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -29,15 +33,16 @@ function tsFiles(dir: string): string[] {
 describe('Artificer owns its materials and concepts (#1531)', () => {
   // 1. Nothing in Artificer reads the Homestead's drafts, by import or by URL.
   it("doesn't import or fetch the Homestead's draft registries", () => {
+    const DRAFT = /^(public\/)?macro-world\/(item-registry|recipes|concepts)\.json$/;
     const hits: string[] = [];
     for (const dir of ['src/artificer', 'src/artificer-app', 'src/artificer-ai']) {
       for (const f of tsFiles(join(root, dir))) {
         const src = readFileSync(f, 'utf8');
         for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
           const target = relative(root, resolve(dirname(f), m[1]));
-          if (/^(public\/)?macro-world\//.test(target)) hits.push(`${relative(root, f)} imports ${target}`);
+          if (DRAFT.test(target)) hits.push(`${relative(root, f)} imports ${target}`);
         }
-        for (const m of src.matchAll(/['"`]\/macro-world\/[\w.-]+/g)) hits.push(`${relative(root, f)} fetches ${m[0].slice(1)}`);
+        for (const m of src.matchAll(/['"`]\/macro-world\/[\w.-]+/g)) if (DRAFT.test(m[0].slice(1))) hits.push(`${relative(root, f)} fetches ${m[0].slice(1)}`);
       }
     }
     expect(hits).toEqual([]);

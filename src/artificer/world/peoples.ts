@@ -18,7 +18,8 @@ import type { CultureSpec, RaceSpec, TitleSpec } from '../../../storytelling/wor
 import type { SuccessionLaw } from '../../../storytelling/types';
 import type { People } from '../villages';
 
-export type ReachCulture = 'fieldborn' | 'ridgefolk' | 'waterstead' | 'steppe-camp' | 'mountainhold';
+/** The five that settle the land by its make-up, and wallborn, who keep Kestrel Gate (#1541). */
+export type ReachCulture = 'fieldborn' | 'ridgefolk' | 'waterstead' | 'steppe-camp' | 'mountainhold' | 'wallborn';
 
 /** Drive biases in the engine's order: [ambition, greed, vengeance, piety, lust, fear]. */
 const D = (a: number, g: number, v: number, p: number, l: number, f: number): number[] => [a, g, v, p, l, f];
@@ -71,6 +72,17 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
     namesFemale: ['Arnhild', 'Bergljot', 'Gudrun', 'Hallgerd', 'Ingunn', 'Jorunn', 'Rannveig', 'Torunn'],
     surnames: ['Anvilsong', 'Deepcarve', 'Runehall', 'Stonebeard', 'Fellhammer'],
   },
+  {
+    // Markfolk, Bergfolk and Pandor behind the last wall: orderly, watchful, counting everyone
+    // who passes (Kestrel Gate, villages.ts). Only seated at the Gate, never by the land.
+    id: 'wallborn', name: 'Wallborn', law: 'primogeniture',
+    driveBias: D(0.5, 0.55, 0.45, 0.45, 0.4, 0.4),
+    biasSeed: { loss_aversion: 0.4, honor_bound: 0.3 },
+    startingTraits: ['literacy_valued'],
+    namesMale: ['Albrekt', 'Conrad', 'Ebbe', 'Gerd', 'Henrik', 'Lorens', 'Mattis', 'Sixten'],
+    namesFemale: ['Adela', 'Cecilia', 'Elsa', 'Gertrud', 'Katarina', 'Malin', 'Rikissa', 'Ulrika'],
+    surnames: ['Gatewright', 'Highwall', 'Kestrelmark', 'Tollby', 'Towerholm'],
+  },
 ];
 
 /** The Peoples who follow each culture, with weights (docs/peoples-and-races.md). */
@@ -80,6 +92,7 @@ export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number]
   waterstead: [['Pandor', 1]],
   'steppe-camp': [['Viddfolk', 1]],
   mountainhold: [['Bergfolk', 1]],
+  wallborn: [['Markfolk', 0.5], ['Bergfolk', 0.3], ['Pandor', 0.2]],
 };
 
 export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor', 'Viddfolk'] as const).map(id => ({ id, name: id }));
@@ -91,6 +104,7 @@ export const TITLE_WORDS: Readonly<Record<ReachCulture, Record<TitleSpec['tier']
   waterstead: { county: 'Moot', duchy: 'League', kingdom: 'Kingdom' },
   'steppe-camp': { county: 'Camp', duchy: 'Circle', kingdom: 'Kingdom' },
   mountainhold: { county: 'Hall', duchy: 'Deep Hall', kingdom: 'Kingdom' },
+  wallborn: { county: 'Ward', duchy: 'March', kingdom: 'Kingdom' },
 };
 
 export const lawOf = (c: ReachCulture): SuccessionLaw => REACH_CULTURES.find(s => s.id === c)!.law!;

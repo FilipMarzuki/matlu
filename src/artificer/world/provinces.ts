@@ -15,6 +15,7 @@ import type { Terrain } from '../../../storytelling/types';
 import { generator, seedOf } from '../rng';
 import { COST, type Biome, type Reach } from './reach';
 import type { ReachCulture } from './peoples';
+import { VILLAGES } from '../villages';
 
 export interface Province {
   /** `p0`, `p1`… in the order the seats were picked (the best site first). */
@@ -37,7 +38,16 @@ export interface Province {
   /** 0 to 1: the engine's mana density. Higher on the old, high ground. */
   mana: number;
   culture: ReachCulture;
+  /** Set on the three provinces seated at the hand-written villages (villages.ts). */
+  anchor?: AnchorId;
 }
+
+/**
+ * The hand-written villages on the road out of the Reach (villages.ts), in the order the road
+ * reaches them: the ford in the foothills, the salt lake, then the wall before Mistheim's lowlands.
+ */
+export const ANCHORS = ['hollowford', 'saltmere', 'kestrel-gate'] as const;
+export type AnchorId = typeof ANCHORS[number];
 
 export interface Provinces {
   list: Province[];
@@ -135,7 +145,37 @@ export function provincesOf(reach: Reach): Provinces {
     for (const j of around(i, w, h)) if (at[j] !== at[i]) { touching[at[i]].add(at[j]); touching[at[j]].add(at[i]); }
   }
   list.forEach((p, k) => { p.neighbors = [...touching[k]].sort((a, b) => a - b).map(n => `p${n}`); });
+  placeAnchors(list, reach);
   return { list, at };
+}
+
+/**
+ * Seat the hand-written villages (#1541) at three of the generated seats, on the way south from
+ * camp to Mistheim's lowlands, as villages.ts describes the road: Kestrel Gate, the last wall, at
+ * the southernmost seat; Saltmere north of it, by a lake if any seat is; Hollowford north of that,
+ * on a river if it can be, the nearest to camp. Each takes its village's name and first culture, so
+ * the history tells of the Hundred of Hollowford, and the village's people live there.
+ */
+function placeAnchors(list: Province[], reach: Reach): void {
+  const taken = new Set<Province>();
+  const hoursTo = (p: Province) => reach.hours[p.seat.y * reach.w + p.seat.x];
+  const pick = (north: Province | null, prefer: (p: Province) => boolean, best: (a: Province, b: Province) => number): Province => {
+    const free = list.filter(p => !taken.has(p));
+    const fits = free.filter(p => !north || p.seat.y < north.seat.y);
+    const pool = fits.length ? fits : free; // a Reach with no seat further north: take any free seat
+    const preferred = pool.filter(prefer);
+    const chosen = [...(preferred.length ? preferred : pool)].sort((a, b) => best(a, b) || Number(a.id.slice(1)) - Number(b.id.slice(1)))[0];
+    taken.add(chosen);
+    return chosen;
+  };
+  const gate = pick(null, () => true, (a, b) => b.seat.y - a.seat.y);
+  const mere = pick(gate, p => p.lakeside, (a, b) => b.seat.y - a.seat.y);
+  const ford = pick(mere, p => p.river, (a, b) => hoursTo(a) - hoursTo(b));
+  ([[ford, 'hollowford'], [mere, 'saltmere'], [gate, 'kestrel-gate']] as const).forEach(([p, id]) => {
+    p.anchor = id;
+    p.name = VILLAGES[id].name;
+    p.culture = VILLAGES[id].cultures[0] as ReachCulture;
+  });
 }
 
 /**
@@ -208,8 +248,8 @@ function mostCommon<T>(items: readonly T[]): T | undefined {
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
-/** The hand-written places (villages.ts and the road), never given to a generated province. */
-const ANCHOR_NAMES = ['Hollowford', 'Saltmere', 'Kestrel Gate', 'Mistheim'];
+/** The hand-written places (villages.ts and the road's end), never generated: the villages are seated by `placeAnchors`. */
+const ANCHOR_NAMES = [...ANCHORS.map(id => VILLAGES[id].name), 'Mistheim'];
 
 /** First halves of place names: animals, trees and the look of the land. */
 const NAME_START = [
