@@ -57,7 +57,7 @@ export const YIELDS: Readonly<Record<Biome, readonly Yield[]>> = {
 };
 
 /** Hours to cross a cell on foot: half an hour on open ground, more in wood, bog and on the fells. Open water can't be walked. */
-const COST: Readonly<Record<Biome, number>> = {
+export const COST: Readonly<Record<Biome, number>> = {
   lake: Infinity, river: 0.75, marsh: 1, meadow: 0.5, heath: 0.5, birch: 0.6, pine: 0.75, scree: 1, fell: 1.25, snow: 1.5,
 };
 

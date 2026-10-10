@@ -30,6 +30,9 @@ import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, pa
 import { topicsOpen } from '../artificer/topics';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, mapRows, sightFor, describeCell, GLYPH, BIOME_NAME, type Biome, type Reach } from '../artificer/world/reach';
+import { provincesOf, type Provinces } from '../artificer/world/provinces';
+import { cultureName } from '../artificer/world/peoples';
+import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
@@ -258,6 +261,65 @@ const reachFor = (characterId: string): Reach => {
 /** The square last tapped on the map, whose description shows under it. */
 let mapCell: { x: number; y: number } | null = null;
 
+// ── The Reach's history (#1540) ──────────────────────────────────────────────
+// The provinces come straight from the map (quick), but their history takes the engine a second or
+// more, so a worker tells it in the background as soon as the run's seed is known, and the page
+// keeps the result: a reload reads it back instead of telling it again. Until it's ready, the MAP
+// and HISTORY tabs say it's still being told.
+let provincesCache: Provinces | null = null;
+let provincesSeed: number | null = null;
+const provincesFor = (characterId: string): Provinces => {
+  const r = reachFor(characterId);
+  if (provincesSeed !== r.seed || !provincesCache) { provincesCache = provincesOf(r); provincesSeed = r.seed; }
+  return provincesCache;
+};
+const CHRONICLE_KEY = 'artificer.chronicle';
+let chronicle: ReachHistory | null = null;
+/** The seed whose history is told or being told. */
+let chronicleSeed: number | null = null;
+
+/** This run's history, or null while the worker is still telling it (asking starts it). */
+function chronicleFor(characterId: string): ReachHistory | null {
+  const seed = seedOf(characterId);
+  if (chronicleSeed === seed) return chronicle;
+  chronicleSeed = seed;
+  chronicle = (() => { try { return keptHistory(localStorage.getItem(CHRONICLE_KEY), seed); } catch { return null; } })();
+  if (!chronicle) tellHistory(seed);
+  return chronicle;
+}
+
+function tellHistory(seed: number): void {
+  const told = (h: ReachHistory) => {
+    if (h.seed !== chronicleSeed) return; // a new run started meanwhile
+    chronicle = h;
+    try { localStorage.setItem(CHRONICLE_KEY, JSON.stringify(h)); } catch { /* kept for this visit only */ }
+    if (tab === 'map' || tab === 'history') render(state);
+  };
+  // Without workers (or if one fails), tell it here after all: a pause beats no history. The
+  // dynamic import keeps the engine out of the page's bundle either way.
+  const here = () => { import('../artificer/world/history').then(m => told(m.runHistory(seed))).catch(e => console.error('The Reach\'s history could not be told', e)); };
+  try {
+    // `new URL(…, import.meta.url)` is how Vite finds a worker's file and bundles it separately.
+    const worker = new Worker(new URL('./history.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<ReachHistory>) => { worker.terminate(); told(e.data); };
+    worker.onerror = () => { worker.terminate(); here(); };
+    worker.postMessage({ seed });
+  } catch {
+    here();
+  }
+}
+
+/** Who holds a square's province, and what the province remembers (for the MAP tab's square info). */
+function provinceInfo(a: AppState, x: number, y: number): string {
+  const r = reachFor(a.sim.character.id);
+  const provinces = provincesFor(a.sim.character.id);
+  const p = provinces.list[provinces.at[y * r.w + x]];
+  const h = chronicleFor(a.sim.character.id)?.provinces.find(q => q.id === p.id);
+  if (!h) return `<p class="mapinfo provinfo"><b>${esc(p.name)}</b>, ${esc(cultureName(p.culture))} country. <span class="dim">Its story is still being told…</span></p>`;
+  const lines = h.lines.map(l => `<li><b>Year ${l.year}</b> ${esc(l.text)}</li>`).join('');
+  return `<p class="mapinfo provinfo"><b>${esc(h.title)}</b>, ${esc(h.culture)} country${h.holder ? `, held by ${esc(h.holder)}` : ', its seat empty'}.</p>${lines ? `<ul class="provlines">${lines}</ul>` : ''}`;
+}
+
 const MAP_LEGEND = `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
   .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${BIOME_NAME[b].toLowerCase()}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> camp</span><span><b class="m-fog">${GLYPH.unknown}</b> unknown</span></div>`;
 
@@ -273,13 +335,39 @@ function mapTab(a: AppState): string {
     const sel = mapCell?.x === x && mapCell?.y === y ? ' sel' : '';
     return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(ch)}</span>`;
   }).join('')).join('\n');
+  const known = !!mapCell && sight(mapCell.x, mapCell.y) > 0;
   const info = !mapCell ? 'Tap a square to see what it is.'
-    : sight(mapCell.x, mapCell.y) > 0 ? describeCell(r, mapCell.x, mapCell.y)
+    : known ? describeCell(r, mapCell.x, mapCell.y)
     : 'Unknown ground. Scout the rings further out to learn it.';
   return `<section class="box"><p class="eyebrow">THE REACH — a map of what you know</p>
     <div class="mapwrap"><pre class="reachmap" aria-label="Map of the Reach: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
-    <p class="mapinfo">${esc(info)}</p>${MAP_LEGEND}
+    <p class="mapinfo">${esc(info)}</p>${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}
     <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. You see what's within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).</p></section>`;
+}
+
+/**
+ * The HISTORY tab (#1540): who holds the Reach now, and the chronicle the engine wrote. The
+ * chronicle is plain text (the engine's layered renderer: threads for the older years, then living
+ * memory year by year); its section rules become headings and its dated lines get their year picked out.
+ */
+function historyTab(a: AppState): string {
+  const h = chronicleFor(a.sim.character.id);
+  if (!h) return `<section class="box"><p class="eyebrow">THE REACH — its history</p><p class="mood">The old ones are still telling it. It takes a few seconds, once per run.</p></section>`;
+  const r = reachFor(a.sim.character.id);
+  const provinces = provincesFor(a.sim.character.id);
+  const campProvince = provinces.list[provinces.at[r.camp.y * r.w + r.camp.x]].id;
+  const lordships = h.provinces.map(p => `<tr><td><b>${esc(p.title)}</b>${p.id === campProvince ? ' <span class="chip">your camp</span>' : ''}</td><td>${esc(p.culture)}</td><td>${p.holder ? esc(p.holder) : '<span class="faint">empty seat</span>'}</td></tr>`).join('');
+  const body = h.chronicle.split('\n').map(line => {
+    if (!line.trim() || /^[─═]+$/.test(line)) return '';
+    if (/^(AGES OF LEGEND|THE CHRONICLE|LIVING MEMORY)/.test(line)) return `<p class="eyebrow chronhead">${esc(line)}</p>`;
+    const dated = line.match(/^\s*(\d+)\s{2}(.*)$/);
+    return dated ? `<p class="chron"><b>${dated[1]}</b> ${esc(dated[2])}</p>` : `<p class="chron">${esc(line.trim())}</p>`;
+  }).join('');
+  return `<section class="box"><p class="eyebrow">THE REACH — its history</p>
+    <p class="mood">Years are the Reach's own count, from when its oldest houses first held land. It is now year ${h.year}. ${h.told} of ${h.logged} remembered deeds are worth the telling.</p>
+    <p class="eyebrow" style="margin-top:12px">THE LORDSHIPS NOW</p>
+    <div class="tablewrap"><table class="lordships"><thead><tr><th>Lordship</th><th>People</th><th>Held by</th></tr></thead><tbody>${lordships}</tbody></table></div>
+    <div class="chronicle">${body}</div></section>`;
 }
 
 const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber', stone: 'Stone', water: 'Water', game: 'Game', routes: 'Routes' };
@@ -759,9 +847,9 @@ function pastRuns(): string {
 
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
-type Tab = 'plan' | 'camp' | 'land' | 'map' | 'warden' | 'progress';
+type Tab = 'plan' | 'camp' | 'land' | 'map' | 'history' | 'warden' | 'progress';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
@@ -788,6 +876,8 @@ function tabBody(a: AppState, preview: Preview): string {
         <section class="box" style="margin-top:14px"><p class="eyebrow">PINS — places you remember</p>${pinsList(a.sim)}</section>`;
     case 'map':
       return mapTab(a);
+    case 'history':
+      return historyTab(a);
     case 'warden':
       return wardenTab(a);
     case 'progress':
@@ -857,6 +947,8 @@ function resolvePanel(a: AppState): string {
 
 function render(a: AppState): void {
   if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
+  // Start telling this run's history in the background if it isn't told yet (#1540).
+  chronicleFor(a.sim.character.id);
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';

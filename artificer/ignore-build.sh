@@ -13,10 +13,11 @@
 # clean "nothing relevant changed" (git diff --quiet → 0) skips: a git error, such as a SHA missing
 # from Vercel's shallow clone, builds.
 #
-# The paths: the Artificer's own code and page, its build, the dependencies, and the few files
-# outside src/artificer* that it imports or ships (scripts/build-artificer.mjs copies the sprites).
+# The paths: the Artificer's own code and page, its build, the dependencies, and what it imports
+# or ships from outside src/artificer*: the history engine (storytelling/, run on the generated
+# Reach since #1540), rank-names.ts, and the sprites scripts/build-artificer.mjs copies.
 cd .. || exit 1
 git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- \
   src/artificer src/artificer-app src/artificer-ai artificer.html artificer \
   scripts/build-artificer.mjs package.json package-lock.json \
-  src/rank-names.ts public/assets/sprites/characters || exit 1
+  storytelling src/rank-names.ts public/assets/sprites/characters || exit 1
