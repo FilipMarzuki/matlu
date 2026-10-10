@@ -70,6 +70,8 @@ Filed (none labelled `ready`; triage will size them):
 - #1515: Homestead, wire the discovery routes that have no caller.
 - #1516: Homestead, a coal source and animal drops, so its ore and hunting lead somewhere.
 
+**Decided (2026-10-10).** The owner: "Just use raw meat, for now. Let's keep it simple; we can diversify later. Same for items and resources. Let's try to polish the mechanics before expanding too much." So `raw-meat` is the one meat item (`game-meat` was dropped in #1523), and new item or resource variety waits until the mechanics are polished. #1516 was narrowed to a coal source (animal drops deferred), the talk-only materials stay as lore, and the `futureUnlocks` ideas stay parked.
+
 Left for the owner (game design, not implementation):
 
 - **One content model or two?** The Artificer runs on store goods and its own recipes; the registries describe a 131-recipe tech tree that only the Homestead touches. Should the Artificer move onto the registry's items as it grows, should the registry be cut back to what the Artificer needs, or should they stay separate games?
