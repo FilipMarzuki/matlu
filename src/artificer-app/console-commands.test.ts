@@ -51,6 +51,15 @@ describe('The console command line (#1557)', () => {
 
   it('sends what it does not understand, so the game can say why', () => {
     expect(moveOf('teleport home')).toEqual({ do: 'teleport home' });
+    // Words must start a word of a label: a stray letter isn't a move name.
+    expect(moveOf('wood gather')).toEqual({ do: 'wood' });
+    expect(moveOf('ood')).toEqual({ do: 'ood' });
+  });
+
+  it('says to start a new game when a number is picked after the run is over', () => {
+    const c = parseCommand('1', []);
+    expect(c.kind).toBe('error');
+    expect(c.kind === 'error' && c.message).toContain('"new"');
   });
 
   it('completes words from the moves and its own commands', () => {

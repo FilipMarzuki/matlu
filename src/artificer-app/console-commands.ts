@@ -54,7 +54,9 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
   const numbered = /^(?:choose |pick |c )?(\d+)$/.exec(line);
   if (numbered) {
     const pick = moves[Number(numbered[1]) - 1];
-    return pick ? { kind: 'move', move: pick.move } : { kind: 'error', message: `There's no move ${numbered[1]}: pick one of 1 to ${moves.length}.` };
+    if (pick) return { kind: 'move', move: pick.move };
+    if (!moves.length) return { kind: 'error', message: 'No moves are open: type "new" for a fresh game.' };
+    return { kind: 'error', message: `There's no move ${numbered[1]}: pick one of 1 to ${moves.length}.` };
   }
 
   const setting = /^set (eating|focus|site) (\S+)$/.exec(line);
@@ -84,8 +86,10 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
     }
   }
 
-  // "gather wood": the start of a move's label.
-  const byLabel = moves.find(m => labelWords(m.label).startsWith(line)) ?? moves.find(m => line.split(' ').every(w => labelWords(m.label).includes(w)));
+  // "gather wood": the start of a move's label, or each typed word starting a word of it
+  // ("wood gather", "fetch wat"). Whole-word starts only: "a" alone mustn't pick "gather food".
+  const startsAWord = (label: string, w: string) => labelWords(label).split(' ').some(lw => lw.startsWith(w));
+  const byLabel = moves.find(m => labelWords(m.label).startsWith(line)) ?? moves.find(m => line.split(' ').every(w => startsAWord(m.label, w)));
   if (byLabel) return { kind: 'move', move: byLabel.move };
 
   // Not understood here: send it anyway, and the game says why it can't be done.

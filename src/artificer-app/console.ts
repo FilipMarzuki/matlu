@@ -87,6 +87,12 @@ async function move(m: unknown): Promise<void> {
     setMoves((r.body.moves as MoveOption[] | undefined) ?? moves);
     return;
   }
+  // 404/410: the game is gone, so look() forgets it. 409: another tab moved first, so look()
+  // fetches where the game really is before the next move.
+  if (r.status === 404 || r.status === 410 || r.status === 409) {
+    if (r.status === 409) failed(r);
+    return look();
+  }
   if (r.status !== 200) return failed(r);
   const g = r.body as unknown as GameBody;
   print(g.changed?.length ? g.changed.join('\n') : '(nothing new)');
