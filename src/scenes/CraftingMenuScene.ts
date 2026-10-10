@@ -98,6 +98,10 @@ export class CraftingMenuScene extends Phaser.Scene {
   private concepts: Concept[] = [];
   private recipes: Recipe[] = [];
   private resources: Resource[] = [];
+  /** Items picked on the Pack tab to try together as an experiment (#1515). */
+  private experimentPick = new Set<string>();
+  /** The last experiment's result, shown under the Pack tab's sub-tabs. */
+  private experimentNote = '';
 
   /** Recipe currently shown in Forge View (null = normal tab view). */
   private forgeRecipe: Recipe | null = null;
@@ -141,13 +145,9 @@ export class CraftingMenuScene extends Phaser.Scene {
   }
 
   private get discoverySys(): DiscoverySystem {
-    let sys = this.game.registry.get('discoverySystem') as DiscoverySystem | undefined;
-    if (!sys) {
-      sys = new DiscoverySystem(this);
-      // Load recipe defs if available
-      if (this.recipes.length > 0) sys.loadRecipeDefs(this.recipes);
-    }
-    return sys;
+    // One per game, shared with the Homestead, which made it on entry so gathering already counts.
+    // loadData() feeds it the recipe defs once they're fetched.
+    return DiscoverySystem.of(this);
   }
 
   private get projectSys(): ProjectSystem {
@@ -1629,8 +1629,34 @@ export class CraftingMenuScene extends Phaser.Scene {
       stX += stText.width + 8;
     });
 
+    // Experiment (#1515): pick items, then try them together. Exactly the inputs of an
+    // undiscovered experiment recipe works it out; nothing is used up either way.
+    for (const id of this.experimentPick) if ((this.inventory.get(id) ?? 0) <= 0) this.experimentPick.delete(id);
+    const picked = this.experimentPick.size;
+    const canTry = picked >= 2;
+    // Next to the sub-tabs, so it sits inside the panel at any width.
+    const tryBtn = this.add.text(stX + 12, 24, `EXPERIMENT${picked ? ` (${picked})` : ''}`, {
+      fontSize: '10px', color: canTry ? '#ffe066' : '#666666', fontStyle: 'bold',
+      backgroundColor: canTry ? '#333322' : '#222222', padding: { x: 6, y: 3 },
+    });
+    if (canTry) {
+      tryBtn.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+        const found = this.discoverySys.tryExperiment([...this.experimentPick], this.recipes);
+        const recipe = found ? this.recipes.find(r => r.id === found) : undefined;
+        this.experimentNote = recipe ? `Worked out: ${recipe.name}. It's in Recipes now.` : 'Nothing comes of it.';
+        if (found) this.experimentPick.clear();
+        this.renderTab();
+      });
+    }
+    this.contentContainer.add(tryBtn);
+    this.contentContainer.add(
+      this.add.text(0, 48, this.experimentNote || 'Tap items to pick them, then Experiment to try them together.', {
+        fontSize: '10px', color: this.experimentNote.startsWith('Worked') ? '#88ff88' : '#888888',
+      })
+    );
+
     // Inventory grid
-    const gridStartY = 52;
+    const gridStartY = 68;
     const cellSize = 64;
     const cellGap = 8;
     const cols = Math.floor(panelW / (cellSize + cellGap));
@@ -1642,14 +1668,25 @@ export class CraftingMenuScene extends Phaser.Scene {
       const row = Math.floor(itemIdx / cols);
       const cx = col * (cellSize + cellGap) + cellSize / 2;
       const cy = gridStartY + row * (cellSize + cellGap) + cellSize / 2;
+      const isPicked = this.experimentPick.has(itemId);
 
-      // Cell background
+      // Cell background (a gold edge when picked for an experiment)
       const cellBg = this.add.graphics();
-      cellBg.fillStyle(0x222233, 0.6);
+      cellBg.fillStyle(isPicked ? 0x333322 : 0x222233, 0.6);
       cellBg.fillRoundedRect(cx - cellSize / 2, cy - cellSize / 2, cellSize, cellSize, 4);
-      cellBg.lineStyle(1, 0x444466, 0.4);
+      cellBg.lineStyle(isPicked ? 2 : 1, isPicked ? 0xffe066 : 0x444466, isPicked ? 1 : 0.4);
       cellBg.strokeRoundedRect(cx - cellSize / 2, cy - cellSize / 2, cellSize, cellSize, 4);
       this.contentContainer.add(cellBg);
+
+      // Tap to pick or unpick. Graphics can't take input, so an invisible rectangle does.
+      const hit = this.add.rectangle(cx, cy, cellSize, cellSize, 0x000000, 0).setInteractive({ useHandCursor: true });
+      hit.on('pointerdown', () => {
+        if (isPicked) this.experimentPick.delete(itemId);
+        else this.experimentPick.add(itemId);
+        this.experimentNote = '';
+        this.renderTab();
+      });
+      this.contentContainer.add(hit);
 
       // Item name (shortened)
       const displayName = itemId.replace(/-/g, ' ').split(' ').map(w => w[0].toUpperCase()).join('');
