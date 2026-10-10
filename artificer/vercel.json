@@ -4,10 +4,8 @@
   "installCommand": "cd .. && npm ci",
   "buildCommand": "cd .. && npm run build:artificer",
   "outputDirectory": "dist",
-  "ignoreCommand": "cd .. && git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- src/artificer src/artificer-app src/artificer-ai artificer.html artificer scripts/build-artificer.mjs package.json package-lock.json src/crafting/planner.ts src/rank-names.ts public/assets/sprites/characters || exit 1",
+  "ignoreCommand": "sh ignore-build.sh",
   "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
+    "deploymentEnabled": false
   }
 }
