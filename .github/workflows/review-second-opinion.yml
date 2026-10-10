@@ -72,4 +72,7 @@ jobs:
           GITHUB_REPOSITORY:   ${{ github.repository }}
           OPENROUTER_API_KEY:  ${{ secrets.OPENROUTER_API_KEY }}
           SECOND_REVIEW_MODEL: ${{ vars.SECOND_REVIEW_MODEL }}
+          # When OpenRouter can't review, Claude does, marked weak (#1509).
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          REVIEW_FALLBACK_MODEL: ${{ vars.REVIEW_FALLBACK_MODEL || 'claude-sonnet-5-5' }}
         run: node .github/scripts/run-second-review.js --pr ${{ steps.find-pr.outputs.pr_number }}

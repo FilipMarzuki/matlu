@@ -39,6 +39,7 @@ const LABELS = [
   { name: 'risk:low',       color: 'c2e0c6', description: 'Review risk: low — the review agent only' },
   { name: 'risk:medium',    color: 'fbca04', description: 'Review risk: medium — the second-opinion model must approve too' },
   { name: 'risk:high',      color: 'd93f0b', description: 'Review risk: high — plus focused reviews on a stronger model, which must find nothing' },
+  { name: 'weak-review',    color: 'e4b100', description: 'Reviewed by the Claude fallback instead of another model family: revisit' },
 
   // Triage extras — informational, applied alongside the readiness label.
   // `rework` feeds the weekly rework metric (collect-stats.js); `size:*` is the
