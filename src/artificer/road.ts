@@ -21,8 +21,9 @@
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
-import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
-import { survivalLock, focusInline, type Focus } from './focus';
+import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
+import { survivalLock, focusInline, focusKey, type Focus } from './focus';
+import { ask, ASK_HOURS, ASK_TRUST } from './asks';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
@@ -113,6 +114,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
    * hold and the quests you've taken (`topicsOpen`). Absent in a road begun before topics.
    */
   heard?: string[];
+  /** What each person has answered when asked (#1495), by person id: the focus keys. Absent before asks. */
+  asked?: Record<string, string[]>;
   /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
   fare?: Fare | null;
   /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
@@ -218,6 +221,7 @@ function clone(s: RoadState): RoadState {
     contacts: [...s.contacts],
     appraised: [...s.appraised],
     ...(s.heard ? { heard: [...s.heard] } : {}),
+    ...(s.asked ? { asked: Object.fromEntries(Object.entries(s.asked).map(([k, v]) => [k, [...v]])) } : {}),
     log: [...s.log],
   };
 }
@@ -263,7 +267,7 @@ export function setRoadFocus(s: RoadState, focus: Focus | null): RoadState {
  * (#1245): `craft:<recipe>`, `study:<concept>`, `tend`; on the wagon, `help`. A healer — Ottilia on the
  * wagon, or the village's — tends an injury (#1394): `heal:<healerId>`.
  */
-export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `heal:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
+export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `ask:${string}` | `heal:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
   /** Region 1's camp and land work — refused on the road ("Not from the wagon"), but named so a player can try. */
   | ActionId;
 
@@ -318,6 +322,7 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     say(next, r.line, 'action');
     return next;
   }
+  if (id.startsWith('ask:')) return askAbout(next, id.slice(4));
   if (id.startsWith('sell:') || id.startsWith('buy:')) return trade(next, id);
   if (id.startsWith('accept:')) return accept(next, id.slice(7));
   if (id.startsWith('complete:')) return complete(next, id.slice(9));
@@ -571,6 +576,35 @@ function fromView(next: RoadState, v: Region1State): void {
   next.studiedToday = v.studiedToday;
   next.known = v.known;
   for (const l of v.log) next.log.push({ day: next.day, text: l.text, kind: l.kind });
+}
+
+/**
+ * Ask someone here about what you're focused on (#1495): an hour's talk. They tell you what they
+ * know (if they trust you enough), say not yet, or don't know. What an answer names you've come
+ * across, so it can point you on. Asked and answered before, it's free and changes nothing.
+ */
+function askAbout(next: RoadState, pid: string): RoadState {
+  const person = peopleHere(next).find(p => p.id === pid);
+  if (!person) { say(next, `Ask: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
+  const f = next.focus;
+  // Focus is attention: a topic, a skill or a concept gives you something to ask about. A goal is work.
+  if (!f || f.kind === 'goal') { say(next, 'Ask: nothing to ask about — set a focus on a topic, a skill or a concept first.', 'skip'); return next; }
+  const key = focusKey(f);
+  const r = ask(person, key, focusInline(f), next.trust[pid] ?? 0, next.asked?.[pid] ?? []);
+  if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
+  const a = applyActivity(next.vitals, { hours: ASK_HOURS, vigorRate: 0, clarityRate: -1 });
+  next.vitals = a.vitals;
+  next.today.loadClarity += a.loadClarity;
+  next.hoursToday += ASK_HOURS;
+  exerciseStats(next, { cha: ASK_HOURS });
+  if (r.kind === 'told') {
+    next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), key] };
+    next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
+    next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.answer.text)])];
+    if (r.answer.insight) addInsight(next.concepts, r.answer.insight.concept, r.answer.insight.amount, CRAFT_WORLD.concepts);
+  }
+  say(next, r.line, 'action');
+  return next;
 }
 
 /** Craft a known recipe on the road (#1245): Region 1's craft, four hours of lap work, practice to match. */

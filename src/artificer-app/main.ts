@@ -27,6 +27,7 @@ import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques'
 import { introBeats, fillName, type Beat } from './intro';
 import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
+import { topicsOpen } from '../artificer/topics';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
@@ -362,6 +363,9 @@ function eatingChip(s: AppState['sim']): string {
   return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${tip} — tap to change">RATIONS <b>${label}</b></button>`;
 }
 
+/** Topic kinds as the Warden tab groups them (#1495). */
+const TOPIC_GROUPS: readonly (readonly [string, string])[] = [['material', 'MATERIAL'], ['place', 'PLACE'], ['group', 'GROUP'], ['person', 'PERSON'], ['quest', 'QUEST'], ['role', 'JOB']];
+
 /**
  * The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. On
  * the road (#1479) the chips set the road's focus, and the note says what a focus does there.
@@ -371,25 +375,33 @@ function focusBlock(s: AppState['sim'], road?: RoadState): string {
   const cur = focusKey(s.focus);
   const chip = (key: string, label: string, note: string) =>
     `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
-  // On the road (#1479) a goal or a skill has no work to help: the chip says so instead of its Reach effect.
+  // On the road (#1479) a goal has no work to help: the chip says so instead of its Reach effect. A
+  // skill has no work either, but it's something to ask people about (#1495).
   const idle = 'nothing to work on from the wagon (still costs the Clarity)';
   const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, road ? idle : `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
-  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? idle : 'practises 3x as fast')).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? 'something to ask people about (wagon crafts practise at their own pace)' : 'practises 3x as fast')).join('');
   // The concepts open to this Warden and not yet mastered (#1478): the six, and the web as it opens.
-  const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
+  const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work${road ? ', and something to ask people about' : ''}`)).join('');
+  // Topics (#1494, #1495): on the road, what you've come across — met, held, taken on, heard named —
+  // grouped by kind. A topic is something to ask people about; it does no work.
+  const open = road ? topicsOpen(road) : [];
+  const topics = TOPIC_GROUPS.map(([kind, name]) => {
+    const chips = open.filter(k => k.startsWith(`${kind}:`)).map(k => { const f = parseFocus(k); return f ? chip(k, focusLabel(f), 'something to ask people about') : ''; }).join('');
+    return chips ? `<p class="fgroup">${name}</p><div class="fchips">${chips}</div>` : '';
+  }).join('');
   const below = statEffects(s.character.stats).unreliableBelow;
   // On the road a focus still costs its Clarity each night (the road sleeps by Region 1's rules), but
   // only a concept gets anything for it: no goal work from the wagon, and wagon crafts practise at
   // their own pace.
   const note = road
-    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night, and only a concept gets anything for it: it's turned over each night (halved below ${below} Clarity). Goals and skills have no work from the wagon.`
+    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night. A concept is turned over each night (halved below ${below} Clarity). Any focus but a goal gives you something to ask people about. Goals have no work from the wagon.`
     : `One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${below} Clarity it's halved.`;
   const helps = road ? '' : 'Water, food, wood and shelter work goes better; ';
   return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. ${helps}learning waits until it passes.</p>` : ''}
     <p class="mood" style="margin-top:0">${note}</p>
     <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
     <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
-    <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>
+    <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>${topics}
     <div class="fchips" style="margin-top:6px">${chip('none', 'No focus', 'free your mind (saves the Clarity)')}</div>`;
 }
 

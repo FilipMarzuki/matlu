@@ -392,8 +392,10 @@ function parseRoad(x: unknown): RoadState | null {
     injuries: Array.isArray(x.injuries) ? (x.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : undefined,
     // The road's focus is the player's to set (#1479), so it's checked on load like the Reach's.
     focus: readFocus(x.focus, x),
-    // Topics heard named (#1494); a road from before has none.
-    heard: strs(x.heard),
+    // Topics heard named (#1494) and what each person has answered (#1495); a road from before has
+    // neither, and loads without them (as it was saved).
+    ...(Array.isArray(x.heard) ? { heard: strs(x.heard) } : {}),
+    ...(isObj(x.asked) ? { asked: Object.fromEntries(Object.entries(x.asked).map(([k, v]) => [k, strs(v)])) } : {}),
   };
 }
 
