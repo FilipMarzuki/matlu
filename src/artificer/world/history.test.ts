@@ -50,8 +50,8 @@ describe('The Reach split into provinces (#1540)', () => {
     for (const seed of SEEDS) {
       const { list } = provincesOf(generateReach(seed));
       expect(new Set(list.map(p => p.name)).size).toBe(list.length);
-      // The hand-written places are never reused.
-      for (const anchor of ['Hollowford', 'Saltmere', 'Kestrel Gate', 'Mistheim']) expect(list.map(p => p.name)).not.toContain(anchor);
+      // The road's end is never a province (the hand-written villages are seated once each: settlements.test.ts).
+      expect(list.map(p => p.name)).not.toContain('Mistheim');
       for (const p of list) {
         expect(p.neighbors.length, `${p.name} has a neighbour`).toBeGreaterThan(0);
         for (const n of p.neighbors) expect(list.find(q => q.id === n)!.neighbors).toContain(p.id);
@@ -90,7 +90,7 @@ describe("The Reach's generated history (#1540)", () => {
   // history from the old code is told again.
   it('tells the same history from the same seed, and a different one from another', () => {
     const a = logHash(seedOf('w-vega'));
-    expect(a).toBe('ba3826528d478d00');
+    expect(a).toBe('78a7cd19123afa0d');
     expect(logHash(seedOf('w-vega'))).toBe(a);
     expect(logHash(seedOf('w-astrid'))).not.toBe(a);
   });

@@ -31,6 +31,7 @@ import { topicsOpen } from '../artificer/topics';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, mapRows, sightFor, describeCell, GLYPH, BIOME_NAME, type Biome, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
+import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
@@ -309,6 +310,48 @@ function tellHistory(seed: number): void {
   }
 }
 
+// ── Settlements (#1541) ──────────────────────────────────────────────────────
+// One at each province's seat, drawn as '#' on the map where you can see it. Laying one out takes
+// a few milliseconds, so each is built the first time it's opened and kept for the run.
+const SEAT_GLYPH = '#';
+let settlementCache = new Map<string, Settlement>();
+let settlementSeed: number | null = null;
+function settlementFor(characterId: string, provinceId: string): Settlement {
+  const r = reachFor(characterId);
+  if (settlementSeed !== r.seed) { settlementCache = new Map(); settlementSeed = r.seed; }
+  let s = settlementCache.get(provinceId);
+  if (!s) {
+    s = settlementOf(r, provincesFor(characterId).list.find(p => p.id === provinceId)!);
+    settlementCache.set(provinceId, s);
+  }
+  return s;
+}
+/** The settlement open in the MAP tab (its province id), and the building last tapped in it. */
+let mapSettlement: string | null = null;
+let settlementPick: string | null = null;
+
+/** The settlement view: its layout as text, a letter per building, the key, and a tapped building's details. */
+function settlementView(a: AppState, provinceId: string): string {
+  const s = settlementFor(a.sim.character.id, provinceId);
+  const h = chronicleFor(a.sim.character.id)?.provinces.find(q => q.id === provinceId);
+  const grid = s.rows.map(row => [...row].map(ch => {
+    if (ch === '.') return '<span class="s-ground">.</span>';
+    if (ch === '=' || ch === '-') return `<span class="s-road">${ch}</span>`;
+    return `<span class="s-bldg${settlementPick === ch ? ' sel' : ''}" data-bldg="${ch}">${esc(ch)}</span>`;
+  }).join('')).join('\n');
+  const key = s.buildings.map(b => `<button class="keyitem${settlementPick === b.letter ? ' on' : ''}" data-bldg="${b.letter}"><b>${esc(b.letter)}</b> ${esc(b.name)}${b.people.length ? ' ★' : ''}</button>`).join('');
+  const pick = s.buildings.find(b => b.letter === settlementPick);
+  const info = pick
+    ? `<p class="mapinfo"><b>${esc(pick.name)}</b>: ${esc(pick.role)}.${pick.lore ? ` <span class="dim">${esc(pick.lore)}</span>` : ''}</p>${pick.people.length ? `<p class="mapinfo">Here: ${esc(pick.people.join(', '))}.</p>` : ''}`
+    : '<p class="mapinfo">Tap a building, or its letter in the key.</p>';
+  const lord = h ? `${esc(h.title)}${h.holder ? `, held by ${esc(h.holder)}` : ''}. ` : '';
+  return `<section class="box"><p class="eyebrow">${esc(s.name.toUpperCase())} — a ${esc(s.purpose.replace('-', ' '))} ${TIER_NAME[s.tier]} of the ${esc(cultureName(s.culture))}</p>
+    <p class="mood">${lord}${s.buildings.length} buildings. <span class="s-road">=</span> road, <span class="s-road">-</span> lane, a letter for each building${s.about.length ? `. About the place: ${esc(s.about.join(', '))}` : ''}.</p>
+    <div class="mapwrap"><pre class="reachmap settlemap" aria-label="Layout of ${esc(s.name)}">${grid}</pre></div>
+    ${info}<div class="settlekey">${key}</div>
+    <p style="margin-top:12px"><button class="pill" data-settle="">← BACK TO THE MAP</button></p></section>`;
+}
+
 /** Who holds a square's province, and what the province remembers (for the MAP tab's square info). */
 function provinceInfo(a: AppState, x: number, y: number): string {
   const r = reachFor(a.sim.character.id);
@@ -321,27 +364,37 @@ function provinceInfo(a: AppState, x: number, y: number): string {
 }
 
 const MAP_LEGEND = `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
-  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${BIOME_NAME[b].toLowerCase()}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> camp</span><span><b class="m-fog">${GLYPH.unknown}</b> unknown</span></div>`;
+  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${BIOME_NAME[b].toLowerCase()}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> camp</span><span><b class="m-seat">#</b> settlement</span><span><b class="m-fog">${GLYPH.unknown}</b> unknown</span></div>`;
 
 /** The MAP tab: the Reach as one character per square, what you can see of it, and a tapped square's details. */
+/** The world the MAP tab last drew: a new run is a new Reach, so its open settlement and tapped square go. */
+let mapSeed: number | null = null;
+
 function mapTab(a: AppState): string {
   const r = reachFor(a.sim.character.id);
+  if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
+  if (mapSettlement) return settlementView(a, mapSettlement);
+  const provinces = provincesFor(a.sim.character.id);
+  const seatAt = new Map(provinces.list.map(p => [p.seat.y * r.w + p.seat.x, p]));
   const sight = sightFor(r, a.sim.explore);
   const rows = mapRows(r, sight);
   const grid = rows.map((row, y) => [...row].map((ch, x) => {
     // Glimpsed squares (only suspected so far) draw dimmer than ones you've surveyed or worked.
     const seen = sight(x, y);
-    const cls = x === r.camp.x && y === r.camp.y ? 'm-camp' : seen > 0 ? `m-${r.cells[y * r.w + x].biome}${seen === 1 ? ' dim' : ''}` : 'm-fog';
+    const seat = seen > 0 && seatAt.has(y * r.w + x) && !(x === r.camp.x && y === r.camp.y);
+    const cls = x === r.camp.x && y === r.camp.y ? 'm-camp' : seat ? `m-seat${seen === 1 ? ' dim' : ''}` : seen > 0 ? `m-${r.cells[y * r.w + x].biome}${seen === 1 ? ' dim' : ''}` : 'm-fog';
     const sel = mapCell?.x === x && mapCell?.y === y ? ' sel' : '';
-    return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(ch)}</span>`;
+    return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(seat ? SEAT_GLYPH : ch)}</span>`;
   }).join('')).join('\n');
   const known = !!mapCell && sight(mapCell.x, mapCell.y) > 0;
   const info = !mapCell ? 'Tap a square to see what it is.'
     : known ? describeCell(r, mapCell.x, mapCell.y)
     : 'Unknown ground. Scout the rings further out to learn it.';
+  const seatHere = known && mapCell ? seatAt.get(mapCell.y * r.w + mapCell.x) : undefined;
+  const enter = seatHere ? `<p class="mapinfo"><b>${esc(seatHere.name)}</b> stands here. <button class="pill" data-settle="${seatHere.id}">ENTER ${esc(seatHere.name.toUpperCase())}</button></p>` : '';
   return `<section class="box"><p class="eyebrow">THE REACH — a map of what you know</p>
     <div class="mapwrap"><pre class="reachmap" aria-label="Map of the Reach: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
-    <p class="mapinfo">${esc(info)}</p>${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}
+    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}
     <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. You see what's within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).</p></section>`;
 }
 
@@ -1294,6 +1347,12 @@ function update(next: AppState): void {
 }
 
 root.addEventListener('click', e => {
+  // A building in a settlement (#1541), on its grid or in the key: show what it is.
+  const bldg = (e.target as HTMLElement).closest<HTMLElement>('[data-bldg]');
+  if (bldg?.dataset.bldg) { settlementPick = settlementPick === bldg.dataset.bldg ? null : bldg.dataset.bldg; render(state); return; }
+  // Enter a settlement from the map, or go back to the map ("").
+  const enterEl = (e.target as HTMLElement).closest<HTMLElement>('[data-settle]');
+  if (enterEl) { mapSettlement = enterEl.dataset.settle || null; settlementPick = null; render(state); return; }
   // A square on the map (#1539): show what it is.
   const square = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
   if (square?.dataset.cell) { const [x, y] = square.dataset.cell.split(',').map(Number); mapCell = { x, y }; render(state); return; }

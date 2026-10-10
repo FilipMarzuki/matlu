@@ -718,3 +718,16 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .chron { margin: 0 0 5px; font-size: 13px; line-height: 1.45; color: var(--ink); }
 .provinfo .dim { color: var(--faint); }
 .lordships .faint { color: var(--faint); }
+
+/* Settlements (#1541): '#' on the map, and a settlement's layout as text. */
+.reachmap .m-seat, .maplegend .m-seat { color: var(--gold); font-weight: bold; }
+.settlemap .s-ground { color: var(--border); }
+.settlemap .s-road { color: var(--faint); }
+.settlemap .s-bldg { color: var(--teal); font-weight: bold; }
+.settlemap .s-bldg.sel { color: var(--gold); background: rgba(255,224,102,.18); outline: none; }
+.mood .s-road { font-family: "Courier New", ui-monospace, monospace; }
+.settlekey { display: flex; flex-wrap: wrap; gap: 4px; }
+.settlekey .keyitem { border: 1px solid var(--border); background: var(--sub); color: var(--ink); border-radius: 7px; padding: 3px 7px; font-size: 12px; cursor: pointer; }
+.settlekey .keyitem b { font-family: "Courier New", ui-monospace, monospace; color: var(--teal); margin-right: 3px; }
+.settlekey .keyitem.on { border-color: var(--gold); }
+.settlekey .keyitem.on b { color: var(--gold); }
