@@ -52,7 +52,7 @@ more, make better things, succeed more often, and now **notice and ask** more.
 
 | Topic kind | Examples | Comes from |
 |---|---|---|
-| `material` | `material:iron`, `material:copper`, `material:hides` | the item registry / resource nodes; materials the Warden has handled |
+| `material` | `material:iron`, `material:copper`, `material:hides` | the item registry; materials the Warden holds (stone, hides, wood) |
 | `place` | `place:kestrel-gate`, `place:hollowford`, Reach sites, discoveries | `ROUTE`, `VILLAGES`, `SITES`, `DISCOVERIES` |
 | `group` | `group:compact`, `group:vidde-accords`, the 15 Peoples, cultures | a new small registry; Peoples and cultures from their data |
 | `person` | `person:kg-sabine` | leads (§5) |
@@ -62,9 +62,11 @@ more, make better things, succeed more often, and now **notice and ask** more.
 A skill focus (`skill:hunting`) counts as a topic in conversation too.
 
 **Only topics you've come across can be focused on**, the same rule concepts follow (#1478). You
-come across a topic by hearing it named in a lore line or an answer, by visiting a place, by
-taking a quest, or by meeting someone of that role. That makes listening worth something: a
-smith's passing remark about iron opens iron as a focus.
+come across a topic by meeting someone (and through them, their job, their People and their
+village), by holding a material, by taking a quest, or by hearing it named in a lore line or an
+answer. That makes listening worth something: a smith's passing remark about iron opens iron as
+a focus. All of this is read off what the run already keeps; only what you've *heard* is stored
+(`RoadState.heard`).
 
 Costs are unchanged: one focus, its Clarity each night, halved below `UNRELIABLE_BELOW`.
 
@@ -154,8 +156,8 @@ then measure whether focus-driven asking pays (leads followed, quests found, ins
 
 | Slice | What | Notes |
 |---|---|---|
-| A | **Topics as a focus**: the `topic` kind, registry, come-across rule, setters and load check, topic chips in the Warden tab | sim + UI; no dialogue yet |
-| B | **Village conversations**: talk sheet (Chat + Ask), `Person.knows`, answer effects, trust gates, `Requirement.focus/knows`, AI observation | sim + UI |
+| A | **Topics as a focus**: the topic kinds, registry, come-across rule, setters and load check | sim only. No chips yet: a topic does nothing until people can be asked |
+| B | **Village conversations**: talk sheet (Chat + Ask), `Person.knows`, answer effects, trust gates, `Requirement.focus/knows`, AI observation, topic chips in the Warden tab | sim + UI |
 | C | **Passive noticing**: `Person.signs`, the seeded roll, card marks, journal lines, knowledge-based noticing | sim + UI |
 | D | **Leads**: lead records, person topics, "the one X mentioned", quest-log section | sim + UI |
 | E | **First content**: iron, the Compact, smithing, Kestrel Gate, one quest, foraging; answers and signs across the three villages and the travellers, with one lead chain (iron → Orrin at Hollowford → Sabine, the smith at Kestrel Gate) | data + lore |
