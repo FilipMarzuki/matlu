@@ -100,6 +100,34 @@ describe('Budget checked before every call (#1449)', () => {
     expect(ledger.spent).toBe(1);
   }, 60_000);
 
+  // #1491-1. ai:bench plays its models at once against one ledger. A call reserves its estimated
+  // cost before it waits on the model, so parallel games see each other's calls in flight and the
+  // batch goes at most one call over, not one call per game.
+  it('keeps parallel games within one call of the budget (#1491)', async () => {
+    // Each call answers on a later tick, so the four games' calls overlap like real ones do.
+    const slow = (each: number): Player => {
+      const base = costly(each);
+      return { ...base, decide: async (...a: Parameters<Player['decide']>) => { await new Promise(r => setTimeout(r, 1)); return base.decide(...a); } };
+    };
+    for (const games of [4, 8]) {
+      const ledger: SpendLedger = { spent: 0, budget: 0.5 };
+      await Promise.all(Array.from({ length: games }, (_, i) => playRun(slow(0.05), { calendar: SHORT_YEAR, ledger, characterId: `ai-par-${i}` }).catch(() => null)));
+      expect([games, ledger.spent >= 0.5 - 1e-9]).toEqual([games, true]);
+      expect([games, ledger.spent <= 0.55 + 1e-9]).toEqual([games, true]);
+      // Every reservation was taken back once its call settled.
+      expect([games, ledger.reserved ?? 0, ledger.unpriced ?? 0]).toEqual([games, expect.closeTo(0, 9), 0]);
+    }
+  });
+
+  // #1491-2. The caravan meeting finished before the road ran out: it's paid for and kept.
+  it('keeps a finished caravan meeting when the road runs out of budget (#1491)', async () => {
+    const ledger: SpendLedger = { spent: 0, budget: 0.5 };
+    const r = await playRun(costly(1, true), { calendar: SHORT_YEAR, planning: 'open', road: true, ledger });
+    expect(r.roadStopped).toBe('budget');
+    expect(r.road).toBeUndefined();
+    expect(r.meeting?.ended).toBe('board');
+  }, 60_000);
+
   // 2. Under budget, the run plays out as before.
   it('plays out when under budget', async () => {
     const r = await playRun(costly(0.001), { calendar: SHORT_YEAR, ledger: { spent: 0, budget: 100 }, planning: 'open' });

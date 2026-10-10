@@ -135,7 +135,7 @@ async function main(): Promise<void> {
     const { final: _final, road, ...rest } = result;
     const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
-    if (!quiet && result.roadStopped) console.log('  → road: not played — budget reached at the thaw');
+    if (!quiet && result.roadStopped) console.log(`  → road: stopped — budget reached ${result.meeting ? 'on the road (the caravan meeting is kept)' : 'at the thaw'}`);
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
     if (!quiet) console.log(`  → a person would take about ${playtimeText(playtimeOf(result))} to play this run (#1471)`);

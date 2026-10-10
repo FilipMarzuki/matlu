@@ -16,7 +16,7 @@
 import { playtimeOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, BudgetExceeded, fillTally, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
+import { playRun, BudgetExceeded, committed, fillTally, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { ROSTER, DROPPED, perYear, budgetAdvice } from '../src/artificer-ai/roster';
 
@@ -46,7 +46,8 @@ const failures: string[] = [];
 
 async function playModel(model: string): Promise<void> {
   for (let n = 1; n <= runs; n++) {
-    if (ledger.spent >= ledger.budget) { console.log(`  ${model}: budget reached, skipping game ${n}`); return; }
+    // Calls other games have in flight count too (#1491).
+    if (committed(ledger) >= ledger.budget) { console.log(`  ${model}: budget reached, skipping game ${n}`); return; }
     try {
       const r = await playRun(openRouterPlayer({ model }), { ledger, fillDay: true });
       results.push({ model, r });
