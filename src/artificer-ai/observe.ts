@@ -29,7 +29,7 @@ import { SKILL_IDS, LEVELS, perceivedLevel, skillLevel } from '../artificer/skil
 import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
 import { focusKey, focusLabel, UNRELIABLE_BELOW } from '../artificer/focus';
-import { ASK_HOURS } from '../artificer/asks';
+import { ASK_HOURS, tellsFor } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
@@ -338,6 +338,7 @@ export const ROAD_RULES = `THE CARAVAN ROAD — you survived the winter. The spr
 Each day: choose road actions in order; they run until the day's 16 hours are spent, then you sleep. On the wagon the caravan waters you; in a village you drink your own water. Food comes from your stores every night as before. Nights on the road are never cold.
 
 PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
+TELLING: what you did in the Reach means something to some people. "tell:<person>:<deed>" (${ASK_HOURS}h) tells them, once; they warm to you for it.
 ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know. An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
 LEADS: an answer can send you to someone elsewhere. The lead is listed below; asking that person about its topic needs less trust (someone they know sent you), and you can focus on them before you meet them.
 NOTICING: in a village, each morning, you may notice who is tied to your focus (or to something you've learned about, less often): a sign in the journal, and asking them about it then needs less trust.
@@ -486,6 +487,9 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     const asked = peopleHere(r).map(p => `ask:${p.id}${(r.asked?.[p.id] ?? []).includes(key) ? ' (answered)' : ''}`);
     lines.push(`ASK ABOUT YOUR FOCUS (${focusLabel(r.focus)}), ${ASK_HOURS}h each: ${asked.join(', ')}`);
   }
+  // What you did in the Reach (#1499): who here it means something to.
+  const tells = peopleHere(r).flatMap(p => tellsFor(p.id, r.deeds).map(t => `tell:${p.id}:${t.deed} (${t.tell.label}${(r.asked?.[p.id] ?? []).includes(`deed:${t.deed}`) ? ', told' : ''})`));
+  if (tells.length) lines.push(`TELL WHAT YOU DID, ${ASK_HOURS}h each: ${tells.join(', ')}`);
   if (!village) {
     lines.push('');
     lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');

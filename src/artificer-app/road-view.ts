@@ -15,7 +15,7 @@ import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED
 import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
-import { answerFor, ASK_HOURS } from '../artificer/asks';
+import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
 import { SIGNS } from '../artificer/notice';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -248,16 +248,22 @@ function conversation(r: RoadState, p: Person, told: number): string {
   const answered = r.asked?.[p.id] ?? [];
   const ask = f ? act(r, `ask:${p.id}`, `❓ ASK ABOUT ${esc(focusLabel(f).toUpperCase())}`, ASK_HOURS, answered.includes(focusKey(f)) ? { why: `${p.name} has told you what they know about ${focusInline(f)}` } : {}) : '';
   const answers = answered.map(k => {
+    // What you told them about (#1499): `deed:<id>`, answered by their tell.
+    const tell = k.startsWith('deed:') ? TELLS[p.id]?.[k.slice(5)] : undefined;
+    if (tell) return `<p class="mood told"><b>${esc(tell.label[0].toUpperCase() + tell.label.slice(1))}</b> — “${esc(tell.answer.text)}”</p>`;
     const a = answerFor(p.id, k);
     const about = parseFocus(k);
     return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : k)}</b> — “${esc(a.text)}”</p>` : '';
   }).join('');
+  // What you did in the Reach that means something to them (#1499): one button per deed, greyed once told.
+  const tells = tellsFor(p.id, r.deeds).map(t => act(r, `tell:${p.id}:${t.deed}`, `🗣 TELL OF ${esc(t.tell.label.toUpperCase())}`, ASK_HOURS,
+    answered.includes(`deed:${t.deed}`) ? { why: `${p.name} has heard about ${t.tell.label}` } : {})).join('');
   return `<div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>
-    <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}</div>
+    <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}${tells}</div>
     ${f ? '' : '<p class="mood">Set a focus on a topic, a skill or a concept, and you\'ll have something to ask them about.</p>'}
     ${(r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter(Boolean).map(sign => `<p class="mood told">👁 ${esc(sign!)}</p>`).join('')}
     ${(r.leads ?? []).filter(l => l.who === p.id).map(l => `<p class="mood told">🧭 ${esc(personById(l.from)?.name ?? l.from)} sent you to ask about ${esc(aboutText(l.about))}.</p>`).join('')}
-    ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU WHEN ASKED</p>${answers}` : ''}</div>`;
+    ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU</p>${answers}` : ''}</div>`;
 }
 
 /** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */

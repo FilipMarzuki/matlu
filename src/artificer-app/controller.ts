@@ -386,7 +386,7 @@ function parseRoad(x: unknown): RoadState | null {
   const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
   // The optional fields below are only ever loaded checked: left out of the spread, so one saved in
   // the wrong shape (a string where a list belongs) loads as absent instead of as itself.
-  const { heard: _heard, asked: _asked, noticed: _noticed, leads: _leads, ...rest } = x;
+  const { heard: _heard, asked: _asked, noticed: _noticed, leads: _leads, deeds: _deeds, ...rest } = x;
   return {
     ...(rest as unknown as RoadState),
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
@@ -404,6 +404,8 @@ function parseRoad(x: unknown): RoadState | null {
     ...(isObj(x.noticed) ? { noticed: Object.fromEntries(Object.entries(x.noticed).map(([k, v]) => [k, strs(v)])) } : {}),
     // Leads (#1497); likewise.
     ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads) } : {}),
+    // Deeds carried out of the Reach (#1499); likewise.
+    ...(Array.isArray(x.deeds) ? { deeds: strs(x.deeds) } : {}),
   };
 }
 
