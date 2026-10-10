@@ -90,3 +90,56 @@ export function blockTreeFootprint(
   if (ty + 1 < gridH) walkGrid[(ty + 1) * gridW + tx] = 1;
   if (tx + 1 < gridW && ty + 1 < gridH) walkGrid[(ty + 1) * gridW + (tx + 1)] = 1;
 }
+
+/**
+ * Flood-fills `isDenseCanopy` (4-connected) and blocks every tile in any
+ * connected component whose size reaches `minClusterSize`. Smaller patches,
+ * and the gaps between clusters, are left untouched so they read as natural
+ * clearings/paths through the forest (#935).
+ *
+ * The caller decides what counts as "dense canopy" (forest blend ≈ 0, high
+ * tree-cluster density) and should already exclude roads, water, and other
+ * tiles that must stay walkable — this function only grows and thresholds
+ * whatever candidate mask it's given.
+ */
+export function blockDenseForestZones(
+  walkGrid:       Uint8Array,
+  isDenseCanopy:  Uint8Array,
+  gridW:          number,
+  gridH:          number,
+  minClusterSize: number,
+): void {
+  const total = gridW * gridH;
+  const visited = new Uint8Array(total);
+  const component: number[] = [];
+
+  for (let start = 0; start < total; start++) {
+    if (isDenseCanopy[start] === 0 || visited[start] === 1) continue;
+
+    component.length = 0;
+    visited[start] = 1;
+    component.push(start);
+    let head = 0;
+    while (head < component.length) {
+      const idx = component[head++];
+      const tx = idx % gridW;
+      const ty = Math.floor(idx / gridW);
+
+      const neighbours = [
+        ty > 0          ? idx - gridW : -1, // N
+        ty < gridH - 1  ? idx + gridW : -1, // S
+        tx > 0          ? idx - 1     : -1, // W
+        tx < gridW - 1  ? idx + 1     : -1, // E
+      ];
+      for (const nIdx of neighbours) {
+        if (nIdx < 0 || visited[nIdx] === 1 || isDenseCanopy[nIdx] === 0) continue;
+        visited[nIdx] = 1;
+        component.push(nIdx);
+      }
+    }
+
+    if (component.length >= minClusterSize) {
+      for (const idx of component) walkGrid[idx] = 1;
+    }
+  }
+}

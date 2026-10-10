@@ -3,7 +3,7 @@
  * Pure-TypeScript, no Phaser or browser globals required.
  */
 import { describe, it, expect } from 'vitest';
-import { bufferShoreline, blockTreeFootprint, roadOverlayVisible } from './CollisionGrid';
+import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, blockDenseForestZones } from './CollisionGrid';
 import type { IntGridLayer } from './MapData';
 
 /** 5x5 biome grid; `water` lists (tx, ty) cells that are water (value 0). Every other cell is land (value 1). */
@@ -116,5 +116,57 @@ describe('roadOverlayVisible', () => {
   it('given a tile that is not on the road at all, when checking overlay visibility, then it stays hidden', () => {
     const isWater = () => false;
     expect(roadOverlayVisible(1, 3, isRoad, isWater, isBridgeTile)).toBe(false);
+  });
+});
+
+/** 10x10 candidate mask; `dense` lists (tx, ty) cells flagged as dense-canopy candidates. */
+function canopyMask(cols: number, rows: number, dense: [number, number][]): Uint8Array {
+  const mask = new Uint8Array(cols * rows);
+  for (const [tx, ty] of dense) mask[ty * cols + tx] = 1;
+  return mask;
+}
+
+/** Fills every (tx, ty) in a rectangle [x0, x1] x [y0, y1] (inclusive). */
+function rect(x0: number, x1: number, y0: number, y1: number): [number, number][] {
+  const cells: [number, number][] = [];
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) cells.push([tx, ty]);
+  }
+  return cells;
+}
+
+describe('blockDenseForestZones', () => {
+  it('given a contiguous dense-canopy cluster at or above the size threshold, when flood-filling, then every tile in it becomes blocked', () => {
+    const cluster = rect(2, 5, 2, 5); // 4x4 = 16 tiles
+    const mask = canopyMask(10, 10, cluster);
+    const walkGrid = new Uint8Array(100);
+    blockDenseForestZones(walkGrid, mask, 10, 10, 12);
+    for (const [tx, ty] of cluster) expect(walkGrid[ty * 10 + tx]).toBe(1);
+  });
+
+  it('given a dense-canopy cluster below the size threshold, when flood-filling, then it stays walkable', () => {
+    const smallCluster = rect(2, 3, 2, 3); // 2x2 = 4 tiles
+    const mask = canopyMask(10, 10, smallCluster);
+    const walkGrid = new Uint8Array(100);
+    blockDenseForestZones(walkGrid, mask, 10, 10, 12);
+    for (const [tx, ty] of smallCluster) expect(walkGrid[ty * 10 + tx]).toBe(0);
+  });
+
+  it('given two dense clusters separated by a one-tile gap, when flood-filling, then the gap stays walkable as a clearing', () => {
+    const west = rect(0, 3, 0, 3);  // 4x4 = 16 tiles
+    const east = rect(5, 8, 0, 3);  // 4x4 = 16 tiles, gap at tx=4
+    const mask = canopyMask(10, 10, [...west, ...east]);
+    const walkGrid = new Uint8Array(100);
+    blockDenseForestZones(walkGrid, mask, 10, 10, 12);
+    for (const [tx, ty] of [...west, ...east]) expect(walkGrid[ty * 10 + tx]).toBe(1);
+    for (let ty = 0; ty <= 3; ty++) expect(walkGrid[ty * 10 + 4]).toBe(0); // the clearing
+  });
+
+  it('given a tile outside the candidate mask, when flood-filling, then it is never blocked regardless of neighbours', () => {
+    const cluster = rect(0, 9, 0, 3); // spans the full width
+    const mask = canopyMask(10, 10, cluster);
+    const walkGrid = new Uint8Array(100);
+    blockDenseForestZones(walkGrid, mask, 10, 10, 12);
+    for (let tx = 0; tx < 10; tx++) expect(walkGrid[4 * 10 + tx]).toBe(0); // row below the cluster, untouched
   });
 });
