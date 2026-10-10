@@ -309,7 +309,10 @@ export interface RunResult {
   gifts?: GiftRecord;
   /** The adult stat spread the Warden was made with (#1259) — chosen, or carried from the last run. */
   spread?: Stats;
-  /** The budget ran out before or during the caravan road (#1449): the Reach is whole, the road isn't recorded. */
+  /**
+   * The budget ran out before or during the caravan road (#1449): the Reach is whole, the road isn't
+   * recorded. The caravan meeting is, if it finished (#1491).
+   */
   roadStopped?: 'budget';
 }
 
@@ -461,7 +464,25 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
 }
 
 /** What a batch has spent, and may spend (USD), across all its runs (#1449). */
-export interface SpendLedger { spent: number; budget: number }
+export interface SpendLedger {
+  spent: number;
+  budget: number;
+  /**
+   * The estimated cost of calls in flight (#1491). ai:bench plays its games at once against one
+   * ledger; each call reserves its estimate before waiting on the model, so the others count it.
+   */
+  reserved?: number;
+  /**
+   * Calls in flight that started before any call had a known cost (#1491), so they reserved
+   * nothing. They count at `dearest` once a price is known.
+   */
+  unpriced?: number;
+  /** The dearest call the batch has paid for so far: a run's estimate for its first call (#1491). */
+  dearest?: number;
+}
+
+/** What the batch has spent plus what its calls in flight are expected to cost (#1491). */
+export const committed = (l: SpendLedger): number => l.spent + (l.reserved ?? 0) + (l.unpriced ?? 0) * (l.dearest ?? 0);
 
 /** A run stopped because it reached its budget (#1449). `partial` is the run so far, record kind "stopped". */
 export class BudgetExceeded extends Error {
@@ -496,16 +517,38 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
 
+  /** What this run's last call cost: its estimate for the next one (#1491). */
+  let lastCost: number | undefined;
   /**
    * Every model call goes through here (#1449) — the Reach, the caravan meeting and the road:
    * the budget is checked before the call (so no paid reply is thrown away), and its usage and
    * cost are counted after, in this run's usage and in the batch's shared ledger.
+   *
+   * Parallel games (#1491): the check counts the calls other games have in flight, by the cost
+   * each reserved, so the batch goes at most about one call over, not one call per game. The check
+   * and the reservation happen before the first `await`, so no other game can run between them.
+   * A call that starts before the batch knows any price reserves nothing, and is counted at the
+   * dearest price once one is known; only the batch's very first calls can't be counted at all.
    */
   const call = async (make: () => Promise<{ text: string; usage?: Partial<Usage> }>): Promise<string> => {
-    if (opts.ledger && opts.ledger.spent >= opts.ledger.budget) {
+    const ledger = opts.ledger;
+    if (ledger && committed(ledger) >= ledger.budget) {
       throw new BudgetExceeded({ player: player.name, turns, usage, start, record: { kind: 'stopped', choice: 'budget', day: s.day, readyDay: null } });
     }
-    const r = await make();
+    const estimate = lastCost ?? ledger?.dearest;
+    if (ledger) {
+      if (estimate === undefined) ledger.unpriced = (ledger.unpriced ?? 0) + 1;
+      else ledger.reserved = (ledger.reserved ?? 0) + estimate;
+    }
+    let r: { text: string; usage?: Partial<Usage> };
+    try {
+      r = await make();
+    } finally {
+      if (ledger) {
+        if (estimate === undefined) ledger.unpriced = Math.max(0, (ledger.unpriced ?? 0) - 1);
+        else ledger.reserved = Math.max(0, (ledger.reserved ?? 0) - estimate);
+      }
+    }
     usage.input += r.usage?.input ?? 0;
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
@@ -513,7 +556,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
     if (r.usage?.cost !== undefined && r.usage.cost !== null) {
       usage.cost = (usage.cost ?? 0) + r.usage.cost;
-      if (opts.ledger) opts.ledger.spent += r.usage.cost;
+      if (ledger) ledger.spent += r.usage.cost;
+      // A free call (a scripted step, a cached reply) says nothing about what the next one costs.
+      if (r.usage.cost > 0) {
+        lastCost = r.usage.cost;
+        if (ledger) ledger.dearest = Math.max(ledger.dearest ?? 0, r.usage.cost);
+      }
     }
     return r.text;
   };
@@ -714,8 +762,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (result.road) result.gifts = giftsOf(s, giftStart, result.road.final);
   } catch (err) {
     // Out of budget on the road (#1449): the Reach year is whole and paid for — keep it, say why the road isn't there.
+    // A caravan meeting that finished is kept too (#1491): `result.meeting` is only set once it has.
     if (!(err instanceof BudgetExceeded)) throw err;
-    delete result.meeting;
     result.roadStopped = 'budget';
   }
   return result;
