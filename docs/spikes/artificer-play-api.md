@@ -55,7 +55,7 @@ serialize(game) / deserialize(text), GAME_VERSION
 - **How and which game:** where it was played, and the game version.
 - **The outcome and key measures.**
 
-The nightly AI playtest uploads its runs too. Two pages read them live from Supabase: **Records** on the Artificer site for players, and an **AI page** on the dev site for progression and cost by model.
+The nightly AI playtest uploads its runs too. Two pages read them live from Supabase, through the play API (`GET /api/v1/runs`, cached a minute at Vercel's edge): **Records** on the Artificer site for players, and an **AI page** on the dev site for progression and cost by model.
 
 **Fair comparisons and achievements** (phase 6):
 - **Web-game runs** are submitted with their seed and moves, and **re-simulated** on the server before they count. The sim is deterministic, so a replay is exact.
@@ -70,7 +70,7 @@ The nightly AI playtest uploads its runs too. Two pages read them live from Supa
 | One action per call for external play, with `plan_day` as an option | the owner's call: it feels like playing, and the player pays for their own tokens; it's also the base game, since planning a whole day is unlocked later | whole-day plans only, like the benchmark | players' AIs run out of context in a full year; then lean on `plan_day` and the compact deltas |
 | Each move returns only what changed, plus a status line | an external AI's context and token bill stay small over a game of hundreds of moves | the full observation on every move | models play noticeably worse without the full view (measure with the bench) |
 | One session core behind HTTP, MCP and the console | one place for the rules of play, and every way in writes the same records | building the MCP server straight on the controller | one surface needs something the others can't share |
-| Live reads from Supabase for the records pages | new results never cost a deployment (the Vercel free tier allows 100 a day) | baking data into the site at build time | Supabase's free-tier reads become the limit |
+| Live reads from Supabase for the records pages, through the play API (#1558) | new results never cost a deployment (the Vercel free tier allows 100 a day); the table stays server-only and no browser key is needed; the edge caches the list a minute | baking data into the site at build time; a public-read policy and the publishable key in each site | Supabase's free-tier reads or Vercel's function calls become the limit |
 | No accounts, anonymous play, optional nickname | the audience includes kids; no personal data to protect | sign-in for players | abuse beats per-IP limits (then add a light challenge, not accounts) |
 
 ## Costs

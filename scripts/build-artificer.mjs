@@ -9,8 +9,9 @@
  * artificer/vercel.json) needs just the Artificer, served at `/`:
  *
  *   - Vite builds artificer.html (renamed to index.html afterwards), the "Play with your AI"
- *     page and the text console (moved to play-with-ai/index.html and console/index.html).
- *     Asset URLs are absolute (/assets/…), so moving the HTML files is safe.
+ *     page, the text console and the Records page (moved to play-with-ai/index.html,
+ *     console/index.html and records/index.html). Asset URLs are absolute (/assets/…), so moving
+ *     the HTML files is safe.
  *   - publicDir is off: public/ holds the whole game's art (hundreds of MB). The few sprites the
  *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
  *     strings and copied in, so a new portrait is picked up without a hand-kept list. A missing one
@@ -63,10 +64,11 @@ await build({
     rollupOptions: {
       input: {
         artificer: join(root, 'artificer.html'),
-        // The "Play with your AI" page (#1556) and the text console (#1557), moved to
-        // /play-with-ai/ and /console/ below.
+        // The "Play with your AI" page (#1556), the text console (#1557) and the Records page
+        // (#1558), moved to /play-with-ai/, /console/ and /records/ below.
         playWithAi: join(root, 'src', 'artificer-app', 'play-with-ai.html'),
         console: join(root, 'src', 'artificer-app', 'console.html'),
+        records: join(root, 'src', 'artificer-app', 'records.html'),
       },
     },
   },
@@ -74,8 +76,8 @@ await build({
 
 renameSync(join(outDir, 'artificer.html'), join(outDir, 'index.html'));
 // Vite keeps an entry's path from the root (dist/src/artificer-app/…); serve each page from its
-// own folder (/play-with-ai/, /console/).
-for (const page of ['play-with-ai', 'console']) {
+// own folder (/play-with-ai/, /console/, /records/).
+for (const page of ['play-with-ai', 'console', 'records']) {
   mkdirSync(join(outDir, page), { recursive: true });
   renameSync(join(outDir, 'src', 'artificer-app', `${page}.html`), join(outDir, page, 'index.html'));
 }

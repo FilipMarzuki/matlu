@@ -25,6 +25,8 @@ interface GameBody {
   text: string;
   moves: MoveOption[];
   changed?: string[];
+  /** On the move that ends a run: where its record is (#1558). */
+  record?: string;
 }
 
 const GAME_KEY = 'artificer.console.game';
@@ -56,7 +58,8 @@ async function api(method: string, path: string, body?: unknown): Promise<{ stat
 }
 
 async function newGame(name?: string): Promise<void> {
-  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console' });
+  // The client name tells the API this is the console (api.ts CONSOLE_CLIENT), and its players are people.
+  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person' });
   if (r.status !== 201) return failed(r);
   const g = r.body as unknown as GameBody;
   remember(g.id);
@@ -125,7 +128,21 @@ function show(g: GameBody, full: boolean): void {
   if (full) print(g.text, 'view');
   statusEl.textContent = g.status;
   setMoves(g.moves);
-  if (g.phase === 'ended') print('The run is over. Type "new" for another, or tap NEW GAME.', 'note');
+  if (g.phase !== 'ended') return;
+  if (g.record) printLink('See how this run compares with everyone\'s: the Records page', g.record);
+  print('The run is over. Type "new" for another, or tap NEW GAME.', 'note');
+}
+
+/** A log line that's a link (to a page on this site). */
+function printLink(text: string, href: string): void {
+  const el = document.createElement('div');
+  el.className = 'entry note';
+  const a = document.createElement('a');
+  a.href = href;
+  a.textContent = text;
+  el.append(a);
+  out.append(el);
+  out.scrollTop = out.scrollHeight;
 }
 
 function setMoves(list: MoveOption[]): void {

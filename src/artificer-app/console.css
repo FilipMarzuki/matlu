@@ -25,6 +25,7 @@ body { overflow: hidden; }
 .entry { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .entry.echo { color: var(--gold); }
 .entry.note { color: var(--dim); }
+.entry a { color: var(--teal); }
 .entry.warn { color: var(--warn); }
 .entry.view { color: var(--ink); border-left: 2px solid var(--border2); padding-left: 10px; }
 

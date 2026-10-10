@@ -99,6 +99,26 @@ describe('The Artificer over MCP (#1556)', () => {
     await client.close();
   });
 
+  it('records a finished game as played over MCP, and hands the AI a link to its record (#1558)', async () => {
+    const client = await connect('modern', 'recorder');
+    const id = idIn(textOf(await client.callTool({ name: 'new_game', arguments: { name: 'Vega', model: 'some-model' } })));
+    let last = '';
+    // Sleep every day (answering anything asked) until the Warden's body gives out.
+    for (let i = 0; i < 100 && rowFor(id).phase !== 'ended'; i++) {
+      const asked = rowFor(id).phase !== 'day';
+      const r = asked
+        ? await client.callTool({ name: 'choose', arguments: { game_id: id, option: (JSON.parse(/- (\{.*?\})  /.exec(textOf(await client.callTool({ name: 'look', arguments: { game_id: id } })))![1]) as { choose: string }).choose } })
+        : await client.callTool({ name: 'act', arguments: { game_id: id, move: 'end_day' } });
+      last = textOf(r);
+    }
+    expect(last).toMatch(/run is over/i);
+    // The function builds its request URL as https, as Vercel serves it, so the link is https too.
+    expect(last).toContain(`${base.replace(/^http:/, 'https:')}/records/?game=${id}`);
+    const run = await store.runBySource(`game:${id}`);
+    expect(run).toMatchObject({ surface: 'mcp', playerKind: 'ai', model: 'some-model', client: 'recorder', nickname: 'Vega' });
+    await client.close();
+  });
+
   it('answers a browser preflight for /mcp, exposing the session header', async () => {
     const r = await fetch(`${base}/mcp`, { method: 'OPTIONS' });
     expect(r.status).toBe(204);

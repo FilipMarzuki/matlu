@@ -58,8 +58,10 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     { name: 'artificer', title: 'The Artificer: Greywind Reach', version: GAME_VERSION },
     { instructions: INSTRUCTIONS },
   );
+  // Every call says it comes from MCP, so the games it starts are recorded as played here (#1558).
   const call = (method: string, path: string, body?: unknown): Promise<ApiResponse> =>
-    handle({ method, path, body: body === undefined ? undefined : JSON.stringify(body), ip: opts.ip }, opts.store, opts.deps);
+    handle({ method, path, body: body === undefined ? undefined : JSON.stringify(body), ip: opts.ip, surface: 'mcp' }, opts.store, opts.deps);
+  const after = (r: ApiResponse): CallToolResult => afterMove(r, request.url);
   const gameId = z.string().describe('The game_id new_game gave you.');
 
   server.registerTool('new_game', {
@@ -101,7 +103,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
       game_id: gameId,
       move: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('An action id like "scout", "end_day", or a move object from the list.'),
     }),
-  }, async ({ game_id, move }) => afterMove(await call('POST', movesPath(game_id), { move: toMove(move) })));
+  }, async ({ game_id, move }) => after(await call('POST', movesPath(game_id), { move: toMove(move) })));
 
   server.registerTool('plan_day', {
     title: 'Plan a whole day',
@@ -110,13 +112,13 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
       game_id: gameId,
       actions: z.array(z.string()).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"].'),
     }),
-  }, async ({ game_id, actions }) => afterMove(await call('POST', movesPath(game_id), { move: { plan: actions } })));
+  }, async ({ game_id, actions }) => after(await call('POST', movesPath(game_id), { move: { plan: actions } })));
 
   server.registerTool('choose', {
     title: 'Answer an encounter',
     description: 'Pick an option in an encounter, a meeting or on the road: the option id from the moves list (the "choose" value).',
     inputSchema: z.object({ game_id: gameId, option: z.string().describe('The option id, e.g. "help" or "board".') }),
-  }, async ({ game_id, option }) => afterMove(await call('POST', movesPath(game_id), { move: { choose: option } })));
+  }, async ({ game_id, option }) => after(await call('POST', movesPath(game_id), { move: { choose: option } })));
 
   server.registerTool('rules', {
     title: 'Read the rules',
@@ -135,7 +137,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[] }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string }
 
 const movesPath = (id: string): string => `/api/v1/games/${encodeURIComponent(id)}/moves`;
 /** The API's body for a game (its shape is api.ts's gameBody). */
@@ -154,13 +156,15 @@ function failure(r: ApiResponse): CallToolResult {
  * context every turn. When the game wants a choice (an encounter, the meeting, the road) or has
  * ended, the full view comes too, since the next call depends on it.
  */
-function afterMove(r: ApiResponse): CallToolResult {
+function afterMove(r: ApiResponse, base: string): CallToolResult {
   if (r.status !== 200) return failure(r);
   const b = gameBody(r);
   const changed = b.changed?.length ? b.changed.join('\n') : '(nothing new)';
   const head = `${changed}\n\n${b.status}`;
   if (b.phase === 'day') return text(`${head}\n(look shows the full view and the moves open now.)`);
-  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}`);
+  // A finished run has a record (#1558): a full link, for the player's AI to pass on to them.
+  const record = b.record ? `\n\nHow this run compares with everyone's: ${new URL(b.record, base).href}` : '';
+  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}${record}`);
 }
 
 function movesBlock(moves: MoveOption[]): string {

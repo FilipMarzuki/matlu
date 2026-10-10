@@ -1,0 +1,94 @@
+/* The Records page (#1558), in the game's instrument-panel look: colours, fonts, .wrap, header,
+   .box, .eyebrow and .pill come from style.css. Everything here is scoped to main.records, because
+   style.css already uses short class names (.who, .legend, .row) for the game's own panels. */
+/* main.records, not .records: the game's style.css makes every <main> a two-column grid. */
+main.records {
+  max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;
+  /* How far a run got: one hue, dim to bright, checked as an ordinal ramp against the panel. */
+  --tier-1: #2f5f8a; --tier-2: #4f9fd6; --tier-3: #a8dcff;
+}
+.records header { margin-bottom: 0; }
+.records h1 .sub { color: var(--dim); font-size: .7em; letter-spacing: 2px; }
+.records a { color: var(--teal); }
+.records a.pill { color: var(--ink); text-decoration: none; }
+.records .quiet { color: var(--dim); font-size: 13.5px; margin: 0 0 10px; }
+.records .muted { color: var(--faint); }
+
+/* Your run */
+.records .yours h2 { font-family: var(--body); font-weight: 700; font-size: clamp(20px, 3.4vw, 26px); line-height: 1.25; margin: 0 0 12px; color: var(--ink); text-wrap: balance; }
+.records .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.records .tile { display: grid; gap: 2px; background: var(--sub2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.records .tile .label { font-size: 13px; color: var(--dim); }
+.records .tile .value { font-size: 30px; font-weight: 600; line-height: 1.1; color: var(--ink); }
+.records .tile .muted { font-size: 12px; }
+.records .facts { margin: 12px 0 0; color: var(--dim); font-size: 13.5px; }
+
+/* Tables: the best runs, and the numbers behind the bars */
+.records .table-wrap { overflow-x: auto; }
+.records table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.records th { text-align: left; font-weight: 600; color: var(--dim); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--border2); }
+.records td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: top; }
+.records td { white-space: nowrap; }
+.records .num { text-align: right; font-variant-numeric: tabular-nums; }
+.records td .where { display: block; font-size: 12px; color: var(--faint); }
+.records tr.mine td { background: rgba(159, 216, 255, .08); }
+.records tr.mine td:first-child { box-shadow: inset 2px 0 0 var(--ice); }
+.records .more { margin-top: 10px; }
+
+/* How far each player gets: a 100% bar per player, one segment per outcome */
+.records .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; font-size: 13px; color: var(--dim); }
+.records .key { display: inline-flex; align-items: center; gap: 6px; }
+.records .swatch { width: 12px; height: 12px; border-radius: 3px; }
+.records .t1 { background: var(--tier-1); }
+.records .t2 { background: var(--tier-2); }
+.records .t3 { background: var(--tier-3); }
+
+.records .bars { display: grid; gap: 10px; margin-bottom: 14px; }
+.records .row { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr); align-items: center; gap: 12px; }
+.records .grp { display: flex; flex-direction: column; min-width: 0; }
+.records .grp .name { color: var(--ink); font-size: 13.5px; overflow-wrap: anywhere; }
+.records .grp .n { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* The 2px gap between segments is the panel showing through, not a border. */
+.records .bar { display: flex; gap: 2px; height: 20px; }
+.records .seg { flex: 1 1 0; min-width: 3px; cursor: default; outline: none; }
+/* Square where the bar starts, a 4px rounded end where it stops. */
+.records .seg:last-child { border-radius: 0 4px 4px 0; }
+.records .seg:hover, .records .seg:focus-visible { filter: brightness(1.25); }
+.records .seg:focus-visible { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ice); }
+
+.tip {
+  position: fixed; z-index: 10; pointer-events: none; display: grid; gap: 1px;
+  background: var(--sub); border: 1px solid var(--border2); border-radius: 8px; padding: 7px 10px;
+  font-size: 12.5px; color: var(--dim); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); max-width: 260px;
+}
+.tip strong { color: var(--ink); font-size: 15px; }
+.tip .muted { color: var(--faint); }
+
+.records .foot { color: var(--faint); font-size: 12.5px; margin: 0; max-width: 80ch; }
+
+@media (max-width: 640px) {
+  .records header .wide-only { display: none; } /* keep the header to one line on a phone */
+  .records .tiles { grid-template-columns: 1fr; }
+  .records .row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .records .grp { flex-direction: row; gap: 8px; align-items: baseline; }
+
+  /* Tables become one small card per row: the lead cells on the first line, then each value with
+     its heading as a label (records-page.ts says which cell is which). Nothing scrolls sideways. */
+  .records table.cards thead { display: none; }
+  .records table.cards, .records table.cards tbody { display: block; }
+  .records table.cards tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+  .records table.cards tr[hidden] { display: none; }
+  .records table.cards td { display: block; padding: 0; border: 0; text-align: left; white-space: normal; font-size: 12.5px; color: var(--dim); }
+  .records table.cards td.lead { font-size: 14px; color: var(--ink); }
+  .records table.cards td.rank::before { content: "#"; color: var(--faint); }
+  .records table.cards td.ended { flex: 1 1 auto; text-align: right; }
+  .records table.cards td.line { flex-basis: 100%; order: 1; }
+  .records table.cards td.title { font-size: 14px; color: var(--ink); order: 0; }
+  .records table.cards td.labelled, .records table.cards td.plain { order: 2; }
+  .records table.cards td.labelled::before { content: attr(data-label) " "; color: var(--faint); }
+  .records table.cards td .where { display: inline; }
+  .records table.cards td .where::before { content: " · "; }
+  .records tr.mine td:first-child { box-shadow: none; }
+  .records table.cards tr.mine { background: rgba(159, 216, 255, .08); box-shadow: inset 2px 0 0 var(--ice); }
+  .records tr.mine td { background: none; }
+}
