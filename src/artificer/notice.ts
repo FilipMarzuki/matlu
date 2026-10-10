@@ -25,17 +25,27 @@ export const NOTICE_TRUST = 25;
 
 /**
  * Signs: what a person shows of a topic they're tied to, by person id and topic key. What the
- * journal says when you notice it. A starter set; more with the content (#1498).
+ * journal says when you notice it. The first content (#1498): the Compact's seal tokens and maps
+ * (worn by its goblins, who keep it close), Gate iron, and the foragers' pockets and boots.
  */
 export const SIGNS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   'hf-tobin': {
-    'group:compact': 'Tobin\'s ledger has a seal pressed into its cover: the Compact\'s, a ring of small marks like a tally.',
+    'group:compact': 'A small stamped metal disc hangs on a thong inside Tobin\'s collar: a Compact-seal token, the kind goblin bands carry as a letter of introduction.',
+  },
+  'hf-isa': {
+    'skill:foraging': 'Isa\'s apron pockets bulge with dried caps and roots, each one wrapped and labelled in a small, tidy hand.',
+  },
+  'sm-yrsa': {
+    'material:iron': 'Yrsa\'s arrows are tipped with iron, not flint, and every point is stamped on the tang with a small kestrel.',
   },
   'kg-arvid': {
-    'group:compact': 'Arvid folds his maps in eight, the Compact way, with the seal on the inside where only he can see it.',
+    'group:compact': 'Arvid\'s map case is goblin work, and the map in it shows the high pass with ruins marked that are on no Gate chart.',
   },
   'kg-sabine': {
     'material:iron': 'Sabine\'s forearms are freckled with small round burns, the kind a forge throws when the iron is worked hot.',
+  },
+  'kg-runa': {
+    'skill:foraging': 'Runa\'s boots are stained yellow-green to the ankle. Feverfew grows thick on the high slopes, and she has walked through a lot of it.',
   },
 };
 
