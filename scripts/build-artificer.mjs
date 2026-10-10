@@ -9,8 +9,8 @@
  * artificer/vercel.json) needs just the Artificer, served at `/`:
  *
  *   - Vite builds artificer.html (renamed to index.html afterwards), the "Play with your AI"
- *     page and the text console (moved to play-with-ai/index.html and console/index.html). Asset URLs are absolute (/assets/…), so moving the
- *     HTML files is safe.
+ *     page and the text console (moved to play-with-ai/index.html and console/index.html).
+ *     Asset URLs are absolute (/assets/…), so moving the HTML files is safe.
  *   - publicDir is off: public/ holds the whole game's art (hundreds of MB). The few sprites the
  *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
  *     strings and copied in, so a new portrait is picked up without a hand-kept list. A missing one
