@@ -32,7 +32,7 @@ The game loads the `public/` one: the crafting menu and the Artificer's crafting
 
 ## Why the Homestead reaches so little
 
-- **No coal.** The ore nodes drop iron and copper ore, but nothing gives coal, which blocks 24 recipes, the whole iron chain included. Nothing gives animal products either (`hide-raw`, `sinew`, `animal-fat`), so leather, bowstrings, glue and salves are out. The generated table ranks every missing raw material by how many recipes it would open.
+- **No coal.** The ore nodes drop iron and copper ore, but nothing gives coal, which blocks 24 recipes, the whole iron chain included. (Fixed in #1516: the ore vein turns up coal now and then, and the Homestead's craftable recipes went from 15 to 28.) Nothing gives animal products either (`hide-raw`, `sinew`, `animal-fat`), so leather, bowstrings, glue and salves are out. The generated table ranks every missing raw material by how many recipes it would open.
 - **Most discovery routes have no caller.** The crafting menu only crafts discovered recipes. Two unlocks work: innate recipes, and "memory" recipes that count crafts (`craft:copper-ingot:3`). Observation, teachers, experiments and the gather/hunt/weather counters are defined in `DiscoverySystem`, but nothing calls them. `trap-snare` and `purified-water` could be made from what's gathered, but they never unlock. (Since #1515, gathering counts toward memory triggers and the Pack tab has an Experiment button; observation, teachers and the other counters still have no caller.)
 - **Stations aren't checked.** Smelter, smithy and kiln recipes (copper ingots, charcoal) craft anywhere. That's generous rather than blocking, but it means the station structures (`struct-*`) have no purpose yet.
 
