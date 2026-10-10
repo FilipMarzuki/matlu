@@ -669,9 +669,10 @@ function wagonCraft(next: RoadState, recipe: string): RoadState {
   // The road sets the hours and the practice: four hours on the wagon, credited as Region 1 credits work.
   next.skills = skills;
   const skill = skillFor(id, recipe);
-  // A focused skill learns ×3 on the wagon too (#1490), as in the Reach; the craft's grade already
-  // got the focus bonus in Region 1's craft, through the view.
-  const focused = skill ? workEffects(next.focus, null, id, skill, next.vitals.clarity.current, statEffects(next.character.stats).unreliableBelow).practice : 1;
+  // A focused skill learns ×3 on the wagon too (#1490), as in the Reach — unless survival has taken
+  // the focus (learning pauses under the lock). The craft's grade already got the focus bonus (or
+  // not, under the lock) in Region 1's craft, through the view.
+  const focused = skill ? workEffects(next.focus, roadLockOf(next), id, skill, next.vitals.clarity.current, statEffects(next.character.stats).unreliableBelow).practice : 1;
   if (skill) next.skills = practise(skills, skill, creditedPractice(next, skill, WAGON_CRAFT_HOURS, guidanceOn(next, skill)) * focused).practice;
   next.hoursToday += WAGON_CRAFT_HOURS;
   return next;

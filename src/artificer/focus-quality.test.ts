@@ -9,7 +9,7 @@ import { createVitals } from './vitality';
 import { craftGrade } from './crafting';
 import { focusGrade, FOCUS_GRADE, GOALS, SKILL_PRACTICE, type Focus } from './focus';
 import { chanceOf, FOCUS_ODDS, type EncounterOption } from './encounters';
-import { createRoad, runRoadAction, villageOf, type RoadState } from './road';
+import { createRoad, runRoadAction, villageOf, roadLockOf, type RoadState } from './road';
 import { SKILL_IDS } from './skills';
 import { scout, createExploration } from './exploration';
 
@@ -75,6 +75,14 @@ describe('Focus makes work better, not faster (#1490)', () => {
     const plain = practised(null);
     expect(plain).toBeGreaterThan(0);
     expect(practised(HANDCRAFT)).toBeCloseTo(plain * SKILL_PRACTICE);
+    // Under the survival lock (Condition under 40) learning pauses: no ×3 on the wagon either.
+    const worn = { ...road, vitals: { ...road.vitals, condition: 30 } };
+    expect(roadLockOf(worn)).not.toBeNull();
+    const learnt = (focus: Focus | null) => {
+      const after = runRoadAction({ ...worn, focus }, 'craft:bedroll');
+      return (after.skills.handcraft ?? 0) - (worn.skills.handcraft ?? 0);
+    };
+    expect(learnt(HANDCRAFT)).toBeCloseTo(learnt(null));
     // The bonus reaches the wagon: the same craft is never worse, and with INT tuned to an edge, better.
     let lifted = 0;
     for (let int = 3; int <= 18; int++) {
