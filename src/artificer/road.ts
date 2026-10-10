@@ -22,14 +22,15 @@ import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
 import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
-import { survivalLock, type Focus } from './focus';
+import { survivalLock, focusInline, type Focus } from './focus';
+import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
 import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
 import { TALENTS, hasHidden, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
-import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, noticeHidden, differenceOf, hiddenless, focusRefusal, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, noticeHidden, differenceOf, hiddenless, refusalOf, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
 import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
@@ -106,6 +107,12 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   discovery: Record<string, 'taught' | 'quest'>;
   /** Teachers who've appraised you in this village (#1249) — once each per stay. */
   appraised: string[];
+  /**
+   * Topics heard named in what people told you (#1494): a lore line about the Compact opens the
+   * Compact as a focus. The rest of what you've come across is read off who you've met, what you
+   * hold and the quests you've taken (`topicsOpen`). Absent in a road begun before topics.
+   */
+  heard?: string[];
   /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
   fare?: Fare | null;
   /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
@@ -210,6 +217,7 @@ function clone(s: RoadState): RoadState {
     discovery: { ...s.discovery },
     contacts: [...s.contacts],
     appraised: [...s.appraised],
+    ...(s.heard ? { heard: [...s.heard] } : {}),
     log: [...s.log],
   };
 }
@@ -233,9 +241,10 @@ export const roadLockOf = (s: RoadState): string | null =>
  */
 export function setRoadFocus(s: RoadState, focus: Focus | null): RoadState {
   const next = clone(s);
-  const why = focus?.kind === 'concept' ? focusRefusal(s, focus.id) : null;
+  // A topic (#1494) only once you've come across it: met, held, taken on, or heard named.
+  const why = refusalOf(s, focus);
   if (why) {
-    say(next, `You can't turn your mind to ${focus!.id} — ${why}.`, 'skip');
+    say(next, `You can't turn your mind to ${focusInline(focus!)} — ${why}.`, 'skip');
     return next;
   }
   next.focus = focus;
@@ -294,6 +303,8 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     const person = peopleHere(next).find(p => p.id === pid);
     if (!person) { say(next, `Talk: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
     const r = talk(person, next.trust[pid] ?? 0, next.told[pid] ?? 0, next.idleTalks[pid] ?? 0);
+    // What they name, you've come across (#1494): a lore line about the Compact opens the Compact as a focus.
+    if (r.told > (next.told[pid] ?? 0)) next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.line)])];
     // A fellow traveller's talk (#1245) also teaches a little of their trade: insight in their concept per line told.
     if (person.concept && r.told > (next.told[pid] ?? 0)) addInsight(next.concepts, person.concept, TRAVELLER_INSIGHT, CRAFT_WORLD.concepts);
     next.trust[pid] = r.trust;
