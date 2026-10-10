@@ -58,6 +58,11 @@ jobs:
 
       - run: npm run build
 
+      # The Artificer's own site and its play API function (#1555), as its Vercel project builds
+      # them: a bundling failure shows here rather than as a failed deploy.
+      - run: npm run build:artificer
+        if: needs.scope.outputs.artificer == 'true'
+
       # Pure-logic unit tests under src/ (Vitest). Fast, no browser.
       # storytelling/ has its own job below, so it isn't run twice.
       - run: npm run unit:src
