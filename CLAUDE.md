@@ -3,19 +3,19 @@
 Top-down action RPG called **Core Warden**, set in the **Matlu multiworld**. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
 
 Primary platform: Android tablet (Chrome). Keyboard also supported.
-Deployed to: Vercel, inside the free tier's 100 deployments a day, so no branch previews. The game, the Codex and Agentic Experiments deploy once a day at 06:00 UTC (deploy hooks in `vercel-daily-deploy.yml`); the Artificer deploys on each push to `main` that touches it. Each project's ignore step compares against its last deploy (`VERCEL_GIT_PREVIOUS_SHA`).
+Deployed to: Vercel, inside the free tier's 100 deployments a day, so no branch previews. The game, the Codex and Agentic Experiments deploy once a day at 06:00 UTC (deploy hooks in `vercel-daily-deploy.yml`); the Artificer deploys on each push to `main` that touches it. The game's project (`matlu`) is paused since 2026-10-10, so corewarden.app is offline. Each project's ignore step compares against its last deploy (`VERCEL_GIT_PREVIOUS_SHA`).
 Database: Supabase (leaderboard via `matlu_runs` table)
 
 ## Sites
 
-This repo contains three deployable projects:
+This repo contains four deployable projects:
 
 | Project | Directory | Vercel project | Purpose |
 | ------- | --------- | -------------- | ------- |
-| **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) | The Phaser 3 game |
+| **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) (paused) | The Phaser 3 game |
 | **Matlu Codex** | `wiki/` | `matlu-codex` — [codex.corewarden.com](https://codex.corewarden.com) | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
 | **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
-| **Artificer** | `artificer/` (Vercel config; the code is `src/artificer*` at the root) | `artificer` — [artificer.corewarden.app](https://artificer.corewarden.app) | The text-and-logic game, built on its own by `npm run build:artificer` (#1534). |
+| **Artificer** | `artificer/` (Vercel config; the code is `src/artificer*` at the root) | `matlu-artificer` — [artificer.corewarden.app](https://artificer.corewarden.app) | The text-and-logic game, built on its own by `npm run build:artificer` (#1534). |
 
 `wiki/` and `dev/` each have their own `package.json` and are built independently in CI. The Artificer shares the root `package.json`; its Vercel project (Root Directory `artificer/`) installs and builds from the root and only builds when Artificer files change.
 
