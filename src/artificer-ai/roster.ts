@@ -10,7 +10,13 @@
  */
 
 export interface RosterEntry {
+  /** The OpenRouter model id. */
   model: string;
+  /**
+   * A Claude model to play directly on the Anthropic key instead, while it has credit (#1506):
+   * the owner's free credit pays for Claude games; once it's spent, they go through OpenRouter as `model`.
+   */
+  claude?: string;
   /** Measured USD per game (October 2026, OpenRouter). */
   perGame: number;
   note: string;
@@ -18,7 +24,8 @@ export interface RosterEntry {
 
 export const ROSTER: readonly RosterEntry[] = [
   { model: 'openai/gpt-6.1-sol', perGame: 0.057, note: 'fastest to winter-ready (day 6)' },
-  { model: 'anthropic/claude-haiku-4.5', perGame: 0.04, note: 'cheap, quick, thrives' },
+  // On the Anthropic key it plays as Haiku 5.5, about a tenth of Haiku 4.5's price per token.
+  { model: 'anthropic/claude-haiku-4.5', claude: 'claude-haiku-5-5', perGame: 0.04, note: 'cheap, quick, thrives' },
   { model: 'deepseek/deepseek-v4-pro', perGame: 0.013, note: 'cheapest, but ~8–9 min a game' },
   { model: 'meta-llama/llama-4-maverick', perGame: 0.02, note: 'cheap and terse; overworks — finds balance edges' },
 ];
