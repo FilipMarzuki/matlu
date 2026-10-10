@@ -127,6 +127,42 @@ export const ANSWERS: Readonly<Record<string, Readonly<Record<string, Answer>>>>
   },
 };
 
+/** The trust telling someone what you did earns (#1499): more than asking, since it's about their own. */
+export const TELL_TRUST = 10;
+
+/** Something you did in the Reach, told to someone it means something to (#1499): what you say, and what they answer. */
+export interface Tell { label: string; answer: Answer }
+
+/**
+ * What you can tell, by person id and deed (#1499, design §2: "asks from what happened"). A deed
+ * an encounter recorded opens it; told once, it's remembered (as `deed:<id>` in what they've answered).
+ */
+export const TELLS: Readonly<Record<string, Readonly<Record<string, Tell>>>> = {
+  // The Vidde Accords: the Viddfolk keep the road, and the road keeps its debts.
+  'sm-yrsa': {
+    'herald-owes-you': { label: 'the lost herald', answer: { at: 0, text: 'That was you? She came down the valley singing about a stranger who knew east from west. Under the Accords the road keeps its debts. Sit; the next fire is yours.' } },
+  },
+  'cv-runa': {
+    'herald-owes-you': { label: 'the lost herald', answer: { at: 0, text: 'Oh, I have that verse already. I didn\'t know it was you in it. Now I have to fix the rhyme.' } },
+  },
+  // A Pandor writes everything down, and reads what other Pandor write.
+  'sm-anselm': {
+    'warmed-the-scholar': { label: 'the old scholar under the rock', answer: { at: 0, text: 'Under the overhang, talking to his notes? He writes to the book every winter. This year he wrote that someone brought him firewood. He doesn\'t usually mention people. Let me show you the page; he drew the joint he taught you.', insight: { concept: 'joinery', amount: 1 } } },
+  },
+  // The refuge takes in whoever the road spits out; one came through who'd been fed.
+  'sm-liv': {
+    'fed-the-stranger': { label: 'the starving man on the path', answer: { at: 0, text: 'A Markfolk man, thin as a rake? He came through the refuge a month ago and said a Warden up there shared their food when they had little. He\'s mending nets on the north shore now. You\'ll eat with us tonight.' } },
+  },
+  // The hunter at the stream was from Hollowford, and Orrin knows everyone who hunts there.
+  'hf-orrin': {
+    'heard-road-early': { label: 'the hunter by the stream', answer: { at: 0, text: 'A Bergfolk woman gutting hares, autumn, high stream? That\'s my sister\'s girl. She said someone was wintering up there and she didn\'t give them a week. Well. Look at you.' } },
+  },
+};
+
+/** What `deeds` let you tell `personId`: the deed and the tell, for each one they'd hear. */
+export const tellsFor = (personId: string, deeds: readonly string[] | undefined): { deed: string; tell: Tell }[] =>
+  Object.entries(TELLS[personId] ?? {}).filter(([deed]) => (deeds ?? []).includes(deed)).map(([deed, tell]) => ({ deed, tell }));
+
 /** Everyone on the road, by id: the villages' people and the caravan's own. */
 const PEOPLE: Readonly<Record<string, Person>> = Object.fromEntries([...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS].map(p => [p.id, p]));
 
