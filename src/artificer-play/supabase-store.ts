@@ -20,6 +20,7 @@ interface Row {
   phase: GameRecord['phase'];
   name: string;
   client: string | null;
+  model: string | null;
   ip_key: string;
   created_at: string;
   updated_at: string;
@@ -29,12 +30,12 @@ const TABLE = 'artificer_games';
 
 const toRow = (g: GameRecord): Row => ({
   id: g.id, version: g.version, session: g.session, moves: g.moves, move_count: g.moves.length, phase: g.phase,
-  name: g.name, client: g.client, ip_key: g.ipKey, created_at: g.createdAt, updated_at: g.updatedAt,
+  name: g.name, client: g.client, model: g.model, ip_key: g.ipKey, created_at: g.createdAt, updated_at: g.updatedAt,
 });
 
 const fromRow = (r: Row): GameRecord => ({
   id: r.id, version: r.version, session: r.session, moves: r.moves, phase: r.phase,
-  name: r.name, client: r.client, ipKey: r.ip_key, createdAt: r.created_at, updatedAt: r.updated_at,
+  name: r.name, client: r.client, model: r.model ?? null, ipKey: r.ip_key, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
@@ -65,6 +66,11 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
     async countStartedSince(ipKey, sinceIso) {
       const { count, error } = await db.from(TABLE).select('id', { count: 'exact', head: true }).eq('ip_key', ipKey).gte('created_at', sinceIso);
       check(error, 'count games');
+      return count ?? 0;
+    },
+    async countAllStartedSince(sinceIso) {
+      const { count, error } = await db.from(TABLE).select('id', { count: 'exact', head: true }).gte('created_at', sinceIso);
+      check(error, 'count all games');
       return count ?? 0;
     },
     async countMove(ipKey, day) {

@@ -113,6 +113,35 @@ describe('The play API (#1555)', () => {
     expect((await move(ids[1], '198.51.100.9')).status).toBe(200);
   });
 
+  it('stores the client and a self-reported model with the game, trimmed', async () => {
+    const store = memoryStore();
+    const r = await handle(post('/api/v1/games', { name: 'Ada', client: 'claude-ai', model: 'some-model-v1' }), store, deps);
+    const row = store.rows.get((r.body as { id: string }).id)!;
+    expect(row.client).toBe('claude-ai');
+    expect(row.model).toBe('some-model-v1');
+    const long = await handle(post('/api/v1/games', { model: 'm'.repeat(200) }), store, deps);
+    expect(store.rows.get((long.body as { id: string }).id)!.model).toHaveLength(64);
+    const none = await handle(post('/api/v1/games', {}), store, deps);
+    expect(store.rows.get((none.body as { id: string }).id)!.model).toBeNull();
+  });
+
+  it('caps games and moves per UTC day across every address, so the free tiers hold', async () => {
+    const store = memoryStore();
+    const limits = { ...LIMITS, gamesPerDay: 2, movesPerDay: 2 };
+    const start = (ip: string) => handle(post('/api/v1/games', {}, ip), store, deps, limits);
+    const a = await start('198.51.100.1');
+    expect(a.status).toBe(201);
+    expect((await start('198.51.100.2')).status).toBe(201);
+    const full = await start('198.51.100.3');
+    expect(full.status).toBe(429);
+    expect((full.body as { error: string }).error).toMatch(/today/i);
+    const id = (a.body as { id: string }).id;
+    const move = (ip: string) => handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }, ip), store, deps, limits);
+    expect((await move('198.51.100.1')).status).toBe(200);
+    expect((await move('198.51.100.2')).status).toBe(200);
+    expect((await move('198.51.100.3')).status).toBe(429);
+  });
+
   it('refuses a move that raced another on the same game, keeping the one that landed first', async () => {
     const store = memoryStore();
     const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };

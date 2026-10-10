@@ -1027,6 +1027,7 @@ function render(a: AppState): void {
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      <span class="ctl"><a class="pill" href="/play-with-ai/" title="Let your AI play Greywind Reach">PLAY WITH YOUR AI</a></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>

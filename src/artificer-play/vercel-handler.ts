@@ -1,8 +1,8 @@
 /**
- * The play API as a Vercel function (#1555). scripts/build-artificer.mjs bundles this file, with
- * the whole sim and its JSON content, into one script at
- * artificer/.vercel/output/functions/api/play.func/ (Vercel's Build Output API), and routes
- * /api/v1/* to it.
+ * The play API and the MCP server as one Vercel function (#1555, #1556).
+ * scripts/build-artificer.mjs bundles this file, with the whole sim and its JSON content, into one
+ * script at artificer/.vercel/output/functions/api/play.func/ (Vercel's Build Output API), and
+ * routes /api/v1/* (the HTTP API) and /mcp (MCP, see mcp.ts) to it.
  *
  * It's a plain Node `(req, res)` handler, the shape Vercel's Node launcher calls and the same one
  * `http.createServer` takes, so the tests run it as a real local server. Everything about the API
@@ -19,14 +19,21 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { handle, memoryStore, LIMITS, type ApiDeps, type GameStore } from './api';
+import { mcpFetch } from './mcp';
 import { supabaseStore } from './supabase-store';
 
+// MCP clients also send Accept, their session id and the protocol version, and must be able to
+// read the session id back (Expose-Headers); browser-based MCP clients need all of it.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID',
+  'Access-Control-Expose-Headers': 'Mcp-Session-Id',
   'Access-Control-Max-Age': '86400',
 };
+
+/** MCP messages carry tool arguments, not big data: a cap well above any real call. */
+const MCP_BODY_BYTES = 65_536;
 
 type Env = Record<string, string | undefined>;
 
@@ -35,10 +42,10 @@ export function storeFromEnv(env: Env): GameStore | null {
   return env.PLAY_STORE === 'memory' ? memoryStore() : null;
 }
 
-/** Make a handler; the default export uses the real environment. Tests pass their own. */
-export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>) {
+/** Make a handler; the default export uses the real environment. Tests pass their own (and a store to inspect). */
+export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, givenStore?: GameStore) {
   // One store per handler, so per warm function instance: a cold start makes it, later requests reuse it.
-  let store: GameStore | null | undefined;
+  let store: GameStore | null | undefined = givenStore;
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const send = (status: number, body: Record<string, unknown> | null): void => {
       res.writeHead(status, { ...CORS, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}) });
@@ -48,19 +55,20 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>) {
       if (req.method === 'OPTIONS') return send(204, null);
       if (store === undefined) store = storeFromEnv(env);
       if (!store) return send(503, { error: 'The play API isn\'t set up on this server yet.' });
-      const body = await readBody(req, LIMITS.bodyBytes);
-      if (body === null) return send(413, { error: `The body is over ${LIMITS.bodyBytes} bytes.` });
-      const r = await handle(
-        { method: req.method ?? 'GET', path: pathOf(req.url ?? '/'), body, ip: ipOf(req, env.VERCEL === '1') },
-        store,
-        {
-          now: () => Date.now(),
-          newId: () => crypto.randomUUID(),
-          // Any server secret will do as the salt; the service key is one the owner already set.
-          salt: env.PLAY_IP_SALT || env.SUPABASE_SERVICE_ROLE_KEY || '',
-          ...deps,
-        },
-      );
+      const mcp = isMcp(req.url ?? '/');
+      const limit = mcp ? MCP_BODY_BYTES : LIMITS.bodyBytes;
+      const body = await readBody(req, limit);
+      if (body === null) return send(413, { error: `The body is over ${limit} bytes.` });
+      const apiDeps: ApiDeps = {
+        now: () => Date.now(),
+        newId: () => crypto.randomUUID(),
+        // Any server secret will do as the salt; the service key is one the owner already set.
+        salt: env.PLAY_IP_SALT || env.SUPABASE_SERVICE_ROLE_KEY || '',
+        ...deps,
+      };
+      const ip = ipOf(req, env.VERCEL === '1');
+      if (mcp) return await sendWeb(res, await mcpFetch(webRequest(req, body), { ip, store, deps: apiDeps }));
+      const r = await handle({ method: req.method ?? 'GET', path: pathOf(req.url ?? '/'), body, ip }, store, apiDeps);
       send(r.status, r.body);
     } catch (e) {
       // The reason goes to the function's log; the player gets no internals.
@@ -71,6 +79,40 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>) {
 }
 
 export default makeHandler();
+
+/** Is this the MCP endpoint? Vercel's route sends /mcp here as /api/play?surface=mcp. */
+export function isMcp(url: string): boolean {
+  const u = new URL(url, 'http://x');
+  return u.pathname === '/mcp' || u.pathname.startsWith('/mcp/') || u.searchParams.get('surface') === 'mcp';
+}
+
+/**
+ * A web-standard Request for the MCP SDK, built from Node's request and the body already read.
+ * Headers that describe the old connection, not the request, are left out; fetch sets its own.
+ */
+function webRequest(req: IncomingMessage, body: string): Request {
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (v === undefined || ['host', 'connection', 'content-length', 'transfer-encoding'].includes(k)) continue;
+    headers.set(k, Array.isArray(v) ? v.join(', ') : v);
+  }
+  const method = req.method ?? 'GET';
+  return new Request(`https://${req.headers.host ?? 'localhost'}/mcp`, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
+}
+
+/** Write a web-standard Response (the MCP SDK's answer) to Node's response, with our CORS headers. */
+async function sendWeb(res: ServerResponse, r: Response): Promise<void> {
+  const headers: Record<string, string> = { ...CORS, 'Cache-Control': 'no-store' };
+  r.headers.forEach((v, k) => { headers[k] = v; });
+  res.writeHead(r.status, headers);
+  // Copied through as it comes rather than read whole: an answer is usually one message, but an
+  // event stream (text/event-stream) only ends when the server ends it.
+  if (r.body) {
+    const reader = r.body.getReader();
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) res.write(chunk.value);
+  }
+  res.end();
+}
 
 /**
  * The API path asked for. Vercel's route sends /api/v1/<rest> here as /api/play?path=<rest>, in case
