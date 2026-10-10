@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { Discovery, gatherActions, type DiscoveryMethod, type RecipeDiscoveryDef, type RecipeState } from '../crafting/Discovery';
 import { RESOURCE_GATHERED } from '../entities/ResourceNode';
+import recipesJson from '../../public/macro-world/recipes.json';
 
 export type { DiscoveryMethod, RecipeDiscoveryDef, RecipeState };
 
@@ -16,7 +17,8 @@ export const RECIPE_DISCOVERED = 'recipe-discovered';
  * The rules live in the Phaser-free `Discovery` (src/crafting/Discovery.ts, #1515); this class
  * puts one in the game registry, saves it to localStorage, announces each discovery as
  * RECIPE_DISCOVERED, and counts gathering: every ResourceNode harvest (RESOURCE_GATHERED) records
- * `gather:<item>`, so memory recipes like healing salve ("gather:herb-green:5") unlock.
+ * `gather:<item>`, so memory recipes like healing salve ("gather:herb-green:5") unlock. The
+ * recipe defs are loaded from the bundled recipes.json up front, so that happens mid-gather.
  *
  * Access from any scene:
  *   const disc = this.game.registry.get('discoverySystem') as DiscoverySystem;
@@ -28,6 +30,10 @@ export class DiscoverySystem {
   constructor(scene: Phaser.Scene) {
     this.game = scene.game;
     this.state = Discovery.fromSave(this.readSave());
+    // The bundled recipe defs go in now (#1529), so a gather that meets a memory trigger
+    // discovers its recipe (and DiscoveryToast announces it) when it happens, not the next time
+    // the crafting menu opens. Anything the saved counts already unlock is found quietly here.
+    this.state.loadRecipeDefs(recipesJson.recipes as unknown as readonly { id?: string; discovery?: RecipeDiscoveryDef }[]);
     this.state.onFound = (id, method) => this.game.events.emit(RECIPE_DISCOVERED, id, method);
     this.game.registry.set(REGISTRY_KEY, this);
 
