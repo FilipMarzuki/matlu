@@ -20,6 +20,8 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const mw = (...p) => resolve(root, 'macro-world', ...p);
+// The two the game loads by URL live under public/, so the built site ships them (#1518).
+const publicMw = (...p) => resolve(root, 'public', 'macro-world', ...p);
 
 // ---------------------------------------------------------------------------
 // Supabase client
@@ -189,7 +191,7 @@ async function main() {
       };
     }),
   };
-  writeFileSync(mw('architecture.json'), JSON.stringify(archOut, null, 2) + '\n');
+  writeFileSync(publicMw('architecture.json'), JSON.stringify(archOut, null, 2) + '\n');
   console.log(`  architecture.json: ${archOut.styles.length} styles`);
 
   // ── fashion.json ──────────────────────────────────────────────────────
@@ -245,7 +247,7 @@ async function main() {
       return out;
     }),
   };
-  writeFileSync(mw('building-registry.json'), JSON.stringify(buildingRegistryOut, null, 2) + '\n');
+  writeFileSync(publicMw('building-registry.json'), JSON.stringify(buildingRegistryOut, null, 2) + '\n');
   console.log(`  building-registry.json: ${buildingRegistryOut.buildings.length} buildings`);
 
   // ── population-archetypes.json ────────────────────────────────────────

@@ -62,7 +62,7 @@ async function main() {
   console.log('Seeding phase 2: buildings, archetypes, ancestry body...\n');
 
   // ── 1. Buildings ──────────────────────────────────────────────────────
-  const buildingData = load('macro-world/building-registry.json');
+  const buildingData = load('public/macro-world/building-registry.json');
   const buildingRows = buildingData.buildings
     .filter(b => b.id) // skip _section markers
     .map(b => ({
