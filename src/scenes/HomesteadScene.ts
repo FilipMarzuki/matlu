@@ -15,7 +15,7 @@
 
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
-import { playerItems, type RegistryItem } from '../lib/items';
+import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
@@ -254,7 +254,7 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.json('item-registry', '/macro-world/item-registry.json');
+    // The item registry is bundled (REGISTRY_ITEMS), not loaded here: it isn't in the build's public/ (#1512).
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
     this.load.json('homestead-map', `/assets/maps/${DEFAULT_MAP_ID}.json`);
 
@@ -446,8 +446,7 @@ export class HomesteadScene extends Phaser.Scene {
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
     // Load item definitions from the unified registry.
-    const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
-    if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
+    inv.loadResourceDefs(playerItems(REGISTRY_ITEMS) as never[]);
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 

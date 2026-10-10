@@ -4,7 +4,8 @@ import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { UI } from '../ui/UIFactory';
-import { playerItems, type RegistryItem } from '../lib/items';
+import { playerItems, REGISTRY_ITEMS } from '../lib/items';
+import { fetchMenuLists } from '../lib/registryFetch';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -242,45 +243,28 @@ export class CraftingMenuScene extends Phaser.Scene {
   // ─── Data loading ───────────────────────────────────────────────────────────
 
   private async loadData(): Promise<void> {
-    try {
-      const [conceptsRes, recipesRes, registryRes] = await Promise.all([
-        fetch('/macro-world/concepts.json'),
-        fetch('/macro-world/recipes.json'),
-        fetch('/macro-world/item-registry.json'),
-      ]);
-      // Note: macro-world isn't in public/ so these will 404 in dev.
-      // For the prototype, we'll use inline fallback data if fetch fails.
-      if (conceptsRes.ok) {
-        const data = await conceptsRes.json();
-        this.concepts = data.concepts ?? [];
-      }
-      if (recipesRes.ok) {
-        const data = await recipesRes.json();
-        this.recipes = data.recipes ?? [];
-        // Feed discovery defs so innate recipes auto-unlock
-        this.discoverySys.loadRecipeDefs(this.recipes);
-        this.projectSys.loadRecipes(this.recipes);
-      }
-      if (registryRes.ok) {
-        // item-registry.json wraps the array in { items: [...] }.
-        // playerItems() filters to items the player can carry and extracts
-        // only the fields the inventory system needs.
-        const data = await registryRes.json();
-        const allItems: RegistryItem[] = data.items ?? [];
-        this.resources = playerItems(allItems) as Resource[];
-        // Feed stack limits + categories into the shared inventory system
-        const sys = this.inventorySystem;
-        if (sys) sys.loadResourceDefs(this.resources);
-      }
-    } catch {
-      // Prototype fallback — use inline minimal data
-      this.loadFallbackData();
+    // Concepts and recipes are fetched from public/macro-world/, each on its own: one that fails
+    // (or comes back as a web page) falls back alone and can't take the other down (#1512).
+    const lists = await fetchMenuLists(url => fetch(url));
+    if (lists.concepts?.length) this.concepts = lists.concepts as Concept[];
+    if (lists.recipes?.length) {
+      this.recipes = lists.recipes as Recipe[];
+      // Feed discovery defs so innate recipes auto-unlock
+      this.discoverySys.loadRecipeDefs(this.recipes);
+      this.projectSys.loadRecipes(this.recipes);
     }
-    if (this.concepts.length === 0) this.loadFallbackData();
+    // The item registry is bundled, not fetched (#1512). playerItems() filters to items the
+    // player can carry and extracts only the fields the inventory system needs.
+    this.resources = playerItems(REGISTRY_ITEMS) as Resource[];
+    // Feed stack limits + categories into the shared inventory system
+    const sys = this.inventorySystem;
+    if (sys) sys.loadResourceDefs(this.resources);
+    // Prototype fallback: inline minimal data for whichever list didn't load.
+    this.loadFallbackData({ concepts: this.concepts.length === 0, recipes: this.recipes.length === 0 });
   }
 
-  private loadFallbackData(): void {
-    this.concepts = [
+  private loadFallbackData(missing: { concepts: boolean; recipes: boolean }): void {
+    if (missing.concepts) this.concepts = [
       { id: 'heat-treatment', name: 'Heat Treatment', icon: 'patch-flame', category: 'metallurgy', description: 'Controlling temperature to change material properties.', ranks: 3 },
       { id: 'friction', name: 'Friction', icon: 'patch-spark', category: 'mechanics', description: 'How surfaces interact — grip, wear, heat generation.', ranks: 3 },
       { id: 'tension', name: 'Tension', icon: 'patch-bow', category: 'mechanics', description: 'Stored energy in stretched or compressed materials.', ranks: 3 },
@@ -293,7 +277,7 @@ export class CraftingMenuScene extends Phaser.Scene {
       { id: 'distillation', name: 'Distillation', icon: 'patch-droplet', category: 'alchemy', description: 'Separating substances through heating and condensation.', ranks: 3 },
       { id: 'inscription', name: 'Inscription', icon: 'patch-rune', category: 'arcane', description: 'Carving symbols that hold meaning or power.', ranks: 3 },
     ];
-    this.recipes = [
+    if (missing.recipes) this.recipes = [
       { id: 'rope', name: 'Rope', output: { item: 'rope', qty: 1 }, inputs: [{ item: 'plant-fiber', qty: 4 }], tier: 0, station: null, concepts: ['weaving', 'tension'] },
       { id: 'cloth', name: 'Cloth', output: { item: 'cloth', qty: 1 }, inputs: [{ item: 'plant-fiber', qty: 3 }], tier: 0, station: null, concepts: ['weaving'] },
       { id: 'healing-salve', name: 'Healing Salve', output: { item: 'healing-salve', qty: 2 }, inputs: [{ item: 'herb-green', qty: 2 }, { item: 'animal-fat', qty: 1 }], tier: 0, station: null, concepts: ['distillation'] },
@@ -302,17 +286,6 @@ export class CraftingMenuScene extends Phaser.Scene {
       { id: 'iron-dagger', name: 'Iron Dagger', output: { item: 'iron-dagger', qty: 1 }, inputs: [{ item: 'iron-blade', qty: 1 }, { item: 'leather-strip', qty: 1 }, { item: 'wood-handle', qty: 1 }], tier: 2, station: 'smithy', concepts: ['sharpening', 'joinery', 'friction'] },
       { id: 'iron-sword', name: 'Iron Sword', output: { item: 'iron-sword', qty: 1 }, inputs: [{ item: 'iron-blade', qty: 2 }, { item: 'leather-strip', qty: 2 }, { item: 'wood-handle', qty: 1 }], tier: 2, station: 'smithy', concepts: ['sharpening', 'counterweight', 'heat-treatment'] },
       { id: 'hunting-bow', name: 'Hunting Bow', output: { item: 'hunting-bow', qty: 1 }, inputs: [{ item: 'hardwood-plank', qty: 2 }, { item: 'bowstring', qty: 1 }, { item: 'leather-strip', qty: 1 }], tier: 2, station: 'workshop', concepts: ['tension', 'joinery', 'friction'] },
-    ];
-    this.resources = [
-      { id: 'iron-ore', name: 'Iron Ore', category: 'raw', stackMax: 20 },
-      { id: 'coal', name: 'Coal', category: 'raw', stackMax: 20 },
-      { id: 'wood-log', name: 'Wood Log', category: 'raw', stackMax: 15 },
-      { id: 'plant-fiber', name: 'Plant Fiber', category: 'raw', stackMax: 20 },
-      { id: 'herb-green', name: 'Green Herb', category: 'raw', stackMax: 15 },
-      { id: 'iron-ingot', name: 'Iron Ingot', category: 'refined', stackMax: 10 },
-      { id: 'leather', name: 'Leather', category: 'refined', stackMax: 10 },
-      { id: 'rope', name: 'Rope', category: 'refined', stackMax: 10 },
-      { id: 'cloth', name: 'Cloth', category: 'refined', stackMax: 10 },
     ];
   }
 

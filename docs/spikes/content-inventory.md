@@ -28,7 +28,7 @@ The game loads the `public/` one: the crafting menu and the Artificer's crafting
 
 ## A production bug
 
-`macro-world/item-registry.json` isn't under `public/`, so Vite doesn't ship it, yet the Homestead, its crafting menu and BaseForge fetch `/macro-world/item-registry.json`. In dev, Vite serves the project root, so it works. In production, Vercel rewrites the miss to `index.html`; the live site returns HTML for that URL (checked). The crafting menu's JSON parse then throws, and it falls back to the small inline list in `CraftingMenuScene.loadFallbackData`: 11 concepts, 8 recipes and 9 materials. The Homestead's inventory also loses its stack limits and categories. So on corewarden.app, the Homestead runs on placeholder data.
+`macro-world/item-registry.json` isn't under `public/`, so Vite doesn't ship it, yet the Homestead, its crafting menu and BaseForge fetch `/macro-world/item-registry.json`. In dev, Vite serves the project root, so it works. In production, Vercel rewrites the miss to `index.html`; the live site returns HTML for that URL (checked). The crafting menu's JSON parse then throws, and it falls back to the small inline list in `CraftingMenuScene.loadFallbackData`: 11 concepts, 8 recipes and 9 materials. The Homestead's inventory also loses its stack limits and categories. So on corewarden.app, the Homestead runs on placeholder data. (Fixed in #1512: the registry is now bundled. The forge scenes' `building-registry.json` and `architecture.json` have the same problem; that's #1518.)
 
 ## Why the Homestead reaches so little
 
@@ -64,6 +64,7 @@ The Artificer's store goods and the Homestead's six node types are all in play. 
 Filed (none labelled `ready`; triage will size them):
 
 - #1512: ship the item registry in the build, so the Homestead's crafting menu stops falling back in production.
+- #1518: the same for the forge scenes' `building-registry.json` and `architecture.json` (found while fixing #1512).
 - #1513: retire the duplicate registry files. Point `/crafter` at the canonical recipes, delete the old `recipes.json` and the root `tinker-tray.json`, and fix `_stats`.
 - #1514: registry integrity. Add the missing recipe-output items, fix or drop dangling concept `unlocks`, correct the NPC-only flags, and add a unit test so references keep resolving.
 - #1515: Homestead, wire the discovery routes that have no caller.
