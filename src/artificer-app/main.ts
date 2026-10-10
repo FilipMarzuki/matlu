@@ -29,6 +29,7 @@ import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { topicsOpen } from '../artificer/topics';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { generateReach, mapRows, sightFor, describeCell, GLYPH, BIOME_NAME, type Biome, type Reach } from '../artificer/world/reach';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
 import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
@@ -244,6 +245,42 @@ let focusRing: Ring = 1;
 
 /** The ring whose remembered places are listed on the land (#1380), if any. */
 let pinRing: Ring | null = null;
+
+// ── The map (#1539) ───────────────────────────────────────────────────────────
+// The Reach as a generated grid, drawn as text. It's made from the run's seed, so it's the same
+// land every time this run is drawn; the cache just saves regenerating it on every render.
+let reachCache: Reach | null = null;
+const reachFor = (characterId: string): Reach => {
+  const seed = seedOf(characterId);
+  if (reachCache?.seed !== seed) reachCache = generateReach(seed);
+  return reachCache;
+};
+/** The square last tapped on the map, whose description shows under it. */
+let mapCell: { x: number; y: number } | null = null;
+
+const MAP_LEGEND = `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
+  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${BIOME_NAME[b].toLowerCase()}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> camp</span><span><b class="m-fog">${GLYPH.unknown}</b> unknown</span></div>`;
+
+/** The MAP tab: the Reach as one character per square, what you can see of it, and a tapped square's details. */
+function mapTab(a: AppState): string {
+  const r = reachFor(a.sim.character.id);
+  const sight = sightFor(r, a.sim.explore);
+  const rows = mapRows(r, sight);
+  const grid = rows.map((row, y) => [...row].map((ch, x) => {
+    // Glimpsed squares (only suspected so far) draw dimmer than ones you've surveyed or worked.
+    const seen = sight(x, y);
+    const cls = x === r.camp.x && y === r.camp.y ? 'm-camp' : seen > 0 ? `m-${r.cells[y * r.w + x].biome}${seen === 1 ? ' dim' : ''}` : 'm-fog';
+    const sel = mapCell?.x === x && mapCell?.y === y ? ' sel' : '';
+    return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(ch)}</span>`;
+  }).join('')).join('\n');
+  const info = !mapCell ? 'Tap a square to see what it is.'
+    : sight(mapCell.x, mapCell.y) > 0 ? describeCell(r, mapCell.x, mapCell.y)
+    : 'Unknown ground. Scout the rings further out to learn it.';
+  return `<section class="box"><p class="eyebrow">THE REACH — a map of what you know</p>
+    <div class="mapwrap"><pre class="reachmap" aria-label="Map of the Reach: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
+    <p class="mapinfo">${esc(info)}</p>${MAP_LEGEND}
+    <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. You see what's within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).</p></section>`;
+}
 
 const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber', stone: 'Stone', water: 'Water', game: 'Game', routes: 'Routes' };
 
@@ -722,9 +759,9 @@ function pastRuns(): string {
 
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
-type Tab = 'plan' | 'camp' | 'land' | 'warden' | 'progress';
+type Tab = 'plan' | 'camp' | 'land' | 'map' | 'warden' | 'progress';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
@@ -749,6 +786,8 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
         <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>
         <section class="box" style="margin-top:14px"><p class="eyebrow">PINS — places you remember</p>${pinsList(a.sim)}</section>`;
+    case 'map':
+      return mapTab(a);
     case 'warden':
       return wardenTab(a);
     case 'progress':
@@ -1163,6 +1202,9 @@ function update(next: AppState): void {
 }
 
 root.addEventListener('click', e => {
+  // A square on the map (#1539): show what it is.
+  const square = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
+  if (square?.dataset.cell) { const [x, y] = square.dataset.cell.split(',').map(Number); mapCell = { x, y }; render(state); return; }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
