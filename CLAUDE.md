@@ -3,7 +3,7 @@
 Top-down action RPG called **Core Warden**, set in the **Matlu multiworld**. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
 
 Primary platform: Android tablet (Chrome). Keyboard also supported.
-Deployed to: Vercel (auto-deploy on push to main)
+Deployed to: Vercel, inside the free tier's 100 deployments a day, so no branch previews. The game, the Codex and Agentic Experiments deploy once a day at 06:00 UTC (deploy hooks in `vercel-daily-deploy.yml`); the Artificer deploys on each push to `main` that touches it. Each project's ignore step compares against its last deploy (`VERCEL_GIT_PREVIOUS_SHA`).
 Database: Supabase (leaderboard via `matlu_runs` table)
 
 ## Sites
