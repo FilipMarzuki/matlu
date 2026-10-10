@@ -31,9 +31,12 @@ name: DevCycle 3c — Risk review
 # branch — a PR can't change the rules or the workflow it is judged by. No job
 # runs the PR's code. Paid model calls only run for PRs from this repo.
 #
-# Requires: secret OPENROUTER_API_KEY. Without it the review steps log why and
+# Requires: secret OPENROUTER_API_KEY. Without it (and without the fallback) the review steps log why and
 # exit green, but post nothing — so the gate holds every medium and high PR. Optional variables: REVIEW_MODEL_MEDIUM, REVIEW_MODEL_HIGH
-# (OpenRouter model ids). Other workflows are started with this run's own
+# (OpenRouter model ids).
+# Fallback (#1509): with secret ANTHROPIC_PLAYTEST_KEY, Claude (variable REVIEW_FALLBACK_MODEL, default
+# claude-sonnet-5-5) reviews whenever OpenRouter can't: out of credit, down, or no key. The review still
+# counts at the gate, says it's weak, and the PR is labelled weak-review to revisit. Other workflows are started with this run's own
 # GITHUB_TOKEN (`actions: write` below): a workflow_dispatch sent with it does
 # start a run, unlike most events it causes. GH_TRACKER_TOKEN can't — it has no
 # Actions permission, and every dispatch made with it failed (#1476).
@@ -150,6 +153,9 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_MEDIUM || vars.SECOND_REVIEW_MODEL || 'google/gemini-2.5-pro' }}
+          # When OpenRouter can't review, Claude does, marked weak (#1509).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          REVIEW_FALLBACK_MODEL: ${{ vars.REVIEW_FALLBACK_MODEL || 'claude-sonnet-5-5' }}
         run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }}
 
   focused:
@@ -176,6 +182,8 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_HIGH || 'openai/gpt-5' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          REVIEW_FALLBACK_MODEL: ${{ vars.REVIEW_FALLBACK_MODEL || 'claude-sonnet-5-5' }}
         run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }} --focus ${{ matrix.lens }}
 
   # The tier's reviews are in (#1481): ask DevCycle 4 to merge. Its gate checks
