@@ -396,6 +396,8 @@ function parseRoad(x: unknown): RoadState | null {
     // neither, and loads without them (as it was saved).
     ...(Array.isArray(x.heard) ? { heard: strs(x.heard) } : {}),
     ...(isObj(x.asked) ? { asked: Object.fromEntries(Object.entries(x.asked).map(([k, v]) => [k, strs(v)])) } : {}),
+    // Signs noticed (#1496); a road from before has none.
+    ...(isObj(x.noticed) ? { noticed: Object.fromEntries(Object.entries(x.noticed).map(([k, v]) => [k, strs(v)])) } : {}),
   };
 }
 
