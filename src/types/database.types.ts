@@ -9,6 +9,7 @@
  *   - `creature_pipeline_state_machine`      — pipeline status columns + history table + trigger (FIL-435)
  *   - `macro_world_tables`                   — ancestries, cultures, architecture, fashion (#793)
  *   - `buildings_archetypes_ancestry_body`    — buildings, population_archetypes, ancestry body columns (#793)
+ *   - `create_biome_comments`                — wiki biome card comments (#325)
  *
  * Regenerate via MCP `generate_typescript_types` after any DDL change,
  * then replace this file.
@@ -325,6 +326,30 @@ export type Database = {
           slug?: string
           structural_principle?: string | null
           window_style?: string | null
+        }
+        Relationships: []
+      }
+      biome_comments: {
+        Row: {
+          author: string | null
+          biome_slug: string
+          body: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          author?: string | null
+          biome_slug: string
+          body: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          author?: string | null
+          biome_slug?: string
+          body?: string
+          created_at?: string | null
+          id?: string
         }
         Relationships: []
       }
@@ -1455,3 +1480,5 @@ export const Constants = {
 export type MatluRun = Tables<'matlu_runs'>
 export type MatluRunInsert = TablesInsert<'matlu_runs'>
 export type MatluFeedbackInsert = TablesInsert<'matlu_feedback'>
+export type BiomeComment = Tables<'biome_comments'>
+export type BiomeCommentInsert = TablesInsert<'biome_comments'>

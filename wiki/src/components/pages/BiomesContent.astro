@@ -30,6 +30,10 @@ const biomes = BIOMES.map((b) => ({
   slug: slugify(b.name),
   css: hexColor(b.overlayColor),
 }));
+
+// These are baked in at Vercel build time — safe to expose (publishable key).
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 ---
 
 <Base
@@ -57,6 +61,8 @@ const biomes = BIOMES.map((b) => ({
       {t(lang, 'Open World Forge →', 'Öppna World Forge →')}
     </a>
   </div>
+
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
 
   <div class="grid">
     {biomes.map((b) => (
@@ -102,11 +108,157 @@ const biomes = BIOMES.map((b) => ({
           </div>
 
           <p class="desc">{b.description}</p>
+
+          <details class="comments" data-slug={b.slug}>
+            <summary>{t(lang, 'Comments', 'Kommentarer')}</summary>
+
+            <ul class="comments-list" data-role="list">
+              <li class="comments-status" data-role="status">{t(lang, 'Loading…', 'Laddar…')}</li>
+            </ul>
+
+            <form class="comments-form" data-role="form" novalidate>
+              <input
+                type="text"
+                name="author"
+                placeholder={t(lang, 'Name (optional)', 'Namn (valfritt)')}
+                maxlength="60"
+              />
+              <textarea
+                name="body"
+                rows={2}
+                placeholder={t(lang, 'Leave a comment…', 'Lämna en kommentar…')}
+                required
+              />
+              <button type="submit">{t(lang, 'Submit', 'Skicka')}</button>
+            </form>
+          </details>
         </div>
       </article>
     ))}
   </div>
 </Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const url = cfg.dataset.url ?? '';
+  const key = cfg.dataset.key ?? '';
+
+  // Untyped client — wiki doesn't import the game's database.types.ts
+  const supabase = createClient(url, key);
+
+  interface BiomeCommentRow {
+    author: string | null;
+    body: string;
+    created_at: string | null;
+  }
+
+  function relativeTime(iso: string | null): string {
+    if (!iso) return '';
+    const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    const units: [string, number][] = [
+      ['year', 31536000],
+      ['month', 2592000],
+      ['day', 86400],
+      ['hour', 3600],
+      ['minute', 60],
+    ];
+    for (const [label, secs] of units) {
+      const value = Math.floor(seconds / secs);
+      if (value >= 1) return `${value} ${label}${value > 1 ? 's' : ''} ago`;
+    }
+    return 'just now';
+  }
+
+  function renderComments(listEl: HTMLElement, comments: BiomeCommentRow[]): void {
+    listEl.innerHTML = '';
+    if (comments.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'comments-status';
+      empty.textContent = 'No comments yet.';
+      listEl.appendChild(empty);
+      return;
+    }
+    for (const c of comments) {
+      const item = document.createElement('li');
+      item.className = 'comment';
+      const meta = document.createElement('div');
+      meta.className = 'comment-meta';
+      meta.textContent = `${c.author?.trim() || 'Anonymous'} · ${relativeTime(c.created_at)}`;
+      const body = document.createElement('p');
+      body.className = 'comment-body';
+      body.textContent = c.body;
+      item.appendChild(meta);
+      item.appendChild(body);
+      listEl.appendChild(item);
+    }
+  }
+
+  async function loadComments(slug: string, listEl: HTMLElement): Promise<void> {
+    const { data, error } = await supabase
+      .from('biome_comments')
+      .select('author, body, created_at')
+      .eq('biome_slug', slug)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Load comments error:', error);
+      listEl.innerHTML = '';
+      const status = document.createElement('li');
+      status.className = 'comments-status';
+      status.textContent = 'Could not load comments.';
+      listEl.appendChild(status);
+      return;
+    }
+
+    renderComments(listEl, (data ?? []) as BiomeCommentRow[]);
+  }
+
+  document.querySelectorAll<HTMLDetailsElement>('details.comments').forEach((details) => {
+    const slug = details.dataset.slug ?? '';
+    const listEl = details.querySelector<HTMLElement>('[data-role="list"]');
+    const form = details.querySelector<HTMLFormElement>('[data-role="form"]');
+    if (!listEl || !form) return;
+
+    let loaded = false;
+    details.addEventListener('toggle', () => {
+      if (details.open && !loaded) {
+        loaded = true;
+        loadComments(slug, listEl);
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const author = ((data.get('author') as string | null) ?? '').trim();
+      const body = ((data.get('body') as string | null) ?? '').trim();
+      if (!body) return;
+
+      const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const { error } = await supabase.from('biome_comments').insert({
+        biome_slug: slug,
+        author: author || null,
+        body,
+      });
+
+      if (submitBtn) submitBtn.disabled = false;
+
+      if (error) {
+        console.error('Submit comment error:', error);
+        return;
+      }
+
+      form.reset();
+      loaded = true;
+      await loadComments(slug, listEl);
+    });
+  });
+</script>
 
 <style>
   h1 { margin-bottom: 0.4rem; }
@@ -289,4 +441,102 @@ const biomes = BIOMES.map((b) => ({
     line-height: 1.6;
     margin: 0;
   }
+
+  .comments {
+    margin-top: 0.85rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.6rem;
+  }
+
+  .comments summary {
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    user-select: none;
+  }
+
+  .comments summary:hover { color: var(--accent-hi); }
+
+  .comments-list {
+    list-style: none;
+    margin: 0.6rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .comments-status {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .comment {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .comment-meta {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+  }
+
+  .comment-body {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .comments-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .comments-form input,
+  .comments-form textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.6rem;
+    resize: vertical;
+    transition: border-color 0.15s;
+  }
+
+  .comments-form input:focus,
+  .comments-form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .comments-form button {
+    align-self: flex-start;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.4rem 1.1rem;
+    transition: background 0.15s;
+  }
+
+  .comments-form button:hover { background: var(--accent-hi); }
+  .comments-form button:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
