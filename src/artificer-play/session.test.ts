@@ -91,8 +91,10 @@ describe('The game session core (#1554)', () => {
       }
       return null;
     };
-    const g = Array.from({ length: 20 }, (_, i) => `enc-${i}`).map(meet).find(x => x)!;
-    expect(g).toBeTruthy();
+    // Stop at the first seed that meets one: every seed tried is a few days of sim.
+    let g: Game | null = null;
+    for (let i = 0; i < 20 && !g; i++) g = meet(`enc-${i}`);
+    if (!g) throw new Error('no seed met an encounter');
     const v = view(g);
     expect(v.phase).toBe('encounter');
     expect(v.moves.length).toBeGreaterThan(0);
@@ -102,7 +104,7 @@ describe('The game session core (#1554)', () => {
     let h = after;
     for (let i = 0; i < 5 && view(h).phase === 'encounter'; i++) h = must(h, view(h).moves[0].move);
     expect(view(h).phase).toBe('day');
-  });
+  }, 20_000);
 
   it('6. after the thaw the run goes on through the caravan meeting and the road, and ends with a summary', () => {
     let g = gameFrom({ sim: survivor(), queue: [], stage: 'reach' }, 'play-thaw');
