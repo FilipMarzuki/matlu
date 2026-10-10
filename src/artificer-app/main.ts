@@ -379,7 +379,7 @@ function focusBlock(s: AppState['sim'], road?: RoadState): string {
   // skill has no work either, but it's something to ask people about (#1495).
   const idle = 'nothing to work on from the wagon (still costs the Clarity)';
   const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, road ? idle : `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
-  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? 'something to ask people about (wagon crafts practise at their own pace)' : 'practises 3x as fast')).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? 'learns 3x as much from wagon crafts, which come out better; and something to ask people about' : 'learns 3x as much from practice; better work and better odds')).join('');
   // The concepts open to this Warden and not yet mastered (#1478): the six, and the web as it opens.
   const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work${road ? ', and something to ask people about' : ''}`)).join('');
   // Topics (#1494, #1495): on the road, what you've come across — met, held, taken on, heard named —
@@ -394,7 +394,7 @@ function focusBlock(s: AppState['sim'], road?: RoadState): string {
   // only a concept gets anything for it: no goal work from the wagon, and wagon crafts practise at
   // their own pace.
   const note = road
-    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night. A concept is turned over each night (halved below ${below} Clarity). Any focus but a goal gives you something to ask people about. Goals have no work from the wagon.`
+    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night. A concept is turned over each night (halved below ${below} Clarity). A skill learns 3x as much from wagon crafts, and they come out better. Any focus but a goal gives you something to ask people about. Goals have no work from the wagon. No focus makes work faster.`
     : `One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${below} Clarity it's halved.`;
   const helps = road ? '' : 'Water, food, wood and shelter work goes better; ';
   return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. ${helps}learning waits until it passes.</p>` : ''}
@@ -425,7 +425,7 @@ function wardenTab(a: AppState): string {
       ${harmsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
       <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
-    <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing, more with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;

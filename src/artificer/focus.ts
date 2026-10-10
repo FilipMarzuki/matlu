@@ -55,6 +55,12 @@ export const SKILL_PRACTICE = 3;
 /** Goal and survival work: drain multiplier and extra yield. */
 export const FOCUS_DRAIN = 0.9;
 export const FOCUS_YIELD = 1;
+/**
+ * Better work (#1490): a craft whose skill, or one of whose concepts, is the focus scores this much
+ * more on the grade scale (the scale bench, tools and concepts add to), halved when focus is
+ * unreliable. Focus never makes work faster; it makes it better.
+ */
+export const FOCUS_GRADE = 1;
 
 /** Why focus is locked to survival, or null. The thresholds are the issue's lock triggers. */
 export function survivalLock(i: { thirsty: number; hungry: number; condition: number; daysToWinter: number; winterReady: boolean }): string | null {
@@ -102,6 +108,15 @@ export const reliability = (clarity: number, unreliableBelow = UNRELIABLE_BELOW)
 
 /** Move a multiplier halfway back toward 1 when focus is unreliable (×0.9 → ×0.95; ×2 → ×1.5). */
 const scaled = (mult: number, rel: number): number => 1 + (mult - 1) * rel;
+
+/**
+ * What a focus adds to a craft's grade score (#1490): FOCUS_GRADE when the craft's skill or one of
+ * its concepts is the focus, half that when focus is unreliable, nothing otherwise.
+ */
+export function focusGrade(focus: Focus | null, skill: SkillId | null, concepts: readonly string[], clarity: number, unreliableBelow = UNRELIABLE_BELOW): number {
+  const on = (focus?.kind === 'skill' && skill !== null && focus.id === skill) || (focus?.kind === 'concept' && concepts.includes(focus.id));
+  return on ? FOCUS_GRADE * reliability(clarity, unreliableBelow) : 0;
+}
 
 /**
  * What focus does to one piece of work. `locked` is the survival-lock reason

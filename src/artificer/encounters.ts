@@ -19,7 +19,7 @@ import type { Ring } from './exploration';
 import type { Season } from './winter';
 import type { Stores } from './region1';
 import type { Grade, Tool } from './crafting';
-import type { Stats, StatId } from './stats';
+import { statEffects, type Stats, type StatId } from './stats';
 import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
@@ -788,6 +788,13 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
  * An option's chance of success for this Warden, 0.02–0.98 (1 stays 1: a sure thing is sure).
  * Shaken or worse (#1360), a careful option loses one odds word.
  */
+/**
+ * Succeeding more often (#1490): an option that counts a skill is this much likelier when that
+ * skill is the focus, half that when focus is unreliable. (Here rather than in focus.ts: importing
+ * focus.ts would close an import loop through topics and quests.)
+ */
+export const FOCUS_ODDS = 0.05;
+
 export function chanceOf(w: Encounterer, o: EncounterOption): number {
   if (o.odds >= 1) return 1;
   // Sure for those who meet it (#1344) — however shaken.
@@ -800,6 +807,11 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   const surge = w.pending?.state === 'shaken' || w.pending?.state === 'panicked' ? ADRENALINE * talentEffects(w.character.talents).adrenaline : 0;
   for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10 + (id === 'str' || id === 'agi' ? surge : 0));
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
+  // A focused skill the option counts (#1490): the same reliability rule as every focus effect.
+  if (w.focus?.kind === 'skill' && m.skills && w.focus.id in m.skills) {
+    const clear = (w.vitals?.clarity.current ?? 100) >= statEffects(w.character.stats).unreliableBelow;
+    p += FOCUS_ODDS * (clear ? 1 : 0.5);
+  }
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
   if (m.lowClarity && w.vitals && w.vitals.clarity.current < m.lowClarity.below) p += m.lowClarity.add;
