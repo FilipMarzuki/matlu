@@ -8,8 +8,9 @@
  * dist/ for corewarden.app. The Artificer's own Vercel project (Root Directory `artificer/`, see
  * artificer/vercel.json) needs just the Artificer, served at `/`:
  *
- *   - Vite builds artificer.html alone. Its output keeps the file's name, so it's renamed to
- *     index.html afterwards; asset URLs are absolute (/assets/…), so the rename is safe.
+ *   - Vite builds artificer.html (renamed to index.html afterwards) and the "Play with your AI"
+ *     page (moved to play-with-ai/index.html). Asset URLs are absolute (/assets/…), so moving the
+ *     HTML files is safe.
  *   - publicDir is off: public/ holds the whole game's art (hundreds of MB). The few sprites the
  *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
  *     strings and copied in, so a new portrait is picked up without a hand-kept list. A missing one
@@ -17,7 +18,7 @@
  *   - The play API (#1555) is a function beside the page. Vite bundles src/artificer-play/vercel-handler.ts
  *     with the sim, its JSON and supabase-js into one file, and the site is written out in Vercel's
  *     Build Output API layout (artificer/.vercel/output: static/, functions/api/play.func/,
- *     config.json routing /api/v1/* to the function). Vercel deploys that layout as it stands when a
+ *     config.json routing /api/v1/* and /mcp to the function). Vercel deploys that layout as it stands when a
  *     build leaves one; dist/ stays the plain site, for previews and as the fallback.
  */
 
@@ -59,11 +60,21 @@ await build({
     outDir,
     emptyOutDir: true,
     target: 'esnext',
-    rollupOptions: { input: { artificer: join(root, 'artificer.html') } },
+    rollupOptions: {
+      input: {
+        artificer: join(root, 'artificer.html'),
+        // The "Play with your AI" page (#1556), moved to /play-with-ai/ below.
+        playWithAi: join(root, 'src', 'artificer-app', 'play-with-ai.html'),
+      },
+    },
   },
 });
 
 renameSync(join(outDir, 'artificer.html'), join(outDir, 'index.html'));
+// Vite keeps an entry's path from the root (dist/src/artificer-app/…); serve it at /play-with-ai/.
+mkdirSync(join(outDir, 'play-with-ai'), { recursive: true });
+renameSync(join(outDir, 'src', 'artificer-app', 'play-with-ai.html'), join(outDir, 'play-with-ai', 'index.html'));
+rmSync(join(outDir, 'src'), { recursive: true, force: true });
 
 const assets = referencedAssets();
 for (const url of assets) {
@@ -110,6 +121,8 @@ writeFileSync(join(vercelOut, 'config.json'), JSON.stringify({
     // The API first, so no static file can shadow it; the rest of the path rides along as ?path=.
     { src: '^/api/v1/?$', dest: '/api/play?path=' },
     { src: '^/api/v1/(.*)$', dest: '/api/play?path=$1' },
+    // The MCP server (#1556), in the same function.
+    { src: '^/mcp/?$', dest: '/api/play?surface=mcp' },
     { handle: 'filesystem' },
   ],
 }, null, 2) + '\n');

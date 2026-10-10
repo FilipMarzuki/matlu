@@ -2,7 +2,7 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
  *   GET  /api/v1/rules               the rules text        → 200
@@ -32,6 +32,8 @@ export interface GameRecord {
   name: string;
   /** The client's own name, if it gave one (e.g. an MCP client's `clientInfo.name`). */
   client: string | null;
+  /** The model the player says is playing. Self-reported: shown as such, never trusted. */
+  model: string | null;
   /** A salted hash of the address that started it, for the daily limit. */
   ipKey: string;
   createdAt: string;
@@ -48,6 +50,8 @@ export interface GameStore {
   update(g: GameRecord, movesBefore: number): Promise<boolean>;
   /** Games started by this address since this time (ISO). */
   countStartedSince(ipKey: string, sinceIso: string): Promise<number>;
+  /** Games started by anyone since this time (ISO), for the daily cap on all games. */
+  countAllStartedSince(sinceIso: string): Promise<number>;
   /** Count one move by this address on this UTC day (YYYY-MM-DD) and return its moves that day, this one included. */
   countMove(ipKey: string, day: string): Promise<number>;
 }
@@ -74,8 +78,21 @@ export interface ApiDeps {
   newSeed?: () => string;
 }
 
-/** Start strict; loosen with real traffic (docs/spikes/artificer-play-api.md). */
-export const LIMITS = { gamesPerIpPerDay: 20, movesPerIpPerDay: 5000, movesPerGame: 5000, bodyBytes: 16_384, nameChars: 24 };
+/**
+ * Start strict; loosen with real traffic (docs/spikes/artificer-play-api.md). The per-address
+ * limits stop one player using everything; the daily caps on everyone together keep the whole
+ * thing inside the free tiers (Vercel's function calls, Supabase's rows), however many addresses
+ * come. Hosted MCP clients such as claude.ai reach us from shared addresses, so only the caps
+ * really bound them.
+ */
+export const LIMITS = {
+  gamesPerIpPerDay: 20, movesPerIpPerDay: 5000, movesPerGame: 5000,
+  gamesPerDay: 500, movesPerDay: 20_000,
+  bodyBytes: 16_384, nameChars: 24,
+};
+
+/** The usage counter's key for every move by anyone (artificer_play_usage). */
+const ALL_MOVES = 'all';
 
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
@@ -97,12 +114,15 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if ((await store.countStartedSince(ipKey, since)) >= limits.gamesPerIpPerDay) {
       return fail(429, `This address has started ${limits.gamesPerIpPerDay} games in the last day. Try again later.`);
     }
+    if ((await store.countAllStartedSince(since)) >= limits.gamesPerDay) {
+      return fail(429, `The Reach has had ${limits.gamesPerDay} games in the last day, as many as it takes. Try again later today.`);
+    }
     const name = cleanName(body.name, limits.nameChars);
     const game = startGame({ seed: deps.newSeed?.(), name });
     const nowIso = new Date(deps.now()).toISOString();
     const record: GameRecord = {
       id: deps.newId(), version: GAME_VERSION, session: serialize(game), moves: [], phase: view(game).phase,
-      name, client: typeof body.client === 'string' ? body.client.slice(0, 64) : null, ipKey, createdAt: nowIso, updatedAt: nowIso,
+      name, client: shortText(body.client), model: shortText(body.model), ipKey, createdAt: nowIso, updatedAt: nowIso,
     };
     await store.insert(record);
     return { status: 201, body: gameBody(record.id, view(game)) };
@@ -125,6 +145,9 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     const today = new Date(deps.now()).toISOString().slice(0, 10);
     if ((await store.countMove(keyOf(req.ip, deps.salt), today)) > limits.movesPerIpPerDay) {
       return fail(429, `This address has made ${limits.movesPerIpPerDay} moves today (UTC). Try again tomorrow.`);
+    }
+    if ((await store.countMove(ALL_MOVES, today)) > limits.movesPerDay) {
+      return fail(429, `The Reach has had ${limits.movesPerDay} moves today (UTC), as many as it takes. Try again tomorrow.`);
     }
     const body = parseBody(req.body);
     const move = body?.move as Move | undefined;
@@ -155,6 +178,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord> } {
       return true;
     },
     countStartedSince: async (ipKey, since) => [...rows.values()].filter(g => g.ipKey === ipKey && g.createdAt >= since).length,
+    countAllStartedSince: async since => [...rows.values()].filter(g => g.createdAt >= since).length,
     countMove: async (ipKey, day) => {
       const n = (moves.get(`${ipKey}|${day}`) ?? 0) + 1;
       moves.set(`${ipKey}|${day}`, n);
@@ -207,6 +231,11 @@ function isMove(m: unknown): m is Move {
   if ('choose' in o) return typeof o.choose === 'string';
   if ('set' in o) return !!o.set && typeof o.set === 'object';
   return false;
+}
+
+/** A client or model name as given: a string, cut to 64 characters, or nothing. */
+function shortText(raw: unknown): string | null {
+  return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 64) : null;
 }
 
 /** A nickname: printable, short, or "Warden". Kept plain because the audience includes kids. */
