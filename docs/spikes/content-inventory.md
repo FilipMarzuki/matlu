@@ -52,7 +52,7 @@ The Artificer's store goods and the Homestead's six node types are all in play. 
 ## Duplicates, conflicts and loose ends
 
 - **Six recipe ids mean two different recipes:** `stone-knife`, `bedroll`, `waterskin`, `crude-shovel`, `backpack` and `trap-snare` are paid in store goods in the Artificer, and in registry items (flint, hide-raw, rope…) in the registry. Their output items aren't in the item registry either, except `trap-snare`.
-- **95 item ids and 83 recipe ids are named but never defined.** Most are recipe outputs missing from the item registry (`bread`, `compass`, `drone-chassis-small`…), plus concept `unlocks` that point at recipes that don't exist (`steel-blade`, `hardened-armor`…).
+- **95 item ids and 83 recipe ids are named but never defined.** Most are recipe outputs missing from the item registry (`bread`, `compass`, `drone-chassis-small`…), plus concept `unlocks` that point at recipes that don't exist (`hardened-armor`, `tempered-tools`…). (Resolved in #1514: the items were added, and unbuilt `unlocks` moved to `futureUnlocks`.)
 - **48 items in play aren't in the item registry:** the Artificer's pack, manuals, shelters, tools and carrying gear; the Homestead's starting `dry-grass`; and three things it crafts (`copper-tube`, `wire-copper`, `fire-starter`).
 - **Five items are flagged NPC-only** (`playerObtainable: false`) but a player gets them: the three shop potions, `campfire` and `lean-to`.
 - `item-registry.json` says `_stats.totalItems: 176` and holds 177.
