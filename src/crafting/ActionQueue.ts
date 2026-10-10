@@ -26,7 +26,7 @@ export interface HarvestSource {
   durationTicks: number;
 }
 
-/** Subset of a macro-world/recipes.json entry the queue needs. */
+/** Subset of a public/macro-world/recipes.json entry the queue needs. */
 export interface Recipe {
   id: string;
   name: string;
@@ -35,6 +35,17 @@ export interface Recipe {
   /** Crafting time in ticks. */
   timeBase: number;
 }
+
+/**
+ * The recipes in recipes.json's `recipes` array (#1513). The file groups them under
+ * `{ "_tier": "=== TIER 1 … ===" }` section headers, which have no output or inputs: keep only
+ * the entries the queue can run.
+ */
+export const queueRecipes = (raw: readonly unknown[]): Recipe[] =>
+  raw.filter((r): r is Recipe => {
+    const o = r as Partial<Recipe> | null;
+    return typeof o?.id === 'string' && typeof o.output?.item === 'string' && Array.isArray(o.inputs) && typeof o.timeBase === 'number';
+  });
 
 /**
  * `goal` is a sub-action (#1185): "make a plank", with the queue working out

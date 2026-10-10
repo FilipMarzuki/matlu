@@ -22,9 +22,9 @@
     "description": "(optional) Flavor/lore text"
   },
   "_stats": {
-    "totalItems": 176,
+    "totalItems": 177,
     "categories": {
-      "raw": 56,
+      "raw": 57,
       "refined": 24,
       "component": 6,
       "consumable": 20,
@@ -40,7 +40,7 @@
       "crafted": 1,
       "quest": 1
     },
-    "withIcon": 72,
+    "withIcon": 73,
     "pendingIcon": 104
   },
   "items": [
