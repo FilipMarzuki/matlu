@@ -179,17 +179,15 @@ function placeAnchors(list: Province[], reach: Reach): void {
 }
 
 /**
- * Who settles a province, from its mix of land. Most of the Reach is wood, so the dominant land
- * alone would make nearly everyone fieldborn: instead a culture claims a province where its own
- * kind of land makes up a fair share. Checked in order, wettest and highest first.
+ * Who settles a province. The Reach is one people's country, a few weeks of the caravan's road:
+ * ridgefolk, Markfolk and Bergfolk of the wooded heights, as villages.ts has the foothills. The
+ * only exception the land makes is the high fells, where the Bergfolk keep their halls
+ * (mountainhold). More cultures come with more regions; the hand-written villages keep their own
+ * (placeAnchors).
  */
 function cultureOf(biomes: readonly Biome[]): ReachCulture {
   const share = (...bs: Biome[]) => biomes.filter(b => bs.includes(b)).length / biomes.length;
-  if (share('lake', 'marsh') >= 0.2) return 'waterstead'; // fishers and boat-folk, the Pandor of the meres
-  if (share('fell', 'snow') >= 0.3) return 'mountainhold'; // Bergfolk halls under the fells
-  if (share('scree', 'fell', 'snow') >= 0.2 || share('pine') > share('birch', 'meadow')) return 'ridgefolk'; // the wooded heights
-  if (share('heath') >= 0.25) return 'steppe-camp'; // Viddfolk on the open heath
-  return 'fieldborn'; // farmers of the meadows and the birch-lands
+  return share('fell', 'snow') >= 0.3 ? 'mountainhold' : 'ridgefolk';
 }
 
 /**

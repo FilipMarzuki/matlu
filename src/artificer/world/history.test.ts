@@ -46,7 +46,7 @@ describe('The Reach split into provinces (#1540)', () => {
     }
   });
 
-  it('gives provinces unique names, borders both ways, and the Reach more than one people', () => {
+  it('gives provinces unique names, borders both ways, and the Reach one people (fells aside)', () => {
     for (const seed of SEEDS) {
       const { list } = provincesOf(generateReach(seed));
       expect(new Set(list.map(p => p.name)).size).toBe(list.length);
@@ -56,7 +56,13 @@ describe('The Reach split into provinces (#1540)', () => {
         expect(p.neighbors.length, `${p.name} has a neighbour`).toBeGreaterThan(0);
         for (const n of p.neighbors) expect(list.find(q => q.id === n)!.neighbors).toContain(p.id);
       }
-      expect(new Set(list.map(p => p.culture)).size, `cultures, seed ${seed}`).toBeGreaterThanOrEqual(3);
+      // One people's country: ridgefolk, mountainhold only where the high fells make most of a
+      // province, and the hand-written villages' own cultures where they're seated.
+      const reach = generateReach(seed);
+      for (const p of list.filter(q => !q.anchor)) {
+        const fells = p.cells.filter(i => reach.cells[i].biome === 'fell' || reach.cells[i].biome === 'snow').length / p.cells.length;
+        expect(p.culture, `${p.name}, seed ${seed}`).toBe(fells >= 0.3 ? 'mountainhold' : 'ridgefolk');
+      }
     }
   });
 });
@@ -90,7 +96,7 @@ describe("The Reach's generated history (#1540)", () => {
   // history from the old code is told again.
   it('tells the same history from the same seed, and a different one from another', () => {
     const a = logHash(seedOf('w-vega'));
-    expect(a).toBe('78a7cd19123afa0d');
+    expect(a).toBe('035bcfef2de0d294');
     expect(logHash(seedOf('w-vega'))).toBe(a);
     expect(logHash(seedOf('w-astrid'))).not.toBe(a);
   });
