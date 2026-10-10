@@ -339,6 +339,7 @@ Each day: choose road actions in order; they run until the day's 16 hours are sp
 
 PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
 ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know. An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
+LEADS: an answer can send you to someone elsewhere. The lead is listed below; asking that person about its topic needs less trust (someone they know sent you), and you can focus on them before you meet them.
 NOTICING: in a village, each morning, you may notice who is tied to your focus (or to something you've learned about, less often): a sign in the journal, and asking them about it then needs less trust.
 TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
 QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
@@ -476,6 +477,8 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
       lines.push(`- ${q.id} "${q.title}" for ${personById(q.giver)?.name} — ${questNeeds(q)} · ${q.needs.kind === 'deliver' ? 'completes on arrival' : q.village !== village ? `back in ${q.village}` : why ? `not yet: ${why}` : 'ready to complete'}`);
     }
   }
+  // Leads (#1497): who answers have sent you to, and whether you've asked them yet.
+  if (r.leads?.length) lines.push(`LEADS: ${r.leads.map(l => `${l.who} (${personById(l.who)?.name}, ${l.where ?? 'on the road'}) about ${l.about}, from ${l.from}${(r.asked?.[l.who] ?? []).includes(l.about) ? ' — asked' : ''}`).join(' · ')}`);
 
   // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered.
   if (r.focus && r.focus.kind !== 'goal') {
@@ -503,7 +506,8 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
       const more = told < p.lore.length ? 'has more to tell' : 'has told you all they know';
       const quest = questsHere(r).find(q => q.giver === p.id);
       const noticed = (r.noticed?.[p.id] ?? []).length ? `you noticed a tie to ${(r.noticed?.[p.id] ?? []).join(', ')}` : '';
-      const extras = [more, p.teaches && `teaches ${p.teaches.skill}`, quest && `offers quest ${quest.id}`, noticed].filter(Boolean).join(' · ');
+      const sent = (r.leads ?? []).filter(l => l.who === p.id).map(l => `${l.from} sent you to ask about ${l.about}`).join(', ');
+      const extras = [more, p.teaches && `teaches ${p.teaches.skill}`, quest && `offers quest ${quest.id}`, noticed, sent].filter(Boolean).join(' · ');
       lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${extras}`);
     }
     const offered = questsHere(r);

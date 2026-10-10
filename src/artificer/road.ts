@@ -21,9 +21,9 @@
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
-import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
-import { survivalLock, focusInline, focusKey, type Focus } from './focus';
-import { ask, ASK_HOURS, ASK_TRUST } from './asks';
+import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
+import { survivalLock, focusInline, focusKey, parseFocus, type Focus } from './focus';
+import { ask, leadOf, sentTo, ASK_HOURS, ASK_TRUST, LEAD_TRUST, type Lead } from './asks';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -119,6 +119,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   asked?: Record<string, string[]>;
   /** Signs you've noticed (#1496), by person id: the topic keys they're tied to. Absent before noticing. */
   noticed?: Record<string, string[]>;
+  /** People answers have pointed you to (#1497), in the order you heard of them. Absent before leads. */
+  leads?: Lead[];
   /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
   fare?: Fare | null;
   /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
@@ -226,6 +228,7 @@ function clone(s: RoadState): RoadState {
     ...(s.heard ? { heard: [...s.heard] } : {}),
     ...(s.asked ? { asked: Object.fromEntries(Object.entries(s.asked).map(([k, v]) => [k, [...v]])) } : {}),
     ...(s.noticed ? { noticed: Object.fromEntries(Object.entries(s.noticed).map(([k, v]) => [k, [...v]])) } : {}),
+    ...(s.leads ? { leads: s.leads.map(l => ({ ...l })) } : {}),
     log: [...s.log],
   };
 }
@@ -594,9 +597,11 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // Focus is attention: a topic, a skill or a concept gives you something to ask about. A goal is work.
   if (!f || f.kind === 'goal') { say(next, 'Ask: nothing to ask about — set a focus on a topic, a skill or a concept first.', 'skip'); return next; }
   const key = focusKey(f);
-  // Having noticed their tie to it (#1496) opens one trust gate early: you've shown you know.
+  // Having noticed their tie to it (#1496) opens one trust gate early: you've shown you know. So
+  // does a lead to them on it (#1497): someone they know sent you. The two add up.
   const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
-  const r = ask(person, key, focusInline(f), (next.trust[pid] ?? 0) + shown, next.asked?.[pid] ?? []);
+  const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
+  const r = ask(person, key, focusInline(f), (next.trust[pid] ?? 0) + shown + sent, next.asked?.[pid] ?? []);
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   const a = applyActivity(next.vitals, { hours: ASK_HOURS, vigorRate: 0, clarityRate: -1 });
   next.vitals = a.vitals;
@@ -610,6 +615,13 @@ function askAbout(next: RoadState, pid: string): RoadState {
     if (r.answer.insight) addInsight(next.concepts, r.answer.insight.concept, r.answer.insight.amount, CRAFT_WORLD.concepts);
   }
   say(next, r.line, 'action');
+  // An answer that sends you to someone elsewhere (#1497): a lead, in the quest log.
+  const lead = r.kind === 'told' ? leadOf(r.answer, key, pid) : undefined;
+  if (lead && !sentTo(next.leads, lead.who, lead.about)) {
+    next.leads = [...(next.leads ?? []), lead];
+    const about = parseFocus(lead.about);
+    say(next, `A lead: ${personById(lead.who)?.name ?? lead.who}${lead.where ? ` at ${VILLAGES[lead.where]?.name ?? lead.where}` : ''}, about ${about ? focusInline(about) : lead.about}. ${person.name} sent you; it's in your quest log.`, 'milestone');
+  }
   return next;
 }
 
