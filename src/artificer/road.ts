@@ -24,6 +24,7 @@ import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, 
 import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock, focusInline, focusKey, type Focus } from './focus';
 import { ask, ASK_HOURS, ASK_TRUST } from './asks';
+import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
@@ -116,6 +117,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   heard?: string[];
   /** What each person has answered when asked (#1495), by person id: the focus keys. Absent before asks. */
   asked?: Record<string, string[]>;
+  /** Signs you've noticed (#1496), by person id: the topic keys they're tied to. Absent before noticing. */
+  noticed?: Record<string, string[]>;
   /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
   fare?: Fare | null;
   /** Days of `help` promised to Bodil for the ride (#1355), still owed. Due by the first village. */
@@ -222,6 +225,7 @@ function clone(s: RoadState): RoadState {
     appraised: [...s.appraised],
     ...(s.heard ? { heard: [...s.heard] } : {}),
     ...(s.asked ? { asked: Object.fromEntries(Object.entries(s.asked).map(([k, v]) => [k, [...v]])) } : {}),
+    ...(s.noticed ? { noticed: Object.fromEntries(Object.entries(s.noticed).map(([k, v]) => [k, [...v]])) } : {}),
     log: [...s.log],
   };
 }
@@ -590,7 +594,9 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // Focus is attention: a topic, a skill or a concept gives you something to ask about. A goal is work.
   if (!f || f.kind === 'goal') { say(next, 'Ask: nothing to ask about — set a focus on a topic, a skill or a concept first.', 'skip'); return next; }
   const key = focusKey(f);
-  const r = ask(person, key, focusInline(f), next.trust[pid] ?? 0, next.asked?.[pid] ?? []);
+  // Having noticed their tie to it (#1496) opens one trust gate early: you've shown you know.
+  const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
+  const r = ask(person, key, focusInline(f), (next.trust[pid] ?? 0) + shown, next.asked?.[pid] ?? []);
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   const a = applyActivity(next.vitals, { hours: ASK_HOURS, vigorRate: 0, clarityRate: -1 });
   next.vitals = a.vitals;
@@ -862,8 +868,29 @@ export function roadEncounterFor(seed: number, day: number, where: Leg['kind']):
   return null;
 }
 
+/**
+ * A morning in a village (#1496): a Warden focused on a topic, or who knows about one, may notice
+ * who here is tied to it. Passive, no hours; each sign rolls on its own seeded stream.
+ */
+function noticeMorning(next: RoadState): void {
+  const village = villageOf(next);
+  if (!village || next.outcome) return;
+  const f = next.focus;
+  const known = [...new Set([...(next.heard ?? []), ...Object.values(next.asked ?? {}).flat()])];
+  const found = noticesToday({
+    seed: seedOf(next.character.id), day: next.day, village, people: peopleOf(village),
+    focus: f ? focusKey(f) : null, known, noticed: next.noticed ?? {},
+    clarity: next.vitals.clarity.current, unreliableBelow: statEffects(next.character.stats).unreliableBelow, int: next.character.stats.int,
+  });
+  for (const n of found) {
+    next.noticed = { ...(next.noticed ?? {}), [n.person]: [...(next.noticed?.[n.person] ?? []), n.topic] };
+    say(next, n.sign, 'milestone');
+  }
+}
+
 /** A new road day dawns (#1349): perhaps something meets you, and the day waits for your choice. */
 function dawn(next: RoadState): RoadState {
+  noticeMorning(next);
   if (!next.encounters || next.outcome) return next;
   const t = roadEncounterFor(seedOf(next.character.id), next.day, legOf(next).kind);
   if (!t) return next;

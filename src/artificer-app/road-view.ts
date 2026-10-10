@@ -16,6 +16,7 @@ import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
 import { answerFor, ASK_HOURS } from '../artificer/asks';
+import { SIGNS } from '../artificer/notice';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -138,7 +139,9 @@ function personCard(r: RoadState, p: Person, open: boolean): string {
   const lore = (r.told[p.id] ?? 0) < p.lore.length;
   const quest = questsHere(r).find(q => q.giver === p.id) ?? Object.keys(r.quests).map(questById).find(q => q?.giver === p.id && r.quests[q.id] === 'active');
   const trades = !!tradeTerms(r) && tradeTerms(r)!.trader === p.id;
-  const icons = [lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
+  // Signs you've noticed (#1496): what they showed of something you were turning over.
+  const seen = (r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter((x): x is string => !!x);
+  const icons = [seen.length && `<span title="${esc(seen.join(' '))}">👁</span>`, lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
   return `<button class="pcard ${open ? 'on' : ''}" data-person="${esc(p.id)}" aria-expanded="${open}">
     ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))}</span>
     <span class="tbar" title="Trust ${trust}/100"><span style="width:${trust}%" class="${trust >= CONTACT_TRUST ? 'friend' : ''}"></span></span><span class="tnum">trust ${trust}${r.contacts.includes(p.id) ? ' · remembers you' : ''}</span></span>
@@ -242,6 +245,7 @@ function conversation(r: RoadState, p: Person, told: number): string {
   return `<div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>
     <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}</div>
     ${f ? '' : '<p class="mood">Set a focus on a topic, a skill or a concept, and you\'ll have something to ask them about.</p>'}
+    ${(r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter(Boolean).map(sign => `<p class="mood told">👁 ${esc(sign!)}</p>`).join('')}
     ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU WHEN ASKED</p>${answers}` : ''}</div>`;
 }
 
