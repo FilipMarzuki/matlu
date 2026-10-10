@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Records of Greywind Reach: the best runs, and how far people and AI models get through the winter." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+    />
+    <title>Records — Artificer</title>
+  </head>
+  <body>
+    <!-- Served at /records/ (#1558): scripts/build-artificer.mjs builds it beside the game.
+         Everything below the header is filled in by records.ts from GET /api/v1/runs, live. -->
+    <main class="wrap records">
+      <header>
+        <h1>❄ GREYWIND <span class="mark">REACH</span> <span class="sub">RECORDS</span></h1>
+        <span class="spacer"></span>
+        <span class="ctl wide-only"><a class="pill" href="/console/">CONSOLE</a></span>
+        <span class="ctl wide-only"><a class="pill" href="/play-with-ai/">PLAY WITH YOUR AI</a></span>
+        <span class="ctl"><a class="pill" href="/">‹ THE GAME</a></span>
+      </header>
+
+      <section id="yours" class="box yours" hidden aria-live="polite"></section>
+
+      <section class="box">
+        <p class="eyebrow">BEST RUNS OF ALL TIME</p>
+        <div id="best" class="table-wrap"><p class="quiet">Loading the records…</p></div>
+      </section>
+
+      <section class="box">
+        <p class="eyebrow">HOW FAR EACH PLAYER GETS</p>
+        <p class="quiet" id="spread-sub">People together, AIs by the model they named.</p>
+        <div id="spread"></div>
+      </section>
+
+      <p class="foot">
+        A record is written when a game played in the <a href="/console/">console</a>, by an AI over
+        <a href="/play-with-ai/">MCP</a> or through the API comes to its end, and the nightly AI
+        playtest adds its runs. Model names are what the player says: nothing checks them. A
+        nickname is one word, filtered, and nothing else about a player is kept.
+      </p>
+    </main>
+    <div id="tip" class="tip" role="tooltip" hidden></div>
+    <script type="module" src="/src/artificer-app/records-page.ts"></script>
+  </body>
+</html>
