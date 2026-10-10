@@ -37,7 +37,7 @@ import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raise
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
-import { ROAD_DAYS, type RoadState } from '../artificer/road';
+import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { ringPinChip, ringPins, pinsList } from './pins-view';
 import { tripPinNote } from '../artificer/pins';
@@ -362,18 +362,31 @@ function eatingChip(s: AppState['sim']): string {
   return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${tip} — tap to change">RATIONS <b>${label}</b></button>`;
 }
 
-/** The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. */
-function focusBlock(s: AppState['sim']): string {
-  const lock = survivalLockOf(s);
+/**
+ * The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. On
+ * the road (#1479) the chips set the road's focus, and the note says what a focus does there.
+ */
+function focusBlock(s: AppState['sim'], road?: RoadState): string {
+  const lock = road ? roadLockOf(road) : survivalLockOf(s);
   const cur = focusKey(s.focus);
   const chip = (key: string, label: string, note: string) =>
     `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
-  const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
-  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises 3x as fast')).join('');
+  // On the road (#1479) a goal or a skill has no work to help: the chip says so instead of its Reach effect.
+  const idle = 'nothing to work on from the wagon (still costs the Clarity)';
+  const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, road ? idle : `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? idle : 'practises 3x as fast')).join('');
   // The concepts open to this Warden and not yet mastered (#1478): the six, and the web as it opens.
   const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
-  return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. Water, food, wood and shelter work goes better; learning waits until it passes.</p>` : ''}
-    <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${statEffects(s.character.stats).unreliableBelow} Clarity it's halved.</p>
+  const below = statEffects(s.character.stats).unreliableBelow;
+  // On the road a focus still costs its Clarity each night (the road sleeps by Region 1's rules), but
+  // only a concept gets anything for it: no goal work from the wagon, and wagon crafts practise at
+  // their own pace.
+  const note = road
+    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night, and only a concept gets anything for it: it's turned over each night (halved below ${below} Clarity). Goals and skills have no work from the wagon.`
+    : `One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${below} Clarity it's halved.`;
+  const helps = road ? '' : 'Water, food, wood and shelter work goes better; ';
+  return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. ${helps}learning waits until it passes.</p>` : ''}
+    <p class="mood" style="margin-top:0">${note}</p>
     <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
     <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
     <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>
@@ -393,7 +406,7 @@ function wardenTab(a: AppState): string {
   return `<div class="cols">
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim, CRAFT_WORLD.concepts).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
-      <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
+      <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim, a.stage === 'road' ? a.road : undefined)}
       <p class="eyebrow" style="margin-top:16px">STATS — ${c.age !== undefined ? `age ${c.age}${isYoung(c.age) ? ', still growing' : ', grown'}` : "what you're built for"}</p>${statsBlock(c.stats, c.adult)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
       ${packBlock(a.sim)}

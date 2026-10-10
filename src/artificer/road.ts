@@ -22,14 +22,14 @@ import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
 import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
-import { survivalLock } from './focus';
+import { survivalLock, type Focus } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
 import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
 import { TALENTS, hasHidden, type TalentId } from './talents';
 import { canBeTaught, manualById, techniqueById, techniqueEffects, type Guidance } from './techniques';
-import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, noticeHidden, differenceOf, hiddenless, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
+import { ACTIONS, CRAFT_WORLD, creditedPractice, createRegion1, runAction, blockedReason, DAY_HOURS, TRAVEL_CLARITY_RATE, TRAVEL_VIGOR_RATE, deathLine, sleepNight, exerciseStats, noticeHidden, differenceOf, hiddenless, focusRefusal, type ActionId, type LogEntry, type QueueItem, type Region1State, type Sleeper } from './region1';
 import { createExploration, scout } from './exploration';
 import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
@@ -225,6 +225,22 @@ export const daysLeftOnLeg = (s: RoadState): number => legOf(s).days - s.legDay 
 /** Why the mind is locked to survival on the road, or null. There's no winter to race here, only needs. */
 export const roadLockOf = (s: RoadState): string | null =>
   survivalLock({ thirsty: s.deprivation.thirsty, hungry: s.deprivation.hungry, condition: s.vitals.condition, daysToWinter: Infinity, winterReady: true });
+
+/**
+ * Set (or clear) the Warden's focus on the road (#1479), by Region 1's rule (`setFocus`). The road
+ * keeps its own focus: its nights run Region 1's `sleepNight`, which charges for it and turns a
+ * focused concept over. A concept not open to the Warden, or mastered, is refused (#1478).
+ */
+export function setRoadFocus(s: RoadState, focus: Focus | null): RoadState {
+  const next = clone(s);
+  const why = focus?.kind === 'concept' ? focusRefusal(s, focus.id) : null;
+  if (why) {
+    say(next, `You can't turn your mind to ${focus!.id} — ${why}.`, 'skip');
+    return next;
+  }
+  next.focus = focus;
+  return next;
+}
 
 // ── Actions ─────────────────────────────────────────────────────────────────
 
