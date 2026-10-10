@@ -51,7 +51,8 @@ interface NodeType { id: string; yields: { itemId: string }[] }
 const FILES = {
   items: 'macro-world/item-registry.json',
   recipes: 'public/macro-world/recipes.json',
-  concepts: 'public/macro-world/concepts.json',
+  // Artificer is the master for concepts (#1531); the Homestead's public/macro-world copy is a frozen draft.
+  concepts: 'src/artificer/content/concepts.json',
   nodes: 'public/macro-world/resource-nodes.json',
   shops: 'macro-world/shop-inventories.json',
   homesteadMap: 'public/assets/maps/homestead.json',
@@ -383,6 +384,8 @@ const md: string[] = [
   '- **in the game**: reachable in the Artificer (`artificer.html`) or the Homestead (`/` → Play).',
   '- **dev mode only**: only in Wilderview\'s shop or the `/crafter` testbed.',
   '- **conceptual**: defined, but nothing in play reaches it.',
+  '',
+  '**Artificer is the master** for materials and concepts (#1531): its concepts are defined in `src/artificer/content/concepts.json`, its materials, recipes and items in its own code. The Homestead\'s registries (`macro-world/item-registry.json`, `public/macro-world/recipes.json` and `concepts.json`) are earlier drafts, frozen as they are.',
   '',
   '## Summary',
   '',

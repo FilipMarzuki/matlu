@@ -6,12 +6,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   modifiersFor, capBonus, capabilities, scaledMult, craft, craftGrade, craftBlocker, createCrafter, craftWorld,
-  recipesFromRegistry, salvage, salvageFraction, study, studyCost, newCraftDay, DEFAULT_EFFECTS, COST_FLOOR,
+  recipesFromRegistry, salvage, salvageFraction, study, studyCost, newCraftDay, COST_FLOOR,
   INSIGHT_TO_NEXT, STUDY_INSIGHT, bestConceptRank, meanConceptRank, type CraftRecipe, type ItemEffects, type ConceptDef,
 } from './crafting';
 import { createVitals } from './vitality';
-import recipesJson from '../../public/macro-world/recipes.json';
-import conceptsJson from '../../public/macro-world/concepts.json';
+import conceptsJson from './content/concepts.json';
 
 const ROPE: CraftRecipe = { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['weaving', 'tension'] };
 const KNIFE: CraftRecipe = { id: 'stone-knife', name: 'Stone Knife', inputs: [{ item: 'stone', qty: 2 }, { item: 'rope', qty: 1 }], output: { item: 'stone-knife', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['sharpening'] };
@@ -58,8 +57,9 @@ describe('Crafting & tools', () => {
     // Purity.
     expect(s.inventory).toEqual({ 'plant-fiber': 5, stone: 2 });
     expect(s.vitals.clarity.current).toBe(100);
-    // Building a station or a camp changes the bench.
-    const world = craftWorld(recipesFromRegistry(recipesJson.recipes));
+    // Building a station or a camp changes the bench. (A world where something is made at a
+    // campfire, so building one counts as a station.)
+    const world = craftWorld([{ ...ROPE, id: 'campfire-rope', station: 'campfire' }]);
     const fire: CraftRecipe = { id: 'campfire', name: 'Campfire', inputs: [{ item: 'wood-log', qty: 3 }], output: { item: 'campfire', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['combustion'] };
     const lit = craft(createCrafter(createVitals(), { inventory: { 'wood-log': 3 } }), fire, world).state;
     expect(lit.bench).toEqual({ tier: 1, stations: ['campfire'] });
@@ -159,17 +159,20 @@ describe('Crafting & tools', () => {
     expect(study(opened, 'bearings', world).gained).toBe(STUDY_INSIGHT);
   });
 
-  // 7. The real registries load, and the default effects name real craftables.
-  it('reads the real recipe and concept registries', () => {
-    const raw = recipesJson.recipes as unknown[];
+  // 7. The parser reads registry-shaped recipes, and the concept file loads. Artificer is the
+  //    master for its own content (#1531): it reads its concepts from content/concepts.json and
+  //    no longer the Homestead's frozen recipes.json, so the recipes here are an inline sample.
+  it('parses registry-shaped recipes and loads the concept file', () => {
+    const raw: unknown[] = [
+      { _tier: '=== TIER 0: NO STATION ===' },
+      { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['weaving', 'tension'] },
+      { id: 'struct-field-forge', name: 'Field Forge', inputs: [{ item: 'stone', qty: 8 }], output: { item: 'struct-field-forge', qty: 1 }, tier: 2, station: 'campfire', timeBase: 6, conceptRequires: { 'heat-treatment': 2 } },
+      { id: 'half-written' }, // no tier, inputs or output: skipped
+    ];
     const recipes = recipesFromRegistry(raw);
-    const realCount = raw.filter(r => typeof r === 'object' && r !== null && 'id' in r).length;
-    expect(recipes.length).toBe(realCount);
-    expect(recipes.find(r => r.id === 'rope')).toMatchObject({ tier: 0, station: null, timeBase: 2, concepts: ['weaving', 'tension'] });
-    expect(recipes.find(r => r.id === 'struct-field-forge')?.conceptRequires).toEqual({ 'heat-treatment': 2 });
-
-    const outputs = new Set(recipes.map(r => r.output.item));
-    for (const item of Object.keys(DEFAULT_EFFECTS)) expect(outputs, item).toContain(item);
+    expect(recipes.map(r => r.id)).toEqual(['rope', 'struct-field-forge']);
+    expect(recipes[0]).toMatchObject({ tier: 0, station: null, timeBase: 2, concepts: ['weaving', 'tension'] });
+    expect(recipes[1].conceptRequires).toEqual({ 'heat-treatment': 2 });
 
     const world = craftWorld(recipes, conceptsJson.concepts as ConceptDef[]);
     expect(world.stationItems.has('campfire')).toBe(true);

@@ -10,7 +10,7 @@
 
 import type { ActionId } from './region1';
 import { SKILLS, SKILL_IDS, type SkillId } from './skills';
-import conceptsRegistry from '../../public/macro-world/concepts.json';
+import conceptsRegistry from './content/concepts.json';
 import { isTopicKind, topicDef, type TopicKind } from './topics';
 
 export type GoalId = 'shelter' | 'larder' | 'explore';

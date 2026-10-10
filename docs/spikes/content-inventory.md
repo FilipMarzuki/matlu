@@ -72,6 +72,8 @@ Filed (none labelled `ready`; triage will size them):
 
 **Decided (2026-10-10).** The owner: "Just use raw meat, for now. Let's keep it simple; we can diversify later. Same for items and resources. Let's try to polish the mechanics before expanding too much." So `raw-meat` is the one meat item (`game-meat` was dropped in #1523), and new item or resource variety waits until the mechanics are polished. #1516 was narrowed to a coal source (animal drops deferred), the talk-only materials stay as lore, and the `futureUnlocks` ideas stay parked.
 
+**Decided (2026-10-10, later).** The owner: "Artificer will be the master for the material and concepts going forward as we are moving beyond our earlier drafts." And for the Homestead's registries: freeze them. So #1531 moved Artificer's concept web into `src/artificer/content/concepts.json` (its materials, recipes and items were already its own code), and Artificer no longer reads `public/macro-world/` or `macro-world/`. `item-registry.json`, `recipes.json` and `concepts.json` stay as the Homestead's frozen drafts, pinned by hash in `src/artificer/content-ownership.test.ts`.
+
 Left for the owner (game design, not implementation):
 
 - **One content model or two?** The Artificer runs on store goods and its own recipes; the registries describe a 131-recipe tech tree that only the Homestead touches. Should the Artificer move onto the registry's items as it grows, should the registry be cut back to what the Artificer needs, or should they stay separate games?

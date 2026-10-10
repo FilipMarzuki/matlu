@@ -8,7 +8,7 @@
 An artificer is powered by **mastery of concepts**. Mastery has two sides:
 
 - **volume** — how many concepts you understand (joinery, tension, sealing… the web in
-  `public/macro-world/concepts.json`);
+  `src/artificer/content/concepts.json`, Artificer's own since #1531);
 - **depth** — how well you understand each (its rank, 1–3).
 
 It works in two places. In your own hands at the bench: a deeper, broader mind makes

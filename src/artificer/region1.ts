@@ -43,7 +43,7 @@ import { createExploration, scout, survey, track, lookout, work, regrow, level, 
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
-import conceptsRegistry from '../../public/macro-world/concepts.json';
+import conceptsRegistry from './content/concepts.json';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
