@@ -342,9 +342,17 @@ const sameIdDiff = [...artRecipes.values()].filter(a => recipes.some(r => r.id =
 if (sameIdDiff.length) conflicts.push(`${sameIdDiff.length} recipe ids mean two different recipes: the Artificer's (paid in store goods) and the registry's — ${sameIdDiff.map(r => `\`${r.id}\``).join(', ')}.`);
 const propsInHand = items.filter(i => i.playerObtainable === false && rows.get(`item:${i.id}`)?.reach.length);
 if (propsInHand.length) conflicts.push(`${propsInHand.length} items are marked \`playerObtainable: false\` (NPC-only props) but a player gets them: ${propsInHand.map(i => `\`${i.id}\``).join(', ')}.`);
-if (!readdirSync(join(ROOT, 'public/macro-world')).includes('item-registry.json')) {
-  conflicts.push(`\`${FILES.items}\` isn't under \`public/\`, so it isn't in the built site, yet the Homestead, its crafting menu and BaseForge fetch \`/macro-world/item-registry.json\`. Vercel rewrites the miss to index.html, the JSON parse fails, and the crafting menu falls back to its small inline list (CraftingMenuScene.loadFallbackData).`);
+// A registry loaded by URL has to be in public/: the build ships nothing else, and Vercel answers a
+// miss with index.html, so the load fails in production only (#1512). Same scan as registry-urls.test.ts.
+const shipped = new Set(readdirSync(join(ROOT, 'public/macro-world')));
+const unshipped = new Map<string, string[]>();
+for (const f of tsFiles(join(ROOT, 'src'))) {
+  const code = readFileSync(f, 'utf8').split('\n').filter(l => !/^\s*(\/\/|\/\*|\*)/.test(l)).join('\n');
+  for (const m of code.matchAll(/['"`]\/macro-world\/([\w.-]+\.json)/g)) {
+    if (!shipped.has(m[1])) unshipped.set(m[1], [...new Set([...(unshipped.get(m[1]) ?? []), relative(ROOT, f).replace(/^src\/scenes\//, '')])]);
+  }
 }
+for (const [file, by] of unshipped) conflicts.push(`\`macro-world/${file}\` is loaded by URL (${by.join(', ')}) but isn't under \`public/\`, so it isn't in the built site and the load fails in production.`);
 
 // ── Write ─────────────────────────────────────────────────────────────────────
 
