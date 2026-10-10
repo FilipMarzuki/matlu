@@ -47,15 +47,19 @@ describe('The play API as a Vercel function (#1555)', () => {
     expect(pathOf('/api/v1/games/abc?x=1')).toBe('/api/v1/games/abc');
   });
 
-  it('counts games per address from x-real-ip, and refuses an oversized body with 413', async () => {
-    // A fresh server, so the limit starts from zero.
-    const s = createServer(makeHandler({ PLAY_STORE: 'memory' }, { now: () => Date.now() }));
+  it('counts games per address from the address Vercel sets, and refuses an oversized body with 413', async () => {
+    // A fresh server, so the limit starts from zero, standing in for Vercel (which sets VERCEL=1).
+    const s = createServer(makeHandler({ PLAY_STORE: 'memory', VERCEL: '1' }, { now: () => Date.now() }));
     await new Promise<void>(r => s.listen(0, '127.0.0.1', r));
     const url = `http://127.0.0.1:${(s.address() as AddressInfo).port}/api/v1/games`;
-    const start = (ip: string) => fetch(url, { method: 'POST', headers: { 'x-real-ip': ip }, body: '{}' });
+    // x-vercel-forwarded-for is the one Vercel's edge writes; a client's own x-real-ip changes nothing.
+    const start = (ip: string, forged = '203.0.113.99') => fetch(url, {
+      method: 'POST', body: '{}',
+      headers: { 'x-vercel-forwarded-for': ip, 'x-real-ip': forged },
+    });
     try {
-      for (let i = 0; i < LIMITS.gamesPerIpPerDay; i++) expect((await start('198.51.100.1')).status).toBe(201);
-      expect((await start('198.51.100.1')).status).toBe(429);
+      for (let i = 0; i < LIMITS.gamesPerIpPerDay; i++) expect((await start('198.51.100.1', `203.0.113.${i}`)).status).toBe(201);
+      expect((await start('198.51.100.1', '203.0.113.200')).status).toBe(429);
       expect((await start('198.51.100.2')).status).toBe(201);
       const big = await fetch(url, { method: 'POST', body: 'x'.repeat(LIMITS.bodyBytes * 4) });
       expect(big.status).toBe(413);
@@ -63,6 +67,22 @@ describe('The play API as a Vercel function (#1555)', () => {
       await new Promise<void>(r => s.close(() => r()));
     }
   }, 30_000);
+
+  it('off Vercel, ignores address headers a client sends and counts the connection itself', async () => {
+    const s = createServer(makeHandler({ PLAY_STORE: 'memory' }));
+    await new Promise<void>(r => s.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${(s.address() as AddressInfo).port}/api/v1/games`;
+    try {
+      for (let i = 0; i < LIMITS.gamesPerIpPerDay; i++) {
+        const forged = `198.51.100.${i}`;
+        const r = await fetch(url, { method: 'POST', body: '{}', headers: { 'x-vercel-forwarded-for': forged, 'x-forwarded-for': forged, 'x-real-ip': forged } });
+        expect(r.status).toBe(201);
+      }
+      expect((await fetch(url, { method: 'POST', body: '{}', headers: { 'x-vercel-forwarded-for': '198.51.100.250' } })).status).toBe(429);
+    } finally {
+      await new Promise<void>(r => s.close(() => r()));
+    }
+  });
 
   it('answers 503, not a forgetful store, when no database is configured', async () => {
     const s = createServer(makeHandler({}));

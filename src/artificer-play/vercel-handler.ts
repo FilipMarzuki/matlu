@@ -9,7 +9,8 @@
  * itself is in api.ts; this file only turns HTTP into an ApiRequest and back:
  *
  * - CORS is open (`*`, no cookies): a player's page or tool on any site may call it.
- * - The address comes from `x-real-ip`, which Vercel sets itself (a client can't forge it there).
+ * - The address comes from `x-vercel-forwarded-for`, which Vercel's edge sets itself, so a client
+ *   can't forge it (https://vercel.com/docs/headers/request-headers). See `ipOf`.
  * - The body is read up to the size limit and no further.
  * - The store is Supabase when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set. Without them
  *   the API answers 503, never a quiet in-memory store that would lose every game. PLAY_STORE=memory
@@ -50,7 +51,7 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>) {
       const body = await readBody(req, LIMITS.bodyBytes);
       if (body === null) return send(413, { error: `The body is over ${LIMITS.bodyBytes} bytes.` });
       const r = await handle(
-        { method: req.method ?? 'GET', path: pathOf(req.url ?? '/'), body, ip: ipOf(req) },
+        { method: req.method ?? 'GET', path: pathOf(req.url ?? '/'), body, ip: ipOf(req, env.VERCEL === '1') },
         store,
         {
           now: () => Date.now(),
@@ -82,12 +83,19 @@ export function pathOf(url: string): string {
   return rest !== null ? `/api/v1/${rest.replace(/^\/+/, '')}` : u.pathname;
 }
 
-function ipOf(req: IncomingMessage): string {
+/**
+ * The player's address. On Vercel (which sets VERCEL=1) its edge writes these headers itself and
+ * overwrites any a client sent; x-vercel-forwarded-for also survives a proxy in front of Vercel, so
+ * it comes first. Off Vercel (tests, local play) headers are anyone's to write, and the socket's
+ * peer is the real address. x-real-ip is never read.
+ */
+function ipOf(req: IncomingMessage, onVercel: boolean): string {
   const header = (name: string): string | undefined => {
     const v = req.headers[name];
     return (Array.isArray(v) ? v[0] : v)?.split(',')[0]?.trim() || undefined;
   };
-  return header('x-real-ip') ?? header('x-forwarded-for') ?? req.socket.remoteAddress ?? 'unknown';
+  if (onVercel) return header('x-vercel-forwarded-for') ?? header('x-forwarded-for') ?? 'unknown';
+  return req.socket.remoteAddress ?? 'unknown';
 }
 
 /** The body as text, or null once it passes `max` bytes (the rest is drained, not kept). */
