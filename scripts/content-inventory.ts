@@ -15,14 +15,14 @@
  *   - **Homestead** (`/`, the main menu's Play): the crafting menu loads every registry recipe, and
  *     you gather from the resource nodes the homestead map places. A recipe counts as craftable when
  *     its inputs can be gathered or crafted from what's gathered (stations aren't enforced there).
- *   - **Dev modes**: Wilderview's shop (shop-inventories.json) and the /crafter testbed (which still
- *     imports macro-world/recipes.json, the older 34-recipe file).
+ *   - **Dev modes**: Wilderview's shop (shop-inventories.json) and the /crafter testbed (the same
+ *     registry recipes, from its own map's nodes, with no discovery gate).
  *
  * Anything else named in src/ is listed as "also named in" so a reviewer can spot uses this
  * script doesn't model; it doesn't change the status.
  */
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ACTIONS, SHELTER_TYPES, WALL_TYPES, COLD_GEAR_RECIPE, HIDE_PARKA_RECIPE, STARTING_RECIPES, DISCOVERIES, CRAFT_WORLD, STUDY_CONCEPTS } from '../src/artificer/region1';
@@ -51,7 +51,6 @@ interface NodeType { id: string; yields: { itemId: string }[] }
 const FILES = {
   items: 'macro-world/item-registry.json',
   recipes: 'public/macro-world/recipes.json',
-  oldRecipes: 'macro-world/recipes.json',
   concepts: 'public/macro-world/concepts.json',
   nodes: 'public/macro-world/resource-nodes.json',
   shops: 'macro-world/shop-inventories.json',
@@ -64,7 +63,6 @@ const recipesOf = (p: string): RegRecipe[] => (read(p).recipes as Partial<RegRec
 const itemsReg = read(FILES.items);
 const items: RegItem[] = itemsReg.items;
 const recipes = recipesOf(FILES.recipes);
-const oldRecipes = recipesOf(FILES.oldRecipes);
 const concepts: RegConcept[] = read(FILES.concepts).concepts;
 const nodes: NodeType[] = read(FILES.nodes).nodeTypes;
 const shops: Record<string, { itemId: string; cost: number }[]> = read(FILES.shops).vendors;
@@ -100,7 +98,6 @@ for (const i of items) {
   note(r, i.category + (i.playerObtainable === false ? ', NPC-only prop' : ''));
 }
 for (const rc of recipes) { const r = row('recipe', rc.id, rc.name); defined(r, FILES.recipes); note(r, `tier ${rc.tier}${rc.station ? `, ${rc.station}` : ''}`); }
-for (const rc of oldRecipes) defined(row('recipe', rc.id, rc.name), FILES.oldRecipes);
 for (const c of concepts) { const r = row('concept', c.id, c.name); defined(r, FILES.concepts); note(r, c.category); }
 for (const n of nodes) defined(row('resource', `node:${n.id}`, `${n.id} node`), FILES.nodes);
 
@@ -275,8 +272,8 @@ const unlocks = items.filter(i => i.category === 'raw' && !homeAll.have.has(i.id
 for (const [vendor, stock] of Object.entries(shops)) for (const s of stock) reach(row('item', s.itemId), 'Wilderview shop', `sold at ${vendor} (${s.cost}g)`);
 
 const crafterNodes = nodeTypesIn(FILES.crafterMap);
-const crafter = craftable(dropsOf(crafterNodes).map(d => d.item), oldRecipes);
-for (const rc of oldRecipes) if (crafter.recipes.has(rc.id)) reach(row('recipe', rc.id, rc.name), '/crafter', 'craftable from the testbed map');
+const crafter = craftable(dropsOf(crafterNodes).map(d => d.item), recipes);
+for (const rc of recipes) if (crafter.recipes.has(rc.id)) reach(row('recipe', rc.id, rc.name), '/crafter', 'craftable from the testbed map');
 for (const n of crafterNodes) reach(row('resource', `node:${n}`, `${n} node`), '/crafter', 'on the testbed map');
 
 // ── References the registries make that nothing defines ──────────────────────
@@ -327,12 +324,12 @@ for (const r of rows.values()) {
 
 const conflicts: string[] = [];
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-const onlyOld = oldRecipes.filter(o => !recipes.some(r => r.id === o.id));
-const changed = oldRecipes.filter(o => recipes.some(r => r.id === o.id && !same(r, o)));
-conflicts.push(onlyOld.length || changed.length
-  ? `\`${FILES.oldRecipes}\` (${oldRecipes.length}) differs from \`${FILES.recipes}\` (${recipes.length}): ${onlyOld.length} only in the old file, ${changed.length} changed.`
-  : `\`${FILES.oldRecipes}\` (${oldRecipes.length} recipes) is an exact, older subset of \`${FILES.recipes}\` (${recipes.length}). Only /crafter still imports it.`);
-if (same(read('macro-world/tinker-tray.json'), read('public/macro-world/tinker-tray.json'))) conflicts.push('`macro-world/tinker-tray.json` and `public/macro-world/tinker-tray.json` are identical copies.');
+// A registry with a copy in both folders drifts: the full tech tree once went into one recipes.json
+// and not the other (#1513). Any file name in both is a second copy.
+for (const f of readdirSync(join(ROOT, 'public/macro-world')).filter(f => f.endsWith('.json')).sort()) {
+  if (!existsSync(join(ROOT, 'macro-world', f))) continue;
+  conflicts.push(`\`macro-world/${f}\` and \`public/macro-world/${f}\` are two copies${same(read(`macro-world/${f}`), read(`public/macro-world/${f}`)) ? ' (identical for now)' : ', and they differ'}.`);
+}
 if (itemsReg._stats?.totalItems !== items.length) conflicts.push(`\`${FILES.items}\` says \`_stats.totalItems: ${itemsReg._stats?.totalItems}\` but holds ${items.length} items.`);
 for (const [what, list] of [['item', items.map(i => i.id)], ['recipe', recipes.map(r => r.id)], ['concept', concepts.map(c => c.id)]] as const) {
   const dups = list.filter((id, i) => list.indexOf(id) !== i);

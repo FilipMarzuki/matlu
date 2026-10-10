@@ -24,7 +24,7 @@ Of the registries alone: **20 of 177 items** and **15 of 131 recipes** are reach
 
 `macro-world/recipes.json` (34 recipes) is an exact, older subset of `public/macro-world/recipes.json` (131 recipes plus 11 `_tier` section headers). The first came with the crafting prototype (e2cbf00b, May 3). The full tech tree (3b507964, May 7) was then written only to the `public/` copy. Every shared recipe is identical, and nothing exists only in the old file.
 
-The game loads the `public/` one: the crafting menu and the Artificer's crafting tests read it. Only the `/crafter` testbed (`CrafterScene.ts`) still imports the old file. So the canonical file is `public/macro-world/recipes.json`, and the old one can go once `/crafter` points at it. The two `tinker-tray.json` files are identical copies in the same way, and nothing loads the root one.
+The game loads the `public/` one: the crafting menu and the Artificer's crafting tests read it. Only the `/crafter` testbed (`CrafterScene.ts`) still imports the old file. So the canonical file is `public/macro-world/recipes.json`, and the old one can go once `/crafter` points at it. The two `tinker-tray.json` files are identical copies in the same way, and nothing loads the root one. (Both old copies were removed in #1513, and `/crafter` now reads the canonical recipes.)
 
 ## A production bug
 
