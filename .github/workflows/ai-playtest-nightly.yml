@@ -10,6 +10,7 @@ name: Artificer AI playtest (nightly, on change)
 # progression report, posts a Markdown summary on the run page and uploads the
 # HTML report + transcripts as the `ai-playtest` artifact (#1231).
 #
+# Optional: secret ANTHROPIC_PLAYTEST_KEY plays Claude models on Anthropic credit first (#1506).
 # Requires: secret OPENROUTER_API_KEY (same as DevCycle 3b). Without it, only
 # the free baselines run. Optional variables: AI_BENCH_BUDGET (USD, default 1),
 # AI_BENCH_MIN_CHANGES (commits needed to trigger, default 1).
@@ -82,11 +83,14 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Claude models play on the owner's Anthropic credit while it lasts, then through
+          # OpenRouter (#1506). Its own secret: ANTHROPIC_API_KEY is the agents' fallback key.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
           BUDGET: ${{ inputs.budget || vars.AI_BENCH_BUDGET || '1' }}
           RUNS: ${{ inputs.runs || '1' }}
         run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-            echo "OPENROUTER_API_KEY is not set — baselines only." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Neither OPENROUTER_API_KEY nor ANTHROPIC_PLAYTEST_KEY is set — baselines only." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           npx tsx scripts/ai-bench.ts --runs "$RUNS" --budget "$BUDGET" --out ai-runs/nightly

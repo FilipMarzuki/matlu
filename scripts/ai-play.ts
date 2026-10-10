@@ -1,7 +1,7 @@
 /**
  * Let an AI play the Artificer (#1226).
  *
- *   npm run ai:play -- --player claude      [--model claude-opus-5-5] [--effort medium]
+ *   npm run ai:play -- --player claude      [--model claude-haiku-5-5] [--effort low]   (the defaults: cheap; ANTHROPIC_API_KEY)
  *   npm run ai:play -- --player openrouter  [--model anthropic/claude-haiku-4.5]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
@@ -22,7 +22,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { playRun, aiCharacterId, BudgetExceeded, fillTally, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
-import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
+import { claudePlayer, CLAUDE_PRICES, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { heirloomsOf } from '../src/artificer/legacy';
@@ -67,7 +67,8 @@ async function main(): Promise<void> {
   const violations: string[] = [];
   let spent = 0;
   const ledger: SpendLedger = { spent: 0, budget };
-  if (Number.isFinite(budget) && which === 'claude') console.log('⚠ --budget: the Claude player reports no cost, so the budget is not enforced for it.');
+  // The Claude player prices its calls (#1506), so --budget caps it; only a model with no price goes unchecked.
+  if (Number.isFinite(budget) && which === 'claude' && flag('model') && !CLAUDE_PRICES[flag('model')!]) console.log(`⚠ --budget: ${flag('model')} has no price in CLAUDE_PRICES, so the budget can't count its calls.`);
   let carry: RunResult | undefined;
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
