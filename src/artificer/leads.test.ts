@@ -83,6 +83,10 @@ describe('Leads (#1497)', () => {
     expect(bad('oops')?.leads).toBeUndefined();
     expect(bad([{ who: 'kg-sabine' }, ...r.leads!])?.leads).toEqual(r.leads);
     expect(() => runRoadAction(bad('oops')!, 'rest')).not.toThrow();
+    // A lead no one's answer gives is dropped (Maren never sent you to Sabine); a real one is rebuilt
+    // from the data, whatever the save says about where.
+    expect(bad([{ who: 'kg-sabine', about: 'material:iron', from: 'hf-maren' }])?.leads).toEqual([]);
+    expect(bad([{ ...r.leads![0], where: 'saltmere' }])?.leads).toEqual(r.leads);
     // A focus on Sabine, open only through the lead, is still allowed when the save loads.
     const sabine: Focus = { kind: 'person', id: 'kg-sabine' };
     expect(deserialize(serialize({ ...app, road: { ...r, heard: [], focus: sabine } }))?.road?.focus).toEqual(sabine);

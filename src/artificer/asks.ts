@@ -77,6 +77,19 @@ export function leadOf(a: Answer, key: string, from: string): Lead | undefined {
   return { who: a.lead.who, ...(where ? { where } : {}), about: a.lead.about ?? key, from };
 }
 
+/**
+ * A saved lead, checked against what people say: kept only if `from` has an answer that sends you
+ * to `who` about `about`, and rebuilt from that answer (so `where` comes from the data, not the save).
+ * A lead no answer gives is dropped, as a saved focus you can no longer hold is (`readFocus`).
+ */
+export function leadOnLoad(who: string, about: string, from: string): Lead | undefined {
+  for (const [key, a] of Object.entries(ANSWERS[from] ?? {})) {
+    const l = leadOf(a, key, from);
+    if (l && l.who === who && l.about === about) return l;
+  }
+  return undefined;
+}
+
 /** Whether a lead sends you to `who` about `key`: they'll answer it one trust gate early. */
 export const sentTo = (leads: readonly Lead[] | undefined, who: string, key: string): boolean => (leads ?? []).some(l => l.who === who && l.about === key);
 
