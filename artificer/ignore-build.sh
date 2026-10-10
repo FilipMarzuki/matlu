@@ -13,13 +13,14 @@
 # clean "nothing relevant changed" (git diff --quiet → 0) skips: a git error, such as a SHA missing
 # from Vercel's shallow clone, builds.
 #
-# The paths: the Artificer's own code and page, its build, the dependencies, and what it imports
-# or ships from outside src/artificer*: the history engine (storytelling/, since #1540), the
-# settlement generator and the Building Forge's data (mapgen/, building-registry.json and
-# cultures.json, since #1541), rank-names.ts, and the sprites scripts/build-artificer.mjs copies.
+# The paths: the Artificer's own code and page, its play API (src/artificer-play, since #1555),
+# its build, the dependencies, and what it imports or ships from outside src/artificer*: the
+# history engine (storytelling/, since #1540), the settlement generator and the Building Forge's
+# data (mapgen/, building-registry.json and cultures.json, since #1541), rank-names.ts, and the
+# sprites scripts/build-artificer.mjs copies.
 cd .. || exit 1
 git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- \
-  src/artificer src/artificer-app src/artificer-ai artificer.html artificer \
+  src/artificer src/artificer-app src/artificer-ai src/artificer-play artificer.html artificer \
   scripts/build-artificer.mjs package.json package-lock.json \
   storytelling mapgen public/macro-world/building-registry.json macro-world/cultures.json \
   src/rank-names.ts public/assets/sprites/characters || exit 1
