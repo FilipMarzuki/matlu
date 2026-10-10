@@ -133,6 +133,15 @@ function handsFree(r: RoadState, onWagon: boolean): string {
 export const badge = (p: Person, size = 44): string =>
   `<span class="vbadge r-${p.role}" style="width:${size}px;height:${size}px" aria-hidden="true"><span>${esc(p.name[0])}</span><i>${ROLE_ICON[p.role]}</i></span>`;
 
+/** Who sent you to `who` (#1497), as words: "Orrin", "Orrin and Tobin". Empty if no one did. */
+function sentBy(r: RoadState, who: string): string {
+  const names = [...new Set((r.leads ?? []).filter(l => l.who === who).map(l => personById(l.from)?.name ?? l.from))];
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] ?? '';
+}
+
+/** A focus key mid-sentence ("iron", "the Compact"), or the key itself if it doesn't parse. */
+const aboutText = (key: string): string => { const f = parseFocus(key); return f ? focusInline(f) : key; };
+
 /** One person's card: name, role, culture, trust, and what they have for you. Tap to open their sheet. */
 function personCard(r: RoadState, p: Person, open: boolean): string {
   const trust = Math.round(r.trust[p.id] ?? 0);
@@ -141,10 +150,11 @@ function personCard(r: RoadState, p: Person, open: boolean): string {
   const trades = !!tradeTerms(r) && tradeTerms(r)!.trader === p.id;
   // Signs you've noticed (#1496): what they showed of something you were turning over.
   const seen = (r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter((x): x is string => !!x);
+  const sent = sentBy(r, p.id);
   const icons = [seen.length && `<span title="${esc(seen.join(' '))}">👁</span>`, lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
   return `<button class="pcard ${open ? 'on' : ''}" data-person="${esc(p.id)}" aria-expanded="${open}">
     ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))}</span>
-    <span class="tbar" title="Trust ${trust}/100"><span style="width:${trust}%" class="${trust >= CONTACT_TRUST ? 'friend' : ''}"></span></span><span class="tnum">trust ${trust}${r.contacts.includes(p.id) ? ' · remembers you' : ''}</span></span>
+    <span class="tbar" title="Trust ${trust}/100"><span style="width:${trust}%" class="${trust >= CONTACT_TRUST ? 'friend' : ''}"></span></span><span class="tnum">trust ${trust}${r.contacts.includes(p.id) ? ' · remembers you' : ''}${sent ? ` · the one ${esc(sent)} mentioned` : ''}</span></span>
     <span class="picons">${icons}</span></button>`;
 }
 
@@ -246,6 +256,7 @@ function conversation(r: RoadState, p: Person, told: number): string {
     <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}</div>
     ${f ? '' : '<p class="mood">Set a focus on a topic, a skill or a concept, and you\'ll have something to ask them about.</p>'}
     ${(r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter(Boolean).map(sign => `<p class="mood told">👁 ${esc(sign!)}</p>`).join('')}
+    ${(r.leads ?? []).filter(l => l.who === p.id).map(l => `<p class="mood told">🧭 ${esc(personById(l.from)?.name ?? l.from)} sent you to ask about ${esc(aboutText(l.about))}.</p>`).join('')}
     ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU WHEN ASKED</p>${answers}` : ''}</div>`;
 }
 
@@ -291,9 +302,21 @@ export function questLog(r: RoadState, compact = false): string {
       <span class="due">⏳ ${esc(deadline(q))}</span></li>`;
   };
   const head = `<p class="fgroup" style="margin-top:${compact ? 14 : 0}px">QUEST LOG</p>`;
-  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they trust you (${OFFER_TRUST}+).</p>`;
+  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they trust you (${OFFER_TRUST}+).</p>${leadLog(r)}`;
   return `${head}<ul class="qlog">${open.map(x => row(x.q)).join('') || '<li class="mood">Nothing open.</li>'}</ul>
+    ${leadLog(r)}
     ${compact || !closed.length ? '' : `<p class="fgroup" style="margin-top:12px">FINISHED</p><ul class="qlog done">${closed.map(x => `<li><b>${esc(x.q.title)}</b> <span class="qwho">${x.st === 'done' ? '✓ done' : x.st === 'failed' ? '✗ failed' : '✗ left undone'}</span></li>`).join('')}</ul>`}`;
+}
+
+/** Leads (#1497): who answers have sent you to, where, about what, and whether you've asked yet. */
+function leadLog(r: RoadState): string {
+  if (!r.leads?.length) return '';
+  const row = (l: NonNullable<RoadState['leads']>[number]): string => {
+    const asked = (r.asked?.[l.who] ?? []).includes(l.about);
+    return `<li><b>${esc(personById(l.who)?.name ?? l.who)}</b> <span class="qwho">${l.where ? `at ${esc(VILLAGES[l.where]?.name ?? l.where)}` : 'on the road'}</span>
+      <span class="need">about ${esc(aboutText(l.about))} — ${esc(personById(l.from)?.name ?? l.from)} sent you${asked ? ' — <span class="ok">✓ asked</span>' : ''}</span></li>`;
+  };
+  return `<p class="fgroup" style="margin-top:12px">LEADS</p><ul class="qlog">${r.leads.map(row).join('')}</ul>`;
 }
 
 // ── The screen ──────────────────────────────────────────────────────────────

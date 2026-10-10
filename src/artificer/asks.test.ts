@@ -35,7 +35,8 @@ describe('Village conversations: Ask about your focus (#1495)', () => {
     expect(at).toBeDefined();
     const before = atHollowford(IRON, { 'hf-orrin': at!.at + 5 });
     const after = runRoadAction(before, 'ask:hf-orrin');
-    expect(after.log.at(-1)?.text).toContain(at!.text);
+    // The answer, among what the ask wrote (a lead, #1497, may follow it).
+    expect(after.log.slice(before.log.length).map(l => l.text).join(' ')).toContain(at!.text);
     expect(hours(before, after)).toBe(ASK_HOURS);
     expect(after.asked?.['hf-orrin']).toContain('material:iron');
     // What he names, you've come across: he points you to Sabine at Kestrel Gate.

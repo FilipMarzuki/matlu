@@ -13,6 +13,7 @@
 import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
+import type { Lead } from '../artificer/asks';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -398,6 +399,8 @@ function parseRoad(x: unknown): RoadState | null {
     ...(isObj(x.asked) ? { asked: Object.fromEntries(Object.entries(x.asked).map(([k, v]) => [k, strs(v)])) } : {}),
     // Signs noticed (#1496); a road from before has none.
     ...(isObj(x.noticed) ? { noticed: Object.fromEntries(Object.entries(x.noticed).map(([k, v]) => [k, strs(v)])) } : {}),
+    // Leads (#1497); likewise.
+    ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads) } : {}),
   };
 }
 
@@ -406,6 +409,13 @@ function parseRoad(x: unknown): RoadState | null {
  * a concept only if this Warden can still turn it over, a topic only if they've still come across
  * it. Anything else loads as no focus. The Reach's and the road's (#1479) both come through here.
  */
+/** Saved leads (#1497): each needs who, about and from; where is kept when it's there. Undefined if never saved. */
+function readLeads(x: unknown): Lead[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  return x.filter((l): l is Record<string, unknown> => isObj(l) && typeof l.who === 'string' && typeof l.about === 'string' && typeof l.from === 'string')
+    .map(l => ({ who: l.who as string, ...(typeof l.where === 'string' ? { where: l.where } : {}), about: l.about as string, from: l.from as string }));
+}
+
 function readFocus(f: unknown, from: Record<string, unknown>): Focus | null {
   const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
   const obj = (y: unknown) => (isObj(y) ? y : {});
@@ -416,6 +426,7 @@ function readFocus(f: unknown, from: Record<string, unknown>): Focus | null {
     trust: obj(from.trust) as Record<string, number>,
     quests: obj(from.quests),
     heard: Array.isArray(from.heard) ? from.heard.filter((x): x is string => typeof x === 'string') : [],
+    leads: readLeads(from.leads) ?? [],
   };
   return refusalOf(saved, parsed) ? null : parsed;
 }

@@ -21,6 +21,8 @@ import { SKILLS, type SkillId } from './skills';
 export const ASK_HOURS = 1;
 /** The trust an answer earns: people like being asked about what they know. */
 export const ASK_TRUST = 2;
+/** A lead is worth one trust gate with the person it points to, on its topic: someone sent you (#1497). */
+export const LEAD_TRUST = 25;
 
 export interface Answer {
   /** The trust it takes before they'll say it. */
@@ -28,7 +30,15 @@ export interface Answer {
   text: string;
   /** Insight in a concept, for an answer that teaches something. */
   insight?: { concept: string; amount: number };
+  /** Someone elsewhere the answer sends you to (#1497): a person id, and what about (the topic asked, unless said). */
+  lead?: { who: string; about?: string };
 }
+
+/**
+ * A lead (#1497): someone an answer pointed you to. Who (a person id), where (their village, if
+ * they have one), about what (a focus key), and who told you (a person id).
+ */
+export interface Lead { who: string; where?: string; about: string; from: string }
 
 /**
  * What people know, by person id and focus key (`material:iron`, `group:compact`, `skill:…`,
@@ -36,7 +46,7 @@ export interface Answer {
  */
 export const ANSWERS: Readonly<Record<string, Readonly<Record<string, Answer>>>> = {
   'hf-orrin': {
-    'material:iron': { at: 25, text: 'Iron? Not from these hills. They give stone and grudges. Sabine at Kestrel Gate works it; the ironborne bring ore down off the passes, and she buys the best of it.' },
+    'material:iron': { at: 25, text: 'Iron? Not from these hills. They give stone and grudges. Sabine at Kestrel Gate works it; the ironborne bring ore down off the passes, and she buys the best of it.', lead: { who: 'kg-sabine' } },
   },
   'hf-tobin': {
     'material:iron': { at: 0, text: 'Iron travels badly and sells well. I\'ve never had enough to sell. Everything that goes through Kestrel Gate pays a toll in something, and the smiths there take theirs in ore.' },
@@ -46,7 +56,8 @@ export const ANSWERS: Readonly<Record<string, Readonly<Record<string, Answer>>>>
     'group:compact': { at: 25, text: 'The Compact sent a clerk up here once to count our sheep. We counted him back down the hill.' },
   },
   'kg-sabine': {
-    'material:iron': { at: 0, text: 'Heat it to the colour of a fire going out, never white. White burns the heart out of it. Then let it tell you when it\'s ready; good iron sings.', insight: { concept: 'heat-treatment', amount: 0.5 } },
+    // She doesn't teach strangers, but one Orrin sent is no stranger (his lead opens this at trust 0).
+    'material:iron': { at: 25, text: 'Heat it to the colour of a fire going out, never white. White burns the heart out of it. Then let it tell you when it\'s ready; good iron sings.', insight: { concept: 'heat-treatment', amount: 0.5 } },
   },
   'kg-arvid': {
     'group:compact': { at: 25, text: 'The Compact pays in maps. Not money. Maps of places that aren\'t on anyone else\'s, and they never sell the same one twice.' },
@@ -55,6 +66,19 @@ export const ANSWERS: Readonly<Record<string, Readonly<Record<string, Answer>>>>
 
 /** Everyone on the road, by id: the villages' people and the caravan's own. */
 const PEOPLE: Readonly<Record<string, Person>> = Object.fromEntries([...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS].map(p => [p.id, p]));
+
+/** Where `who` lives: a village id, or undefined for someone on the road (the caravan's own). */
+const homeOf = (who: string): string | undefined => Object.values(VILLAGES).find(v => v.people.some(p => p.id === who))?.id;
+
+/** The lead an answer gives, told by `from` when asked about `key`. */
+export function leadOf(a: Answer, key: string, from: string): Lead | undefined {
+  if (!a.lead || !PEOPLE[a.lead.who]) return undefined;
+  const where = homeOf(a.lead.who);
+  return { who: a.lead.who, ...(where ? { where } : {}), about: a.lead.about ?? key, from };
+}
+
+/** Whether a lead sends you to `who` about `key`: they'll answer it one trust gate early. */
+export const sentTo = (leads: readonly Lead[] | undefined, who: string, key: string): boolean => (leads ?? []).some(l => l.who === who && l.about === key);
 
 /** A teacher always knows their own skill: they'll tell anyone, and point them to a lesson. */
 function teacherAnswer(p: Person, key: string): Answer | undefined {

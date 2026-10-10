@@ -108,6 +108,8 @@ export interface Acquaintance {
   trust?: Readonly<Record<string, number>>;
   /** The quests you've taken, done or failed (the road). */
   quests?: Readonly<Record<string, unknown>>;
+  /** People answers have sent you to, and where (the road, #1497). */
+  leads?: readonly { who: string; where?: string }[];
 }
 
 /**
@@ -124,5 +126,10 @@ export function topicsOpen(s: Acquaintance): string[] {
     if (HOME[p.id]) open.add(`place:${HOME[p.id]}`);
   }
   for (const id of Object.keys(s.quests ?? {})) if (topicDef('quest', id)) open.add(`quest:${id}`);
+  // A lead opens its person, and where they are (#1497): you can ask after them before you meet them.
+  for (const l of s.leads ?? []) {
+    if (topicDef('person', l.who)) open.add(`person:${l.who}`);
+    if (l.where && topicDef('place', l.where)) open.add(`place:${l.where}`);
+  }
   return [...open].sort();
 }
