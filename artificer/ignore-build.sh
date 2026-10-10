@@ -3,9 +3,9 @@
 # from its Root Directory (artificer/). Vercel caps ignoreCommand at 256 characters, so the path
 # list lives here. Exit 0 skips the build; anything else builds.
 #
-# Pushes don't deploy this project (vercel.json: git.deploymentEnabled is false), to stay inside
-# the free tier's 100 deployments a day: no previews, and no deploy per merge. Production comes
-# from a deploy hook once a day, and this step skips that build when nothing Artificer changed.
+# Only pushes to main deploy this project (vercel.json: git.deploymentEnabled is main only), to stay
+# inside the free tier's 100 deployments a day: no previews of other branches. This step then
+# skips the build when nothing Artificer changed, which is most pushes to main.
 #
 # It compares against VERCEL_GIT_PREVIOUS_SHA, the last commit this project deployed, so an
 # Artificer change in any commit since then deploys, not just one in the last (HEAD^ if there's

@@ -6,6 +6,6 @@
   "outputDirectory": "dist",
   "ignoreCommand": "sh ignore-build.sh",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": { "main": true, "**": false }
   }
 }
