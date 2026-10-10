@@ -7,7 +7,7 @@
  */
 
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
-export const HISTORY_VERSION = 2;
+export const HISTORY_VERSION = 3;
 
 export interface HistoryLine {
   year: number;

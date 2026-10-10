@@ -3,10 +3,10 @@
  *
  * The engine wants each culture as data: names to give children, a temperament newborns lean
  * toward, a succession law. These are the Reach's cultures, ids from `macro-world/cultures.json`
- * (cultures are race-agnostic, see CLAUDE.md), written out here because the Artificer owns its
- * content and doesn't read the Homestead's registries (#1531). The same cultures already live in
- * the hand-written villages (villages.ts): Hollowford is fieldborn and ridgefolk, Saltmere is
- * waterstead and steppe-camp, Kestrel Gate's passes are mountainhold country.
+ * (cultures are race-agnostic, see CLAUDE.md), written out here as the Artificer's own content.
+ * The Reach is ridgefolk country, with mountainhold halls on its high fells (provinces.ts); the
+ * other three are the hand-written villages' own (villages.ts): Hollowford is fieldborn,
+ * Saltmere waterstead, Kestrel Gate wallborn. More cultures come with more regions.
  *
  * Which Peoples follow each culture comes from docs/peoples-and-races.md. The engine's races are
  * those Peoples, with no invented biology or old hatreds: canon gives them none. There are no
@@ -18,8 +18,8 @@ import type { CultureSpec, RaceSpec, TitleSpec } from '../../../storytelling/wor
 import type { SuccessionLaw } from '../../../storytelling/types';
 import type { People } from '../villages';
 
-/** The five that settle the land by its make-up, and wallborn, who keep Kestrel Gate (#1541). */
-export type ReachCulture = 'fieldborn' | 'ridgefolk' | 'waterstead' | 'steppe-camp' | 'mountainhold' | 'wallborn';
+/** Ridgefolk hold the Reach and mountainhold its high fells; the other three are the hand-written villages' (#1541). */
+export type ReachCulture = 'ridgefolk' | 'mountainhold' | 'fieldborn' | 'waterstead' | 'wallborn';
 
 /** Drive biases in the engine's order: [ambition, greed, vengeance, piety, lust, fear]. */
 const D = (a: number, g: number, v: number, p: number, l: number, f: number): number[] => [a, g, v, p, l, f];
@@ -54,15 +54,6 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
     surnames: ['Inkwell', 'Ledgerby', 'Marshbook', 'Reedwater', 'Sjöberg', 'Tallyman'],
   },
   {
-    // Viddfolk of the open heath: route-singers who keep the roads (Yrsa).
-    id: 'steppe-camp', name: 'Steppe-camp', law: 'elective',
-    driveBias: D(0.55, 0.45, 0.5, 0.35, 0.55, 0.3),
-    biasSeed: { honor_bound: 0.35, fatalist: 0.35 },
-    namesMale: ['Aslak', 'Brage', 'Dag', 'Egil', 'Finn', 'Joar', 'Vidar', 'Yngve'],
-    namesFemale: ['Aud', 'Bodil', 'Eira', 'Hild', 'Rakel', 'Runa', 'Tyra', 'Yrsa'],
-    surnames: ['Farsong', 'Longroad', 'Heathwalker', 'Windward', 'Vidmark'],
-  },
-  {
     // Bergfolk holds in the fells and passes: runesmiths, long memories, carved halls.
     id: 'mountainhold', name: 'Mountainhold', law: 'clan_elder',
     driveBias: D(0.45, 0.6, 0.7, 0.45, 0.35, 0.2),
@@ -90,19 +81,17 @@ export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number]
   fieldborn: [['Markfolk', 1]],
   ridgefolk: [['Markfolk', 0.5], ['Bergfolk', 0.5]],
   waterstead: [['Pandor', 1]],
-  'steppe-camp': [['Viddfolk', 1]],
   mountainhold: [['Bergfolk', 1]],
   wallborn: [['Markfolk', 0.5], ['Bergfolk', 0.3], ['Pandor', 0.2]],
 };
 
-export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor', 'Viddfolk'] as const).map(id => ({ id, name: id }));
+export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor'] as const).map(id => ({ id, name: id }));
 
 /** What each culture calls a lordship: a county (one province) and a realm (several). */
 export const TITLE_WORDS: Readonly<Record<ReachCulture, Record<TitleSpec['tier'], string>>> = {
   fieldborn: { county: 'Hundred', duchy: 'Lordship', kingdom: 'Kingdom' },
   ridgefolk: { county: 'Hold', duchy: 'High Hold', kingdom: 'Kingdom' },
   waterstead: { county: 'Moot', duchy: 'League', kingdom: 'Kingdom' },
-  'steppe-camp': { county: 'Camp', duchy: 'Circle', kingdom: 'Kingdom' },
   mountainhold: { county: 'Hall', duchy: 'Deep Hall', kingdom: 'Kingdom' },
   wallborn: { county: 'Ward', duchy: 'March', kingdom: 'Kingdom' },
 };
