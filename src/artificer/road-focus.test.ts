@@ -85,14 +85,18 @@ describe("The road's focus (#1479)", () => {
     }
   });
 
-  // The note's other half: a craft on the wagon practises at its own pace, whatever the focus.
-  it('crafts on the wagon practise the same, whatever the focus', () => {
+  // A craft on the wagon takes what it takes, whatever the focus. Since #1490 the craft's own skill,
+  // focused, learns ×3 from it (as in the Reach); every other focus leaves practice and vitals alone.
+  it('crafts on the wagon cost the same whatever the focus, and only their own skill learns more', () => {
     const plain = runRoadAction(onTheRoad(), 'craft:stone-knife');
     expect(plain.tools.some(t => t.item === 'stone-knife')).toBe(true);
     const focuses: Focus[] = [...GOAL_IDS.map(id => ({ kind: 'goal', id }) as Focus), ...SKILL_IDS.map(id => ({ kind: 'skill', id }) as Focus), { kind: 'concept', id: firstConcept(onTheRoad()) }];
     for (const focus of focuses) {
       const made = runRoadAction(onTheRoad(focus), 'craft:stone-knife');
-      expect([focus, made.skills, made.vitals]).toEqual([focus, plain.skills, plain.vitals]);
+      expect([focus, made.vitals, made.hoursToday]).toEqual([focus, plain.vitals, plain.hoursToday]);
+      // The stone knife trains stonework: only that focus changes what it teaches.
+      if (focus.kind === 'skill' && focus.id === 'stonework') expect(made.skills.stonework).toBeGreaterThan(plain.skills.stonework ?? 0);
+      else expect([focus, made.skills]).toEqual([focus, plain.skills]);
     }
   });
 });

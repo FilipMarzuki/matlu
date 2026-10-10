@@ -31,7 +31,7 @@ import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, ov
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
-import { survivalLock, workEffects, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
+import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
 import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { STIMULUS, applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
@@ -1814,8 +1814,10 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
   const night = closeWork(next, at.light, hours);
-  // Intelligence (#1256) lifts — or, below average, lowers — the grade.
-  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  // Intelligence (#1256) lifts — or, below average, lowers — the grade. So does a focus on the
+  // craft's skill or one of its concepts (#1490): better work, not faster (survival lock overrides it).
+  const focused = survivalLockOf(next) ? 0 : focusGrade(next.focus, skill, recipe.concepts ?? [], next.vitals.clarity.current, se.unreliableBelow);
+  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + focused + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   if (made.kind !== 'refused' && night.clarity > 1) {
     const strain = Math.max(0, before.clarity.current - c.vitals.clarity.current) * (night.clarity - 1);

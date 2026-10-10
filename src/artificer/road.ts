@@ -22,7 +22,7 @@ import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
 import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
-import { survivalLock, focusInline, focusKey, parseFocus, type Focus } from './focus';
+import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Lead } from './asks';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
@@ -669,7 +669,10 @@ function wagonCraft(next: RoadState, recipe: string): RoadState {
   // The road sets the hours and the practice: four hours on the wagon, credited as Region 1 credits work.
   next.skills = skills;
   const skill = skillFor(id, recipe);
-  if (skill) next.skills = practise(skills, skill, creditedPractice(next, skill, WAGON_CRAFT_HOURS, guidanceOn(next, skill))).practice;
+  // A focused skill learns ×3 on the wagon too (#1490), as in the Reach; the craft's grade already
+  // got the focus bonus in Region 1's craft, through the view.
+  const focused = skill ? workEffects(next.focus, null, id, skill, next.vitals.clarity.current, statEffects(next.character.stats).unreliableBelow).practice : 1;
+  if (skill) next.skills = practise(skills, skill, creditedPractice(next, skill, WAGON_CRAFT_HOURS, guidanceOn(next, skill)) * focused).practice;
   next.hoursToday += WAGON_CRAFT_HOURS;
   return next;
 }
