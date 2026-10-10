@@ -52,6 +52,17 @@ import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { inject } from '@vercel/analytics';
+
+// Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
+// `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
+// counts a visit without cookies or personal data. Only a production build on the real domain
+// loads it: `npm run dev`, local previews and tests, *.vercel.app URLs and the copy of this page
+// the main game's build carries all load nothing and send nothing, so they can't eat into the
+// free plan's monthly events or blur the numbers. If the domain changes, change it here too.
+// It sees page views only; what happens in a game belongs in the run records (#1558), not here.
+const ANALYTICS_HOST = 'artificer.corewarden.app';
+if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
