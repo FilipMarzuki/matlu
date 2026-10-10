@@ -11,7 +11,7 @@ import { createVitals } from './vitality';
 import { createRoad, endRoadDay, runRoadAction, setRoadFocus, type RoadState } from './road';
 import { FOCUS_COST, GOAL_IDS, type Focus } from './focus';
 import { SKILL_IDS } from './skills';
-import { chooseFocus, type AppState } from '../artificer-app/controller';
+import { chooseFocus, serialize, deserialize, type AppState } from '../artificer-app/controller';
 
 /** A Warden who survived the winter with materials to craft, now on the wagon. */
 function onTheRoad(focus: Focus | null = null, clarity = 80): RoadState {
@@ -69,6 +69,19 @@ describe("The road's focus (#1479)", () => {
       const night = helpAndSleep(onTheRoad(focus, TIRED));
       expect([focus, night.vitals.clarity.current]).toEqual([focus, expect.closeTo(none.vitals.clarity.current - FOCUS_COST, 6)]);
       expect([focus, night.concepts, night.skills]).toEqual([focus, none.concepts, none.skills]);
+    }
+  });
+
+  // The road's focus is now a choice that's saved: it loads back, checked like the Reach's (#1478).
+  it('keeps the road’s focus through a save, and drops one that no longer holds', () => {
+    const concept = firstConcept(onTheRoad());
+    const chosen = chooseFocus(appOnRoad(onTheRoad()), { kind: 'concept', id: concept });
+    expect(deserialize(serialize(chosen))?.road?.focus).toEqual({ kind: 'concept', id: concept });
+    // A save edited by hand or from a broken build: a goal that doesn't exist, or a concept not open.
+    for (const bad of [{ kind: 'goal', id: 'nope' }, { kind: 'concept', id: 'bearings' }, 'skill:woodcraft', 7]) {
+      const raw = JSON.parse(serialize(chosen));
+      raw.road.focus = bad;
+      expect([bad, deserialize(JSON.stringify(raw))?.road?.focus]).toEqual([bad, null]);
     }
   });
 

@@ -390,7 +390,20 @@ function parseRoad(x: unknown): RoadState | null {
     discovery: obj(x.discovery) as RoadState['discovery'], appraised: strs(x.appraised),
     // Injuries (#1392): an older save's `daysLeft` reads as a minor one.
     injuries: Array.isArray(x.injuries) ? (x.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : undefined,
+    // The road's focus is the player's to set (#1479), so it's checked on load like the Reach's.
+    focus: readFocus(x.focus, x.concepts),
   };
+}
+
+/**
+ * A stored focus, re-validated (#1238, #1478): a goal, skill or concept that exists, and a concept
+ * only if this Warden can still turn it over. Anything else loads as no focus. The Reach's and the
+ * road's (#1479) both come through here.
+ */
+function readFocus(f: unknown, concepts: unknown): Focus | null {
+  const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  const saved = (isObj(concepts) ? concepts : {}) as Region1State['concepts'];
+  return parsed?.kind === 'concept' && focusRefusal({ concepts: saved }, parsed.id) ? null : parsed;
 }
 
 /** A saved meeting (#1356): the fields the screen and the boarding read. */
@@ -484,10 +497,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated — a concept
   // only if this Warden can still turn it over (#1478).
-  const f = sim.focus;
-  const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
-  const savedConcepts = (isObj(sim.concepts) ? sim.concepts : {}) as Region1State['concepts'];
-  const focus = parsed?.kind === 'concept' && focusRefusal({ concepts: savedConcepts }, parsed.id) ? null : parsed;
+  const focus = readFocus(sim.focus, sim.concepts);
   // …and saves from before techniques/manuals (#1243) start with none.
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
   // …and saves from before the living world (#1279) play the full world.
