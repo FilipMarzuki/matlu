@@ -18,7 +18,13 @@
 # history engine (storytelling/, since #1540), the settlement generator and the Building Forge's
 # data (mapgen/, building-registry.json and cultures.json, since #1541), rank-names.ts, and the
 # sprites scripts/build-artificer.mjs copies.
+#
+# A redeploy always builds (#1563). It rebuilds the commit already live, so the diff below is
+# empty, yet it's how new environment variables reach the site: Vercel only gives them to new
+# deployments. Pushes always bring a new commit, so the same commit as the last deploy only
+# happens when someone asked for this build.
 cd .. || exit 1
+[ -n "${VERCEL_GIT_PREVIOUS_SHA:-}" ] && [ "$VERCEL_GIT_PREVIOUS_SHA" = "${VERCEL_GIT_COMMIT_SHA:-$(git rev-parse HEAD)}" ] && exit 1
 git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- \
   src/artificer src/artificer-app src/artificer-ai src/artificer-play artificer.html artificer \
   scripts/build-artificer.mjs package.json package-lock.json \
