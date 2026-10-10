@@ -15,8 +15,9 @@ This repo contains three deployable projects:
 | **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) | The Phaser 3 game |
 | **Matlu Codex** | `wiki/` | `matlu-codex` — [codex.corewarden.com](https://codex.corewarden.com) | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
 | **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
+| **Artificer** | `artificer/` (Vercel config; the code is `src/artificer*` at the root) | `artificer` — [artificer.corewarden.app](https://artificer.corewarden.app) | The text-and-logic game, built on its own by `npm run build:artificer` (#1534). |
 
-Each site has its own `package.json` and is built independently in CI.
+`wiki/` and `dev/` each have their own `package.json` and are built independently in CI. The Artificer shares the root `package.json`; its Vercel project (Root Directory `artificer/`) installs and builds from the root and only builds when Artificer files change.
 
 ## Tech stack
 
@@ -31,6 +32,7 @@ Each site has its own `package.json` and is built independently in CI.
 | ------------------------- | -------------------------------------------------------------------------------- |
 | `npm run dev`             | Vite dev server on **port 3000**                                                 |
 | `npm run build`           | `tsc` then `vite build` (typecheck + bundle)                                       |
+| `npm run build:artificer` | The Artificer alone → `artificer/dist/` (for artificer.corewarden.app)            |
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
 | `npm run unit:src`        | Vitest unit tests under `src/` (pure game logic, no browser)                     |
 | `npm run unit:story`      | Vitest unit tests for the storytelling engine (golden hashes)                    |
