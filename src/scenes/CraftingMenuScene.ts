@@ -6,6 +6,7 @@ import { ProjectSystem } from '../systems/ProjectSystem';
 import { UI } from '../ui/UIFactory';
 import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { fetchMenuLists } from '../lib/registryFetch';
+import { clampScroll, recipeListRows, STATION_FILTERS, type StationFilter } from '../crafting/recipeList';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -63,6 +64,16 @@ type TabId = 'mind' | 'concepts' | 'recipes' | 'pack';
 const DEPTH_BASE = 900;
 const TAB_HEIGHT = 44;
 const PANEL_MARGIN = 12;
+/** Height of one row in the Recipes tab's list. */
+const RECIPE_ROW_H = 28;
+/** What a hint row says about how its recipe is worked out. */
+const RECIPE_HINTS: Record<string, string> = {
+  memory: '(practice more...)',
+  observation: '(inspect the world...)',
+  taught: '(find a teacher...)',
+  experiment: '(experiment at a station...)',
+  'reverse-engineer': '(disassemble to learn...)',
+};
 const TAB_COLORS: Record<TabId, number> = {
   mind: 0x3a5a8c,
   concepts: 0x5a7a3a,
@@ -102,6 +113,10 @@ export class CraftingMenuScene extends Phaser.Scene {
   private experimentPick = new Set<string>();
   /** The last experiment's result, shown under the Pack tab's sub-tabs. */
   private experimentNote = '';
+  /** Recipes tab: the station filter, the list's top row, and the recipe shown in detail (#1525). */
+  private recipeFilter: StationFilter = 'All';
+  private recipeScroll = 0;
+  private selectedRecipeId: string | null = null;
 
   /** Recipe currently shown in Forge View (null = normal tab view). */
   private forgeRecipe: Recipe | null = null;
@@ -1126,18 +1141,23 @@ export class CraftingMenuScene extends Phaser.Scene {
       }).setOrigin(0.5, 0)
     );
 
-    // Station filter
-    const stations = ['All', 'Field', 'Smelter', 'Smithy', 'Workshop', 'Tannery'];
+    // Station filter: tapping one narrows the list, which starts again at the top (#1525).
     let filterX = 0;
-    stations.forEach((s) => {
+    for (const s of STATION_FILTERS) {
+      const active = this.recipeFilter === s;
       const sText = this.add.text(filterX, 24, s, {
-        fontSize: '10px', color: s === 'All' ? '#ffffff' : '#888888',
-        backgroundColor: s === 'All' ? '#333' : undefined,
+        fontSize: '10px', color: active ? '#ffffff' : '#888888',
+        backgroundColor: active ? '#333' : undefined,
         padding: { x: 6, y: 3 },
       }).setInteractive({ useHandCursor: true });
+      sText.on('pointerdown', () => {
+        this.recipeFilter = s;
+        this.recipeScroll = 0;
+        this.renderTab();
+      });
       this.contentContainer.add(sText);
       filterX += sText.width + 8;
-    });
+    }
 
     // Split layout: list on left, detail on right
     const listW = 180;
@@ -1145,58 +1165,102 @@ export class CraftingMenuScene extends Phaser.Scene {
     const startY = 52;
     const disc = this.discoverySys;
 
-    // Recipe list — discovered show normally, hint-visible as silhouettes,
-    // fully undiscovered are hidden entirely.
-    let firstDiscovered: Recipe | null = null;
-    let listIdx = 0;
-
-    this.recipes.forEach((recipe) => {
+    // The rows: craftable first (●), then known but missing inputs (○), then hints (???).
+    // Undiscovered recipes with no hint are left out (#1525: recipeList.ts has the rules).
+    const rows = recipeListRows(this.recipes, this.recipeFilter, (recipe) => {
       const state = disc.getState(recipe.id);
-      if (state === 'undiscovered') return; // completely hidden
-
-      const ry = startY + listIdx * 28;
-      if (ry > panelH - 20) return; // overflow guard
-      listIdx++;
-
-      if (state === 'discovered') {
-        if (!firstDiscovered) firstDiscovered = recipe;
-        const canCraft = this.canCraftRecipe(recipe);
-        const dot = canCraft ? '●' : '○';
-        const color = canCraft ? '#88ff88' : '#aa8866';
-
-        const recipeText = this.add.text(8, ry, `${dot} ${recipe.name}`, {
-          fontSize: '12px', color,
-        }).setInteractive({ useHandCursor: true });
-
-        recipeText.on('pointerdown', () => {
-          this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, recipe);
-        });
-        recipeText.on('pointerover', () => recipeText.setColor('#ffffff'));
-        recipeText.on('pointerout', () => recipeText.setColor(color));
-        this.contentContainer.add(recipeText);
-      } else {
-        // hint-visible — show as silhouette with method hint
-        const method = recipe.discovery?.method ?? '?';
-        const methodHints: Record<string, string> = {
-          memory: '(practice more...)',
-          observation: '(inspect the world...)',
-          taught: '(find a teacher...)',
-          experiment: '(experiment at a station...)',
-          'reverse-engineer': '(disassemble to learn...)',
-        };
-        const hint = methodHints[method] ?? '';
-
-        const silText = this.add.text(8, ry, `? ??? ${hint}`, {
-          fontSize: '12px', color: '#444455',
-        });
-        this.contentContainer.add(silText);
-      }
+      if (state === 'undiscovered') return null;
+      if (state === 'hint-visible') return 'hint';
+      return this.canCraftRecipe(recipe) ? 'craftable' : 'known';
     });
 
-    // Show first discovered recipe detail by default
-    if (firstDiscovered) {
-      this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, firstDiscovered);
+    if (rows.length === 0) {
+      this.contentContainer.add(this.add.text(8, startY, '( nothing here yet )', { fontSize: '12px', color: '#666666' }));
+      return;
     }
+
+    // The list scrolls a whole row at a time: `recipeScroll` is the top row's index, and only the
+    // rows in the window are visible. Phaser 4 masks work differently from Phaser 3's, and hiding
+    // whole rows needs none; hidden objects also can't be tapped through the filter bar above.
+    const visible = Math.max(1, Math.floor((panelH - startY) / RECIPE_ROW_H));
+    this.recipeScroll = clampScroll(this.recipeScroll, rows.length, visible);
+
+    const list = this.add.container(0, startY);
+    this.contentContainer.add(list);
+    const highlight = this.add.graphics();
+    const scrollbar = this.add.graphics();
+    list.add([highlight, scrollbar]);
+
+    const texts = rows.map(({ recipe, kind }) => {
+      const label = kind === 'hint'
+        ? `? ??? ${RECIPE_HINTS[recipe.discovery?.method ?? ''] ?? ''}`
+        : `${kind === 'craftable' ? '●' : '○'} ${recipe.name}`;
+      const color = kind === 'craftable' ? '#88ff88' : kind === 'known' ? '#aa8866' : '#444455';
+      // fixedWidth clips a long label at the list's edge instead of running under the detail panel.
+      const text = this.add.text(8, 0, label, { fontSize: '12px', color, fixedWidth: listW - 16 });
+      list.add(text);
+      return text;
+    });
+
+    /** Place the rows in the window, mark the selected one, and draw the scrollbar. */
+    const layout = (): void => {
+      const top = this.recipeScroll;
+      texts.forEach((t, i) => t.setVisible(i >= top && i < top + visible).setY((i - top) * RECIPE_ROW_H));
+      highlight.clear();
+      const sel = rows.findIndex(r => r.recipe.id === this.selectedRecipeId);
+      if (sel >= top && sel < top + visible) {
+        highlight.fillStyle(0xffffff, 0.08);
+        highlight.fillRoundedRect(2, (sel - top) * RECIPE_ROW_H - 6, listW - 10, RECIPE_ROW_H - 2, 3);
+      }
+      scrollbar.clear();
+      if (rows.length > visible) {
+        const trackH = visible * RECIPE_ROW_H - 8;
+        const thumbH = Math.max(16, trackH * visible / rows.length);
+        const thumbY = (trackH - thumbH) * top / (rows.length - visible);
+        scrollbar.fillStyle(0xffffff, 0.08);
+        scrollbar.fillRect(listW - 5, -4, 3, trackH);
+        scrollbar.fillStyle(0xffccaa, 0.6);
+        scrollbar.fillRect(listW - 5, -4 + thumbY, 3, thumbH);
+      }
+    };
+
+    const select = (recipe: Recipe): void => {
+      this.selectedRecipeId = recipe.id;
+      layout();
+      this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, recipe);
+    };
+
+    // One zone over the list takes every gesture, since the rows scroll under the finger:
+    // drag to scroll (touch or mouse), the wheel scrolls three rows, and a tap without a drag
+    // picks the row under it. Same pattern as the Concepts tab's pan zone.
+    const cx = this.contentContainer.x;
+    const cy = this.contentContainer.y;
+    const listH = visible * RECIPE_ROW_H;
+    const zone = this.add.zone(cx + listW / 2, cy + startY - 6 + listH / 2, listW, listH)
+      .setInteractive({ draggable: true }).setDepth(DEPTH_BASE + 7);
+    let dragTop = 0;
+    zone.on('dragstart', () => { dragTop = this.recipeScroll; });
+    zone.on('drag', (pointer: Phaser.Input.Pointer) => {
+      const top = clampScroll(dragTop - (pointer.y - pointer.downY) / RECIPE_ROW_H, rows.length, visible);
+      if (top !== this.recipeScroll) { this.recipeScroll = top; layout(); }
+    });
+    zone.on('wheel', (_pointer: Phaser.Input.Pointer, _dx: number, dy: number) => {
+      const top = clampScroll(this.recipeScroll + Math.sign(dy) * 3, rows.length, visible);
+      if (top !== this.recipeScroll) { this.recipeScroll = top; layout(); }
+    });
+    zone.on('pointerup', (pointer: Phaser.Input.Pointer, _x: number, localY: number) => {
+      // getDistance() is how far the pointer moved between down and up: more than a few
+      // pixels was a scroll, not a tap.
+      if (pointer.getDistance() > 8) return;
+      const row = rows[this.recipeScroll + Math.floor(localY / RECIPE_ROW_H)];
+      if (row && row.kind !== 'hint') select(row.recipe);
+    });
+    this.floatingObjects.push(zone);
+
+    // Show the selected recipe, or the first known one (craftable first), in the detail panel.
+    const shown = rows.find(r => r.recipe.id === this.selectedRecipeId && r.kind !== 'hint') ?? rows.find(r => r.kind !== 'hint');
+    if (shown) select(shown.recipe);
+    else layout();
   }
 
   private renderRecipeDetail(x: number, y: number, w: number, h: number, recipe: Recipe): void {
