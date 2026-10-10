@@ -111,7 +111,7 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
         ], { skill: 'foraging', techniques: ['greens', 'roots', 'fungi'], recipes: [] }),
       p('hf-orrin', 'Orrin', 'smith', 'Bergfolk', 'ridgefolk', 'Gruff, generous with advice, and impossible to rush.',
         { kind: 'item', item: 'firewood', qty: 4 }, [
-          [0, 'Bring me good stone and I\'ll show you an edge.'],
+          [0, 'Bring me good stone and I\'ll show you an edge. Iron I can\'t help you with; that\'s Gate work.'],
           [25, 'A crude tool is a promise you\'ll fix it later. Make it sound the first time.'],
           [50, 'In the Dyprike they ask what you have made, not whose child you are. I left a hold seat for this forge. Nobody here has asked me why.'],
           [75, 'My grandmother\'s hold sold mana-granite to half the world. The seams run thinner every year. The holds do not say so out loud.'],

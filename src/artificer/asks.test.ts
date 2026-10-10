@@ -78,8 +78,10 @@ describe('Village conversations: Ask about your focus (#1495)', () => {
   it('lets a teacher speak to their own skill', () => {
     const before = atHollowford({ kind: 'skill', id: 'foraging' }, { 'hf-isa': 0 });
     const after = runRoadAction(before, 'ask:hf-isa');
-    expect(after.log.at(-1)?.text).toMatch(/Isa/);
-    expect(after.log.at(-1)?.text).toMatch(/teach/i);
+    // Among what the ask wrote (her answer can carry a lead, #1497).
+    const said = after.log.slice(before.log.length).map(l => l.text).join(' ');
+    expect(said).toMatch(/Isa/);
+    expect(said).toMatch(/teach/i);
     expect(after.asked?.['hf-isa']).toContain('skill:foraging');
   });
 
