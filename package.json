@@ -60,6 +60,7 @@
     "@capacitor/core": "^8.5.2",
     "@logtail/browser": "^0.5.11",
     "@supabase/supabase-js": "^2.117.2",
+    "@vercel/analytics": "^2.0.1",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
