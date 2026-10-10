@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "assets:manifest": "node scripts/generate-assets-manifest.mjs",
     "assets:sprites": "node scripts/generate-sprite-manifest.mjs",
+    "content:inventory": "tsx scripts/content-inventory.ts",
     "pixellab:sync": "node scripts/sync-pixellab.mjs",
     "pixellab:queue": "node scripts/pixellab-queue-generate.mjs",
     "pixellab:burn": "node scripts/pixellab-burn.mjs",
