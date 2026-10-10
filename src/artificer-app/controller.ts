@@ -12,7 +12,7 @@
 
 import { ACTIONS, focusRefusal, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
-import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
+import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -275,8 +275,12 @@ export function runWholeQueue(a: AppState): AppState {
   return s;
 }
 
-/** Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. */
+/**
+ * Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. On the road it's the
+ * road's focus (#1479): the road carries its own copy, and that's the one its nights charge for.
+ */
 export function chooseFocus(a: AppState, focus: Focus | null): AppState {
+  if (a.stage === 'road' && a.road) return { ...a, road: setRoadFocus(a.road, focus) };
   return { ...a, sim: setFocus(a.sim, focus) };
 }
 
