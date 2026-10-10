@@ -77,11 +77,16 @@ const RUNS = 'artificer_runs';
 /** The columns that go out: everything but `source_key` (it holds the game id) and `rank_key`. */
 const RUN_COLUMNS = 'id, created_at, player_kind, model, client, surface, game_version, nickname, outcome, grade, stage, end_day, ready_day, larder_midwinter, shelter_tier, skill_levels, concept_ranks, recipes, milestones, moves, cost_usd, detail';
 
+/** Whole numbers for the integer columns: Postgres refuses 2.5 for an integer, and the record would be lost. */
+const int = (x: number): number => Math.round(x);
+const intOrNull = (x: number | null): number | null => (x === null ? null : Math.round(x));
+
 export const runToRow = (sourceKey: string, r: Run): Omit<RunRow, 'id' | 'created_at'> & { source_key: string; rank_key: number } => ({
   source_key: sourceKey, player_kind: r.playerKind, model: r.model, client: r.client, surface: r.surface, game_version: r.gameVersion,
-  nickname: r.nickname, outcome: r.outcome, grade: r.grade, stage: r.stage, end_day: r.endDay, ready_day: r.readyDay,
-  larder_midwinter: r.larderMidwinter, shelter_tier: r.shelterTier, skill_levels: r.skillLevels, concept_ranks: r.conceptRanks,
-  recipes: r.recipes, milestones: r.milestones, moves: r.moves, cost_usd: r.costUsd, rank_key: rankKey(r), detail: r.detail,
+  nickname: r.nickname, outcome: r.outcome, grade: r.grade, stage: r.stage, end_day: int(r.endDay), ready_day: intOrNull(r.readyDay),
+  larder_midwinter: intOrNull(r.larderMidwinter), shelter_tier: int(r.shelterTier), skill_levels: int(r.skillLevels),
+  concept_ranks: int(r.conceptRanks), recipes: int(r.recipes), milestones: int(r.milestones), moves: int(r.moves),
+  cost_usd: r.costUsd, rank_key: rankKey(r), detail: r.detail,
 });
 
 const runFromRow = (r: RunRow): StoredRun => ({

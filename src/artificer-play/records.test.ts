@@ -9,6 +9,7 @@ import { createVitals } from '../artificer/vitality';
 import { startGame, view, apply, gameFrom, GAME_VERSION, type Game, type Move } from './session';
 import { nicknameOf, compareRuns, rankKey, percentBeaten, tierOf, outcomeLine, groupOf, type Run } from './records';
 import { measure, runOf, midwinterDay, type RunMeta } from './record-of';
+import { runToRow } from './supabase-store';
 
 const must = (g: Game, m: Move): Game => {
   const r = apply(g, m);
@@ -112,6 +113,11 @@ describe('Run records (#1558)', () => {
       expect(r.outcome).toBe('survived'); // stayed behind at the thaw
     }
     expect(tierOf(r)).toBeGreaterThanOrEqual(2);
+  });
+
+  it('stores a record as a row: whole numbers in the integer columns, and the rank key beside it', () => {
+    const r = run({ endDay: 10, larderMidwinter: 2.5, costUsd: 0.0123 });
+    expect(runToRow('game:abc', r)).toMatchObject({ source_key: 'game:abc', end_day: 10, larder_midwinter: 3, cost_usd: 0.0123, rank_key: rankKey(r), ready_day: null });
   });
 
   it('takes the larder once, on the first morning at or past midwinter', () => {
