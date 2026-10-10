@@ -60,8 +60,14 @@ When two open PRs implement overlapping features with incompatible
 architectures (e.g. different data models for the same system), pick the
 more complete one and close the other with a comment.
 
-If it's ambiguous which is better, keep both open and flag them in the
-summary as "needs human decision".
+If it's ambiguous which is better:
+- **They differ in how the game plays** (rules, balance, what the player
+  sees): keep both open and flag them in the summary as "needs a design
+  decision". People decide game design.
+- **They differ only in implementation**: keep the one further through its
+  review gate (more of its tier's reviews passing on its head commit), or the
+  older one if they're level, and close the other with a comment linking it.
+  Implementation choices don't wait for a person (#1481).
 
 ---
 

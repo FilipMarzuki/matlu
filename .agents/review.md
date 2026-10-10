@@ -73,15 +73,17 @@ Check the diff against these criteria:
 
 ---
 
-## Step 3 — High-risk file check
+## Step 3 — High-risk files
 
-Flag (but don't block) if the PR touches:
-- `.github/workflows/` — CI/CD changes
-- `CLAUDE.md` — project instructions
-- `vite.config.ts` or `tsconfig.json` — build config
-- `package.json` — dependency changes (script-only is fine)
+Don't flag high-risk files for a person. The risk score (`.github/review-risk.json`,
+#1431) already routes them to stronger review models: CI workflows and scripts,
+`CLAUDE.md` and `.agents/`, build config and dependencies, save format, seeded
+randomness, Supabase and scripts that spend money. Those models' verdicts gate the
+merge (#1481). People decide game design; implementation merges on the models'
+reviews.
 
-Add a note: "Touches high-risk file(s) — human should glance at this."
+Check those files like any other. If the PR touches one, say in your review what
+you checked there (e.g. "the new workflow step only runs on same-repo PRs").
 
 ---
 
