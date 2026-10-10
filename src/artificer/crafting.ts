@@ -2,8 +2,9 @@
  * Crafting & tools — the artificer's core loop (#1211).
  *
  * Part of the artificer sim core: pure, deterministic, no Phaser, no
- * randomness. Implements docs/crafting-tools-design.md on top of the real
- * registries in public/macro-world/ (recipes.json, concepts.json):
+ * randomness. Implements docs/crafting-tools-design.md. Artificer is the master
+ * for its materials and concepts (#1531): recipes are its own (region1.ts), and
+ * concepts come from src/artificer/content/concepts.json.
  *
  *   - **Grades** (crude → masterwork) scale what a crafted item does.
  *   - **Effects** live on items: cheaper / faster actions, bigger yields,
@@ -121,8 +122,8 @@ export interface Tool {
 }
 
 /**
- * Starter effects for Region 1's tier-0/1 craftables, keyed by registry item
- * id (a test keeps these honest against recipes.json). Action ids are Region
+ * Starter effects for Region 1's tier-0/1 craftables, keyed by item id
+ * (they started from the Homestead's draft recipes.json). Action ids are Region
  * 1's; `sleep` and `craft` are the other activities effects can touch.
  */
 export const DEFAULT_EFFECTS: Readonly<Record<string, ItemEffects>> = {

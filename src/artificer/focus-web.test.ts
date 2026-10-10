@@ -15,7 +15,7 @@ import { parseDecision } from '../artificer-ai/decision';
 import { observe } from '../artificer-ai/observe';
 import { focusErrors } from '../artificer-ai/runner';
 import { newGame, serialize, deserialize } from '../artificer-app/controller';
-import registry from '../../public/macro-world/concepts.json';
+import registry from './content/concepts.json';
 
 const fresh = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
 /** A roofed, fed and watered camp at nightfall, after a long day's work. */
@@ -54,11 +54,12 @@ describe('Focus follows the concept web (#1478)', () => {
     expect(observe(fresh())).toMatch(/FOCUS: none.*concepts open: joinery, tension, sealing, leverage, sharpening, weaving/);
   });
 
-  // 4. One registry: the stale root copy is gone and the sim still has the whole web.
+  // 4. One registry for the sim: the stale root copy is gone, the sim reads Artificer's own file
+  //    (#1531), and it still has the whole web.
   it('keeps one concepts registry', () => {
     const root = join(__dirname, '..', '..');
     expect(existsSync(join(root, 'macro-world', 'concepts.json'))).toBe(false);
-    expect(existsSync(join(root, 'public', 'macro-world', 'concepts.json'))).toBe(true);
+    expect(existsSync(join(__dirname, 'content', 'concepts.json'))).toBe(true);
     expect(Object.keys(CRAFT_WORLD.concepts)).toHaveLength(registry.concepts.length);
   });
 

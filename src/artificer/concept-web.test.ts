@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, ACTIONS, CRAFT_WORLD, STUDY_CONCEPTS, type Region1State } from './region1';
 import { addInsight, type ConceptProgress } from './crafting';
-import registry from '../../public/macro-world/concepts.json';
+import registry from './content/concepts.json';
 
 const REGION_1_CONCEPTS = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
 
