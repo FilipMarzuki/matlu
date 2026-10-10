@@ -1,6 +1,7 @@
 /**
- * Focus (#1238): what the Warden's mind is working on — a concept, a goal or a
- * skill — and the survival lock that overrides it when needs are critical.
+ * Focus (#1238): what the Warden's mind is working on — a concept, a goal, a
+ * skill, or a topic (#1494: a material, place, group, person, quest or job) —
+ * and the survival lock that overrides it when needs are critical.
  * See docs/character-skills-design.md §3.
  *
  * Pure. Region 1 reads the lock off its state (survivalLockOf) and applies the
@@ -10,13 +11,19 @@
 import type { ActionId } from './region1';
 import { SKILLS, SKILL_IDS, type SkillId } from './skills';
 import conceptsRegistry from '../../public/macro-world/concepts.json';
+import { isTopicKind, topicDef, type TopicKind } from './topics';
 
 export type GoalId = 'shelter' | 'larder' | 'explore';
 
 export type Focus =
   | { kind: 'concept'; id: string }
   | { kind: 'goal'; id: GoalId }
-  | { kind: 'skill'; id: SkillId };
+  | { kind: 'skill'; id: SkillId }
+  /** A topic (#1494): something to ask people about and notice signs of — not work. */
+  | { kind: TopicKind; id: string };
+
+export type TopicFocus = Extract<Focus, { kind: TopicKind }>;
+export const isTopic = (f: Focus | null | undefined): f is TopicFocus => !!f && isTopicKind(f.kind);
 
 export const GOALS: Readonly<Record<GoalId, { name: string; actions: readonly ActionId[] }>> = {
   shelter: { name: 'Shelter', actions: ['build', 'wood'] },
@@ -62,10 +69,12 @@ export function survivalLock(i: { thirsty: number; hungry: number; condition: nu
 /** "goal:larder" → a Focus (null for "none" or anything unknown). Used by saves and the AI. */
 export function parseFocus(key: string | null | undefined): Focus | null {
   if (!key) return null;
-  const [kind, id] = key.split(':');
+  const at = key.indexOf(':');
+  const kind = key.slice(0, at), id = key.slice(at + 1);
   if (kind === 'concept' && FOCUS_CONCEPTS.includes(id)) return { kind, id };
   if (kind === 'goal' && (GOAL_IDS as string[]).includes(id)) return { kind, id: id as GoalId };
   if (kind === 'skill' && (SKILL_IDS as string[]).includes(id)) return { kind, id: id as SkillId };
+  if (isTopicKind(kind) && topicDef(kind, id)) return { kind, id };
   return null;
 }
 export const focusKey = (f: Focus | null): string => (f ? `${f.kind}:${f.id}` : 'none');
@@ -79,10 +88,14 @@ export const FOCUS_KEYS: readonly string[] = [
 
 export function focusLabel(f: Focus | null): string {
   if (!f) return 'None';
-  if (f.kind === 'goal') return GOALS[f.id].name;
-  if (f.kind === 'skill') return SKILLS[f.id].name;
+  if (f.kind === 'goal') return GOALS[f.id as GoalId].name;
+  if (f.kind === 'skill') return SKILLS[f.id as SkillId].name;
+  if (isTopic(f)) return topicDef(f.kind, f.id)?.label ?? f.id;
   return CONCEPT_NAMES[f.id] ?? f.id[0].toUpperCase() + f.id.slice(1);
 }
+
+/** A focus as it reads mid-sentence: "the Compact", "iron", "smiths"; a concept or skill by its id. */
+export const focusInline = (f: Focus): string => (isTopic(f) ? topicDef(f.kind, f.id)?.inline ?? f.id : f.id);
 
 /** 1 when the mind is clear enough to hold focus; 0.5 when frayed. Willpower moves the threshold (#1256). */
 export const reliability = (clarity: number, unreliableBelow = UNRELIABLE_BELOW): number => (clarity < unreliableBelow ? 0.5 : 1);

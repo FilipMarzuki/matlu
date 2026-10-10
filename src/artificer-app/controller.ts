@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, focusRefusal, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
+import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -391,19 +391,29 @@ function parseRoad(x: unknown): RoadState | null {
     // Injuries (#1392): an older save's `daysLeft` reads as a minor one.
     injuries: Array.isArray(x.injuries) ? (x.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : undefined,
     // The road's focus is the player's to set (#1479), so it's checked on load like the Reach's.
-    focus: readFocus(x.focus, x.concepts),
+    focus: readFocus(x.focus, x),
+    // Topics heard named (#1494); a road from before has none.
+    heard: strs(x.heard),
   };
 }
 
 /**
- * A stored focus, re-validated (#1238, #1478): a goal, skill or concept that exists, and a concept
- * only if this Warden can still turn it over. Anything else loads as no focus. The Reach's and the
- * road's (#1479) both come through here.
+ * A stored focus, re-validated (#1238, #1478, #1494): a goal, skill, concept or topic that exists;
+ * a concept only if this Warden can still turn it over, a topic only if they've still come across
+ * it. Anything else loads as no focus. The Reach's and the road's (#1479) both come through here.
  */
-function readFocus(f: unknown, concepts: unknown): Focus | null {
+function readFocus(f: unknown, from: Record<string, unknown>): Focus | null {
   const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
-  const saved = (isObj(concepts) ? concepts : {}) as Region1State['concepts'];
-  return parsed?.kind === 'concept' && focusRefusal({ concepts: saved }, parsed.id) ? null : parsed;
+  const obj = (y: unknown) => (isObj(y) ? y : {});
+  // What the come-across rule reads (#1494), as saved: a topic is kept only if it still holds.
+  const saved = {
+    concepts: obj(from.concepts) as Region1State['concepts'],
+    stores: obj(from.stores) as unknown as Region1State['stores'],
+    trust: obj(from.trust) as Record<string, number>,
+    quests: obj(from.quests),
+    heard: Array.isArray(from.heard) ? from.heard.filter((x): x is string => typeof x === 'string') : [],
+  };
+  return refusalOf(saved, parsed) ? null : parsed;
 }
 
 /** A saved meeting (#1356): the fields the screen and the boarding read. */
@@ -497,7 +507,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated — a concept
   // only if this Warden can still turn it over (#1478).
-  const focus = readFocus(sim.focus, sim.concepts);
+  const focus = readFocus(sim.focus, sim);
   // …and saves from before techniques/manuals (#1243) start with none.
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
   // …and saves from before the living world (#1279) play the full world.

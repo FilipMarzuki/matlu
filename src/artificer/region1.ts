@@ -31,7 +31,8 @@ import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, ov
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
-import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
+import { survivalLock, workEffects, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
+import { topicsOpen, type Acquaintance } from './topics';
 import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { STIMULUS, applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
@@ -826,6 +827,17 @@ export const STUDY_CONCEPTS = (s: { concepts: Readonly<Record<string, ConceptPro
 export function focusRefusal(s: { concepts: Readonly<Record<string, ConceptProgress>> }, id: string): string | null {
   if (!STUDY_CONCEPTS(s).includes(id)) return `you haven't come across ${id} yet`;
   if ((s.concepts[id]?.rank ?? 0) >= (CRAFT_WORLD.concepts[id]?.ranks ?? 3)) return `you've mastered ${id}`;
+  return null;
+}
+
+/**
+ * Why a focus can't be held now, or null: a concept not open or already mastered (#1478), or a
+ * topic the Warden hasn't come across (#1494). One rule for every way a focus is set — the picker,
+ * the road, a save, the AI.
+ */
+export function refusalOf(s: Acquaintance & { concepts: Readonly<Record<string, ConceptProgress>> }, focus: Focus | null): string | null {
+  if (focus?.kind === 'concept') return focusRefusal(s, focus.id);
+  if (isTopic(focus)) return topicsOpen(s).includes(focusKey(focus)) ? null : `you haven't come across ${focusInline(focus)} yet`;
   return null;
 }
 
@@ -2655,10 +2667,10 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
 export function setFocus(s: Region1State, focus: Focus | null): Region1State {
   const next = clone(s);
   // A concept can be turned over only once the Warden has come across it, and until it's mastered
-  // (#1478). Refused, the focus stays what it was.
-  const why = focus?.kind === 'concept' ? focusRefusal(s, focus.id) : null;
+  // (#1478); a topic, once they've come across it (#1494). Refused, the focus stays what it was.
+  const why = refusalOf(s, focus);
   if (why) {
-    say(next, `You can't turn your mind to ${focus!.id} — ${why}.`, 'skip');
+    say(next, `You can't turn your mind to ${focusInline(focus!)} — ${why}.`, 'skip');
     return next;
   }
   next.focus = focus;
