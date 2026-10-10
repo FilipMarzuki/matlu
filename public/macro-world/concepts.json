@@ -1,5 +1,5 @@
 {
-  "_doc": "Crafting concepts — fundamental principles that underpin recipes. Displayed as scout-patch badges in the skill tree. Mastering concepts unlocks higher recipe tiers and reveals connections between recipes.",
+  "_doc": "Crafting concepts — fundamental principles that underpin recipes. Displayed as scout-patch badges in the skill tree. Mastering concepts unlocks higher recipe tiers and reveals connections between recipes. `unlocks` lists recipes that exist in recipes.json; `futureUnlocks` holds recipe ideas not built yet (move one to `unlocks` when its recipe lands). `learnedFrom` entries are an item or recipe id, a concept at a rank (`rotation:2`), or a typed source: `npc:…`, `observation:…`, `activity:…`. src/crafting/registry-integrity.test.ts checks all of this (#1514).",
   "concepts": [
     {
       "id": "heat-treatment",
@@ -9,7 +9,8 @@
       "description": "Controlling temperature to change material properties — hardening, tempering, annealing.",
       "ranks": 3,
       "learnedFrom": ["iron-ingot", "charcoal", "iron-blade"],
-      "unlocks": ["steel-blade", "hardened-armor", "tempered-tools"]
+      "unlocks": ["steel-blade"],
+      "futureUnlocks": ["hardened-armor", "tempered-tools"]
     },
     {
       "id": "friction",
@@ -19,7 +20,8 @@
       "description": "How surfaces interact — grip, wear, heat generation, polishing.",
       "ranks": 3,
       "learnedFrom": ["leather", "bowstring", "rope"],
-      "unlocks": ["polished-blade", "brake-mechanism", "fire-starter"]
+      "unlocks": ["fire-starter"],
+      "futureUnlocks": ["polished-blade", "brake-mechanism"]
     },
     {
       "id": "tension",
@@ -29,7 +31,8 @@
       "description": "Stored energy in stretched or compressed materials — springs, bows, snares.",
       "ranks": 3,
       "learnedFrom": ["hunting-bow", "trap-snare", "bowstring"],
-      "unlocks": ["compound-bow", "crossbow", "spring-trap"]
+      "unlocks": ["crossbow"],
+      "futureUnlocks": ["compound-bow", "spring-trap"]
     },
     {
       "id": "rotation",
@@ -38,8 +41,9 @@
       "category": "mechanics",
       "description": "Axles, wheels, gears — converting motion between directions and speeds.",
       "ranks": 3,
-      "learnedFrom": ["iron-axe", "windmill-repair"],
-      "unlocks": ["lathe", "grinding-wheel", "pulley-system"]
+      "learnedFrom": ["iron-axe", "activity:windmill-repair"],
+      "unlocks": [],
+      "futureUnlocks": ["lathe", "grinding-wheel", "pulley-system"]
     },
     {
       "id": "bearings",
@@ -50,7 +54,8 @@
       "ranks": 2,
       "learnedFrom": ["oil", "rotation:2"],
       "requires": ["friction:1", "rotation:1"],
-      "unlocks": ["smooth-axle", "cart-wheel", "spinning-wheel"]
+      "unlocks": [],
+      "futureUnlocks": ["smooth-axle", "cart-wheel", "spinning-wheel"]
     },
     {
       "id": "leverage",
@@ -60,7 +65,8 @@
       "description": "Multiplying force through fulcrums, levers, and mechanical advantage.",
       "ranks": 2,
       "learnedFrom": ["iron-axe", "wooden-shield"],
-      "unlocks": ["siege-tools", "pry-bar", "trebuchet-parts"]
+      "unlocks": [],
+      "futureUnlocks": ["siege-tools", "pry-bar", "trebuchet-parts"]
     },
     {
       "id": "joinery",
@@ -70,7 +76,8 @@
       "description": "Connecting wood pieces — mortise-and-tenon, dovetails, pegs, lashing.",
       "ranks": 3,
       "learnedFrom": ["wood-plank", "wooden-shield", "hunting-bow"],
-      "unlocks": ["reinforced-shield", "furniture", "boat-hull"]
+      "unlocks": [],
+      "futureUnlocks": ["reinforced-shield", "furniture", "boat-hull"]
     },
     {
       "id": "tanning",
@@ -80,7 +87,8 @@
       "description": "Preserving and strengthening organic materials — salt curing, bark tanning, smoking.",
       "ranks": 3,
       "learnedFrom": ["leather", "hide-cloak", "ration"],
-      "unlocks": ["hardened-leather", "waterproof-hide", "preserved-rations"]
+      "unlocks": ["hardened-leather"],
+      "futureUnlocks": ["waterproof-hide", "preserved-rations"]
     },
     {
       "id": "distillation",
@@ -91,7 +99,8 @@
       "ranks": 3,
       "learnedFrom": ["oil", "antidote"],
       "requires": ["heat-treatment:1"],
-      "unlocks": ["potent-salve", "acid-flask", "pure-spirit"]
+      "unlocks": ["acid-flask"],
+      "futureUnlocks": ["potent-salve", "pure-spirit"]
     },
     {
       "id": "combustion",
@@ -101,7 +110,8 @@
       "description": "Controlled burning — fuel ratios, flash points, contained explosions.",
       "ranks": 3,
       "learnedFrom": ["fire-bomb", "charcoal", "torch"],
-      "unlocks": ["blast-powder", "rocket-arrow", "furnace-bellows"]
+      "unlocks": ["blast-powder"],
+      "futureUnlocks": ["rocket-arrow", "furnace-bellows"]
     },
     {
       "id": "weaving",
@@ -111,7 +121,8 @@
       "description": "Interlocking fibers into sheets, ropes, and nets — warp, weft, tension control.",
       "ranks": 3,
       "learnedFrom": ["cloth", "rope", "bandage"],
-      "unlocks": ["chainmail-lining", "sail-cloth", "net-trap"]
+      "unlocks": [],
+      "futureUnlocks": ["chainmail-lining", "sail-cloth", "net-trap"]
     },
     {
       "id": "sharpening",
@@ -121,7 +132,8 @@
       "description": "Creating and maintaining cutting edges — grinding angles, stropping, honing.",
       "ranks": 3,
       "learnedFrom": ["iron-blade", "iron-dagger", "iron-axe"],
-      "unlocks": ["razor-edge", "surgical-tools", "diamond-point"]
+      "unlocks": [],
+      "futureUnlocks": ["razor-edge", "surgical-tools", "diamond-point"]
     },
     {
       "id": "sealing",
@@ -130,8 +142,9 @@
       "category": "materials",
       "description": "Keeping water, air, or contaminants out — resin coating, wax, tar, caulking.",
       "ranks": 2,
-      "learnedFrom": ["resin", "oil", "boat-shed-repair"],
-      "unlocks": ["waterproof-pack", "sealed-flask", "boat-hull"]
+      "learnedFrom": ["resin", "oil", "activity:boat-shed-repair"],
+      "unlocks": [],
+      "futureUnlocks": ["waterproof-pack", "sealed-flask", "boat-hull"]
     },
     {
       "id": "fermentation",
@@ -140,8 +153,9 @@
       "category": "alchemy",
       "description": "Controlled decay — yeasts, bacteria, time. Turns grain to ale, fruit to vinegar.",
       "ranks": 2,
-      "learnedFrom": ["brewery-use", "ration"],
-      "unlocks": ["strong-ale", "vinegar-acid", "risen-bread"]
+      "learnedFrom": ["activity:brewery-use", "ration"],
+      "unlocks": [],
+      "futureUnlocks": ["strong-ale", "vinegar-acid", "risen-bread"]
     },
     {
       "id": "counterweight",
@@ -152,7 +166,8 @@
       "ranks": 2,
       "learnedFrom": ["iron-sword", "wooden-shield"],
       "requires": ["leverage:1"],
-      "unlocks": ["balanced-blade", "crane-mechanism", "portcullis"]
+      "unlocks": [],
+      "futureUnlocks": ["balanced-blade", "crane-mechanism", "portcullis"]
     },
     {
       "id": "alloys",
@@ -163,7 +178,8 @@
       "ranks": 3,
       "learnedFrom": ["copper-ingot", "iron-ingot"],
       "requires": ["heat-treatment:2"],
-      "unlocks": ["bronze-ingot", "steel-ingot", "bell-metal"]
+      "unlocks": ["bronze-ingot", "steel-ingot"],
+      "futureUnlocks": ["bell-metal"]
     },
     {
       "id": "inscription",
@@ -173,7 +189,8 @@
       "description": "Carving symbols that hold meaning or power — runes, glyphs, maker's marks. You can prepare the physical medium; an enchanter fills it with power.",
       "ranks": 3,
       "learnedFrom": ["iron-dagger-runed", "rune-dust"],
-      "unlocks": ["rune-sword", "warding-stone", "message-tablet"],
+      "unlocks": [],
+      "futureUnlocks": ["rune-sword", "warding-stone", "message-tablet"],
       "note": "Player carves the channels; NPC enchanter activates them."
     },
     {
@@ -185,7 +202,8 @@
       "ranks": 2,
       "learnedFrom": ["spirit-sap", "iron-dagger-runed"],
       "requires": ["inscription:1"],
-      "unlocks": ["tuning-blade", "resonance-crystal", "spirit-bell"],
+      "unlocks": [],
+      "futureUnlocks": ["tuning-blade", "resonance-crystal", "spirit-bell"],
       "note": "Knowing what resonates lets you build better vessels for enchantment — the mage still does the filling."
     },
     {
@@ -197,7 +215,8 @@
       "ranks": 3,
       "learnedFrom": ["rune-dust", "spirit-sap", "npc:enchanter-lesson"],
       "requires": ["inscription:1", "resonance:1"],
-      "unlocks": ["channeled-staff", "ward-frame", "spirit-lantern"],
+      "unlocks": [],
+      "futureUnlocks": ["channeled-staff", "ward-frame", "spirit-lantern"],
       "note": "Player builds the conduit (engineering). Enchanter charges it (magic). Higher ranks = more complex enchantments can be housed."
     },
     {
@@ -208,7 +227,8 @@
       "description": "Which materials attract, hold, or repel magical energy. Iron grounds it, silver conducts it, bone stores it, crystal amplifies it.",
       "ranks": 2,
       "learnedFrom": ["npc:enchanter-lesson", "observation:enchanted-items"],
-      "unlocks": ["silver-inlay", "bone-focus", "crystal-setting"],
+      "unlocks": [],
+      "futureUnlocks": ["silver-inlay", "bone-focus", "crystal-setting"],
       "note": "Knowledge concept — lets you pick the right base material before bringing it to an enchanter."
     },
 
@@ -219,8 +239,9 @@
       "category": "chemistry",
       "description": "Breaking substances down into base components using solvents — water, acid, alcohol.",
       "ranks": 3,
-      "learnedFrom": ["antidote", "salt-extraction"],
-      "unlocks": ["acid-flask", "dye-extract", "ore-leaching"]
+      "learnedFrom": ["antidote", "activity:salt-extraction"],
+      "unlocks": ["acid-flask"],
+      "futureUnlocks": ["dye-extract", "ore-leaching"]
     },
     {
       "id": "precipitation",
@@ -231,7 +252,8 @@
       "ranks": 2,
       "learnedFrom": ["glass", "rune-dust"],
       "requires": ["dissolution:1"],
-      "unlocks": ["crystal-growing", "pigment-powder", "purified-salt"]
+      "unlocks": [],
+      "futureUnlocks": ["crystal-growing", "pigment-powder", "purified-salt"]
     },
     {
       "id": "oxidation",
@@ -241,7 +263,8 @@
       "description": "How materials react with air and moisture — rust, patina, tarnish. Prevention and exploitation.",
       "ranks": 2,
       "learnedFrom": ["iron-ingot", "copper-ingot"],
-      "unlocks": ["rust-poison", "patina-coating", "acid-etching"]
+      "unlocks": [],
+      "futureUnlocks": ["rust-poison", "patina-coating", "acid-etching"]
     },
     {
       "id": "catalysis",
@@ -252,7 +275,8 @@
       "ranks": 3,
       "learnedFrom": ["fire-bomb", "healing-salve"],
       "requires": ["combustion:1", "distillation:1"],
-      "unlocks": ["quick-cure", "flash-forge", "instant-adhesive"]
+      "unlocks": [],
+      "futureUnlocks": ["quick-cure", "flash-forge", "instant-adhesive"]
     },
     {
       "id": "extraction",
@@ -262,7 +286,8 @@
       "description": "Pulling useful substances from raw materials — pressing, boiling, steeping, cold-extraction.",
       "ranks": 3,
       "learnedFrom": ["oil", "herb-green", "resin"],
-      "unlocks": ["essential-oil", "concentrated-extract", "tree-tar"]
+      "unlocks": [],
+      "futureUnlocks": ["essential-oil", "concentrated-extract", "tree-tar"]
     },
     {
       "id": "neutralization",
@@ -273,7 +298,8 @@
       "ranks": 2,
       "learnedFrom": ["antidote", "salt"],
       "requires": ["dissolution:1"],
-      "unlocks": ["universal-antidote", "flame-retardant", "acid-neutralizer"]
+      "unlocks": [],
+      "futureUnlocks": ["universal-antidote", "flame-retardant", "acid-neutralizer"]
     },
     {
       "id": "sublimation",
@@ -284,7 +310,8 @@
       "ranks": 2,
       "learnedFrom": ["smoke-bomb", "charcoal"],
       "requires": ["combustion:2", "distillation:1"],
-      "unlocks": ["pure-essence", "smoke-signal", "vapor-trap"]
+      "unlocks": [],
+      "futureUnlocks": ["pure-essence", "smoke-signal", "vapor-trap"]
     },
     {
       "id": "emulsification",
@@ -295,7 +322,8 @@
       "ranks": 2,
       "learnedFrom": ["healing-salve", "oil"],
       "requires": ["extraction:1"],
-      "unlocks": ["potion-base", "waterproof-grease", "blended-ink"]
+      "unlocks": [],
+      "futureUnlocks": ["potion-base", "waterproof-grease", "blended-ink"]
     },
     {
       "id": "toxicology",
@@ -306,7 +334,8 @@
       "ranks": 3,
       "learnedFrom": ["antidote", "herb-bitter"],
       "requires": ["extraction:1", "neutralization:1"],
-      "unlocks": ["blade-venom", "paralyzing-dart", "purge-draught"]
+      "unlocks": [],
+      "futureUnlocks": ["blade-venom", "paralyzing-dart", "purge-draught"]
     },
     {
       "id": "preservation",
@@ -315,8 +344,9 @@
       "category": "chemistry",
       "description": "Stopping decay — salting, smoking, pickling, desiccation. Keeping things as they are.",
       "ranks": 2,
-      "learnedFrom": ["ration", "leather", "smokehouse-use"],
-      "unlocks": ["long-ration", "specimen-jar", "mummification"]
+      "learnedFrom": ["ration", "leather", "activity:smokehouse-use"],
+      "unlocks": [],
+      "futureUnlocks": ["long-ration", "specimen-jar", "mummification"]
     },
     {
       "id": "pigmentation",
@@ -327,7 +357,8 @@
       "ranks": 2,
       "learnedFrom": ["cloth", "leather"],
       "requires": ["extraction:1"],
-      "unlocks": ["dyed-cloth", "war-paint", "colored-glass"]
+      "unlocks": [],
+      "futureUnlocks": ["dyed-cloth", "war-paint", "colored-glass"]
     }
     ,
     {

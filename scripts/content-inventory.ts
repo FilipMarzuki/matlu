@@ -290,7 +290,12 @@ for (const rc of recipes) {
   for (const c of rc.concepts ?? []) if (!conceptIds.has(c)) refd(c, 'concept', `recipe ${rc.id}`);
 }
 for (const c of concepts) {
-  for (const x of c.learnedFrom ?? []) if (!itemIds.has(x) && !recipeIds.has(x)) refd(x, 'item', `concept ${c.id} (learnedFrom)`);
+  // learnedFrom can also be a concept at a rank (`rotation:2`) or a typed source (`npc:…`), as
+  // registry-integrity.test.ts allows (#1514).
+  for (const x of c.learnedFrom ?? []) {
+    if (itemIds.has(x) || recipeIds.has(x) || /^(npc|observation|activity):[a-z0-9-]+$/.test(x) || conceptIds.has(x.split(':')[0])) continue;
+    refd(x, 'item', `concept ${c.id} (learnedFrom)`);
+  }
   for (const x of c.unlocks ?? []) if (!recipeIds.has(x)) refd(x, 'recipe', `concept ${c.id} (unlocks)`);
   for (const req of c.requires ?? []) { const id = req.split(':')[0]; if (!conceptIds.has(id)) refd(id, 'concept', `concept ${c.id} (requires)`); }
 }
@@ -394,9 +399,11 @@ const md: string[] = [
   '',
   'Ids a registry points at that no registry defines.',
   '',
-  '| id | kind | named by |',
-  '|---|---|---|',
-  ...undefinedRefs.sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)).map(u => `| \`${u.id}\` | ${u.kind} | ${cell(u.from.slice(0, 4).join(', ') + (u.from.length > 4 ? ` +${u.from.length - 4}` : ''))} |`),
+  ...(undefinedRefs.length ? [
+    '| id | kind | named by |',
+    '|---|---|---|',
+    ...undefinedRefs.sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)).map(u => `| \`${u.id}\` | ${u.kind} | ${cell(u.from.slice(0, 4).join(', ') + (u.from.length > 4 ? ` +${u.from.length - 4}` : ''))} |`),
+  ] : ['None: every id a registry names is defined.']),
   '',
   'Things the game uses that no registry defines are the rows below whose "defined in" is a source file (`artificer/…`, `src/scenes/…`).',
   '',
