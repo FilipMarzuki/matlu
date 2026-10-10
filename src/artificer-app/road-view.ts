@@ -14,6 +14,8 @@ import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from 
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
 import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
+import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
+import { answerFor, ASK_HOURS } from '../artificer/asks';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -224,13 +226,32 @@ function healPanel(r: RoadState, p: Person): string {
     <div class="runbar">${act(r, `heal:${p.id}`, label, HEAL_HOURS, { why })}</div></div>`;
 }
 
+/**
+ * A conversation (#1495): Chat (the lore line, as trust allows) and, with a focus on a topic, a
+ * skill or a concept, Ask about it. What they've told you when asked stays on their sheet.
+ */
+function conversation(r: RoadState, p: Person, told: number): string {
+  const f = r.focus && r.focus.kind !== 'goal' ? r.focus : null;
+  const answered = r.asked?.[p.id] ?? [];
+  const ask = f ? act(r, `ask:${p.id}`, `❓ ASK ABOUT ${esc(focusLabel(f).toUpperCase())}`, ASK_HOURS, answered.includes(focusKey(f)) ? { why: `${p.name} has told you what they know about ${focusInline(f)}` } : {}) : '';
+  const answers = answered.map(k => {
+    const a = answerFor(p.id, k);
+    const about = parseFocus(k);
+    return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : k)}</b> — “${esc(a.text)}”</p>` : '';
+  }).join('');
+  return `<div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>
+    <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}</div>
+    ${f ? '' : '<p class="mood">Set a focus on a topic, a skill or a concept, and you\'ll have something to ask them about.</p>'}
+    ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU WHEN ASKED</p>${answers}` : ''}</div>`;
+}
+
 /** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */
 function personSheet(r: RoadState, p: Person): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
   return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
-    <div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>${act(r, `talk:${p.id}`, '💬 TALK', TALK_HOURS)}</div>
+    ${conversation(r, p, told)}
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
 }
 

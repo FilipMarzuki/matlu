@@ -162,7 +162,7 @@ export function parseDecision(text: string): ParseResult {
 export interface RoadDecision { thoughts: string; actions: RoadActionId[] }
 
 /** The shapes a road action can take (validated before the sim sees it; the sim then explains what it can't do). */
-const ROAD_ACTION = /^(rest|wait|tend|help|(talk|heal|accept|complete|appraise|craft|study):[\w-]+|(sell|buy):[\w-]+(:[\w-]+)?|learn:[\w-]+:[\w-]+)$/;
+const ROAD_ACTION = /^(rest|wait|tend|help|(talk|ask|heal|accept|complete|appraise|craft|study):[\w-]+|(sell|buy):[\w-]+(:[\w-]+)?|learn:[\w-]+:[\w-]+)$/;
 
 /** JSON Schema for a road day (strict-mode friendly). */
 export const ROAD_DECISION_SCHEMA = {
@@ -173,7 +173,7 @@ export const ROAD_DECISION_SCHEMA = {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
     actions: {
       type: 'array',
-      description: 'Road actions in order, e.g. "craft:waterskin", "study:joinery", "help", "tend", "talk:hf-maren", "sell:cold-gear", "buy:rawFood:3", "accept:hf-forge-wood", "complete:hf-forge-wood", "learn:hf-orrin:seasoning", "appraise:hf-orrin", "heal:cv-ottilia", "rest", "wait".',
+      description: 'Road actions in order, e.g. "craft:waterskin", "study:joinery", "help", "tend", "talk:hf-maren", "ask:hf-orrin", "sell:cold-gear", "buy:rawFood:3", "accept:hf-forge-wood", "complete:hf-forge-wood", "learn:hf-orrin:seasoning", "appraise:hf-orrin", "heal:cv-ottilia", "rest", "wait".',
       items: { type: 'string' },
     },
   },
@@ -190,7 +190,7 @@ export function parseRoadDecision(text: string): { ok: true; decision: RoadDecis
   if (o.queue !== undefined && o.actions === undefined) errors.push('on the road, reply with "actions" (a list of road action ids), not "queue"');
   else if (!Array.isArray(o.actions)) errors.push('actions must be an array of strings');
   else o.actions.forEach((a, i) => {
-    if (typeof a !== 'string' || !ROAD_ACTION.test(a)) errors.push(`actions[${i}] "${String(a)}" is not a road action (rest, wait, help, tend, craft:<recipe>, study:<concept>, talk:<person>, sell:<item>[:<qty|grade>], buy:<good>[:<qty>], accept:<quest>, complete:<quest>, learn:<teacher>:<thing>, appraise:<teacher>, heal:<healer>)`);
+    if (typeof a !== 'string' || !ROAD_ACTION.test(a)) errors.push(`actions[${i}] "${String(a)}" is not a road action (rest, wait, help, tend, craft:<recipe>, study:<concept>, talk:<person>, ask:<person>, sell:<item>[:<qty|grade>], buy:<good>[:<qty>], accept:<quest>, complete:<quest>, learn:<teacher>:<thing>, appraise:<teacher>, heal:<healer>)`);
     else actions.push(a as RoadActionId);
   });
   return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', actions } };

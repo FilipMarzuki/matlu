@@ -28,7 +28,8 @@ import { BASELINE } from '../artificer/vitality';
 import { SKILL_IDS, LEVELS, perceivedLevel, skillLevel } from '../artificer/skills';
 import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
-import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
+import { focusKey, focusLabel, UNRELIABLE_BELOW } from '../artificer/focus';
+import { ASK_HOURS } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
@@ -337,6 +338,7 @@ export const ROAD_RULES = `THE CARAVAN ROAD — you survived the winter. The spr
 Each day: choose road actions in order; they run until the day's 16 hours are spent, then you sleep. On the wagon the caravan waters you; in a village you drink your own water. Food comes from your stores every night as before. Nights on the road are never cold.
 
 PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
+ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know. An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
 TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
 QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
 HEALERS: "heal:<healer>" (${HEAL_HOURS}h) — Ottilia on the wagon, or a village's healer — tends your worst untreated injury: treated well (+2 healing a night), 2 points healed at once; ${HEAL_FEE} marks, free for a friend (trust ${FRIEND_HEAL}+). At trust ${SET_BONE_TRUST}+ she sets a grave injury properly, so it heals without an old wound. Old wounds can't be undone.
@@ -474,6 +476,12 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     }
   }
 
+  // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered.
+  if (r.focus && r.focus.kind !== 'goal') {
+    const key = focusKey(r.focus);
+    const asked = peopleHere(r).map(p => `ask:${p.id}${(r.asked?.[p.id] ?? []).includes(key) ? ' (answered)' : ''}`);
+    lines.push(`ASK ABOUT YOUR FOCUS (${focusLabel(r.focus)}), ${ASK_HOURS}h each: ${asked.join(', ')}`);
+  }
   if (!village) {
     lines.push('');
     lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');
