@@ -14,10 +14,15 @@
  *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
  *     strings and copied in, so a new portrait is picked up without a hand-kept list. A missing one
  *     fails the build. A URL built at runtime (`/assets/${x}.png`) isn't seen: name assets whole.
+ *   - The play API (#1555) is a function beside the page. Vite bundles src/artificer-play/vercel-handler.ts
+ *     with the sim, its JSON and supabase-js into one file, and the site is written out in Vercel's
+ *     Build Output API layout (artificer/.vercel/output: static/, functions/api/play.func/,
+ *     config.json routing /api/v1/* to the function). Vercel deploys that layout as it stands when a
+ *     build leaves one; dist/ stays the plain site, for previews and as the fallback.
  */
 
 import { build } from 'vite';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -68,3 +73,44 @@ for (const url of assets) {
   copyFileSync(from, join(outDir, url));
 }
 console.log(`Artificer built to ${outDir.slice(root.length + 1)}/: index.html, ${assets.length} sprite(s) copied from public/.`);
+
+// ── The play API's function, and the Build Output API layout (#1555) ───────────────────────────
+
+const vercelOut = join(root, 'artificer', '.vercel', 'output');
+const funcDir = join(vercelOut, 'functions', 'api', 'play.func');
+rmSync(vercelOut, { recursive: true, force: true });
+
+await build({
+  configFile: false,
+  root,
+  publicDir: false,
+  logLevel: 'warn',
+  // Bundle every dependency (supabase-js too): the function gets this one file and nothing else.
+  ssr: { noExternal: true, target: 'node' },
+  build: {
+    ssr: join(root, 'src', 'artificer-play', 'vercel-handler.ts'),
+    outDir: funcDir,
+    emptyOutDir: true,
+    target: 'node22',
+    minify: false,
+    rollupOptions: { output: { format: 'cjs', exports: 'named', entryFileNames: 'handler.js' } },
+  },
+});
+// Vercel's Node launcher calls the module's export as `(req, res)`; hand it the function itself.
+writeFileSync(join(funcDir, 'index.js'), "module.exports = require('./handler.js').default;\n");
+writeFileSync(join(funcDir, 'package.json'), JSON.stringify({ type: 'commonjs' }) + '\n');
+writeFileSync(join(funcDir, '.vc-config.json'), JSON.stringify({
+  runtime: 'nodejs22.x', handler: 'index.js', launcherType: 'Nodejs', maxDuration: 10,
+}, null, 2) + '\n');
+
+cpSync(outDir, join(vercelOut, 'static'), { recursive: true });
+writeFileSync(join(vercelOut, 'config.json'), JSON.stringify({
+  version: 3,
+  routes: [
+    // The API first, so no static file can shadow it; the rest of the path rides along as ?path=.
+    { src: '^/api/v1/?$', dest: '/api/play?path=' },
+    { src: '^/api/v1/(.*)$', dest: '/api/play?path=$1' },
+    { handle: 'filesystem' },
+  ],
+}, null, 2) + '\n');
+console.log(`Play API bundled to ${funcDir.slice(root.length + 1)}/; Build Output API layout in ${vercelOut.slice(root.length + 1)}/.`);

@@ -21,7 +21,7 @@ const all = { game: true, artificer: true, engines: true, wiki: true, dev: true 
 
 describe('CI scope (#1533)', () => {
   it('runs only the Artificer checks for an Artificer-only change', () => {
-    expect(flags(['src/artificer/region1.ts', 'src/artificer-app/main.ts', 'src/artificer-ai/observe.ts', 'src/artificer/content/concepts.json', 'artificer.html', 'tests/artificer-talents.spec.ts', 'scripts/ai-play.ts', 'scripts/build-artificer.mjs', 'artificer/vercel.json']))
+    expect(flags(['src/artificer/region1.ts', 'src/artificer-app/main.ts', 'src/artificer-ai/observe.ts', 'src/artificer-play/api.ts', 'src/artificer/content/concepts.json', 'artificer.html', 'tests/artificer-talents.spec.ts', 'scripts/ai-play.ts', 'scripts/build-artificer.mjs', 'artificer/vercel.json']))
       .toEqual({ ...none, artificer: true });
   });
 
