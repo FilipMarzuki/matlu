@@ -78,6 +78,11 @@ describe('Leads (#1497)', () => {
     expect(deserialize(serialize(app))?.road?.leads).toEqual(r.leads);
     const { leads: _gone, ...before } = r;
     expect(deserialize(serialize({ ...app, road: before }))?.road?.leads).toBeUndefined();
+    // Leads saved in the wrong shape load as none, and a bad entry is dropped; the road still loads.
+    const bad = (leads: unknown) => deserialize(serialize({ ...app, road: { ...r, leads } as unknown as RoadState }))?.road;
+    expect(bad('oops')?.leads).toBeUndefined();
+    expect(bad([{ who: 'kg-sabine' }, ...r.leads!])?.leads).toEqual(r.leads);
+    expect(() => runRoadAction(bad('oops')!, 'rest')).not.toThrow();
     // A focus on Sabine, open only through the lead, is still allowed when the save loads.
     const sabine: Focus = { kind: 'person', id: 'kg-sabine' };
     expect(deserialize(serialize({ ...app, road: { ...r, heard: [], focus: sabine } }))?.road?.focus).toEqual(sabine);
