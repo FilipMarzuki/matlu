@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd .. && npm ci",
+  "buildCommand": "cd .. && npm run build:artificer",
+  "outputDirectory": "dist",
+  "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qE '^(src/artificer|artificer|scripts/build-artificer|package(-lock)?\\.json$|src/crafting/planner|src/rank-names|public/assets/sprites/characters/)'",
+  "git": { "deploymentEnabled": { "main": true } }
+}

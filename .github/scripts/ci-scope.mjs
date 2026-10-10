@@ -29,7 +29,7 @@ export const FLAGS = ['game', 'artificer', 'engines', 'wiki', 'dev'];
 export const AREAS = [
   ['wiki', [/^wiki\//]],
   ['dev', [/^dev\//]],
-  ['artificer', [/^src\/artificer(-app|-ai)?\//, /^artificer\.html$/, /^artificer\//, /^tests\/artificer-[^/]+\.spec\.ts$/, /^scripts\/ai-[^/]+$/]],
+  ['artificer', [/^src\/artificer(-app|-ai)?\//, /^artificer\.html$/, /^artificer\//, /^tests\/artificer-[^/]+\.spec\.ts$/, /^scripts\/(ai-[^/]+|build-artificer\.mjs)$/]],
   ['engines', [/^storytelling\//, /^mapgen\//]],
   ['game', [/^src\//, /^public\//, /^index\.html$/, /^crafting\.html$/, /^tests\//, /^macro-world\//]],
   ['docs', [/^docs\//, /^screenshots\//, /\.md$/]],
