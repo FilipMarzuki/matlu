@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { DiscoveryToast } from '../ui/DiscoveryToast';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { UI } from '../ui/UIFactory';
 import { playerItems, REGISTRY_ITEMS } from '../lib/items';
@@ -193,6 +194,10 @@ export class CraftingMenuScene extends Phaser.Scene {
   }
 
   async create(): Promise<void> {
+    // "New recipe" toasts show over the menu while it's open (#1529): the Homestead's own
+    // toast host is drawn underneath it. Made first, so discoveries loadData() triggers show too.
+    new DiscoveryToast(this);
+
     // Load data files
     await this.loadData();
 

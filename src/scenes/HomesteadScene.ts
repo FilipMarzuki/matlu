@@ -18,6 +18,7 @@ import { InventorySystem } from '../systems/InventorySystem';
 import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { DiscoveryToast } from '../ui/DiscoveryToast';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
@@ -812,6 +813,9 @@ export class HomesteadScene extends Phaser.Scene {
     // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
     const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
     uiCam.setScroll(0, 0);
+
+    // "New recipe" toasts (#1529), drawn on the UI camera at native size.
+    new DiscoveryToast(this, uiCam);
 
     // Helper: mark game objects as UI-only (visible on uiCam, hidden on main).
     const addUi = (...objs: Phaser.GameObjects.GameObject[]) => {
