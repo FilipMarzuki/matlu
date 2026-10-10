@@ -156,3 +156,70 @@ describe('The play API (#1555)', () => {
     expect(store.rows.get(id)!.moves).toEqual([{ do: 'scout' }]);
   });
 });
+
+/** Play a stored game to its end through the API: sleep each day, take the first answer when asked. */
+async function playToTheEnd(store: ReturnType<typeof memoryStore>, id: string): Promise<{ status: number; body: Record<string, unknown> }> {
+  let last = await handle(get(`/api/v1/games/${id}`), store, deps);
+  for (let i = 0; i < 100 && (last.body as { phase: string }).phase !== 'ended'; i++) {
+    const b = last.body as { phase: string; moves: { move: unknown }[] };
+    last = await handle(post(`/api/v1/games/${id}/moves`, { move: b.phase === 'day' ? { endDay: true } : b.moves[0].move }), store, deps);
+    expect(last.status).toBe(200);
+  }
+  return last;
+}
+
+describe('Run records from the play API (#1558)', () => {
+  it('writes one record when a game ends, says where it is, and serves it', async () => {
+    const store = memoryStore();
+    const { id } = (await handle(post('/api/v1/games', { name: 'Ada Lovelace', model: 'some-model', client: 'curl' }), store, deps)).body as { id: string };
+    expect((await handle(get(`/api/v1/games/${id}/run`), store, deps)).status).toBe(404); // not ended yet
+    const end = await playToTheEnd(store, id);
+    expect(end.body.record).toBe(`/records/?game=${id}`);
+    expect(store.runs.size).toBe(1);
+
+    const r = await handle(get(`/api/v1/games/${id}/run`), store, deps);
+    expect(r.status).toBe(200);
+    expect(r.cache).toBeGreaterThan(0);
+    const run = (r.body as { run: Record<string, unknown> }).run;
+    expect(run).toMatchObject({ playerKind: 'ai', model: 'some-model', client: 'curl', surface: 'api', nickname: 'Ada', stage: 'reach' });
+    expect(run.moves).toBe(store.rows.get(id)!.moves.length);
+    expect(JSON.stringify(run)).not.toContain(id); // the game id stays on the server
+
+    const list = await handle(get('/api/v1/runs'), store, deps);
+    expect(list.status).toBe(200);
+    expect(list.cache).toBeGreaterThan(0);
+    const { recent, best } = list.body as { recent: unknown[]; best: unknown[] };
+    expect(recent).toHaveLength(1);
+    expect(best).toHaveLength(1);
+  });
+
+  it("records the console's games as people's, and a player's own word over the default", async () => {
+    const store = memoryStore();
+    const consoleGame = (await handle(post('/api/v1/games', { client: 'artificer-console' }), store, deps)).body as { id: string };
+    const said = (await handle(post('/api/v1/games', { player: 'person' }), store, deps)).body as { id: string };
+    expect(store.rows.get(consoleGame.id)).toMatchObject({ surface: 'console', player: 'person' });
+    expect(store.rows.get(said.id)).toMatchObject({ surface: 'api', player: 'person' });
+    // The MCP server marks its own calls; a body can't claim it.
+    const claimed = (await handle(post('/api/v1/games', { surface: 'mcp' }), store, deps)).body as { id: string };
+    expect(store.rows.get(claimed.id)).toMatchObject({ surface: 'api', player: 'ai' });
+    const viaMcp = (await handle({ ...post('/api/v1/games', {}), surface: 'mcp' }, store, deps)).body as { id: string };
+    expect(store.rows.get(viaMcp.id)).toMatchObject({ surface: 'mcp', player: 'ai' });
+  });
+
+  it("still saves the move that ends a game when its record can't be written", async () => {
+    const store = memoryStore();
+    store.insertRun = async () => { throw new Error('database down'); };
+    const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };
+    const errors: unknown[] = [];
+    const realError = console.error;
+    console.error = (...args: unknown[]) => { errors.push(args); };
+    try {
+      const end = await playToTheEnd(store, id);
+      expect(end.status).toBe(200);
+    } finally {
+      console.error = realError;
+    }
+    expect(store.rows.get(id)!.phase).toBe('ended');
+    expect(errors).toHaveLength(1);
+  });
+});

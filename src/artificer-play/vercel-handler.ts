@@ -47,8 +47,12 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
   // One store per handler, so per warm function instance: a cold start makes it, later requests reuse it.
   let store: GameStore | null | undefined = givenStore;
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const send = (status: number, body: Record<string, unknown> | null): void => {
-      res.writeHead(status, { ...CORS, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}) });
+    const send = (status: number, body: Record<string, unknown> | null, cache?: number): void => {
+      // Most answers are one player's game and must never be cached. The run records are the same
+      // for everyone, so Vercel's edge may keep them briefly (s-maxage) and serve them while it
+      // fetches fresh ones in the background (stale-while-revalidate); browsers always ask again.
+      const cacheControl = cache ? `public, max-age=0, s-maxage=${cache}, stale-while-revalidate=${cache * 5}` : 'no-store';
+      res.writeHead(status, { ...CORS, 'Cache-Control': cacheControl, ...(body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}) });
       res.end(body ? JSON.stringify(body) : undefined);
     };
     try {
@@ -69,7 +73,7 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
       const ip = ipOf(req, env.VERCEL === '1');
       if (mcp) return await sendWeb(res, await mcpFetch(webRequest(req, body), { ip, store, deps: apiDeps }));
       const r = await handle({ method: req.method ?? 'GET', path: pathOf(req.url ?? '/'), body, ip }, store, apiDeps);
-      send(r.status, r.body);
+      send(r.status, r.body, r.cache);
     } catch (e) {
       // The reason goes to the function's log; the player gets no internals.
       console.error('play API error', e);

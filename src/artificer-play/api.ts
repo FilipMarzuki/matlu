@@ -5,6 +5,8 @@
  *   POST /api/v1/games               start a game          { name?, client?, model? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
+ *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
+ *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/rules               the rules text        → 200
  *
  * Nothing here knows about Vercel or Supabase: `handle` takes a request, a store and a clock, and
@@ -20,7 +22,9 @@
 
 import { createHash } from 'node:crypto';
 import { RULES, ROAD_RULES } from '../artificer-ai/observe';
-import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Move, type Phase, type View } from './session';
+import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
+import { measure, runOf, type GameMeasures } from './record-of';
+import { compareRuns, type PlayerKind, type Run, type StoredRun, type Surface } from './records';
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {
@@ -36,6 +40,11 @@ export interface GameRecord {
   model: string | null;
   /** A salted hash of the address that started it, for the daily limit. */
   ipKey: string;
+  /** Where it's played and by whom, for its run record (#1558). `player` is self-reported. */
+  surface: Surface;
+  player: PlayerKind;
+  /** Measures taken during play that its end state can't show (the larder at midwinter). */
+  measures: GameMeasures;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +63,13 @@ export interface GameStore {
   countAllStartedSince(sinceIso: string): Promise<number>;
   /** Count one move by this address on this UTC day (YYYY-MM-DD) and return its moves that day, this one included. */
   countMove(ipKey: string, day: string): Promise<number>;
+  /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. */
+  insertRun(sourceKey: string, run: Run): Promise<void>;
+  /** The newest records, newest first. */
+  recentRuns(limit: number): Promise<StoredRun[]>;
+  /** The best records of all time, best first (by records.ts rankKey). */
+  bestRuns(limit: number): Promise<StoredRun[]>;
+  runBySource(sourceKey: string): Promise<StoredRun | null>;
 }
 
 export interface ApiRequest {
@@ -62,11 +78,15 @@ export interface ApiRequest {
   /** The raw body, so its size can be checked before it's parsed. */
   body?: string;
   ip: string;
+  /** Set by the MCP server for its calls (the HTTP API can't claim it): where a game is being played. */
+  surface?: Surface;
 }
 
 export interface ApiResponse {
   status: number;
   body: Record<string, unknown>;
+  /** Seconds a shared cache (Vercel's CDN) may keep this answer; absent means never cache. */
+  cache?: number;
 }
 
 export interface ApiDeps {
@@ -94,6 +114,12 @@ export const LIMITS = {
 /** The usage counter's key for every move by anyone (artificer_play_usage). */
 const ALL_MOVES = 'all';
 
+/** The console's client name (src/artificer-app/console.ts sends it): its games are played by people. */
+export const CONSOLE_CLIENT = 'artificer-console';
+
+/** How many records GET /api/v1/runs sends: the newest, and the best of all time. */
+export const RUNS = { recent: 500, best: 50, cacheSeconds: 60 };
+
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
 export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = defaultDeps, limits = LIMITS): Promise<ApiResponse> {
@@ -103,6 +129,12 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   const [, , resource, id, sub] = parts;
 
   if (req.method === 'GET' && resource === 'rules' && !id) return { status: 200, body: rulesBody() };
+  // GET /api/v1/runs: the records, for the Records pages. Cached a minute at Vercel's edge, so a
+  // busy page costs one function call a minute, not one per visitor.
+  if (req.method === 'GET' && resource === 'runs' && !id) {
+    const [recent, best] = await Promise.all([store.recentRuns(RUNS.recent), store.bestRuns(RUNS.best)]);
+    return { status: 200, body: { recent, best }, cache: RUNS.cacheSeconds };
+  }
   if (resource !== 'games') return fail(404, 'Not found.');
 
   // POST /api/v1/games: start a game.
@@ -120,9 +152,14 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     const name = cleanName(body.name, limits.nameChars);
     const game = startGame({ seed: deps.newSeed?.(), name });
     const nowIso = new Date(deps.now()).toISOString();
+    const client = shortText(body.client);
+    // Where: the MCP server says so itself; the console by its client name; anything else is the API.
+    const surface: Surface = req.surface ?? (client === CONSOLE_CLIENT ? 'console' : 'api');
+    // Who: as the player says, else a person in the console and a program anywhere else.
+    const player: PlayerKind = body.player === 'person' || body.player === 'ai' ? body.player : surface === 'console' ? 'person' : 'ai';
     const record: GameRecord = {
       id: deps.newId(), version: GAME_VERSION, session: serialize(game), moves: [], phase: view(game).phase,
-      name, client: shortText(body.client), model: shortText(body.model), ipKey, createdAt: nowIso, updatedAt: nowIso,
+      name, client, model: shortText(body.model), ipKey, surface, player, measures: {}, createdAt: nowIso, updatedAt: nowIso,
     };
     await store.insert(record);
     return { status: 201, body: gameBody(record.id, view(game)) };
@@ -131,6 +168,15 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   if (!id) return fail(404, 'Not found.');
   const record = await store.get(id);
   if (!record) return fail(404, `No game "${id}".`);
+
+  // GET /api/v1/games/:id/run: its record, once it has ended. Before the session is read, so a game
+  // from an older version still finds its record.
+  if (req.method === 'GET' && sub === 'run') {
+    const run = await store.runBySource(sourceOf(id));
+    if (run) return { status: 200, body: { run }, cache: RUNS.cacheSeconds };
+    return fail(404, record.phase === 'ended' ? 'This game has no record.' : 'This game hasn\'t ended yet: a run gets its record when it ends.');
+  }
+
   const game = deserialize(record.session);
   if (!game) return fail(410, 'This game was made by an older version of the Artificer and can\'t be continued. Start a new one.');
 
@@ -154,22 +200,49 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (!isMove(move)) return fail(400, 'The body must be { "move": … }: one of { "do": … }, { "endDay": true }, { "plan": […] }, { "choose": … }, { "set": { … } }.');
     const r = apply(game, move);
     if (!r.ok) return { status: 422, body: { error: r.error, moves: r.moves } };
-    const updated: GameRecord = { ...record, session: serialize(r.game), moves: [...record.moves, move], phase: r.view.phase, updatedAt: new Date(deps.now()).toISOString() };
+    const updated: GameRecord = {
+      ...record, session: serialize(r.game), moves: [...record.moves, move], phase: r.view.phase,
+      measures: measure(record.measures, r.game.app), updatedAt: new Date(deps.now()).toISOString(),
+    };
     if (!(await store.update(updated, record.moves.length))) {
       return fail(409, 'Another move on this game landed first. Fetch the game and try again.');
     }
-    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
+    // An ended game refuses moves, so this is the move that ended it: write its record, once.
+    if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
+    await saveRun(store, updated, r.game);
+    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed, record: `/records/?game=${id}` } };
   }
 
   return fail(405, `${req.method} isn't allowed here.`);
 }
 
+/**
+ * Write a finished game's record. A failure is logged, not passed on: the move itself was saved,
+ * and the player shouldn't see an error for a record they didn't ask for.
+ */
+async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<void> {
+  try {
+    const run = runOf(game.app, g.measures, {
+      playerKind: g.player, model: g.model, client: g.client, surface: g.surface, gameVersion: g.version, name: g.name, moves: g.moves.length,
+    });
+    await store.insertRun(sourceOf(g.id), run);
+  } catch (e) {
+    console.error('run record not saved', g.id, e);
+  }
+}
+
+/** A record's source key for an API game (artificer_runs.source_key). */
+export const sourceOf = (gameId: string): string => `game:${gameId}`;
+
 /** An in-memory store, for tests and local play. */
-export function memoryStore(): GameStore & { rows: Map<string, GameRecord> } {
+export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs: Map<string, StoredRun> } {
   const rows = new Map<string, GameRecord>();
   const moves = new Map<string, number>();
+  const runs = new Map<string, StoredRun>();
+  let written = 0;
   return {
     rows,
+    runs,
     insert: async g => { rows.set(g.id, structuredClone(g)); },
     get: async id => (rows.has(id) ? structuredClone(rows.get(id)!) : null),
     update: async (g, movesBefore) => {
@@ -184,6 +257,13 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord> } {
       moves.set(`${ipKey}|${day}`, n);
       return n;
     },
+    insertRun: async (key, run) => {
+      // A fake clock that only moves forward, so "newest first" is well defined in tests.
+      if (!runs.has(key)) runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
+    },
+    recentRuns: async limit => [...runs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
+    bestRuns: async limit => [...runs.values()].sort(compareRuns).slice(0, limit),
+    runBySource: async key => runs.get(key) ?? null,
   };
 }
 
