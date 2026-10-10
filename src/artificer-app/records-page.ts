@@ -12,7 +12,7 @@
 import './style.css';
 import './records.css';
 import { inject } from '@vercel/analytics';
-import { percentBeaten, tierOf, outcomeLine, groupOf, type StoredRun } from '../artificer-play/records';
+import { percentBeaten, tierOf, outcomeLine, groupOf, type RunSummary, type StoredRun } from '../artificer-play/records';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -37,19 +37,21 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: stri
   return e;
 }
 
-async function getJson<T>(path: string): Promise<{ status: number; body: T | null }> {
+/** A GET to the API: the body when it worked, and the API's own reason when it didn't. */
+async function getJson<T>(path: string): Promise<{ status: number; body: T | null; error: string | null }> {
   try {
     const r = await fetch(path);
-    return { status: r.status, body: r.ok ? ((await r.json()) as T) : null };
+    const json = (await r.json().catch(() => null)) as (T & { error?: string }) | null;
+    return { status: r.status, body: r.ok ? json : null, error: r.ok ? null : json?.error ?? null };
   } catch {
-    return { status: 0, body: null };
+    return { status: 0, body: null, error: null };
   }
 }
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
-const who = (r: StoredRun): string => r.nickname ?? 'a Warden';
-const playedBy = (r: StoredRun): string => (r.playerKind === 'person' ? 'a person' : r.model ?? 'an AI');
+const who = (r: RunSummary): string => r.nickname ?? 'a Warden';
+const playedBy = (r: RunSummary): string => (r.playerKind === 'person' ? 'a person' : r.model ?? 'an AI');
 const when = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 const pct = (n: number, of: number): number => (of ? Math.round((100 * n) / of) : 0);
 
@@ -91,7 +93,7 @@ function table(cols: Col[], rows: (string | Node)[][]): HTMLTableElement {
 }
 
 /** Who played, and under it, muted, where it was played. */
-function playerCell(r: StoredRun): Node {
+function playerCell(r: RunSummary): Node {
   const span = el('span', '', playedBy(r));
   if (r.playerKind === 'ai' && r.model) span.title = 'As the player reported it';
   const frag = document.createDocumentFragment();
@@ -104,7 +106,7 @@ function playerCell(r: StoredRun): Node {
 /** Rows shown before "Show all": the board reads at a glance, and the rest is one tap away. */
 const BEST_SHOWN = 10;
 
-function renderBest(best: StoredRun[], mine: StoredRun | null): void {
+function renderBest(best: RunSummary[], mine: StoredRun | null): void {
   const box = $('#best');
   box.replaceChildren();
   if (!best.length) {
@@ -150,11 +152,11 @@ function emptyNote(): HTMLElement {
 
 // ── How far each player gets ────────────────────────────────────────────────
 
-interface Group { label: string; runs: StoredRun[] }
+interface Group { label: string; runs: RunSummary[] }
 
 /** People first, then models by how many runs they have; the long tail folds into one row. */
-function groupsOf(runs: StoredRun[]): Group[] {
-  const by = new Map<string, StoredRun[]>();
+function groupsOf(runs: RunSummary[]): Group[] {
+  const by = new Map<string, RunSummary[]>();
   for (const r of runs) by.set(groupOf(r), [...(by.get(groupOf(r)) ?? []), r]);
   const people = by.get('People');
   by.delete('People');
@@ -164,7 +166,7 @@ function groupsOf(runs: StoredRun[]): Group[] {
   return [...(people ? [{ label: 'People', runs: people }] : []), ...shown, ...(rest.length ? [{ label: 'Other AIs', runs: rest }] : [])];
 }
 
-function renderSpread(recent: StoredRun[]): void {
+function renderSpread(recent: RunSummary[]): void {
   const box = $('#spread');
   box.replaceChildren();
   if (!recent.length) {
@@ -253,28 +255,28 @@ function wireTooltips(root: HTMLElement): void {
 
 // ── Your run ────────────────────────────────────────────────────────────────
 
-function renderYours(mine: StoredRun | null, status: number, recent: StoredRun[]): void {
+function renderYours(mine: StoredRun | null, status: number, error: string | null, recent: RunSummary[]): void {
   const box = $('#yours');
   box.hidden = false;
   box.replaceChildren(el('p', 'eyebrow ice', 'YOUR RUN'));
   if (!mine) {
-    box.append(el('p', 'quiet', status === 404
-      ? "This game has no record yet: a run gets one when it ends. Finish it in the console, then come back."
-      : "Your run's record can't be reached right now. Try again in a while."));
+    // The API says why (not ended yet, no such game, an older version); anything else is the network.
+    box.append(el('p', 'quiet', status === 404 && error ? error : "Your run's record can't be reached right now. Try again in a while."));
     return;
   }
   box.append(el('h2', '', `${mine.nickname ?? 'Your Warden'} ${outcomeLine(mine)}.`));
   const others = recent.filter(r => r.id !== mine.id);
   const tiles = el('div', 'tiles');
-  const tile = (label: string, group: StoredRun[]): void => {
+  const tile = (label: string, group: RunSummary[]): void => {
     const p = percentBeaten(mine, group);
     const t = el('div', 'tile');
-    t.append(el('span', 'label', label), el('span', 'value', p === null ? '—' : `${p}%`), el('span', 'muted', p === null ? 'no runs to compare yet' : `of ${group.length} run${group.length === 1 ? '' : 's'}`));
+    t.append(el('span', 'label', label), el('span', 'value', p === null ? '—' : `${p}%`), el('span', 'muted', p === null ? 'no runs to compare yet' : `of the last ${group.length} run${group.length === 1 ? '' : 's'}`));
     tiles.append(t);
   };
-  tile('Further than all runs', others);
-  tile("Further than people's runs", others.filter(r => r.playerKind === 'person'));
-  tile("Further than AIs' runs", others.filter(r => r.playerKind === 'ai'));
+  // Against the recent runs the list carries (the last 500 of this version), not every run ever.
+  tile('Further than recent runs', others);
+  tile("Further than people's recent runs", others.filter(r => r.playerKind === 'person'));
+  tile("Further than AIs' recent runs", others.filter(r => r.playerKind === 'ai'));
   const facts = el('p', 'facts', [
     mine.readyDay === null ? 'Never winter-ready' : `Winter-ready on day ${mine.readyDay}`,
     mine.larderMidwinter === null ? null : `${mine.larderMidwinter} rations at midwinter`,
@@ -290,7 +292,7 @@ function renderYours(mine: StoredRun | null, status: number, recent: StoredRun[]
 async function main(): Promise<void> {
   const game = new URLSearchParams(location.search).get('game');
   const [runs, mine] = await Promise.all([
-    getJson<{ recent: StoredRun[]; best: StoredRun[] }>('/api/v1/runs'),
+    getJson<{ version: string; recent: RunSummary[]; best: RunSummary[] }>('/api/v1/runs'),
     game ? getJson<{ run: StoredRun }>(`/api/v1/games/${encodeURIComponent(game)}/run`) : Promise.resolve(null),
   ]);
   if (!runs.body) {
@@ -299,8 +301,9 @@ async function main(): Promise<void> {
     $('#spread').replaceChildren(why.cloneNode(true));
     return;
   }
+  $('#best-sub').textContent = `On this version of the game (${runs.body.version}): a version that changes the rules starts a fresh board.`;
   const own = mine?.body?.run ?? null;
-  if (mine) renderYours(own, mine.status, runs.body.recent);
+  if (mine) renderYours(own, mine.status, mine.error, runs.body.recent);
   renderBest(runs.body.best, own);
   renderSpread(runs.body.recent);
 }

@@ -57,6 +57,10 @@ describe('Run records (#1558)', () => {
     expect(nicknameOf('Max2013')).toBe('Max'); // digits could be a birth year
     expect(nicknameOf('Åsa-Lena')).toBe('Åsa-Lena');
     expect(nicknameOf('ThisNameIsFarTooLongToShow')).toHaveLength(16);
+    // Cut by characters: a letter outside the basic plane is never split in half.
+    const fancy = nicknameOf(`a${'𝓪'.repeat(20)}`)!;
+    expect([...fancy]).toHaveLength(16);
+    expect(fancy).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
     expect(nicknameOf('Warden')).toBeNull();
     expect(nicknameOf('')).toBeNull();
     expect(nicknameOf(null)).toBeNull();
@@ -69,14 +73,18 @@ describe('Run records (#1558)', () => {
     expect(nicknameOf('Skillet')).toBe('Skillet');
   });
 
-  it('ranks further runs first: Mistheim, then the thaw (by grade), then the day the body gave out', () => {
+  it('ranks Mistheim first, then alive after the thaw (by grade), then deaths by how long the Warden lasted', () => {
     const arrived = run({ outcome: 'arrived', stage: 'road', endDay: 70 });
     const roadDeath = run({ outcome: 'died', stage: 'road', endDay: 66 });
     const hale = run({ outcome: 'survived', grade: 'hale', endDay: 61, readyDay: 25 });
     const broken = run({ outcome: 'survived', grade: 'broken', endDay: 61, readyDay: 20 });
     const day30 = run({ endDay: 30 });
     const day11 = run({ endDay: 11 });
-    expect([day11, broken, roadDeath, day30, arrived, hale].sort(compareRuns)).toEqual([arrived, roadDeath, hale, broken, day30, day11]);
+    expect([day11, broken, roadDeath, day30, arrived, hale].sort(compareRuns)).toEqual([arrived, hale, broken, roadDeath, day30, day11]);
+    // Among the living the day says nothing: a slower arrival isn't a better one.
+    const slow = run({ outcome: 'arrived', stage: 'road', endDay: 90, grade: 'worn' });
+    const fast = run({ outcome: 'arrived', stage: 'road', endDay: 72, grade: 'hale' });
+    expect(compareRuns(fast, slow)).toBeLessThan(0);
     expect([tierOf(arrived), tierOf(roadDeath), tierOf(hale), tierOf(day11)]).toEqual([3, 2, 2, 1]);
     // Each part of the rank key has its own digits: no number of milestones outweighs a day further.
     expect(rankKey(run({ endDay: 12 }))).toBeGreaterThan(rankKey(run({ endDay: 11, milestones: 99, readyDay: 1, grade: 'hale' })));

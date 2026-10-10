@@ -3,7 +3,7 @@
  * the game's state. The API calls `measure` after every move and `runOf` when a game ends.
  */
 
-import type { AppState } from '../artificer-app/controller';
+import { currentRun, type AppState } from '../artificer-app/controller';
 import { summarizeRun, summarizeRoad, type RunRecord } from '../artificer/legacy';
 import { conceptRanks } from '../artificer/rank';
 import { SKILL_IDS, skillLevel } from '../artificer/skills';
@@ -46,7 +46,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
   if (onRoad ? !app.road!.outcome : !app.sim.outcome) throw new Error('only a finished game has a run record');
   const rec: RunRecord = onRoad ? summarizeRoad(app.road!, app.sim, 1) : summarizeRun(app.sim, 1);
   // Skills and concepts keep growing on the road, so they're read from wherever the run ended.
-  const last = onRoad ? app.road! : app.sim;
+  const last = currentRun(app);
   const skills = Object.fromEntries(SKILL_IDS.map(id => [id, skillLevel(last.skills, id)]));
   return {
     playerKind: meta.playerKind,

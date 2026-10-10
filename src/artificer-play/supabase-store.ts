@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { GameRecord, GameStore } from './api';
-import { rankKey, type Run, type StoredRun } from './records';
+import { rankKey, type Run, type RunSummary, type StoredRun } from './records';
 
 /** A row as Postgres has it: snake_case, moves as jsonb, and the move count kept for `update`. */
 interface Row {
@@ -74,8 +74,10 @@ interface RunRow {
 }
 
 const RUNS = 'artificer_runs';
-/** The columns that go out: everything but `source_key` (it holds the game id) and `rank_key`. */
-const RUN_COLUMNS = 'id, created_at, player_kind, model, client, surface, game_version, nickname, outcome, grade, stage, end_day, ready_day, larder_midwinter, shelter_tier, skill_levels, concept_ranks, recipes, milestones, moves, cost_usd, detail';
+/** The columns the lists send: everything but `source_key` (it holds the game id), `rank_key` and `detail`. */
+const SUMMARY_COLUMNS = 'id, created_at, player_kind, model, client, surface, game_version, nickname, outcome, grade, stage, end_day, ready_day, larder_midwinter, shelter_tier, skill_levels, concept_ranks, recipes, milestones, moves, cost_usd';
+/** One record in full: the summary and its `detail`. */
+const RUN_COLUMNS = `${SUMMARY_COLUMNS}, detail`;
 
 /** Whole numbers for the integer columns: Postgres refuses 2.5 for an integer, and the record would be lost. */
 const int = (x: number): number => Math.round(x);
@@ -89,14 +91,16 @@ export const runToRow = (sourceKey: string, r: Run): Omit<RunRow, 'id' | 'create
   cost_usd: r.costUsd, rank_key: rankKey(r), detail: r.detail,
 });
 
-const runFromRow = (r: RunRow): StoredRun => ({
+const summaryFromRow = (r: Omit<RunRow, 'detail'>): RunSummary => ({
   id: r.id, createdAt: r.created_at, playerKind: r.player_kind, model: r.model, client: r.client, surface: r.surface,
   gameVersion: r.game_version, nickname: r.nickname, outcome: r.outcome, grade: r.grade, stage: r.stage, endDay: r.end_day,
   readyDay: r.ready_day, larderMidwinter: r.larder_midwinter, shelterTier: r.shelter_tier, skillLevels: r.skill_levels,
   conceptRanks: r.concept_ranks, recipes: r.recipes, milestones: r.milestones, moves: r.moves,
   // Postgres numeric comes back as a string, to keep its precision.
-  costUsd: r.cost_usd === null ? null : Number(r.cost_usd), detail: r.detail,
+  costUsd: r.cost_usd === null ? null : Number(r.cost_usd),
 });
+
+const runFromRow = (r: RunRow): StoredRun => ({ ...summaryFromRow(r), detail: r.detail });
 
 export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
   // A server has no user session to keep or refresh: each call is the service role.
@@ -144,15 +148,15 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       const { error } = await db.from(RUNS).upsert(runToRow(sourceKey, run), { onConflict: 'source_key', ignoreDuplicates: true });
       check(error, 'insert run');
     },
-    async recentRuns(limit) {
-      const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).order('created_at', { ascending: false }).limit(limit);
+    async recentRuns(limit, version) {
+      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
       check(error, 'recent runs');
-      return ((data ?? []) as unknown as RunRow[]).map(runFromRow);
+      return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
-    async bestRuns(limit) {
-      const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).order('rank_key', { ascending: false }).order('created_at').limit(limit);
+    async bestRuns(limit, version) {
+      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
       check(error, 'best runs');
-      return ((data ?? []) as unknown as RunRow[]).map(runFromRow);
+      return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();

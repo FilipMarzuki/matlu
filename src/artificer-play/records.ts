@@ -69,6 +69,9 @@ export interface StoredRun extends Run {
   createdAt: string;
 }
 
+/** A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't read. */
+export type RunSummary = Omit<StoredRun, 'detail'>;
+
 // ── Nicknames ───────────────────────────────────────────────────────────────
 
 /**
@@ -100,16 +103,32 @@ export function nicknameOf(raw: string | null | undefined): string | null {
   const token = raw?.trim().split(/\s+/)[0] ?? '';
   const squeezed = token.toLowerCase().replace(/[0134578@$!]/g, c => LOOK_ALIKES[c] ?? c).replace(/[^\p{L}]/gu, '');
   if (BLOCKED_ANYWHERE.some(w => squeezed.includes(w)) || BLOCKED_WORDS.some(w => squeezed === w || squeezed === `${w}s`)) return null;
-  const word = token.replace(/[^\p{L}'-]/gu, '').replace(/^['-]+|['-]+$/g, '').slice(0, NICKNAME_CHARS);
+  // Cut by characters, not UTF-16 units: half of a letter outside the basic plane is invalid text
+  // that Postgres refuses, and the record would be lost.
+  const word = [...token.replace(/[^\p{L}'-]/gu, '').replace(/^['-]+|['-]+$/g, '')].slice(0, NICKNAME_CHARS).join('');
   return word && word.toLowerCase() !== 'warden' ? word : null;
 }
 
 // ── Ranking and comparing ───────────────────────────────────────────────────
 
-/** How far a run got: 3 reached Mistheim, 2 lived to the thaw (whatever happened after), 1 didn't. */
+/** How far a run got, for the boards: 3 reached Mistheim, 2 lived to the thaw (whatever happened after), 1 didn't. */
 export function tierOf(r: Pick<Run, 'outcome' | 'stage'>): 1 | 2 | 3 {
   if (r.outcome === 'arrived') return 3;
   return r.stage === 'road' || r.outcome === 'survived' ? 2 : 1;
+}
+
+/**
+ * How a run ended, finer than its tier, for ranking: 4 reached Mistheim, 3 alive after the thaw
+ * (stayed behind), 2 died on the road after it, 1 died before it. A Warden who came through the
+ * winter and stayed alive ranks above one who boarded and died on the road.
+ *
+ * Not legacy.ts's OUTCOME_RANK (the in-game best run): that one can't tell a death on the road
+ * from one in the Reach, and this file stays free of game code so the Records page stays small.
+ */
+function standingOf(r: Pick<Run, 'outcome' | 'stage'>): 1 | 2 | 3 | 4 {
+  if (r.outcome === 'arrived') return 4;
+  if (r.outcome === 'survived') return 3;
+  return r.stage === 'road' ? 2 : 1;
 }
 
 const GRADE_ORDER: Record<string, number> = { hale: 3, worn: 2, broken: 1 };
@@ -117,17 +136,20 @@ const GRADE_ORDER: Record<string, number> = { hale: 3, worn: 2, broken: 1 };
 type Rankable = Pick<Run, 'outcome' | 'stage' | 'endDay' | 'grade' | 'readyDay' | 'milestones'>;
 
 /**
- * One number that orders runs, bigger is better: further (tier, then the day it ended), then how
- * well the winter went (grade), then readier sooner, then more milestones. Stored with each record
- * (`rank_key`), so the database can hand back the best runs of all time without reading them all.
- * Each part gets its own band of digits, so a later part never outweighs an earlier one.
+ * One number that orders runs, bigger is better: how it ended (standing), then for a death how
+ * long the Warden lasted, then how well the winter went (grade), then readier sooner, then more
+ * milestones. The day counts only between deaths: everyone alive at the end saw the same thaw,
+ * and a slower arrival in Mistheim isn't a better one. Stored with each record (`rank_key`), so
+ * the database can hand back the best runs without reading them all. Each part gets its own band
+ * of digits, so a later part never outweighs an earlier one.
  */
 export function rankKey(r: Rankable): number {
-  const day = Math.min(Math.max(Math.round(r.endDay), 0), 999);
+  const standing = standingOf(r);
+  const day = standing <= 2 ? Math.min(Math.max(Math.round(r.endDay), 0), 999) : 0;
   const grade = GRADE_ORDER[r.grade ?? ''] ?? 0;
   const ready = r.readyDay === null ? 0 : 100 - Math.min(Math.max(r.readyDay, 1), 99); // sooner is more
   const milestones = Math.min(Math.max(r.milestones, 0), 99);
-  return (((tierOf(r) * 1000 + day) * 10 + grade) * 100 + ready) * 100 + milestones;
+  return (((standing * 1000 + day) * 10 + grade) * 100 + ready) * 100 + milestones;
 }
 
 /** Best first, for sorting. Negative when `a` is the better run. */

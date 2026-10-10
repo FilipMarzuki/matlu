@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
-import { compareRuns, type PlayerKind, type Run, type StoredRun, type Surface } from './records';
+import { compareRuns, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {
@@ -65,10 +65,10 @@ export interface GameStore {
   countMove(ipKey: string, day: string): Promise<number>;
   /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. */
   insertRun(sourceKey: string, run: Run): Promise<void>;
-  /** The newest records, newest first. */
-  recentRuns(limit: number): Promise<StoredRun[]>;
-  /** The best records of all time, best first (by records.ts rankKey). */
-  bestRuns(limit: number): Promise<StoredRun[]>;
+  /** The newest records of one game version, newest first, without `detail`. */
+  recentRuns(limit: number, version: string): Promise<RunSummary[]>;
+  /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
+  bestRuns(limit: number, version: string): Promise<RunSummary[]>;
   runBySource(sourceKey: string): Promise<StoredRun | null>;
 }
 
@@ -130,10 +130,11 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
 
   if (req.method === 'GET' && resource === 'rules' && !id) return { status: 200, body: rulesBody() };
   // GET /api/v1/runs: the records, for the Records pages. Cached a minute at Vercel's edge, so a
-  // busy page costs one function call a minute, not one per visitor.
+  // busy page costs one function call a minute, not one per visitor. Only this game version's
+  // records: a version that changes the rules starts a fresh board, so runs compare like with like.
   if (req.method === 'GET' && resource === 'runs' && !id) {
-    const [recent, best] = await Promise.all([store.recentRuns(RUNS.recent), store.bestRuns(RUNS.best)]);
-    return { status: 200, body: { recent, best }, cache: RUNS.cacheSeconds };
+    const [recent, best] = await Promise.all([store.recentRuns(RUNS.recent, GAME_VERSION), store.bestRuns(RUNS.best, GAME_VERSION)]);
+    return { status: 200, body: { version: GAME_VERSION, recent, best }, cache: RUNS.cacheSeconds };
   }
   if (resource !== 'games') return fail(404, 'Not found.');
 
@@ -172,9 +173,16 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   // GET /api/v1/games/:id/run: its record, once it has ended. Before the session is read, so a game
   // from an older version still finds its record.
   if (req.method === 'GET' && sub === 'run') {
-    const run = await store.runBySource(sourceOf(id));
+    let run = await store.runBySource(sourceOf(id));
+    // An ended game whose record didn't get written when it ended (a database blip): write it now.
+    // The write is once per source, so this can't make a second record.
+    const ended = record.phase === 'ended' ? deserialize(record.session) : null;
+    if (!run && ended) {
+      await saveRun(store, record, ended);
+      run = await store.runBySource(sourceOf(id));
+    }
     if (run) return { status: 200, body: { run }, cache: RUNS.cacheSeconds };
-    return fail(404, record.phase === 'ended' ? 'This game has no record.' : 'This game hasn\'t ended yet: a run gets its record when it ends.');
+    return fail(404, record.phase === 'ended' ? 'This game\'s record can\'t be made: it\'s from an older version of the Artificer.' : 'This game hasn\'t ended yet: a run gets its record when it ends.');
   }
 
   const game = deserialize(record.session);
@@ -240,6 +248,9 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
   const moves = new Map<string, number>();
   const runs = new Map<string, StoredRun>();
   let written = 0;
+  /** One version's records, as the lists send them (no detail). */
+  const listed = (version: string): RunSummary[] =>
+    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail: _detail, ...summary }) => summary);
   return {
     rows,
     runs,
@@ -261,8 +272,8 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
       // A fake clock that only moves forward, so "newest first" is well defined in tests.
       if (!runs.has(key)) runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
     },
-    recentRuns: async limit => [...runs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
-    bestRuns: async limit => [...runs.values()].sort(compareRuns).slice(0, limit),
+    recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
+    bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
   };
 }

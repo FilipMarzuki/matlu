@@ -206,6 +206,36 @@ describe('Run records from the play API (#1558)', () => {
     expect(store.rows.get(viaMcp.id)).toMatchObject({ surface: 'mcp', player: 'ai' });
   });
 
+  it('writes a missing record when it is asked for, and lists only this version, without detail', async () => {
+    const store = memoryStore();
+    const insert = store.insertRun;
+    let down = true;
+    store.insertRun = async (k, r) => { if (down) throw new Error('database down'); return insert(k, r); };
+    const realError = console.error;
+    console.error = () => {};
+    try {
+      const { id } = (await handle(post('/api/v1/games', { name: 'Ada' }), store, deps)).body as { id: string };
+      await playToTheEnd(store, id);
+      expect(store.runs.size).toBe(0); // lost when the game ended
+      down = false;
+      const r = await handle(get(`/api/v1/games/${id}/run`), store, deps);
+      expect(r.status).toBe(200);
+      expect(store.runs.size).toBe(1);
+      expect((await handle(get(`/api/v1/games/${id}/run`), store, deps)).status).toBe(200);
+      expect(store.runs.size).toBe(1); // still one
+    } finally {
+      console.error = realError;
+    }
+    // Another version's record stays off the boards.
+    const [own] = store.runs.values();
+    await store.insertRun('game:old', { ...own, gameVersion: 'play-0/save-1' });
+    const list = (await handle(get('/api/v1/runs'), store, deps)).body as { version: string; recent: Record<string, unknown>[]; best: Record<string, unknown>[] };
+    expect(list.recent).toHaveLength(1);
+    expect(list.best).toHaveLength(1);
+    expect(list.recent[0].gameVersion).toBe(list.version);
+    expect(list.recent[0]).not.toHaveProperty('detail');
+  });
+
   it("still saves the move that ends a game when its record can't be written", async () => {
     const store = memoryStore();
     store.insertRun = async () => { throw new Error('database down'); };

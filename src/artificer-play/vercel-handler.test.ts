@@ -42,7 +42,7 @@ describe('The play API as a Vercel function (#1555)', () => {
     const runs = await call('/api/v1/runs');
     expect(runs.status).toBe(200);
     expect(runs.headers.get('cache-control')).toMatch(/^public, max-age=0, s-maxage=60/);
-    expect(await runs.json()).toEqual({ recent: [], best: [] });
+    expect(await runs.json()).toMatchObject({ recent: [], best: [] });
     // Through Vercel's route too (/api/v1/runs arrives as /api/play?path=runs).
     expect((await call('/api/play?path=runs')).status).toBe(200);
   });
