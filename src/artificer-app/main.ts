@@ -56,10 +56,13 @@ import { inject } from '@vercel/analytics';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
-// counts a visit without cookies or personal data. Only in production builds: `npm run dev`
-// loads nothing and sends nothing. It sees page views only; what happens in a game belongs in
-// the run records (#1558), not here.
-if (import.meta.env.PROD) inject();
+// counts a visit without cookies or personal data. Only a production build on the real domain
+// loads it: `npm run dev`, local previews and tests, *.vercel.app URLs and the copy of this page
+// the main game's build carries all load nothing and send nothing, so they can't eat into the
+// free plan's monthly events or blur the numbers. If the domain changes, change it here too.
+// It sees page views only; what happens in a game belongs in the run records (#1558), not here.
+const ANALYTICS_HOST = 'artificer.corewarden.app';
+if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
