@@ -8,8 +8,8 @@
  * dist/ for corewarden.app. The Artificer's own Vercel project (Root Directory `artificer/`, see
  * artificer/vercel.json) needs just the Artificer, served at `/`:
  *
- *   - Vite builds artificer.html (renamed to index.html afterwards) and the "Play with your AI"
- *     page (moved to play-with-ai/index.html). Asset URLs are absolute (/assets/…), so moving the
+ *   - Vite builds artificer.html (renamed to index.html afterwards), the "Play with your AI"
+ *     page and the text console (moved to play-with-ai/index.html and console/index.html). Asset URLs are absolute (/assets/…), so moving the
  *     HTML files is safe.
  *   - publicDir is off: public/ holds the whole game's art (hundreds of MB). The few sprites the
  *     Artificer shows are found by scanning its source and content (.ts, .json) for "/assets/…"
@@ -63,17 +63,22 @@ await build({
     rollupOptions: {
       input: {
         artificer: join(root, 'artificer.html'),
-        // The "Play with your AI" page (#1556), moved to /play-with-ai/ below.
+        // The "Play with your AI" page (#1556) and the text console (#1557), moved to
+        // /play-with-ai/ and /console/ below.
         playWithAi: join(root, 'src', 'artificer-app', 'play-with-ai.html'),
+        console: join(root, 'src', 'artificer-app', 'console.html'),
       },
     },
   },
 });
 
 renameSync(join(outDir, 'artificer.html'), join(outDir, 'index.html'));
-// Vite keeps an entry's path from the root (dist/src/artificer-app/…); serve it at /play-with-ai/.
-mkdirSync(join(outDir, 'play-with-ai'), { recursive: true });
-renameSync(join(outDir, 'src', 'artificer-app', 'play-with-ai.html'), join(outDir, 'play-with-ai', 'index.html'));
+// Vite keeps an entry's path from the root (dist/src/artificer-app/…); serve each page from its
+// own folder (/play-with-ai/, /console/).
+for (const page of ['play-with-ai', 'console']) {
+  mkdirSync(join(outDir, page), { recursive: true });
+  renameSync(join(outDir, 'src', 'artificer-app', `${page}.html`), join(outDir, page, 'index.html'));
+}
 rmSync(join(outDir, 'src'), { recursive: true, force: true });
 
 const assets = referencedAssets();
