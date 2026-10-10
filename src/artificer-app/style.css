@@ -682,3 +682,25 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc-memory.full { color: var(--warn); }
 .enc-memory .pinbtn { margin: 0 0 0 6px; }
 .queue li .why.pinnote { color: var(--amber); }
+
+/* The Reach map (#1539): one character per square, coloured by the land. */
+.mapwrap { overflow-x: auto; margin: 4px 0 8px; }
+/* letter-spacing widens each character to about one em, so with line-height 1 the squares are square. */
+.reachmap { margin: 0; font-family: "Courier New", ui-monospace, monospace; font-size: clamp(9px, 1.45vw, 15px); line-height: 1; letter-spacing: .38em; user-select: none; }
+.reachmap span { cursor: pointer; }
+.reachmap .sel { outline: 1px solid var(--gold); background: rgba(255,224,102,.18); }
+.mapinfo { margin: 0 0 10px; color: var(--ink); font-size: 13px; min-height: 1.5em; }
+.maplegend { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.maplegend b { font-family: "Courier New", ui-monospace, monospace; }
+.m-lake, .m-river { color: var(--teal); }
+.m-marsh { color: #6fa58f; }
+.m-meadow { color: #a8c97f; }
+.m-heath { color: #b9a26a; }
+.m-birch { color: #8fd18f; }
+.m-pine { color: #4f9a5f; }
+.m-scree { color: var(--dim); }
+.m-fell { color: #c8c8d8; }
+.m-snow { color: var(--ink); }
+.m-camp { color: var(--gold); font-weight: 700; }
+.m-fog { color: var(--faint); opacity: .55; }
+.reachmap .dim { opacity: .6; }
