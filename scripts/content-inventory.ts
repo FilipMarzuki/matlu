@@ -218,19 +218,26 @@ function craftable(raw: Iterable<string>, pool: RegRecipe[], unlocked: (rc: RegR
   return { have, recipes: made };
 }
 
-/**
- * The Homestead's crafting menu shows and crafts only discovered recipes, and only two unlocks are
- * wired: innate recipes, and "memory" recipes whose trigger counts crafts (`craft:any:10`,
- * `craft:copper-ingot:3`), since crafting is the only action the menu records. Observation,
- * teachers, experiments and the other memory triggers (gather, hunt, weather…) have no caller.
- */
-const homesteadUnlocks = (rc: RegRecipe, made: ReadonlySet<string>): boolean => {
-  if (rc.discovery?.method === 'innate') return true;
-  const m = rc.discovery?.method === 'memory' ? /^craft:([a-z-]+):\d+$/.exec(rc.discovery.trigger ?? '') : null;
-  return !!m && (m[1] === 'any' ? made.size > 0 : made.has(m[1]));
-};
 const dropsOf = (types: string[]) => nodes.filter(n => types.includes(n.id)).flatMap(n => n.yields.map(d => ({ node: n.id, item: d.itemId })));
 const homeDrops = dropsOf(homesteadNodes);
+const gatherable = new Set(homeDrops.map(d => d.item));
+
+/**
+ * The Homestead's crafting menu shows and crafts only discovered recipes. Wired unlocks (#1515):
+ * innate recipes; "memory" recipes whose trigger counts crafts (`craft:copper-ingot:3`) or
+ * gathering from a node the map places (`gather:herb-green:5`); and experiment recipes, which
+ * the Pack tab's Experiment button finds once you hold their inputs (`craftable` checks that).
+ * Observation, teachers, reverse-engineering and the other memory triggers (hunt, cook, status,
+ * weather, use, rest, inventory) still have no caller.
+ */
+const homesteadUnlocks = (rc: RegRecipe, made: ReadonlySet<string>): boolean => {
+  const method = rc.discovery?.method;
+  if (method === 'innate' || method === 'experiment') return true;
+  const m = method === 'memory' ? /^(craft|gather):([a-z-]+):\d+$/.exec(rc.discovery?.trigger ?? '') : null;
+  if (!m) return false;
+  if (m[1] === 'gather') return m[2] === 'any' ? gatherable.size > 0 : gatherable.has(m[2]);
+  return m[2] === 'any' ? made.size > 0 : made.has(m[2]);
+};
 const home = craftable([...homeDrops.map(d => d.item), ...startingInv], recipes, homesteadUnlocks);
 const homeAll = craftable([...homeDrops.map(d => d.item), ...startingInv], recipes);
 

@@ -17,6 +17,7 @@ import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
 import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
+import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
@@ -445,6 +446,9 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
+    // Recipe discovery starts now, not when the crafting menu first opens: every harvest from
+    // here on counts toward memory recipes like healing salve (#1515).
+    DiscoverySystem.of(this);
     // Load item definitions from the unified registry.
     inv.loadResourceDefs(playerItems(REGISTRY_ITEMS) as never[]);
     inv.add('flint', 4);
