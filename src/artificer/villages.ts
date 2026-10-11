@@ -61,7 +61,21 @@ export interface Person {
    * are — the "liking gap" is widest with someone who gives little away (rapport.ts).
    */
   reserved?: true;
+  /**
+   * The organisations they belong to (#1587, knowledge slice B), by org id (orgs.ts): their rank
+   * in each, and what shows of it, if anything. Members know their organisation's facts as deep
+   * as their rank reaches, and keep them from outsiders as its secrecy says. The memberships are
+   * read from the lore (design §4) and written by hand: placeholders for the owner to review.
+   */
+  orgs?: Readonly<Record<string, Membership>>;
 }
+
+/**
+ * Belonging to an organisation (#1587). `rank` is 1 for the newest, and 1 in an organisation
+ * without ranks (to start, only guilds have them). `sign` is what a sharp eye notices of it
+ * (noticing, #1496): the topic it's a sign of is the organisation's own (its `topic` in orgs.ts).
+ */
+export interface Membership { rank: number; sign?: string }
 
 export interface Village {
   id: string;
@@ -100,13 +114,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'The high fields have gone grey. Not frost — stone, from underneath. The plough rings on it, and nothing roots.'],
           [75, 'My mother kept a field up there. When the grey reached it, she moved the fence down the hill and never spoke of it again. That is how we lose land here: one fence at a time.'],
         ]), reserved: true },
-      p('hf-tobin', 'Tobin', 'trader', 'Goblins', 'caravan-folk', 'Quick, cheerful, and always listening for what something is really worth.',
+      { ...p('hf-tobin', 'Tobin', 'trader', 'Goblins', 'caravan-folk', 'Quick, cheerful, and always listening for what something is really worth.',
         { kind: 'job', job: 'carry hides to Saltmere' }, [
           [0, 'Hides, salt, a good knife — I buy what travels well.'],
           [25, 'The prices in Saltmere are honest. The Pandor there write every sale in a book, and nobody argues with the book.'],
           [50, 'Kestrel Gate takes a toll on everything that moves. Sell before you get there.'],
           [75, 'The Compact pays better for news than for hides. Where the ground is going grey, which wells have turned — someone always wants to know.'],
-        ]),
+        ]), orgs: { compact: { rank: 1, sign: 'A small stamped metal disc hangs on a thong inside Tobin\'s collar: a Compact-seal token, the kind goblin bands carry as a letter of introduction.' } } },
       p('hf-isa', 'Isa', 'healer', 'Lövfolk', 'grovekin', 'Unhurried and exact; she listens to a wound before she touches it.',
         { kind: 'item', item: 'rawFood', qty: 4 }, [
           [0, 'Sit. Let me see those hands — frost leaves marks you don\'t feel yet.'],
@@ -114,13 +128,15 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'Where I come from, healing is spoken, not brewed. Lately the words come slower, as if the Myst were further away. In the east they have started calling it the Dry.'],
           [75, 'I came out of the Reach once, too — half-dead on the spring wagon, sixty years ago. I never went back. You learn what you can carry, and you leave the rest.'],
         ], { skill: 'foraging', techniques: ['greens', 'roots', 'fungi'], recipes: [] }),
-      p('hf-orrin', 'Orrin', 'smith', 'Bergfolk', 'ridgefolk', 'Gruff, generous with advice, and impossible to rush.',
+      { ...p('hf-orrin', 'Orrin', 'smith', 'Bergfolk', 'ridgefolk', 'Gruff, generous with advice, and impossible to rush.',
         { kind: 'item', item: 'firewood', qty: 4 }, [
           [0, 'Bring me good stone and I\'ll show you an edge. Iron I can\'t help you with; that\'s Gate work.'],
           [25, 'A crude tool is a promise you\'ll fix it later. Make it sound the first time.'],
           [50, 'In the Dyprike they ask what you have made, not whose child you are. I left a hold seat for this forge. Nobody here has asked me why.'],
           [75, 'My grandmother\'s hold sold mana-granite to half the world. The seams run thinner every year. The holds do not say so out loud.'],
         ], { skill: 'woodcraft', techniques: ['grain', 'notching', 'seasoning'], recipes: [], concept: 'sharpening' }),
+        // He left his hold seat for this forge, not the Dyprike: he still knows what the holds know.
+        orgs: { dyprike: { rank: 1 } } },
     ],
   },
   saltmere: {
@@ -136,20 +152,21 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'My people remember for a living — on the coast a [Keeper] can recite a family back thirty generations. I came inland to forget a little. It didn\'t work.'],
           [75, 'The caravan master owes me three barrels from two springs ago. I\'ll get them. Deepwalkers remember debts longest of all.'],
         ]),
-      p('sm-anselm', 'Anselm', 'teacher', 'Pandor', 'waterstead', 'Patient, precise, and delighted by any question nobody has asked him before.',
+      { ...p('sm-anselm', 'Anselm', 'teacher', 'Pandor', 'waterstead', 'Patient, precise, and delighted by any question nobody has asked him before.',
         { kind: 'job', job: 'copy out a ledger' }, [
           [0, 'Most people learn by burning their fingers. Some learn by watching.'],
           [25, 'We write down every winter the Reach gives back. Yours will be in the book tonight.'],
           [50, 'Under the Compact of Knowing I must tell anyone who asks what the book says. Very few ask.'],
           [75, 'The book says the mere was sweet water once. The salt came in with an age that ended. Ages end here more often than people like to think.'],
         ], { skill: 'handcraft', techniques: ['weave', 'sewing', 'patterns'], recipes: ['hide-parka', 'waterskin'], concept: 'sealing' }),
+        orgs: { 'compact-of-knowing': { rank: 1 } } },
       { ...p('sm-yrsa', 'Yrsa', 'hunter', 'Viddfolk', 'steppe-camp', 'Few words, sharp eyes, and no patience for people who hurry.',
         { kind: 'job', job: 'scout the mere shore' }, [
           [0, 'The mere birds come at dusk. Patience gets you more than arrows.'],
           [25, 'Snow tells you everything an animal did. Mud lies.'],
           [50, 'This shore is a route-claim. Under the Vidde Accords my people keep the road, and every nation lets us. It is the oldest promise in Mistheim.'],
           [75, 'Our [Heralds] used to ride the ley-lines along this valley faster than wind. This year they rode like anyone else.'],
-        ], { skill: 'hunting', techniques: ['sign', 'stalking', 'dressing'], recipes: ['trap-snare'] }), reserved: true },
+        ], { skill: 'hunting', techniques: ['sign', 'stalking', 'dressing'], recipes: ['trap-snare'] }), reserved: true, orgs: { 'vidde-accords': { rank: 1 } } },
       p('sm-gunnar', 'Gunnar', 'elder', 'Markfolk', 'waterstead', 'Stubborn and kind, and certain the water is trying to tell him something.',
         { kind: 'job', job: 'clear the sluice' }, [
           [0, 'The mere is lower every year. Nobody listens to old men about water.'],
@@ -183,20 +200,20 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [25, 'Good iron sings when you strike it. Bad iron argues.'],
           [50, 'The ash that came down the pass this winter settles on the anvil and won\'t brush off. I quench twice now, to be sure.'],
         ]),
-      p('kg-arvid', 'Arvid', 'trader', 'Goblins', 'bazaar-folk', 'Smiling, careful, and never the first to name a price.',
+      { ...p('kg-arvid', 'Arvid', 'trader', 'Goblins', 'bazaar-folk', 'Smiling, careful, and never the first to name a price.',
         { kind: 'item', item: 'firewood', qty: 6 }, [
           [0, 'Everything has a price at the Gate. Some prices are friendship.'],
           [25, 'In the lowlands they pay silly money for tools made in the Reach. Bring something sound.'],
           [50, 'The toll-keeper drinks. Arrive at dusk.'],
           [75, 'The Compact has mapped ruins no surface nation has found. Some of them are opening on their own now, seals that held for ages. Nobody will say why.'],
-        ]),
+        ]), orgs: { compact: { rank: 1, sign: 'Arvid\'s map case is goblin work, and the map in it shows the high pass with ruins marked that are on no Gate chart.' } } },
       { ...p('kg-runa', 'Runa', 'teacher', 'Bergfolk', 'mountainhold', 'Severe, then suddenly kind; she teaches the way the mountain does.',
         { kind: 'job', job: 'gather mountain herbs' }, [
           [0, 'A mountain teaches slowly and forgives nothing.'],
           [25, 'Stonework is patience with a hammer.'],
           [50, 'The dry-stone walls of the hold have stood three hundred years without a drop of mortar.'],
           [75, 'In the holds, what you make is who you are. Make something that will outlast you, and you will never quite be gone.'],
-        ], { skill: 'stonework', techniques: ['cleave', 'knapping', 'drystone'], recipes: [], concept: 'joinery' }), reserved: true },
+        ], { skill: 'stonework', techniques: ['cleave', 'knapping', 'drystone'], recipes: [], concept: 'joinery' }), reserved: true, orgs: { dyprike: { rank: 1 } } },
     ],
   },
 };
@@ -208,31 +225,31 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
  * The tinker and the herbwife know a craft, and each line teaches a little of it.
  */
 export const TRAVELLERS: readonly Person[] = [
-  p('cv-bodil', 'Bodil', 'caravaneer', 'Markfolk', 'caravan-folk', 'The caravan master: tireless, practical, and fond of every wagon like a relative.',
+  { ...p('cv-bodil', 'Bodil', 'caravaneer', 'Markfolk', 'caravan-folk', 'The caravan master: tireless, practical, and fond of every wagon like a relative.',
     { kind: 'job', job: 'keep the wagons rolling' }, [
       [0, 'Twenty-two springs I\'ve brought this caravan up the valley. Most years someone is waiting. Some years no one is.'],
       [0, 'We stop at every inn we can reach before dark. Under an innkeeper\'s roof no one draws a blade, and the cold stays outside. That is older than any kingdom.'],
       [0, 'I owe Hedda three barrels. She will tell you. She tells everyone.'],
-    ]),
+    ]), orgs: { caravan: { rank: 1 } } },
   { ...p('cv-pim', 'Pim', 'tinker', 'Goblins', 'bazaar-folk', 'A goblin tinker who talks to the axles and is usually right about them.',
     { kind: 'job', job: 'mend what breaks' }, [
       [0, 'Axles, buckles, lamp-wicks — if it breaks between villages, it\'s mine to fix.'],
       [0, 'Big folk call the edge of things the margin. We call it home. You can fix nearly anything with what other people throw away.'],
       [0, 'Old seals in the ruins are giving way where the Myst runs thin. The Compact is busier than it has been in a hundred years.'],
-    ]), concept: 'leverage' },
+    ]), concept: 'leverage', orgs: { compact: { rank: 1 }, caravan: { rank: 1 } } },
   { ...p('cv-ottilia', 'Ottilia', 'healer', 'Lövfolk', 'grovekin', 'The caravan\'s herbwife: soft-spoken, ancient, and quietly amused by everyone.',
     { kind: 'job', job: 'tend the travellers' }, [
       [0, 'Drink, eat, sleep. Most of what ails travellers is one of those three, missing.'],
       [0, 'A healing word works better when it is true. I cannot tell you that you will be well. I can tell you that you are not alone.'],
       [0, 'The corruption does not make things evil. It makes them more of what they already were: more afraid, more hungry. Remember that when something on the road looks at you wrong.'],
-    ]), concept: 'sealing' },
+    ]), concept: 'sealing', orgs: { caravan: { rank: 1 } } },
   // The caravan's merchant (#1355): she trades from her painted wagon on travel days. In a village she leaves it to the village trader.
-  p('cv-runa', 'Runa', 'trader', 'Viddfolk', 'caravan-folk', 'A Viddfolk route-singer who keeps the caravan\'s accounts in songs instead of ledgers.',
+  { ...p('cv-runa', 'Runa', 'trader', 'Viddfolk', 'caravan-folk', 'A Viddfolk route-singer who keeps the caravan\'s accounts in songs instead of ledgers.',
     { kind: 'item', item: 'materials', qty: 6 }, [
       [0, 'Every road has a song, and every song has the prices in it. That is how my people remember both.'],
       [0, 'Winter people always have stone and timber to sell and no idea what it is worth. Lucky for you, I am honest. Mostly.'],
       [0, 'The high plains are moving. Whole herds walk east now, away from the grey. A route-singer has to learn new verses every year.'],
-    ]),
+    ]), orgs: { 'vidde-accords': { rank: 1 }, caravan: { rank: 1 } } },
 ];
 
 /** What the road ends at (#1253): the arrival, in words. */

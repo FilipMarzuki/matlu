@@ -13,6 +13,7 @@
 
 import { streamFor } from './rng';
 import { reliability } from './focus';
+import { MEMBERSHIP_SIGNS } from './orgs';
 
 /** The chance a focused Warden notices a sign, each morning, at a clear mind and ordinary INT. */
 export const NOTICE_FOCUSED = 0.35;
@@ -24,22 +25,15 @@ export const NOTICE_INT = 0.03;
 export const NOTICE_TRUST = 25;
 
 /**
- * Signs: what a person shows of a topic they're tied to, by person id and topic key. What the
- * journal says when you notice it. The first content (#1498): the Compact's seal tokens and maps
- * (worn by its goblins, who keep it close), Gate iron, and the foragers' pockets and boots.
+ * Signs written per person: what someone shows of a topic they're tied to, by person id and topic
+ * key. The first content (#1498): Gate iron, and the foragers' pockets and boots.
  */
-export const SIGNS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  'hf-tobin': {
-    'group:compact': 'A small stamped metal disc hangs on a thong inside Tobin\'s collar: a Compact-seal token, the kind goblin bands carry as a letter of introduction.',
-  },
+const PERSONAL_SIGNS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   'hf-isa': {
     'skill:foraging': 'Isa\'s apron pockets bulge with dried caps and roots, each one wrapped and labelled in a small, tidy hand.',
   },
   'sm-yrsa': {
     'material:iron': 'Yrsa\'s arrows are tipped with iron, not flint, and every point is stamped on the tang with a small kestrel.',
-  },
-  'kg-arvid': {
-    'group:compact': 'Arvid\'s map case is goblin work, and the map in it shows the high pass with ruins marked that are on no Gate chart.',
   },
   'kg-sabine': {
     'material:iron': 'Sabine\'s forearms are freckled with small round burns, the kind a forge throws when the iron is worked hot.',
@@ -48,6 +42,18 @@ export const SIGNS: Readonly<Record<string, Readonly<Record<string, string>>>> =
     'skill:foraging': 'Runa\'s boots are stained yellow-green to the ankle. Feverfew grows thick on the high slopes, and she has walked through a lot of it.',
   },
 };
+
+/**
+ * Signs: what a person shows of a topic they're tied to, by person id and topic key. What the
+ * journal says when you notice it. Signs of belonging to an organisation come from the membership
+ * itself (#1587, orgs.ts `MEMBERSHIP_SIGNS`: the Compact's seal tokens and maps, worn by its goblins,
+ * who keep it close); the rest are written per person. The two were the same signs before
+ * organisations, so moving them changed nothing anyone notices.
+ */
+export const SIGNS: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.fromEntries(
+  [...new Set([...Object.keys(MEMBERSHIP_SIGNS), ...Object.keys(PERSONAL_SIGNS)])]
+    .map(pid => [pid, { ...MEMBERSHIP_SIGNS[pid], ...PERSONAL_SIGNS[pid] }]),
+);
 
 export interface NoticeChanceInput {
   /** The topic is your focus. */

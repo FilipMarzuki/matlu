@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { answer, knows, gateOf, SENSITIVITY_TRUST, type Fact, type Org, type Sensitivity } from './knowledge';
 import { ALL_FACTS, FACTS, ORGS, factsFor, knowerOf, resolve } from './facts';
@@ -24,6 +24,31 @@ import { createRoad, endRoadDay, runRoadAction, villageOf, type RoadState } from
 import { serialize, deserialize, makeWarden } from '../artificer-app/controller';
 
 const root = join(__dirname, '..', '..');
+const read = (file: string): string => readFileSync(join(root, file), 'utf8');
+
+/** The text under a markdown heading, down to the next heading of the same or a higher level (as facts-scope.test.ts has it). */
+function sectionOf(md: string, heading: string): string | null {
+  const lines = md.split('\n');
+  const level = (l: string): number => /^(#+)\s/.exec(l)?.[1].length ?? 0;
+  const i = lines.findIndex(l => level(l) > 0 && l.replace(/^#+\s+/, '').trim() === heading);
+  if (i < 0) return null;
+  let j = i + 1;
+  while (j < lines.length && !(level(lines[j]) > 0 && level(lines[j]) <= level(lines[i]))) j++;
+  return lines.slice(i, j).join('\n');
+}
+
+/** What's wrong with a source (`file § heading › label`, or `file › label`), or null. */
+function sourceProblem(source: string): string | null {
+  const [head, label] = source.split(' › ');
+  const [file, heading] = head.split(' § ');
+  if (!file || !existsSync(join(root, file))) return `no file "${file}"`;
+  if (!label) return 'no label: say which line it rests on';
+  const text = read(file);
+  const section = heading ? sectionOf(text, heading) : text;
+  if (section === null) return `no heading "${heading}" in ${file}`;
+  if (!section.includes(label)) return `no "${label}" under ${heading ?? file}`;
+  return null;
+}
 const EVERYONE: readonly Person[] = [...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS];
 const ON = ruleFeatures();
 const OFF = { ...ON, organisations: false };
@@ -100,7 +125,7 @@ describe('Organisations: the issue’s scenarios (#1587)', () => {
     expect(loaded.features).toBeUndefined();
     const told = runRoadAction(loaded, 'tell:sm-yrsa:herald-owes-you');
     // Telling Yrsa says what it always said, and no word goes round an organisation.
-    expect(told.log.slice(loaded.log.length).map(l => l.text).join(' ')).not.toMatch(/Accords/);
+    expect(told.log.slice(loaded.log.length).map(l => l.text).join(' ')).not.toMatch(/Word of it/);
     // Asked about the Accords, Yrsa answers from what Saltmere knows, as before (or not at all,
     // without the scope facts): never from the Accords' own facts.
     const before = askOnRoad(told, 'sm-yrsa', 'group:vidde-accords', 90);
@@ -127,8 +152,9 @@ describe('The organisation registry (#1587)', () => {
         const [k, id] = o.topic.split(':');
         expect(isTopicKind(k) && TOPICS[k][id], `${o.id} topic ${o.topic}`).toBeTruthy();
       }
-      // Written by hand for the road, for the owner to review.
+      // Written by hand for the road, for the owner to review, from canon it names.
       expect(o.placeholder, o.id).toBe(true);
+      expect(sourceProblem(o.source), `${o.id}: ${o.source}`).toBeNull();
     }
     expect(ORGS).toEqual(Object.fromEntries(entries.map(o => [o.id, o])));
   });
@@ -171,7 +197,7 @@ describe('The organisation registry (#1587)', () => {
         const [k, id] = t.split(':');
         expect(isTopicKind(k) && TOPICS[k][id], `${e.id} about ${t}`).toBeTruthy();
       }
-      expect(existsSync(join(root, e.source.split(/ [§›] /)[0])), `${e.id}: ${e.source}`).toBe(true);
+      expect(sourceProblem(e.source), `${e.id}: ${e.source}`).toBeNull();
       expect(e.truth, e.id).toBe('true');
       expect(e.placeholder, e.id).toBe(true);
     }
@@ -223,13 +249,14 @@ describe('Standing with an organisation (#1587)', () => {
     expect(told.trust['cv-runa']).toBe(atSaltmere.trust['cv-runa']);
     const onTheWagon = (from: RoadState) => { let r = from; for (let i = 0; i < 10 && villageOf(r); i++) r = endRoadDay(r); return r; };
     const after = onTheWagon(told);
-    expect(villageOf(after)).toBeUndefined();
+    expect(villageOf(after)).toBeFalsy();
     expect(askOnRoad(after, 'cv-runa', 'group:vidde-accords', 0)).toMatch(/^Runa: "/);
     // Without the tell, Runa holds it back from a stranger.
     expect(askOnRoad(onTheWagon(atSaltmere), 'cv-runa', 'group:vidde-accords', 0)).toMatch(/Ask me again when I know you better/);
     // With the switch off, no word goes round, and Runa doesn't know the Accords' business at all.
     const off = runRoadAction({ ...atSaltmere, features: OFF }, 'tell:sm-yrsa:herald-owes-you');
     expect(off.log.slice(atSaltmere.log.length).map(l => l.text).join(' ')).not.toMatch(/Word of it/);
+    expect(askOnRoad(onTheWagon(off), 'cv-runa', 'group:vidde-accords', 90)).toMatch(/shakes their head/);
   });
 });
 
