@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { GameRecord, GameStore } from './api';
-import { rankKey, type Run, type RunSummary, type StoredRun } from './records';
+import { rankKey, type AiRun, type Run, type RunSummary, type StoredRun } from './records';
 
 /** A row as Postgres has it: snake_case, moves as jsonb, and the move count kept for `update`. */
 interface Row {
@@ -157,6 +157,12 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
       check(error, 'best runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
+    },
+    async aiRuns(limit) {
+      // `milestoneDays:detail->milestones` picks one field out of the jsonb, so the rest of detail stays home.
+      const { data, error } = await db.from(RUNS).select(`${SUMMARY_COLUMNS}, milestoneDays:detail->milestones`).eq('player_kind', 'ai').order('created_at', { ascending: false }).limit(limit);
+      check(error, 'ai runs');
+      return ((data ?? []) as unknown as (RunRow & { milestoneDays: AiRun['milestoneDays'] })[]).map(r => ({ ...summaryFromRow(r), milestoneDays: r.milestoneDays ?? null }));
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();

@@ -236,6 +236,25 @@ describe('Run records from the play API (#1558)', () => {
     expect(list.recent[0]).not.toHaveProperty('detail');
   });
 
+  it("serves every AI's records for the dev site: all versions, no people, milestone days instead of detail", async () => {
+    const store = memoryStore();
+    const ai = (await handle(post('/api/v1/games', { model: 'some-model' }), store, deps)).body as { id: string };
+    const person = (await handle(post('/api/v1/games', { client: 'artificer-console' }), store, deps)).body as { id: string };
+    await playToTheEnd(store, ai.id);
+    await playToTheEnd(store, person.id);
+    const own = (await store.runBySource(`game:${ai.id}`))!;
+    await store.insertRun('bench:older', { ...own, gameVersion: 'play-0/save-1' });
+    const r = await handle(get('/api/v1/runs/ai'), store, deps);
+    expect(r.status).toBe(200);
+    expect(r.cache).toBeGreaterThan(0);
+    const runs = (r.body as { runs: Record<string, unknown>[] }).runs;
+    expect(runs).toHaveLength(2);
+    expect(runs.every(x => x.playerKind === 'ai')).toBe(true);
+    expect(new Set(runs.map(x => x.gameVersion)).size).toBe(2);
+    expect(runs[0]).not.toHaveProperty('detail');
+    expect(runs[0].milestoneDays).toEqual(own.detail.milestones);
+  });
+
   it("still saves the move that ends a game when its record can't be written", async () => {
     const store = memoryStore();
     store.insertRun = async () => { throw new Error('database down'); };

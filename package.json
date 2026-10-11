@@ -46,6 +46,7 @@
     "ai:play": "tsx scripts/ai-play.ts",
     "ai:report": "tsx scripts/ai-report.ts",
     "ai:bench": "tsx scripts/ai-bench.ts",
+    "ai:upload": "tsx scripts/ai-upload-runs.ts",
     "story:typecheck": "tsc -p storytelling/tsconfig.json",
     "mapgen:typecheck": "tsc -p mapgen/tsconfig.json",
     "dev:wiki": "npm run dev --prefix wiki",

@@ -1,0 +1,283 @@
+---
+/**
+ * /artificer — how AI models play the Artificer (#1558): progression by model, the days each one
+ * takes to reach the game's milestones, what a run costs, and how that moves across game versions.
+ *
+ * Live, not baked at build time like /metrics: the page fetches the run records from the
+ * Artificer's play API in the browser (GET /api/v1/runs/ai, cached five minutes at Vercel's edge),
+ * so the nightly playtest's new runs show up without a deployment — this site deploys once a day.
+ * Records come from the nightly AI playtest and from AIs that play over MCP or the API; a model's
+ * name there is what its player reported.
+ */
+import Base from '../layouts/Base.astro';
+
+const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewarden.app'}/api/v1/runs/ai`;
+---
+
+<Base title="Artificer AI" description="How AI models play the Artificer: how far each gets, the days to each milestone, what a run costs, and how it moves across game versions.">
+  <div class="art" data-api={api}>
+    <header class="intro">
+      <h1>Artificer: AI players</h1>
+      <p>
+        Every finished game an AI plays in <a href="https://artificer.corewarden.app">the Artificer</a>:
+        the nightly playtest's roster, and AIs that people point at it over MCP or the API. Read live
+        from the run records, so tonight's runs show up without a deploy.
+      </p>
+    </header>
+
+    <div class="filters" aria-label="Filters">
+      <label>Played
+        <select id="f-surface">
+          <option value="all">everywhere</option>
+          <option value="bench">in the nightly playtest</option>
+          <option value="outside">over MCP or the API</option>
+        </select>
+      </label>
+      <label>Game version <select id="f-version"><option value="all">all</option></select></label>
+    </div>
+
+    <p id="status" class="dim">Loading the run records…</p>
+
+    <div id="body" hidden>
+      <div class="tiles" id="tiles"></div>
+
+      <section>
+        <h2>How far each model gets</h2>
+        <p class="dim">Lived to the thaw: survived the 30-night winter, whatever came after. Medians over each model's runs.</p>
+        <div class="table-wrap" id="progress"></div>
+      </section>
+
+      <section>
+        <h2>Days to each milestone</h2>
+        <p class="dim">The median day a model's runs first reached each milestone, and how many of its runs got there at all.</p>
+        <div class="table-wrap" id="milestones"></div>
+      </section>
+
+      <section class="chart-card">
+        <h2>Cost per run</h2>
+        <p class="dim">Mean token cost of a game, where it's known: the nightly playtest's own runs. A player's AI over MCP runs on their account.</p>
+        <div class="chart-box" id="cost-box"><canvas id="cost" aria-label="Mean cost per run by model"></canvas></div>
+      </section>
+
+      <section class="chart-card">
+        <h2>Across game versions</h2>
+        <p class="dim">The share of each model's runs that lived to the thaw, version by version (the four models with the most runs).</p>
+        <div class="chart-box" id="trend-box"><canvas id="trend" aria-label="Share of runs that lived to the thaw, by game version and model"></canvas></div>
+        <p class="dim" id="trend-note" hidden></p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script>
+  /** One record, as GET /api/v1/runs/ai sends it (src/artificer-play/records.ts AiRun). */
+  interface AiRun {
+    id: string; createdAt: string; model: string | null; client: string | null; surface: string; gameVersion: string;
+    outcome: string; grade: string | null; stage: string; endDay: number; readyDay: number | null; larderMidwinter: number | null;
+    shelterTier: number; skillLevels: number; conceptRanks: number; milestones: number; moves: number; costUsd: number | null;
+    milestoneDays: { name: string; day: number }[] | null;
+  }
+  // Chart.js comes from the CDN script above as a global.
+  declare const Chart: any;
+
+  const root = document.querySelector<HTMLElement>('.art')!;
+  const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+  // Colours: the line slots are a validated categorical set (dark, on this site's surface); text
+  // keeps the site's ink colours, never a series colour.
+  const LINES = ['#3987e5', '#d95926', '#199e70', '#c98500'];
+  const ACCENT = '#7c6ff7', GRID = 'rgba(34,34,48,0.8)', TEXT = '#6b6b80';
+
+  let all: AiRun[] = [];
+  const charts: Record<string, any> = {};
+
+  // ── Small helpers ─────────────────────────────────────────────────────────
+  const livedToThaw = (r: AiRun): boolean => r.outcome === 'arrived' || r.outcome === 'survived' || r.stage === 'road';
+  const pct = (n: number, of: number): string => (of ? `${Math.round((100 * n) / of)}%` : '—');
+  const usd = (x: number | null): string => (x === null ? '—' : x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(3)}`);
+  function median(xs: number[]): number | null {
+    if (!xs.length) return null;
+    const s = [...xs].sort((a, b) => a - b), m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : Math.round(((s[m - 1] + s[m]) / 2) * 10) / 10;
+  }
+  const show = (x: number | null): string => (x === null ? '—' : String(x));
+  const byModel = (runs: AiRun[]): [string, AiRun[]][] => {
+    const m = new Map<string, AiRun[]>();
+    for (const r of runs) { const k = r.model ?? 'model not given'; m.set(k, [...(m.get(k) ?? []), r]); }
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  };
+
+  /** A table from headings and rows, all text (model names come from players). */
+  function table(head: string[], rows: string[][], numeric: number[]): HTMLTableElement {
+    const t = document.createElement('table');
+    const hr = t.createTHead().insertRow();
+    head.forEach((h, i) => { const th = document.createElement('th'); th.textContent = h; if (numeric.includes(i)) th.className = 'num'; hr.append(th); });
+    const body = t.createTBody();
+    for (const row of rows) {
+      const tr = body.insertRow();
+      row.forEach((c, i) => { const td = tr.insertCell(); td.textContent = c; if (numeric.includes(i)) td.className = 'num'; });
+    }
+    return t;
+  }
+
+  // ── The parts ─────────────────────────────────────────────────────────────
+  function tiles(runs: AiRun[]): void {
+    const spent = runs.reduce((n, r) => n + (r.costUsd ?? 0), 0);
+    const items: [string, string][] = [
+      ['Runs', String(runs.length)],
+      ['Models', String(byModel(runs).length)],
+      ['Lived to the thaw', pct(runs.filter(livedToThaw).length, runs.length)],
+      ['Spent (known)', usd(spent)],
+    ];
+    $('tiles').replaceChildren(...items.map(([label, value]) => {
+      const d = document.createElement('div'); d.className = 'tile';
+      const l = document.createElement('span'); l.className = 'label'; l.textContent = label;
+      const v = document.createElement('span'); v.className = 'value'; v.textContent = value;
+      d.append(l, v); return d;
+    }));
+  }
+
+  function progress(runs: AiRun[]): void {
+    const rows = byModel(runs).map(([model, rs]) => {
+      const cost = rs.map(r => r.costUsd).filter((x): x is number => x !== null);
+      const thaw = rs.filter(livedToThaw).length;
+      const mean = cost.length ? cost.reduce((n, x) => n + x, 0) / cost.length : null;
+      return {
+        thawShare: thaw / rs.length, endDay: median(rs.map(r => r.endDay)) ?? 0,
+        cells: [
+          model, String(rs.length), pct(thaw, rs.length), pct(rs.filter(r => r.outcome === 'arrived').length, rs.length),
+          show(median(rs.map(r => r.endDay))), show(median(rs.flatMap(r => (r.readyDay === null ? [] : [r.readyDay])))),
+          show(median(rs.flatMap(r => (r.larderMidwinter === null ? [] : [r.larderMidwinter])))), show(median(rs.map(r => r.milestones))),
+          show(median(rs.map(r => r.skillLevels))), usd(mean), thaw && cost.length ? usd(cost.reduce((n, x) => n + x, 0) / thaw) : '—',
+        ],
+      };
+    }).sort((a, b) => b.thawShare - a.thawShare || b.endDay - a.endDay);
+    $('progress').replaceChildren(table(
+      ['Model', 'Runs', 'Lived to the thaw', 'Reached Mistheim', 'Median end day', 'Median ready day', 'Median larder at midwinter', 'Median milestones', 'Median skills', 'Cost per run', 'Cost per thaw'],
+      rows.map(r => r.cells), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ));
+  }
+
+  function milestones(runs: AiRun[]): void {
+    const withDays = runs.filter(r => r.milestoneDays);
+    if (!withDays.length) { $('milestones').replaceChildren(Object.assign(document.createElement('p'), { className: 'dim', textContent: 'No milestone days in these runs yet: records written before the full progress was kept have none.' })); return; }
+    // Milestones in the order they usually come: by their median day over every run that reached them.
+    const days = new Map<string, number[]>();
+    for (const r of withDays) for (const m of r.milestoneDays!) days.set(m.name, [...(days.get(m.name) ?? []), m.day]);
+    const names = [...days.entries()].sort((a, b) => (median(a[1]) ?? 0) - (median(b[1]) ?? 0) || a[0].localeCompare(b[0])).map(([n]) => n);
+    const rows = byModel(withDays).map(([model, rs]) => [model, ...names.map(name => {
+      const got = rs.flatMap(r => r.milestoneDays!.filter(m => m.name === name).map(m => m.day));
+      return got.length ? `${median(got)} (${got.length}/${rs.length})` : `— (0/${rs.length})`;
+    })]);
+    $('milestones').replaceChildren(table(['Model', ...names], rows, names.map((_, i) => i + 1)));
+  }
+
+  function chart(id: string, config: object): void {
+    charts[id]?.destroy();
+    if (typeof Chart === 'undefined') return; // the CDN didn't load: the tables still carry the numbers
+    charts[id] = new Chart(document.getElementById(id), config);
+  }
+
+  function cost(runs: AiRun[]): void {
+    const rows = byModel(runs).map(([model, rs]) => {
+      const c = rs.map(r => r.costUsd).filter((x): x is number => x !== null);
+      return { model, mean: c.length ? c.reduce((n, x) => n + x, 0) / c.length : null };
+    }).filter((r): r is { model: string; mean: number } => r.mean !== null).sort((a, b) => b.mean - a.mean);
+    $('cost-box').style.height = `${Math.max(120, rows.length * 34 + 40)}px`;
+    chart('cost', {
+      type: 'bar',
+      data: { labels: rows.map(r => r.model), datasets: [{ label: 'Mean cost per run (USD)', data: rows.map(r => r.mean), backgroundColor: ACCENT, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] },
+      options: {
+        indexAxis: 'y', maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c: any) => ` ${usd(c.parsed.x)} per run` } } },
+        scales: { x: { grid: { color: GRID }, ticks: { color: TEXT, callback: (v: number) => `$${v}` } }, y: { grid: { display: false }, ticks: { color: TEXT } } },
+      },
+    });
+  }
+
+  function trend(runs: AiRun[]): void {
+    // Versions in the order they first appeared.
+    const versions = [...new Set([...runs].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(r => r.gameVersion))];
+    const note = $('trend-note');
+    if (versions.length < 2) {
+      $('trend-box').hidden = true;
+      note.hidden = false;
+      note.textContent = versions.length ? `Only one game version in these runs so far (${versions[0]}): the trend starts with the next.` : 'No runs to compare.';
+      return;
+    }
+    $('trend-box').hidden = false;
+    note.hidden = true;
+    const top = byModel(runs).slice(0, LINES.length);
+    chart('trend', {
+      type: 'line',
+      data: {
+        labels: versions,
+        datasets: top.map(([model, rs], i) => ({
+          label: model, borderColor: LINES[i], backgroundColor: LINES[i], borderWidth: 2, pointRadius: 4, pointBorderColor: '#111118', pointBorderWidth: 2, spanGaps: true,
+          data: versions.map(v => { const at = rs.filter(r => r.gameVersion === v); return at.length ? Math.round((100 * at.filter(livedToThaw).length) / at.length) : null; }),
+        })),
+      },
+      options: {
+        maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: TEXT, usePointStyle: true } }, tooltip: { callbacks: { label: (c: any) => ` ${c.dataset.label}: ${c.parsed.y}%` } } },
+        scales: { y: { min: 0, max: 100, grid: { color: GRID }, ticks: { color: TEXT, callback: (v: number) => `${v}%` } }, x: { grid: { display: false }, ticks: { color: TEXT } } },
+      },
+    });
+  }
+
+  // ── Filters and start ─────────────────────────────────────────────────────
+  function render(): void {
+    const surface = $<HTMLSelectElement>('f-surface').value, version = $<HTMLSelectElement>('f-version').value;
+    const runs = all.filter(r => (surface === 'all' || (surface === 'bench' ? r.surface === 'bench' : r.surface !== 'bench')) && (version === 'all' || r.gameVersion === version));
+    $('status').hidden = runs.length > 0;
+    $('status').textContent = 'No runs match these filters.';
+    $('body').hidden = runs.length === 0;
+    if (!runs.length) return;
+    tiles(runs); progress(runs); milestones(runs); cost(runs); trend(runs);
+  }
+
+  async function start(): Promise<void> {
+    try {
+      const r = await fetch(root.dataset.api!);
+      if (!r.ok) throw new Error(String(r.status));
+      all = ((await r.json()) as { runs: AiRun[] }).runs;
+    } catch (e) {
+      $('status').textContent = `The run records can't be reached right now (${e instanceof Error ? e.message : 'network'}). Try again in a while.`;
+      return;
+    }
+    if (!all.length) { $('status').textContent = 'No AI runs recorded yet: the nightly playtest adds its games after its next run.'; return; }
+    const versions = [...new Set(all.map(r => r.gameVersion))];
+    $('f-version').append(...versions.map(v => Object.assign(document.createElement('option'), { value: v, textContent: v })));
+    $('f-surface').addEventListener('change', render);
+    $('f-version').addEventListener('change', render);
+    render();
+  }
+
+  void start();
+</script>
+
+<style>
+  .art { display: grid; gap: 1.5rem; }
+  .intro p { color: var(--text-dim); max-width: 70ch; margin: 0.5rem 0 0; }
+  .dim { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.75rem; }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.9rem; color: var(--text-dim); }
+  .filters label { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .filters select { background: var(--surface-hi); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; }
+  #body { display: grid; gap: 2rem; }
+  #body[hidden] { display: none; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+  .tile { display: grid; gap: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+  .tile .label { color: var(--text-dim); font-size: 0.85rem; }
+  .tile .value { font-size: 1.6rem; font-weight: 600; color: var(--text); }
+  section h2 { margin: 0 0 0.25rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  th { color: var(--text-dim); font-weight: 600; background: var(--surface); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .chart-box { position: relative; height: 280px; min-width: 0; }
+  .chart-box[hidden] { display: none; }
+</style>

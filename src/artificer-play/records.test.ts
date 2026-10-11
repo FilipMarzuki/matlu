@@ -8,7 +8,10 @@ import { createRegion1, type Region1State } from '../artificer/region1';
 import { createVitals } from '../artificer/vitality';
 import { startGame, view, apply, gameFrom, GAME_VERSION, type Game, type Move } from './session';
 import { nicknameOf, compareRuns, rankKey, percentBeaten, tierOf, outcomeLine, groupOf, type Run } from './records';
-import { measure, runOf, midwinterDay, type RunMeta } from './record-of';
+import { measure, runOf, midwinterDay, milestoneDays, runOfTranscript, modelOf, isModelGame, type RunMeta } from './record-of';
+import { playRun, aiCharacterId } from '../artificer-ai/runner';
+import { scriptedPlayer } from '../artificer-ai/players/scripted';
+import type { Transcript } from '../artificer-ai/report';
 import { runToRow } from './supabase-store';
 
 const must = (g: Game, m: Move): Game => {
@@ -127,6 +130,43 @@ describe('Run records (#1558)', () => {
     const r = run({ endDay: 10, larderMidwinter: 2.5, costUsd: 0.0123 });
     expect(runToRow('game:abc', r)).toMatchObject({ source_key: 'game:abc', end_day: 10, larder_midwinter: 3, cost_usd: 0.0123, rank_key: rankKey(r), ready_day: null });
   });
+
+  it('carries the full progress: stats, skills, stores, concepts, the land, readiness, and the day of every milestone', () => {
+    const g = diedInTheReach();
+    const d = runOf(g.app, {}, meta).detail;
+    expect(Object.keys(d.stats ?? {})).toEqual(expect.arrayContaining(['str', 'con', 'agi', 'int']));
+    expect(d.stores).toMatchObject({ rawFood: expect.any(Number), water: expect.any(Number), rations: expect.any(Number) });
+    expect(d.exploration?.total).toBe(Object.values(d.exploration!.byRing).reduce((n, x) => n + x, 0));
+    expect(d.readiness?.overall).toBeGreaterThanOrEqual(0);
+    expect(d.vitals?.condition).toBeGreaterThanOrEqual(0);
+    expect(d.concepts).toEqual(expect.any(Object)); // empty here: sleeping every day teaches nothing
+    // Milestones come with the day each was reached, in order, none after the run ended.
+    const days = d.milestones!.map(m => m.day);
+    expect(days).toEqual([...days].sort((a, b) => a - b));
+    expect(days.every(x => x <= g.app.sim.day)).toBe(true);
+    expect(milestoneDays([{ day: 2, text: 'Milestone — Water secured' }, { day: 5, text: 'Milestone — Water secured' }, { day: 3, text: 'Scouted' }])).toEqual([{ name: 'Water secured', day: 2 }]);
+  });
+
+  it("records a playtest transcript in the same shape, from its day-by-day progress", async () => {
+    // A real transcript: the scripted baseline lives through the winter and rides the road.
+    const played = await playRun(scriptedPlayer(), { road: true, characterId: aiCharacterId('scripted', 'records') });
+    const { final: _final, ...saved } = played;
+    const t = JSON.parse(JSON.stringify(saved)) as Transcript;
+    const r = runOfTranscript(t, { gameVersion: GAME_VERSION })!;
+    expect(r).toMatchObject({ playerKind: 'ai', surface: 'bench', client: 'artificer-bench', model: 'scripted', nickname: null, grade: t.record.grade ?? null });
+    expect(r.moves).toBe(t.turns.length + (t.road?.turns.length ?? 0));
+    expect(r.stage).toBe(t.road ? 'road' : 'reach');
+    if (t.road) expect(r.endDay).toBeGreaterThan(t.record.day);
+    expect(r.larderMidwinter).toBe(t.turns.find(x => x.progress.day >= 45)!.progress.stores.rations); // it lived through midwinter
+    expect(r.detail.milestones!.length).toBeGreaterThan(0);
+    expect(r.detail.milestones!.find(m => m.name === 'Winter-ready')?.day ?? null).toBe(t.record.readyDay);
+    // Only models' games become records; a game the budget stopped mid-run has none.
+    expect(isModelGame(t)).toBe(false);
+    expect(isModelGame({ player: 'openrouter:google/gemini-2.5-pro' })).toBe(true);
+    expect(modelOf('openrouter:google/gemini-2.5-pro')).toBe('google/gemini-2.5-pro');
+    expect(modelOf('claude:claude-haiku-5-5:low')).toBe('claude-haiku-5-5');
+    expect(runOfTranscript({ ...t, record: { ...t.record, kind: 'stopped' } }, { gameVersion: GAME_VERSION })).toBeNull();
+  }, 60_000);
 
   it('takes the larder once, on the first morning at or past midwinter', () => {
     const app = startGame({ seed: 'records-3' }).app;
