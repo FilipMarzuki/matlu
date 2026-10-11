@@ -665,7 +665,8 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? []);
+  // Referrals (#1609) are a switchable rule feature: read from this run's saved switches, never a global.
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals') });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);

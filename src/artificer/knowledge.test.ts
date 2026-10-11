@@ -1,8 +1,8 @@
 /**
  * The knowledge model's prototype (spike #1577, docs/knowledge-model-design.md): a handful of facts
  * across world, region, village, role, organisation and person scopes, and four people from the
- * road, one of them confidently wrong and one who lies. The data lives here, not in the game: the
- * game still reads asks.ts `ANSWERS` until the model is built in.
+ * road, one of them confidently wrong and one who lies. The data lives here, not in the game (the
+ * game's facts are in facts.ts, #1609): these test the model alone.
  */
 
 import { describe, it, expect } from 'vitest';

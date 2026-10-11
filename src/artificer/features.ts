@@ -39,6 +39,10 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'free-questions', name: 'Free questions', stage: 'experimental', kind: 'rules', default: true, absent: true, issue: 1575,
     note: 'On the road, ask anyone one question in your own words, once per stay. Questions are kept to improve the game.',
   },
+  {
+    id: 'referrals', name: 'Referrals', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1609,
+    note: 'Asked about something they don\'t know, a person names someone nearby who would.',
+  },
 ];
 
 /** Switches by feature id. */
