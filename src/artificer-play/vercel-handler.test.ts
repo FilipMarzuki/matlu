@@ -72,6 +72,12 @@ describe('The play API as a Vercel function (#1555)', () => {
       expect((await start('198.51.100.2')).status).toBe(201);
       const big = await fetch(url, { method: 'POST', body: 'x'.repeat(LIMITS.bodyBytes * 4) });
       expect(big.status).toBe(413);
+      // A web run's log (#1559) may be bigger, up to its own limit, and only where runs are sent,
+      // here and through Vercel's route. (This one isn't JSON, so 400: it got past the size check.)
+      const submit = url.replace('/games', '/runs/submit');
+      expect((await fetch(submit, { method: 'POST', body: 'x'.repeat(LIMITS.bodyBytes * 4) })).status).toBe(400);
+      expect((await fetch(url.replace('/api/v1/games', '/api/play?path=runs/submit'), { method: 'POST', body: 'x'.repeat(LIMITS.bodyBytes * 4) })).status).toBe(400);
+      expect((await fetch(submit, { method: 'POST', body: 'x'.repeat(LIMITS.submitBodyBytes + 1) })).status).toBe(413);
     } finally {
       await new Promise<void>(r => s.close(() => r()));
     }

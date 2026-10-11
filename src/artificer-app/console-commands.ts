@@ -23,11 +23,11 @@ export type Command =
   | { kind: 'look' }
   | { kind: 'help' }
   | { kind: 'rules' }
-  | { kind: 'new'; name?: string }
+  | { kind: 'new'; name?: string; weekly?: true }
   | { kind: 'error'; message: string };
 
 /** Words the console answers itself, completed by Tab alongside the moves. */
-const COMMANDS = ['look', 'help', 'rules', 'new', 'end day', 'set eating ', 'set focus ', 'set site ', 'plan ', 'ask '];
+const COMMANDS = ['look', 'help', 'rules', 'new', 'new weekly', 'end day', 'set eating ', 'set focus ', 'set site ', 'plan ', 'ask '];
 
 const norm = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
 /** A move's action id: "gather@2" → "gather". */
@@ -47,6 +47,9 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
   if (line === 'look' || line === 'l') return { kind: 'look' };
   if (line === 'rules') return { kind: 'rules' };
   // The name keeps the case it was typed in, so read it from the input rather than the lowercased line.
+  // "new weekly" (or "new week") plays this week's world, the one everyone plays this week (#1559).
+  const weekly = /^new\s+week(?:ly)?(?:\s+(.+))?$/i.exec(input.trim());
+  if (weekly) return { kind: 'new', name: weekly[1]?.trim() || undefined, weekly: true };
   const fresh = /^new(?:\s+game)?(?:\s+(.+))?$/i.exec(input.trim());
   if (fresh) return { kind: 'new', name: fresh[1]?.trim() || undefined };
   if (/^(end( the)? day|sleep|end)$/.test(line)) return { kind: 'move', move: { endDay: true } };
@@ -151,5 +154,6 @@ export const HELP = [
   '  ask orrin where is the iron?   a question in your own words, once per person per stay. Questions are',
   '                                 kept to improve the game: don\'t write your name or anything about you.',
   '  look   rules   new [name]      the full view, how the valley works, a fresh game',
+  '  new weekly [name]              this week\'s world: the one everyone, people and AIs, plays this week',
   'Tab completes a word; ↑ and ↓ bring back what you typed.',
 ].join('\n');

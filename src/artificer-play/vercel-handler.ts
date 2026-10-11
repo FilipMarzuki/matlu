@@ -18,7 +18,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handle, memoryStore, LIMITS, type ApiDeps, type GameStore } from './api';
+import { handle, memoryStore, LIMITS, SUBMIT_PATH, type ApiDeps, type GameStore } from './api';
 import { mcpFetch } from './mcp';
 import { supabaseStore } from './supabase-store';
 
@@ -60,7 +60,8 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
       if (store === undefined) store = storeFromEnv(env);
       if (!store) return send(503, { error: 'The play API isn\'t set up on this server yet.' });
       const mcp = isMcp(req.url ?? '/');
-      const limit = mcp ? MCP_BODY_BYTES : LIMITS.bodyBytes;
+      // A web run's log (#1559) is a whole run's moves: the one request allowed to be big.
+      const limit = mcp ? MCP_BODY_BYTES : pathOf(req.url ?? '/').replace(/\/+$/, '') === SUBMIT_PATH ? LIMITS.submitBodyBytes : LIMITS.bodyBytes;
       const body = await readBody(req, limit);
       if (body === null) return send(413, { error: `The body is over ${limit} bytes.` });
       const apiDeps: ApiDeps = {
@@ -68,6 +69,10 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
         newId: () => crypto.randomUUID(),
         // Any server secret will do as the salt; the service key is one the owner already set.
         salt: env.PLAY_IP_SALT || env.SUPABASE_SERVICE_ROLE_KEY || '',
+        // The weekly world's secret (#1559): its own variable, never a key that might be rotated,
+        // because a new value changes the week's world mid-week. Unset, next week's world can be
+        // worked out from the code (playable early), which is all it costs.
+        weeklySalt: env.PLAY_WEEKLY_SALT || '',
         ...deps,
       };
       const ip = ipOf(req, env.VERCEL === '1');

@@ -17,6 +17,7 @@ import { progressOf, type Progress } from '../artificer-ai/progress';
 import { featuresOf } from '../artificer/features';
 import type { Transcript } from '../artificer-ai/report';
 import { nicknameOf, type PlayerKind, type Run, type RunDetail, type Surface } from './records';
+import { weekOfId } from './weekly';
 
 /** Measures taken while a game is played, because the end state can't show them (#1558). */
 export interface GameMeasures {
@@ -64,6 +65,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
     ...(onRoad ? app.road!.log.map(l => ({ ...l, day: roadDay(l.day) })) : []),
   ]);
   const v = last.vitals;
+  const week = weekOfId(app.sim.character.id);
   return {
     playerKind: meta.playerKind,
     model: meta.model,
@@ -92,6 +94,8 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
       vitals: { vigor: Math.round(v.vigor.current), clarity: Math.round(v.clarity.current), condition: Math.round(v.condition) },
       milestones,
       features: featuresOf(app.sim.config.world.features),
+      // The weekly world (#1559), read off the Warden's id, which a weekly game takes from its week's seed.
+      ...(week ? { week } : {}),
     },
   };
 }
