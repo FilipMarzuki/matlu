@@ -1,6 +1,6 @@
 # What people know — the knowledge model (design)
 
-**Date:** 2026-10-11 · **Status:** proposal from the spike (#1577), for the owner to decide · **Prototype:** `src/artificer/knowledge.ts` + `knowledge.test.ts` (not read by the game yet)
+**Date:** 2026-10-11 · **Status:** proposal from the spike (#1577), for the owner to decide · **Prototype:** `src/artificer/knowledge.ts` + `knowledge.test.ts`; in the game since slice A (#1609, `facts.ts`)
 **Builds on:** asks (#1495), noticing (#1496), leads (#1497), tells (#1499), free questions (#1575), feature switches (#1579)
 **Feeds:** AI answers for free questions (#1574 v1), rapport (#1578), rumours, confidence and lies (#1580)
 
