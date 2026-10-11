@@ -115,7 +115,7 @@ describe('Organisations: the issue’s scenarios (#1587)', () => {
   it('a road saved before organisations loads and plays as it did: no organisation facts, no standing, the same signs', () => {
     expect(featureOn(undefined, 'organisations')).toBe(false);
     expect(factsFor(undefined)).toBe(FACTS);
-    expect(factsFor({ ...OFF, 'scope-facts': false })).toBe(FACTS);
+    expect(factsFor({ ...OFF, 'scope-facts': false, ties: false })).toBe(FACTS);
     expect(factsFor(OFF).some(f => f.scope.kind === 'org')).toBe(false);
 
     // A Warden who did the herald a kindness, on a road from before the switches, saved and loaded.

@@ -1,0 +1,39 @@
+{
+  "about": "Ties between the road's people (#1588, knowledge slice D; docs/knowledge-model-design.md §5): who is kin, friend, rival, in debt or works beside whom, and each side's opinion of the other. Written by hand from the lore and the tells: every entry is a placeholder for the owner to review. `views` are keyed by who holds them: `opinion` runs -100 (loathes) to 100 (loves), as the story engine's Character.opinion does; `says` is what they tell you about the other when asked, a person-scope fact at `sensitivity` (public unless written), and `truth` is whether it's so (true unless written: an opinion can be wrong). `elsewhere` are people off the road the Warden met in the Reach; `helpedBy` is the deed (encounters.ts) that helped them. A tie carries word: helping someone tells their friends.",
+  "elsewhere": [
+    {"id": "hf-orrin-niece", "name": "Orrin's sister's girl", "who": "A Bergfolk hunter on the high streams above the Reach: the hunter by the stream (#1499).", "placeholder": true, "source": "src/artificer/asks.ts › the hunter by the stream"},
+    {"id": "reach-scholar", "name": "The old scholar under the rock", "who": "A Pandor scholar who winters under an overhang in the Reach and writes to the book every winter.", "helpedBy": "warmed-the-scholar", "placeholder": true, "source": "src/artificer/asks.ts › He writes to the book every winter"},
+    {"id": "reach-herald", "name": "The lost herald", "who": "A Viddfolk herald, lost in the Reach, who came down the valley singing about a stranger.", "helpedBy": "herald-owes-you", "placeholder": true, "source": "src/artificer/asks.ts › She came down the valley singing"},
+    {"id": "reach-stranger", "name": "The starving man on the path", "who": "A Markfolk man the Warden fed on the path; he came through the Saltmere refuge and mends nets on the north shore now.", "helpedBy": "fed-the-stranger", "placeholder": true, "source": "src/artificer/asks.ts › He came through the refuge a month ago"}
+  ],
+  "ties": [
+    {"id": "orrin-sabine", "kind": "friend", "between": ["hf-orrin", "kg-sabine"], "placeholder": true, "source": "src/artificer/answers.ts › hold-trained. You can hear it in how he sets an edge", "views": {
+      "hf-orrin": {"opinion": 70, "sensitivity": "guarded", "says": "Sabine at the Gate? Hold-trained, the same as me, and the best hand with iron on this road. Since the ash came down she quenches everything twice. Most smiths would grumble and skip it."},
+      "kg-sabine": {"opinion": 60, "sensitivity": "guarded", "says": "Orrin at the ford? He left a hold seat for a barley village and calls himself a woodwright. Ask him to set you an edge, and you'll hear the hold in it, whatever he says."}
+    }},
+    {"id": "maren-tobin", "kind": "rival", "between": ["hf-maren", "hf-tobin"], "placeholder": true, "source": "src/artificer/villages.ts › counts everything twice and forgives slowly", "views": {
+      "hf-maren": {"opinion": -40, "truth": "false", "says": "Tobin? Quick with a price, and quicker with his thumb on the scale. Weigh whatever he buys from you twice."},
+      "hf-tobin": {"opinion": 30, "says": "Maren counts every sale of mine twice and thinks I don't see her do it. She's never once caught me short, because I never am. She'll come round."}
+    }},
+    {"id": "tobin-hedda", "kind": "friend", "between": ["hf-tobin", "sm-hedda"], "placeholder": true, "source": "src/artificer/quests.ts › Hides for Hedda", "views": {
+      "hf-tobin": {"opinion": 60, "says": "Hedda at Saltmere takes every hide I send down and pays what it's worth. Loud as a gull, and honest as the Pandor's book."},
+      "sm-hedda": {"opinion": 70, "says": "Tobin at the ford sends me the best hides on the road, and he's never once been short. Don't let anyone in Hollowford tell you otherwise."}
+    }},
+    {"id": "hedda-bodil", "kind": "debt", "between": ["sm-hedda", "cv-bodil"], "placeholder": true, "source": "src/artificer/villages.ts › I owe Hedda three barrels", "views": {
+      "sm-hedda": {"opinion": 20, "says": "Bodil? A good caravan master and a slow payer. Three barrels, two springs ago. I'll get them."},
+      "cv-bodil": {"opinion": 50, "says": "Hedda will tell you about those barrels before she tells you her name. She's right, mind, and she'll have them."}
+    }},
+    {"id": "orrin-niece", "kind": "kin", "between": ["hf-orrin", "hf-orrin-niece"], "placeholder": true, "source": "src/artificer/asks.ts › the hunter by the stream", "views": {
+      "hf-orrin": {"opinion": 80}
+    }},
+    {"id": "anselm-scholar", "kind": "colleague", "between": ["sm-anselm", "reach-scholar"], "placeholder": true, "source": "src/artificer/asks.ts › He writes to the book every winter", "views": {
+      "sm-anselm": {"opinion": 60}
+    }},
+    {"id": "yrsa-herald", "kind": "colleague", "between": ["sm-yrsa", "reach-herald"], "placeholder": true, "source": "src/artificer/asks.ts › Under the Accords the road keeps its debts", "views": {
+      "sm-yrsa": {"opinion": 60}
+    }},
+    {"id": "liv-stranger", "kind": "friend", "between": ["sm-liv", "reach-stranger"], "placeholder": true, "source": "src/artificer/asks.ts › He came through the refuge a month ago", "views": {
+      "sm-liv": {"opinion": 40}
+    }}
+  ]
+}

@@ -83,6 +83,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'humans-on-the-road', name: 'Humans on the road', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1631,
     note: 'Humans walk the road: Maren of Hollowford is Riksfolk, one of the two human Peoples, and speaks for them.',
   },
+  {
+    // A rules feature: it changes what people say about each other (their own view, which can be
+    // wrong) and how warmly someone first meets you (word from a friend you helped), so a run from
+    // before it (absent: false) keeps today's answers and welcomes on replay.
+    id: 'ties', name: 'Ties between people', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1588,
+    note: 'People on the road have kin, friends, rivals and debts: ask one about another and you hear their own opinion, which can be wrong, and helping someone warms their friends to you before you meet.',
+  },
 ];
 
 /** Switches by feature id. */

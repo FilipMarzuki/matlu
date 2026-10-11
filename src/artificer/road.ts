@@ -27,6 +27,7 @@ import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TR
 import { deflectionOf } from './free-questions';
 import { factsFor } from './facts';
 import { honouringOrgs, membersOf, standingFrom } from './orgs';
+import { helpedBy, tieWord } from './ties';
 import type { Standing } from './knowledge';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
@@ -219,7 +220,12 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
   };
   // The caravan's own people (#1253) ride with you from the start; they know you as well as anyone in the first village will.
   const met = startingTrust(s.arrival, statEffects(s.character.stats).trust, 0);
-  for (const t of TRAVELLERS) s.trust[t.id] = s.contacts.includes(t.id) ? Math.max(met, CONTACT_TRUST) : met;
+  // Word through their ties (#1588) can reach them too, from someone the Reach's deeds helped.
+  const ties = tiesWordOf(s);
+  for (const t of TRAVELLERS) {
+    const start = Math.min(MAX_TRUST, met + ties(t.id));
+    s.trust[t.id] = s.contacts.includes(t.id) ? Math.max(start, CONTACT_TRUST) : start;
+  }
   if (boarding) {
     // The meeting at the thaw (#1355): what was said goes in the journal, and what was agreed is settled.
     for (const l of boarding.lines) say(s, l.speaker ? `${TRAVELLERS.find(t => t.id === l.speaker)?.name ?? l.speaker}: ${l.text}` : `You: ${l.text}`, 'action');
@@ -354,8 +360,26 @@ export const peopleHere = (s: RoadState): readonly Person[] => (villageOf(s) ? p
 /** Open a village (#1246): everyone you meet starts at the arrival's trust, your Charisma, and the word that travelled ahead. */
 function openVillage(s: RoadState, id: string): void {
   const start = startingTrust(s.arrival, statEffects(s.character.stats).trust, s.word);
+  const ties = tiesWordOf(s);
   // Someone who came to trust you on an earlier road remembers you (#1250).
-  for (const p of peopleOf(id)) if (s.trust[p.id] === undefined) s.trust[p.id] = s.contacts.includes(p.id) ? Math.max(start, CONTACT_TRUST) : start;
+  for (const p of peopleOf(id)) {
+    if (s.trust[p.id] !== undefined) continue;
+    // Word from a friend you helped (#1588) comes on top of the village's own word, within the scale.
+    const met = Math.min(MAX_TRUST, start + ties(p.id));
+    s.trust[p.id] = s.contacts.includes(p.id) ? Math.max(met, CONTACT_TRUST) : met;
+  }
+}
+
+/**
+ * The word that reaches each person through their ties (#1588, ties.ts `tieWord`): from a friend
+ * the Warden helped (a quest done for them, or a deed for someone elsewhere). Read off the quests
+ * and deeds the road already keeps, so nothing new is saved. Only with the run's `ties` switch;
+ * off, and in every run from before it, no one hears anything this way.
+ */
+function tiesWordOf(s: RoadState): (pid: string) => number {
+  if (!featureOn(s.features, 'ties')) return () => 0;
+  const helped = helpedBy(s.quests, s.deeds);
+  return pid => tieWord(pid, helped);
 }
 
 /** Leave a village (#1246): word of how they took to you travels to the next. */
