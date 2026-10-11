@@ -4,7 +4,7 @@
 
 ## Decision
 
-There is **one race vocabulary** in Matlu: the **15 Mistheim Peoples** named in `WORLD.md` and scored in `AXES.md`.
+There is **one race vocabulary** in Matlu: the **16 Mistheim Peoples**, the 15 named in `WORLD.md` and scored in `AXES.md`, and the Wildkin (added 2026-10-11, below).
 
 | # | People | Notes |
 |---|---|---|
@@ -23,6 +23,9 @@ There is **one race vocabulary** in Matlu: the **15 Mistheim Peoples** named in 
 | 13 | Everstill | Vitstad archivists, preservation |
 | 14 | Constructs | Made things; Bergfolk-built majority |
 | 15 | Remnants | Inscrutable ancients |
+| 16 | Wildkin | Beastkin clans (wolf, bear, fox, hawk, boar, cat, rabbit, snake); the Highfang and the Great Clans. Core Warden's homeland. |
+
+**Wildkin (owner, 2026-10-11, #1603):** the beastkin of Core Warden's setting bible (`macro-world/setting-corewarden.md`) are the 16th People, and their kingdom between the mountains and the sea is **the core area** of Mistheim. The `ikibeki` culture is theirs; Supabase keeps one ancestry per clan (`Wildkin (Wolf)`…) under `Wildkin`. They still need their `WORLD.md` section and `AXES.md` scoring (#1606).
 
 Race IDs use **TitleCase** to match `AXES.md` and the Peoples Notion DB (#625). Cultures (`macro-world/cultures.json`) reference Peoples by these IDs in `racePreferences`.
 
