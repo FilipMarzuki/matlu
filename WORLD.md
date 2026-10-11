@@ -903,6 +903,13 @@ A Bergfolk master [Runesmith] who quietly uses Rasa to find the right emotional 
 before carving produces work that is measurably superior to the work of those who do not.
 Most of them know this and none of them want to discuss it.
 
+**The Wildkin** use Rasa without theory or script. Their records are den-songs and
+knotted memory cords, and a boar elder who sings a boundary feels its weight as it was felt
+when it was agreed, as a Deepwalker [Keeper] does a treaty. Ironhide's bears are
+truth-speakers: a bear says a thing once, means it entirely, and a council bends toward it.
+Beyond that, Wildkin magic is uneven by line, rare in some and strong where it comes.
+*(Added 2026-10-11, #1606.)*
+
 **The Fae** use Rasa almost exclusively. Their magic is personal and tied to their
 emotional state and accumulated knowledge of what it feels like to be a particular age
 with particular experiences. Fae Rasa is exceptionally powerful — deep, specific, backed
@@ -1117,6 +1124,12 @@ pools, settlements grew. Where it thins, only the hardiest peoples go.
 The previous ages left ruins everywhere — buried under farmland, half-submerged in coastal
 shallows, entire cities sealed inside the northern mountains. The world is not built on top
 of its history. It is built around it, beside it, occasionally inside it.
+
+In the far west, where the northern spine bends south to meet the sea, lies the Wildkin's
+kingdom: a strip of forest and meadow between the mountains and the sea, open only to the
+east. It is **the core area**, the part of Mistheim that Core Warden is played in and that
+the rest of this section opens outward from. See *The Wildkin — beastkin of the core
+kingdom*. *(Added 2026-10-11, #1606.)*
 
 ---
 
@@ -1812,6 +1825,221 @@ recently been. The Fae appear to know more than they are saying about the third 
 
 ---
 
+### The Wildkin — beastkin of the core kingdom
+
+*Added 2026-10-11 (#1606). The owner made the Wildkin, the beastkin of Core Warden's setting
+bible (`macro-world/setting-corewarden.md`), the 16th People, and their kingdom between the
+mountains and the sea **the core area** of the game. The bible is canon for them; the clan
+lines and the Clan Question come from the Wildkin race lore it points to
+(`macro-world/race-affinities.json`). The West March is told from the fields under the
+Riksfolk (*The West March and the Wildkin border*); this is the same border from the dens.
+Names and details not in those sources are placeholders until the owner reviews them.*
+
+**Where they live:** A strip of forest, meadow, river and wetland in the far west of the
+continent, between a mountain range and the sea. The mountains are the western end of the
+northern spine, where it bends south to meet the coast: they wall the kingdom on the north
+and the west. The sea runs along its south, past the point where the Strandfolk charts end.
+Its only open side faces east, onto the river Alå and the Realm's West March beyond it. The
+climate is temperate: wet springs, mild summers. The kingdom has never been large. It has
+never needed to be. The mountains and the sea have always been its walls.
+
+**The core area:** The core area of the game, for now: Core Warden is mostly played out in
+Wildkin lands *(owner, 2026-10-11)*. The kingdom is small enough to be one game map, mountains
+to sea and the Alå to the wild western shore. It is not the middle of Mistheim (that is the Pandor's
+central highlands) but its far western corner, and the rest of this section opens outward
+from it: the Realm and, beyond the fen country, the Markfolk delta to the east; the Bergfolk
+spine to the north; the unsailed sea to the south. In the world, nobody calls it the core.
+The Wildkin call it the kingdom, and most of the continent rarely thinks about it.
+
+**What they make:** What forest, meadow and shore give. Furs and worked hide, bark-cloth,
+honey and wax, smoked fish, shellfish gathered from the shore, alder charcoal, bone tools
+and carved antler. Furs, honey, smoked fish and charcoal go east over the Alå fords; grain,
+wool and iron hinges come west. Boar hamlets farm, dig and build walls. Rabbit warrens keep
+big gardens, half above ground and half below. Wolf packs hunt and herd. Nobody builds
+boats: there is no Wildkin sea clan and no legend of a sea voyage. The sea is a wall, not a
+road.
+
+Their houses tell their history. The oldest still look like dens: round, half sunk into the
+ground, roofed with hide and turf, facing the trail. The newest have square walls, latched
+doors and iron hinges, and stand on market squares the old dens never had. Whether that is
+growth or erosion is the quiet argument in every settlement.
+
+**Resources:** Old forest, meadow, wetland, river fish, game, honey, shellfish, alder.
+Scarce: metal (bought in the March, and lately at the pass-towns from dwarves walking out of
+the mountains), and room. There is nowhere left to roam.
+
+**What shapes them:** Being walled in. The older clans remember when packs roamed freely,
+following game and season, and a den was a place you left. But squeezed between the
+mountains and the sea, with the fence-folk's charters creeping west across the Old Runs, the
+land a pack could run shrank with every generation. Roaming became harder, then impractical,
+then impossible. The Great Clans formalised because someone had to decide who lived where
+once "everywhere" stopped being an option. The kingdom has been settled ever since: old and
+stable, with no war since the Stone Line was set. It is isolationist by geography, not
+ideology. It has simply never had a reason to look outward. That is changing.
+
+They are not shapeshifters. A Wildkin is always partly animal and partly person, and the
+balance shifts with feeling and season. Their dead stay dead, and always have: the clan
+gathers at its oldest den and tells how the one who died ran.
+
+Belonging is everything. A Wildkin names their clan before themselves. Poverty can be lived
+through; being clanless, by exile, by orphaning or because a clan dissolved, is the true
+bottom of Wildkin life.
+
+**Rasa:** The Wildkin use Rasa the way most Peoples do, without a word for it, and use
+Runescript hardly at all. They have no written tradition. They keep records in knotted
+memory cords and in den-songs, and a boundary lives in the memory of the boar clans, not on
+paper. That memory works the way a Deepwalker contract does: a Stoneback elder who sings a
+boundary feels its weight as it was felt when it was agreed, which is why a boar clan's word
+on a boundary stands. Ironhide's bears are truth-speakers. In council a bear says a thing
+once and means it entirely, and the room bends toward it. Beyond that, magic is uneven by
+line: some lines get it rarely, but strongly. A Wildkin with real power tends to dress plain
+and say little; the clans' shamans, antlered and barefoot, do the opposite. The only
+Runescript most Wildkin know came west with the iron hinges: the three runes the fence-folk
+mutter over a latched door.
+
+Representative Classes: [Hunter], [Shaman], [Grove-Warden], [Boundary-Singer], [Trader],
+[Scout].
+
+#### The clans
+
+Eight beast lines, and inside each line many independent clans: packs, holds, warrens,
+eyries, dens. A "wolf clan" is any kinship group of the wolf line, and there are dozens. Most
+clans are small, twenty to eighty people.
+
+- **Wolf.** Pack hunters and herders: loyal, coordinated, tireless runners, with the loudest
+  and warmest settlements in the kingdom. Greymane is the largest single clan and the most
+  powerful. Other wolf clans: Nightrunner, Ashpelt, Ridgehowl, and many smaller packs.
+- **Bear.** Solitary guardians of the sacred groves, slow to anger and terrifying when
+  provoked, found near the passes and in the oldest woods. A bear "clan" may be three adults
+  and their children. Ironhide is theirs.
+- **Fox.** Traders and diplomats, quick-witted and as easy in a market square as in a
+  forest: the line most likely to live among other Peoples. Redtail leads; Silvertongue and
+  Duskear are small but networked. A fox trader's red sash marks them neutral in clan
+  quarrels, and every trader in the kingdom has taken it up.
+- **Boar.** Stubborn settlers: farmers, diggers, wall-builders, and the arbiters of land
+  law. The oldest territories are theirs, and their hamlets never move. Stoneback leads;
+  Deeproot, Mudwall and Thornfield are local and immovable.
+- **Cat.** Independent, nocturnal, curious to a fault, found everywhere. Each family is its
+  own sovereign, so there are dozens of tiny cat clans and no spokesperson. The third most
+  numerous line, and the least seen at council.
+- **Rabbit.** Community builders whose warrens run half above ground and half below. Newer
+  as a line than the founding four, and now very numerous: Longburrow alone has more members
+  than Ironhide and Redtail together. Heatherfoot is the other great warren. Underestimated
+  by everyone, exactly once.
+- **Hawk.** Scouts and watchers, keen-eyed, drawn to cliffs and ridgelines. Too few and too
+  scattered to organise: an eyrie may be six adults on a clifftop.
+- **Snake.** Patient, cold-comfortable, the line other Wildkin find hardest to read. They
+  guard old places and old knowledge, attend council rarely, and bring old knowledge when
+  they do.
+
+**Mixed clans:** Marrying across lines is normal and growing. A child of two lines takes
+after one parent fully, never a blend: a wolf-fox child is a wolf or a fox. Nobody knows
+why, and elders, shamans and scholars have argued it for centuries. Families mixed over
+generations become clans of their own. They are the fastest-growing part of Wildkin
+society, and they have no voice on the council.
+
+#### The Highfang, the Great Clans and the Clan Question
+
+**The Highfang** rules for life or until challenged, chosen by the Great Clans' council. Any
+line may hold the seat; every Highfang in living memory has been wolf or boar. The Highfang
+wears the tooth-crown, one tooth from each beast line, for standing over every clan. A Great
+Clan chief wears a single fang of their own line. A chief with more ornament than deeds is
+mocked: "more teeth than kills."
+
+**The Great Clans** are the oldest and best-connected clan of each founding line, with
+permanent council seats: Greymane (wolf), Ironhide (bear), Redtail (fox) and Stoneback
+(boar). A seat gives no command over the rest of the line: Greymane cannot order a distant
+wolf pack. But the seat speaks for the line's interests, and smaller clans usually defer, by
+custom rather than obligation. The four lesser lines, cat, rabbit, hawk and snake, have no
+seat. They may petition.
+
+**The Clan Question:** The council was set when the four founding lines were the only clans
+that mattered, before the warrens grew, before the cats settled, before mixed families were
+common. The council hasn't changed. The kingdom has. This is not a caste system: there is no
+purity doctrine and no bar on moving between roles. A fox can farm, and a mixed child can
+marry into Greymane. But the inequality is real, everyone feels it, and nobody has fixed it.
+
+- *The seat problem:* Longburrow outnumbers Ironhide and Redtail combined and has no seat.
+  When Longburrow petitions, it waits. When Ironhide speaks, the council listens at once.
+  The answer is always "founding blood, founding right." Longburrow's elders are patient.
+  Their young are not.
+- *The representation gap:* the cats are too independent to petition together. Some call it
+  freedom from politics. Cats who have lived among other Peoples call it "freedom to be
+  ignored."
+- *The mixed question:* mixed clans argue they are a ninth line and should be heard. The
+  Great Clans resist, not from hatred but from fear that more seats mean less founding
+  authority.
+- *The role shadow:* nobody enforces what a line is for, but the expectations persist. A
+  fox who farms gets gentle jokes; a bear who trades gets looks; a hawk who settles in a
+  valley is "grounded", and it stings.
+- *The Ironhide paradox:* the smallest, most solitary line holds a permanent seat, and its
+  moral authority as grove-guardians and truth-speakers is real. Should fifteen bears weigh
+  as much as four hundred rabbits? Ironhide always gives the same answer: "We were here
+  before you counted."
+
+The fence-folk complicate it. Some young Longburrow rabbits hold up the Realm's old Riksdag,
+with its elected burghers, as a model, and the Great Clans hear human influence creeping in
+again. In a settlement the Question shows as lesser-line folk grumbling about "old blood,
+old rules", Great Clan members defending tradition with real conviction, young rabbits with
+pamphlets and old bears who won't read them, fox traders who work the system perfectly and
+see no reason to change it, and cats who wish you'd stop asking.
+
+#### What's coming over the walls
+
+For centuries the kingdom's walls kept the world out. Within the last few years every wall
+has started to leak, and nobody has connected the leaks.
+
+- *The mountains:* Dwarves are walking out of tunnels that weren't there last season,
+  trading at the pass-towns and asking questions about the surface. Some are friendly. Some
+  are plainly running from something. They won't say what, or why now.
+- *The high passes:* The dead walk there. Not an army: scattered, confused and hostile,
+  coming down from deeper in the mountains, all within the last year. The Wildkin have no
+  framework for this. Their dead stay dead.
+- *Below:* Strange creatures are coming up through cave mouths, old wells and cracked earth,
+  things no Wildkin has a name for. Some are hostile by nature, some because they are
+  terrified. Down there too are ruins, foundations and tunnels older than the beastkin
+  kingdom, which look built by human hands. Nobody knows who built them. The Riksfolk point
+  to them and say they were here first, and the Wildkin find the question uncomfortable.
+- *The sea:* Nothing has come yet. The Wildkin fish from the shore, gather shellfish and
+  build no boats. Nobody knows what is out there. Yet.
+- *The east:* The fence-folk, below.
+
+**Relations:**
+- *Riksfolk:* The fence-folk, and the oldest sore. Their West March was fenced, one
+  charter at a time, across the Old Runs the packs once followed. The Alder War, about a
+  hundred and forty years ago, ended with the Stone Line along the Alå, set by Stoneback and
+  the Realm's [Hedge-Wardens] together. It has not moved since, and every spring a Stoneback
+  elder walks it with a March [Hedge-Warden]. The fences brought trade too, and the iron
+  hinges, latched doors and market squares the Wildkin now build with. Redtail traders and
+  March grain-factors have done business for generations. In the Drowned Year, about sixty
+  years ago, Greymane packs took flooded March families into the dry forest. Lesser-line
+  Wildkin, cats and rabbits above all, cross east for wages. Now the Marshal has put a
+  standing guard on the March, incidents along the Line are rising, and the border clans
+  grow more defensive in turn. Neither side knows it is being pushed. See *The West March
+  and the Wildkin border*.
+- *Bergfolk:* Dwarves out of the mountains: new at the pass-towns, fair traders, and
+  unwilling to explain themselves. Iron now reaches the kingdom two ways, through the March
+  and straight out of the rock.
+- *Markfolk:* No border. The orcs' delta lies far to the south-east, beyond the Realm and
+  the fen country, and their fields grow east, away from the kingdom. The Wildkin know them
+  from March market talk and the odd sack of delta grain.
+- *Strandfolk:* No contact. Their charts end where the coast turns west, short of the
+  Wildkin's sea, and no Wildkin has ever seen a sail. Boat people down the coast are a fox
+  trader's story.
+- *Viddfolk:* [Heralds] reach the Alå fords now and then with the Realm's letters. The old
+  wolves envy a People who still roam.
+- *Fae:* Something at the meadow's edge at dawn bargains for names. Grandmothers warn the
+  cubs.
+
+**The Dry's effect:** The den-songs are losing their endings. Boar elders singing a boundary
+reach a verse they can't finish, and argue over what the last line was. Ironhide says the
+oldest grove has gone quiet, and bears don't say that lightly. Along the border the
+corruption works another way, as it does in the Marshal's hall: tempers short, suspicion
+easy, every cut fence read as a declaration. The Highfang's council is debating. Nobody has
+answers.
+
+---
+
 ### The Riksfolk — humans of the Realm
 
 *Added 2026-10-11 (#1623). The owner: "There needs to be human peoples but also an orc
@@ -2416,6 +2644,41 @@ they have made progress.
 
 ---
 
+#### Wildkin
+
+*Added 2026-10-11 (#1606), from the Wildkin's section above and the ikibeki dress in
+`macro-world/fashion.json`.*
+
+**Appearance:** Always partly animal and partly person, never one turning into the other.
+Each line carries its beast plainly: wolf, bear, fox and cat fur, ears and tails; boar tusks
+and bristle; rabbit ears and long feet; hawk feathers and hooked faces; snake scales, slit
+pupils and forked tongues. Most stand on digitigrade legs. How much beast shows shifts with
+feeling and season: a frightened fox looks more fox. A child of two lines looks wholly like
+one of them.
+
+**Clothing:** Hide, bark-cloth and wool, undyed, in bark, moss and earth tones. Fur-bearing
+lines wear little, because the coat is the first layer; snake-line Wildkin wear the most.
+Boots are soft hide, open-toed for clawed feet; many rabbits go barefoot. Everyone wears a
+clan cord at the neck, beaded with deeds and alliances, and a bare cord is the saddest thing
+a Wildkin can wear. Elders wear long bark-cloth robes with their clan's story burnt into the
+hem; the Highfang wears the tooth-crown and a long hide cloak; traders wear the fox red sash
+of neutrality. Shamans wear antlers and go barefoot. Wealth looks more human: glass beads, a
+metal buckle, a panel of woven cloth from the March. Bears and snakes refuse such things even
+when they can afford them, and mean it as a statement.
+
+**Architecture:** Round dens and longhouses along the trails, half sunk into the ground,
+roofed in hide and turf, laid out as the ground and the paths fall rather than in rows.
+Rabbit warrens run half above ground and half below; hawk eyries cling to cliffs; boar
+hamlets sit behind low walls and never move. The newer houses near the Alå have square
+walls, latched doors and iron hinges, around a market square.
+
+**Objects:** Memory cords, knotted records that an elder reads with their fingers. Staffs
+of office carved with a clan beast's head. Bone toggles, matched in sets when a family is
+doing well. Council-stone pendants. On the Stone Line, each stone carries a boar clan's
+tusk-mark on its western face.
+
+---
+
 #### Riksfolk
 
 *Added 2026-10-11 (#1631), from the Riksfolk's section above.*
@@ -2543,6 +2806,7 @@ alliance, but every People that sails keeps its rule. *(Added 2026-10-11, #1623.
 | Open steppe | Grazing, Myst wind-eddies, scattered ruins | Viddfolk (route-claims) | Eastern expansion pressure from Markfolk |
 | Realm lowlands and hills | Farmland, hill pasture, timber, river fords | Riksfolk (the Realm) | Iron bought from the Bergfolk; the undrained fen country with the Markfolk (added 2026-10-11, #1623) |
 | West March and the Old Runs | Drained fen (the best soil in the lowlands), alder wood, game, the Alå fords | Riksfolk to the Stone Line, Wildkin beyond it | The Wildkin border at the river Alå (added 2026-10-11, #1623) |
+| The core kingdom (between the mountains and the sea) | Old forest, meadow, game, honey, river fish and shellfish, alder charcoal, furs and hide | Wildkin (the Highfang and the Great Clans) | The Stone Line with the Riksfolk; the lower passes, where dwarves are walking out and the dead walking down (added 2026-10-11, #1606) |
 | Coastlines and harbours | Fish, salt, sea-access, coastal salvage | Deepwalkers | Deep-channel authority with Merfolk |
 | Harbour coast east of the delta | Boats, freight, fishing grounds, coastal timber | Strandfolk (the Hamnlag), harbours shared with the Deepwalkers | Fishing grounds over Merfolk waters; the Marshal of the Realm wants a harbour (added 2026-10-11, #1623) |
 | Deep ocean | Pressure-crystal, Myst-kelp, sunken ruins | Merfolk (Djupvolk) | Deepwalker access rights to specific sites |
