@@ -1158,6 +1158,8 @@ export function endRoadDay(s: RoadState): RoadState {
     say(next, MISTHEIM_ARRIVAL, 'outcome');
     return next;
   }
+  // The journal as it stood on the road (#1580), to see what arriving settles.
+  const journal = journalNow(next);
   next.leg += 1;
   next.legDay = 1;
   const now = legOf(next);
@@ -1168,7 +1170,6 @@ export function endRoadDay(s: RoadState): RoadState {
       say(next, `Bodil hasn't forgotten the ${next.owesHelp} day${next.owesHelp === 1 ? '' : 's'} of help you promised and never gave. She doesn't say a word about it, which is worse.`, 'hardship');
       next.owesHelp = 0;
     }
-    const journal = journalNow(next);
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
     // Checking for yourself (#1580): something you were told about here, you can now see.

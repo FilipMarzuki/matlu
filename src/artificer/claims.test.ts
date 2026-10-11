@@ -222,6 +222,22 @@ describe('#1580 acceptance', () => {
       expect(r.asked?.['hf-tobin']).toEqual(['claimed:group:compact', 'group:compact']);
     });
 
+    it('Given Liv told the Warden about wolves, When the caravan reaches Kestrel Gate, Then the Warden sees for themself, and the journal marks her wrong', () => {
+      let r = ride(ON, x => villageOf(x) === 'saltmere');
+      r = askOnRoad(r, 'sm-liv', 'place:north-road', 30);
+      expect(r.log.at(-1)!.text).toContain('five grey wolves on the Gate road below the wall');
+      for (let i = 0; i < 10 && villageOf(r) !== 'kestrel-gate'; i++) r = endRoadDay(r);
+      const wolves = claimEntries().rumours.find(x => x.id === 'pass-wolves')!;
+      expect(r.log.some(l => l.text === wolves.check!.text)).toBe(true);
+      expect(observeRoad(r)).toMatch(/Wolves on the north road — CHECKED for yourself.*Liv \(Everyone says\).*✗ not so/);
+    }, 60_000);
+
+    it('Given a free question to Tobin about the Compact, When the knowledge model answers it, Then he lies there too, and the road keeps it the same way', () => {
+      const r = runRoadAction({ ...atFord, trust: { ...atFord.trust, 'hf-tobin': 20 } }, 'question:hf-tobin:group:compact');
+      expect(r.log.at(-1)!.text).toContain(LIES_ON['hf-tobin'][0].text);
+      expect(r.asked?.['hf-tobin']).toEqual(['claimed:group:compact']);
+    });
+
     it('Given the switch off, When Tobin is asked below his trust, Then he says "not yet", as before', () => {
       const r = askOnRoad(offFord, 'hf-tobin', 'group:compact', 20);
       expect(r.log.at(-1)!.text).toMatch(/Ask me again when I know you better/);

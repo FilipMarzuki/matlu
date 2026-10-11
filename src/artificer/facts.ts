@@ -279,7 +279,8 @@ export interface ClaimTold { person: string; topic: string; fact: string; truth:
  * with is the most specific fact they know about it, and the model finds the same one again
  * (asking with infinite trust only opens gates, it never picks a different fact). Keys that are
  * no fact's topic (a deed told, a People's ways) find nothing and are skipped. The game always
- * knows the truth (design §7) while the player hears only the words; #1580's journal reads this.
+ * knows the truth (design §7) while the player hears only the words. The journal of who said what
+ * (#1580, journal.ts `claimsHeard`) reads `asked` the same way, lies told (`claimed:<topic>`) too.
  */
 export function claimsTold(asked: Readonly<Record<string, readonly string[]>> | undefined, facts: readonly Fact[] = FACTS): ClaimTold[] {
   const out: ClaimTold[] = [];
