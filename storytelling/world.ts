@@ -670,7 +670,11 @@ export class World {
     let p = 0;
     for (const t of this.titlesHeldBy(c.id)) {
       const prov = this.province(t.provinceId);
-      if (prov) p += prov.population;
+      // A rich province raises more than its headcount (arms, horses, hired
+      // swords), a poor one less (#1608: the regional level sets its wealth
+      // from trade and prosperity, so the region's fortunes reach its lords).
+      // At 0.5, "getting by", it's exactly the headcount, as before.
+      if (prov) p += Math.round(prov.population * (1 + WEALTH_POWER * ((prov.wealth ?? 0.5) - 0.5)));
       // Higher tiers project authority beyond their own seat.
       p += t.tier === "kingdom" ? 600 : t.tier === "duchy" ? 250 : 60;
     }
@@ -682,6 +686,10 @@ export class World {
     return p;
   }
 }
+
+// How much a province's wealth (0..1) moves what it raises for its holder:
+// at 1 (rich) its people count 20% more, at 0 (destitute) 20% less.
+export const WEALTH_POWER = 0.4;
 
 // How much a person's own prowess weighs in a war, in the same units as levies.
 // Grows super-linearly with level so the very top tier is genuinely decisive,

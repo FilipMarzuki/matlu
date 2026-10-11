@@ -46,6 +46,9 @@ export function computeInbreeding(w: World, fatherId: string, motherId: string):
 }
 
 // ── Distortion onset ──────────────────────────────────────────────────────
+// Extra yearly onset chance for a landed lord in a fully unsettled region (#1608).
+export const UNSETTLED_ONSET = 0.006;
+
 export function maybeOnsetMadness(w: World): void {
   for (const c of w.adults()) {
     if (c.psyche.distortion !== "none") continue;
@@ -71,6 +74,15 @@ export function maybeOnsetMadness(w: World): void {
     const homeProv = w.province(c.provinceId);
     if (homeProv && homeProv.blightLevel > 0) {
       chance += homeProv.blightLevel * 0.015;
+    }
+
+    // An unsettled region (#1608: its lords dying, seats left empty or seized)
+    // weighs on the lords who hold land there: who's next? A small push, read
+    // from the regional level's state, so it changes the odds of this roll but
+    // never how many rolls the engine makes (its random stream stays in step).
+    const region = w.regions.get(w.regionOf.get(c.provinceId) ?? "");
+    if (region && region.unsettled > 0 && w.titlesHeldBy(c.id).length > 0) {
+      chance += region.unsettled * UNSETTLED_ONSET;
     }
 
     if (!w.rng.chance(chance)) continue;

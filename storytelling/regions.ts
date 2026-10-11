@@ -17,13 +17,19 @@
 //     died", "famine struck two of its provinces"). A few are the region's own
 //     (bandits, a hard winter, a fair, a mine's luck), drawn from the world's
 //     separate regional stream (World.regionRng).
-//   • It writes only to its own state and log (World.regions,
-//     World.regionalEvents) and never feeds back into the simulation, so the
-//     canonical event log, and every golden hash, is exactly what it was.
-//     Feeding back (a levy thinning a province, a hard winter killing) is an
-//     open question for later; it would move the hashes.
+//   • Then it PUSHES BACK (pushBack, #1608): a levy thins the provinces whose
+//     lords fought, a hard winter and famine cost people and stores (more where
+//     the region is poor), bandits rob the roads, trade and prosperity make a
+//     province rich or poor (Province.wealth, which World.power reads, so the
+//     region's fortunes reach its lords), and a lord's death or a seized seat
+//     unsettles its politics, which can turn an old feud into a fresh claim.
+//     Its log stays its own (World.regionalEvents) and its randomness its own
+//     stream, but the provinces and people it changes are the engine's, so
+//     since #1608 the golden hashes include the regional level's consequences.
 
+import { hasTruce } from "./diplomacy.js";
 import { carryingCapacity } from "./geography.js";
+import { addClaim } from "./inheritance.js";
 import { regionalSignificance } from "./sifter.js";
 import type {
   CharId,
@@ -265,6 +271,7 @@ function newRegion(w: World, centre: Province, provinceIds: ProvinceId[]): Regio
     houses: {},
     leadingHouse: null,
     feuds: {},
+    unsettled: 0,
     flags: {},
   };
   const standing = houseStanding(w, region);
@@ -408,7 +415,7 @@ const ARRIVALS: ReadonlySet<EventType> = new Set<EventType>([
 
 const CATEGORY: Record<RegionalEventKind, RegionalCategory> = {
   LORD_DIED: "politics", SEAT_VACANT: "politics", SEAT_SEIZED: "politics", HOUSE_RISES: "politics", HOUSE_FALLS: "politics",
-  FEUD: "politics", BORDER_WAR: "politics", ALLIANCE: "politics", LEVY_RAISED: "politics", TAXES_RAISED: "politics", TAXES_EASED: "politics",
+  FEUD: "politics", FEUD_FLARES: "politics", BORDER_WAR: "politics", ALLIANCE: "politics", LEVY_RAISED: "politics", TAXES_RAISED: "politics", TAXES_EASED: "politics",
   HARVEST_GOOD: "economy", HARVEST_POOR: "economy", SHORTAGE: "economy", BOOM: "economy", SLUMP: "economy",
   VENTURE_OPENED: "economy", VENTURE_THRIVES: "economy", VENTURE_FAILING: "economy", VENTURE_CLOSED: "economy",
   ROAD_THRIVES: "economy", ROAD_FAILS: "economy",
@@ -444,6 +451,11 @@ interface YearSummary {
   inWar: Set<CharId>; // its lords who fought this year (anywhere)
   banditry: boolean;
   hardWinter: boolean;
+  // For pushBack (#1608): how the region stood going into the year, and where this year's trouble fell.
+  prosperityBefore: number;
+  winterEvent: RegionalEvent | null;
+  banditSpot: ProvinceId | null;
+  news: RegionalEvent[]; // this year's regional events in the region
 }
 
 /**
@@ -454,10 +466,14 @@ export function runRegions(w: World, evStart: number): void {
   if (w.regions.size === 0) return;
   adoptStrays(w);
   const yearEvents = w.events.slice(evStart);
+  const regStart = w.regionalEvents.length;
   const frost = yearEvents.find((e) => e.type === "GREAT_FROST");
 
   const summary = new Map<RegionId, YearSummary>();
-  for (const r of w.regions.values()) summary.set(r.id, { year: yearEvents, events: [], famine: [], plagued: [], wars: [], inWar: new Set(), banditry: false, hardWinter: false });
+  for (const r of w.regions.values()) summary.set(r.id, {
+    year: yearEvents, events: [], famine: [], plagued: [], wars: [], inWar: new Set(), banditry: false, hardWinter: false,
+    prosperityBefore: r.prosperity, winterEvent: null, banditSpot: null, news: [],
+  });
   for (const ev of yearEvents) {
     const rid = regionOfEvent(w, ev);
     if (rid) {
@@ -487,6 +503,22 @@ export function runRegions(w: World, evStart: number): void {
     standingAndDues(w, r, s);
   }
   roads(w, summary);
+
+  // Last, the region pushes back into the simulation (#1608), once every
+  // region has read the year and the roads are updated.
+  for (const ev of w.regionalEvents.slice(regStart)) summary.get(ev.regionId)?.news.push(ev);
+  for (const r of w.regions.values()) {
+    const s = summary.get(r.id)!;
+    pushBack(w, r, {
+      levyLords: [...s.inWar],
+      hardWinter: s.hardWinter,
+      winterEvent: s.winterEvent,
+      famine: s.famine.map((e) => e.provinceId).filter((id): id is ProvinceId => !!id),
+      bandits: s.banditry ? s.banditSpot : null,
+      prosperityBefore: s.prosperityBefore,
+      news: s.news,
+    });
+  }
 }
 
 /** A province added after seeding (none are today) joins a bordering region, or starts its own. */
@@ -573,7 +605,7 @@ function weatherAndBandits(w: World, r: Region, s: YearSummary, frost: WorldEven
   if (frost || (w.year - (r.flags.winter ?? -99) >= 3 && winterRoll < pWinter)) {
     r.flags.winter = w.year;
     s.hardWinter = true;
-    emit(w, r, "HARD_WINTER", { causeEventId: frost?.id ?? null });
+    s.winterEvent = emit(w, r, "HARD_WINTER", { causeEventId: frost?.id ?? null });
   }
   // Banditry: worse when times are hard, the men are away at war, or a seat is
   // empty or held by a child. The engine's own outlaws count too.
@@ -583,12 +615,14 @@ function weatherAndBandits(w: World, r: Region, s: YearSummary, frost: WorldEven
     const h = w.char(t?.holderId ?? null);
     return !!t && (!h || w.age(h) < 16);
   });
-  const pBandits = 0.02 + 0.15 * (1 - r.prosperity) ** 2 + 0.1 * r.levy + (weak ? 0.05 : 0);
+  // An unsettled region (lords dying, seats changing hands) is easier for outlaws too (#1608).
+  const pBandits = 0.02 + 0.15 * (1 - r.prosperity) ** 2 + 0.1 * r.levy + (weak ? 0.05 : 0) + FEEDBACK.unsettledBandits * r.unsettled;
   const banditRoll = rng.next();
   const spot = rng.pick(r.provinceIds.length > 1 ? r.provinceIds.slice(1) : r.provinceIds);
   if (engineBandit || (w.year - (r.flags.bandits ?? -99) >= 4 && banditRoll < pBandits)) {
     r.flags.bandits = w.year;
     s.banditry = true;
+    s.banditSpot = engineBandit?.provinceId ?? spot;
     emit(w, r, "BANDITRY", { provinceId: engineBandit?.provinceId ?? spot, actorId: engineBandit?.actorId ?? null, causeEventId: engineBandit?.id ?? null, data: { named: !!engineBandit } });
   }
 }
@@ -661,7 +695,7 @@ function economy(w: World, r: Region, s: YearSummary): void {
   const target =
     0.5 + 0.8 * (food - 1) + 0.3 * (0.8 - crowding) + 0.25 * (v.state === "closed" ? -0.3 : v.health - 0.5) + 0.15 * (roadsAvg - 0.4)
     - 0.3 * r.levy - (s.plagued.length ? 0.2 : 0) - (s.famine.length ? 0.15 : 0) - (s.hardWinter ? 0.08 : 0)
-    - (s.wars.length ? 0.1 : 0) - (s.banditry ? 0.05 : 0);
+    - (s.wars.length ? 0.1 : 0) - (s.banditry ? 0.05 : 0) - FEEDBACK.unsettledProsperity * r.unsettled;
   r.prosperity = round3(clamp(r.prosperity + (target - r.prosperity) * 0.35, 0, 1));
   if (r.prosperity >= 0.68 && !r.flags.boom) { r.flags.boom = 1; emit(w, r, "BOOM", { data: { prosperity: r.prosperity } }); }
   if (r.prosperity < 0.58) r.flags.boom = 0;
@@ -785,6 +819,216 @@ function roads(w: World, summary: Map<RegionId, YearSummary>): void {
         emit(w, n, kind, { otherRegionId: r.id, data: { trade: value } });
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pushing back (#1608): the region's year changes its provinces and people.
+//
+// Until #1608 the regional level only read the engine. Now, once it has read
+// the year, it writes a few clear consequences back into the engine's own
+// state: province populations, province wealth, its lords' opinions of each
+// other and, now and then, a claim. Those are what the engine's next year
+// reads (World.power for wars, scarcity for hunger and expansion, claims and
+// opinions for goals and plots), so a region's fortunes ripple into its
+// history. Deliberately few effects, each a tunable constant in FEEDBACK, not
+// a second simulation. The one new roll (an old feud flaring) draws from
+// World.regionRng, never World.rng, so the engine's own rolls stay in step.
+// ---------------------------------------------------------------------------
+
+/** The knobs for every feedback, in one place so they're easy to tune. Shares are of a province's people or of its 0..1 wealth. */
+export const FEEDBACK = {
+  /** A levy: share of a province's people lost in a year its lord fights, at a full levy (killed, maimed, or never coming home). */
+  levyToll: 0.03,
+  /** ...and how far a full levy drags its wealth down (fields untended while the men are away). */
+  levyWork: 0.15,
+  /** A hard winter: share of people it kills, in a region getting by (scaled by hardship). */
+  winterToll: 0.015,
+  /** ...and the stores it eats (wealth), scaled the same way. */
+  winterStores: 0.08,
+  /** Famine: share of people it kills on top of the engine's own toll, scaled by hardship. */
+  famineToll: 0.03,
+  /** ...and the stores it eats. */
+  famineStores: 0.15,
+  /** Bandits: wealth lost where they work. */
+  banditWealth: 0.08,
+  /** ...and traffic lost on the engine's trade routes (TradeRoute.wealth) that touch the region. */
+  banditRoute: 0.1,
+  /** How fast a province's wealth eases toward what the region's prosperity and trade support, a year. */
+  wealthPull: 0.25,
+  /** How much the region's roads (their trade over the usual 0.4) add to its provinces' wealth; doubled at the market town. */
+  roadWealth: 0.3,
+  /** How much the venture's health (over 0.5) adds to the wealth of the province it's in. */
+  ventureWealth: 0.2,
+  /** How much the engine's busiest open trade route through a province adds to its wealth. */
+  routeWealth: 0.15,
+  /** Unsettlement added by a lord's death, a great lord's (duchy or kingdom), an empty seat, a seized seat. */
+  unsettleDeath: 0.1,
+  unsettleGreatDeath: 0.2,
+  unsettleVacant: 0.2,
+  unsettleSeized: 0.3,
+  /** Unsettlement kept from one year to the next (the rest fades). */
+  unsettleKeep: 0.6,
+  /** Opinion each of its lords loses of each lord of another house there, a year, at full unsettlement. */
+  unsettledOpinion: 6,
+  /** Chance a year, at full unsettlement, that a live feud flares into a claim on the rival's seat. */
+  feudFlare: 0.6,
+  /** A feud is live this many years after its lords last fought (long enough for sons to take it up). */
+  feudMemory: 25,
+  /** Opinion the two lords lose of each other when their feud flares. */
+  feudFlareOpinion: 15,
+  /** Unsettlement's pull on banditry (chance a year) and on prosperity's target. */
+  unsettledBandits: 0.1,
+  unsettledProsperity: 0.1,
+} as const;
+
+/**
+ * How hard a hardship bites in a region of this prosperity: 1 in a region
+ * getting by (0.5), up to 1.5 in a destitute one (0), down to 0.5 in a rich one
+ * (1). A poor region has no stores to fall back on, so the same winter or
+ * famine kills more.
+ */
+export function hardship(prosperity: number): number {
+  return 0.5 + (1 - clamp(prosperity, 0, 1));
+}
+
+/** What pushBack needs from the region's year: plain data, so tests can hand it one. */
+export interface Pressure {
+  /** Its lords who fought this year: their provinces' men were called up. */
+  levyLords: CharId[];
+  hardWinter: boolean;
+  /** The year's HARD_WINTER event, if any: it learns how many died. */
+  winterEvent?: RegionalEvent | null;
+  /** Its provinces the engine's famine struck this year. */
+  famine: ProvinceId[];
+  /** Where bandits worked this year, if they did. */
+  bandits: ProvinceId | null;
+  /** The region's prosperity going into the year: how much it had to fall back on. */
+  prosperityBefore: number;
+  /** This year's regional events in the region (its lords' deaths and seized seats unsettle it). */
+  news: readonly RegionalEvent[];
+}
+
+/** Take a share of a province's people (never below the engine's floor of 50); returns how many were lost. */
+function thin(p: Province, share: number): number {
+  const before = p.population;
+  p.population = Math.max(50, p.population - Math.round(p.population * share));
+  return before - p.population;
+}
+
+/**
+ * One year of the region pushing back into the simulation (#1608). Called by
+ * runRegions for every region after the year is read; exported for the tests.
+ */
+export function pushBack(w: World, r: Region, y: Pressure): void {
+  const F = FEEDBACK;
+  const bite = hardship(y.prosperityBefore);
+  const provs = r.provinceIds.map((id) => w.province(id)).filter((p): p is Province => !!p);
+  const roadsAvg = avg(Object.values(r.roads), 0.4);
+
+  // --- Wealth: eases toward what the region's prosperity and trade support.
+  // The market town gains most from the roads; the venture's province from the
+  // venture; a province on one of the engine's trade routes from its traffic.
+  // A levy drags it down: the fields go untended while the men are away.
+  for (const p of provs) {
+    let route = 0;
+    for (const t of w.tradeRoutes.values()) {
+      if (t.closedYear === null && (t.fromProvinceId === p.id || t.toProvinceId === p.id)) route = Math.max(route, t.wealth);
+    }
+    const venture = p.id !== r.venture.provinceId ? 0 : r.venture.state === "closed" ? -0.5 : r.venture.health - 0.5;
+    const target = clamp(
+      r.prosperity + F.roadWealth * (roadsAvg - 0.4) * (p.id === r.centreId ? 2 : 1) + F.ventureWealth * venture + F.routeWealth * route - F.levyWork * r.levy,
+      0, 1);
+    const now = p.wealth ?? 0.5;
+    p.wealth = now + (target - now) * F.wealthPull;
+  }
+
+  // --- A levy thins the provinces whose lords fought this year.
+  const levied = new Set(y.levyLords);
+  if (levied.size && r.levy > 0) {
+    for (const p of provs) {
+      const holder = w.title(p.titleId)?.holderId;
+      if (holder && levied.has(holder)) thin(p, F.levyToll * r.levy);
+    }
+  }
+
+  // --- A hard winter kills, and eats the stores: more where the region is poor.
+  // Underground halls are spared (no fields to freeze, no roads to close).
+  if (y.hardWinter) {
+    let dead = 0;
+    for (const p of provs) {
+      if (p.subsurface) continue;
+      dead += thin(p, F.winterToll * bite);
+      p.wealth = (p.wealth ?? 0.5) - F.winterStores * bite;
+    }
+    if (y.winterEvent) {
+      const people = provs.reduce((a, p) => a + p.population, 0) + dead;
+      y.winterEvent.data["deaths"] = dead;
+      y.winterEvent.data["share"] = round3(people > 0 ? dead / people : 0);
+      y.winterEvent.significance = regionalSignificance("HARD_WINTER", y.winterEvent.data);
+    }
+  }
+
+  // --- Famine: the engine already took its toll; a poor region loses more on top.
+  for (const id of new Set(y.famine)) {
+    const p = w.province(id);
+    if (!p || w.regionOf.get(id) !== r.id) continue;
+    thin(p, F.famineToll * bite);
+    p.wealth = (p.wealth ?? 0.5) - F.famineStores * bite;
+  }
+
+  // --- Bandits rob where they work, and the trade on the region's roads.
+  if (y.bandits) {
+    const p = w.province(y.bandits);
+    if (p) p.wealth = (p.wealth ?? 0.5) - F.banditWealth;
+    for (const t of w.tradeRoutes.values()) {
+      if (t.closedYear !== null) continue;
+      if (w.regionOf.get(t.fromProvinceId) === r.id || w.regionOf.get(t.toProvinceId) === r.id) t.wealth = Math.max(0, t.wealth - F.banditRoute);
+    }
+  }
+  for (const p of provs) p.wealth = round3(clamp(p.wealth ?? 0.5, 0, 1));
+
+  // --- Politics: a lord's death, an empty seat or a seized one unsettles the region.
+  let unsettled = r.unsettled * F.unsettleKeep;
+  for (const ev of y.news) {
+    if (ev.kind === "LORD_DIED") unsettled += ev.data["tier"] !== "county" ? F.unsettleGreatDeath : F.unsettleDeath;
+    else if (ev.kind === "SEAT_VACANT") unsettled += F.unsettleVacant;
+    else if (ev.kind === "SEAT_SEIZED") unsettled += F.unsettleSeized;
+  }
+  r.unsettled = round3(clamp(unsettled, 0, 1));
+  if (r.unsettled <= 0) return;
+
+  // While it's unsettled, its lords of different houses trust each other less.
+  // (The engine's opinion drift eases opinions back toward neutral each year.)
+  const lords: { id: CharId; dynastyId: string; seat: string }[] = [];
+  for (const p of provs) {
+    const h = w.char(w.title(p.titleId)?.holderId ?? null);
+    if (h?.alive && !lords.some((l) => l.id === h.id)) lords.push({ id: h.id, dynastyId: h.dynastyId, seat: p.titleId });
+  }
+  const chill = Math.round(F.unsettledOpinion * r.unsettled);
+  if (chill > 0) {
+    for (const a of lords) for (const b of lords) {
+      if (a.id !== b.id && a.dynastyId !== b.dynastyId) w.adjustOpinion(w.char(a.id)!, b.id, -chill);
+    }
+  }
+
+  // An old feud can flare: when the region is unsettled and the two houses'
+  // lords there aren't bound by a truce (often their sons, not the men who
+  // fought), the more vengeful one may lay claim to the other's seat. The
+  // engine's goals turn a claim into a war, so a feud can grow into war.
+  for (const [key, year] of Object.entries(r.feuds)) {
+    if (year >= w.year || w.year - year > F.feudMemory) continue;
+    const [da, db] = key.split("|");
+    const a = lords.find((l) => l.dynastyId === da), b = lords.find((l) => l.dynastyId === db);
+    if (!a || !b || a.id === b.id || hasTruce(w, a.id, b.id)) continue; // a war within one house leaves a "d|d" feud: no rival to claim against
+    if (w.regionRng.next() >= F.feudFlare * r.unsettled) continue;
+    const ca = w.char(a.id)!, cb = w.char(b.id)!;
+    const [claimant, rival, seat] = cb.drives.vengeance > ca.drives.vengeance ? [cb, ca, a.seat] : [ca, cb, b.seat];
+    if (claimant.claims.some((c) => c.titleId === seat)) continue;
+    addClaim(claimant, { titleId: seat, strength: "weak", basis: `the old feud of ${year}`, year: w.year });
+    w.adjustOpinion(claimant, rival.id, -F.feudFlareOpinion);
+    w.adjustOpinion(rival, claimant.id, -F.feudFlareOpinion);
+    emit(w, r, "FEUD_FLARES", { actorId: claimant.id, targetId: rival.id, titleId: seat, provinceId: w.title(seat)?.provinceId ?? null, data: { since: year } });
   }
 }
 

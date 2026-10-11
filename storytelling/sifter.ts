@@ -175,7 +175,7 @@ function seatKingdom(w: World, charId: string | null): string | null {
 // ---------------------------------------------------------------------------
 const REGIONAL_BASE: Record<RegionalEventKind, number> = {
   LORD_DIED: 4, SEAT_VACANT: 5, SEAT_SEIZED: 6, HOUSE_RISES: 4, HOUSE_FALLS: 5,
-  FEUD: 5, BORDER_WAR: 4, ALLIANCE: 3, LEVY_RAISED: 3, TAXES_RAISED: 3, TAXES_EASED: 2,
+  FEUD: 5, FEUD_FLARES: 4, BORDER_WAR: 4, ALLIANCE: 3, LEVY_RAISED: 3, TAXES_RAISED: 3, TAXES_EASED: 2,
   HARVEST_GOOD: 2, HARVEST_POOR: 3, SHORTAGE: 3, BOOM: 3, SLUMP: 4,
   VENTURE_OPENED: 3, VENTURE_THRIVES: 3, VENTURE_FAILING: 3, VENTURE_CLOSED: 4,
   ROAD_THRIVES: 2, ROAD_FAILS: 3,
@@ -191,6 +191,11 @@ export function regionalSignificance(kind: RegionalEventKind, data: Record<strin
   if (kind === "PLAGUE" && Number(data["provinces"] ?? 1) * 2 > Number(data["of"] ?? 1)) s += 1;
   if (kind === "BANDITRY" && data["named"]) s += 1;
   if (kind === "SEAT_SEIZED" && data["lowborn"]) s += 1;
+  // A killing winter (#1608: winters now cost lives, most in a poor region): one
+  // that took nearly 2% of the region's people is remembered for longer. Still
+  // under the chronicle's 5, so it's told in the region's own lines, not the
+  // chronicle (the #1605 threshold rule).
+  if (kind === "HARD_WINTER" && Number(data["share"] ?? 0) >= 0.018) s += 1;
   return s;
 }
 
