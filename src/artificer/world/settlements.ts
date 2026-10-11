@@ -8,7 +8,8 @@
  *
  * The site is read off the Reach grid: the land at the seat, a river or lake beside it, what the
  * cells around it yield, the province's culture. The three hand-written villages (provinces.ts
- * seats them) are settlements too, with their own people placed in the buildings that suit them.
+ * seats them) are settlements too, with their own people placed in the buildings that suit them,
+ * and what they're built around comes from what they live on (economy.ts, #1627), not the land.
  *
  * The buildings and each culture's way of laying out a town come from the forge's own files
  * (`public/macro-world/building-registry.json`, `macro-world/cultures.json`), so a building edited
@@ -24,7 +25,8 @@ import culturesData from '../../../macro-world/cultures.json';
 import { generator, seedOf } from '../rng';
 import { VILLAGES, type Person, type Role } from '../villages';
 import type { Biome, Reach } from './reach';
-import type { Province } from './provinces';
+import type { AnchorId, Province } from './provinces';
+import { VILLAGE_ECONOMY, tradesOf, type Founding, type LocalFuel, type Trade, type VillageEconomy } from '../economy';
 import type { ReachCulture } from './peoples';
 
 /** The forge's data, as mapgen takes it: cultures' layout styles and the building registry. */
@@ -79,12 +81,50 @@ const RESOURCES: Readonly<Record<Biome, readonly AdjacentResource[]>> = {
   meadow: ['fertile-soil'], heath: ['game'], birch: ['timber', 'game'], pine: ['timber'], marsh: ['peat'], river: [], lake: ['fish'], scree: ['stone'], fell: ['stone', 'ore'], snow: [],
 };
 
-/** The hand-written villages' living, as villages.ts describes them, in place of what the land suggests. */
-const ANCHOR_RESOURCES: Readonly<Record<NonNullable<Province['anchor']>, readonly AdjacentResource[]>> = {
-  hollowford: ['fertile-soil', 'game', 'stone'], // terraced barley, sheepfolds, stone walls
-  saltmere: ['fish', 'salt', 'game'], // the salt lake, fish racks, the steppe beyond
-  'kestrel-gate': ['stone', 'ore', 'timber'], // the wall, iron off the passes
+/**
+ * What each of a village's trades, or what it grew up around, gives its settlement in mapgen's
+ * terms (#1627). Herding is `game`: mapgen founds a herding village on it, and its tannery takes
+ * hides. Trading and the toll give nothing here: the road through the village is already a
+ * `trade-route` feature, and the Gate's pass a `mountain-pass` (siteOf). Nor do a ford or a pass.
+ */
+const TRADE_RESOURCE: Readonly<Record<Trade | Founding, AdjacentResource | null>> = {
+  farming: 'fertile-soil', herding: 'game', lumber: 'timber', mining: 'ore', fishing: 'fish', peat: 'peat', salt: 'salt',
+  trading: null, tolls: null, crossing: null, pass: null,
 };
+/** What a village's everyday fuel gives it (#1627): a woodlot for wood, peat cuttings for reed and peat. */
+const FUEL_RESOURCE: Readonly<Record<LocalFuel['burns'], AdjacentResource>> = { wood: 'timber', peat: 'peat' };
+
+/**
+ * Where a hand-written village's layout needs more or less than its economy gives (#1627). The
+ * owner asked for the buildings to follow the trade "mostly"; these are the exceptions:
+ * - Hollowford adds `stone`: its sheepfolds are stone-walled and the ford is a line of stepping
+ *   stones (villages.ts), and stone is what makes mapgen think of a smith for Orrin's forge.
+ * - Hollowford drops `timber`, though it burns wood from its own copses: mapgen ranks timber over
+ *   farmland, so its woodlot would found a logging camp in place of a barley village (the same
+ *   reason siteOf counts a resource only from a third of the squares).
+ * - Kestrel Gate adds `stone`: the wall is pass stone, and the lowlands buy what's left over.
+ */
+const ANCHOR_EXCEPTIONS: Readonly<Record<AnchorId, { add: readonly AdjacentResource[]; drop: readonly AdjacentResource[] }>> = {
+  hollowford: { add: ['stone'], drop: ['timber'] },
+  saltmere: { add: [], drop: [] },
+  'kestrel-gate': { add: ['stone'], drop: [] },
+};
+
+/**
+ * A hand-written village's resources, read off its economy (economy.ts) in place of what the land
+ * suggests (#1627): what it lives on, what it grew up around and what it burns, then the
+ * exceptions above. Hollowford: barley and sheep (fertile soil, game) and its walls (stone).
+ * Saltmere: salt, fish, and reed and peat for its hearths. Kestrel Gate: iron off the passes
+ * (ore), wood off its slopes (timber) and its wall (stone).
+ */
+export function anchorResources(anchor: AnchorId, economies: Readonly<Record<AnchorId, VillageEconomy>> = VILLAGE_ECONOMY): AdjacentResource[] {
+  const e = economies[anchor];
+  const { add, drop } = ANCHOR_EXCEPTIONS[anchor];
+  const fromEconomy = [...tradesOf(e), e.founding].map(t => TRADE_RESOURCE[t]).filter((r): r is AdjacentResource => r !== null);
+  const all = new Set<AdjacentResource>([...fromEconomy, FUEL_RESOURCE[e.fuel.burns], ...add]);
+  for (const r of drop) all.delete(r);
+  return [...all].sort();
+}
 
 /** The buildings each villager's work belongs in, best first (villages.ts roles). */
 const WORKS_IN: Readonly<Record<Role, readonly string[]>> = {
@@ -119,7 +159,7 @@ export function siteOf(reach: Reach, p: Province): SettlementSite {
   // a lake counts from one square of shore.
   const gives = (r: AdjacentResource) => around.filter(b => RESOURCES[b].includes(r)).length >= (r === 'fish' ? 1 : 3);
   const found = (['fish', 'fertile-soil', 'timber', 'game', 'peat', 'stone', 'ore'] as const).filter(gives);
-  const resources = new Set<AdjacentResource>(p.anchor ? ANCHOR_RESOURCES[p.anchor] : found);
+  const resources = new Set<AdjacentResource>(p.anchor ? anchorResources(p.anchor) : found);
   return {
     x: p.seat.x,
     y: p.seat.y,

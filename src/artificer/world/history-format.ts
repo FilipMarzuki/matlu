@@ -106,6 +106,32 @@ export interface RegionHistory {
   lines: RegionLine[];
 }
 
+/**
+ * An organisation the engine founded (#1587): a guild, an academy, or a mercenary or pirate company,
+ * as it stands at the end of the history. What the road's bridge (organisations.ts) reads to let a
+ * road village's people belong to it, and to say what it did.
+ */
+export interface HistoryOrg {
+  /** The engine's id (`g3`): stable for the same history. */
+  id: string;
+  /** "Guild of Sunmeadow Weavers", "Academy of Rivenbrook". */
+  name: string;
+  kind: 'guild' | 'academy' | 'company';
+  /** A guild's craft (`smithing`, `trade`, `letters`…) or a company's kind (`mercenary`, `pirate`); null for an academy. */
+  craft: string | null;
+  /** The province its hall (or home port) is in. */
+  province: string;
+  founded: number;
+  /** The year it was dissolved, closed or disbanded; null if it stands. */
+  ended: number | null;
+  /** Living members, as the engine counts them (masters, scholars, company men). */
+  members: number;
+  /** Its master, rector or captain, as the chronicle names people ("Ivar of Hedlund"), or null. */
+  head: string | null;
+  /** The invention a guild keeps to itself, by name, if any. */
+  monopoly: string | null;
+}
+
 export interface ReachHistory {
   version: number;
   seed: number;
@@ -114,6 +140,12 @@ export interface ReachHistory {
   provinces: ProvinceHistory[];
   /** The regions the provinces are grouped in (#1598). */
   regions: RegionHistory[];
+  /**
+   * The organisations the engine founded (#1587). Absent in a history kept before them: read as
+   * none. Telling them changes nothing else in the history (they're read after it's lived), so the
+   * version stays: a kept history without them simply has none until it's told again.
+   */
+  orgs?: HistoryOrg[];
   /** The whole chronicle as text: the chronicle's threads, then living memory year by year. */
   chronicle: string;
   /** Events the engine logged, and how many were worth telling. */

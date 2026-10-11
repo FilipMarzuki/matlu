@@ -18,7 +18,7 @@
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
 import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { tells, type Fact } from './knowledge';
+import { tells, type Fact, type Standing } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -149,10 +149,11 @@ export type AskResult =
  * (facts.ts `resolve`): told, not yet (the gate is the true trust you bring, never a felt word),
  * or doesn't know, and who nearby would.
  */
-export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[] } = {}): AskResult {
+export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; standing?: Standing } = {}): AskResult {
   if (answered.includes(key)) return { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
   // The facts are the run's (facts.ts `factsFor`, #1610): a caller that doesn't pass them gets today's.
-  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS });
+  // So is the Warden's standing with organisations (#1587): none unless the run's switch passes it.
+  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS, ...(opts.standing ? { standing: opts.standing } : {}) });
   if (!r || r.kind === 'unknown') {
     const referral = r?.referral ?? null;
     // The referrals switch (#1609) is the run's, so the caller passes it in: a caller that doesn't

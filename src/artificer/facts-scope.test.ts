@@ -147,9 +147,9 @@ describe('Knowledge slice C: what a village, the road and a trade know (#1610)',
       expect([1, 2, 3, undefined], at).toContain(e.depth);
       if (e.lead) expect(EVERYONE.some(p => p.id === e.lead), at).toBe(true);
     }
-    // Counts per scope, as the PR reports them.
+    // Counts per scope, as the PR reports them (#1627 added Saltmere's and the Gate's wood).
     const per = (k: ScopeKind) => ENTRIES.filter(e => e.scope.kind === k).length;
-    expect({ village: per('village'), region: per('region'), role: per('role'), skill: per('skill') }).toEqual({ village: 30, region: 21, role: 11, skill: 4 });
+    expect({ village: per('village'), region: per('region'), role: per('role'), skill: per('skill') }).toEqual({ village: 32, region: 21, role: 11, skill: 4 });
   });
 
   it('every road person answers a village question (villagers), a road question and a role question at their scope', () => {
@@ -392,7 +392,9 @@ describe('Scope facts with knowledge questions (#1610 with #1611)', () => {
     const counts = Object.keys(VILLAGES).map(v => {
       const qs = SCOPE_QUESTIONS.filter(q => q.village === v);
       const match = (f: Record<string, boolean>) => qs.map(q => ({ q, t: matchFreeQuestion(q.person, q.question, [], f) }));
-      const before = match(SCOPE_OFF), after = match(ON);
+      // Before: neither the scope facts nor the organisations' (#1587), which answer a few of these
+      // questions too (Anselm on Saltmere, from the book); after: everything on.
+      const before = match({ ...SCOPE_OFF, organisations: false }), after = match(ON);
       const right = (m: typeof before) => m.filter(x => x.q.want !== null && x.t === x.q.want).length;
       return { v, n: qs.length, before: before.filter(x => x.t).length, rightBefore: right(before), after: after.filter(x => x.t).length, right: right(after) };
     });

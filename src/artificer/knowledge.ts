@@ -49,7 +49,32 @@ export interface Fact {
 /** How an organisation treats its own knowledge, toward outsiders. */
 export type Secrecy = 'open' | 'guarded' | 'secret' | 'bound-to-tell';
 
-export interface Org { id: string; name: string; secrecy: Secrecy }
+/**
+ * How far to trust what an organisation says, as a source (for claims and confidence, #1580): the
+ * Pandor write everything down and date it (`careful`); a goblin band's news is fast and sometimes
+ * wrong (`loose`); most fall between (`fair`). Carried with the organisation; nothing reads it yet.
+ */
+export type Reliability = 'careful' | 'fair' | 'loose';
+
+/**
+ * An organisation (#1587, design §4): any body of people who keep knowledge among themselves, a
+ * guild, an academy, a goblin band's network, a treaty's keepers, a cult, a secret society, a
+ * hunting party. The model reads only `secrecy` (and a member's rank, on the Knower): what kind of
+ * organisation it is never changes how its knowledge travels, so a new kind needs no new code.
+ */
+export interface Org {
+  id: string;
+  name: string;
+  secrecy: Secrecy;
+  /** What sort of body it is, in plain words (`guild`, `band network`, `hunting party`…). Open on purpose: any kind will do. */
+  kind?: string;
+  reliability?: Reliability;
+  /**
+   * Its ranks or offices, lowest first: a member at rank n holds `ranks[n - 1]` and knows its facts
+   * to depth n. Absent, it has no ranks, and every member is rank 1 (so knows its depth-1 facts).
+   */
+  ranks?: readonly string[];
+}
 
 /** What a person says instead of what they know, and why: a lie, until trust reaches `until`. */
 export interface Lie { about: string; text: string; why: string; until: number }
@@ -147,19 +172,30 @@ export type KnowledgeAnswer =
 const rank = (f: Fact): number => SPECIFICITY.indexOf(f.scope.kind);
 
 /**
+ * The Warden's standing with each organisation (#1587), by org id: trust that counts with every
+ * member, for the organisation's own facts. Apart from any one person's trust (rapport, #1578):
+ * a deed done for one member opens the others.
+ */
+export type Standing = Readonly<Record<string, number>>;
+
+/** The trust brought to `f`: your trust in the person, plus your standing with its organisation if it's an organisation's fact. */
+export const trustFor = (f: Fact, trust: number, standing: Standing): number =>
+  f.scope.kind === 'org' ? trust + (standing[f.scope.id!] ?? 0) : trust;
+
+/**
  * What `k` answers about `topic`, given your trust. Lies come first: a person who'd rather not say
  * says something else. Then the most specific fact they know (ties: the order the facts are in),
- * if trust opens it; else not yet; else who'd know: the person among `others` holding the most
- * specific fact about it.
+ * if trust opens it (with your `standing` added, for an organisation's fact); else not yet; else
+ * who'd know: the person among `others` holding the most specific fact about it.
  */
-export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = []): KnowledgeAnswer {
+export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = [], standing: Standing = {}): KnowledgeAnswer {
   const known = facts.filter(f => tells(k, f, topic)).sort((a, b) => rank(a) - rank(b));
   const lie = k.lies?.find(l => l.about === topic && trust < l.until);
   if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null };
   const best = known[0];
   if (best) {
     const gate = gateOf(best, orgs);
-    return trust >= gate ? { kind: 'told', fact: best, hedge: hedgeOf(best) } : { kind: 'not-yet', fact: best, trust: gate };
+    return trustFor(best, trust, standing) >= gate ? { kind: 'told', fact: best, hedge: hedgeOf(best) } : { kind: 'not-yet', fact: best, trust: gate };
   }
   // Who would know: someone else holding a fact about it, the most specific first; the world's
   // common knowledge sends you to no one in particular.

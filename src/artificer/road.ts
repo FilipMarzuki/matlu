@@ -26,6 +26,8 @@ import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focu
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
 import { factsFor } from './facts';
+import { honouringOrgs, membersOf, standingFrom } from './orgs';
+import type { Standing } from './knowledge';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
 import { arrivalLines, localMarket } from './economy';
@@ -446,10 +448,12 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
   // Village economies (#1599): the village's own market sets what's cheap and dear, and its
   // trader always stocks what the village makes. Off (and in runs from before the switch), the
-  // terms are exactly as they were.
-  const local = featureOn(s.features, 'village-economies') ? localMarket(villageOf(s)) : null;
-  if (!local) return base;
-  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local };
+  // terms are exactly as they were. With it, every trader (the caravan's merchant on the wagon
+  // too) also caps what they pay for a good they sell (#1627, trade.ts `sellPrice`).
+  if (!featureOn(s.features, 'village-economies')) return base;
+  const local = localMarket(villageOf(s));
+  if (!local) return { ...base, buyBack: true };
+  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local, buyBack: true };
 }
 
 /** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */
@@ -686,7 +690,7 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const own = next.trust[pid] ?? 0;
   // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
   // read from this run's saved switches, never a global.
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features) });
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), ...standingOf(next) });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
@@ -695,6 +699,15 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // A secret told on their trust alone (#1578), not because someone sent you or you'd noticed: a moment of truth.
   if (r.kind === 'told' && r.answer.at >= SECRET_GATE && own >= r.answer.at) showsTruth(next, pid);
   return next;
+}
+
+/**
+ * The Warden's standing with each organisation (#1587), as options for an ask: read off the deeds
+ * told to its members (orgs.ts `standingFrom`), so nothing new is saved. Only with the run's
+ * `organisations` switch on; off, and in a run from before it, there's none to pass.
+ */
+function standingOf(s: RoadState): { standing?: Standing } {
+  return featureOn(s.features, 'organisations') ? { standing: standingFrom(s.asked) } : {};
 }
 
 /** An hour or so of talk: a little Clarity, and Charisma exercised (#1257). */
@@ -769,7 +782,7 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const own = next.trust[pid] ?? 0;
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
-  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next) });
+  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next), ...standingOf(next) });
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told' && !r.again) {
@@ -801,6 +814,13 @@ function tellOf(next: RoadState, pid: string, deed: string): RoadState {
   next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(t.tell.answer.text)])];
   if (t.tell.answer.insight) addInsight(next.concepts, t.tell.answer.insight.concept, t.tell.answer.insight.amount, CRAFT_WORLD.concepts);
   say(next, `${person.name}: "${t.tell.answer.text}"`, 'action');
+  // A deed one of their organisations remembers is known to all its members now (#1587): your
+  // standing with it rises (read off what's been told, `standingOf`). Only with the switch on.
+  if (featureOn(next.features, 'organisations')) {
+    // Said once per organisation: told to a second member, they'd already heard.
+    const heardBefore = (orgId: string) => membersOf(orgId).some(m => m.id !== pid && (next.asked?.[m.id] ?? []).includes(key));
+    for (const org of honouringOrgs(pid, deed).filter(o => !heardBefore(o.id))) say(next, `Word of it will go round ${org.name.replace(/^The /, 'the ')}: its people will know what you did.`, 'milestone');
+  }
   return next;
 }
 

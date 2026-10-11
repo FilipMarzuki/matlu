@@ -68,6 +68,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'village-economies', name: 'Village economies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1599,
     note: 'Each village lives on its own trade: what it makes is cheap there, what it lacks is dear and sells well, and each has a job that comes from its work.',
   },
+  {
+    // A rules feature: it changes what people can tell you (their organisations' facts, at their
+    // organisations' gates, opened further by your standing with them), so a run from before it
+    // (absent: false) keeps today's answers on replay. Membership itself needs no switch: on its
+    // own it changes no answer, and its signs are the ones noticing already had.
+    id: 'organisations', name: 'Organisations', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1587,
+    note: 'People belong to organisations (the Compact, the Vidde Accords, the Compact of Knowing, the Bergfolk holds): members know what their organisation knows, keep its secrets from outsiders or are bound to tell, and a deed told to one member is known to them all.',
+  },
 ];
 
 /** Switches by feature id. */
