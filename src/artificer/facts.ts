@@ -10,7 +10,8 @@
  *   They're a rules feature (`scope-facts`): `factsFor` gives a run the facts its switches allow,
  *   and the asks pass them in. A caller that passes nothing gets FACTS, today's answers.
  * - **Knowers**: each person, as the model sees them (their village, region, People, culture,
- *   role, the skill they teach), built from villages.ts.
+ *   role, the skill they teach, the organisations they belong to and their rank in each), built
+ *   from villages.ts.
  * - **resolve**: the model's `answer` with the game's facts, people and organisations filled in.
  *   asks.ts (`ask`, `answerFor`, `topicsKnownBy`) reads everything through it.
  *
@@ -22,7 +23,8 @@
  */
 
 import { ANSWERS, type Answer } from './answers';
-import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity } from './knowledge';
+import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity, type Standing } from './knowledge';
+import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
 import { featureOn, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
@@ -35,8 +37,12 @@ import scopeFactsFile from './content/scope-facts.json';
  */
 export const ROAD_REGION = 'north-road';
 
-/** Organisations, by id. None yet: the registry is slice B (#1587). The model treats a missing one as open. */
-export const ORGS: Readonly<Record<string, Org>> = {};
+/**
+ * Organisations, by id (#1587, knowledge slice B): the road's registry (orgs.ts). The model treats
+ * one missing from it as open. Membership is on people (`Person.orgs`), and always read: it changes
+ * no answer by itself, only with the organisations' facts, which come with the `organisations` switch.
+ */
+export const ORGS: Readonly<Record<string, Org>> = ROAD_ORGS;
 
 /**
  * The sensitivity an answer's trust gate stands for. The model's tiers sit on the same scale the
@@ -142,19 +148,29 @@ export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
 /** Whether a set of facts has the scope facts in it (`factsFor` with the switch on, or ALL_FACTS). */
 export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f => f.id.startsWith('scope:'));
 
-/** Every fact any game can hold: today's, and the scope facts. */
-export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS];
+/** Every fact any game can hold: today's, the scope facts, and the organisations' (#1587). */
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS];
+
+// The four sets a run can play with, built once, so a run's facts are always the same array (and
+// the common cases are the very arrays above: none of the switches, FACTS; all of them, ALL_FACTS).
+const ONLY_SCOPE: readonly Fact[] = [...FACTS, ...SCOPE_FACTS];
+const ONLY_ORGS: readonly Fact[] = [...FACTS, ...ORG_FACTS];
 
 /**
  * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
- * after today's (so a person's own words still come first); off, and in every run from before the
- * switch, today's alone, so those runs replay with the answers they had.
+ * after today's (so a person's own words still come first); with `organisations` on (#1587), the
+ * organisations' facts after those. Off, and in every run from before a switch, without them, so
+ * those runs replay with the answers they had.
  *
- * Today's facts are all a person's own, the most specific scope there is, so adding the scope
- * facts never changes an answer someone already gave: it only answers what they didn't know,
- * changes who they'd refer you to, and adds leads.
+ * Today's facts are all a person's own, the most specific scope there is, so adding either set
+ * never changes an answer someone already gave: it only answers what they didn't know (an
+ * organisation's fact does come before what their village or the road says, being more
+ * specific), changes who they'd refer you to, and adds leads.
  */
-export const factsFor = (features: FeatureSwitches | undefined): readonly Fact[] => (featureOn(features, 'scope-facts') ? ALL_FACTS : FACTS);
+export function factsFor(features: FeatureSwitches | undefined): readonly Fact[] {
+  const scope = featureOn(features, 'scope-facts'), orgs = featureOn(features, 'organisations');
+  return scope ? (orgs ? ALL_FACTS : ONLY_SCOPE) : orgs ? ONLY_ORGS : FACTS;
+}
 
 /**
  * How deep a role reaches into a kind of scope (the design's §2): an elder knows their village's
@@ -181,8 +197,8 @@ function toKnower(p: Person): Knower {
     culture: p.culture,
     role: p.role,
     ...(p.teaches ? { skill: p.teaches.skill } : {}),
-    // Organisation membership is slice B (#1587).
-    orgs: {},
+    // Their rank in each organisation they belong to (#1587, `Person.orgs`).
+    orgs: ranksOf(p),
     ...(reach ? { reach } : {}),
   };
 }
@@ -207,12 +223,13 @@ export function nearbyOf(personId: string): Knower[] {
  * What `personId` answers about `topic`, given your trust (the true number, with what noticing
  * and leads add): the model's told / not yet / lied / doesn't know (and who would). Undefined for
  * no one on the road. `facts` and `others` default to the game's; tests and later slices can pass
- * their own.
+ * their own. `standing` is the Warden's with each organisation (#1587, orgs.ts `standingFrom`):
+ * it counts toward an organisation's own facts with any of its members; none if not passed.
  */
-export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[] } = {}): KnowledgeAnswer | undefined {
+export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[]; standing?: Standing } = {}): KnowledgeAnswer | undefined {
   const k = KNOWERS[personId];
   if (!k) return undefined;
-  return answer(k, topic, trust, opts.facts ?? FACTS, ORGS, opts.others ?? nearbyOf(personId));
+  return answer(k, topic, trust, opts.facts ?? FACTS, ORGS, opts.others ?? nearbyOf(personId), opts.standing ?? {});
 }
 
 /** A fact as the road's Answer: its words, the trust it takes, and any insight or lead. */

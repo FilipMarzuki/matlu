@@ -26,15 +26,15 @@ describe('Feature switches (#1579)', () => {
   });
 
   it('writes a new game’s rule features out in full: defaults, with the player’s switches on top, unknown ids dropped', () => {
-    expect(ruleFeatures()).toEqual({ 'free-questions': true, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, 'humans-on-the-road': true });
-    expect(ruleFeatures({ 'free-questions': false, 'no-such-thing': true })).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, 'humans-on-the-road': true });
+    expect(ruleFeatures()).toEqual({ 'free-questions': true, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, organisations: true, 'humans-on-the-road': true });
+    expect(ruleFeatures({ 'free-questions': false, 'no-such-thing': true })).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, organisations: true, 'humans-on-the-road': true });
   });
 
   it('reads a run’s switches as saved, and a run from before the switches as each feature’s `absent`', () => {
     expect(featureOn({ 'free-questions': false }, 'free-questions')).toBe(false);
     expect(featureOn(undefined, 'free-questions')).toBe(true);
     expect(featureOn({}, 'no-such-thing')).toBe(false);
-    expect(featuresOf(undefined)).toEqual({ 'free-questions': true, referrals: false, 'knowledge-questions': false, 'scope-facts': false, 'candour-by-place': false, 'village-economies': false, 'humans-on-the-road': false });
+    expect(featuresOf(undefined)).toEqual({ 'free-questions': true, referrals: false, 'knowledge-questions': false, 'scope-facts': false, 'candour-by-place': false, 'village-economies': false, organisations: false, 'humans-on-the-road': false });
   });
 
   it('names the experimental features that are on, and checks the shape of a saved set', () => {
@@ -66,8 +66,8 @@ function onTheRoad(features: Record<string, boolean> | undefined): ReturnType<ty
 
 describe('A run keeps the rule features it started with (#1579)', () => {
   it('a new game saves its switches in its world', () => {
-    expect(makeWarden({ id: 'w-a' }).sim.config.world.features).toEqual({ 'free-questions': true, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, 'humans-on-the-road': true });
-    expect(makeWarden({ id: 'w-b' }, undefined, { 'free-questions': false }).sim.config.world.features).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, 'humans-on-the-road': true });
+    expect(makeWarden({ id: 'w-a' }).sim.config.world.features).toEqual({ 'free-questions': true, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, organisations: true, 'humans-on-the-road': true });
+    expect(makeWarden({ id: 'w-b' }, undefined, { 'free-questions': false }).sim.config.world.features).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, organisations: true, 'humans-on-the-road': true });
   });
 
   it('the road carries them, and a free question is refused when the feature is off', () => {
@@ -86,7 +86,7 @@ describe('A run keeps the rule features it started with (#1579)', () => {
   it('keeps them through a save, and drops only a malformed set (the rest of the world stays)', () => {
     const app = makeWarden({ id: 'w-save' }, undefined, { 'free-questions': false });
     const back = deserialize(serialize(app))!;
-    expect(back.sim.config.world.features).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, 'humans-on-the-road': true });
+    expect(back.sim.config.world.features).toEqual({ 'free-questions': false, referrals: true, 'knowledge-questions': true, 'scope-facts': true, 'candour-by-place': true, 'village-economies': true, organisations: true, 'humans-on-the-road': true });
     const raw = JSON.parse(serialize(app));
     raw.sim.config.world.features = { 'free-questions': 'nope' };
     const fixed = deserialize(JSON.stringify(raw))!;

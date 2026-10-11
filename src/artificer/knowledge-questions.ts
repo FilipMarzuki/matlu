@@ -38,7 +38,7 @@
 
 import { answerFor, type Answer } from './asks';
 import { ALL_FACTS, answerOf, factsFor, hasScopeFacts, resolve } from './facts';
-import type { Fact, ScopeKind } from './knowledge';
+import type { Fact, ScopeKind, Standing } from './knowledge';
 import {
   CUSTOM_KINDS, candourOf, cultureLore, effectiveCandour, matchLore, peopleLore, scopedClaims, topicKeyOf, voicedAt, voicingGates,
   type LoreScope, type LoreTopic, type Place, type ScopedClaim, type Voicing,
@@ -245,7 +245,7 @@ const NOT_YET = (name: string): string => `${name} looks at you a long moment. "
  * The gate is decided here, in code, never by whatever voices the answer. `opts.place` is where
  * they are (#1619): it nudges how openly they voice their people's views.
  */
-export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; place?: Place } = {}): QuestionAnswer {
+export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; place?: Place; standing?: Standing } = {}): QuestionAnswer {
   const deflect: QuestionAnswer = { kind: 'deflect', line: deflectionOf(p.id, p.name) };
   if (!topic) return deflect;
   const asked = `You ask ${p.name} about ${questionAbout(topic)}.`;
@@ -266,7 +266,8 @@ export function answerQuestion(p: Person, topic: string, trust: number, answered
     return { kind: 'told', line: `${asked} ${p.name}: "${text}"`, answer: { at, text }, scope: said[0].c.scope.kind, again };
   }
 
-  const r = resolve(p.id, topic, trust, opts.facts ? { facts: opts.facts } : {});
+  // Standing with an organisation (#1587) counts toward its facts, as for an ask; only passed with its switch on.
+  const r = resolve(p.id, topic, trust, { ...(opts.facts ? { facts: opts.facts } : {}), ...(opts.standing ? { standing: opts.standing } : {}) });
   if (!r) return deflect;
   if (r.kind === 'told') {
     const answer = answerOf(r.fact);

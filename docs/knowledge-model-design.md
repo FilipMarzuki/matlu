@@ -227,6 +227,21 @@ and cultures' ways stay in the culture lore (#1590). Two rules came with it: nob
 themself from what their village says of them (`knowledge.ts` `tells`), and for one topic in one
 scope the deeper fact is written first, so elders (and traders, on the road) say more.
 
+**Slice B in the game (#1587):** a registry open to any kind of organisation
+(`src/artificer/orgs.ts`, `content/organisations.json`): each has a `kind` in plain words, a
+secrecy, a reliability as a source (for #1580; nothing reads it yet) and, for guilds only, ranks.
+The model reads only secrecy and rank, so a cult or a hunting party is new data, not new code.
+Five on the road, all placeholders for the owner: the Compact (secret), the Compact of Knowing
+(bound to tell), the Vidde Accords (open), the Dyprike (guarded) and the caravan (open), with
+`Person.orgs` (`villages.ts`) for the members in §4's table, and four facts of theirs. Signs of
+membership come from `Person.orgs` (the Compact's two signs moved there, unchanged). The Warden's
+**standing** with an organisation is read off what's been told: a deed an organisation honours,
+told to any one member, is one trust gate (25) toward its facts with every member, apart from any
+one person's trust, and nothing new is saved. Behind the `organisations` rule switch. The engine's
+guilds, academies and companies come with the told history (`ReachHistory.orgs`), and
+`world/organisations.ts` turns those in a road village's province into organisations, members and
+facts; like the rest of the history, nothing in play reads them until slice F.
+
 ## Questions for the owner
 
 1. **Truth vs rumour:** how often should people be confidently wrong, and how often lie? (The
