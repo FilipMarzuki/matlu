@@ -7,7 +7,16 @@
  */
 
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
-export const HISTORY_VERSION = 3;
+// 4: histories carry their regions (#1598).
+export const HISTORY_VERSION = 4;
+
+/**
+ * The last this many years are told event by event ("living memory"); older years as threads.
+ * Lives here, not in history.ts, so code that reads a told history (what the road villages
+ * remember, remembered.ts) can tell living memory from legend without loading the engine.
+ */
+// (Moved here as PR #1592 moves it, so the two branches agree when both land.)
+export const LIVING_MEMORY = 40;
 
 export interface HistoryLine {
   year: number;
@@ -26,12 +35,66 @@ export interface ProvinceHistory {
   lines: HistoryLine[];
 }
 
+/** One of a region's regional events, told (storytelling/regions.ts, render.ts renderRegionalEvent). */
+export interface RegionLine {
+  year: number;
+  /** The engine's regional event kind, e.g. `FAMINE`, `LORD_DIED`, `VENTURE_FAILING`. */
+  kind: string;
+  category: 'politics' | 'economy' | 'event';
+  /** The sifter's score (storytelling/sifter.ts regionalSignificance): 2 a fair, 6 a famine. */
+  significance: number;
+  /** The province it happened in, when it's one place. */
+  province: string | null;
+  text: string;
+}
+
+/**
+ * A region at the end of the history (#1598): a few neighbouring provinces around a market
+ * town, what it lives on, how it's doing, who leads it, and what happened there.
+ */
+export interface RegionHistory {
+  /** `hollowford-country`: the market town's name as a key, plus `-country`, so it never reads
+   *  the same as a province's own region id (PR #1592's regions.ts `regionOf` gives `hollowford`). */
+  id: string;
+  /** "the Hollowford country". */
+  name: string;
+  centre: { id: string; name: string };
+  /** The centre first. Each lives on its own trade (`livelihood`): the land's best, or the market's. */
+  provinces: { id: string; name: string; livelihood: string }[];
+  /** What the region as a whole lives on: farming, lumber, mining, fishing, herding or peat. */
+  primary: string;
+  /** Its big enterprise (a mine, a lumber camp…), where it is, how it's doing, and since when. */
+  venture: { kind: string; province: string; state: 'thriving' | 'steady' | 'failing' | 'closed'; since: number };
+  /** 0–1: how well the region is doing (0.5 getting by). */
+  prosperity: number;
+  /** Bread price, 1 = usual. */
+  price: number;
+  harvest: 'bumper' | 'good' | 'fair' | 'poor' | 'failed';
+  /** 0–1: how many men are away at war; how heavy the lords' dues are. */
+  levy: number;
+  tax: number;
+  /** The house holding the most of its seats, e.g. "Hedlund" (null if none). */
+  leadingHouse: string | null;
+  /** Who holds each of its seats now, centre first: "Ivar of Hedlund holds the Hundred of Ravenford." */
+  lords: { province: string; text: string }[];
+  /** Houses whose lords have fought each other here lately (the last 10 years). */
+  feuds: { houses: [string, string]; year: number }[];
+  /** Standing alliances among its lords, as pairs of names. */
+  alliances: [string, string][];
+  /** Road trade with each neighbouring region, 0–1. */
+  roads: { to: string; name: string; trade: number }[];
+  /** Its told regional events, oldest first: the notable ones of living memory, and a few legends. */
+  lines: RegionLine[];
+}
+
 export interface ReachHistory {
   version: number;
   seed: number;
   /** The year the history ends: the present, when the Warden arrives. */
   year: number;
   provinces: ProvinceHistory[];
+  /** The regions the provinces are grouped in (#1598). */
+  regions: RegionHistory[];
   /** The whole chronicle as text: the chronicle's threads, then living memory year by year. */
   chronicle: string;
   /** Events the engine logged, and how many were worth telling. */
@@ -44,7 +107,7 @@ export function keptHistory(raw: string | null, seed: number): ReachHistory | nu
   if (!raw) return null;
   try {
     const h = JSON.parse(raw) as Partial<ReachHistory>;
-    return h.version === HISTORY_VERSION && h.seed === seed && Array.isArray(h.provinces) && typeof h.chronicle === 'string' ? h as ReachHistory : null;
+    return h.version === HISTORY_VERSION && h.seed === seed && Array.isArray(h.provinces) && Array.isArray(h.regions) && typeof h.chronicle === 'string' ? h as ReachHistory : null;
   } catch {
     return null;
   }
