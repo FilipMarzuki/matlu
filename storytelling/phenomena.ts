@@ -26,6 +26,9 @@ export function runHarvest(w: World): void {
     // Fertile land has steadier harvests; marginal land swings wildly.
     const variance = 0.18 + (1 - p.fertility) * 0.15;
     const yield_ = w.rng.gaussian(climateMean, variance);
+    // Kept for the regional economy (regions.ts): a write, not a draw, so the
+    // random stream and the event log are exactly as before.
+    p.lastHarvest = yield_;
 
     if (yield_ < 0.7) {
       // A poor harvest. Population takes a hit; the worse the harvest and the
@@ -107,6 +110,7 @@ export function runPlague(w: World): void {
     const mortality = w.rng.float(0.1, 0.35);
     const loss = Math.round(p.population * mortality);
     p.population = Math.max(50, p.population - loss);
+    p.plaguedYear = w.year; // for the regional level: every province it reached
     totalDeaths += loss;
     namedDead += killResidentsByChance(w, pid, "plague", mortality * 0.6);
   }

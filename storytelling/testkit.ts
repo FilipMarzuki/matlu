@@ -83,6 +83,31 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
 export function checkInvariants(w: World): string[] {
   const v: string[] = [];
 
+  // Regions (#1598): every province in exactly one region, each region in one
+  // piece, state in bounds, and the regional log in year order.
+  const regionCount = new Map<string, number>();
+  for (const r of w.regions.values()) {
+    for (const pid of r.provinceIds) {
+      regionCount.set(pid, (regionCount.get(pid) ?? 0) + 1);
+      if (w.regionOf.get(pid) !== r.id) v.push(`province ${pid} listed in ${r.id} but regionOf says ${w.regionOf.get(pid)}`);
+    }
+    const inside = new Set(r.provinceIds), reached = new Set([r.centreId]);
+    let frontier = [r.centreId];
+    while (frontier.length) {
+      const next: string[] = [];
+      for (const id of frontier) for (const n of w.province(id)?.neighbors ?? []) if (inside.has(n) && !reached.has(n)) { reached.add(n); next.push(n); }
+      frontier = next;
+    }
+    if (reached.size !== inside.size) v.push(`region ${r.id} is not in one piece`);
+    for (const [k, x] of [["prosperity", r.prosperity], ["levy", r.levy], ["tax", r.tax], ["venture", r.venture.health]] as const) {
+      if (!(x >= 0 && x <= 1)) v.push(`region ${r.id} ${k} out of bounds: ${x}`);
+    }
+  }
+  for (const p of w.provinces.values()) if (regionCount.get(p.id) !== 1) v.push(`province ${p.id} is in ${regionCount.get(p.id) ?? 0} regions`);
+  for (let i = 1; i < w.regionalEvents.length; i++) {
+    if (w.regionalEvents[i].year < w.regionalEvents[i - 1].year) { v.push(`regional event ${w.regionalEvents[i].id} out of year order`); break; }
+  }
+
   // A held title's holder must exist and be alive.
   for (const t of w.titles.values()) {
     if (t.holderId === null) continue;

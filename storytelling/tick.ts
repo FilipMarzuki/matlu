@@ -37,6 +37,7 @@ import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovati
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
 import { runTradeRoutes } from "./trade.js";
+import { runRegions } from "./regions.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -203,6 +204,12 @@ export function tick(w: World): void {
   // was before that. Without this the "title held by dead char" invariant
   // can fail at end-of-simulation, since no next tick arrives to clean up.
   resolvePendingSuccessions(w);
+
+  // --- regional level (#1598) — reads the finished year: its events, its
+  // harvests and plagues, who now holds what. Last, so it sees the year whole.
+  // Writes only its own state and log and draws only from w.regionRng, so the
+  // canonical event log (and every golden hash) is unchanged by it.
+  runRegions(w, evStart);
 }
 
 // ---------------------------------------------------------------------------
