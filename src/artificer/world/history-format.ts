@@ -9,6 +9,13 @@
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
 export const HISTORY_VERSION = 3;
 
+/**
+ * The last this many years are told event by event ("living memory"); older years as threads.
+ * Lives here, not in history.ts, so code that reads a told history (what the road villages
+ * remember, remembered.ts) can tell living memory from legend without loading the engine.
+ */
+export const LIVING_MEMORY = 40;
+
 export interface HistoryLine {
   year: number;
   text: string;

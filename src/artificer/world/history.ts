@@ -24,14 +24,13 @@ import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
 import { provincesOf, type Province, type Provinces } from './provinces';
 import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
-import { HISTORY_VERSION, type ReachHistory } from './history-format';
+import { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory } from './history-format';
+import { remembered, type Remembered } from './remembered';
 
-export { HISTORY_VERSION, type ReachHistory, type ProvinceHistory, type HistoryLine } from './history-format';
+export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory, type HistoryLine } from './history-format';
 
 /** How long the engine runs. Year 1 is when the oldest houses of the Reach first held land. */
 export const HISTORY_YEARS = 150;
-/** The last this many years are told event by event ("living memory"); older years as threads. */
-export const LIVING_MEMORY = 40;
 /** How significant an event must be to be told (the sifter's scale; the engine's own default is 4). */
 const TELL_THRESHOLD = 5;
 /** What each province remembers: its most significant events, at most this many. */
@@ -184,6 +183,18 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
     logged: world.events.length,
     told: chronicle.length,
   };
+}
+
+/**
+ * What each road village remembers (remembered.ts), from nothing but the seed: for a game that
+ * has no told history to hand, like a server game (API, MCP, console), where no worker ran.
+ * Telling the history is nearly all the cost (a quarter to half a second in Node: the engine's
+ * 150 years), and reading it is a few milliseconds. So a caller that already has the history
+ * (the page keeps it) passes it to `remembered` instead, and one that doesn't should keep the
+ * history, or this result, per seed rather than call this on every request: both are plain data.
+ */
+export function rememberedOf(seed: number): Remembered {
+  return remembered(runHistory(seed));
 }
 
 /** A fingerprint of the event log: the same seed must always log the same events (tests pin it). */
