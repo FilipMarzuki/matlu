@@ -65,11 +65,12 @@ export function canonHash(w: World): string {
 // Last rebaselined for #1608 (regions push back into the simulation): from
 // year 1 the regional level moves province populations and wealth, which
 // World.power, scarcity, harvest and plague tolls read, so every config's log
-// diverges in its first few years.
+// diverges in its first few years. Rebaselined again for #1608's wealth
+// tuning (wealthPull 0.12, wealthDrift 0.02).
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "9259a71b" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "ed5c02b7" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "769c4809" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "e1341d20" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "52c9c63f" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "6d53b9e0" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -77,7 +78,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "0473953d",
+    hash: "5c1a81d4",
   },
 ];
 

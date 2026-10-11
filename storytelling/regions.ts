@@ -854,8 +854,10 @@ export const FEEDBACK = {
   banditWealth: 0.08,
   /** ...and traffic lost on the engine's trade routes (TradeRoute.wealth) that touch the region. */
   banditRoute: 0.1,
-  /** How fast a province's wealth eases toward what the region's prosperity and trade support, a year. */
-  wealthPull: 0.25,
+  /** How fast a province's wealth eases toward what the region's prosperity and trade support, a year (slow, so a hard winter or bandits are felt for years, not shrugged off). */
+  wealthPull: 0.12,
+  /** How far wealth is drawn back toward getting by (0.5) a year: without it prosperous regions sat at 0.7–0.8 everywhere; with it Reach provinces spread about 0.25–0.73 (5th–95th percentile), median about 0.5. */
+  wealthDrift: 0.02,
   /** How much the region's roads (their trade over the usual 0.4) add to its provinces' wealth; doubled at the market town. */
   roadWealth: 0.3,
   /** How much the venture's health (over 0.5) adds to the wealth of the province it's in. */
@@ -940,7 +942,8 @@ export function pushBack(w: World, r: Region, y: Pressure): void {
       r.prosperity + F.roadWealth * (roadsAvg - 0.4) * (p.id === r.centreId ? 2 : 1) + F.ventureWealth * venture + F.routeWealth * route - F.levyWork * r.levy,
       0, 1);
     const now = p.wealth ?? 0.5;
-    p.wealth = now + (target - now) * F.wealthPull;
+    // Eased toward the target, and drawn a little back toward getting by (0.5).
+    p.wealth = now + (target - now) * F.wealthPull + (0.5 - now) * F.wealthDrift;
   }
 
   // --- A levy thins the provinces whose lords fought this year.

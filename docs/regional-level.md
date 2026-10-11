@@ -53,7 +53,7 @@ year's engine rolls are exactly as they were; only what follows feels the region
 | **Hard winter** | every surface province loses `winterToll × hardship` of its people and `winterStores × hardship` of its wealth; the winter's event records the toll | `winterToll` 0.015, `winterStores` 0.08 |
 | **Famine** | on top of the engine's own toll, each famine province loses `famineToll × hardship` of its people and `famineStores × hardship` of its wealth | `famineToll` 0.03, `famineStores` 0.15 |
 | **Banditry** | the province bandits worked loses wealth; the engine's trade routes touching the region lose traffic (`TradeRoute.wealth`); the region's roads already lose trade (#1598), which feeds wealth | `banditWealth` 0.08, `banditRoute` 0.1 |
-| **Trade and prosperity** | each province's **wealth** (`Province.wealth`, 0–1, 0.5 getting by) eases a quarter of the way a year toward the region's prosperity, plus its roads' trade (doubled at the market town), the venture's health (its province), and the busiest engine trade route through it. Wealth reaches its holder: `World.power` counts a province's people ×(1 + 0.4 × (wealth − 0.5)), so ±20%; in magic worlds the house treasury's income from the province scales ×(0.5 + wealth) | `wealthPull` 0.25, `roadWealth` 0.3, `ventureWealth` 0.2, `routeWealth` 0.15, `WEALTH_POWER` 0.4 (`world.ts`) |
+| **Trade and prosperity** | each province's **wealth** (`Province.wealth`, 0–1, 0.5 getting by) eases 12% of the way a year toward the region's prosperity, plus its roads' trade (doubled at the market town), the venture's health (its province), and the busiest engine trade route through it, and is drawn 2% of the way back toward 0.5 (getting by) a year. The slow pull lets a hard winter or bandits be felt for years; the drift keeps prosperous regions from sitting at 0.7–0.8 everywhere. Wealth reaches its holder: `World.power` counts a province's people ×(1 + 0.4 × (wealth − 0.5)), so ±20%; in magic worlds the house treasury's income from the province scales ×(0.5 + wealth) | `wealthPull` 0.12, `wealthDrift` 0.02, `roadWealth` 0.3, `ventureWealth` 0.2, `routeWealth` 0.15, `WEALTH_POWER` 0.4 (`world.ts`) |
 | **Unsettled politics** | `Region.unsettled` (0–1) rises with a lord's death (0.1, a great lord 0.2), an empty seat (0.2), a seized seat (0.3) and keeps 60% a year. While it's up its lords of different houses lose `6 × unsettled` opinion of each other a year, bandits get easier (+0.1 × unsettled a year) and prosperity's target drops 0.1 × unsettled | `unsettle*`, `unsettleKeep` 0.6, `unsettledOpinion` 6, `unsettledBandits`, `unsettledProsperity` |
 | **A feud grows into war** | a feud is live 25 years after its lords last fought. Each year, if both houses still have a lord seated in the region and they aren't under a truce (often the sons, not the men who fought), it flares with chance `0.6 × unsettled` (from `World.regionRng`): the more vengeful lord gets a weak claim on the other's seat (`FEUD_FLARES`, significance 4), and both lose 15 opinion. The engine's goals turn the claim into a `SEIZE_TITLE` goal, and a war if the lord dares | `feudFlare` 0.6, `feudMemory` 25, `feudFlareOpinion` 15 |
 
@@ -62,9 +62,22 @@ region getting by, 1.5 in a destitute one, 0.5 in a rich one. A poor region has 
 back on, so the same winter or famine kills more.
 
 Over 16 Reach seeds it's proportionate: about 9% fewer people at the end of 150 years, 10% fewer
-wars (poorer lords, thinner levies), fewer famines (less crowded land), about one feud flaring
-every other history (6 in 10 become a war within ten years). `regions-feedback.test.ts` shows each
+wars (poorer lords, thinner levies) and fewer famines (less crowded land) than with no feedback
+(measured at #1608's first tuning). `regions-feedback.test.ts` shows each
 effect against a control world built from the same seed.
+
+**Tuning (owner, 2026-10-11).** Wealth sat high in prosperous histories, so the pull toward the
+target was slowed (`wealthPull` 0.25 → 0.12) and a drift back toward 0.5 added (`wealthDrift`
+0.02). Over Reach seeds 1–16, province wealth at the end of the history went from median 0.55
+(10th–90th percentile 0.30–0.73, 95th 0.77) to median 0.51 (0.31–0.69, 5th–95th 0.24–0.71); over
+48 seeds (1–16, 100–115, 200–215) sampled every 10 years from year 40, from median 0.52 (5th–95th
+0.24–0.79) to median 0.49 (0.25–0.73). Feuds were not changed: counted in the regional log, a
+history has about 1.4 flares (1.31 before the wealth change and 1.44 after on seeds 1–16; 1.60
+and 1.54 over 48 seeds), already the owner's target of 1–1.5. Only about 0.4 of them fall within
+living memory (40 years), where a region's lines tell them, which is likely why they looked rarer. About
+3 in 4 flares see the claimant at war within ten years. Wars per history barely moved (45.3 →
+43.4 on seeds 1–16, 46.8 → 47.0 over 48), and raising `feudFlare` to 0.8 (about 2 flares a
+history) didn't change them either.
 
 The new randomness is one roll per live feud per year in an unsettled region, from the regional
 stream. Every other effect is arithmetic on values the year already produced.
