@@ -59,6 +59,8 @@ The nightly AI playtest uploads its runs too. Two pages read them live from Supa
 
 **Free questions** (#1575, plan #1574): on the road a player may ask each person one question in their own words per stay, as the move `{ ask: { person, question } }` (the web game plays on the page and keeps its questions through `POST /api/v1/questions`). The server matches it to what that person knows, plays it as `question:<person>:<topic>`, and keeps the question, cleaned, in `artificer_questions`. The game and its stored moves see only the matched topic, never the words.
 
+**Feature switches** (#1579): experimental rule features are set per game (`POST /api/v1/games { features }`, MCP `new_game`), saved in the run's world so replays match, listed in `GET /api/v1/rules`, and stored in each run record; the Records page marks those runs 🧪.
+
 **Fair comparisons and achievements** (phase 6):
 - **Web-game runs** are submitted with their seed and moves, and **re-simulated** on the server before they count. The sim is deterministic, so a replay is exact.
 - **A weekly shared seed** means everyone plays the same world.

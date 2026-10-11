@@ -25,6 +25,7 @@ import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingT
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
+import { featureOn } from './features';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -135,6 +136,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   owesHelp?: number;
   /** Road encounters are met (#1349): carried from the Reach's world. */
   encounters?: boolean;
+  /** The run's rule features (#1579), carried from the Reach's world; absent in a road begun before them. */
+  features?: Record<string, boolean>;
   /** A road encounter waiting for your choice (#1349): the day can't go on until you make it. */
   pending?: PendingEncounter | null;
   log: LogEntry[];
@@ -195,6 +198,8 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
     outcome: null,
     // Road encounters (#1349) where the Reach had them.
     ...(from.config.world.encounters ? { encounters: true } : {}),
+    // The run's rule features (#1579) ride along: they're fixed for the whole run.
+    ...(from.config.world.features ? { features: { ...from.config.world.features } } : {}),
   };
   // The caravan's own people (#1253) ride with you from the start; they know you as well as anyone in the first village will.
   const met = startingTrust(s.arrival, statEffects(s.character.stats).trust, 0);
@@ -660,6 +665,8 @@ function noteLead(next: RoadState, person: Person, key: string, answer: Answer):
  * Asked about something they've already told you, they tell you again, and nothing more comes of it.
  */
 function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
+  // A switchable feature (#1579): off in this run, there's no free question to ask.
+  if (!featureOn(next.features, 'free-questions')) { say(next, 'Question: skipped — free questions are off in this game.', 'skip'); return next; }
   const person = peopleHere(next).find(p => p.id === pid);
   if (!person) { say(next, `Question: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
   if ((next.questioned ?? []).includes(pid)) { say(next, `Question: skipped — you've asked ${person.name} your question this stay.`, 'skip'); return next; }

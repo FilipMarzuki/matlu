@@ -27,6 +27,7 @@ import { ROAD_DAYS, peopleHere, type RoadActionId, type RoadState } from '../art
 import { observe, observeEncounter, observeMeeting, observeRoad } from '../artificer-ai/observe';
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
+import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
 
 /**
  * The session format's version. A stored game from another version doesn't load (it starts over
@@ -79,6 +80,8 @@ export interface View {
   status: string;
   /** The moves open now. Free settings (`set`) aren't listed; the text says what they can be. */
   moves: MoveOption[];
+  /** The run's rule features (#1579), each on or off: fixed when the game started. */
+  features: Record<string, boolean>;
 }
 
 export type ApplyResult =
@@ -101,10 +104,13 @@ export interface AskedQuestion {
 
 // ── Starting and viewing ────────────────────────────────────────────────────
 
-/** A new game: a new Warden, seeded by `seed` if given (so it can be replayed), else a fresh one. */
-export function startGame(opts: { seed?: string; name?: string } = {}): Game {
+/**
+ * A new game: a new Warden, seeded by `seed` if given (so it can be replayed), else a fresh one.
+ * `features` switches rule features on or off for this game (#1579); the rest keep their defaults.
+ */
+export function startGame(opts: { seed?: string; name?: string; features?: FeatureSwitches } = {}): Game {
   const id = opts.seed ? `play-${opts.seed}` : `play-${newCharacterId().slice(2)}`;
-  return { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden' })) };
+  return { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden' }, undefined, opts.features)) };
 }
 
 /** A game around an existing app state (for tests, and for loading). */
@@ -113,7 +119,10 @@ export function gameFrom(app: AppState, id: string): Game {
 }
 
 export function view(g: Game): View {
-  const a = g.app;
+  return { ...viewOf(g.app), features: featuresOf(g.app.sim.config.world.features) };
+}
+
+function viewOf(a: AppState): Omit<View, 'features'> {
   const phase = phaseOf(a);
   switch (phase) {
     case 'day':
@@ -152,6 +161,7 @@ export function apply(g: Game, move: Move): ApplyResult {
     if (phase !== 'road') return refuse(phase === 'road-encounter' ? 'Something needs an answer first.' : 'There\'s no one to ask yet: free questions are for the people you meet on the road.');
     const r = before.road!;
     const { person, question } = move.ask;
+    if (!featureOn(r.features, 'free-questions')) return refuse('Free questions are off in this game.');
     const who = peopleHere(r).find(p => p.id === person);
     if (!who) return refuse(`There's no one called "${person}" here. Here: ${peopleHere(r).map(p => `${p.name} (${p.id})`).join(', ')}.`);
     if (r.hoursToday >= DAY_HOURS) return refuse('The day is spent: end the day, and ask tomorrow.');
@@ -313,9 +323,11 @@ function roadMoves(r: RoadState): MoveOption[] {
 
 /** Who can still be asked a free question this stay (#1575), and how: a line under the road's view. */
 function freeQuestionsText(r: RoadState): string {
+  if (!featureOn(r.features, 'free-questions')) return '';
   const open = peopleHere(r).filter(p => !(r.questioned ?? []).includes(p.id));
   if (!open.length) return '';
-  return `Free questions: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, whatever their trust. ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
+  const experiment = featureById('free-questions')?.stage === 'experimental' ? ' (an experiment)' : '';
+  return `Free questions${experiment}: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, whatever their trust. ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
 }
 
 const ROAD_VERBS = ['talk', 'ask', 'question', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];

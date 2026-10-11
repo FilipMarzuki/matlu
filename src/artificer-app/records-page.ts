@@ -13,6 +13,7 @@ import './style.css';
 import './records.css';
 import { inject } from '@vercel/analytics';
 import { percentBeaten, tierOf, outcomeLine, groupOf, type RunSummary, type StoredRun } from '../artificer-play/records';
+import { experimentalOn } from '../artificer/features';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -51,6 +52,23 @@ async function getJson<T>(path: string): Promise<{ status: number; body: T | nul
 // ── Small helpers ───────────────────────────────────────────────────────────
 
 const who = (r: RunSummary): string => r.nickname ?? 'a Warden';
+
+/** A run played with an experimental rule feature (#1579) is marked 🧪, and the reader can leave those out. */
+const experimental = (r: RunSummary): boolean => experimentalOn(r.features).length > 0;
+let hideExperimental = false;
+
+/** The Warden cell: the nickname, and a 🧪 for a run played with an experimental rule feature. */
+function wardenCell(r: RunSummary): Node {
+  const frag = document.createDocumentFragment();
+  frag.append(who(r));
+  const on = experimentalOn(r.features);
+  if (on.length) {
+    const tag = el('span', 'exp', ' 🧪');
+    tag.title = `Played with experimental features: ${on.map(f => f.name).join(', ')}`;
+    frag.append(tag);
+  }
+  return frag;
+}
 const playedBy = (r: RunSummary): string => (r.playerKind === 'person' ? 'a person' : r.model ?? 'an AI');
 const when = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 const pct = (n: number, of: number): number => (of ? Math.round((100 * n) / of) : 0);
@@ -120,7 +138,7 @@ function renderBest(best: RunSummary[], mine: StoredRun | null): void {
       { head: 'Shelter' }, { head: 'Skills', num: true }, { head: 'When', phone: 'plain' },
     ],
     best.map((r, i) => [
-      String(i + 1), who(r), playerCell(r), outcomeLine(r),
+      String(i + 1), wardenCell(r), playerCell(r), outcomeLine(r),
       r.readyDay === null ? 'never' : `day ${r.readyDay}`,
       r.larderMidwinter === null ? '—' : String(r.larderMidwinter),
       `tier ${r.shelterTier}`, String(r.skillLevels), when(r.createdAt),
@@ -304,8 +322,27 @@ async function main(): Promise<void> {
   $('#best-sub').textContent = `On this version of the game (${runs.body.version}): a version that changes the rules starts a fresh board.`;
   const own = mine?.body?.run ?? null;
   if (mine) renderYours(own, mine.status, mine.error, runs.body.recent);
-  renderBest(runs.body.best, own);
-  renderSpread(runs.body.recent);
+  const { best, recent } = runs.body;
+  const draw = (): void => {
+    const keep = (rs: RunSummary[]): RunSummary[] => (hideExperimental ? rs.filter(r => !experimental(r)) : rs);
+    renderBest(keep(best), own);
+    renderSpread(keep(recent));
+  };
+  // Only offered when there's something to leave out.
+  if ([...best, ...recent].some(experimental)) {
+    const toggle = el('button', 'pill exp-toggle', '🧪 HIDE EXPERIMENTAL RUNS');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-pressed', 'false');
+    toggle.title = 'Runs played with experimental features, which may change or go';
+    toggle.addEventListener('click', () => {
+      hideExperimental = !hideExperimental;
+      toggle.setAttribute('aria-pressed', String(hideExperimental));
+      toggle.textContent = hideExperimental ? '🧪 SHOW EXPERIMENTAL RUNS' : '🧪 HIDE EXPERIMENTAL RUNS';
+      draw();
+    });
+    $('#best-sub').after(toggle);
+  }
+  draw();
 }
 
 void main();

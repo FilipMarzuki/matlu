@@ -76,6 +76,8 @@ export interface RunDetail {
   vitals?: { vigor: number; clarity: number; condition: number };
   /** The day each milestone was first reached, in the order they came: the time to any milestone. */
   milestones?: { name: string; day: number }[];
+  /** The run's rule features (#1579), each on or off. Absent on the playtest's records and older ones. */
+  features?: Record<string, boolean>;
 }
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */
@@ -84,8 +86,11 @@ export interface StoredRun extends Run {
   createdAt: string;
 }
 
-/** A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't read. */
-export type RunSummary = Omit<StoredRun, 'detail'>;
+/**
+ * A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't
+ * read, except its rule features (#1579), which mark experimental runs.
+ */
+export type RunSummary = Omit<StoredRun, 'detail'> & { features?: Record<string, boolean> | null };
 
 /** An AI's record for the dev site's AI page (GET /api/v1/runs/ai): the summary and when each milestone came. */
 export type AiRun = RunSummary & { milestoneDays: { name: string; day: number }[] | null };

@@ -14,6 +14,7 @@ import { SKILL_IDS, skillLevel } from '../artificer/skills';
 import { DEFAULT_CALENDAR, MIDWINTER_AFTER } from '../artificer/winter';
 import type { Region1State } from '../artificer/region1';
 import { progressOf, type Progress } from '../artificer-ai/progress';
+import { featuresOf } from '../artificer/features';
 import type { Transcript } from '../artificer-ai/report';
 import { nicknameOf, type PlayerKind, type Run, type RunDetail, type Surface } from './records';
 
@@ -90,6 +91,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
       stats: { ...last.character.stats },
       vitals: { vigor: Math.round(v.vigor.current), clarity: Math.round(v.clarity.current), condition: Math.round(v.condition) },
       milestones,
+      features: featuresOf(app.sim.config.world.features),
     },
   };
 }

@@ -19,6 +19,7 @@ import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
 import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { QUESTION_NOTICE } from '../artificer-play/questions';
+import { featureById, featureOn } from '../artificer/features';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -279,7 +280,10 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
  * this draws the box, or, once asked, what you asked and what they said.
  */
 function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
-  const head = '<p class="fgroup">ASK ANYTHING — ONE QUESTION THIS STAY</p>';
+  // A switchable feature (#1579): off in this run, no box; while it's an experiment, it says so.
+  if (!featureOn(r.features, 'free-questions')) return '';
+  const tag = featureById('free-questions')?.stage === 'experimental' ? ' <span class="exptag" title="An experiment: it may change, or go">🧪 EXPERIMENT</span>' : '';
+  const head = `<p class="fgroup">ASK ANYTHING — ONE QUESTION THIS STAY${tag}</p>`;
   if ((r.questioned ?? []).includes(p.id)) {
     const mine = ui.asked?.[p.id];
     if (!mine) return `${head}<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`;

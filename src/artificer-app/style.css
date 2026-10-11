@@ -579,6 +579,18 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .freeq .qin::placeholder { color: var(--faint); }
 .freeq .qin:disabled { opacity: .5; }
 .sheetpart .qnote { font-size: 10.5px; }
+/* Feature switches (#1579): the 🧪 marks an experiment wherever it shows; the panel is dev mode only. */
+.pill.exp { border-color: var(--amber); color: var(--amber); cursor: help; }
+.exptag { margin-left: 6px; color: var(--amber); letter-spacing: 1px; }
+.devtruth { font-family: var(--body); font-size: 10px; color: var(--amber); letter-spacing: 0; text-transform: none; }
+.features { margin: 12px 0; }
+.flist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.flist li { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.flist li > div { min-width: 0; }
+.flist .stage { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); margin-left: 6px; }
+.flist .stage.s-experimental { color: var(--amber); }
+.flist .faint { color: var(--faint); font-style: normal; }
+.flist .pill[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
 .say { margin: 0; font-size: 12.5px; color: var(--ink); font-style: italic; }
 .warn { color: var(--warn); } .ok { color: var(--green); }
 .tcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; width: 100%; }

@@ -80,6 +80,8 @@ const RUNS = 'artificer_runs';
 const SUMMARY_COLUMNS = 'id, created_at, player_kind, model, client, surface, game_version, nickname, outcome, grade, stage, end_day, ready_day, larder_midwinter, shelter_tier, skill_levels, concept_ranks, recipes, milestones, moves, cost_usd';
 /** One record in full: the summary and its `detail`. */
 const RUN_COLUMNS = `${SUMMARY_COLUMNS}, detail`;
+/** What the lists send: the summary, and `features:detail->features` picks just the rule features out of the jsonb (#1579). */
+const LIST_COLUMNS = `${SUMMARY_COLUMNS}, features:detail->features`;
 
 /** Whole numbers for the integer columns: Postgres refuses 2.5 for an integer, and the record would be lost. */
 const int = (x: number): number => Math.round(x);
@@ -93,13 +95,14 @@ export const runToRow = (sourceKey: string, r: Run): Omit<RunRow, 'id' | 'create
   cost_usd: r.costUsd, rank_key: rankKey(r), detail: r.detail,
 });
 
-const summaryFromRow = (r: Omit<RunRow, 'detail'>): RunSummary => ({
+const summaryFromRow = (r: Omit<RunRow, 'detail'> & { features?: Record<string, boolean> | null }): RunSummary => ({
   id: r.id, createdAt: r.created_at, playerKind: r.player_kind, model: r.model, client: r.client, surface: r.surface,
   gameVersion: r.game_version, nickname: r.nickname, outcome: r.outcome, grade: r.grade, stage: r.stage, endDay: r.end_day,
   readyDay: r.ready_day, larderMidwinter: r.larder_midwinter, shelterTier: r.shelter_tier, skillLevels: r.skill_levels,
   conceptRanks: r.concept_ranks, recipes: r.recipes, milestones: r.milestones, moves: r.moves,
   // Postgres numeric comes back as a string, to keep its precision.
   costUsd: r.cost_usd === null ? null : Number(r.cost_usd),
+  ...(r.features !== undefined ? { features: r.features } : {}),
 });
 
 const runFromRow = (r: RunRow): StoredRun => ({ ...summaryFromRow(r), detail: r.detail });
@@ -161,12 +164,12 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       return (data?.length ?? 0) > 0;
     },
     async recentRuns(limit, version) {
-      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
       check(error, 'recent runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
     async bestRuns(limit, version) {
-      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
       check(error, 'best runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },

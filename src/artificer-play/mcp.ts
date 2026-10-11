@@ -25,6 +25,7 @@ import { McpServer, createMcpHandler, CLIENT_INFO_META_KEY, type CallToolResult 
 import * as z from 'zod/v4';
 import { handle, type ApiDeps, type ApiResponse, type GameStore } from './api';
 import { GAME_VERSION, type Move, type MoveOption } from './session';
+import { experimentalOn } from '../artificer/features';
 
 export interface McpOptions {
   /** The player's address (as the HTTP API takes it), for the per-address limits. */
@@ -70,12 +71,13 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     inputSchema: z.object({
       name: z.string().max(24).optional().describe("Your Warden's name, shown on the records (default: Warden)."),
       model: z.string().max(64).optional().describe('Which AI model is playing, if you know. Shown on the records as self-reported.'),
+      features: z.record(z.string(), z.boolean()).optional().describe('Switch experimental rule features for this game, e.g. {"free-questions": false}. The rules tool lists them; leave out for the defaults.'),
     }),
-  }, async ({ name, model }, ctx) => {
-    const r = await call('POST', '/api/v1/games', { name, model, client: clientName(ctx.mcpReq.envelope, request) });
+  }, async ({ name, model, features }, ctx) => {
+    const r = await call('POST', '/api/v1/games', { name, model, features, client: clientName(ctx.mcpReq.envelope, request) });
     if (r.status !== 201) return failure(r);
     const b = gameBody(r);
-    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n\n${b.text}\n\n${movesBlock(b.moves)}`);
+    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n${featuresLine(b.features)}\n${b.text}\n\n${movesBlock(b.moves)}`);
   });
 
   server.registerTool('look', {
@@ -143,8 +145,9 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
   }, async () => {
     const r = await call('GET', '/api/v1/rules');
     if (r.status !== 200) return failure(r);
-    const b = r.body as { rules: string; roadRules: string };
-    return text(`${b.rules}\n\nON THE ROAD\n${b.roadRules}`);
+    const b = r.body as { rules: string; roadRules: string; features?: { id: string; name: string; note: string; stage: string; default: boolean }[] };
+    const features = (b.features ?? []).map(f => `- ${f.id} (${f.stage}, ${f.default ? 'on' : 'off'} by default): ${f.name}. ${f.note}`).join('\n');
+    return text(`${b.rules}\n\nON THE ROAD\n${b.roadRules}${features ? `\n\nFEATURES (switch them at new_game)\n${features}` : ''}`);
   });
 
   return server;
@@ -152,7 +155,13 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean> }
+
+/** Which experimental features this game plays with (#1579), as a line under its id; empty if none. */
+function featuresLine(features: Record<string, boolean> | undefined): string {
+  const on = experimentalOn(features);
+  return on.length ? `Experimental features on in this game: ${on.map(f => f.name).join(', ')}.\n` : '';
+}
 
 const movesPath = (id: string): string => `/api/v1/games/${encodeURIComponent(id)}/moves`;
 /** The API's body for a game (its shape is api.ts's gameBody). */

@@ -44,6 +44,8 @@ import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
 import { cleanQuestion } from '../artificer-play/questions';
+import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
+import { devMode, loadChoices, saveChoices } from './feature-choices';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
@@ -677,8 +679,10 @@ function skillsBlock(s: AppState['sim']): string {
     const seems = perceivedProgress(s.skills[id] ?? 0);
     const lvl = Math.floor(seems);
     const name = LEVELS[lvl];
+    // Dev mode (#1579) shows the true level the game hides.
+    const truth = dev ? ` <span class="devtruth" title="Dev mode: the true level">true: ${esc(LEVELS[skillLevel(s.skills, id)])}</span>` : '';
     return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
-      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
+      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}${truth}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
       + `<div class="techs">${TECHNIQUES.filter(t => t.skill === id).map(techChip(s)).join('')}</div></div>`;
   }).join('')}</div>${s.manuals.length ? `<p class="mood">Manuals: ${s.manuals.map(m => `<b>${esc(manualById(m)?.name ?? m)}</b>`).join(', ')} — they guide your practice and teach what's within reach.</p>` : ''}`;
 }
@@ -1029,10 +1033,13 @@ function render(a: AppState): void {
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      ${experimentChip(a)}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="Let your AI play Greywind Reach">PLAY WITH YOUR AI</a></span>
+      ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>
+    ${featuresPanel(a)}
     ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
       and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
@@ -1049,6 +1056,40 @@ function render(a: AppState): void {
 
 /** The encounter just answered (#1347), shown in the modal until you carry on. */
 let encounterAfter: EncounterAfter | null = null;
+
+// ── Feature switches and dev mode (#1579) ──────────────────────────────────
+
+/** Dev mode (`?dev` in the address, remembered; `?dev=0` turns it off): the features panel and hidden truths. */
+const dev = devMode();
+let showFeatures = false;
+
+/** A 🧪 in the header while this run plays with an experimental rule feature: it may change, or go. */
+function experimentChip(a: AppState): string {
+  const on = experimentalOn(featuresOf(a.sim.config.world.features));
+  if (!on.length) return '';
+  return `<span class="ctl"><span class="pill exp" title="This run plays with experimental features: ${esc(on.map(f => f.name).join(', '))}. They may change, or go.">🧪 EXPERIMENT</span></span>`;
+}
+
+const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES</button></span>` : '');
+
+/**
+ * The features panel (dev mode): every switchable feature, what it does, and its switch. Rule
+ * features change the next new game; this run keeps what it started with, shown beside each.
+ */
+function featuresPanel(a: AppState): string {
+  if (!dev || !showFeatures) return '';
+  const choices = loadChoices();
+  const run = featuresOf(a.sim.config.world.features);
+  const rows = FEATURES.map(f => {
+    const on = typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default;
+    const now = f.kind === 'rules' ? ` · this run: <b>${run[f.id] ? 'on' : 'off'}</b>` : '';
+    return `<li><div><b>${esc(f.name)}</b> <span class="stage s-${f.stage}">${f.stage === 'experimental' ? '🧪 ' : ''}${f.stage.toUpperCase()}</span>
+      <p class="mood">${esc(f.note)} <span class="faint">(${f.kind === 'rules' ? 'rules: from the next new game' : 'looks: now'}${now} · #${f.issue})</span></p></div>
+      <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
+  }).join('');
+  return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
+    <p class="mood">Kept in this browser, and used by the text console too. Skills show their true level while dev mode is on. Add <code>?dev=0</code> to the address to leave dev mode.</p></section>`;
+}
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
@@ -1086,8 +1127,11 @@ function renderRoad(a: AppState, r: RoadState): void {
       ${r.character.name ? `<button class="who" data-rtab="warden" title="Your Warden">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">MARKS <b>${r.marks}</b></span>
       <span class="counter ctl">ROAD DAY <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
+      ${experimentChip(a)}
+      ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>
+    ${featuresPanel(a)}
     ${routeStrip(r)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r)}${lastNews(r)}`}
@@ -1120,7 +1164,7 @@ function saveHistory(h: readonly RunRecord[]): void {
 
 const root = document.getElementById('app') as HTMLElement;
 const saved = loadSaved();
-let state = saved ?? newGame();
+let state = saved ?? newGame(undefined, loadChoices());
 let history = loadHistory();
 
 // ── Arrival intro (#1228) ───────────────────────────────────────────────────
@@ -1179,7 +1223,7 @@ function startIntro(): void {
 function commitCharacter(): void {
   // The sim is made again from the draft — keeping what the last Warden left (#1455), which the intro already told them about.
   const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
-  state = makeWarden({ id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, age: draft.age }, left.heirlooms?.length ? left : undefined);
+  state = makeWarden({ id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, age: draft.age }, left.heirlooms?.length ? left : undefined, loadChoices());
   render(state);
 }
 
@@ -1376,6 +1420,13 @@ root.addEventListener('click', e => {
   const d = el.dataset;
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
+  else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
+  else if (d.feature) {
+    // Flip one switch (#1579); a rule feature takes effect at the next new game.
+    const choices = loadChoices();
+    const f = FEATURES.find(x => x.id === d.feature);
+    if (f) { saveChoices({ ...choices, [f.id]: !(typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default) }); render(state); }
+  }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
   else if (d.pinring) { const r = Number(d.pinring) as Ring; pinRing = pinRing === r ? null : r; render(state); }
@@ -1395,7 +1446,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
-  else if (d.cmd === 'reset') { update(newRun(currentRun(state))); clearDraft(); startIntro(); }
+  else if (d.cmd === 'reset') { update(newRun(currentRun(state), loadChoices())); clearDraft(); startIntro(); }
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
