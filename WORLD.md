@@ -1586,8 +1586,8 @@ mission that cannot wait three tidal cycles for a response will not get one. Thi
 obstruction. It is how Merfolk time works: they plan across decades, and a nation that
 wants an answer this week has misunderstood the relationship.
 
-Their Classes reflect deep-ocean expertise: [Depth-Keeper], [Pressure-Smith], [Current-
-Reader], [Ruin-Walker]. The last class is of particular interest to the Pandor, who have
+Their Classes reflect deep-ocean expertise: [Depth-Keeper], [Pressure-Smith],
+[Current-Reader], [Ruin-Walker]. The last class is of particular interest to the Pandor, who have
 been trying to establish a formal knowledge-exchange agreement for thirty years. The
 Djupvolk have not yet replied.
 
