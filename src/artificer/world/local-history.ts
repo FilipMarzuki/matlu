@@ -37,6 +37,13 @@
  * falls in the year the country's hard winter did. Names come from the village's own culture
  * (peoples.ts), avoiding the road's people and the lords' houses.
  *
+ * What the village lives on is its **economy** (economy.ts, #1599), not the engine's livelihood
+ * for its province: the engine scores the land at a road village's seat like any other and can
+ * make Saltmere a lumber town, so the road villages' economies are written by hand and win. Its
+ * good or bad year, its quarrels and its new buildings follow its dominant trade (the salt crust at
+ * Saltmere, the toll at Kestrel Gate), and the country's venture is its news only if it lives on
+ * that trade.
+ *
  * Its randomness is its own (rng.ts `generator`, seeded from the history's seed), not the engine's
  * `World.rng` or `World.regionRng`, and it runs on a told history after the fact: the engine's log,
  * the golden hashes and HISTORY_VERSION are untouched, and a kept history tells the same villages.
@@ -60,6 +67,7 @@
 import type { Fact, Sensitivity } from '../knowledge';
 import { generator, seedOf, shuffled } from '../rng';
 import { TRAVELLERS, VILLAGES } from '../villages';
+import { economyOfProvince, tradesOf, ventureFits, VILLAGE_ECONOMY, type CraftedEconomies, type Economy } from '../economy';
 import { LIVING_MEMORY, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { REACH_CULTURES } from './peoples';
 import type { AnchorId } from './provinces';
@@ -220,10 +228,10 @@ export function countryOf(history: ReachHistory, provinceId: string, generated: 
 }
 
 /** A village's local history: the crafted slots as written, the rest generated. */
-export function localHistory(input: LocalInput, crafted: CraftedLocal = CRAFTED_LOCAL): LocalHistory {
+export function localHistory(input: LocalInput, crafted: CraftedLocal = CRAFTED_LOCAL, economies: CraftedEconomies = VILLAGE_ECONOMY): LocalHistory {
   const { present, village } = input;
   const written = crafted[village] ?? [];
-  const ctx = context(input);
+  const ctx = context(input, economies);
   const entries: LocalEntry[] = [];
   for (const slot of LOCAL_SLOTS) {
     const c = written.find(w => w.slot === slot);
@@ -280,7 +288,10 @@ interface Ctx {
   name: string;
   /** What its people call their council: the ford-moot, the well-council, the gate-council. */
   moot: string;
+  /** What it lives on most (economy.ts `dominant`), and every trade it lives on, dominant first. */
   livelihood: string;
+  trades: readonly string[];
+  /** What it grew up around (economy.ts `founding`). */
   founding: string;
   wealth: number;
   tax: number;
@@ -319,11 +330,16 @@ const ROAD_PEOPLE = [...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVE
 const ROAD_NAMES = new Set(ROAD_PEOPLE.map(p => p.name));
 const isRoadPerson = (id: string) => ROAD_PEOPLE.some(p => p.id === id);
 
-function context(input: LocalInput): Ctx {
+function context(input: LocalInput, economies: CraftedEconomies): Ctx {
   const { seed, present, village, province, country } = input;
   const culture = VILLAGES[village]?.cultures[0] ?? 'fieldborn';
   const spec = REACH_CULTURES.find(c => c.id === culture) ?? REACH_CULTURES[0];
   const here = country?.provinces.find(p => p.id === province.id || p.name === province.name);
+  // What the village lives on (#1599): its economy as written where it is (the road villages, so
+  // Kestrel Gate never has a good year for the nets), else what the engine gave its province.
+  const economy: Economy = economies[village]
+    ?? (here ? economyOfProvince(here, {}) : { dominant: 'farming', secondary: [], founding: 'farming', crafted: false });
+  const v = country && country.venture.province === province.name ? country.venture : null;
   const lines = (country?.lines ?? [])
     .filter(l => present - l.year >= 0 && present - l.year <= LOCAL_YEARS && (l.province === province.name || l.province === null))
     .sort((a, b) => b.year - a.year);
@@ -335,9 +351,11 @@ function context(input: LocalInput): Ctx {
   const names = men.flatMap((m, i) => (women[i] ? [m, women[i]] : [m]));
   return {
     present, name: VILLAGES[village]?.name ?? province.name, moot: MOOT[village] ?? 'moot',
-    livelihood: here?.livelihood ?? 'farming', founding: here?.founding ?? 'farming', wealth: here?.wealth ?? 0.5,
+    livelihood: economy.dominant, trades: tradesOf(economy), founding: economy.founding, wealth: here?.wealth ?? 0.5,
     tax: country?.tax ?? 0.35, levy: country?.levy ?? 0,
-    venture: country && country.venture.province === province.name ? country.venture : null,
+    // The country's venture is the village's news only when it lives on that trade: a lumber camp
+    // the engine put in Saltmere's province is out in the land beyond, not Saltmere's own work.
+    venture: v && ventureFits(economy, v.kind) ? v : null,
     lines, families, names,
   };
 }
@@ -365,6 +383,8 @@ const GOOD_YEAR: Readonly<Record<string, string>> = {
   mining: 'the seam ran rich, and the ore-carts went out full',
   peat: 'the cuttings dried hard and sold well',
   trading: 'the market was full every week, and the stalls ran out of things to sell',
+  salt: 'the crust came in thick and white all summer, and the salt-carts went up to the Gate heavy',
+  tolls: 'more wagons came through the gate than anyone could remember, and the toll-chest was full by autumn',
 };
 const BAD_YEAR: Readonly<Record<string, string>> = {
   farming: 'the rain came at harvest and the barley rotted in the stook',
@@ -374,15 +394,18 @@ const BAD_YEAR: Readonly<Record<string, string>> = {
   mining: 'the seam pinched out, and the diggers worked for weeks for nothing',
   peat: 'the cuttings flooded and never dried',
   trading: 'the carts stopped coming, and the stalls stood empty',
+  salt: 'the rains came early and the crust melted back into the mere before it could be raked',
+  tolls: 'the wagons went round by the old drove road, and the toll-chest stood half empty',
 };
 const QUARREL: Readonly<Record<string, string>> = {
   farming: 'a boundary stone between their fields', fishing: 'the best drying racks on the shore', herding: 'grazing on the common',
   lumber: 'a stand of timber both said was theirs', mining: 'a claim on the seam', peat: 'the peat cuttings by the old track',
-  trading: 'a stall by the market cross',
+  trading: 'a stall by the market cross', salt: 'the best stretch of crust on the shore', tolls: 'a share of the toll',
 };
 const BUILDING: Readonly<Record<string, string>> = {
   farming: 'a new mill on the stream', fishing: 'a smoke-house on the shore', herding: 'new stone folds on the hill',
   lumber: 'a saw-pit by the road', mining: 'an ore-shed with a proper roof', peat: 'a long drying barn', trading: 'a covered market',
+  salt: 'a salt-shed with a proper roof', tolls: 'a new toll-house by the gate',
 };
 
 /** One generator per slot. Each draws only from its own stream `r`, in a fixed order. */
@@ -480,8 +503,8 @@ const GENERATE: Readonly<Record<LocalSlot, (c: Ctx, r: () => number) => Generate
       { ago: 0, publicity: 'public', text: `The old well went dry in a hot summer, and ${c.name} carried water until a new one was dug.` },
       { ago: 0, publicity: 'public', text: `A storm took the roof off the ${c.moot}'s hall, and it met in the ${fam}s' barn until spring.` },
     ];
-    if (c.founding === 'crossing' || c.livelihood === 'fishing') options.push({ ago: 0, publicity: 'public', text: 'The spring flood came over the banks and took the lowest houses.' });
-    if (c.livelihood === 'mining' || c.livelihood === 'lumber') options.push({ ago: 0, publicity: 'public', text: 'A slip came down the hillside after the rains and buried the upper path.' });
+    if (c.founding === 'crossing' || c.trades.includes('fishing')) options.push({ ago: 0, publicity: 'public', text: 'The spring flood came over the banks and took the lowest houses.' });
+    if (c.trades.includes('mining') || c.trades.includes('lumber')) options.push({ ago: 0, publicity: 'public', text: 'A slip came down the hillside after the rains and buried the upper path.' });
     return { ...pick(r, options), ago: anyYear(r) };
   },
   building(c, r) {

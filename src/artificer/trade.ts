@@ -6,8 +6,12 @@
  * Gate. Simpler for players and the AI than barter: every item has one base
  * value, and the price is that value times a few plain multipliers:
  *
- *   selling  = base × grade × (wanted ? 1.5 : 1) × (trust ≥ 50 ? 1.1 : 1) ÷ CHA factor
- *   buying   = base × 1.25 × (trust ≥ 50 ? 0.9 : 1) × CHA factor
+ *   selling  = base × grade × (wanted ? 1.5 : 1) × (trust ≥ 50 ? 1.1 : 1) × local ÷ CHA factor
+ *   buying   = base × 1.25 × (trust ≥ 50 ? 0.9 : 1) × local × CHA factor
+ *
+ * `local` is the village's own market (#1599, economy.ts, with the `village-economies` switch):
+ * ×0.75 for a good the village makes (plentiful), ×1.25 for a kind it lacks (scarce), 1 otherwise
+ * and in every run without the switch; a market town also sells at a lower markup (×1.1).
  *
  * The total for a lot is rounded once (not per unit), so ten cheap things
  * aren't rounded away to nothing.
@@ -16,6 +20,7 @@
  */
 
 import type { Grade } from './crafting';
+import { MARKET_MARKUP, PLENTIFUL, SCARCE, type LocalMarket } from './economy';
 import type { Stores } from './region1';
 
 /** A store good: what you carry by the heap rather than as a tool. */
@@ -79,20 +84,35 @@ export const SALE_TRUST = 1;
 /** The base value of `qty` of `item` at `grade` (store goods have no grade: sound). */
 export const valueOf = (item: string, grade: Grade = 'sound', qty = 1): number => (BASE_VALUE[item] ?? 0) * PRICE_GRADE[grade] * qty;
 
-/** What the deal looks like from this trader: their wants, your trust with them, and your Charisma's price factor. */
-export interface Terms { wants: readonly Kind[]; trust: number; priceFactor: number }
+/**
+ * What the deal looks like from this trader: their wants, your trust with them, your Charisma's
+ * price factor, and the village's own market (#1599), when the run has village economies.
+ */
+export interface Terms { wants: readonly Kind[]; trust: number; priceFactor: number; local?: LocalMarket | null }
+
+/**
+ * What the village's market does to the price of `item` (#1599): plentiful goods are cheap and
+ * fetch little, scarce kinds are dear and fetch more. A good is checked before its kind, so a
+ * village that makes a good and lacks its kind (none does today) treats it as plentiful.
+ */
+export function localFactor(item: string, local: LocalMarket | null | undefined): number {
+  if (!local) return 1;
+  if ((local.plentiful as readonly string[]).includes(item)) return PLENTIFUL;
+  return local.scarce.includes(KIND_OF[item]) ? SCARCE : 1;
+}
 
 /** Marks you're paid for `qty` of `item` at `grade`. */
 export function sellPrice(item: string, grade: Grade, qty: number, t: Terms): number {
   const wanted = t.wants.includes(KIND_OF[item]) ? WANTED : 1;
   const friend = t.trust >= FRIEND_TRUST ? 1 + FRIEND_RATE : 1;
-  return Math.round((valueOf(item, grade, qty) * wanted * friend) / t.priceFactor);
+  return Math.round((valueOf(item, grade, qty) * wanted * friend * localFactor(item, t.local)) / t.priceFactor);
 }
 
 /** Marks you pay for `qty` of a good. */
 export function buyPrice(item: Good, qty: number, t: Terms): number {
   const friend = t.trust >= FRIEND_TRUST ? 1 - FRIEND_RATE : 1;
-  return Math.round(valueOf(item, 'sound', qty) * MARKUP * friend * t.priceFactor);
+  const markup = t.local?.market ? MARKET_MARKUP : MARKUP;
+  return Math.round(valueOf(item, 'sound', qty) * markup * friend * localFactor(item, t.local) * t.priceFactor);
 }
 
 /** The trader among these people, or null — "No one here is trading". */

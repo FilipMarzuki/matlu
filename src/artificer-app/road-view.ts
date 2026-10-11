@@ -11,7 +11,8 @@ import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
-import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
+import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
+import { marketLine } from '../artificer/economy';
 import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
@@ -194,7 +195,7 @@ function questBlock(r: RoadState, p: Person): string {
       ${q.needs.kind === 'deliver' ? '' : act(r, `complete:${q.id}`, '✓ COMPLETE', questHours(q), { cls: 'go', why: why ?? undefined })}</div>`;
   }
   // Someone with a need who doesn't trust you enough yet to ask.
-  const shy = QUESTS.some(q => q.giver === p.id) && (r.trust[p.id] ?? 0) < OFFER_TRUST;
+  const shy = QUESTS.some(q => q.giver === p.id && (!q.feature || featureOn(r.features, q.feature))) && (r.trust[p.id] ?? 0) < OFFER_TRUST;
   return shy ? `<div class="sheetpart"><p class="mood">${esc(p.name)} doesn't know you well enough to ask for anything yet.</p></div>` : '';
 }
 
@@ -219,14 +220,19 @@ function tradePanel(r: RoadState): string {
   if (!t) return '';
   const friend = t.trust >= FRIEND_TRUST;
   const wanted = (item: string): boolean => t.wants.includes(KIND_OF[item]);
+  // The village's own market (#1599): a tag on what's cheap or dear here.
+  const here = (item: string): string => {
+    const f = localFactor(item, t.local);
+    return f < 1 ? ' <span class="q">plentiful here</span>' : f > 1 ? ' <span class="want">scarce here</span>' : '';
+  };
   const goods = Object.entries(r.stores).filter(([k, n]) => n > 0 && isGood(k));
   const yours = [
-    ...goods.map(([k, n]) => `<li><span class="it">${esc(itemName(k))} <span class="q">×${n}</span>${wanted(k) ? ' <span class="want">wanted</span>' : ''}</span><span class="pr">${sellPrice(k, 'sound', 1, t)}</span>${act(r, `sell:${k}`, 'SELL 1', TRADE_HOURS)}</li>`),
-    ...r.tools.filter(x => KIND_OF[x.item]).map(x => `<li><span class="it">${esc(itemName(x.item))} <span class="g g-${x.grade}">${x.grade}</span>${wanted(x.item) ? ' <span class="want">wanted</span>' : ''}</span><span class="pr">${sellPrice(x.item, x.grade, 1, t)}</span>${act(r, `sell:${x.item}:${x.grade}`, 'SELL', TRADE_HOURS)}</li>`),
+    ...goods.map(([k, n]) => `<li><span class="it">${esc(itemName(k))} <span class="q">×${n}</span>${wanted(k) ? ' <span class="want">wanted</span>' : ''}${here(k)}</span><span class="pr">${sellPrice(k, 'sound', 1, t)}</span>${act(r, `sell:${k}`, 'SELL 1', TRADE_HOURS)}</li>`),
+    ...r.tools.filter(x => KIND_OF[x.item]).map(x => `<li><span class="it">${esc(itemName(x.item))} <span class="g g-${x.grade}">${x.grade}</span>${wanted(x.item) ? ' <span class="want">wanted</span>' : ''}${here(x.item)}</span><span class="pr">${sellPrice(x.item, x.grade, 1, t)}</span>${act(r, `sell:${x.item}:${x.grade}`, 'SELL', TRADE_HOURS)}</li>`),
   ];
-  const theirs = t.sells.map(g => `<li><span class="it">${esc(itemName(g))}</span><span class="pr">${buyPrice(g as never, 1, t)}</span>${act(r, `buy:${g}:1`, 'BUY 1', TRADE_HOURS, { why: r.marks < buyPrice(g as never, 1, t) ? 'Not enough marks' : undefined })}${act(r, `buy:${g}:5`, '×5', 0, { why: r.marks < buyPrice(g as never, 5, t) ? `5 cost ${buyPrice(g as never, 5, t)} marks` : undefined })}</li>`);
+  const theirs = t.sells.map(g => `<li><span class="it">${esc(itemName(g))}${here(g)}</span><span class="pr">${buyPrice(g as never, 1, t)}</span>${act(r, `buy:${g}:1`, 'BUY 1', TRADE_HOURS, { why: r.marks < buyPrice(g as never, 1, t) ? 'Not enough marks' : undefined })}${act(r, `buy:${g}:5`, '×5', 0, { why: r.marks < buyPrice(g as never, 5, t) ? `5 cost ${buyPrice(g as never, 5, t)} marks` : undefined })}</li>`);
   return `<div class="sheetpart trade"><p class="fgroup">TRADE — prices in marks${friend ? ' · <span class="ok">friend’s rate</span>' : ''}</p>
-    <p class="mood">${esc(t.name)} wants ${t.wants.join(' and ')} goods, and pays ×${WANTED} for them. Grade sets the price.</p>
+    <p class="mood">${esc(t.name)} wants ${t.wants.join(' and ')} goods, and pays ×${WANTED} for them. Grade sets the price.${t.local ? ` ${esc(marketLine(t.local))}` : ''}</p>
     <div class="tcols"><div><p class="fgroup">YOU SELL</p><ul class="tlist">${yours.join('') || '<li class="mood">Nothing to sell.</li>'}</ul></div>
     <div><p class="fgroup">THEY SELL · you have ${r.marks}</p><ul class="tlist">${theirs.join('')}</ul></div></div></div>`;
 }
