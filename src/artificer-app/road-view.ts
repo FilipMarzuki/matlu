@@ -8,8 +8,10 @@
  */
 
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
-import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, type RoadState } from '../artificer/road';
-import { asPlayed, peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, journalNow, type RoadState } from '../artificer/road';
+import { CLAIMED, type JournalEntry } from '../artificer/journal';
+import { liesFor } from '../artificer/claims';
+import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
@@ -275,6 +277,13 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
   const answered = r.asked?.[p.id] ?? [];
   const ask = f ? act(r, `ask:${p.id}`, `❓ ASK ABOUT ${esc(focusLabel(f).toUpperCase())}`, ASK_HOURS, answered.includes(focusKey(f)) ? { why: `${p.name} has told you what they know about ${focusInline(f)}` } : {}) : '';
   const answers = answered.map(k => {
+    // A lie told instead of an answer (#1580): it reads like any other, since that's what it was.
+    if (k.startsWith(CLAIMED)) {
+      const topic = k.slice(CLAIMED.length);
+      const lie = liesFor(r.features)[p.id]?.find(l => l.about === topic);
+      const about = parseFocus(topic);
+      return lie ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : topic)}</b> — “${esc(lie.text)}”</p>` : '';
+    }
     // What you told them about (#1499): `deed:<id>`, answered by their tell.
     const tell = k.startsWith('deed:') ? TELLS[p.id]?.[k.slice(5)] : undefined;
     if (tell) return `<p class="mood told"><b>${esc(tell.label[0].toUpperCase() + tell.label.slice(1))}</b> — “${esc(tell.answer.text)}”</p>`;
@@ -373,9 +382,9 @@ export function questLog(r: RoadState, compact = false): string {
       <span class="due">⏳ ${esc(deadline(q))}</span></li>`;
   };
   const head = `<p class="fgroup" style="margin-top:${compact ? 14 : 0}px">QUEST LOG</p>`;
-  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they've warmed to you.</p>${leadLog(r)}`;
+  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they've warmed to you.</p>${leadLog(r)}${claimLog(r)}`;
   return `${head}<ul class="qlog">${open.map(x => row(x.q)).join('') || '<li class="mood">Nothing open.</li>'}</ul>
-    ${leadLog(r)}
+    ${leadLog(r)}${claimLog(r)}
     ${compact || !closed.length ? '' : `<p class="fgroup" style="margin-top:12px">FINISHED</p><ul class="qlog done">${closed.map(x => `<li><b>${esc(x.q.title)}</b> <span class="qwho">${x.st === 'done' ? '✓ done' : x.st === 'failed' ? '✗ failed' : '✗ left undone'}</span></li>`).join('')}</ul>`}`;
 }
 
@@ -388,6 +397,26 @@ function leadLog(r: RoadState): string {
       <span class="need">about ${esc(aboutText(l.about))} — ${esc(personById(l.from)?.name ?? l.from)} sent you${asked ? ' — <span class="ok">✓ asked</span>' : ''}</span></li>`;
   };
   return `<p class="fgroup" style="margin-top:12px">LEADS</p><ul class="qlog">${r.leads.map(row).join('')}</ul>`;
+}
+
+/** How each journal entry stands (#1580), as the page says it. */
+const CLAIM_STATUS: Readonly<Record<JournalEntry['status'], string>> = {
+  heard: 'one account', corroborated: '<span class="ok">✓ independent accounts agree</span>', contradicted: '<span class="warn">⚠ the accounts clash</span>', checked: '<span class="ok">👁 seen for yourself</span>',
+};
+
+/**
+ * The journal of who said what (#1580): each thing people have made claims about, every account and
+ * how sure it sounded, and whether they agree, clash or you've seen for yourself. Only with the
+ * `rumours-and-lies` switch on (`journalNow` is null without it).
+ */
+function claimLog(r: RoadState): string {
+  const journal = journalNow(r);
+  if (!journal?.length) return '';
+  const name = (id: string): string => personById(id)?.name ?? TRAVELLERS.find(t => t.id === id)?.name ?? id;
+  const row = (e: JournalEntry): string => `<li><b>${esc(e.label)}</b> <span class="qwho">${CLAIM_STATUS[e.status]}</span>
+    ${e.seen ? `<span class="need">${esc(e.seen)}</span>` : ''}
+    ${e.claims.map(c => `<span class="need">${esc(name(c.person))}, “${esc(c.hedge)}”: ${esc(c.text)}${c.right === undefined ? '' : c.right ? ' <span class="ok">✓ so</span>' : ' <span class="warn">✗ not so</span>'}</span>`).join('')}</li>`;
+  return `<p class="fgroup" style="margin-top:12px">WHO SAID WHAT</p><ul class="qlog">${journal.map(row).join('')}</ul>`;
 }
 
 // ── The screen ──────────────────────────────────────────────────────────────

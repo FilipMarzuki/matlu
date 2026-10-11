@@ -39,8 +39,8 @@
       "core": "{n} fish floating belly-up at {where} in a single morning. Whatever is in the water there, don't drink it.",
       "truth": {"n": 4, "where": "the still north end of the mere"},
       "places": ["the still north end of the mere", "the middle of the mere", "the Pandor wells"],
-      "path": ["sm-gunnar", "cv-runa", "kg-veit"],
+      "path": ["sm-liv", "cv-runa", "kg-veit"],
       "check": {"visit": "saltmere", "text": "At Saltmere you see it for yourself: a few dead fish at the still north end of the mere, and the Pandor wells as sweet as ever."},
-      "placeholder": true, "source": "src/artificer/villages.ts › the fish that wash up float belly-up"}
+      "placeholder": true, "source": "src/artificer/villages.ts › drink from the north end of the mere, however clear it looks"}
   ]
 }
