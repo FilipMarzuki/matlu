@@ -183,8 +183,8 @@ Hollowford country.", `renderRegionalEventNamed`).
    older a `rumour` at depth 3. Small news (significance 2 or less) is depth 2 even when recent.
    Lords' quarrels and seized seats are `guarded`; the rest `public`.
 
-Nothing in play reads these yet, and the road's villages aren't given their region yet. Wiring
-them in place of #1592's hand-made "north road" is later work.
+Nothing in play reads these yet. Each road village's list joins them with its own remembered
+facts (#1618, below); wiring that into play is slice F.
 
 ## Local history: there is always recent history (#1613)
 
@@ -227,10 +227,38 @@ belong in it too.
 
 ## Merging with PR #1592
 
-#1592 (not merged when this was written) adds `remembered()` and `RememberedFact`. `RegionalFact`
-has the same fields, with `guarded` sensitivity added and `year` and `kind` extra, so #1592's facts
-are assignable to it. Both branches move `LIVING_MEMORY` into `history-format.ts` the same way.
-When both land, keep one `GENERATION` and have `remembered()` include the regional facts.
+#1592 added `remembered()` and `RememberedFact`, and there's one `GENERATION` (regional-facts.ts).
+Since #1618 `remembered()` also gives each road village **one list of what it knows**
+(`VillageMemory.known`, built by `remembered.ts` `placeKnowledge`): its own facts (`facts`, as
+before: who holds it, for the village and for the north road, and its told events), then its
+country's regional facts (`factsOfRegion`). Over seeds 1, 3, 4, 8 and two play seeds that's 5 own
+facts and 27–36 of its country's, 30–40 in one list.
+
+- **Which region's facts: the country.** `VillageMemory.country` is the generated region its
+  province lies in (`generated(province.id)`, by default the history's own), asked for directly.
+  The crafted north road still wins `region` (regions.ts `regionFor`), which stays the road's
+  scope, the caravan's; but a village's country is where its harvest, market, lords and news are,
+  so its facts attach by the generated region even when the crafted one wins. Regional facts keep
+  their scope (`region:<country id>`). Nothing places anyone in a country yet: slice F has to give
+  a village's people their country as a region (today every `Knower.region` is `north-road`).
+- **One fact for one happening.** Two facts telling the same thing become one, at the village
+  fact's place in the list: the village's holder fact and its country's `lord:` fact for that seat;
+  and a village event and its country's telling of it (`sameEvent`: the same year, the regional
+  kind read from the event's kind by `SAME_EVENT_KINDS`, e.g. `SEAT_SEIZED` from `USURP` or
+  `LOWBORN_RISE`, `LORD_DIED` from `SUCCESSION`, `MIGRATION` from the lost companies, and the same
+  province, or a famine or plague told region-wide). Told lines carry no engine event id, so
+  that's what's matched; adding one would mean telling every kept history again.
+- **How they merge** (`mergeFacts`): the village fact's id and scope (the more specific scope,
+  which the knowledge model answers from first, and everyone in a village lives in its country),
+  the richer (longer) text, the stricter sensitivity, the shallower depth, both facts' topics, and
+  `absorbs` naming the regional fact taken in. Truth agrees by construction (the same year against
+  the same `LIVING_MEMORY`). The north-road holder fact stays: it's the caravan's, who live in no
+  country.
+- **Ids.** A regional fact left as itself is exactly `factsOfRegion`'s, so an id means the same
+  fact in every village's list (two road villages often share a country). A merged fact has the
+  village's id, which only that village's list has.
+
+Not wired into play: that's slice F.
 
 ## Cost
 
