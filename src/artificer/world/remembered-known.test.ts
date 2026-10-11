@@ -16,7 +16,7 @@
  *   "merges into the village's fact…" and "reads the same engine kinds…".
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { seedOf } from '../rng';
 import { ANCHORS } from './provinces';
@@ -35,6 +35,10 @@ const of = (seed: number) => {
   return t;
 };
 const STEPS = ['public', 'guarded', 'private', 'secret'];
+
+// Running six histories takes a few seconds, more on a busy CI runner. Build them all once here,
+// with room to spare, so no single test pays for them and trips vitest's 5-second default.
+beforeAll(() => { for (const seed of SEEDS) of(seed); }, 60_000);
 
 describe('One list of what a place knows (#1618)', () => {
   it('gives each road village one list: its own facts first, then its country\'s, the same for the same history', () => {
