@@ -19,7 +19,8 @@
 //     separate regional stream (World.regionRng).
 //   • Then it PUSHES BACK (pushBack, #1608): a levy thins the provinces whose
 //     lords fought, a hard winter and famine cost people and stores (more where
-//     the region is poor), bandits rob the roads, trade and prosperity make a
+//     the region is poor) and can carry off the old, the sick and the poor
+//     among its named people (#1617), bandits rob the roads, trade and prosperity make a
 //     province rich or poor (Province.wealth, which World.power reads, so the
 //     region's fortunes reach its lords), and a lord's death or a seized seat
 //     unsettles its politics, which can turn an old feud into a fresh claim.
