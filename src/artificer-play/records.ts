@@ -61,6 +61,20 @@ export interface RunDetail {
   topConcept: { id: string; rank: number } | null;
   skills: Record<string, number>;
   road?: { villages: string[]; quests: number; marks: number };
+  // The full progress (#1558): absent on records written before it.
+  /** The Warden's stats where the run ended. */
+  stats?: Record<string, number>;
+  /** What was in store: at the end in the Reach, or at the thaw for a run that rode on. */
+  stores?: Record<string, number>;
+  /** Each concept's rank. */
+  concepts?: Record<string, number>;
+  /** How much of the land was known: every ring × domain level summed (0–3 each), per ring, and finds. */
+  exploration?: { total: number; byRing: Record<string, number>; finds: number };
+  /** Winter readiness: each pillar's progress (0–1) and their mean. */
+  readiness?: { pillars: Record<string, number>; overall: number };
+  vitals?: { vigor: number; clarity: number; condition: number };
+  /** The day each milestone was first reached, in the order they came: the time to any milestone. */
+  milestones?: { name: string; day: number }[];
 }
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */
@@ -71,6 +85,9 @@ export interface StoredRun extends Run {
 
 /** A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't read. */
 export type RunSummary = Omit<StoredRun, 'detail'>;
+
+/** An AI's record for the dev site's AI page (GET /api/v1/runs/ai): the summary and when each milestone came. */
+export type AiRun = RunSummary & { milestoneDays: { name: string; day: number }[] | null };
 
 // ── Nicknames ───────────────────────────────────────────────────────────────
 

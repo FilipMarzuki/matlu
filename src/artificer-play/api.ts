@@ -7,6 +7,7 @@
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
+ *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
  *   GET  /api/v1/rules               the rules text        → 200
  *
  * Nothing here knows about Vercel or Supabase: `handle` takes a request, a store and a clock, and
@@ -24,7 +25,7 @@ import { createHash } from 'node:crypto';
 import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
-import { compareRuns, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {
@@ -63,13 +64,19 @@ export interface GameStore {
   countAllStartedSince(sinceIso: string): Promise<number>;
   /** Count one move by this address on this UTC day (YYYY-MM-DD) and return its moves that day, this one included. */
   countMove(ipKey: string, day: string): Promise<number>;
-  /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. */
-  insertRun(sourceKey: string, run: Run): Promise<void>;
+  /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. True if it added one. */
+  insertRun(sourceKey: string, run: Run): Promise<boolean>;
   /** The newest records of one game version, newest first, without `detail`. */
   recentRuns(limit: number, version: string): Promise<RunSummary[]>;
   /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
   bestRuns(limit: number, version: string): Promise<RunSummary[]>;
   runBySource(sourceKey: string): Promise<StoredRun | null>;
+  /**
+   * AI records of every version, newest first, with their milestone days: the playtest's (only the
+   * server writes those) and other AIs' (anyone can, through this API), each with its own limit, so
+   * a flood of outside games can't push the playtest's history off the page.
+   */
+  aiRuns(limits: { bench: number; outside: number }): Promise<AiRun[]>;
 }
 
 export interface ApiRequest {
@@ -117,8 +124,8 @@ const ALL_MOVES = 'all';
 /** The console's client name (src/artificer-app/console.ts sends it): its games are played by people. */
 export const CONSOLE_CLIENT = 'artificer-console';
 
-/** How many records GET /api/v1/runs sends: the newest, and the best of all time. */
-export const RUNS = { recent: 500, best: 50, cacheSeconds: 60 };
+/** How many records the lists send: the newest and the best (GET /runs), and the AIs' (GET /runs/ai). */
+export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300 };
 
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
@@ -135,6 +142,12 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   if (req.method === 'GET' && resource === 'runs' && !id) {
     const [recent, best] = await Promise.all([store.recentRuns(RUNS.recent, GAME_VERSION), store.bestRuns(RUNS.best, GAME_VERSION)]);
     return { status: 200, body: { version: GAME_VERSION, recent, best }, cache: RUNS.cacheSeconds };
+  }
+  // GET /api/v1/runs/ai: every AI's records across versions, for the dev site's AI page, which shows
+  // how models progress and what they cost, and how that moves as the game changes. Read on another
+  // site, which is what the CORS headers are for. Cached five minutes: the playtest adds runs nightly.
+  if (req.method === 'GET' && resource === 'runs' && id === 'ai' && !sub) {
+    return { status: 200, body: { version: GAME_VERSION, runs: await store.aiRuns(RUNS.ai) }, cache: RUNS.aiCacheSeconds };
   }
   if (resource !== 'games') return fail(404, 'Not found.');
 
@@ -269,12 +282,19 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
       return n;
     },
     insertRun: async (key, run) => {
+      if (runs.has(key)) return false;
       // A fake clock that only moves forward, so "newest first" is well defined in tests.
-      if (!runs.has(key)) runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
+      runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
+      return true;
     },
     recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
     bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
+    aiRuns: async ({ bench, outside }) => {
+      const newest = [...runs.values()].filter(r => r.playerKind === 'ai').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return [...newest.filter(r => r.surface === 'bench').slice(0, bench), ...newest.filter(r => r.surface !== 'bench').slice(0, outside)]
+        .map(({ detail, ...summary }) => ({ ...summary, milestoneDays: detail.milestones ?? null }));
+    },
   };
 }
 

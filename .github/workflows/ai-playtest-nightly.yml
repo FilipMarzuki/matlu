@@ -101,6 +101,17 @@ jobs:
           npx tsx scripts/ai-report.ts --in ai-runs/nightly --out ai-runs/nightly/report.html --md ai-runs/nightly/summary.md
           cat ai-runs/nightly/summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      # The models' finished games go to the run records (artificer_runs, #1558), for the Records
+      # page and the dev site's AI page. Baselines and budget-stopped games stay out; each record is
+      # keyed by its transcript's hash, so a re-run adds nothing twice. Without the secrets the
+      # script says so and uploads nothing.
+      - name: Upload runs to the records
+        if: steps.gate.outputs.run == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/ai-upload-runs.ts --in ai-runs/nightly
+
       - uses: actions/upload-artifact@v7
         if: steps.gate.outputs.run == 'true' && always()
         with:
