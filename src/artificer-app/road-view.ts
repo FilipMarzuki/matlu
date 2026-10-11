@@ -17,12 +17,18 @@ import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
 import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
 import { SIGNS } from '../artificer/notice';
+import { QUESTION_CHARS } from '../artificer/free-questions';
+import { QUESTION_NOTICE } from '../artificer-play/questions';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
 
-/** What the road screen remembers between redraws: which villager's sheet is open. */
-export interface RoadUi { person: string | null }
+/**
+ * What the road screen remembers between redraws: which villager's sheet is open, and the free
+ * questions asked this stay (#1575), with what was said back. The words live only here, never in
+ * the game's state or save: the game keeps only the topic they matched.
+ */
+export interface RoadUi { person: string | null; asked?: Record<string, { question: string; reply: string }> }
 
 const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹', caravaneer: '🛞', tinker: '🔧' };
 /** Store goods by their screen names. */
@@ -102,7 +108,7 @@ function wagonView(r: RoadState, ui: RoadUi): string {
       ${r.owesHelp ? `<p class="owed">🐂 You owe Bodil <b>${r.owesHelp} day${r.owesHelp === 1 ? '' : 's'}' help</b> for your passage — before ${esc(to === 'Hollowford' ? 'Hollowford' : 'the next village')}. Help drive &amp; pitch camp below.</p>` : ''}
       <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK${tradeTerms(r) ? ' OR TRADE' : ''}</p>
       <div class="people">${travellers.map(p => personCard(r, p, p === open)).join('')}</div>
-      ${open ? personSheet(r, open) : ''}
+      ${open ? personSheet(r, open, ui) : ''}
       ${handsFree(r, true)}
       <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
     </section>
@@ -266,13 +272,35 @@ function conversation(r: RoadState, p: Person, told: number): string {
     ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU</p>${answers}` : ''}</div>`;
 }
 
+/**
+ * Ask anything (#1575): once per person per stay, a question in your own words, with the notice
+ * under the box. main.ts matches what's typed to what they know (free-questions.ts) and plays it;
+ * this draws the box, or, once asked, what you asked and what they said.
+ */
+function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
+  if ((r.questioned ?? []).includes(p.id)) {
+    const mine = ui.asked?.[p.id];
+    return `<div class="sheetpart"><p class="fgroup">YOUR QUESTION</p>${mine
+      ? `<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p><p class="say">${esc(mine.reply)}</p>`
+      : `<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`}</div>`;
+  }
+  const why = hoursLeft(r) <= 0 ? 'The day is spent — end it' : null;
+  return `<div class="sheetpart"><p class="fgroup">ASK ANYTHING — ONE QUESTION THIS STAY</p>
+    <form class="freeq" data-question="${esc(p.id)}">
+      <input name="q" class="qin" maxlength="${QUESTION_CHARS}" autocomplete="off" placeholder="Ask ${esc(p.name)} anything…" aria-label="Ask ${esc(p.name)} anything" ${why ? 'disabled' : ''}>
+      <button class="btn" type="submit" ${why ? `disabled title="${esc(why)}"` : ''}>✍ ASK <span class="h">${ASK_HOURS}h</span></button>
+    </form>
+    <p class="mood qnote">${esc(QUESTION_NOTICE)}</p></div>`;
+}
+
 /** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */
-function personSheet(r: RoadState, p: Person): string {
+function personSheet(r: RoadState, p: Person, ui: RoadUi): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
   return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
     ${conversation(r, p, told)}
+    ${freeQuestion(r, p, ui)}
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
 }
 
@@ -285,7 +313,7 @@ function villageView(r: RoadState, ui: RoadUi): string {
       <div class="people">${people.map(p => personCard(r, p, p === open)).join('')}</div>
       ${handsFree(r, false)}
       <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div></section>
-    ${open ? personSheet(r, open) : ''}`;
+    ${open ? personSheet(r, open, ui) : ''}`;
 }
 
 // ── Quest log ───────────────────────────────────────────────────────────────

@@ -572,6 +572,13 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .sheethead h3 { margin: 0; font-family: var(--display); font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 .sheetpart { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .sheetpart .mood { margin: 0; }
+/* Ask anything (#1575): the box takes the row, the button keeps its size; they stack on a phone. */
+.freeq { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+.freeq .qin { flex: 1 1 220px; min-width: 0; font: 500 13px var(--body); color: var(--ink); background: var(--sub); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 10px; }
+.freeq .qin:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.freeq .qin::placeholder { color: var(--faint); }
+.freeq .qin:disabled { opacity: .5; }
+.sheetpart .qnote { font-size: 10.5px; }
 .say { margin: 0; font-size: 12.5px; color: var(--ink); font-style: italic; }
 .warn { color: var(--warn); } .ok { color: var(--green); }
 .tcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; width: 100%; }

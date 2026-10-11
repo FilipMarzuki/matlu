@@ -42,6 +42,8 @@ import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
+import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
+import { cleanQuestion } from '../artificer-play/questions';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
@@ -1431,6 +1433,35 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'roadday') { roadUi.person = null; update(roadEndDay(state)); }
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
   else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
+});
+
+// Ask anything (#1575): a free question to someone on the road, once per person per stay. It's
+// matched here, to what they know (free-questions.ts), and played as the topic it matched: the
+// words never go into the game or its save. Then it's sent to be kept, because what players ask
+// is what shows how to grow the game. Nothing waits for that, and if it fails the game goes on.
+root.addEventListener('submit', e => {
+  const form = (e.target as HTMLElement).closest<HTMLFormElement>('form[data-question]');
+  if (!form) return;
+  e.preventDefault();
+  const r = state.road;
+  const pid = form.dataset.question ?? '';
+  const raw = (form.elements.namedItem('q') as HTMLInputElement | null)?.value ?? '';
+  const clean = cleanQuestion(raw);
+  if (!r || !clean || (r.questioned ?? []).includes(pid)) return;
+  const topic = clean.text ? matchQuestion(pid, clean.text, r.asked?.[pid] ?? []) : null;
+  const trust = Math.round(r.trust[pid] ?? 0);
+  const next = roadAct(state, `question:${pid}${topic ? `:${topic}` : ''}`);
+  if (!next.road?.questioned?.includes(pid)) { update(next); return; }
+  // What they said, for their sheet: the journal's line without its "You ask Orrin about iron." lead-in.
+  const said = next.road.log.slice(r.log.length).find(l => l.kind === 'action')?.text.replace(/^You ask [^.]+\. /, '') ?? '';
+  roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), reply: said } };
+  update(next);
+  // Same origin: the Artificer's site serves the play API (src/artificer-play/). The server cleans
+  // the question again before it keeps it, so it's sent as typed.
+  void fetch('/api/v1/questions', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+    body: JSON.stringify({ person: pid, question: raw, topic, trust }),
+  }).catch(() => undefined);
 });
 
 render(state);
