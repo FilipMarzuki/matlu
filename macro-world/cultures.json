@@ -5,7 +5,7 @@
       "id": "coastborn",
       "name": "Coastborn",
       "racePreferences": {
-        "Humans": 0.7,
+        "Markfolk": 0.7,
         "Deepwalkers": 0.3
       },
       "spacing": 0.85,
@@ -28,8 +28,8 @@
       "id": "ridgefolk",
       "name": "Ridgefolk",
       "racePreferences": {
-        "Humans": 0.5,
-        "Dvergr": 0.5
+        "Markfolk": 0.5,
+        "Bergfolk": 0.5
       },
       "spacing": 1.1,
       "organicness": 0.4,
@@ -52,7 +52,7 @@
       "id": "fieldborn",
       "name": "Fieldborn",
       "racePreferences": {
-        "Humans": 1
+        "Markfolk": 1
       },
       "spacing": 1.3,
       "organicness": 0.4,
@@ -73,8 +73,8 @@
       "id": "wallborn",
       "name": "Wallborn",
       "racePreferences": {
-        "Humans": 0.5,
-        "Dvergr": 0.3,
+        "Markfolk": 0.5,
+        "Bergfolk": 0.3,
         "Pandor": 0.2
       },
       "spacing": 0.7,
@@ -97,7 +97,7 @@
       "id": "mountainhold",
       "name": "Bergfolk Holds",
       "racePreferences": {
-        "Dvergr": 1
+        "Bergfolk": 1
       },
       "spacing": 0.6,
       "organicness": 0.1,
@@ -122,7 +122,7 @@
       "id": "sylvan-enclave",
       "name": "Lövfolk Enclaves",
       "racePreferences": {
-        "Sylphari": 1
+        "Lövfolk": 1
       },
       "spacing": 1.3,
       "organicness": 0.8,
@@ -194,7 +194,7 @@
       "id": "steading",
       "name": "Giant Steadings",
       "racePreferences": {
-        "Half-Giants": 1
+        "Giants": 1
       },
       "spacing": 1.5,
       "organicness": 0.9,
@@ -216,7 +216,7 @@
       "id": "dragonkin-remnant",
       "name": "Dragon Remnants",
       "racePreferences": {
-        "Draak": 1
+        "Dragons": 1
       },
       "spacing": 0.7,
       "organicness": 0.2,
@@ -285,7 +285,7 @@
       "id": "steppe-camp",
       "name": "Viddfolk Camps",
       "racePreferences": {
-        "Steppevarg": 1
+        "Viddfolk": 1
       },
       "spacing": 1.3,
       "organicness": 0.5,
@@ -309,8 +309,8 @@
       "id": "windfarer-eyrie",
       "name": "Wind-farer Eyries",
       "racePreferences": {
-        "Steppevarg": 0.7,
-        "Dvergr": 0.3
+        "Viddfolk": 0.7,
+        "Bergfolk": 0.3
       },
       "spacing": 1,
       "organicness": 0.6,
@@ -335,7 +335,7 @@
       "id": "grovekin",
       "name": "Lövfolk Groves",
       "racePreferences": {
-        "Sylphari": 1
+        "Lövfolk": 1
       },
       "spacing": 1.4,
       "organicness": 1,
@@ -358,7 +358,7 @@
       "id": "workshop-collective",
       "name": "Workshop-Towns",
       "racePreferences": {
-        "Dvergr": 0.6,
+        "Bergfolk": 0.6,
         "Constructs": 0.4
       },
       "spacing": 0.6,
@@ -430,7 +430,7 @@
       "id": "harborfolk",
       "name": "Harbor Towns",
       "racePreferences": {
-        "Humans": 0.6,
+        "Markfolk": 0.6,
         "Deepwalkers": 0.4
       },
       "spacing": 1.1,
@@ -456,8 +456,8 @@
       "id": "ironborne-encampment",
       "name": "Steinfolk Encampments",
       "racePreferences": {
-        "Grynfolk": 0.7,
-        "Dvergr": 0.3
+        "Steinfolk": 0.7,
+        "Bergfolk": 0.3
       },
       "spacing": 0.9,
       "organicness": 0.2,
@@ -481,7 +481,7 @@
       "id": "thicket-dwellers",
       "name": "Lövfolk Thickets",
       "racePreferences": {
-        "Sylphari": 1
+        "Lövfolk": 1
       },
       "spacing": 0.3,
       "organicness": 1,
