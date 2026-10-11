@@ -209,7 +209,7 @@
           {"text":"Constructs guard the road junctions and ruins that nobody else wants to.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
         ],
         "Remnants": [
-          {"text":"One sits at the Threefold Crossroads. Ask it a question and you'll get a proverb, not help.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+          {"text":"One sits at the Threefold Crossroads. Ask it a question and you'll get a true answer, and probably no help.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
         ]
       },
       "sayings": [
@@ -727,13 +727,13 @@
       ],
       "customs": {
         "greeting": {"text":"You don't greet a giant. You wait to be noticed, which can take a season.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true},
-        "trade": {"text":"Giants don't trade; they give. Aldriksson once gave the Pandor a stone six feet across and called it a record.","truth":"true","source":"WORLD.md § Giants › Objects"},
+        "trade": {"text":"Giants don't trade; they give. Aldriksson once gave the Pandor a stone six feet across and called it a record.","truth":"true","source":"WORLD.md § Giants › Objects","invented":true},
         "mourning": {"text":"No history tells of a giant dying. A giant who sleeps is left to sleep.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true},
         "debt": {"text":"A giant keeps an appointment on giant time: \"next spring\" may be fourteen months away.","truth":"true","source":"WORLD.md § The Giants — the Seven › The Dry's effect"}
       },
       "views": {
         "Bergfolk": [
-          {"text":"They tunnel under mountains and call it a kingdom. Bergamora is patient with them.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Where they live","invented":true}
+          {"text":"They tunnel under mountains and call it a kingdom. Mountains are patient.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Where they live","invented":true}
         ],
         "Lövfolk": [
           {"text":"They think three hundred years is old. It's a long afternoon.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
@@ -821,7 +821,7 @@
           {"text":"The Pandor have asked Saltmara, formally, for her sunken ruins. She hasn't answered.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
         ],
         "Deepwalkers": [
-          {"text":"Deepwalkers came into Saltmara's waters uninvited and left with nothing taken. The ruins were tidied after.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+          {"text":"Deepwalkers came into Saltmara's waters uninvited and took nothing. They found the ruins freshly tidied.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
         ],
         "Merfolk": [
           {"text":"Saltmara's coast runs deep. The Merfolk are careful at its edge.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
@@ -900,7 +900,7 @@
           {"text":"Goblin [Delvers] bring documents up from the ruins. We don't ask how. We preserve them.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
         ],
         "Fae": [
-          {"text":"Our [Innkeeper]'s inn still holds its sanctuary. The fae sit there, and so does everyone else.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}
+          {"text":"Our [Innkeeper]'s inn still holds its sanctuary. The fae sit there, and so does everyone else.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
         ],
         "Giants": [
           {"text":"Aldriksson's memory could fill a wing of the library. He has not offered.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}

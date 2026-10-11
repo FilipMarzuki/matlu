@@ -317,7 +317,7 @@
         {"text":"The wagons: every one looked after like family.","truth":"true","source":"src/artificer/villages.ts › cv-bodil"}
       ],
       "taboos": [
-        {"text":"Drawing a blade under an inn's roof. That law is older than any kingdom.","truth":"true","source":"WORLD.md § Inns"},
+        {"text":"Drawing a blade under an inn's roof. That law is older than any kingdom standing today.","truth":"true","source":"WORLD.md § Inns"},
         {"text":"Hoarding water on the road. What's in the barrel is everyone's.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true}
       ],
       "customs": {
@@ -379,7 +379,7 @@
       ],
       "taboos": [
         {"text":"Promising a patient they'll be well when you don't know it.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true},
-        {"text":"Cutting a living tree. The grove is shaped, never felled.","truth":"true","source":"macro-world/cultures.json › grovekin","invented":true}
+        {"text":"Felling a living tree to build with. The grove is shaped, never felled.","truth":"true","source":"macro-world/cultures.json › grovekin","invented":true}
       ],
       "customs": {
         "greeting": {"text":"A grovekin greets you by looking at your hands: frost and work leave marks you don't feel yet.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true},
@@ -529,7 +529,7 @@
           {"text":"The caravan keeps to our road, and we keep it safe for them.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
         ],
         "grovekin": [
-          {"text":"A grovekin healer taught our hunters which plants the deer eat.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+          {"text":"A grovekin healer at Hollowford taught our hunters to forage.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
         ],
         "harborfolk": [
           {"text":"The harbour folk dry fish on racks by the mere. We trade them hides.","truth":"true","source":"src/artificer/villages.ts › saltmere","invented":true}
