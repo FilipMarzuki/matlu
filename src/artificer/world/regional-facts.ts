@@ -11,15 +11,14 @@
  * - **what happened there**: its told regional events (history.ts `regionsOf`), each dated,
  *   true within living memory and drifting into rumour beyond it.
  *
- * Nothing in play reads these yet, and no road village is given a region here: wiring the road's
- * villages to their generated region (in place of #1592's hand-made "north road") is later work.
+ * Nothing in play reads these yet. Which region a place belongs to is regions.ts's rule (#1586):
+ * a crafted region (the road villages' north road) wins, and these generated ones fill the rest.
  *
- * Merge point with PR #1592 (not on main when this was written): `RegionalFact` is the same
- * shape as its `RememberedFact` (id, about, text, scope, sensitivity, truth, depth), widened
- * where regional news needs it (`guarded` sensitivity for lords' quarrels) and with `year` and
- * `kind` added. #1592's facts are assignable to it, so the two lists can be concatenated, and
- * its `GENERATION` and the living-memory rule below are the same ones. When both land, keep one
- * `GENERATION` (here or in remembered.ts) and have `remembered()` include these.
+ * With remembered.ts (#1586): both make the knowledge model's `Fact` shape (knowledge.ts), so a
+ * village's facts and its region's can be read as one `Fact[]`. They share `GENERATION` and the
+ * living-memory rule. Sensitivity differs on purpose: remembered.ts grades a house's affairs by
+ * how public they were and the teller's stake (up to `private`/`secret`); regional news here is
+ * `public` or `guarded`.
  *
  * Pure and deterministic: plain data in, plain data out, no randomness, no engine.
  */
@@ -46,7 +45,11 @@ export interface RegionalFact {
   kind: 'politics' | 'economy' | 'event';
 }
 
-/** About a generation (as #1592's remembered.ts): within it, everyone remembers; beyond it, most. */
+/**
+ * About a generation: within living memory, an event this recent is remembered by everyone
+ * (depth 1), an older one by most (depth 2), since the young weren't born to see it. The one
+ * definition, shared with remembered.ts (#1586).
+ */
 export const GENERATION = LIVING_MEMORY / 2;
 
 /** Lines whose subject people are careful about. */
