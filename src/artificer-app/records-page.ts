@@ -12,7 +12,7 @@
 import './style.css';
 import './records.css';
 import { inject } from '@vercel/analytics';
-import { percentBeaten, tierOf, outcomeLine, groupOf, type RunSummary, type StoredRun } from '../artificer-play/records';
+import { isRanked, percentBeaten, tierOf, outcomeLine, groupOf, type RunSummary, type StoredRun } from '../artificer-play/records';
 import { experimentalOn } from '../artificer/features';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 
@@ -59,7 +59,8 @@ const experimental = (r: RunSummary): boolean => experimentalOn(r.features).leng
 let hideExperimental = false;
 
 /**
- * The Warden cell: the nickname, a 📅 for a run of a weekly world (#1559), and a 🧪 for a run played
+ * The Warden cell: the nickname, a 📅 for a run of a weekly world (#1559), a 🏕 for a web run on the
+ * player's own world (not ranked), and a 🧪 for a run played
  * with an experimental rule feature.
  */
 function wardenCell(r: RunSummary): Node {
@@ -68,6 +69,11 @@ function wardenCell(r: RunSummary): Node {
   if (r.week) {
     const tag = el('span', 'wk', ' 📅');
     tag.title = `Played on the weekly world of ${r.week}`;
+    frag.append(tag);
+  }
+  if (!isRanked(r)) {
+    const tag = el('span', 'own', ' 🏕');
+    tag.title = 'Played on the player\'s own world, so it isn\'t ranked: only this week\'s world (📅) ranks web runs';
     frag.append(tag);
   }
   const on = experimentalOn(r.features);
@@ -297,7 +303,11 @@ function renderYours(mine: StoredRun | null, status: number, error: string | nul
   box.append(el('h2', '', `${mine.nickname ?? 'Your Warden'} ${outcomeLine(mine)}.`));
   const weekly = mine.detail.week && week ? mine.detail.week : null;
   if (weekly) box.append(el('p', 'quiet', `On the weekly world of ${weekly}: compared with that week's runs, everyone on the same world.`));
-  const others = (weekly ? week! : recent).filter(r => r.id !== mine.id);
+  // An unranked run (a web run on the player's own world) is compared with nobody; ranked ones only
+  // with other ranked runs (records.ts isRanked), the same rule as the achievements.
+  const ranked = isRanked(mine);
+  if (!ranked) box.append(el('p', 'quiet', 'On your own world 🏕: kept as your run, but not ranked. Only this week\'s world (📅) ranks web runs, so everyone compared played the same world.'));
+  const others = ranked ? (weekly ? week! : recent).filter(r => r.id !== mine.id && isRanked(r)) : [];
   const of = weekly ? "this week's" : 'recent';
   const tiles = el('div', 'tiles');
   const tile = (label: string, group: RunSummary[]): void => {

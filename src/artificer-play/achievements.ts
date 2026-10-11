@@ -13,10 +13,12 @@
  * sim, and the API, the console, the MCP server and the web game all show the same marks.
  */
 
-import { percentBeaten, tierOf, type Run } from './records';
+import { isRanked, percentBeaten, tierOf, type Run } from './records';
 
 /** What a run needs for every achievement: the ranking fields and the few measures they read. */
-export type Comparable = Pick<Run, 'playerKind' | 'outcome' | 'stage' | 'endDay' | 'grade' | 'readyDay' | 'milestones' | 'larderMidwinter' | 'skillLevels'> & { id?: string };
+export type Comparable = Pick<Run, 'playerKind' | 'outcome' | 'stage' | 'endDay' | 'grade' | 'readyDay' | 'milestones' | 'larderMidwinter' | 'skillLevels' | 'surface'> & {
+  id?: string; week?: string | null; detail?: { week?: string };
+};
 
 /**
  * - `earned`: this run has it.
@@ -71,7 +73,10 @@ const byShare = (share: number, cut: number, detail: string, strictly = false): 
  * what's still to get.
  */
 export function achievementsOf(run: Comparable, others: readonly Comparable[]): Achievement[] {
-  const rest = run.id ? others.filter(o => o.id !== run.id) : [...others];
+  // Only ranked runs count, on either side (records.ts isRanked): a web run on a world the page
+  // picked itself is compared with nobody, and nobody is compared with it.
+  if (!isRanked(run)) return unranked();
+  const rest = (run.id ? others.filter(o => o.id !== run.id) : [...others]).filter(isRanked);
   const ais = rest.filter(o => o.playerKind === 'ai');
   const enough = rest.length >= MIN_RUNS;
 
@@ -119,14 +124,26 @@ export function achievementsOf(run: Comparable, others: readonly Comparable[]): 
   const there = tierOf(run) === 3;
   const mistheim: Standing = { status: there ? 'earned' : 'missed', detail: `${there ? 'Made it to Mistheim.' : 'Didn\'t reach Mistheim.'}${rarity}` };
 
-  return [
-    { id: 'outlasted-median-ai', name: 'Outlasted the median AI', rule: 'Go further than half the AI runs.', ...medianAi },
-    { id: 'top-tenth', name: 'Top 10%', rule: 'Go further than 90% of runs.', ...top },
-    { id: 'full-larder', name: 'Top 10% larder at midwinter', rule: 'Have more rations laid by at midwinter than 90% of the runs that got that far.', ...larder },
-    { id: 'ready-early', name: 'Ready early', rule: 'Be winter-ready sooner than 75% of runs.', ...ready },
-    { id: 'quick-study', name: 'Quick study', rule: 'Learn more skill levels than 75% of runs.', ...skills },
-    { id: 'reached-mistheim', name: 'Reached Mistheim', rule: 'Ride the caravan all the way to Mistheim.', ...mistheim },
-  ];
+  const standings: Record<string, Standing> = {
+    'outlasted-median-ai': medianAi, 'top-tenth': top, 'full-larder': larder, 'ready-early': ready, 'quick-study': skills, 'reached-mistheim': mistheim,
+  };
+  return KINDS.map(k => ({ ...k, ...standings[k.id] }));
+}
+
+/** Every achievement, in the order shown: the same list whether a run has them or not. */
+const KINDS: readonly Pick<Achievement, 'id' | 'name' | 'rule'>[] = [
+  { id: 'outlasted-median-ai', name: 'Outlasted the median AI', rule: 'Go further than half the AI runs.' },
+  { id: 'top-tenth', name: 'Top 10%', rule: 'Go further than 90% of runs.' },
+  { id: 'full-larder', name: 'Top 10% larder at midwinter', rule: 'Have more rations laid by at midwinter than 90% of the runs that got that far.' },
+  { id: 'ready-early', name: 'Ready early', rule: 'Be winter-ready sooner than 75% of runs.' },
+  { id: 'quick-study', name: 'Quick study', rule: 'Learn more skill levels than 75% of runs.' },
+  { id: 'reached-mistheim', name: 'Reached Mistheim', rule: 'Ride the caravan all the way to Mistheim.' },
+];
+
+/** What an unranked run shows: every achievement, none of them for this world. */
+export const OWN_WORLD = 'Played on your own world, so it isn\'t ranked. Play this week\'s world (📅) to rank.';
+function unranked(): Achievement[] {
+  return KINDS.map(k => ({ ...k, status: 'open' as const, detail: OWN_WORLD }));
 }
 
 /** The earned ones as lines, for text players: "Outlasted the median AI: Further than 64% of 25 AI runs." */

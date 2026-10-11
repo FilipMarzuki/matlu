@@ -4,11 +4,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { achievementsOf, achievementLines, shareBeaten, MIN_RUNS, type Comparable } from './achievements';
+import { achievementsOf, achievementLines, shareBeaten, MIN_RUNS, OWN_WORLD, type Comparable } from './achievements';
+import { isRanked } from './records';
 
 const run = (o: Partial<Comparable> = {}): Comparable => ({
   playerKind: 'ai', outcome: 'died', stage: 'reach', endDay: 10, grade: null, readyDay: null, milestones: 0,
-  larderMidwinter: null, skillLevels: 0, ...o,
+  larderMidwinter: null, skillLevels: 0, surface: 'api', ...o,
 });
 const byId = (list: ReturnType<typeof achievementsOf>, id: string) => list.find(a => a.id === id)!;
 
@@ -78,5 +79,33 @@ describe('Achievements (#1559)', () => {
     expect(shareBeaten(5, [5, 5], (a, b) => a - b)).toBe(50);
     expect(shareBeaten(6, [5, 7], (a, b) => a - b)).toBe(50);
     expect(shareBeaten(6, [], (a, b) => a - b)).toBeNull();
+  });
+});
+
+describe('Only ranked runs count (#1559): a web run on its own world is kept, not ranked', () => {
+  const crowd = Array.from({ length: 20 }, () => run());
+  it('ranks every game the server chose the world for, and web runs only on the weekly world', () => {
+    expect(isRanked({ surface: 'api' })).toBe(true);
+    expect(isRanked({ surface: 'mcp' })).toBe(true);
+    expect(isRanked({ surface: 'web' })).toBe(false);
+    expect(isRanked({ surface: 'web', week: '2026-W41' })).toBe(true);
+    expect(isRanked({ surface: 'web', detail: { week: '2026-W41' } })).toBe(true);
+  });
+
+  it('gives an own-world run the same list, every one open and saying why', () => {
+    const list = achievementsOf(run({ surface: 'web', outcome: 'arrived', stage: 'road' }), crowd);
+    expect(list.map(a => a.id)).toEqual(achievementsOf(run(), crowd).map(a => a.id));
+    expect(list.every(a => a.status === 'open' && a.detail === OWN_WORLD)).toBe(true);
+  });
+
+  it('a weekly web run ranks like any other', () => {
+    const list = achievementsOf(run({ surface: 'web', week: '2026-W41', outcome: 'arrived', stage: 'road' }), crowd);
+    expect(list.find(a => a.id === 'top-tenth')!.status).toBe('earned');
+  });
+
+  it('leaves own-world runs out of everyone else\'s comparison', () => {
+    // Twenty own-world runs that went further are not counted: too few ranked runs remain to compare.
+    const own = Array.from({ length: 20 }, () => run({ surface: 'web', outcome: 'arrived', stage: 'road' }));
+    expect(achievementsOf(run(), own).find(a => a.id === 'top-tenth')!.status).toBe('open');
   });
 });

@@ -35,7 +35,7 @@ import { createHash } from 'node:crypto';
 import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
-import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { compareRuns, isRanked, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
 import { achievementsOf, type Achievement } from './achievements';
 import { gameIdOf, isoWeek, isWeekId, previousWeek, weekEnd, weekOfId, weekStart, weeklySeedOf } from './weekly';
 import { heirloomsAllowed, logProblem, replayWeb } from './web-run';
@@ -88,7 +88,7 @@ export interface GameStore {
   insertRun(sourceKey: string, run: Run): Promise<boolean>;
   /** The newest records of one game version, newest first, without `detail`. */
   recentRuns(limit: number, version: string): Promise<RunSummary[]>;
-  /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
+  /** The best ranked records of one game version (records.ts isRanked), best first (by records.ts rankKey), without `detail`. */
   bestRuns(limit: number, version: string): Promise<RunSummary[]>;
   /** The best records of one game version played on one weekly world (#1559, `detail.week`), best first, without `detail`. */
   weekRuns(week: string, version: string, limit: number): Promise<RunSummary[]>;
@@ -555,7 +555,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
       return true;
     },
     recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
-    bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
+    bestRuns: async (limit, version) => listed(version).filter(isRanked).sort(compareRuns).slice(0, limit),
     weekRuns: async (week, version, limit) => listed(version).filter(r => r.week === week).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
     aiRuns: async ({ bench, outside }) => {

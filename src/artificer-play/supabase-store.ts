@@ -174,7 +174,10 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
     async bestRuns(limit, version) {
-      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
+      // Ranked runs only (records.ts isRanked): not a web run on a world the page picked itself.
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version)
+        .or('surface.neq.web,detail->>week.not.is.null')
+        .order('rank_key', { ascending: false }).order('created_at').limit(limit);
       check(error, 'best runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },

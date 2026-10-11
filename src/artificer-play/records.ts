@@ -18,6 +18,17 @@ export type PlayerKind = 'person' | 'ai';
 /** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or the web game (#1559, re-simulated before it counts). */
 export type Surface = 'api' | 'mcp' | 'console' | 'bench' | 'web';
 
+/**
+ * Does a run count on the boards and for achievements (#1559)? Every game the server chose the world
+ * for does: API, MCP, console and playtest games, and the weekly world. A web run on a world the page
+ * picked itself doesn't: anyone could try worlds offline and send only an easy one (seed-shopping).
+ * It's still kept and shown as the player's run, marked as their own world, just not ranked.
+ * The week is on a summary (`week`) or in a stored record's `detail.week`.
+ */
+export function isRanked(r: { surface: Surface; week?: string | null; detail?: { week?: string } }): boolean {
+  return r.surface !== 'web' || !!(r.week ?? r.detail?.week);
+}
+
 /** A finished game, as the Records pages read it. */
 export interface Run {
   playerKind: PlayerKind;
