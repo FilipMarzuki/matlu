@@ -1284,6 +1284,48 @@ most farmers cannot identify where their methods end and the Myst begins. The yi
 are still strong. The trend is not visible yet. The [Watermasters] who monitor river
 Myst flow have noticed. They have not yet told the council.
 
+#### The eastern charters
+
+*Added 2026-10-11 (#1620). Where the Merkförbund grows, and how. The Markfolk don't border
+the Wildkin: the human kingdoms that Core Warden's setting bible
+(`macro-world/setting-corewarden.md`) has pressing the Wildkin's eastern border are a human
+People of their own (#1623).*
+
+**Which way the fields go:** East. The delta's other edges are hard country: salt marsh
+toward the sea, wet fen and the foothills' stony ground to the north. East is dry, flat and
+open: the grassy edge of the steppe, where the soil is thin but deep and nothing has ever
+been ploughed. About three hundred years ago the river works the Steinfolk built reached
+the eastern tributaries, and the [Watermasters] found they could carry water out onto the
+steppe's edge. In much of the Merkförbund a farm goes whole to the eldest child, so younger
+sons and daughters took a charter and went east. Each generation the fields reached a little
+further. Nobody marched anywhere. They dug a ditch, built a fence, and wrote the yield in a
+seed book.
+
+**The charters:** Merkförbund law gives land to whoever fences it, farms it and writes it
+down. The council grants a charter for "open land": land with no fence, no furrow and no
+record. The steppe's edge had none of the three. The Viddfolk's route-claims live in route
+songs, not on paper, and a route-claim is a road, not a field. So by Markfolk law the
+steppe's edge is open land, and every charter is lawful. By the Vidde Accords, which the
+Merkförbund also signed, a route-claim is Viddfolk jurisdiction wherever it runs. Both are
+law. That is the sixty-year negotiation in one sentence.
+
+**Why they believe it is right:** The charter farmers are not villains in their own story.
+They believe land that isn't farmed is land going to waste. They believe the Viddfolk are
+passing through, not living there, which is true and also beside the point. And they
+believe they bring order: ditches, roads, market days, a seed book with every yield in it.
+
+**Route gates:** Where a charter fence crosses a route-claim, the fence has a gate, and on
+the days the route is run the gate stands open. Leaving a route gate shut on a route day is
+one of the few things a charter farmer can be fined for by both the council and the
+Viddfolk. Most charter farmers know the route days better than their own children's
+birthdays.
+
+**The edge now:** The charter farms are the Merkförbund's margins, and the margins are
+where the yields are starting to drop. They are also where the goblin [Salvagers] work,
+where the fields are newest and the ruins least mapped. The [Watermasters] who carried the
+water east are the first to see it coming back thinner. The younger children who took the
+charters are the first who will have nowhere further to go.
+
 ---
 
 ### The Viddfolk — centaurs of the open steppe
