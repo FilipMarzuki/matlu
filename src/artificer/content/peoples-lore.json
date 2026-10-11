@@ -273,7 +273,8 @@
           {"text":"Rödrök holds the open steppe. Our routes bend round his ground, and the song says why.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
         ],
         "Everstill": [
-          {"text":"The Everstill forget nothing either. They just never go anywhere.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true}
+          {"text":"The Everstill forget nothing either. They just never go anywhere.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true},
+          {"text":"Nothing can touch the Everstill. They'll be here forever.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true,"actually":{"text":"Some of the Everstill whose lives are tied to one Myst-anchored place have found the anchor weakening. Their state may not be permanent.","source":"WORLD.md § The Everstill — undead of the Pale City › The Dry's effect"}}
         ],
         "Constructs": [
           {"text":"A construct at a road junction never leaves its post. We like that in a neighbour.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
@@ -393,7 +394,8 @@
           {"text":"They remember and we write. Their songs and our books disagree less often than you'd think.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true}
         ],
         "Steinfolk": [
-          {"text":"Every Steinfolk foundation stone is a record. We copy them.","truth":"true","source":"WORLD.md § Steinfolk › Objects","invented":true}
+          {"text":"Every Steinfolk foundation stone is a record. We copy them.","truth":"true","source":"WORLD.md § Steinfolk › Objects","invented":true},
+          {"text":"The stronghold at the centre of the continent must guard an old ruin.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live","invented":true,"actually":{"text":"The Steinfolk have never said why they built at the centre, and nobody has pressed them.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
         ],
         "Deepwalkers": [
           {"text":"Our strongest allies. Their [Keepers] and our [Archivists] share the Compact's legal framework.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}
