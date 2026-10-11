@@ -25,8 +25,10 @@
  *
  * - **Something true and recent.** Each province keeps one of its told events from within living
  *   memory when it has any (history.ts `pickLines`), so a village always has a true, recent
- *   event to tell if its history holds one. The fuller "always some recent local history" layer
- *   is #1613.
+ *   event to tell if its history holds one. Beyond that, every village always
+ *   has recent local history of its own (#1613, local-history.ts): its last LOCAL_YEARS of
+ *   local politics and events, crafted where we've written them and generated to fill the rest
+ *   (`VillageMemory.local`).
  * - **Regions are semi-generated** (regions.ts): crafted where we write them (the three road
  *   villages are on the north road), generated where we don't. A village's people know their own
  *   lord (village scope, depth 1); most of its region know who holds each place in it (depth 2).
@@ -42,6 +44,7 @@
 import type { Fact, Sensitivity } from '../knowledge';
 import { LIVING_MEMORY, type HistoryLine, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { generateReach } from './reach';
+import { countryOf, localHistory, type LocalHistory } from './local-history';
 import { provincesOf, type AnchorId, type Provinces } from './provinces';
 import { NORTH_ROAD, generatedRegions, regionOf, roadRegions, type GeneratedRegions, type VillageRegion } from './regions';
 import { GENERATION, factsOfRegion, type RegionalFact } from './regional-facts';
@@ -130,6 +133,12 @@ export interface RememberedEvent {
 export interface VillageMemory extends VillageRegion {
   /** The lordship seated there, e.g. "Hundred of Hollowford". */
   title: string;
+  /**
+   * Its own recent past (#1613, local-history.ts): who leads the village, its quarrels and
+   * council decisions, its fires, hard winters and good years, each also as facts. Kept apart
+   * from `facts`, which are what the told history says of the province.
+   */
+  local: LocalHistory;
   /** Who holds it now, or null if it lies vacant. */
   holder: string | null;
   /** Its told events, oldest first. */
@@ -182,6 +191,7 @@ export function remembered(history: ReachHistory, provinces: Provinces = provinc
         ...where,
         title: p.title,
         holder: p.holder,
+        local: localHistory({ seed: history.seed, present: history.year, village: where.village, province: p, country: countryOf(history, where.province.id, generated) }),
         events: p.lines.map(line => recall(line, history.year)),
         facts,
         country: country?.id ?? null,
