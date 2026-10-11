@@ -446,10 +446,12 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
   // Village economies (#1599): the village's own market sets what's cheap and dear, and its
   // trader always stocks what the village makes. Off (and in runs from before the switch), the
-  // terms are exactly as they were.
-  const local = featureOn(s.features, 'village-economies') ? localMarket(villageOf(s)) : null;
-  if (!local) return base;
-  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local };
+  // terms are exactly as they were. With it, every trader (the caravan's merchant on the wagon
+  // too) also caps what they pay for a good they sell (#1627, trade.ts `sellPrice`).
+  if (!featureOn(s.features, 'village-economies')) return base;
+  const local = localMarket(villageOf(s));
+  if (!local) return { ...base, buyBack: true };
+  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local, buyBack: true };
 }
 
 /** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */

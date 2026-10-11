@@ -12,7 +12,8 @@ import { seedOf } from '../rng';
 import { VILLAGES } from '../villages';
 import { generateReach, REACH_W } from './reach';
 import { provincesOf, ANCHORS } from './provinces';
-import { settlementOf } from './settlements';
+import { anchorResources, settlementOf, siteOf } from './settlements';
+import { VILLAGE_ECONOMY } from '../economy';
 
 const SEEDS = Array.from({ length: 12 }, (_, i) => seedOf(`w-test-${i}`));
 
@@ -77,6 +78,38 @@ describe('The Reach\'s settlements (#1541)', () => {
         expect([...drawn].sort()).toEqual([...letters].sort());
         expect(s.buildings.length).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+describe('The hand-written villages\' buildings follow their trade (#1627)', () => {
+  it('reads each village\'s resources off its economy, with the listed exceptions', () => {
+    // Hollowford: barley and sheep (fertile soil, game), and its stone walls; not its woodlot.
+    expect(anchorResources('hollowford')).toEqual(['fertile-soil', 'game', 'stone']);
+    // Saltmere: salt, fish, and the reed and peat its hearths burn.
+    expect(anchorResources('saltmere')).toEqual(['fish', 'peat', 'salt']);
+    // Kestrel Gate: iron off the passes, wood off its slopes, and the wall's stone.
+    expect(anchorResources('kestrel-gate')).toEqual(['ore', 'stone', 'timber']);
+  });
+
+  it('changes a village\'s buildings when its economy changes: they come from the trade, not a list', () => {
+    const lumberMere = { ...VILLAGE_ECONOMY, saltmere: { ...VILLAGE_ECONOMY.saltmere, dominant: 'lumber' as const, fuel: { ...VILLAGE_ECONOMY.saltmere.fuel, burns: 'wood' as const } } };
+    // A Saltmere that lived on timber, not salt, would lose its salt-works' salt and gain a woodlot.
+    expect(anchorResources('saltmere', lumberMere)).toEqual(['fish', 'timber']);
+  });
+
+  it('seats each village with them, and lays it out as the trade says: a fishing Saltmere with salt-works, a garrison Gate with a lumberyard', () => {
+    for (const seed of SEEDS.slice(0, 4)) {
+      const reach = generateReach(seed);
+      for (const p of provincesOf(reach).list.filter(q => q.anchor)) expect(siteOf(reach, p).adjacentResources).toEqual(anchorResources(p.anchor!));
+      const town = (id: string) => settlementOf(reach, provincesOf(reach).list.find(p => p.anchor === id)!);
+      const mere = town('saltmere'), gate = town('kestrel-gate'), ford = town('hollowford');
+      expect(mere.purpose, `seed ${seed}`).toBe('fishing');
+      expect(mere.buildings.map(b => b.id)).toContain('salt-works');
+      expect(gate.purpose).toBe('garrison');
+      expect(gate.buildings.map(b => b.id)).toContain('lumberyard');
+      expect(ford.purpose).toBe('farming');
+      expect(ford.buildings.map(b => b.id)).not.toContain('lumberyard');
     }
   });
 });
