@@ -7,6 +7,13 @@
  * the village's fact); the sensitivity, truth and depth rules of both kept; and the same list from
  * the same history. Seeds 1, 4 and 8 are in the list because their histories have events told by
  * both a village and its country (a seizure, a vacant seat, a plague, newcomers).
+ *
+ * The issue's "Done when", mapped to the tests that cover it:
+ * - One list per road village, no duplicate facts, over several seeds: "gives each road village
+ *   one list…", "has no fact twice…" and "has every regional fact of the village's country…",
+ *   each run over SEEDS; "is deterministic over seeds…".
+ * - Tests pin the merge and the dedupe: "keeps both lists' rules…", "matches the same year…",
+ *   "merges into the village's fact…" and "reads the same engine kinds…".
  */
 
 import { describe, it, expect } from 'vitest';
