@@ -312,3 +312,67 @@ describe('Achievements from the play API (#1559)', () => {
     }
   });
 });
+
+describe('The weekly world from the play API (#1559)', () => {
+  /** The world a stored game plays: its session's id, which seeds it. */
+  const worldOf = (store: ReturnType<typeof memoryStore>, id: string): string => JSON.parse(store.rows.get(id)!.session).id as string;
+
+  it("Given this week, When anyone starts a weekly game, Then everyone gets the same world, and it's this week's", async () => {
+    const store = memoryStore();
+    const weekly = await handle(get('/api/v1/weekly'), store, deps);
+    expect(weekly.status).toBe(200);
+    const w = weekly.body as { week: string; seed: string; gameId: string; endsAt: string };
+    expect(w.week).toBe('2026-W41'); // deps.now is Sunday 11 October 2026
+    expect(w.gameId).toBe(`play-${w.seed}`);
+    expect(w.endsAt).toBe('2026-10-12T00:00:00.000Z');
+    expect(weekly.cache).toBe(300);
+
+    const a = await handle(post('/api/v1/games', { weekly: true }), store, deps);
+    const b = await handle(post('/api/v1/games', { weekly: true, name: 'Vega' }, '198.51.100.9'), store, deps);
+    const plain = await handle(post('/api/v1/games', {}), store, deps);
+    expect(a.status).toBe(201);
+    expect((a.body as { week?: string }).week).toBe('2026-W41');
+    expect(worldOf(store, (a.body as { id: string }).id)).toBe(w.gameId);
+    expect(worldOf(store, (b.body as { id: string }).id)).toBe(w.gameId);
+    expect((a.body as { text: string }).text).toBe((b.body as { text: string }).text);
+    expect(worldOf(store, (plain.body as { id: string }).id)).toBe('play-s1');
+    expect(plain.body).not.toHaveProperty('week');
+    expect((await handle(post('/api/v1/games', { weekly: 'yes' }), store, deps)).status).toBe(400);
+  });
+
+  it("makes next week's seed from a server secret, and knows a week's real world from a look-alike", async () => {
+    const { weeklySeed, isWeeklyWorld } = await import('./api');
+    expect(weeklySeed('2026-W41', 'secret')).not.toBe(weeklySeed('2026-W41'));
+    expect(weeklySeed('2026-W41', 'secret')).toMatch(/^wk-2026-W41-[0-9a-f]{8}$/);
+    const salted = await handle(get('/api/v1/weekly'), memoryStore(), { ...deps, weeklySalt: 'secret' });
+    expect((salted.body as { seed: string }).seed).toBe(weeklySeed('2026-W41', 'secret'));
+    expect(isWeeklyWorld(`play-${weeklySeed('2026-W41', 'secret')}`, 'secret')).toBe(true);
+    expect(isWeeklyWorld('play-wk-2026-W41-00000000', 'secret')).toBe(false);
+    expect(isWeeklyWorld('play-s1', 'secret')).toBe(false);
+  });
+
+  it("Given a weekly run that ends, Then its record carries the week, the week's board lists it, and its achievements compare within the week", async () => {
+    const store = memoryStore();
+    // Five runs on fresh worlds first: plenty to compare with, but none on this week's world.
+    for (let i = 0; i < 5; i++) await playToTheEnd(store, ((await handle(post('/api/v1/games', {}), store, deps)).body as { id: string }).id);
+    const { id } = (await handle(post('/api/v1/games', { weekly: true, name: 'Vega' }), store, deps)).body as { id: string };
+    const end = await playToTheEnd(store, id);
+    const run = (await store.runBySource(`game:${id}`))!;
+    expect(run.detail.week).toBe('2026-W41');
+    const top = (end.body.achievements as { id: string; status: string; detail: string }[]).find(a => a.id === 'top-tenth')!;
+    expect(top.status).toBe('open');
+    expect(top.detail).toMatch(/0 so far/);
+
+    const board = await handle(get('/api/v1/runs/week'), store, deps);
+    expect(board.status).toBe(200);
+    const body = board.body as { week: string; runs: { week: string | null; nickname: string | null }[] };
+    expect(body.week).toBe('2026-W41');
+    expect(body.runs).toHaveLength(1);
+    expect(body.runs[0]).toMatchObject({ week: '2026-W41', nickname: 'Vega' });
+    expect(((await handle(get('/api/v1/runs/week/2026-W40'), store, deps)).body as { runs: unknown[] }).runs).toHaveLength(0);
+    expect((await handle(get('/api/v1/runs/week/next-week'), store, deps)).status).toBe(400);
+    // The main lists mark it too.
+    const recent = ((await handle(get('/api/v1/runs'), store, deps)).body as { recent: { week: string | null }[] }).recent;
+    expect(recent.filter(r => r.week === '2026-W41')).toHaveLength(1);
+  });
+});

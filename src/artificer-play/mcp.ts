@@ -68,17 +68,19 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
   server.registerTool('new_game', {
     title: 'Start a game',
-    description: 'Start a new game of Greywind Reach. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
+    description: 'Start a new game of Greywind Reach, on a fresh world or (weekly: true) this week\'s shared one. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
     inputSchema: z.object({
       name: z.string().max(24).optional().describe("Your Warden's name, shown on the records (default: Warden)."),
       model: z.string().max(64).optional().describe('Which AI model is playing, if you know. Shown on the records as self-reported.'),
       features: z.record(z.string(), z.boolean()).optional().describe('Switch experimental rule features for this game, e.g. {"free-questions": false}. The rules tool lists them; leave out for the defaults.'),
+      weekly: z.boolean().optional().describe("true to play this week's world: the same world (weather, encounters) for everyone, people and AIs, this week, so its runs compare fairly. Leave out for a fresh world."),
     }),
-  }, async ({ name, model, features }, ctx) => {
-    const r = await call('POST', '/api/v1/games', { name, model, features, client: clientName(ctx.mcpReq.envelope, request) });
+  }, async ({ name, model, features, weekly }, ctx) => {
+    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), client: clientName(ctx.mcpReq.envelope, request) });
     if (r.status !== 201) return failure(r);
     const b = gameBody(r);
-    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n${featuresLine(b.features)}\n${b.text}\n\n${movesBlock(b.moves)}`);
+    const world = b.week ? `This is the weekly world, ${b.week}: everyone who plays this week plays the same one.\n` : '';
+    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n${world}${featuresLine(b.features)}\n${b.text}\n\n${movesBlock(b.moves)}`);
   });
 
   server.registerTool('look', {
@@ -156,7 +158,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[] }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[]; week?: string }
 
 /** Which experimental features this game plays with (#1579), as a line under its id; empty if none. */
 function featuresLine(features: Record<string, boolean> | undefined): string {

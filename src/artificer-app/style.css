@@ -763,3 +763,6 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .achlist li.earned b { color: var(--gold); }
 .achlist li.earned span { color: var(--dim); }
 .ach-head { margin-top: 16px; }
+/* The weekly world's chip in the header (#1559). */
+.weekchip { cursor: help; }
+.weekchip b { color: var(--teal); }

@@ -45,6 +45,7 @@ import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type Roa
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
+import { weekOfId, shortWeek } from '../artificer-play/weekly';
 import { devMode, loadChoices, saveChoices } from './feature-choices';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
@@ -1033,8 +1034,10 @@ function render(a: AppState): void {
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      ${weekChip(a)}
       ${experimentChip(a)}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="Let your AI play Greywind Reach">PLAY WITH YOUR AI</a></span>
+      <span class="ctl"><button class="pill" data-cmd="weekly" title="This week's world: the one everyone, people and AIs, plays this week">📅 THIS WEEK</button></span>
       ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -1068,6 +1071,12 @@ function experimentChip(a: AppState): string {
   const on = experimentalOn(featuresOf(a.sim.config.world.features));
   if (!on.length) return '';
   return `<span class="ctl"><span class="pill exp" title="This run plays with experimental features: ${esc(on.map(f => f.name).join(', '))}. They may change, or go.">🧪 EXPERIMENT</span></span>`;
+}
+
+/** A 📅 chip while this run plays the weekly world (#1559): its week, the same world everyone plays. */
+function weekChip(a: AppState): string {
+  const week = weekOfId(a.sim.character.id);
+  return week ? `<span class="counter ctl weekchip" title="This week's world (${week}): everyone, people and AIs, plays this one until Monday 00:00 UTC">📅 <b>${esc(shortWeek(week))}</b></span>` : '';
 }
 
 const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES</button></span>` : '');
@@ -1127,6 +1136,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       ${r.character.name ? `<button class="who" data-rtab="warden" title="Your Warden">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">MARKS <b>${r.marks}</b></span>
       <span class="counter ctl">ROAD DAY <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
+      ${weekChip(a)}
       ${experimentChip(a)}
       ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -1447,6 +1457,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
   else if (d.cmd === 'reset') { update(newRun(currentRun(state), loadChoices())); clearDraft(); startIntro(); }
+  else if (d.cmd === 'weekly') void startWeekly();
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
@@ -1515,6 +1526,43 @@ root.addEventListener('submit', e => {
   }).catch(() => undefined);
 });
 
+// ── The weekly world (#1559) ────────────────────────────────────────────────
+
+/** Is this run over: dead, collapsed, stayed behind at the thaw, or at the end of the road? */
+const runOver = (a: AppState): boolean =>
+  a.stage === 'road' ? !!a.road?.outcome : !!a.sim.outcome && (a.sim.outcome.kind !== 'survived' || !!a.stayed);
+
+/**
+ * Play this week's world: the same seed for everyone this week, people and AIs (weekly.ts). The page
+ * runs the sim itself, so it needs the seed, which the play API hands out for the current week. The
+ * Warden starts with nothing an earlier one left (no heirlooms), so everyone on the week's world
+ * begins alike, and goes through the creation screen as any new Warden does. True if it started.
+ */
+async function startWeekly(): Promise<boolean> {
+  let gameId: string | null = null;
+  try {
+    const r = await fetch('/api/v1/weekly');
+    const body = r.ok ? (await r.json()) as { gameId?: unknown } : null;
+    if (typeof body?.gameId === 'string' && weekOfId(body.gameId)) gameId = body.gameId;
+  } catch { /* offline, or the API isn't there (a local dev server): said below */ }
+  if (!gameId) {
+    alert("This week's world can't be reached right now. Try again in a while.");
+    return false;
+  }
+  if (state.sim.log.length > 0 && !runOver(state) && !confirm("Leave this run and start this week's world? This run can't be picked up again.")) return false;
+  update(makeWarden({ id: gameId }, undefined, loadChoices()));
+  draft = { ...blankDraft(), id: gameId };
+  saveDraft();
+  startIntro();
+  return true;
+}
+
 render(state);
-// A Warden still being made (a first visit, or after New Game) picks up where it was (#1266).
-if (!saved || loadDraft()) startIntro();
+// `/?weekly` (the Records page links it) starts this week's world; the address loses it, so a reload
+// doesn't start it again. Otherwise a Warden still being made (a first visit, or after New Game)
+// picks up where it was (#1266).
+const resume = (): void => { if (!saved || loadDraft()) startIntro(); };
+if (new URLSearchParams(location.search).has('weekly')) {
+  window.history.replaceState(null, '', location.pathname); // `window.`: `history` here is the run history
+  void startWeekly().then(started => { if (!started) resume(); });
+} else resume();

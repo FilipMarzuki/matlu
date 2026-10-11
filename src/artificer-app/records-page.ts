@@ -58,10 +58,18 @@ const who = (r: RunSummary): string => r.nickname ?? 'a Warden';
 const experimental = (r: RunSummary): boolean => experimentalOn(r.features).length > 0;
 let hideExperimental = false;
 
-/** The Warden cell: the nickname, and a 🧪 for a run played with an experimental rule feature. */
+/**
+ * The Warden cell: the nickname, a 📅 for a run of a weekly world (#1559), and a 🧪 for a run played
+ * with an experimental rule feature.
+ */
 function wardenCell(r: RunSummary): Node {
   const frag = document.createDocumentFragment();
   frag.append(who(r));
+  if (r.week) {
+    const tag = el('span', 'wk', ' 📅');
+    tag.title = `Played on the weekly world of ${r.week}`;
+    frag.append(tag);
+  }
   const on = experimentalOn(r.features);
   if (on.length) {
     const tag = el('span', 'exp', ' 🧪');
@@ -125,8 +133,7 @@ function playerCell(r: RunSummary): Node {
 /** Rows shown before "Show all": the board reads at a glance, and the rest is one tap away. */
 const BEST_SHOWN = 10;
 
-function renderBest(best: RunSummary[], mine: StoredRun | null): void {
-  const box = $('#best');
+function renderBest(box: HTMLElement, best: RunSummary[], mine: StoredRun | null): void {
   box.replaceChildren();
   if (!best.length) {
     box.append(emptyNote());
@@ -274,7 +281,11 @@ function wireTooltips(root: HTMLElement): void {
 
 // ── Your run ────────────────────────────────────────────────────────────────
 
-function renderYours(mine: StoredRun | null, status: number, error: string | null, recent: RunSummary[]): void {
+/**
+ * Your run, against the runs it should be compared with: this version's recent runs, or for a run
+ * of a weekly world (#1559) that week's, so it's measured against people and AIs on the same world.
+ */
+function renderYours(mine: StoredRun | null, status: number, error: string | null, recent: RunSummary[], week: RunSummary[] | null): void {
   const box = $('#yours');
   box.hidden = false;
   box.replaceChildren(el('p', 'eyebrow ice', 'YOUR RUN'));
@@ -284,18 +295,22 @@ function renderYours(mine: StoredRun | null, status: number, error: string | nul
     return;
   }
   box.append(el('h2', '', `${mine.nickname ?? 'Your Warden'} ${outcomeLine(mine)}.`));
-  const others = recent.filter(r => r.id !== mine.id);
+  const weekly = mine.detail.week && week ? mine.detail.week : null;
+  if (weekly) box.append(el('p', 'quiet', `On the weekly world of ${weekly}: compared with that week's runs, everyone on the same world.`));
+  const others = (weekly ? week! : recent).filter(r => r.id !== mine.id);
+  const of = weekly ? "this week's" : 'recent';
   const tiles = el('div', 'tiles');
   const tile = (label: string, group: RunSummary[]): void => {
     const p = percentBeaten(mine, group);
     const t = el('div', 'tile');
-    t.append(el('span', 'label', label), el('span', 'value', p === null ? '—' : `${p}%`), el('span', 'muted', p === null ? 'no runs to compare yet' : `of the last ${group.length} run${group.length === 1 ? '' : 's'}`));
+    t.append(el('span', 'label', label), el('span', 'value', p === null ? '—' : `${p}%`), el('span', 'muted', p === null ? 'no runs to compare yet' : `of ${weekly ? 'the' : 'the last'} ${group.length} run${group.length === 1 ? '' : 's'}`));
     tiles.append(t);
   };
-  // Against the recent runs the list carries (the last 500 of this version), not every run ever.
-  tile('Further than recent runs', others);
-  tile("Further than people's recent runs", others.filter(r => r.playerKind === 'person'));
-  tile("Further than AIs' recent runs", others.filter(r => r.playerKind === 'ai'));
+  // Against the recent runs the list carries (the last 500 of this version), not every run ever;
+  // a weekly run against its week's best 500.
+  tile(`Further than ${of} runs`, others);
+  tile(`Further than people's ${of} runs`, others.filter(r => r.playerKind === 'person'));
+  tile(`Further than AIs' ${of} runs`, others.filter(r => r.playerKind === 'ai'));
   const facts = el('p', 'facts', [
     mine.readyDay === null ? 'Never winter-ready' : `Winter-ready on day ${mine.readyDay}`,
     mine.larderMidwinter === null ? null : `${mine.larderMidwinter} rations at midwinter`,
@@ -303,7 +318,7 @@ function renderYours(mine: StoredRun | null, status: number, error: string | nul
     `skills ${mine.skillLevels}`,
     `${mine.moves} moves`,
   ].filter(Boolean).join(' · '));
-  // Achievements (#1559): percentiles over the same recent runs the tiles use.
+  // Achievements (#1559): percentiles over the same runs the tiles use.
   box.append(tiles, facts, el('p', 'eyebrow ach-head', 'ACHIEVEMENTS'), achievementList(achievementsOf(mine, others)));
 }
 
@@ -321,29 +336,41 @@ function achievementList(list: Achievement[]): HTMLElement {
 
 // ── Start ───────────────────────────────────────────────────────────────────
 
+/** A weekly world's records, as GET /api/v1/runs/week sends them (#1559). */
+type WeekBody = { version: string; week: string; runs: RunSummary[] };
+
 async function main(): Promise<void> {
   const game = new URLSearchParams(location.search).get('game');
-  const [runs, mine] = await Promise.all([
+  const [runs, mine, thisWeek] = await Promise.all([
     getJson<{ version: string; recent: RunSummary[]; best: RunSummary[] }>('/api/v1/runs'),
     game ? getJson<{ run: StoredRun }>(`/api/v1/games/${encodeURIComponent(game)}/run`) : Promise.resolve(null),
+    getJson<WeekBody>('/api/v1/runs/week'),
   ]);
   if (!runs.body) {
     const why = el('p', 'quiet', `The records can't be reached right now${runs.status ? ` (${runs.status})` : ''}. Try again in a while.`);
     $('#best').replaceChildren(why);
     $('#spread').replaceChildren(why.cloneNode(true));
+    $('#week').replaceChildren(why.cloneNode(true));
     return;
   }
   $('#best-sub').textContent = `On this version of the game (${runs.body.version}): a version that changes the rules starts a fresh board.`;
   const own = mine?.body?.run ?? null;
-  if (mine) renderYours(own, mine.status, mine.error, runs.body.recent);
+  // A run of an earlier week's world is compared with that week's runs, which takes one more read.
+  const ownWeek = own?.detail.week ?? null;
+  const theirWeek = ownWeek && ownWeek !== thisWeek.body?.week ? (await getJson<WeekBody>(`/api/v1/runs/week/${encodeURIComponent(ownWeek)}`)).body : thisWeek.body;
+  if (mine) renderYours(own, mine.status, mine.error, runs.body.recent, ownWeek ? theirWeek?.runs ?? null : null);
   const { best, recent } = runs.body;
+  const week = thisWeek.body;
+  if (week) $('#week-sub').textContent = `${week.week}, until Monday 00:00 UTC. Everyone plays the same world this week, people and AIs: the same weather, the same encounters, the same talents on offer. Its runs are compared with each other.`;
   const draw = (): void => {
     const keep = (rs: RunSummary[]): RunSummary[] => (hideExperimental ? rs.filter(r => !experimental(r)) : rs);
-    renderBest(keep(best), own);
+    renderBest($('#best'), keep(best), own);
     renderSpread(keep(recent));
+    if (week) renderBest($('#week'), keep(week.runs), own);
+    else $('#week').replaceChildren(el('p', 'quiet', "This week's records can't be reached right now. Try again in a while."));
   };
   // Only offered when there's something to leave out.
-  if ([...best, ...recent].some(experimental)) {
+  if ([...best, ...recent, ...(week?.runs ?? [])].some(experimental)) {
     const toggle = el('button', 'pill exp-toggle', '🧪 HIDE EXPERIMENTAL RUNS');
     toggle.type = 'button';
     toggle.setAttribute('aria-pressed', 'false');

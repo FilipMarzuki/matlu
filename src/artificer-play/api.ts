@@ -2,13 +2,15 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
  *                                    (the move that ends a run also gets its record's link and achievements, #1559)
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
+ *   GET  /api/v1/runs/week[/:week]   a weekly world's records, best first (#1559) → 200
+ *   GET  /api/v1/weekly              this week's world: its week and seed (#1559) → 200
  *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
  *   GET  /api/v1/rules               the rules text        → 200
  *
@@ -20,6 +22,11 @@
  * - The seed. A session's id seeds its world, and the sim's code is public, so anyone holding it
  *   could run the world ahead and see the weather and encounters coming. Players get a separate
  *   random game id.
+ *   The one exception is the weekly world (#1559, weekly.ts), whose seed GET /api/v1/weekly hands
+ *   to anyone: the web game runs the sim in the browser, so it can't play a world without its seed.
+ *   That's the trade-off of one shared world: on the weekly board anyone could run the week ahead,
+ *   people and AIs alike, so it's an open book, and a fair one, since everyone holds the same seed.
+ *   What stays secret is next week's: the seed is made from the week and a server secret.
  * - The player's address. It's kept only as a salted hash, for the per-address limits.
  */
 
@@ -29,6 +36,7 @@ import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game
 import { measure, runOf, type GameMeasures } from './record-of';
 import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
 import { achievementsOf, type Achievement } from './achievements';
+import { gameIdOf, isoWeek, isWeekId, weekEnd, weekOfId, weekStart, weeklySeedOf } from './weekly';
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
 import { personById } from '../artificer/villages';
@@ -77,6 +85,8 @@ export interface GameStore {
   recentRuns(limit: number, version: string): Promise<RunSummary[]>;
   /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
   bestRuns(limit: number, version: string): Promise<RunSummary[]>;
+  /** The best records of one game version played on one weekly world (#1559, `detail.week`), best first, without `detail`. */
+  weekRuns(week: string, version: string, limit: number): Promise<RunSummary[]>;
   runBySource(sourceKey: string): Promise<StoredRun | null>;
   /**
    * AI records of every version, newest first, with their milestone days: the playtest's (only the
@@ -112,6 +122,12 @@ export interface ApiDeps {
   salt?: string;
   /** A new game's seed. Random unless a test pins it (a world's weather comes from its seed). */
   newSeed?: () => string;
+  /**
+   * The secret the weekly world's seed is made from (#1559), so next week's world can't be worked
+   * out ahead. Empty means the seed follows from the week alone: fine for tests and local play.
+   * Changing it changes the world mid-week, so it's set once.
+   */
+  weeklySalt?: string;
 }
 
 /**
@@ -139,7 +155,24 @@ const ALL_QUESTIONS = 'q:all';
 export const CONSOLE_CLIENT = 'artificer-console';
 
 /** How many records the lists send: the newest and the best (GET /runs), and the AIs' (GET /runs/ai). */
-export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300 };
+export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300, week: 500, weeklyCacheSeconds: 300 };
+
+/**
+ * The seed of a week's world (#1559): the week, and a tag made from it and the server's secret.
+ * The week is part of the seed so a game's week can be read back from its id (weekly.ts weekOfId).
+ */
+export function weeklySeed(week: string, salt = ''): string {
+  return weeklySeedOf(week, createHash('sha256').update(`${salt}|weekly|${week}`).digest('hex').slice(0, 8));
+}
+
+/**
+ * Is this id the real world of the week it names? A web run (#1559) names its world itself, so its
+ * week is believed only if its id is exactly the one that week's seed gives.
+ */
+export function isWeeklyWorld(id: string, salt = ''): boolean {
+  const week = weekOfId(id);
+  return week !== null && id === gameIdOf(weeklySeed(week, salt));
+}
 
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
@@ -162,6 +195,27 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   // site, which is what the CORS headers are for. Cached five minutes: the playtest adds runs nightly.
   if (req.method === 'GET' && resource === 'runs' && id === 'ai' && !sub) {
     return { status: 200, body: { version: GAME_VERSION, runs: await store.aiRuns(RUNS.ai) }, cache: RUNS.aiCacheSeconds };
+  }
+  // GET /api/v1/runs/week[/:week]: one weekly world's records (#1559), best first: this week's, or
+  // the week named. This version's only, like the main boards. Cached a minute, like them.
+  if (req.method === 'GET' && resource === 'runs' && id === 'week') {
+    const week = sub ?? isoWeek(deps.now());
+    if (!isWeekId(week)) return fail(400, `"${week}" isn't a week. Weeks are ISO weeks, like ${isoWeek(deps.now())}.`);
+    return { status: 200, body: { version: GAME_VERSION, week, runs: await store.weekRuns(week, GAME_VERSION, RUNS.week) }, cache: RUNS.cacheSeconds };
+  }
+  // GET /api/v1/weekly: this week's world (#1559). Its seed is public for its week (see the header):
+  // the web game needs it to play the world in the browser.
+  if (req.method === 'GET' && resource === 'weekly' && !id) {
+    const week = isoWeek(deps.now());
+    const seed = weeklySeed(week, deps.weeklySalt);
+    const endsAt = weekEnd(week)!;
+    // Cached at the edge, but never past the week's end: a new week must bring its new world.
+    const left = Math.floor((endsAt - deps.now()) / 1000);
+    return {
+      status: 200,
+      body: { version: GAME_VERSION, week, seed, gameId: gameIdOf(seed), startsAt: new Date(weekStart(week)!).toISOString(), endsAt: new Date(endsAt).toISOString() },
+      ...(left > 0 ? { cache: Math.min(RUNS.weeklyCacheSeconds, left) } : {}),
+    };
   }
   // POST /api/v1/questions: keep a free question asked in the web game (#1575). The web game plays
   // on the page, so the question was matched and answered there; this only keeps it. If it fails,
@@ -201,7 +255,10 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       const bad = validFeatures(body.features) ? Object.keys(body.features).filter(k => !known.includes(k)) : null;
       if (bad === null || bad.length) return fail(400, `"features" switches rule features on or off, as { "<id>": true | false }. Known: ${known.join(', ')}.`);
     }
-    const game = startGame({ seed: deps.newSeed?.(), name, features: body.features as FeatureSwitches | undefined });
+    if (body.weekly !== undefined && typeof body.weekly !== 'boolean') return fail(400, '"weekly" is true to play this week\'s world, the one everyone plays this week.');
+    // The weekly world (#1559): this week's seed for everyone; any other game gets a fresh one.
+    const seed = body.weekly === true ? weeklySeed(isoWeek(deps.now()), deps.weeklySalt) : deps.newSeed?.();
+    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined });
     const nowIso = new Date(deps.now()).toISOString();
     const client = shortText(body.client);
     // Where: the MCP server says so itself; the console by its client name; anything else is the API.
@@ -213,7 +270,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       name, client, model: shortText(body.model), ipKey, surface, player, measures: {}, createdAt: nowIso, updatedAt: nowIso,
     };
     await store.insert(record);
-    return { status: 201, body: gameBody(record.id, view(game)) };
+    return { status: 201, body: gameBody(record.id, view(game), game) };
   }
 
   if (!id) return fail(404, 'Not found.');
@@ -239,7 +296,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   if (!game) return fail(410, 'This game was made by an older version of the Artificer and can\'t be continued. Start a new one.');
 
   // GET /api/v1/games/:id: view it.
-  if (req.method === 'GET' && !sub) return { status: 200, body: gameBody(id, view(game)) };
+  if (req.method === 'GET' && !sub) return { status: 200, body: gameBody(id, view(game), game) };
 
   // POST /api/v1/games/:id/moves: apply one move.
   if (req.method === 'POST' && sub === 'moves') {
@@ -285,10 +342,10 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     }
     // An ended game refuses moves, so this is the move that ended it: write its record, once, and
     // say how it compares (#1559).
-    if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
+    if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view, r.game), changed: r.changed } };
     await saveRun(store, updated, r.game);
     const achievements = await achievementsFor(store, id);
-    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed, record: `/records/?game=${id}`, ...(achievements ? { achievements } : {}) } };
+    return { status: 200, body: { ...gameBody(id, r.view, r.game), changed: r.changed, record: `/records/?game=${id}`, ...(achievements ? { achievements } : {}) } };
   }
 
   return fail(405, `${req.method} isn't allowed here.`);
@@ -310,15 +367,18 @@ async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<voi
 }
 
 /**
- * A finished game's achievements (#1559): its record against this version's recent ones, the same
- * list the Records page compares with. Null when there's no record to compare (it wasn't written)
- * or the records can't be read now: achievements are a bonus, never a reason to fail the move.
+ * A finished game's achievements (#1559): its record against this version's recent ones, or for a
+ * run of the weekly world against that week's, the same lists the Records page compares with. Null
+ * when there's no record to compare (it wasn't written) or the records can't be read now:
+ * achievements are a bonus, never a reason to fail the move.
  */
 async function achievementsFor(store: GameStore, gameId: string): Promise<Achievement[] | null> {
   try {
     const mine = await store.runBySource(sourceOf(gameId));
     if (!mine) return null;
-    return achievementsOf(mine, await store.recentRuns(RUNS.recent, mine.gameVersion));
+    const week = mine.detail.week;
+    const others = week ? await store.weekRuns(week, mine.gameVersion, RUNS.week) : await store.recentRuns(RUNS.recent, mine.gameVersion);
+    return achievementsOf(mine, others);
   } catch (e) {
     console.error('achievements not worked out', gameId, e);
     return null;
@@ -349,7 +409,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
   let written = 0;
   /** One version's records, as the lists send them (no detail). */
   const listed = (version: string): RunSummary[] =>
-    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail, ...summary }) => ({ ...summary, features: detail.features ?? null }));
+    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail, ...summary }) => ({ ...summary, features: detail.features ?? null, week: detail.week ?? null }));
   return {
     rows,
     runs,
@@ -377,6 +437,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
     },
     recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
     bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
+    weekRuns: async (week, version, limit) => listed(version).filter(r => r.week === week).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
     aiRuns: async ({ bench, outside }) => {
       const newest = [...runs.values()].filter(r => r.playerKind === 'ai').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -390,9 +451,13 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
 
 const fail = (status: number, error: string): ApiResponse => ({ status, body: { error } });
 
-/** What a player gets back: the public id and the view. Never the session (seed and state). */
-function gameBody(id: string, v: View): Record<string, unknown> {
-  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features };
+/**
+ * What a player gets back: the public id and the view, and for a game of the weekly world its week
+ * (#1559). Never the session (seed and state).
+ */
+function gameBody(id: string, v: View, game: Game): Record<string, unknown> {
+  const week = weekOfId(game.id);
+  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features, ...(week ? { week } : {}) };
 }
 
 function rulesBody(): Record<string, unknown> {
@@ -410,6 +475,7 @@ function rulesBody(): Record<string, unknown> {
     },
     // Switchable features (#1579): rule features are set per game, at POST /api/v1/games { "features": { "<id>": false } }.
     features: FEATURES.map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
+    weekly: 'POST /api/v1/games { "weekly": true } plays this week\'s world: the same seed for everyone, people and AIs, Monday to Monday (UTC). Its runs are compared with each other at GET /api/v1/runs/week.',
   };
 }
 

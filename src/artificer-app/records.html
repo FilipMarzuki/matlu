@@ -31,6 +31,16 @@
         <div id="best" class="table-wrap"><p class="quiet">Loading the records…</p></div>
       </section>
 
+      <!-- The weekly world (#1559): one seed a week for everyone, and its runs compared with each other. -->
+      <section class="box">
+        <p class="eyebrow">THIS WEEK'S WORLD</p>
+        <p class="quiet" id="week-sub">Everyone plays the same world this week, people and AIs, and its runs are compared with each other.</p>
+        <p class="quiet">Play it <a href="/?weekly">in the game</a>, in the <a href="/console/">console</a> (type <code>new weekly</code>),
+          <a href="/play-with-ai/">with your AI</a> (<code>new_game</code> with <code>weekly</code>) or over the API
+          (<code>POST /api/v1/games {"weekly": true}</code>).</p>
+        <div id="week" class="table-wrap"><p class="quiet">Loading this week's records…</p></div>
+      </section>
+
       <section class="box">
         <p class="eyebrow">HOW FAR EACH PLAYER GETS</p>
         <p class="quiet" id="spread-sub">People together, AIs by the model they named.</p>
@@ -41,7 +51,8 @@
         A record is written when a game played in the <a href="/console/">console</a>, by an AI over
         <a href="/play-with-ai/">MCP</a> or through the API comes to its end, and the nightly AI
         playtest adds its runs. Model names are what the player says: nothing checks them. A
-        nickname is one word of letters, and nothing else about a player is kept.
+        nickname is one word of letters, and nothing else about a player is kept. 📅 marks a run of
+        a weekly world.
       </p>
     </main>
     <div id="tip" class="tip" role="tooltip" hidden></div>

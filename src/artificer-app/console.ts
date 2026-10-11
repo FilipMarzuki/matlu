@@ -30,6 +30,8 @@ interface GameBody {
   /** On the move that ends a run: where its record is (#1558), and how it compares (#1559). */
   record?: string;
   achievements?: Achievement[];
+  /** The weekly world this game plays (#1559), if it does. */
+  week?: string;
 }
 
 const GAME_KEY = 'artificer.console.game';
@@ -60,14 +62,16 @@ async function api(method: string, path: string, body?: unknown): Promise<{ stat
   }
 }
 
-async function newGame(name?: string): Promise<void> {
+async function newGame(name?: string, weekly = false): Promise<void> {
   // The client name tells the API this is the console (api.ts CONSOLE_CLIENT), and its players are people.
   // The browser's feature switches (#1579), shared with the game page: a feature switched off there is off here.
-  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person', features: loadChoices() });
+  // `weekly` plays this week's world, the same one for everyone (#1559).
+  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person', features: loadChoices(), ...(weekly ? { weekly: true } : {}) });
   if (r.status !== 201) return failed(r);
   const g = r.body as unknown as GameBody;
   remember(g.id);
-  print(`A new game${name ? ` for ${name}` : ''}. Type "help" any time.`, 'note');
+  const world = g.week ? ` on this week's world (${g.week}): everyone, people and AIs, plays this one until Monday` : '';
+  print(`A new game${name ? ` for ${name}` : ''}${world}. Type "help" any time.`, 'note');
   show(g, true);
 }
 
@@ -175,7 +179,7 @@ function welcome(): void {
   statusEl.textContent = '';
   print(
     'Greywind Reach, as text. A Warden alone in a mountain valley, thirty days of autumn to make ready for a sixty-night winter.\n' +
-      'Type "new" to begin (or "new" and a name), and "help" for the commands.',
+      'Type "new" to begin (or "new" and a name), "new weekly" for this week\'s world, the one everyone plays, and "help" for the commands.',
     'note',
   );
   setMoves([]);
@@ -196,7 +200,7 @@ async function run(line: string): Promise<void> {
     else if (cmd.kind === 'help') print(HELP, 'note');
     else if (cmd.kind === 'look') await look();
     else if (cmd.kind === 'rules') await rules();
-    else if (cmd.kind === 'new') await newGame(cmd.name);
+    else if (cmd.kind === 'new') await newGame(cmd.name, cmd.weekly === true);
     else await move(cmd.move);
   } finally {
     busy = false;

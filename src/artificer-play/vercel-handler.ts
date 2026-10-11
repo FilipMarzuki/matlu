@@ -68,6 +68,10 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
         newId: () => crypto.randomUUID(),
         // Any server secret will do as the salt; the service key is one the owner already set.
         salt: env.PLAY_IP_SALT || env.SUPABASE_SERVICE_ROLE_KEY || '',
+        // The weekly world's secret (#1559): its own variable, never a key that might be rotated,
+        // because a new value changes the week's world mid-week. Unset, next week's world can be
+        // worked out from the code (playable early), which is all it costs.
+        weeklySalt: env.PLAY_WEEKLY_SALT || '',
         ...deps,
       };
       const ip = ipOf(req, env.VERCEL === '1');
