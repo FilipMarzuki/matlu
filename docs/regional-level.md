@@ -186,6 +186,45 @@ Hollowford country.", `renderRegionalEventNamed`).
 Nothing in play reads these yet. Each road village's list joins them with its own remembered
 facts (#1618, below); wiring that into play is slice F.
 
+## Local history: there is always recent history (#1613)
+
+Owner, 2026-10-11: "There is always recent history. We need to create some structure where
+recent history is filled with local politics and events." The told history keeps a province's
+few most significant events, which tend to be old and lordly, so `src/artificer/world/local-history.ts`
+gives every road village its own last 20 years (`LOCAL_YEARS`, a generation), read off a told
+history and attached as `VillageMemory.local` (`remembered.ts`).
+
+- **Slots.** Politics: `leader` (who speaks for the village and how they came to), `dispute`
+  (two families over land, water or a debt), `council` (a decision), `marriage`, `scandal`.
+  Events: `trade` (a good or bad year for what it lives on), `mishap` (fire, flood, hard winter,
+  sickness), `building`, `comings` (someone left or arrived), `death`. `leader`, `dispute`,
+  `trade` and `mishap` are always told, so every village has politics and events in every seed;
+  the others by chance.
+- **Crafted plus generated.** `CRAFTED_LOCAL` holds hand-written entries per road village, dated
+  in years before the present (Maren chosen after old Sune drowned, Bodil's three barrels, the ash
+  off the pass, the drunk toll-keeper). A written slot is told as written; only empty slots are
+  generated. Each slot draws from its own stream (`seed|local|<village>|<slot>`), so writing one
+  never rerolls the others.
+- **From the engine's state.** The village's country (its generated region) decides much of it:
+  heavy dues send someone to the steward, a levy draws lots, a seized seat puts in the new lord's
+  headman, the country's famine, plague or hard winter of the last 20 years is the village's
+  hard year (dated the same), its venture or told harvest is its trade news, else its wealth.
+  Names come from the village's culture, never a road person's name or a lords' house.
+- **Off the engine.** It runs on the told history with its own seeded generator (`rng.ts`), not
+  `World.rng` or `World.regionRng`: no engine change, no golden hash or pinned log moves, and
+  `HISTORY_VERSION` stays 6 (a kept history tells the same villages).
+- **As facts.** `local:<village>:<slot>`, scope the village, `true` (all within living memory).
+  Sensitivity by how public it was and the teller's stake (`localSensitivity`): `public` (a fire)
+  is public to all; `open` (a quarrel at the moot) public, guarded to those in it; `house` (a
+  family's trouble) guarded, private with a stake; `family` (a scandal) private, secret with a
+  stake. A road person who's a party gets their own more guarded person-scope telling
+  (`local:<village>:<slot>:<person>`), which the knowledge model answers from first; something
+  touching the ruling house (pleading with the steward) is one step more guarded for the whole
+  village. Depth follows publicity: 1 for public and open, 2 a family's trouble, 3 a scandal.
+
+Nothing in play reads these yet. When #1618's `VillageMemory.known` lands, the local facts
+belong in it too.
+
 ## Merging with PR #1592
 
 #1592 added `remembered()` and `RememberedFact`, and there's one `GENERATION` (regional-facts.ts).
