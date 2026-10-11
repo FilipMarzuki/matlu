@@ -194,12 +194,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'Mistheim is not what the caravan songs say. Go anyway.'],
           [75, 'The gate was built against something that came down the pass in an age that ended. We stopped saying what. We did not stop keeping the wall.'],
         ]), reserved: true },
-      p('kg-sabine', 'Sabine', 'smith', 'Steinfolk', 'ironborne-encampment', 'Blunt, funny, and proud of every hinge on the gate.',
+      { ...p('kg-sabine', 'Sabine', 'smith', 'Steinfolk', 'ironborne-encampment', 'Blunt, funny, and proud of every hinge on the gate.',
         { kind: 'item', item: 'materials', qty: 5 }, [
           [0, 'Gate hinges, cart axles, arrowheads. A smith here never runs out of work.'],
           [25, 'Good iron sings when you strike it. Bad iron argues.'],
           [50, 'The ash that came down the pass this winter settles on the anvil and won\'t brush off. I quench twice now, to be sure.'],
-        ]),
+        // Hold-trained, so of the Dyprike (owner, 2026-10-11, #1587).
+        ]), orgs: { dyprike: { rank: 1 } } },
       { ...p('kg-arvid', 'Arvid', 'trader', 'Goblins', 'bazaar-folk', 'Smiling, careful, and never the first to name a price.',
         { kind: 'item', item: 'firewood', qty: 6 }, [
           [0, 'Everything has a price at the Gate. Some prices are friendship.'],

@@ -171,7 +171,7 @@ describe('The organisation registry (#1587)', () => {
     expect(membersOf('compact').map(p => p.id)).toEqual(['hf-tobin', 'kg-arvid', 'cv-pim']);
     expect(membersOf('compact-of-knowing').map(p => p.id)).toEqual(['sm-anselm']);
     expect(membersOf('vidde-accords').map(p => p.id)).toEqual(['sm-yrsa', 'cv-runa']);
-    expect(membersOf('dyprike').map(p => p.id)).toEqual(['hf-orrin', 'kg-runa']);
+    expect(membersOf('dyprike').map(p => p.id)).toEqual(['hf-orrin', 'kg-sabine', 'kg-runa']);
     expect(membersOf('caravan').map(p => p.id)).toEqual(['cv-bodil', 'cv-pim', 'cv-ottilia', 'cv-runa']);
     for (const p of EVERYONE) {
       for (const [org, m] of Object.entries(p.orgs ?? {})) {
