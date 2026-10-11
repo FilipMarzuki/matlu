@@ -1,0 +1,46 @@
+{
+  "about": "Rumours, mistakes and lies on the road (#1580, knowledge slice G; docs/knowledge-model-design.md §7). Written by hand: every entry is a placeholder for the owner to review. `propositions` are the things people make claims about, each with a neutral `label` (what the journal files it under; never the answer) and the facts (by id, from facts.ts) that speak to it; `check`, if any, is how the Warden can see for themself: being in that village. `lies` are what a person says instead of what they know: the topic, the words, how sure they make it sound (`sounds`: saw, told or common), the `motive` the data grounds it in (an organisation they keep secrets for, a friend they cover for, a grudge, a profit, fear or pride), `why` in words (never shown), and the trust at which they stop (`until`). `rumours` start with someone who saw it (`path[0]`) and pass along `path`, drifting by a seeded rule (claims.ts `driftOf`): the number grows, and the place can move. `truth` is what was really seen; `core` is the words, with {n} and {where} filled in at each hop.",
+  "propositions": [
+    {"id": "compact-is-real", "label": "The Compact", "placeholder": true, "source": "src/artificer/answers.ts › Tobin calls them the Compact",
+      "facts": ["answer:hf-maren:group:compact", "answer:hf-tobin:group:compact", "answer:sm-hedda:group:compact", "answer:sm-anselm:group:compact", "answer:kg-arvid:group:compact", "answer:kg-veit:group:compact", "answer:cv-pim:group:compact", "scope:hollowford/compact", "scope:kestrel-gate/compact"]},
+    {"id": "tobin-fair-weight", "label": "Whether Tobin deals fairly", "placeholder": true, "source": "src/artificer/content/ties.json › She's never once caught me short",
+      "facts": ["tie:maren-tobin:hf-maren", "tie:maren-tobin:hf-tobin", "tie:tobin-hedda:sm-hedda", "scope:hollowford/trader"]},
+    {"id": "orrin-hold-trained", "label": "Orrin's past", "placeholder": true, "source": "src/artificer/content/scope-facts.json › He's Bergfolk and hold-trained",
+      "facts": ["answer:kg-sabine:role:smith", "tie:orrin-sabine:kg-sabine", "scope:hollowford/smith"]},
+    {"id": "salt-plentiful", "label": "Salt at Saltmere", "placeholder": true, "source": "src/artificer/content/scope-facts.json › Saltmere lives on salt",
+      "facts": ["scope:saltmere/lives-on", "scope:saltmere/salt", "scope:north-road/salt"]}
+  ],
+  "lies": [
+    {"id": "tobin-compact", "person": "hf-tobin", "about": "group:compact", "proposition": "compact-is-real", "sounds": "saw", "until": 50,
+      "motive": {"kind": "org", "org": "compact"},
+      "text": "The Compact? A story big folk tell about goblins, so there's someone to blame when a well turns. I've been a goblin all my life, and nobody has ever asked me to join anything.",
+      "why": "He's of the Compact, and the Compact keeps its business from outsiders. He'd rather deny it than say \"not yet\".",
+      "placeholder": true, "source": "src/artificer/villages.ts › The Compact pays better for news than for hides"},
+    {"id": "hedda-salt", "person": "sm-hedda", "about": "material:salt", "proposition": "salt-plentiful", "sounds": "common", "until": 50,
+      "motive": {"kind": "profit", "item": "salt"},
+      "text": "Salt's dear this spring, ask anyone on the mere: the crust came in thin after the ash winter, and the racks are half empty. Whatever the Gate pays for it, I can't go much under that.",
+      "why": "She sells salt, and a stranger who thinks it's scarce pays more for it. A friend gets the truth, and a friend's price.",
+      "placeholder": true, "source": "src/artificer/villages.ts › Salt fish, salt pork, salt everything"},
+    {"id": "sabine-orrin", "person": "kg-sabine", "about": "person:hf-orrin", "proposition": "orrin-hold-trained", "sounds": "saw", "until": 25,
+      "motive": {"kind": "friend", "tie": "orrin-sabine"},
+      "text": "Orrin at the ford? A woodwright with an anvil, the way he tells it, and that's all he is. I've never known him go near a hold.",
+      "why": "Orrin left his hold seat and won't say why. She's his friend, and keeps it for him until she knows who's asking.",
+      "placeholder": true, "source": "src/artificer/villages.ts › I left a hold seat for this forge. Nobody here has asked me why."}
+  ],
+  "rumours": [
+    {"id": "pass-wolves", "label": "Wolves on the north road", "about": ["place:north-road"],
+      "core": "{n} grey wolves on {where}, ash in their coats and bold as dogs. Keep the fires high on the north road.",
+      "truth": {"n": 3, "where": "the high pass above the Gate"},
+      "places": ["the high pass above the Gate", "the Gate road below the wall", "the ford road out of Hollowford"],
+      "path": ["kg-runa", "cv-pim", "sm-liv"],
+      "check": {"visit": "kestrel-gate", "text": "From the wall at Kestrel Gate you can see the high pass: three grey wolves, ash in their coats, and nothing on the road below."},
+      "placeholder": true, "source": "src/artificer/villages.ts › Ash comes down off the high pass on the west wind"},
+    {"id": "mere-fish", "label": "Dead fish at Saltmere", "about": ["place:saltmere"],
+      "core": "{n} fish floating belly-up at {where} in a single morning. Whatever is in the water there, don't drink it.",
+      "truth": {"n": 4, "where": "the still north end of the mere"},
+      "places": ["the still north end of the mere", "the middle of the mere", "the Pandor wells"],
+      "path": ["sm-gunnar", "cv-runa", "kg-veit"],
+      "check": {"visit": "saltmere", "text": "At Saltmere you see it for yourself: a few dead fish at the still north end of the mere, and the Pandor wells as sweet as ever."},
+      "placeholder": true, "source": "src/artificer/villages.ts › the fish that wash up float belly-up"}
+  ]
+}

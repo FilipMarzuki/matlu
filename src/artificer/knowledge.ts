@@ -28,6 +28,13 @@ export type Sensitivity = 'public' | 'guarded' | 'private' | 'secret';
 /** What the world says about a fact. The player never sees this; it's what a claim is checked against. */
 export type Truth = 'true' | 'rumour' | 'false';
 
+/**
+ * Where a claim comes from, as the person saying it would put it (#1580): they saw it themself,
+ * someone told them, it's common talk, or they made it up. The last is never said out loud: a liar
+ * sounds like one of the other three. Absent on a fact, the hedge is read off its scope (`hedgeOf`).
+ */
+export type ClaimSource = 'saw' | 'told' | 'common' | 'made-up';
+
 export interface Fact {
   id: string;
   /** The topic keys it answers (`material:iron`, `place:kestrel-gate`, `group:compact`). */
@@ -44,6 +51,8 @@ export interface Fact {
   leadAbout?: string;
   /** Insight in a concept, for a fact that teaches something (an Answer's `insight`). */
   insight?: { concept: string; amount: number };
+  /** Where the holder got it (#1580): what a rumour passed along carries. Absent, it's read off the scope. */
+  source?: Exclude<ClaimSource, 'made-up'>;
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */
@@ -76,8 +85,12 @@ export interface Org {
   ranks?: readonly string[];
 }
 
-/** What a person says instead of what they know, and why: a lie, until trust reaches `until`. */
-export interface Lie { about: string; text: string; why: string; until: number }
+/**
+ * What a person says instead of what they know, and why: a lie, until trust reaches `until`.
+ * `sounds` is how sure they make it sound (#1580): a lie borrows the hedge of an honest claim, so
+ * "I saw it myself" can itself be a lie. `id` names it, for the journal of who said what.
+ */
+export interface Lie { about: string; text: string; why: string; until: number; id?: string; sounds?: Exclude<ClaimSource, 'made-up'> }
 
 /** A person, as the model sees them: the scopes they belong to and how deep each reaches. */
 export interface Knower {
@@ -151,8 +164,13 @@ export function gateOf(f: Fact, orgs: Readonly<Record<string, Org>>): number {
   return Math.max(SENSITIVITY_TRUST[f.sensitivity], floor);
 }
 
+/** The hedge each source is said with (#1580): how sure a claim sounds is part of the answer. */
+export const SOURCE_HEDGE: Readonly<Record<Exclude<ClaimSource, 'made-up'>, string>> = { saw: 'I saw it myself', told: 'I heard', common: 'Everyone says' };
+
 /** How sure a claim sounds, from where the fact sits and what it is. Part of the answer (#1580). */
 export function hedgeOf(f: Fact): string {
+  // Where the holder says they got it, when the fact carries that (#1580: a rumour passed along).
+  if (f.source) return SOURCE_HEDGE[f.source];
   if (f.truth === 'rumour') return 'I heard';
   if (f.scope.kind === 'person') return 'I saw it myself';
   if (f.scope.kind === 'world' || f.scope.kind === 'region') return 'Everyone says';
@@ -163,7 +181,7 @@ export type KnowledgeAnswer =
   /** The most specific fact they know and will tell. `fact.truth` may be `false`: they believe it. */
   | { kind: 'told'; fact: Fact; hedge: string }
   /** What they say instead of what they know. The game knows it's a lie; the player doesn't. */
-  | { kind: 'lied'; text: string; why: string; withheld: Fact | null }
+  | { kind: 'lied'; text: string; why: string; withheld: Fact | null; lie: Lie }
   /** They know something, and you haven't earned it yet. */
   | { kind: 'not-yet'; fact: Fact; trust: number }
   /** They know nothing about it, and maybe who would (transactive memory: groups know who knows what). */
@@ -191,7 +209,7 @@ export const trustFor = (f: Fact, trust: number, standing: Standing): number =>
 export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = [], standing: Standing = {}): KnowledgeAnswer {
   const known = facts.filter(f => tells(k, f, topic)).sort((a, b) => rank(a) - rank(b));
   const lie = k.lies?.find(l => l.about === topic && trust < l.until);
-  if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null };
+  if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null, lie };
   const best = known[0];
   if (best) {
     const gate = gateOf(best, orgs);
