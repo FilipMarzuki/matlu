@@ -190,6 +190,10 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - **Artificer is the master for materials and concepts.** Its concepts live in `src/artificer/content/concepts.json`; its materials, recipes and items are in its own code (`region1.ts`, `kit.ts`, `trade.ts`, `techniques.ts`…). The Homestead's registries (`macro-world/item-registry.json`, `public/macro-world/recipes.json`, `public/macro-world/concepts.json`) are earlier drafts, frozen as they are: don't add material, recipe or concept work there, and Artificer doesn't read them. `src/artificer/content-ownership.test.ts` pins their hashes (#1531).
 - **New Classes go in the Class registry first.** Every Mistheim [Class] is an entry in `src/artificer/content/classes.json` (#1637): add one there before writing a new Class into WORLD.md or other lore; `src/artificer/classes.test.ts` fails when WORLD.md brackets a Class the registry lacks. Rules in `docs/class-registry.md`.
 
+## Canon: where the master copy lives
+
+Master canon lives where agents can read it and change it through a reviewed path: **repo files by PR**, **Supabase tables by a migration file** in `supabase/migrations/` (merged by PR, then applied). Notion and other stores are **mirrors** synced from the repo, unless [`docs/canon.md`](docs/canon.md) lists them as agent-writable with a documented path. Don't change canon in a mirror; change the master and re-sync. [`docs/canon.md`](docs/canon.md) lists every canon source, whether it's master or mirror, how an agent reads and writes it and with which credentials, and the known gaps (#1638). A new canon source gets a row there in the PR that adds it.
+
 ## Story engine — update checklist
 
 When adding new world elements to `storytelling/` (new Province fields, new races/biology traits, new event types, new catastrophe templates), update ALL of the following layers that the new element touches:
