@@ -429,11 +429,16 @@ function historyTab(a: AppState): string {
   const body = h.chronicle.split('\n').map(line => {
     if (!line.trim() || /^[─═]+$/.test(line)) return '';
     if (/^(AGES OF LEGEND|THE CHRONICLE|LIVING MEMORY)/.test(line)) return `<p class="eyebrow chronhead">${esc(line)}</p>`;
+    // A line marked ◇ is a big regional event (#1598): news from a region's countryside, not a court.
     const dated = line.match(/^\s*(\d+)\s{2}(.*)$/);
-    return dated ? `<p class="chron"><b>${dated[1]}</b> ${esc(dated[2])}</p>` : `<p class="chron">${esc(line.trim())}</p>`;
+    const text = (dated ? dated[2] : line).trim();
+    const regional = text.startsWith('◇ ');
+    const body = esc(regional ? text.slice(2) : text);
+    const mark = regional ? '<span class="regmark" title="news from the countryside">◇</span> ' : '';
+    return `<p class="chron${regional ? ' regional' : ''}">${dated ? `<b>${dated[1]}</b> ` : ''}${mark}${body}</p>`;
   }).join('');
   return `<section class="box"><p class="eyebrow">THE REACH — its history</p>
-    <p class="mood">Years are the Reach's own count, from when its oldest houses first held land. It is now year ${h.year}. ${h.told} of ${h.logged} remembered deeds are worth the telling.</p>
+    <p class="mood">Years are the Reach's own count, from when its oldest houses first held land. It is now year ${h.year}. ${h.told} of ${h.logged} remembered deeds are worth the telling. <span class="regmark">◇</span> marks news from a region's countryside: famine, plague, a house losing its last seat.</p>
     <p class="eyebrow" style="margin-top:12px">THE LORDSHIPS NOW</p>
     <div class="tablewrap"><table class="lordships"><thead><tr><th>Lordship</th><th>People</th><th>Held by</th></tr></thead><tbody>${lordships}</tbody></table></div>
     <div class="chronicle">${body}</div></section>`;
