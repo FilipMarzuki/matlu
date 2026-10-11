@@ -58,6 +58,10 @@ export const TOPICS: Readonly<Record<TopicKind, Readonly<Record<string, TopicDef
     ...Object.fromEntries(Object.values(VILLAGES).map(v => [v.id, def(v.name, word(v.name, ''))])),
     mistheim: def('Mistheim', word('Mistheim', '')),
     reach: def('The Reach', word('the Reach', ''), 'the Reach'),
+    // The road the villages share (#1610): the region `north-road` (facts.ts ROAD_REGION). Named
+    // only as "the north road" or "the caravan road", words no line before the scope facts uses,
+    // so it's heard (and can be focused on) only once a scope fact names it.
+    'north-road': def('The north road', word('the north road|the caravan road'), 'the north road'),
   },
   group: {
     compact: def('The Compact', word('Compact', ''), 'the Compact'),

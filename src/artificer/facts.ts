@@ -3,10 +3,12 @@
  * docs/knowledge-model-design.md, model in knowledge.ts).
  *
  * Three things live here:
- * - **FACTS**, everything anyone can say. Today that's the hand-written answers (answers.ts), each
+ * - **FACTS**, what anyone could say before slice C: the hand-written answers (answers.ts), each
  *   one a person-scope fact in that person's own words, and each teacher's answer about their own
- *   skill. Later slices add facts for wider scopes (a village, a region, an organisation, a role)
- *   to this list, and everyone in the scope knows them without any caller changing.
+ *   skill. **SCOPE_FACTS** (slice C, #1610, content/scope-facts.json) are written once for a wider
+ *   scope (a village, the road, a role, a taught skill), and everyone in the scope knows them.
+ *   They're a rules feature (`scope-facts`): `factsFor` gives a run the facts its switches allow,
+ *   and the asks pass them in. A caller that passes nothing gets FACTS, today's answers.
  * - **Knowers**: each person, as the model sees them (their village, region, People, culture,
  *   role, the skill they teach), built from villages.ts.
  * - **resolve**: the model's `answer` with the game's facts, people and organisations filled in.
@@ -21,8 +23,10 @@
 
 import { ANSWERS, type Answer } from './answers';
 import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity } from './knowledge';
+import { featureOn, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
+import scopeFactsFile from './content/scope-facts.json';
 
 /**
  * The region the three villages share: the north road out of Greywind Reach. The owner's call on
@@ -93,9 +97,64 @@ export const FACTS: readonly Fact[] = [
 ];
 
 /**
+ * A scope fact as written in content/scope-facts.json (#1610, knowledge slice C): the model's
+ * `Fact`, plus where it came from. `source` names the canon it rests on (`file § heading › label`,
+ * or `file › label` for code); `invented` marks what canon doesn't say outright, written to fit it.
+ * Only true facts so far: the canon rule (the owner's answer 6) holds for every one.
+ */
+export interface ScopeFactEntry extends Omit<Fact, 'id' | 'sensitivity'> {
+  id: string;
+  sensitivity?: Sensitivity;
+  source: string;
+  invented?: boolean;
+}
+
+// TypeScript types an imported JSON file from its contents with every string widened to `string`
+// (so `scope.kind` reads as `string`, not `ScopeKind`). `as unknown as` tells the compiler to trust
+// the interface instead; facts-scope.test.ts checks the data really has that shape.
+const SCOPE_ENTRIES: readonly ScopeFactEntry[] = scopeFactsFile.facts as unknown as readonly ScopeFactEntry[];
+
+/** Every scope fact as written, with its source: what a reviewer checks against canon. */
+export const scopeFactEntries = (): readonly ScopeFactEntry[] => SCOPE_ENTRIES;
+
+/**
+ * What everyone in a village, on the road, in a trade or a taught skill knows (#1610): the scope
+ * facts as the model reads them. Public unless the file says, as the owner put it (by publicity
+ * and stake): trade, places and the road are public; a neighbour's past is guarded.
+ *
+ * The road's generated regional facts (world/regional-facts.ts, world/remembered.ts) join here in
+ * slice F, once the history runs in the sim: they're already `Fact`-shaped, scoped to the same
+ * `region:north-road` (world/regions.ts CRAFTED_REGIONS) and the villages, so they append to this
+ * list (or to `factsFor`'s) and every reader picks them up.
+ */
+export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
+  id: `scope:${e.id}`,
+  about: e.about,
+  text: e.text,
+  scope: e.scope,
+  sensitivity: e.sensitivity ?? 'public',
+  truth: e.truth,
+  ...(e.depth ? { depth: e.depth } : {}),
+  ...(e.lead ? { lead: e.lead } : {}),
+}));
+
+/** Every fact any game can hold: today's, and the scope facts. */
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS];
+
+/**
+ * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
+ * after today's (so a person's own words still come first); off, and in every run from before the
+ * switch, today's alone, so those runs replay with the answers they had.
+ *
+ * Today's facts are all a person's own, the most specific scope there is, so adding the scope
+ * facts never changes an answer someone already gave: it only answers what they didn't know,
+ * changes who they'd refer you to, and adds leads.
+ */
+export const factsFor = (features: FeatureSwitches | undefined): readonly Fact[] => (featureOn(features, 'scope-facts') ? ALL_FACTS : FACTS);
+
+/**
  * How deep a role reaches into a kind of scope (the design's §2): an elder knows their village's
- * past best; a trader or the caravan master hears the road's news. Everyone else reaches 1. No
- * scope facts exist yet, so this changes nothing today; it's here so slice C's facts land right.
+ * past best; a trader or the caravan master hears the road's news. Everyone else reaches 1.
  */
 const REACH: Partial<Record<Person['role'], Partial<Record<ScopeKind, 1 | 2 | 3>>>> = {
   elder: { village: 3 },

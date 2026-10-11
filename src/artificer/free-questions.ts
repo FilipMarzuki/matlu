@@ -19,6 +19,8 @@
  */
 
 import { answerFor, topicsKnownBy } from './asks';
+import { ALL_FACTS, FACTS } from './facts';
+import type { Fact } from './knowledge';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, TOPIC_KINDS, isTopicKind, mentionsIn, topicDef } from './topics';
 import { personById } from './villages';
@@ -43,6 +45,20 @@ export const HINTS: Readonly<Record<string, RegExp>> = {
   'group:compact': /\b(?:goblins?|goblin bands?)\b/i,
   'skill:foraging': /\b(?:herbs?|mushrooms?|fungi|berries|roots|greens|edible|plants?|wild food)\b/i,
   'quest:hf-hides-saltmere': /\b(?:hides?|skins?|pelts?|Hedda)\b/i,
+  // What everyone knows (#1610): the villages, the road, and who does what. Nobody knows these
+  // topics without the scope-facts switch, so a run without it matches exactly as before.
+  'place:north-road': /\b(?:the road|this road|roads|route|journey|how far|how long|bandits?|dangers?|dangerous)\b/i,
+  'place:hollowford': /\b(?:the ford|stepping stones|terraces|high fields|barley|sheep)\b/i,
+  'place:saltmere': /\b(?:the mere|mere|salt lake|the lake|wells?)\b/i,
+  'place:mistheim': /\b(?:lowlands?)\b/i,
+  'role:elder': /\b(?:in charge|rules? (?:here|this)|leaders?|chief|headman|headwoman)\b/i,
+  'role:trader': /\b(?:merchants?|shops?|wares|goods|store)\b/i,
+  'role:healer': /\b(?:heal|medicine|doctor|sick|ill|fever|hurt|injur(?:y|ed|ies))\b/i,
+  'role:hunter': /\b(?:hunt|game|deer|tracks?|tracking|traps?)\b/i,
+  'role:teacher': /\b(?:teach(?:es)?|learn|lessons?|training)\b/i,
+  'role:caravaneer': /\b(?:the caravan|caravan master|wagons?)\b/i,
+  'role:tinker': /\b(?:mend|repair|fix|broken|axles?)\b/i,
+  'skill:firstaid': /\b(?:wounds?|bandages?|splints?|bleeding)\b/i,
 };
 
 /** How a skill is asked about: "Foraging" → forage, forager, foraging; "First aid" as said. */
@@ -86,9 +102,9 @@ const MENTIONED = 1;
 /**
  * The topic `personId` answers `question` with, as a focus key, or null if nothing they know is in
  * it. The best-scoring topic wins; on a tie, one they haven't told you yet (`answered`), then the
- * first as written.
+ * first as written. `facts` are the run's (facts.ts `factsFor`, #1610); today's if not given.
  */
-export function matchQuestion(personId: string, question: string, answered: readonly string[] = []): string | null {
+export function matchQuestion(personId: string, question: string, answered: readonly string[] = [], facts: readonly Fact[] = FACTS): string | null {
   // Naming the person you're asking says nothing about what you're asking them ("Hedda, what's
   // Saltmere like?" isn't about the hides she's owed, though her name points at them), so it goes.
   const name = personById(personId)?.name;
@@ -97,8 +113,8 @@ export function matchQuestion(personId: string, question: string, answered: read
   const named = topicsIn(q);
   named.delete(`person:${personId}`);
   let best: { key: string; score: number; fresh: boolean } | null = null;
-  for (const key of topicsKnownBy(personId)) {
-    const answer = answerFor(personId, key);
+  for (const key of topicsKnownBy(personId, facts)) {
+    const answer = answerFor(personId, key, facts);
     if (!answer) continue;
     const direct = named.has(key) || patternsOf(key).some(re => re.test(q)) ? NAMED : 0;
     const through = mentionsIn(answer.text).filter(k => k !== key && named.has(k)).length * MENTIONED;
@@ -109,8 +125,12 @@ export function matchQuestion(personId: string, question: string, answered: read
   return best?.key ?? null;
 }
 
-/** Whether `personId` has an answer for `key`: the road checks a matched topic with this. */
-export const knowsAbout = (personId: string, key: string): boolean => answerFor(personId, key) !== undefined;
+/**
+ * Whether `personId` has an answer for `key` in any game: the API keeps a web question's
+ * self-reported topic with this. Every fact counts (`ALL_FACTS`), the scope facts (#1610) too,
+ * since the API doesn't know which switches the asking game had.
+ */
+export const knowsAbout = (personId: string, key: string, facts: readonly Fact[] = ALL_FACTS): boolean => answerFor(personId, key, facts) !== undefined;
 
 const DEFLECTIONS = [
   "I'd have to think on that. Ask me something else next time.",

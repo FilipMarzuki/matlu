@@ -43,6 +43,7 @@ import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raise
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
+import { factsFor } from '../artificer/facts';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
@@ -1589,7 +1590,7 @@ root.addEventListener('submit', e => {
   const raw = (form.elements.namedItem('q') as HTMLInputElement | null)?.value ?? '';
   const clean = cleanQuestion(raw);
   if (!r || !clean || (r.questioned ?? []).includes(pid)) return;
-  const topic = matchQuestion(pid, clean, r.asked?.[pid] ?? []);
+  const topic = matchQuestion(pid, clean, r.asked?.[pid] ?? [], factsFor(r.features));
   const trust = Math.round(r.trust[pid] ?? 0);
   const played = `question:${pid}${topic ? `:${topic}` : ''}`;
   const next = roadAct(state, played as Parameters<typeof roadAct>[1]);

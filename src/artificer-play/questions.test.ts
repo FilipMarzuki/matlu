@@ -116,7 +116,7 @@ describe('Keeping questions through the API (#1575)', () => {
     expect(ok.status).toBe(201);
     expect(store.questions[0]).toMatchObject({ person: 'hf-orrin', topic: 'material:iron', answered: true, trust: 32, surface: 'web', gameVersion: GAME_VERSION });
     // A topic the person doesn't know is kept as none.
-    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where is iron?', topic: 'material:iron' }), store, deps);
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'What is the Dyprike?', topic: 'group:dyprike' }), store, deps);
     expect(store.questions[1]).toMatchObject({ topic: null, answered: false });
     // Nobody the road has, or no question: refused, nothing kept.
     expect((await handle(post('/api/v1/questions', { person: 'zz-nobody', question: 'Hi?' }), store, deps)).status).toBe(400);

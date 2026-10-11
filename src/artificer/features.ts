@@ -43,6 +43,12 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'referrals', name: 'Referrals', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1609,
     note: 'Asked about something they don\'t know, a person names someone nearby who would.',
   },
+  {
+    // A rules feature: it changes what people can tell you (more topics answered, other referrals,
+    // other leads), so a run from before it (absent: false) keeps today's answers on replay.
+    id: 'scope-facts', name: 'What everyone knows', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1610,
+    note: 'People know what their village, the road, and their trade know: ask about a village, the road, a trade or who does what, not only what one person has to say.',
+  },
 ];
 
 /** Switches by feature id. */

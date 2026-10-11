@@ -26,6 +26,7 @@ import { meetingOptions } from '../artificer/caravan-meeting';
 import { ROAD_DAYS, peopleHere, type RoadActionId, type RoadState } from '../artificer/road';
 import { observe, observeEncounter, observeMeeting, observeRoad } from '../artificer-ai/observe';
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
+import { factsFor } from '../artificer/facts';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
 import { GAME_VERSION } from './version';
@@ -165,7 +166,7 @@ export function apply(g: Game, move: Move): ApplyResult {
     if ((r.questioned ?? []).includes(person)) return refuse(`You've asked ${who.name} your question this stay. Ask someone else, or ask again at the next stop.`);
     const text = cleanQuestion(question);
     if (!text) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
-    const topic = matchQuestion(person, text, r.asked?.[person] ?? []);
+    const topic = matchQuestion(person, text, r.asked?.[person] ?? [], factsFor(r.features));
     played = { do: `question:${person}${topic ? `:${topic}` : ''}` };
     asked = { person, text, topic, trust: Math.round(r.trust[person] ?? 0) };
     next = roadAct(before, played.do as RoadActionId);

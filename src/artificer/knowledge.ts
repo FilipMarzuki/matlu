@@ -104,6 +104,19 @@ export function knows(k: Knower, f: Fact): boolean {
   return reach >= (f.depth ?? 1);
 }
 
+/**
+ * Whether `k` would answer `topic` with `f`: they know it, it's about the topic, and it isn't
+ * hearsay about themself. A wider scope's fact about a person (`person:<id>`: "Tobin buys at the
+ * ford", known to all Hollowford) is what the others say of them; asked about themself, nobody
+ * repeats their neighbours' line, they speak from their own (person-scope) facts or not at all.
+ * Slice C (#1610) brought the first such facts; nothing before it is changed by this rule, since
+ * every fact until then was a person's own.
+ */
+export function tells(k: Knower, f: Fact, topic: string): boolean {
+  if (!f.about.includes(topic) || !knows(k, f)) return false;
+  return !(topic === `person:${k.id}` && f.scope.kind !== 'person');
+}
+
 /** The trust `f` takes, told by a member of its scope to an outsider. */
 export function gateOf(f: Fact, orgs: Readonly<Record<string, Org>>): number {
   if (f.scope.kind !== 'org') return SENSITIVITY_TRUST[f.sensitivity];
@@ -140,7 +153,7 @@ const rank = (f: Fact): number => SPECIFICITY.indexOf(f.scope.kind);
  * specific fact about it.
  */
 export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = []): KnowledgeAnswer {
-  const known = facts.filter(f => f.about.includes(topic) && knows(k, f)).sort((a, b) => rank(a) - rank(b));
+  const known = facts.filter(f => tells(k, f, topic)).sort((a, b) => rank(a) - rank(b));
   const lie = k.lies?.find(l => l.about === topic && trust < l.until);
   if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null };
   const best = known[0];
@@ -152,7 +165,7 @@ export function answer(k: Knower, topic: string, trust: number, facts: readonly 
   // common knowledge sends you to no one in particular.
   const who = others
     .filter(o => o.id !== k.id)
-    .map(o => ({ o, f: facts.filter(f => f.about.includes(topic) && knows(o, f) && f.scope.kind !== 'world').sort((a, b) => rank(a) - rank(b))[0] }))
+    .map(o => ({ o, f: facts.filter(f => tells(o, f, topic) && f.scope.kind !== 'world').sort((a, b) => rank(a) - rank(b))[0] }))
     .filter(x => x.f)
     .sort((a, b) => rank(a.f!) - rank(b.f!))[0];
   return { kind: 'unknown', referral: who?.o.id ?? null };
