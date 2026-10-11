@@ -1,7 +1,8 @@
 /**
  * The play API's games, kept in Supabase (#1555): tables `artificer_games` and
  * `artificer_play_usage` (supabase/migrations/20261010000000_artificer_games.sql), and the run
- * records of finished games, `artificer_runs` (#1558, 20261010220000_artificer_runs.sql).
+ * records of finished games, `artificer_runs` (#1558, 20261010220000_artificer_runs.sql), and the
+ * free questions players ask, `artificer_questions` (#1575, 20261011050000_artificer_questions.sql).
  *
  * All have row-level security on and no policies, so the browser's publishable key can't read
  * or write them at all: only this server code can, with the service-role key. That matters because
@@ -12,6 +13,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { GameRecord, GameStore } from './api';
 import { rankKey, type AiRun, type Run, type RunSummary, type StoredRun } from './records';
+import type { Question } from './questions';
 
 /** A row as Postgres has it: snake_case, moves as jsonb, and the move count kept for `update`. */
 interface Row {
@@ -102,6 +104,13 @@ const summaryFromRow = (r: Omit<RunRow, 'detail'>): RunSummary => ({
 
 const runFromRow = (r: RunRow): StoredRun => ({ ...summaryFromRow(r), detail: r.detail });
 
+const QUESTIONS = 'artificer_questions';
+
+export const questionToRow = (q: Question) => ({
+  question: q.question, blocked: q.blocked, person: q.person, topic: q.topic, answered: q.answered,
+  trust: Math.round(q.trust), game_version: q.gameVersion, surface: q.surface,
+});
+
 export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
   // A server has no user session to keep or refresh: each call is the service role.
   const db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -171,6 +180,10 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       check(theirs.error, 'ai runs (outside)');
       return ([...(mine.data ?? []), ...(theirs.data ?? [])] as unknown as (RunRow & { milestoneDays: AiRun['milestoneDays'] })[])
         .map(r => ({ ...summaryFromRow(r), milestoneDays: r.milestoneDays ?? null }));
+    },
+    async insertQuestion(q) {
+      const { error } = await db.from(QUESTIONS).insert(questionToRow(q));
+      check(error, 'insert question');
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();

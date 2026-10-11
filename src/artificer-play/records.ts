@@ -118,13 +118,30 @@ const NICKNAME_CHARS = 16;
 export function nicknameOf(raw: string | null | undefined): string | null {
   // Only the first word is kept, so only the first word is checked.
   const token = raw?.trim().split(/\s+/)[0] ?? '';
-  const squeezed = token.toLowerCase().replace(/[0134578@$!]/g, c => LOOK_ALIKES[c] ?? c).replace(/[^\p{L}]/gu, '');
-  if (BLOCKED_ANYWHERE.some(w => squeezed.includes(w)) || BLOCKED_WORDS.some(w => squeezed === w || squeezed === `${w}s`)) return null;
+  if (isBlocked(token)) return null;
   // Cut by characters, not UTF-16 units: half of a letter outside the basic plane is invalid text
   // that Postgres refuses, and the record would be lost.
   const word = [...token.replace(/[^\p{L}'-]/gu, '').replace(/^['-]+|['-]+$/g, '')].slice(0, NICKNAME_CHARS).join('');
   return word && word.toLowerCase() !== 'warden' ? word : null;
 }
+
+/**
+ * Whether one word holds a blocked word. Punctuation that ends a sentence is dropped first ("kill?"
+ * is "kill", not "kill" and a look-alike i), then symbols are squeezed out and look-alike digits read
+ * as letters, so "sh1t" and "f.u.c.k" are caught.
+ */
+function isBlocked(token: string, allowed: readonly string[] = []): boolean {
+  const bare = token.replace(/^["'(\[]+|[?!.,;:"')\]]+$/g, '');
+  const squeezed = bare.toLowerCase().replace(/[0134578@$!]/g, c => LOOK_ALIKES[c] ?? c).replace(/[^\p{L}]/gu, '');
+  return BLOCKED_ANYWHERE.some(w => squeezed.includes(w)) || BLOCKED_WORDS.some(w => !allowed.includes(w) && (squeezed === w || squeezed === `${w}s`));
+}
+
+/**
+ * Whether any word in a line of free text holds a blocked word (#1575: free questions), by the
+ * nickname rule. `allowed` lets a few whole words through where they have an ordinary sense in the
+ * text's setting: "How do I kill a wolf?" is a fair question in a survival game.
+ */
+export const holdsBlockedWord = (text: string, allowed: readonly string[] = []): boolean => text.split(/\s+/).some(w => w && isBlocked(w, allowed));
 
 // ── Ranking and comparing ───────────────────────────────────────────────────
 

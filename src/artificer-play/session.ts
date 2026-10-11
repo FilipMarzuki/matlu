@@ -25,6 +25,8 @@ import { encounterById, optionsFor } from '../artificer/encounters';
 import { meetingOptions } from '../artificer/caravan-meeting';
 import { ROAD_DAYS, peopleHere, type RoadActionId, type RoadState } from '../artificer/road';
 import { observe, observeEncounter, observeMeeting, observeRoad } from '../artificer-ai/observe';
+import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
+import { cleanQuestion } from './questions';
 
 /**
  * The session format's version. A stored game from another version doesn't load (it starts over
@@ -48,13 +50,17 @@ export interface Game {
  * - `{ choose }` an option in an encounter or the caravan meeting.
  * - `{ set }` what the mind works on (`focus`, a key like `"goal:larder"` or `"none"`), how to
  *   eat (`eating`) or where to camp (`site`). Free: no hours.
+ * - `{ ask }` on the road, a free question to someone here, in the player's own words (#1575):
+ *   once per person per stay. It's matched to what they know and played as the road action
+ *   `question:<person>:<topic>`, so the words never enter the game, only the topic they matched.
  */
 export type Move =
   | { do: QueueItem | RoadActionId | string }
   | { endDay: true }
   | { plan: (QueueItem | string)[] }
   | { choose: string }
-  | { set: { focus?: string; eating?: string; site?: string } };
+  | { set: { focus?: string; eating?: string; site?: string } }
+  | { ask: { person: string; question: string } };
 
 export type Phase = 'day' | 'encounter' | 'meeting' | 'road' | 'road-encounter' | 'ended';
 
@@ -76,8 +82,23 @@ export interface View {
 }
 
 export type ApplyResult =
-  | { ok: true; game: Game; changed: string[]; view: View }
+  | {
+    ok: true; game: Game; changed: string[]; view: View;
+    /** The move as played: the same move, except an `ask` becomes the road action it was matched to. Store this one. */
+    played: Move;
+    /** For an `ask`: the question, cleaned to keep (questions.ts), and how it went. */
+    asked?: AskedQuestion;
+  }
   | { ok: false; error: string; moves: MoveOption[] };
+
+/** A free question as asked (#1575): what may be kept of it, who, what it matched, and their trust then. */
+export interface AskedQuestion {
+  person: string;
+  text: string | null;
+  blocked: boolean;
+  topic: string | null;
+  trust: number;
+}
 
 // ── Starting and viewing ────────────────────────────────────────────────────
 
@@ -106,7 +127,7 @@ export function view(g: Game): View {
         moves: meetingOptions(a.sim, a.meeting!).filter(o => !o.unmet).map(o => ({ move: { choose: o.option.id }, label: o.option.label })),
       };
     case 'road':
-      return { phase, text: observeRoad(a.road!), status: roadStatus(a.road!), moves: roadMoves(a.road!) };
+      return { phase, text: [observeRoad(a.road!), freeQuestionsText(a.road!)].filter(Boolean).join('\n\n'), status: roadStatus(a.road!), moves: roadMoves(a.road!) };
     case 'road-encounter':
       // The road carries the Warden's body and mind under the same names, so the encounter view reads it as it reads the Reach.
       return { phase, text: observeEncounter(a.road! as unknown as Region1State), status: roadStatus(a.road!), moves: encounterMoves(a.road! as unknown as Region1State) };
@@ -125,8 +146,25 @@ export function apply(g: Game, move: Move): ApplyResult {
   let next: AppState;
 
   if (phase === 'ended') return refuse('The run is over. Start a new game to play again.');
+  let played: Move = move;
+  let asked: AskedQuestion | undefined;
 
-  if ('set' in move) {
+  if ('ask' in move) {
+    if (phase !== 'road') return refuse(phase === 'road-encounter' ? 'Something needs an answer first.' : 'There\'s no one to ask yet: free questions are for the people you meet on the road.');
+    const r = before.road!;
+    const { person, question } = move.ask;
+    const who = peopleHere(r).find(p => p.id === person);
+    if (!who) return refuse(`There's no one called "${person}" here. Here: ${peopleHere(r).map(p => `${p.name} (${p.id})`).join(', ')}.`);
+    if (r.hoursToday >= DAY_HOURS) return refuse('The day is spent: end the day, and ask tomorrow.');
+    if ((r.questioned ?? []).includes(person)) return refuse(`You've asked ${who.name} your question this stay. Ask someone else, or ask again at the next stop.`);
+    const clean = cleanQuestion(question);
+    if (!clean) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
+    // A blocked question matches nothing: they deflect, and it's kept without its words.
+    const topic = clean.text ? matchQuestion(person, clean.text, r.asked?.[person] ?? []) : null;
+    played = { do: `question:${person}${topic ? `:${topic}` : ''}` };
+    asked = { person, text: clean.text, blocked: clean.blocked, topic, trust: Math.round(r.trust[person] ?? 0) };
+    next = roadAct(before, played.do as RoadActionId);
+  } else if ('set' in move) {
     const r = applySet(before, move.set);
     if (typeof r === 'string') return refuse(r);
     next = r;
@@ -141,7 +179,7 @@ export function apply(g: Game, move: Move): ApplyResult {
     if ('endDay' in move) next = roadEndDay(before);
     else if ('do' in move) {
       const id = typeof move.do === 'string' ? move.do : '';
-      if (!isRoadAction(id)) return refuse(`"${id}" isn't a road action. Road actions are rest, wait, tend, help, or talk:/ask:/tell:/heal:/sell:/buy:/accept:/complete:/learn:/appraise:/craft:/study: followed by an id from the view.`);
+      if (!isRoadAction(id)) return refuse(`"${id}" isn't a road action. Road actions are rest, wait, tend, help, or talk:/ask:/tell:/heal:/sell:/buy:/accept:/complete:/learn:/appraise:/craft:/study: followed by an id from the view. A free question is its own move: { "ask": { "person", "question" } }.`);
       next = roadAct(before, id as RoadActionId);
     } else return refuse('On the road: do one road action, end the day, or change your focus.');
   } else {
@@ -166,7 +204,7 @@ export function apply(g: Game, move: Move): ApplyResult {
 
   const settled = advance(next);
   const game = { id: g.id, app: settled };
-  return { ok: true, game, changed: [...changes(before, next), ...changes(next, settled)], view: view(game) };
+  return { ok: true, game, changed: [...changes(before, next), ...changes(next, settled)], view: view(game), played, ...(asked ? { asked } : {}) };
 }
 
 // ── Saving ──────────────────────────────────────────────────────────────────
@@ -275,7 +313,14 @@ function roadMoves(r: RoadState): MoveOption[] {
   return out;
 }
 
-const ROAD_VERBS = ['talk', 'ask', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];
+/** Who can still be asked a free question this stay (#1575), and how: a line under the road's view. */
+function freeQuestionsText(r: RoadState): string {
+  const open = peopleHere(r).filter(p => !(r.questioned ?? []).includes(p.id));
+  if (!open.length) return '';
+  return `Free questions: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, whatever their trust; the questions are kept (nothing about you) to improve the game. Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
+}
+
+const ROAD_VERBS = ['talk', 'ask', 'question', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];
 function isRoadAction(id: string): boolean {
   if (['rest', 'wait', 'tend', 'help'].includes(id)) return true;
   const [verb, rest] = id.split(/:(.*)/s);

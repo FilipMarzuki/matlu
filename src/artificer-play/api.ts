@@ -8,6 +8,7 @@
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
+ *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
  *   GET  /api/v1/rules               the rules text        → 200
  *
  * Nothing here knows about Vercel or Supabase: `handle` takes a request, a store and a clock, and
@@ -26,6 +27,9 @@ import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
 import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { cleanQuestion, type Question } from './questions';
+import { knowsAbout } from '../artificer/free-questions';
+import { personById } from '../artificer/villages';
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {
@@ -77,6 +81,8 @@ export interface GameStore {
    * a flood of outside games can't push the playtest's history off the page.
    */
   aiRuns(limits: { bench: number; outside: number }): Promise<AiRun[]>;
+  /** Keep a free question (#1575), already cleaned. */
+  insertQuestion(q: Question): Promise<void>;
 }
 
 export interface ApiRequest {
@@ -115,11 +121,16 @@ export interface ApiDeps {
 export const LIMITS = {
   gamesPerIpPerDay: 20, movesPerIpPerDay: 5000, movesPerGame: 5000,
   gamesPerDay: 500, movesPerDay: 20_000,
+  // Free questions kept (#1575): a road meets about twenty people, each asked once a stay, so these
+  // leave room for several games a day each, and keep a year of everyone's inside the free tier.
+  questionsPerIpPerDay: 200, questionsPerDay: 2000,
   bodyBytes: 16_384, nameChars: 24,
 };
 
 /** The usage counter's key for every move by anyone (artificer_play_usage). */
 const ALL_MOVES = 'all';
+/** The same counter, for questions kept: per address under `q:<key>`, everyone's under this. */
+const ALL_QUESTIONS = 'q:all';
 
 /** The console's client name (src/artificer-app/console.ts sends it): its games are played by people. */
 export const CONSOLE_CLIENT = 'artificer-console';
@@ -148,6 +159,24 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   // site, which is what the CORS headers are for. Cached five minutes: the playtest adds runs nightly.
   if (req.method === 'GET' && resource === 'runs' && id === 'ai' && !sub) {
     return { status: 200, body: { version: GAME_VERSION, runs: await store.aiRuns(RUNS.ai) }, cache: RUNS.aiCacheSeconds };
+  }
+  // POST /api/v1/questions: keep a free question asked in the web game (#1575). The web game plays
+  // on the page, so the question was matched and answered there; this only keeps it. If it fails,
+  // the game goes on: the page doesn't wait for it, and nothing in the game depends on it.
+  if (req.method === 'POST' && resource === 'questions' && !id) {
+    const body = parseBody(req.body);
+    if (body === undefined) return fail(400, 'The body must be JSON.');
+    const person = typeof body.person === 'string' ? body.person : '';
+    if (!personById(person)) return fail(400, 'The body must be { "person": "<person id>", "question": "…" }, with someone the road has.');
+    const clean = cleanQuestion(body.question);
+    if (!clean) return fail(400, 'There\'s no question in that.');
+    // The topic the page matched, kept only if it's one this person knows. Self-reported, like a
+    // model name; a blocked question matched nothing.
+    const topic = clean.text && typeof body.topic === 'string' && knowsAbout(person, body.topic) ? body.topic : null;
+    const trust = typeof body.trust === 'number' && Number.isFinite(body.trust) ? Math.min(100, Math.max(0, Math.round(body.trust))) : 0;
+    const q: Question = { question: clean.text, blocked: clean.blocked, person, topic, answered: topic !== null, trust, gameVersion: GAME_VERSION, surface: 'web' };
+    if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
+    return { status: 201, body: { kept: true } };
   }
   if (resource !== 'games') return fail(404, 'Not found.');
 
@@ -218,15 +247,33 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     }
     const body = parseBody(req.body);
     const move = body?.move as Move | undefined;
-    if (!isMove(move)) return fail(400, 'The body must be { "move": … }: one of { "do": … }, { "endDay": true }, { "plan": […] }, { "choose": … }, { "set": { … } }.');
+    if (!isMove(move)) return fail(400, 'The body must be { "move": … }: one of { "do": … }, { "endDay": true }, { "plan": […] }, { "choose": … }, { "set": { … } }, { "ask": { "person", "question" } }.');
+    // A free question is asked in words, so it can be kept: the road action it's played as can't be sent itself.
+    if ('do' in move && typeof move.do === 'string' && move.do.startsWith('question:')) {
+      return fail(400, 'Ask a free question as { "ask": { "person": "<id>", "question": "…" } }.');
+    }
     const r = apply(game, move);
     if (!r.ok) return { status: 422, body: { error: r.error, moves: r.moves } };
+    // The move as played is what's stored: for a question, the topic it matched, never its words.
     const updated: GameRecord = {
-      ...record, session: serialize(r.game), moves: [...record.moves, move], phase: r.view.phase,
+      ...record, session: serialize(r.game), moves: [...record.moves, r.played], phase: r.view.phase,
       measures: measure(record.measures, r.game.app), updatedAt: new Date(deps.now()).toISOString(),
     };
     if (!(await store.update(updated, record.moves.length))) {
       return fail(409, 'Another move on this game landed first. Fetch the game and try again.');
+    }
+    if (r.asked) {
+      const a = r.asked;
+      const q: Question = {
+        question: a.text, blocked: a.blocked, person: a.person, topic: a.topic, answered: a.topic !== null, trust: a.trust,
+        gameVersion: record.version, surface: record.surface === 'bench' ? 'api' : record.surface,
+      };
+      // Kept if today's limits allow. A failure is logged, not passed on: the move itself was saved.
+      try {
+        await keepQuestion(store, q, req.ip, deps, limits);
+      } catch (e) {
+        console.error('question not kept', e);
+      }
     }
     // An ended game refuses moves, so this is the move that ended it: write its record, once.
     if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
@@ -252,12 +299,25 @@ async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<voi
   }
 }
 
+/**
+ * Keep a free question (#1575) if today's limits allow it: per address, and everyone's together.
+ * False when a limit turned it away.
+ */
+async function keepQuestion(store: GameStore, q: Question, ip: string, deps: ApiDeps, limits: typeof LIMITS): Promise<boolean> {
+  const today = new Date(deps.now()).toISOString().slice(0, 10);
+  if ((await store.countMove(`q:${keyOf(ip, deps.salt)}`, today)) > limits.questionsPerIpPerDay) return false;
+  if ((await store.countMove(ALL_QUESTIONS, today)) > limits.questionsPerDay) return false;
+  await store.insertQuestion(q);
+  return true;
+}
+
 /** A record's source key for an API game (artificer_runs.source_key). */
 export const sourceOf = (gameId: string): string => `game:${gameId}`;
 
 /** An in-memory store, for tests and local play. */
-export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs: Map<string, StoredRun> } {
+export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs: Map<string, StoredRun>; questions: Question[] } {
   const rows = new Map<string, GameRecord>();
+  const questions: Question[] = [];
   const moves = new Map<string, number>();
   const runs = new Map<string, StoredRun>();
   let written = 0;
@@ -267,6 +327,8 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
   return {
     rows,
     runs,
+    questions,
+    insertQuestion: async q => { questions.push(structuredClone(q)); },
     insert: async g => { rows.set(g.id, structuredClone(g)); },
     get: async id => (rows.has(id) ? structuredClone(rows.get(id)!) : null),
     update: async (g, movesBefore) => {
@@ -318,6 +380,7 @@ function rulesBody(): Record<string, unknown> {
       plan: 'A whole day\'s actions in order, once the Warden has learned to plan.',
       choose: 'An option id in an encounter or the caravan meeting.',
       set: '{ "focus": "goal:larder" | "none", "eating": "full" | "half" | "none", "site": "cave" | … }: free, no hours.',
+      ask: '{ "person": "<person id>", "question": "…" }: on the road, a question in your own words, once per person per stay (up to 200 characters). Questions are kept, with nothing about you, to improve the game.',
     },
   };
 }
@@ -341,6 +404,10 @@ function isMove(m: unknown): m is Move {
   if ('plan' in o) return Array.isArray(o.plan) && o.plan.length <= 40;
   if ('choose' in o) return typeof o.choose === 'string';
   if ('set' in o) return !!o.set && typeof o.set === 'object';
+  if ('ask' in o) {
+    const a = o.ask as Record<string, unknown> | null;
+    return !!a && typeof a === 'object' && typeof a.person === 'string' && typeof a.question === 'string';
+  }
   return false;
 }
 
