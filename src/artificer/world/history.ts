@@ -24,13 +24,13 @@ import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
 import { provincesOf, type Province, type Provinces } from './provinces';
 import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
-import { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
+import { HISTORY_VERSION, LIVING_MEMORY, type HistoryOrg, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { remembered, type Remembered } from './remembered';
 import { renderRegionalEvent, renderRegionalEventNamed } from '../../../storytelling/render';
 import { nameRegions, regionLabel } from '../../../storytelling/regions';
 import { hasAlliance } from '../../../storytelling/diplomacy';
 
-export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory, type HistoryLine, type RegionHistory, type RegionLine } from './history-format';
+export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory, type HistoryLine, type RegionHistory, type RegionLine, type HistoryOrg } from './history-format';
 
 /** How long the engine runs. Year 1 is when the oldest houses of the Reach first held land. */
 export const HISTORY_YEARS = 150;
@@ -189,6 +189,7 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
       };
     }),
     regions: regionsOf(world),
+    orgs: orgsOf(world),
     chronicle: text,
     logged: world.events.length,
     told: chronicle.length,
@@ -363,6 +364,30 @@ function houseOf(world: World, ev: WorldEvent): string | null {
 /** A fingerprint of the event log: the same seed must always log the same events (tests pin it). */
 export function eventLogKey(events: readonly WorldEvent[]): string {
   return events.map(e => `${e.id}|${e.year}|${e.type}|${e.actorId}|${e.targetId}|${e.titleId}|${e.provinceId}`).join('\n');
+}
+
+/**
+ * The engine's organisations as they stand at the end (#1587): its guilds, academies and companies,
+ * as plain data for the road's bridge (organisations.ts). Read off the world after it's lived, so
+ * nothing is drawn from World.rng and the event log stays as it was.
+ */
+export function orgsOf(world: World): HistoryOrg[] {
+  // A head the engine names who has since died may be gone from the roster: name them only if known.
+  const named = (id: string | null): string | null => (id && world.char(id) ? fullName(world, id) : null);
+  return [
+    ...[...world.guilds.values()].map(g => ({
+      id: g.id, name: g.name, kind: 'guild' as const, craft: g.craft, province: g.provinceId, founded: g.foundedYear, ended: g.disbandedYear,
+      members: g.memberIds.length, head: named(g.masterId), monopoly: g.monopolyInventionId ? world.inventions.get(g.monopolyInventionId)?.name ?? null : null,
+    })),
+    ...[...world.academies.values()].map(a => ({
+      id: a.id, name: a.name, kind: 'academy' as const, craft: null, province: a.provinceId, founded: a.foundedYear, ended: a.closedYear,
+      members: a.memberIds.length, head: named(a.masterId), monopoly: null,
+    })),
+    ...[...world.companies.values()].map(c => ({
+      id: c.id, name: c.name, kind: 'company' as const, craft: c.kind, province: c.homeProvinceId, founded: c.formedYear, ended: c.disbandedYear,
+      members: c.memberCount, head: named(c.captainId), monopoly: null,
+    })),
+  ];
 }
 
 /** "Ivar of Hedlund", the way the engine's chronicle names people. */
