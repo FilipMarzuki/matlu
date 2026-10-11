@@ -31,10 +31,32 @@
  * ## In play (behind the `village-economies` switch)
  *
  * A road village's economy also says what's **plentiful** there (the goods its trades make, cheap
- * to buy and not worth much to sell) and what's **scarce** (kinds of goods it lacks, dear to buy and
- * worth more to sell), and what the place looks and sounds like (`scene`). road.ts reads those
+ * to buy and not worth much to sell) and what's **scarce** (what it lacks, dear to buy and worth
+ * more to sell), and what the place looks and sounds like (`scene`). road.ts reads those
  * through `localMarket` for prices and stock, quests.ts gates each village's trade job on the
- * switch, and the arrival tells the scene and what the place lives on.
+ * switch, and the arrival tells the scene, what the place lives on and what it burns.
+ *
+ * ## Everyday fuel is local (#1627)
+ *
+ * Owner (on #1627): a village has to get its everyday fuel close by, "else how could they be
+ * sustaining themselves. Firewood is heavy and hard to transport". So no road village lists fuel
+ * as scarce: Hollowford cuts wood in the copses above its terraces, Kestrel Gate on the slopes
+ * below the pass, and Saltmere, out on the treeless steppe, burns what it cuts and gathers there:
+ * reed off the mere's edge, peat, and dried dung (`fuel`). Saltmere still lacks *wood*, so
+ * firewood is dear there as timber, not as fuel: it goes to Hedda's smoke-racks, not the hearths.
+ *
+ * ## The prices (#1627)
+ *
+ * The multipliers (×0.75 for what a village makes, ×1.25 for what it lacks, ×1.1 for a market
+ * town's markup) were checked against a careful player carrying goods down the road
+ * (economy-prices.test.ts) and kept. The best carry, hides from Hollowford to Saltmere or salt
+ * rations from Saltmere to the Gate, returns a third on what it cost at a stranger's prices
+ * (about 1.6× at a friend's), so 20 marks carried the whole road come to about 35: real, and
+ * less than the jobs pay along the way. The check found one thing to change: traders bought a
+ * good they sell for more than they sold it (a wanted kind pays ×1.5, which beats the ×1.25
+ * markup), so a player could buy a heap and sell it straight back for marks every hour, with or
+ * without village economies. With the switch, no trader pays more than ×0.8 of their own price
+ * for a good they sell (`BUY_BACK`).
  *
  * Pure data plus pure helpers.
  */
@@ -70,44 +92,70 @@ export interface VillageEconomy extends Economy {
   story: string;
   /** Goods its trades make: plentiful, so cheap to buy and worth less to sell. */
   plentiful: readonly Good[];
-  /** Kinds of goods it lacks: scarce, so dear to buy and worth more to sell. */
-  scarce: readonly Kind[];
+  /** What it lacks: scarce, so dear to buy and worth more to sell. Never `fuel` (#1627). */
+  scarce: readonly Scarcity[];
+  /** Its everyday fuel, got close by (#1627): no village can live on firewood carted in. */
+  fuel: LocalFuel;
   /** What it looks and sounds like when the caravan rolls in, from what it lives on. */
   scene: string;
 }
 
 /**
+ * What a village can lack: a kind of goods (trade.ts `KIND_OF`), or one good when the village
+ * lacks the thing rather than the kind. Saltmere lacks wood, not fuel: it lists `firewood` (the
+ * road's only wood good), so a fuel it could burn, were there one besides firewood, wouldn't be
+ * dear there.
+ */
+export type Scarcity = Kind | Good;
+
+/**
+ * What a village burns day to day (#1627). `wood`: firewood cut close by. `peat`: what a treeless
+ * place cuts and gathers instead, reed, peat and dried dung. world/settlements.ts reads it too:
+ * a village that burns wood has its woodlot.
+ */
+export interface LocalFuel {
+  burns: 'wood' | 'peat';
+  /** Said on arrival, after what the place lives on. */
+  line: string;
+}
+
+/**
  * The road villages' economies, written to agree with villages.ts and with their people:
  * - **Hollowford** lives on its terraced barley, and its sheepfolds besides; the ford was there
- *   before the village (Maren). It has no iron ("that's Gate work", Orrin), and the forge "eats
- *   wood faster than I can cut it".
+ *   before the village (Maren). It has no iron ("that's Gate work", Orrin). Its wood comes down
+ *   from the copses above the terraces (its scope facts), so it isn't short of fuel: Orrin's
+ *   forge "eats wood faster than I can cut it" because he's busy, not because the hill is bare.
  * - **Saltmere** lives on salt ("salt fish, salt pork, salt everything", Hedda), and on the fish
  *   it salts; it grew up around the fishing, when the mere was sweet (Anselm). It's at the edge of
- *   the treeless steppe, and its waterskins "leak at every seam" (Liv).
+ *   the treeless steppe, so wood is dear (Hedda's smoke-racks) and the hearths burn reed, peat and
+ *   dung; and its waterskins "leak at every seam" (Liv).
  * - **Kestrel Gate** lives on its toll ("the toll pays for the wall", Veit), its market and the
- *   iron off the passes; it grew up around the wall across the pass. A pass has no fields, and
- *   "the Gate burns a lot of wood" (Arvid).
+ *   iron off the passes; it grew up around the wall across the pass. A pass has no fields. The
+ *   Gate burns a lot of wood (Arvid buys it), and cuts it on its own slopes.
  */
 export const VILLAGE_ECONOMY: Readonly<Record<AnchorId, VillageEconomy>> = {
   hollowford: {
     dominant: 'farming', secondary: ['herding'], founding: 'crossing', crafted: true,
     story: 'Hollowford grew up around the ford, where the river let it; today it lives on the barley on its terraces, and on its sheep besides.',
     plentiful: ['rawFood', 'hides'],
-    scarce: ['tools', 'fuel'],
+    scarce: ['tools'],
+    fuel: { burns: 'wood', line: 'Its hearths burn wood from the copses above the terraces.' },
     scene: 'Barley stands gold on every terrace, sheep call from the stone folds, and fresh hides hang drying on the walls by the ford.',
   },
   saltmere: {
     dominant: 'salt', secondary: ['fishing'], founding: 'fishing', crafted: true,
     story: 'Saltmere grew up around the fishing, when the mere was still sweet water; today it lives on salt, and on the fish it salts besides.',
     plentiful: ['rations', 'rawFood'],
-    scarce: ['fuel', 'leather'],
+    scarce: ['firewood', 'leather'],
+    fuel: { burns: 'peat', line: 'There isn\'t a tree on the steppe: the hearths burn reed cut at the mere\'s edge, peat and dried dung, and what wood the carts bring goes to the smoke-racks.' },
     scene: 'Rakers work the white crust along the shore, the racks are hung with fish drying over slow smoke, and everything smells of brine.',
   },
   'kestrel-gate': {
     dominant: 'tolls', secondary: ['trading', 'mining'], founding: 'pass', crafted: true,
     story: 'Kestrel Gate grew up around the wall across the pass; today it lives on the toll, and on its market and the iron off the passes besides.',
     plentiful: ['stone'],
-    scarce: ['food', 'fuel'],
+    scarce: ['food'],
+    fuel: { burns: 'wood', line: 'Its fires and its forge burn wood cut on the slopes below the pass.' },
     scene: 'Wagons wait at the gate to be counted and tolled, ore-carts rattle down from the passes, and the market inside the wall rings with lowland coin and hammered iron.',
   },
 };
@@ -186,15 +234,23 @@ export const ventureFits = (e: Economy, ventureKind: string): boolean => {
 
 // --- in play: the village's market (the `village-economies` switch) ---
 
-/** A plentiful good costs and fetches this share of its price; a scarce kind this much more. */
+/**
+ * A plentiful good costs and fetches this share of its price; a scarce one this much more.
+ * Checked against a careful player's trade down the road (#1627, economy-prices.test.ts).
+ */
 export const PLENTIFUL = 0.75, SCARCE = 1.25;
 /** A market town's traders sell at this markup in place of trade.ts `MARKUP`: buyers have a choice of stalls. */
 export const MARKET_MARKUP = 1.1;
+/**
+ * The most a trader pays for a good they sell themselves, as a share of what they'd charge for it
+ * (#1627, trade.ts `sellPrice`): no buying a heap and selling it straight back at a profit.
+ */
+export const BUY_BACK = 0.8;
 
 /** What a village's market makes of a trade: what's plentiful, what's scarce, whether it's a market town. */
 export interface LocalMarket {
   plentiful: readonly Good[];
-  scarce: readonly Kind[];
+  scarce: readonly Scarcity[];
   /** A market or toll town: keener prices on what its traders sell. */
   market: boolean;
 }
@@ -214,23 +270,28 @@ const GOOD_WORDS: Readonly<Record<Good, string>> = {
   rawFood: 'fresh food', water: 'water', firewood: 'firewood', materials: 'materials', rations: 'salted rations', stone: 'stone', hides: 'hides',
 };
 
-/** "Fresh food and hides are cheap here; tools and firewood are dear, and sell well." */
+/** How a scarce thing is named: a kind by its kind's words, a good by its own. */
+const scarceWord = (x: Scarcity): string => (x in KIND_WORDS ? KIND_WORDS[x as Kind] : GOOD_WORDS[x as Good]);
+
+/** "Fresh food and hides are cheap here; tools are dear, and sell well." */
 export function marketLine(m: Pick<LocalMarket, 'plentiful' | 'scarce'>): string {
   const list = (xs: readonly string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-  const plural = (xs: readonly unknown[]) => (xs.length > 1 ? 'are' : 'is');
-  const cheap = m.plentiful.length ? `${list(m.plentiful.map(g => GOOD_WORDS[g]))} ${plural(m.plentiful)} cheap here` : '';
-  const dear = m.scarce.length ? `${list(m.scarce.map(k => KIND_WORDS[k]))} ${plural(m.scarce)} dear, and sell well` : '';
+  // Two things are plural, and so is one whose name is ("tools", "leather goods"); "food" isn't.
+  const plural = (xs: readonly string[]) => (xs.length > 1 || /s$/.test(xs[0]) ? 'are' : 'is');
+  const cheapWords = m.plentiful.map(g => GOOD_WORDS[g]), dearWords = m.scarce.map(scarceWord);
+  const cheap = cheapWords.length ? `${list(cheapWords)} ${plural(cheapWords)} cheap here` : '';
+  const dear = dearWords.length ? `${list(dearWords)} ${plural(dearWords)} dear, and sell well` : '';
   return `${cap([cheap, dear].filter(Boolean).join('; '))}.`;
 }
 
 /**
  * What arriving tells of a village's economy: what it looks and sounds like, what it lives on,
- * and what that means at its market. Null for a place with none written.
+ * what it burns (#1627), and what that means at its market. Null for a place with none written.
  */
 export function arrivalLines(village: string, crafted: CraftedEconomies = VILLAGE_ECONOMY): string[] | null {
   const e = crafted[village as AnchorId];
   if (!e) return null;
-  return [e.scene, e.story, marketLine(e)];
+  return [e.scene, e.story, e.fuel.line, marketLine(e)];
 }
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
