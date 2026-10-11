@@ -17,7 +17,7 @@ Credits are finite. Commit after every culture batch so a crash never loses prog
 
 Load data from Supabase (master) and local files before generating anything:
 
-1. **Supabase `ancestries`** — Query: `SELECT * FROM ancestries WHERE slug = 'human'` (Markfolk maps to the `human` ancestry). Extract: `build`, `surface`, `silhouette`, `head`, `sprite_note`, `variation`. This is the body baseline for ALL sprites in this run.
+1. **Supabase `ancestries`** — Query: `SELECT * FROM ancestries WHERE slug = 'markfolk'` (the Markfolk orcs; until migration `20261011120000_human_peoples.sql` is applied, their body is still on the `human` row, so fall back to `slug = 'human'` if `markfolk` has none). The human Peoples (`riksfolk`, `strandfolk`, #1623) have no body fields yet: don't invent them, use the Markfolk body until they do. Extract: `build`, `surface`, `silhouette`, `head`, `sprite_note`, `variation`. This is the body baseline for ALL sprites in this run.
 
 2. **Supabase `fashion_styles` + `fashion_variants`** — Query for the 5 target cultures. For each, note `real_world_inspiration`, `base_materials`, `base_palette`, `base_motifs`, and all variants (join `fashion_variants` on `fashion_style_id`). SQL: `SELECT fs.*, c.slug as culture_slug FROM fashion_styles fs JOIN cultures c ON c.id = fs.culture_id WHERE c.slug IN ('fieldborn','coastborn','harborfolk','ridgefolk','wallborn')` then `SELECT * FROM fashion_variants WHERE fashion_style_id IN (...)`.
 
@@ -165,7 +165,7 @@ Total credits: ~<N>
 
 ## IMPORTANT RULES
 
-- **Never skip the ancestry body data.** Every description must include Markfolk body features from the `ancestries` table (slug: `human`). "Human male" is not enough — use the actual build/surface/silhouette fields.
+- **Never skip the ancestry body data.** Every description must include Markfolk body features from the `ancestries` table (slug: `markfolk`, or `human` before the #1623 migration). "Human male" is not enough — use the actual build/surface/silhouette fields.
 - **Clothing comes from Supabase `fashion_styles` + `fashion_variants` only.** Never invent clothing. If the data says "wide straw hat", use "wide straw hat".
 - **Pose comes from spriteNotes only** (in `population-archetypes.json`). Never invent poses. If the data says "holding tongs", use "holding tongs".
 - **Commit after every culture.** Never batch multiple cultures in one commit.

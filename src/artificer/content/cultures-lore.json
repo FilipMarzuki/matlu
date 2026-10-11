@@ -1,5 +1,5 @@
 {
-  "_doc": "What each culture on the caravan road values, shames, does and thinks of the road's other cultures (views) and of the 16 Peoples (peopleViews), and how openly it says so (candour) (#1590). Ids and names are macro-world/cultures.json's (not edited here: it stays layout only). Read through src/artificer/culture-lore.ts; see docs/culture-lore.md.",
+  "_doc": "What each culture on the caravan road values, shames, does and thinks of the road's other cultures (views) and of the 18 Peoples (peopleViews), and how openly it says so (candour) (#1590). Ids and names are macro-world/cultures.json's (not edited here: it stays layout only). Read through src/artificer/culture-lore.ts; see docs/culture-lore.md.",
   "cultures": [
     {
       "id": "fieldborn",
@@ -104,7 +104,15 @@
           {"text":"The thing at the Threefold Crossroads answers any question. True answers, and no use at all.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left › Threefold Crossroads"}
         ],
         "Wildkin": [
-          {"text":"Beastkin turn into wolves when the moon is full.","truth":"false","source":"macro-world/race-affinities.json › Not shapeshifters","invented":true,"strength":"loose","actually":{"text":"Wildkin aren't shapeshifters. They're always partly animal and partly person.","source":"macro-world/race-affinities.json › Not shapeshifters"}}
+          {"text":"Beastkin turn into wolves when the moon is full.","truth":"false","source":"macro-world/race-affinities.json › Not shapeshifters","invented":true,"strength":"loose","actually":{"text":"Wildkin aren't shapeshifters. They're always partly animal and partly person.","source":"macro-world/race-affinities.json › Not shapeshifters"}},
+          {"text":"Our cousins in the West March moved their fences onto beastkin land the lawful way: in daylight, with everyone watching.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight","invented":true},
+          {"text":"Up north they lose their high fields one fence at a time now. The beastkin lost theirs the same way, to the March.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Some of our families came from the Realm generations back. They still write every boundary down twice.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › written law","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Strandfolk boats take the grain to market, and charge for the freight like it was gold.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › freight","invented":true}
         ]
       },
       "sayings": [
@@ -217,6 +225,12 @@
         ],
         "Wildkin": [
           {"text":"Beastkin keep to their own kingdom, between the mountains and the sea. The mountains keep them in.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › have always been its walls","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Riksfolk on the heights, same as us. They'd sooner argue the charter than the weather.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › nobody argues with a charter","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Sailors. Never met one who could fell a tree properly, but they build a fine boat.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › [Shipwrights]","invented":true}
         ]
       },
       "sayings": [
@@ -329,6 +343,12 @@
         ],
         "Wildkin": [
           {"text":"The book has little on the beastkin. They've never had a reason to look outward.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The book lists every government the Realm has had. It is a long list, and the newest page is a Marshal.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › It is a long list","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Strandfolk captains bring us their charts, and we copy every one.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › the charts and the memory","invented":true}
         ]
       },
       "sayings": [
@@ -441,6 +461,12 @@
         ],
         "Wildkin": [
           {"text":"Some hold folk have walked out on the beastkin side of the mountains. Why is hold business.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › Dvergr","invented":true,"sensitivity":"guarded"}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm buys our iron by the cartload now. An army's worth. We've noticed.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › The holds have noticed","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"They buy nails by the barrel. Good customers, poor miners.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal","invented":true}
         ]
       },
       "sayings": [
@@ -552,7 +578,14 @@
           {"text":"Something passed the Gate once without being counted. The old keepers say it was a Remnant.","truth":"rumour","source":"WORLD.md § The Remnants — what the dead gods left › never been directly observed","invented":true,"strength":"loose","actually":{"text":"One Remnant has never been seen at all. It is known only by the silence it leaves behind.","source":"WORLD.md § The Remnants — what the dead gods left › quality of silence"}}
         ],
         "Wildkin": [
-          {"text":"The beastkin never come through the Gate. Their kingdom keeps to itself, and so do we.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true}
+          {"text":"The beastkin never come through the Gate. Their kingdom keeps to itself, and so do we.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true},
+          {"text":"Wagons say the West March and the beastkin will come to blows within the year.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true,"strength":"loose","actually":{"text":"Border incidents are rising and the talk is harsher, but there has been no war since the Stone Line, and neither side wants one.","source":"WORLD.md § The West March and the Wildkin border › The border now"}}
+        ],
+        "Riksfolk": [
+          {"text":"Riksfolk carts come with papers for everything. The easiest to count, and the slowest.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › written law","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Strandfolk freight comes up the road stamped with the Hamnlag's weights. One barrel weighs like another.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › a set of weights and measures","invented":true}
         ]
       },
       "sayings": [
@@ -665,6 +698,12 @@
         ],
         "Wildkin": [
           {"text":"Beastkin are wild animals that happen to talk.","truth":"false","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Highfang","invented":true,"strength":"held","actually":{"text":"The Wildkin are an old, settled kingdom, ruled by the Highfang and a council of the Great Clans.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Highfang"}}
+        ],
+        "Riksfolk": [
+          {"text":"Riksfolk younger children sign onto every caravan. Short lives, long legs.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Viddfolk caravans","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Where the road ends, the Strandfolk boats begin. We hand the cargo over at the quay.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › freight trade","invented":true}
         ]
       },
       "sayings": [
@@ -777,6 +816,12 @@
         ],
         "Wildkin": [
           {"text":"Beastkin change shape when they get angry.","truth":"rumour","source":"macro-world/race-affinities.json › Not shapeshifters","invented":true,"strength":"loose","actually":{"text":"Wildkin don't change shape, but how much beast and how much person shows shifts with feeling and season.","source":"macro-world/race-affinities.json › The ratio shifts with emotion and season"}}
+        ],
+        "Riksfolk": [
+          {"text":"Humans are a passing season. Their Realm will be gone before this oak is grown.","truth":"rumour","source":"WORLD.md § The Riksfolk — humans of the Realm › Short lives and many governments","invented":true,"strength":"loose","actually":{"text":"The Realm has changed its shape many times but never ended. It is becoming one thing again, under a Marshal.","source":"WORLD.md § The Riksfolk — humans of the Realm › becoming one thing again"}}
+        ],
+        "Strandfolk": [
+          {"text":"Short-lived, and they spend it all on the sea. We do not understand it, and we are fond of them.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › The sea, and the short lives","invented":true}
         ]
       },
       "sayings": [
@@ -889,6 +934,12 @@
         ],
         "Wildkin": [
           {"text":"Beastkin build no boats. Imagine living by the sea and never going out on it.","truth":"true","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Riksfolk come down to the harbour to sign on, and half of them never go home.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › some of them never go home","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Our own people. Storm-right is the first law and the last.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right","invented":true}
         ]
       },
       "sayings": [
@@ -1001,6 +1052,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin roamed like us once, before their land grew too small for it.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm's Marshal sends letters by our heralds. We carry them, and we remember them.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Relations","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Sea-travellers. Anyone who lives on the move is worth a fire and a song.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › respect anyone who travels for a living","invented":true}
         ]
       },
       "sayings": [
@@ -1113,6 +1170,12 @@
         ],
         "Wildkin": [
           {"text":"If beastkin ever come down the road, the refuge door is open. That is the rule.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Border talk from the West March gets harsher every season. The refuge keeps spare beds.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"The Strandfolk keep storm-right; we keep the door open. Same rule, different weather.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right","invented":true}
         ]
       },
       "sayings": [
@@ -1225,6 +1288,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin hang iron hinges on their new houses now. Good. More hinges.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › iron hinges","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm wants iron, a lot of it, fast. Somebody's building an army.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › the Marshal's army has bought","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Anchors, chain, nails. The Strandfolk buy all three by weight and haggle by the ounce.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal","invented":true}
         ]
       },
       "sayings": [
@@ -1337,6 +1406,12 @@
         ],
         "Wildkin": [
           {"text":"Fox traders run the beastkin markets. Never let a fox name the price first.","truth":"true","source":"macro-world/race-affinities.json › Redtail","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Realm lords pay for ruin maps and never ask how we got them.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Strandfolk buy our wreck maps and call it luck. Fine by us.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
         ]
       },
       "sayings": [

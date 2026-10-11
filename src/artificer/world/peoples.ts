@@ -76,7 +76,13 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
   },
 ];
 
-/** The Peoples who follow each culture, with weights (docs/peoples-and-races.md). */
+/**
+ * The Peoples who follow each culture, with weights (docs/peoples-and-races.md as #709 left it).
+ * Since #1623 the doc gives fieldborn, ridgefolk and wallborn a human People (the Riksfolk) beside
+ * the Markfolk orcs. This copy stays as it was: the Reach is seeded, so changing a weight here
+ * changes every generated Reach and its dynasties. Whether the Reach takes the new weights is the
+ * owner's call (#1623).
+ */
 export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number][]>> = {
   fieldborn: [['Markfolk', 1]],
   ridgefolk: [['Markfolk', 0.5], ['Bergfolk', 0.5]],

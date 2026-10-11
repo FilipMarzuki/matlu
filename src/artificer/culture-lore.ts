@@ -1,5 +1,5 @@
 /**
- * World lore (#1590): what each of the 16 Mistheim Peoples, and each culture on the caravan road,
+ * World lore (#1590): what each of the 18 Mistheim Peoples, and each culture on the caravan road,
  * honours, what shames them, how they greet, trade, mourn and settle a debt, what they believe
  * about the others, how openly they say it, and how they sound. The words live in
  * content/peoples-lore.json and content/cultures-lore.json; this module reads them, turns them into
@@ -89,22 +89,24 @@ export interface GroupLore {
 }
 
 /**
- * A People the lore knows: villages.ts's 15, and the Wildkin, the 16th (owner, 2026-10-11, #1606).
- * Nobody on the road is Wildkin yet, so villages.ts's `People` stays as it is.
+ * A People the lore knows: villages.ts's 15, the Wildkin, the 16th (owner, 2026-10-11, #1606), and the
+ * two human Peoples, the Riksfolk and the Strandfolk (owner, 2026-10-11, #1623: the Markfolk are the
+ * orcs, humans are their own Peoples). Nobody on the road is one of these three yet, so villages.ts's
+ * `People` stays as it is.
  */
-export type LorePeople = People | 'Wildkin';
+export type LorePeople = People | 'Wildkin' | 'Riksfolk' | 'Strandfolk';
 
 export interface PeopleLore extends GroupLore { id: LorePeople }
 
 export interface CultureLore extends GroupLore {
   /** How openly its people voice an opinion to an outsider. */
   candour: Candour;
-  /** What it believes about each of the 16 Peoples (its `views` are of the other road cultures). */
+  /** What it believes about each of the 18 Peoples (its `views` are of the other road cultures). */
   peopleViews: Readonly<Record<LorePeople, readonly LoreClaim[]>>;
 }
 
-/** The 16 Mistheim Peoples, in docs/peoples-and-races.md's order (the Wildkin last, as #1603 lists them). */
-export const PEOPLES: readonly LorePeople[] = ['Bergfolk', 'Lövfolk', 'Markfolk', 'Viddfolk', 'Steinfolk', 'Pandor', 'Deepwalkers', 'Merfolk', 'Goblins', 'Fae', 'Giants', 'Dragons', 'Everstill', 'Constructs', 'Remnants', 'Wildkin'];
+/** The 18 Mistheim Peoples, in docs/peoples-and-races.md's order (the Wildkin 16th, then the human Peoples, #1623). */
+export const PEOPLES: readonly LorePeople[] = ['Bergfolk', 'Lövfolk', 'Markfolk', 'Viddfolk', 'Steinfolk', 'Pandor', 'Deepwalkers', 'Merfolk', 'Goblins', 'Fae', 'Giants', 'Dragons', 'Everstill', 'Constructs', 'Remnants', 'Wildkin', 'Riksfolk', 'Strandfolk'];
 
 // TypeScript types an imported JSON file from its contents, with every string widened to `string`
 // (so `truth` reads as `string`, not `Truth`). `as unknown as` tells the compiler to trust our
