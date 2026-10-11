@@ -80,20 +80,26 @@ async function main() {
     );
 
     // Fetch all open PRs (drafts too) and build a set of issue numbers one of them
-    // already closes. Any branch counts, not only Bender's own (bender/*): an
-    // interactive or subagent session's claude/* PR means the work is taken too
-    // (#1593). This also covers the race where agent:in-progress is removed after
-    // a successful run but the PR hasn't merged yet.
+    // already closes. Any branch in this repo counts, not only Bender's own
+    // (bender/*): an interactive or subagent session's claude/* PR means the work
+    // is taken too (#1593). This also covers the race where agent:in-progress is
+    // removed after a successful run but the PR hasn't merged yet.
     const openPRs = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
     );
     const issuesWithOpenPR = new Set();
     for (const pr of openPRs) {
+      // Only PRs from branches of this repo. Anyone can open a PR from a fork, and
+      // its body could otherwise "take" any issue and starve the nightly agent.
+      if (pr.head?.repo?.full_name !== REPO) continue;
       const body = pr.body ?? '';
       // GitHub's closing keywords: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved,
-      // with an optional colon ("Closes: #12").
-      for (const m of body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/gi)) {
-        issuesWithOpenPR.add(parseInt(m[1], 10));
+      // with an optional colon ("Closes: #12"), followed by one issue or a list of
+      // them ("Closes #12, #34 and #56"). GitHub itself only closes the first of a
+      // list, but the PR still means to do the rest, so they count as taken.
+      const keyword = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(#\d+(?:\s*(?:,|&|\band\b)\s*#\d+)*)/gi;
+      for (const m of body.matchAll(keyword)) {
+        for (const n of m[1].matchAll(/#(\d+)/g)) issuesWithOpenPR.add(parseInt(n[1], 10));
       }
     }
     console.error(`[fetch] ${issuesWithOpenPR.size} issue(s) taken by open PRs: ${JSON.stringify([...issuesWithOpenPR])}`);
