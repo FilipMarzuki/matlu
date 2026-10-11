@@ -3,20 +3,21 @@
 Top-down action RPG called **Core Warden**, set in the **Matlu multiworld**. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
 
 Primary platform: Android tablet (Chrome). Keyboard also supported.
-Deployed to: Vercel (auto-deploy on push to main)
+Deployed to: Vercel, inside the free tier's 100 deployments a day, so no branch previews. The game, the Codex and Agentic Experiments deploy once a day at 06:00 UTC (deploy hooks in `vercel-daily-deploy.yml`); the Artificer deploys on each push to `main` that touches it. The game's project (`matlu`) is paused since 2026-10-10, so corewarden.app is offline. Each project's ignore step compares against its last deploy (`VERCEL_GIT_PREVIOUS_SHA`).
 Database: Supabase (leaderboard via `matlu_runs` table)
 
 ## Sites
 
-This repo contains three deployable projects:
+This repo contains four deployable projects:
 
 | Project | Directory | Vercel project | Purpose |
 | ------- | --------- | -------------- | ------- |
-| **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) | The Phaser 3 game |
+| **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) (paused) | The Phaser 3 game |
 | **Matlu Codex** | `wiki/` | `matlu-codex` — [codex.corewarden.com](https://codex.corewarden.com) | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
 | **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
+| **Artificer** | `artificer/` (Vercel config; the code is `src/artificer*` at the root) | `matlu-artificer` — [artificer.corewarden.app](https://artificer.corewarden.app) | The text-and-logic game, built on its own by `npm run build:artificer` (#1534). Also serves the play API at `/api/v1/*`, the MCP server at `/mcp`, the "Play with your AI" page at `/play-with-ai/`, the text console at `/console/` and the Records page at `/records/`, for people and their AIs (`src/artificer-play/`, #1555–#1558): a function in the build's `artificer/.vercel/output`, games and run records (`artificer_games`, `artificer_runs`) in Supabase, so `matlu-artificer` needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. |
 
-Each site has its own `package.json` and is built independently in CI.
+`wiki/` and `dev/` each have their own `package.json` and are built independently in CI. The Artificer shares the root `package.json`; its Vercel project (Root Directory `artificer/`) installs and builds from the root and only builds when Artificer files change.
 
 ## Tech stack
 
@@ -31,7 +32,10 @@ Each site has its own `package.json` and is built independently in CI.
 | ------------------------- | -------------------------------------------------------------------------------- |
 | `npm run dev`             | Vite dev server on **port 3000**                                                 |
 | `npm run build`           | `tsc` then `vite build` (typecheck + bundle)                                       |
+| `npm run build:artificer` | The Artificer alone → `artificer/dist/` (for artificer.corewarden.app)            |
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
+| `npm run unit:src`        | Vitest unit tests under `src/` (pure game logic, no browser)                     |
+| `npm run unit:story`      | Vitest unit tests for the storytelling engine (golden hashes)                    |
 | `npm run preview`         | Preview production build                                                         |
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
 | `npm run assets:sprites`  | Regenerate `public/assets/sprite-manifest.json` — catalogs all sprites + wired status |
@@ -39,6 +43,9 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run pixellab:queue`  | Regenerate `pixellab-queue.json` from current sprite state                       |
 | `npm run pixellab:burn`   | Run PixelLab burn pipeline (generate → poll → download → commit)                 |
 | `npm run pixellab:burn:dry` | Dry-run burn — logs actions without calling API                                |
+| `npm run ai:play`         | Let an AI (or scripted/random baseline) play Artificer Region 1; transcripts → `ai-runs/` |
+| `npm run ai:bench`        | Play the model roster (`src/artificer-ai/roster.ts`); prints cost estimate, `--budget` cap |
+| `npm run ai:report`       | Build the cross-model progression + cost report from `ai-runs/` transcripts |
 | `npm run worldgen:earth`  | Full Earth map pipeline: heightmap → Azgaar import/export → validate             |
 | `npm run worldgen:heightmap` | Download + convert Earth heightmap to PNG                                     |
 | `npm run worldgen:generate`  | Playwright: import heightmap into Azgaar FMG, export .map + JSON             |
@@ -179,6 +186,7 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - **Mistheim is the base world.** The unified multiworld is built on Mistheim; every merging realm (Spinolandet, the Ether, …) merges *into* Mistheim, and all generated history happens in/to Mistheim by default. See `docs/ETHER_REALM.md` for the Ether (spirit realm).
 - **Settlements live in Mistheim.** There is no separate worldgen for other realms — the 22 cultures (`macro-world/cultures.json`) all populate Mistheim. Spinolandet, Earth, and other narrative realms exist as lore but have no procedural settlement system.
 - **Cultures are race-agnostic.** Many races can share a culture. Culture IDs have no race prefix (e.g. `coastborn`, not `human-seafaring`). `racePreferences` is an optional weighted hint; absent means sample from regional demographics.
+- **Artificer is the master for materials and concepts.** Its concepts live in `src/artificer/content/concepts.json`; its materials, recipes and items are in its own code (`region1.ts`, `kit.ts`, `trade.ts`, `techniques.ts`…). The Homestead's registries (`macro-world/item-registry.json`, `public/macro-world/recipes.json`, `public/macro-world/concepts.json`) are earlier drafts, frozen as they are: don't add material, recipe or concept work there, and Artificer doesn't read them. `src/artificer/content-ownership.test.ts` pins their hashes (#1531).
 
 ## Story engine — update checklist
 
@@ -228,6 +236,15 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 
 Every issue must carry exactly one `type:*` label.
 
+**Acceptance criteria — test-first (ATDD) vs exempt:**
+
+| Issue labels | How acceptance is written and verified |
+| ------------ | --------------------------------------- |
+| `systems` and none of `art`, `ui-hud`, `ui-menus`, `world` | **ATDD.** Criteria are Given/When/Then scenarios, each checkable by a unit test without a browser or Phaser. Triage appends Given/When/Then when the prose is concrete, otherwise labels `needs-refinement`. The dev agent writes one failing Vitest test per scenario before implementing. Use the **Systems (ATDD)** issue template. |
+| Anything with `art`, `ui-hud`, `ui-menus` or `world` | **Exempt.** Look-and-feel changes too often for tests to help; acceptance is a screenshot or checklist. Use the **Visual / exploration** issue template. |
+
+Templates live in `.github/ISSUE_TEMPLATE/`; the rules are enforced in `.agents/triage.md`, `.agents/per-issue.md` and `.agents/review.md`.
+
 **Workflow:**
 
 - Pick the highest-priority open issue labelled `ready` (or without a blocking label)
@@ -263,6 +280,41 @@ Write PR descriptions as a learning resource for someone new to this tech stack.
 - Any important decisions made and the alternatives considered
 - Links to relevant Phaser docs if applicable
 - Anything surprising or worth knowing
+
+### Design decisions (medium- and high-risk PRs)
+
+Run `node .github/scripts/risk-score.mjs --local` after committing. It scores the branch's commits since `origin/main`, the same files the PR will show, and prints `risk:<tier>`. If it prints `risk:medium` or `risk:high`, the PR body needs a **Design decisions** table (#1433). It's optional for low-risk PRs:
+
+```markdown
+## Design decisions
+| Decision | Why | Rejected alternative | Wrong if… |
+|---|---|---|---|
+| Score PRs with a script, not a model | predictable, tunable, can't be talked down by the PR text | an LLM classifier | a risky change lands in a path no rule covers |
+```
+
+- **2–5 rows**, only choices a reviewer could reasonably have made differently. Not "used TypeScript".
+- **Wrong if…** is the point: the concrete condition that would make the decision a bug. Write down the assumptions you're relying on ("a PR can't change its own rules"), because reviewers check those first.
+- Reviewers verify each row against the diff and flag decisions the diff makes that the table leaves out. A stated reason is a claim to check, not a settled question.
+
+## Before merging a PR — always review first
+
+No PR merges without a review pass, and the depth of review scales with the PR's **risk tier** (#1431). A script scores every PR from the paths it touches, its size and whether code changed without tests — rules and weights in **`.github/review-risk.json`** — and *DevCycle 3c — Risk review* labels it and comments the reasons. **The tier decides which review models must agree before the merge (#1481), never a person: people decide game design; implementation merges on the models' reviews.**
+
+| Tier | Typical PR | Must agree before the merge |
+| ---- | ---------- | ------- |
+| `risk:low` | docs, wiki, styles, game code with tests | self-review + *DevCycle 3 — Review* (the Claude review agent) approves |
+| `risk:medium` | agent instructions, sim code, large diffs | + a second opinion from another model family (`REVIEW_MODEL_MEDIUM`) says `approve` |
+| `risk:high` | seeded RNG / golden hashes, save format, CI workflows, build config, Supabase, paid-API scripts | + one focused review per lens (`.agents/review-lenses/`: determinism, saves, general) on a stronger model (`REVIEW_MODEL_HIGH`) finds nothing |
+
+The verdicts count on the head commit only, and the review agent must approve that commit too. A new commit re-runs the reviews. Re-running *DevCycle 3c* (`workflow_dispatch`, PR number) replaces an unclear or failed review, but a `request-changes` or a finding holds until a new commit.
+
+"Merge it" means, in order:
+
+1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Go deeper the higher the tier: for `risk:high`, check the matching lens file's list by hand too. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
+2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. Marking ready starts *3c — Risk review*, which scores the PR, starts *DevCycle 3 — Review*, and runs the paid reviews its tier calls for. Fix blocking findings: a second opinion's `request-changes` or a focused review's finding holds the merge until a new commit.
+3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves and the gate passes; *3c* starts it again when the tier's reviews finish. Every merge path runs the gate `node .github/scripts/risk-score.mjs --pr N --gate` (exit 3 = hold): CI passed on the head commit, and the tier's models agree on it.
+
+Never mark a PR ready and merge it in the same step — that skips the review agents entirely.
 
 ## Code comments
 
@@ -311,22 +363,12 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude
 
 `.github/workflows/agent-nightly.yml` — single-issue-per-cycle runner. Cron (`0 2 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each Bender PR merges). Each cycle fetches the highest-priority `ready` issue via `.github/scripts/fetch-agent-issues.js`, runs one Claude Code session via `.github/scripts/run-agent.js`, and opens a PR. The PR flows through DevCycle 2 — CI → 3 — Review → 4 — Merge (or 5 — Grooming), and the merge's `workflow_run` event wakes Bender for the next cycle. Capped at 10 cycles per 8-hour window. Per-session prompt lives in `.agents/per-issue.md`.
 
-`.github/workflows/cursor-agent-nightly.yml` — sibling runner using the Cursor
-CLI instead of Claude Code. Same single-issue-per-cycle architecture as Bender.
-Cron (`0 4 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each
-Marvin PR merges, same chain as Bender). Branch prefix `marvin/`. Per-session
-prompt lives in `.agents/per-issue-marvin.md`. Picks from the same
-`.github/scripts/fetch-agent-issues.js` queue Bender uses, so the two agents
-share the work pool — whoever's gate fires first claims the highest-priority
-issue. Capped at 10 cycles per 8-hour window, separately from Bender's cap.
-Required secret: `CURSOR_API_KEY` (in addition to `GH_TRACKER_TOKEN`).
-
 The per-issue runner requires one of two Claude credentials as repo secrets:
 
 - **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
 - **`ANTHROPIC_API_KEY`** — fallback, pay-as-you-go. Set this instead if you don't have a Claude Code subscription seat.
 
-It also requires **`GH_TRACKER_TOKEN`** — a GitHub PAT (fine-grained or classic) with `contents:write`, `pull-requests:write`, and `workflows:write`. The built-in `GITHUB_TOKEN` cannot be used for the branch push or PR open, because GitHub suppresses downstream `push` / `pull_request` triggers for those cases — which would prevent DevCycle 2 — CI (and therefore Review and Merge) from firing on agent-authored PRs. Both Bender (`agent-nightly.yml`) and Marvin (`cursor-agent-nightly.yml`) use this secret (already provisioned for `creature-tracker-sync.yml`).
+It also requires **`GH_TRACKER_TOKEN`** — a GitHub PAT (fine-grained or classic) with `contents:write`, `pull-requests:write`, and `workflows:write`. The built-in `GITHUB_TOKEN` cannot be used for the branch push or PR open, because GitHub suppresses downstream `push` / `pull_request` triggers for those cases — which would prevent DevCycle 2 — CI (and therefore Review and Merge) from firing on agent-authored PRs. Bender (`agent-nightly.yml`) uses this secret (already provisioned for `creature-tracker-sync.yml`).
 
 It also expects five labels to exist in GitHub Issues: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation`, `agent:already-shipped` — create them before the first run.
 
@@ -371,6 +413,8 @@ Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claud
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
 | **Submission to Entity** | **on insert** (`creature_submissions`) + manual | `.agents/submission-to-entity.md` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY`, `CLAUDE_CODE_PERSONAL` → `CLAUDE_CODE_OAUTH_TOKEN` in job; `GH_TRACKER_TOKEN` (Edge Function secret) | Converts a new community creature submission into entity spec + Notion + GitHub issue; auto-dispatched via `trigger-entity-pipeline` |
+| **DevCycle 3c — Risk review** | after DevCycle 2 — CI; on *ready for review*; manual (`workflow_dispatch`, PR number) | `.github/review-risk.json`, `.agents/review-second-opinion.md`, `.agents/review-lenses/*.md` | `OPENROUTER_API_KEY`; `ANTHROPIC_PLAYTEST_KEY` (the fallback, #1509); variables `REVIEW_MODEL_MEDIUM` (default `google/gemini-2.5-pro`), `REVIEW_MODEL_HIGH` (default `openai/gpt-5`), `REVIEW_FALLBACK_MODEL` (default `claude-sonnet-5-5`) | Scores the PR (`risk-score.mjs`), labels `risk:<tier>`, comments the reasons. Medium/high: second-opinion review; high: one focused review per lens. Their verdicts gate the merge (#1481): the gate reads them on the head commit. When they finish, starts DevCycle 4. Paid reviews only after CI passed, same-repo PRs only; `pull_request_target`, so the base branch's workflow and scripts run. Workflows are started with `GITHUB_TOKEN` (#1476). **When OpenRouter can't review** (out of credit, down, no key), Claude does on `ANTHROPIC_PLAYTEST_KEY` (#1509): the review still counts at the gate, says it's weak, and the PR is labelled `weak-review` — the owner's rule is that a credit problem never stops a merge. Find them to revisit with `is:pr label:weak-review`. With neither key, medium/high PRs get no reviews and the gate holds them. `node .github/scripts/run-second-review.js --pr N --focus saves --dry-run` prints a lens prompt. |
+| **DevCycle 3b — Second opinion** | manual only (`workflow_dispatch`) | `.agents/review.md` + `.agents/review-second-opinion.md` | `OPENROUTER_API_KEY`; variable `SECOND_REVIEW_MODEL` | Re-runs the second-opinion review by hand; 3c runs it automatically for medium/high PRs. Exits green if the secret is unset. |
 | Refinement 2 — Hygiene | after Refinement 1 — Triage | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
 | DevCycle 5 — Grooming | after DevCycle 1 — Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `GITHUB_TOKEN`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files GitHub bugs |
@@ -383,4 +427,5 @@ Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claud
 | Weekly Release Notes | after Weekly Engineering Stats | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
 | Agent Performance Log | after Weekly Release Notes | `.agents/agent-perf-log.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Queries GitHub Issues for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
 | **Sprite Credit Burn** | **manual only** (`workflow_dispatch`) | `.agents/sprite-credit-burn.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Runs `npm run pixellab:queue` then `npm run pixellab:burn` — the Node.js burn script handles all PixelLab generation via HTTP API. Commits after each entity; stops when credits run out. Run before the 9th of the month. |
+| **Artificer AI playtest** | `15 23 * * *` (only if the Artificer sim changed that day) | scripts (`ai-bench.ts`, `ai-report.ts`) | `OPENROUTER_API_KEY`; vars `AI_BENCH_BUDGET` (default 1), `AI_BENCH_MIN_CHANGES` (default 1) | Skips ($0) unless commits in the last 24h touched `src/artificer*/`. Otherwise plays random baselines + the model roster (~$0.80 for whole-year games), posts a summary on the run page, uploads the report + transcripts as the `ai-playtest` artifact |
 | **Wildlife Species** | nightly (after Dev Agent) | `.agents/wildlife-species.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY` | One pipeline step per session for the next wildlife species. State tracked in `wildlife-pipeline-state.json`. Character creation requires human approval before animations are queued. ~48 credits per species. |

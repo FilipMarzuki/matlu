@@ -1,0 +1,139 @@
+# Character & skills — design
+
+Status: in progress. Inspired by *Drakar och Demoner* and D&D: a named
+character with a few defining **traits**, and a list of practical **skills**
+that improve **by use** and make that kind of work richer, easier and better.
+
+Builds on the sim core (`src/artificer/`): vitality (Vigor / Clarity /
+Condition), crafting (grades, concepts, tools) and Region 1's actions. Feeds
+Region 1.5 (the caravan road, #1235), where villagers, trade and quests check
+skills.
+
+## 1. Skills
+
+Seven skills, each tied to the actions that use it:
+
+| Skill | Used by |
+| --- | --- |
+| **Woodcraft** | gather wood; lean-to, brush hut, timber walls; crude shovel |
+| **Foraging** | gather food (and fiber) |
+| **Hunting** | hunt, track, snare |
+| **Stonework** | quarry; stone knife; stone-banked walls |
+| **Fieldcraft** | fetch water, preserve food |
+| **Scouting** | scout, survey, look out |
+| **Handcraft** | cold gear, hide parka, waterskin, bedroll, tinker |
+
+Rest and study use no skill. Study grows concepts instead: skills are *doing*
+and concepts are *understanding*.
+
+**Levels (#1241).** There are 13 levels on an exponential curve. Early levels come fast, Professional sits at the famous 10,000 hours, there are levels above it, and the top three go past human:
+
+| # | Level | Hours | # | Level | Hours |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Novice | 5 | 8 | Professional | 10,000 |
+| 2 | Apprentice | 20 | 9 | Master | 25,000 |
+| 3 | Adept | 60 | 10 | Grandmaster | 60,000 (human peak) |
+| 4 | Journeyman | 150 | 11 | ✦ Paragon | 150,000 |
+| 5 | Skilled | 400 | 12 | ✦ Mythic | 400,000 |
+| 6 | Expert | 1,000 | 13 | ✦ Transcendent | 1,000,000 |
+| 7 | Veteran | 3,000 | | | |
+
+**Improvement by use, multiplied by intent.** Every hour of work is practice. A *focused* skill practises ×3, because deliberate practice matters a lot. (This is like DoD's *färdighetsförbättring*, but deterministic: the sim has no dice.)
+
+**What a level does in its field.** The effects follow smooth curves, so the long range can't break the maths:
+
+| Effect | Formula |
+| --- | --- |
+| Energy | drain × 1/(1 + 0.07 × level): 0.74 at Skilled, 0.52 at Transcendent |
+| Yield | +⌊level/2⌋ on gathering trips |
+| Tool use | the field's tool bonuses × (1 + 0.15 × level) |
+| Craft quality | +⌊level/2⌋ to the craft-grade score |
+
+**Self-assessment (Dunning–Kruger).** You never see your true level, only how good you *think* you are:
+
+| Stage | Practice | True level | Feels like |
+| --- | --- | --- | --- |
+| Mount Stupid | 10–25h | Novice | Adept |
+| The valley | 60–100h | Adept | Apprentice |
+| Experts | high | e.g. Professional | one level lower (Veteran) |
+| Supernatural | 150,000h | Paragon | Grandmaster |
+
+The true level drives every effect, so improvement is **felt**. A true level-up writes a line like "The axe finds the grain more easily now — woodcraft comes easier." When your own estimate drops, you get "The more you learn of woodcraft, the more you see how little you know." The AI is shown only the self-assessment too, and snapshots record both values. (Later, a Region 1.5 teacher could reveal your true level.)
+
+**Across runs.** All practice carries over. The climb to mastery spans many runs.
+
+**Techniques (#1243).** Each level *looks like* certain things you can do: reading the grain, still hunting, smoke curing. Every skill has three. Each one is typical of a level but not locked to it, so a Warden can be lopsided, as real people are: a middling woodcutter who happens to know notching because a forester's notes taught it. Each technique gives a concrete edge: extra yield, lighter work, better grades, or easier travel.
+
+| Difficulty | How it's learned | Example |
+| --- | --- | --- |
+| Easy | alone, after 0.8× the level's hours | Reading the grain (woodcraft, Novice): about 4h |
+| Hard | alone, after 2.5× the level's hours; much sooner from a manual or teacher | Still hunting (hunting, Adept): 150h alone |
+| Taught only | never alone; a teacher or a manual must give it | Seasoning firewood, Mushroom lore, Weather sense |
+
+A teacher or a manual can teach a technique up to two levels above your true level.
+
+**The exponential climb gets lonely.** Up to Adept, practising alone is fully efficient. After that, solo practice credits less and less: 0.8 at Journeyman, 0.45 at Veteran, 0.25 at Master, 0.05 at the top. A manual in the skill gets you halfway back to full efficiency, and a teacher all the way. Knowing the techniques typical of the levels you've reached speeds the climb (×0.7 knowing none, ×1 knowing all), so an Adept who never worked out notching plateaus.
+
+**Manuals in Region 1.** A trapper's tally-book (hunting, teaches Still hunting) waits in ring 2, and a forester's notes (woodcraft, teaches Notching) in ring 3. Each is found on the first scout of its ring. Teachers come with Region 1.5's villages. Techniques carry with the character, and manuals stay behind. The WARDEN tab shows known techniques by name, and unknown ones only as a hint of how they're learned.
+
+## 1b. Stats (#1255, #1256)
+
+Six base stats, chosen at creation, sit under the skills. Skills say what you've practised; stats say what you're built for. Scores run 3–18 (10 is average), and every effect works off d = score − 10:
+
+| Stat | Effect per point of d |
+| --- | --- |
+| Strength | heavy work (wood, quarry, build) costs 3% less Vigor |
+| Constitution | hunger and thirst cost 3% less Condition; healing is 3% faster |
+| Agility | hunting, tracking, scouting, handcraft and walking out cost 3% less |
+| Intelligence | study gives 5% more insight; craft grade +⌊d/3⌋ toward zero (+1 at 13, −1 at 7) |
+| Willpower | all work costs 2% less Clarity; deprivation 3% less Clarity; focus is unreliable below 30 − 2d Clarity |
+| Charisma | on the caravan road: people start with d more trust, and prices are 2% better per point |
+
+**Point-buy.** Every stat starts at 10, and there are 6 points to spend. Raising costs 1 point per step up to 13 and 2 per step for 14 and 15 (the creation maximum). Lowering, down to 7, refunds 1 per step. For example, STR 13 + INT 13 is 6 points, and CON 15 costs 7, so it needs a sacrifice such as CHA 9.
+
+**Levers, not caps.** Like traits, stats only scale drains, recovery, costs and bonuses. They never move the Vigor or Clarity caps, which drift back to the baseline each night and which winter readiness checks.
+
+**Exact, carried.** Stats are shown as they are (you know your own body), and they carry with the living character. Growth by use and wear from hardship come next (#1257).
+
+## 2. Talents (#1262, #1263)
+
+Talents replaced the traits of #1237, and they are gifts with no cost. At creation the Warden is **offered 4 of a pool of 12** and picks 2, which they know. They also have **1 hidden talent** they don't know about. The offer and the hidden roll come from a seed made from the character id, so the same Warden always gets the same ones.
+
+Every talent has a **tier, 1–4** (spark → knack → gift → mastery), that scales its effect. The tier is never shown. Talents start at tier 1, then grow quietly with use (#1264). A hidden talent works from day one and can be discovered from signs (#1265).
+
+| Talent | Effect at tier t |
+| --- | --- |
+| Hardy | physical work (wood, quarry, build, hunt, gather, water) costs 4%·t less Vigor |
+| Sharp-minded | all work costs 4%·t less Clarity |
+| Light Eater | hunger costs 12%·t less |
+| Careful Hands | craft grade +⌊t/2⌋; salvage +5%·t |
+| Quick Learner | skill practice +12%·t |
+| Cold-blooded | cold nights cost 25%·t less Condition (immune at mastery) |
+| Tough | deprivation and overexertion cost 5%·t less Condition; last stand (once per run) from tier 3 |
+| Keen Eye | scouting work costs 5%·t less; chosen at creation, starts with 5h of scouting practice |
+| Forager / Hunter's Patience / Waterfinder | gather / hunt / water yield +⌊t/2⌋ (Hunter also: tracking costs 5%·t less) |
+| Silver Tongue | on the caravan road: trust +3·t, prices 2%·t better |
+
+Old saves keep their two traits as known tier-1 talents, and get a hidden one rolled from their id. A Warden without an id (a test, or the AI runner for now) has no hidden talent. Each Warden also has one hidden **quirk**, an upside with an equal downside (#1268).
+
+## 3. Focus
+
+One standing focus: a **concept** (extra insight from actions that use it), a
+**goal** (Shelter / Larder / Explore: a small bonus on matching actions) or a
+**skill** (practice counts double). Focus costs a little Clarity a day, and
+low Clarity makes it unreliable.
+
+**Survival lock.** Focus snaps to *Survival* and stays there while any of
+these hold:
+- a night without water, or 2+ without food;
+- Condition under 40;
+- winter 3 days away and not ready.
+
+While locked, survival actions get the focus bonus and learning pauses.
+*(Separate issue.)*
+
+## 4. Character creation
+
+A name and a portrait, chosen after the arrival intro's class designation.
+The voice uses the name. A Character tab shows the portrait, name, rank,
+traits, skills, concepts and focus. *(Separate issue.)*

@@ -7,7 +7,7 @@
       "spriteKey": "rn-tree",
       "yields": [
         { "itemId": "wood-log",    "min": 1, "max": 2 },
-        { "itemId": "plant-fiber", "min": 1, "max": 1 }
+        { "itemId": "plant-fiber", "min": 1, "max": 1, "seasonal": true }
       ],
       "respawnMs": 60000,
       "interactRadius": 56,
@@ -32,7 +32,8 @@
       "spriteKey": "rn-ore",
       "yields": [
         { "itemId": "iron-ore",   "min": 1, "max": 2 },
-        { "itemId": "copper-ore", "min": 0, "max": 1 }
+        { "itemId": "copper-ore", "min": 0, "max": 1 },
+        { "itemId": "coal",       "min": 0, "max": 1 }
       ],
       "respawnMs": 120000,
       "interactRadius": 50,
@@ -44,7 +45,7 @@
       "label": "Herb Patch",
       "spriteKey": "rn-herb",
       "yields": [
-        { "itemId": "herb-green", "min": 1, "max": 1 }
+        { "itemId": "herb-green", "min": 1, "max": 1, "seasonal": true }
       ],
       "respawnMs": 45000,
       "interactRadius": 44,
@@ -56,8 +57,8 @@
       "label": "Berry Bush",
       "spriteKey": "rn-berry",
       "yields": [
-        { "itemId": "berries",     "min": 1, "max": 2 },
-        { "itemId": "plant-fiber", "min": 0, "max": 1 }
+        { "itemId": "berries",     "min": 1, "max": 2, "seasonal": true },
+        { "itemId": "plant-fiber", "min": 0, "max": 1, "seasonal": true }
       ],
       "respawnMs": 45000,
       "interactRadius": 44,

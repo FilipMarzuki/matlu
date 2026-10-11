@@ -1,0 +1,36 @@
+{
+  "id": "elder_vask",
+  "startNode": "greeting",
+  "nodes": {
+    "greeting": {
+      "text": "What brings you here, warden?",
+      "npcName": "Elder Vask",
+      "choices": [
+        { "label": "I need supplies", "next": "shop_intro" },
+        {
+          "label": "Tell me about the corruption",
+          "next": "lore_corruption",
+          "condition": { "flag": "quest:corruption_started" }
+        },
+        { "label": "Nothing, just passing through", "next": "farewell" }
+      ]
+    },
+    "shop_intro": {
+      "text": "The merchant is two doors down, warden.",
+      "npcName": "Elder Vask",
+      "choices": [{ "label": "Thanks.", "next": "farewell" }]
+    },
+    "lore_corruption": {
+      "text": "The western mines went dark three moons ago. Nothing that walked in came back out.",
+      "npcName": "Elder Vask",
+      "onEnter": [{ "setFlag": "npc:elder_vask:heard_corruption_lore" }],
+      "choices": [{ "label": "I'll investigate.", "next": "END" }]
+    },
+    "farewell": {
+      "text": "Safe travels, warden.",
+      "npcName": "Elder Vask",
+      "choices": [],
+      "next": "END"
+    }
+  }
+}

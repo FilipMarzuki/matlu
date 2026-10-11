@@ -18,6 +18,7 @@
  */
 
 import * as Phaser from 'phaser';
+import { loadAudioManifest } from '../audio/AudioLoader';
 
 export type EndingId = 'restoration' | 'weaving' | 'wound' | 'silence';
 
@@ -96,16 +97,8 @@ export class EndingScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Calm hopeful ambient for the ending narrative screen (FIL-111).
-    this.load.audio('music-ending', [
-      'assets/audio/music-loop-bundle-2026-q1/Week 2 - Ruined Lands HOPE.ogg',
-    ]);
-    // Short non-looping fanfare that plays first before the ambient loop (FIL-120).
-    // "Graceful Descent LANDING" is ≈3 s — punchy enough to feel like a reward
-    // without overstaying its welcome.
-    this.load.audio('victory-fanfare', [
-      'assets/audio/music-loop-bundle-2026-q1/Week 9 - Graceful Descent LANDING.ogg',
-    ]);
+    // music-ending + victory-fanfare live in src/data/audio-manifest.json (#944).
+    loadAudioManifest(this);
   }
 
   // Phaser calls init() with the data object passed to scene.launch().

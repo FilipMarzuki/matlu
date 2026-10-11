@@ -335,6 +335,64 @@
       }
     },
     {
+      "id": "wildcat",
+      "name": "European Wildcat",
+      "pixellabCharacterId": "1c72503c-ab7f-46df-9cdc-c7806fb789eb",
+      "class": "ground",
+      "world": "earth",
+      "archetype": "predator",
+      "activity": "nocturnal",
+      "diet": "carnivore",
+      "solitary": true,
+      "body": { "w": 18, "h": 12 },
+      "scale": 0.9,
+      "fleeRange": 160,
+      "fleeSpeed": 120,
+      "roamSpeed": 26,
+      "count": 8,
+      "spawning": {
+        "clusters": [1, 1],
+        "perCluster": [1, 1],
+        "clusterR": 300,
+        "clusterMinDist": 500
+      },
+      "biomes": [7, 8],
+      "spawnBias": { "optimal": [0.50, 0.85], "falloff": 0.15 },
+      "sprites": {
+        "idle":  { "key": "wildcat-idle",  "path": "assets/sprites/wildlife/wildcat/idle_se.png",  "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7], "frameRate": 6 },
+        "walk":  { "key": "wildcat-walk",  "path": "assets/sprites/wildlife/wildcat/walk_se.png",  "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7,8], "frameRate": 8 },
+        "run":   { "key": "wildcat-run",   "path": "assets/sprites/wildlife/wildcat/run_se.png",   "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5], "frameRate": 12 },
+        "sneak": { "key": "wildcat-sneak", "path": "assets/sprites/wildlife/wildcat/sneak_se.png", "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7,8], "frameRate": 6 },
+        "alert": { "key": "wildcat-alert", "path": "assets/sprites/wildlife/wildcat/alert_se.png", "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7,8], "frameRate": 8 },
+        "eat":   { "key": "wildcat-eat",   "path": "assets/sprites/wildlife/wildcat/eat_se.png",   "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6], "frameRate": 6 },
+        "sleep": { "key": "wildcat-sleep", "path": "assets/sprites/wildlife/wildcat/sleep_se.png", "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7], "frameRate": 3 },
+        "death": { "key": "wildcat-death", "path": "assets/sprites/wildlife/wildcat/death_se.png", "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5,6,7,8], "frameRate": 10 },
+        "drink": { "key": "wildcat-drink", "path": "assets/sprites/wildlife/wildcat/drink_se.png", "frameWidth": 48, "frameHeight": 48, "frames": [0,1,2,3,4,5], "frameRate": 6 }
+      },
+      "sounds": {
+        "flee": { "key": "animal-rustle-2", "volume": 0.55, "rate": 1.45 }
+      },
+      "interactions": { "predatorOf": ["grouse", "hare"], "chaseRange": 50, "huntStrategy": "ambush" },
+      "foraging": null,
+      "designNotes": {
+        "sprite": "Small wild cat, tabby-striped grey-brown coat, bushy ringed tail, low-slung lean body. Reads as stealthier and smaller than the wolf — built for crouching, not chasing.",
+        "animations": {
+          "idle": "Standing low, tail twitching, ears swiveling. Watchful, not relaxed.",
+          "walk": "Low, deliberate padding gait, close to the ground.",
+          "run": "Short, explosive burst sprint — the ambush strike, not a sustained chase.",
+          "eat": "Crouched over a kill, head down, tearing.",
+          "sleep": "Curled tight, tail wrapped around body.",
+          "sneak": "Belly almost to the ground, slow stalking creep toward an ambush spot.",
+          "alert": "Frozen mid-crouch, ears pinned forward, eyes locked on target.",
+          "death": "Collapse sideways, body going limp."
+        },
+        "sounds": {
+          "ambient": "None — solitary, silent hunter.",
+          "flee": "Sharp hiss/spit, ~200ms."
+        }
+      }
+    },
+    {
       "id": "crow",
       "name": "Hooded Crow",
       "class": "bird",

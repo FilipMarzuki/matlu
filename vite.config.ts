@@ -5,10 +5,17 @@ import { resolve } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /**
+ * Where Building Forge's saves land: the file behind the URL it loads the registry from
+ * (`/macro-world/building-registry.json`). It's under public/ so the built site ships it (#1518).
+ */
+export const SAVED_REGISTRY = 'public/macro-world/building-registry.json';
+
+/**
  * Dev-only plugin: POST /__save-registry writes building-registry.json to disk.
  * Used by BuildingForgeScene to persist sprite assignments without a manual download step.
+ * `root` is the project root; a test passes a scratch directory.
  */
-function devSaveRegistryPlugin(): Plugin {
+export function devSaveRegistryPlugin(root: string = __dirname): Plugin {
   return {
     name: 'dev-save-registry',
     apply: 'serve',
@@ -20,7 +27,7 @@ function devSaveRegistryPlugin(): Plugin {
         req.on('end', () => {
           try {
             const data = JSON.parse(body);
-            const dest = resolve(__dirname, 'macro-world/building-registry.json');
+            const dest = resolve(root, SAVED_REGISTRY);
             writeFileSync(dest, JSON.stringify(data, null, 2) + '\n');
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true }));
@@ -34,9 +41,45 @@ function devSaveRegistryPlugin(): Plugin {
   };
 }
 
+/**
+ * Dev-only plugin: POST /__save-map writes a map JSON to public/assets/maps/<id>.json.
+ * Used by SettlementEditorScene and MapForgeScene's Export action (#1172) so a
+ * hand-edited map is a file on disk the same way a generated one is.
+ */
+function devSaveMapPlugin(): Plugin {
+  return {
+    name: 'dev-save-map',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-map', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { id, level } = JSON.parse(body);
+            if (typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id)) {
+              throw new Error('id must match [a-z0-9-]+');
+            }
+            const relPath = `assets/maps/${id}.json`;
+            const dest = resolve(__dirname, 'public', relPath);
+            writeFileSync(dest, JSON.stringify(level, null, 2) + '\n');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, path: `/${relPath}` }));
+          } catch (err) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     devSaveRegistryPlugin(),
+    devSaveMapPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
 
@@ -117,11 +160,22 @@ export default defineConfig({
     port: 3000,
     watch: {
       // Don't reload when the building registry is saved from BuildingForge
-      ignored: ['**/macro-world/building-registry.json'],
+      ignored: [`**/${SAVED_REGISTRY}`],
     },
   },
   build: {
     target: 'esnext',
+    rollupOptions: {
+      // Multi-page: the game (index.html) plus a standalone crafting testbed
+      // (crafting.html → src/crafting.ts) that ships without the rest of the game,
+      // and the Artificer web frontend (artificer.html → src/artificer-app/), a
+      // plain-DOM page over the headless sim core.
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        crafting: resolve(__dirname, 'crafting.html'),
+        artificer: resolve(__dirname, 'artificer.html'),
+      },
+    },
   },
   define: {
     'import.meta.env.VITE_GIT_SHA': JSON.stringify(

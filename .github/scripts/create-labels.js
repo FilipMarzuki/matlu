@@ -34,6 +34,23 @@ const LABELS = [
   // State — applied manually or by agents to show active work
   { name: 'in-progress', color: '74d7c4', description: 'Currently being implemented' },
 
+  // Review risk (#1431) — set on PRs by DevCycle 3c from .github/review-risk.json.
+  // The tier decides which review models must agree before a merge (#1481).
+  { name: 'risk:low',       color: 'c2e0c6', description: 'Review risk: low — the review agent only' },
+  { name: 'risk:medium',    color: 'fbca04', description: 'Review risk: medium — the second-opinion model must approve too' },
+  { name: 'risk:high',      color: 'd93f0b', description: 'Review risk: high — plus focused reviews on a stronger model, which must find nothing' },
+  { name: 'weak-review',    color: 'e4b100', description: 'Reviewed by the Claude fallback instead of another model family: revisit' },
+
+  // Triage extras — informational, applied alongside the readiness label.
+  // `rework` feeds the weekly rework metric (collect-stats.js); `size:*` is the
+  // triage agent's T-shirt effort estimate (XS = 1, S = 2, M = 3, L = 5, XL = 8).
+  { name: 'rework',  color: 'fef2c0', description: 'Fixes, reverts or polishes something shipped recently' },
+  { name: 'size:XS', color: 'bfdadc', description: 'Effort: one-liner, config change, single file' },
+  { name: 'size:S',  color: 'bfdadc', description: 'Effort: 1-2 files, < 30 lines of logic' },
+  { name: 'size:M',  color: 'bfdadc', description: 'Effort: 2-4 files, may need tests or assets' },
+  { name: 'size:L',  color: 'bfdadc', description: 'Effort: multiple files, new module/system' },
+  { name: 'size:XL', color: 'bfdadc', description: 'Effort: cross-cutting, should probably be split' },
+
   // Category — used to classify issues by game area
   { name: 'systems',        color: 'f9d0c4', description: '' },
   { name: 'art',            color: 'f9d0c4', description: '' },

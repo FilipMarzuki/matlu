@@ -22,26 +22,27 @@
     "description": "(optional) Flavor/lore text"
   },
   "_stats": {
-    "totalItems": 176,
+    "totalItems": 263,
     "categories": {
-      "raw": 56,
-      "refined": 24,
-      "component": 6,
-      "consumable": 20,
-      "equipment": 9,
-      "structure": 13,
-      "tool": 34,
+      "raw": 63,
+      "refined": 34,
+      "component": 36,
+      "consumable": 28,
+      "equipment": 15,
+      "structure": 16,
+      "deployable": 10,
+      "tool": 45,
       "weapon": 3,
       "document": 3,
       "sacred": 2,
       "authority": 1,
       "instrument": 1,
-      "container": 2,
+      "container": 4,
       "crafted": 1,
       "quest": 1
     },
-    "withIcon": 72,
-    "pendingIcon": 104
+    "withIcon": 80,
+    "pendingIcon": 183
   },
   "items": [
     {
@@ -136,6 +137,22 @@
         "riverbank",
         "swamp",
         "lake"
+      ]
+    },
+    {
+      "id": "freshwater",
+      "name": "Freshwater",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-freshwater.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "riverbank",
+        "lake",
+        "swamp"
       ]
     },
     {
@@ -300,20 +317,6 @@
         "taiga",
         "tundra",
         "mountain"
-      ]
-    },
-    {
-      "id": "game-meat",
-      "name": "Game Meat",
-      "category": "raw",
-      "stackMax": 10,
-      "playerObtainable": true,
-      "icon": null,
-      "source": [
-        "hunting"
-      ],
-      "biomes": [
-        "any"
       ]
     },
     {
@@ -945,6 +948,114 @@
       ]
     },
     {
+      "id": "dry-grass",
+      "name": "Dry Grass",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-dry-grass.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "plains",
+        "meadow",
+        "tundra"
+      ]
+    },
+    {
+      "id": "raw-meat",
+      "name": "Raw Meat",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-raw-meat.png",
+      "source": [
+        "hunting"
+      ],
+      "biomes": [
+        "any"
+      ]
+    },
+    {
+      "id": "raw-fish",
+      "name": "Raw Fish",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-raw-fish.png",
+      "source": [
+        "fishing"
+      ],
+      "biomes": [
+        "riverbank",
+        "lake",
+        "coast",
+        "sea"
+      ]
+    },
+    {
+      "id": "beeswax",
+      "name": "Beeswax",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-beeswax.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "meadow",
+        "forest"
+      ]
+    },
+    {
+      "id": "rubber-sap",
+      "name": "Rubber Sap",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-rubber-sap.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "swamp",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "lodite-ore",
+      "name": "Lodite Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-lodite-ore.png",
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "cave",
+        "mountain"
+      ]
+    },
+    {
+      "id": "crystal-shard",
+      "name": "Crystal Shard",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-crystal-shard.png",
+      "source": [
+        "mining",
+        "loot"
+      ],
+      "biomes": [
+        "cave",
+        "mountain"
+      ]
+    },
+    {
       "id": "brick",
       "name": "Brick",
       "category": "refined",
@@ -1137,6 +1248,86 @@
       "icon": null
     },
     {
+      "id": "tallow",
+      "name": "Tallow",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "wire-copper",
+      "name": "Copper Wire",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "iron-plate",
+      "name": "Iron Plate",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steel-ingot",
+      "name": "Steel Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "hardened-leather",
+      "name": "Hardened Leather",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steel-plate",
+      "name": "Steel Plate",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steel-alloy",
+      "name": "Reinforced Steel",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "rubber",
+      "name": "Vulcanized Rubber",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "lodite-ingot",
+      "name": "Lodite Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "blast-powder",
+      "name": "Blast Powder",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
       "id": "arrow-shaft",
       "name": "Arrow Shaft",
       "category": "component",
@@ -1185,6 +1376,246 @@
       "icon": "item-wood-handle.png"
     },
     {
+      "id": "copper-tube",
+      "name": "Copper Tube",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "hinge",
+      "name": "Iron Hinge",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "lens",
+      "name": "Glass Lens",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "gear-iron",
+      "name": "Iron Gear",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "spring-iron",
+      "name": "Iron Spring",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "rivet",
+      "name": "Steel Rivet",
+      "category": "component",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "bearing",
+      "name": "Bronze Bearing",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "precision-gear",
+      "name": "Precision Gear",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "piston",
+      "name": "Piston",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "valve",
+      "name": "Pressure Valve",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "boiler",
+      "name": "Boiler Chamber",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drive-shaft",
+      "name": "Drive Shaft",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "hydraulic-cylinder",
+      "name": "Hydraulic Cylinder",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "lodite-cell",
+      "name": "Lodite Power Cell",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steel-blade",
+      "name": "Steel Blade",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steam-engine",
+      "name": "Steam Engine",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-plating",
+      "name": "Mech Plating",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-joint",
+      "name": "Mech Joint",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-actuator",
+      "name": "Mech Actuator",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "control-harness",
+      "name": "Control Harness",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-frame",
+      "name": "Mech Frame",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-arm-hammer",
+      "name": "Hammer Arm Module",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-arm-drill",
+      "name": "Drill Arm Module",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-shield-module",
+      "name": "Shield Module",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-brain",
+      "name": "Clockwork Brain",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-brain-lodite",
+      "name": "Lodite Brain",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "propeller",
+      "name": "Propeller",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-chassis-small",
+      "name": "Small Drone Chassis",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-chassis-medium",
+      "name": "Medium Drone Chassis",
+      "category": "component",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "struct-pipe-section",
+      "name": "Pipe Section",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
       "id": "antidote",
       "name": "Antidote",
       "category": "consumable",
@@ -1213,8 +1644,10 @@
       "name": "Grove Blessing",
       "category": "consumable",
       "stackMax": 1,
-      "playerObtainable": false,
-      "icon": null
+      "playerObtainable": true,
+      "icon": null,
+      "shopEffect": "cleanse_pct",
+      "shopValue": 5
     },
     {
       "id": "cooked-meal",
@@ -1254,16 +1687,20 @@
       "name": "Root Tonic",
       "category": "consumable",
       "stackMax": 1,
-      "playerObtainable": false,
-      "icon": null
+      "playerObtainable": true,
+      "icon": null,
+      "shopEffect": "heal",
+      "shopValue": 60
     },
     {
       "id": "heal-small",
       "name": "Herbal Remedy",
       "category": "consumable",
       "stackMax": 1,
-      "playerObtainable": false,
-      "icon": null
+      "playerObtainable": true,
+      "icon": null,
+      "shopEffect": "heal",
+      "shopValue": 25
     },
     {
       "id": "healing-salve",
@@ -1350,6 +1787,70 @@
       "name": "War Feast",
       "category": "consumable",
       "stackMax": 3,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "fire-starter",
+      "name": "Fire Starter",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "cooked-meat",
+      "name": "Cooked Meat",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "grilled-fish",
+      "name": "Grilled Fish",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "purified-water",
+      "name": "Purified Water",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "bread",
+      "name": "Bread",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "stew",
+      "name": "Stew",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "acid-flask",
+      "name": "Acid Flask",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mining-charge",
+      "name": "Mining Charge",
+      "category": "consumable",
+      "stackMax": 5,
       "playerObtainable": true,
       "icon": null
     },
@@ -1443,11 +1944,65 @@
       "slot": "offhand"
     },
     {
+      "id": "iron-chainmail",
+      "name": "Iron Chainmail",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "body"
+    },
+    {
+      "id": "steel-plate-armor",
+      "name": "Steel Plate Armor",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "body"
+    },
+    {
+      "id": "hydraulic-shield",
+      "name": "Hydraulic Shield",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "offhand"
+    },
+    {
+      "id": "steel-sword",
+      "name": "Steel Sword",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "weapon"
+    },
+    {
+      "id": "crossbow",
+      "name": "Crossbow",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "weapon"
+    },
+    {
+      "id": "backpack",
+      "name": "Backpack",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null,
+      "slot": "back"
+    },
+    {
       "id": "campfire",
       "name": "Campfire",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1455,7 +2010,7 @@
       "name": "Lean-To",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1463,7 +2018,7 @@
       "name": "Beacon",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1471,7 +2026,7 @@
       "name": "Drying Rack",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1479,7 +2034,7 @@
       "name": "Field Forge",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1487,7 +2042,7 @@
       "name": "Generator",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1495,7 +2050,7 @@
       "name": "Mech Dock",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1503,7 +2058,7 @@
       "name": "Palisade",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1511,7 +2066,7 @@
       "name": "Rain Catcher",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1519,7 +2074,7 @@
       "name": "Storage Chest",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1527,7 +2082,7 @@
       "name": "Watchtower",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1535,7 +2090,7 @@
       "name": "Workbench",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1543,7 +2098,111 @@
       "name": "Tent",
       "category": "structure",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "struct-gate",
+      "name": "Palisade Gate",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "struct-auto-smelter",
+      "name": "Automated Smelter",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "struct-perimeter-turret",
+      "name": "Perimeter Turret",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-scout",
+      "name": "Scout Walker",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mech-warden",
+      "name": "Warden Frame",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-scout",
+      "name": "Clockwork Scout Drone",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-sentry",
+      "name": "Mechanical Sentry",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-hauler",
+      "name": "Steam Hauler",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-miner",
+      "name": "Mining Drone",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-repair",
+      "name": "Repair Drone",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-combat",
+      "name": "Combat Drone",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-shield",
+      "name": "Shield Drone",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "drone-gatherer",
+      "name": "Gathering Swarm",
+      "category": "deployable",
+      "stackMax": 1,
+      "playerObtainable": true,
       "icon": null
     },
     {
@@ -1842,7 +2501,7 @@
       "name": "Pickaxe",
       "category": "tool",
       "stackMax": 1,
-      "playerObtainable": false,
+      "playerObtainable": true,
       "icon": null,
       "description": "Iron-headed pickaxe, wooden handle worn smooth",
       "associatedRole": "miner",
@@ -2096,6 +2755,94 @@
       "iconDescription": "Pixel art item icon, side view, transparent background. Hand-carved wooden ladle, smooth from years of use, light wood grain. Warm wood palette. Selective outline."
     },
     {
+      "id": "waterskin",
+      "name": "Waterskin",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "bedroll",
+      "name": "Bedroll",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "stone-knife",
+      "name": "Stone Knife",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "fishing-rod",
+      "name": "Fishing Rod",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "skinning-knife",
+      "name": "Skinning Knife",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "crude-shovel",
+      "name": "Crude Shovel",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "iron-shovel",
+      "name": "Iron Shovel",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "compass",
+      "name": "Compass",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "spyglass",
+      "name": "Spyglass",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "steam-hammer",
+      "name": "Steam Hammer",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
       "id": "crystal-staff",
       "name": "Crystal Staff",
       "category": "weapon",
@@ -2296,6 +3043,22 @@
         "trade good"
       ],
       "iconDescription": "Pixel art item icon, side view, transparent background. Woven reed basket filled with white crystalline salt, some spilling over edge. Tan-white palette. Selective outline."
+    },
+    {
+      "id": "pouch",
+      "name": "Pouch",
+      "category": "container",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "barrel",
+      "name": "Barrel",
+      "category": "container",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": null
     },
     {
       "id": "pottery-wheel-pot",

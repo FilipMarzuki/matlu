@@ -5,13 +5,38 @@ on:
     branches:
       - main
       - 'bender/**'
-      - 'marvin/**'
   pull_request:
     branches:
       - main
 
 jobs:
+  # Which jobs this change needs (#1533). The workflow itself always runs — the merge gate and the
+  # review chain wait for a successful CI run on the head commit — so jobs are skipped with `if:`
+  # rather than with `on.paths` (a skipped job counts as success). Pushes and any file outside the
+  # known areas run everything; .github/scripts/ci-scope.mjs has the rules.
+  scope:
+    name: Scope
+    runs-on: ubuntu-latest
+    outputs:
+      game: ${{ steps.scope.outputs.game }}
+      artificer: ${{ steps.scope.outputs.artificer }}
+      engines: ${{ steps.scope.outputs.engines }}
+      wiki: ${{ steps.scope.outputs.wiki }}
+      dev: ${{ steps.scope.outputs.dev }}
+    steps:
+      # Depth 2: a pull_request run checks out the PR merged into main, and HEAD^1..HEAD is the PR's diff.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - id: scope
+        run: node .github/scripts/ci-scope.mjs
+
+  # The game and the Artificer share the root build. A game change runs everything under src/ (which
+  # includes the Artificer's tests); an Artificer-only change runs just its tests and Playwright spec.
   build:
+    needs: scope
+    if: needs.scope.outputs.game == 'true' || needs.scope.outputs.artificer == 'true'
     runs-on: ubuntu-latest
     env:
       # Placeholder values so Vite can bundle without repo secrets. Override in deploy (e.g. Vercel env vars).
@@ -33,14 +58,35 @@ jobs:
 
       - run: npm run build
 
+      # The Artificer's own site and its play API function (#1555), as its Vercel project builds
+      # them: a bundling failure shows here rather than as a failed deploy.
+      - run: npm run build:artificer
+        if: needs.scope.outputs.artificer == 'true'
+
+      # Pure-logic unit tests under src/ (Vitest). Fast, no browser.
+      # storytelling/ has its own job below, so it isn't run twice.
+      - run: npm run unit:src
+        if: needs.scope.outputs.game == 'true'
+
+      - name: Artificer unit tests
+        if: needs.scope.outputs.game != 'true'
+        run: npx vitest run src/artificer
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
+        if: needs.scope.outputs.game == 'true'
         run: npm run test
 
-  storytelling:
-    name: Storytelling engine
+      - name: Run the Artificer's Playwright tests
+        if: needs.scope.outputs.game != 'true'
+        run: npx playwright test artificer-
+
+  engines:
+    name: Engines (storytelling + mapgen)
+    needs: scope
+    if: needs.scope.outputs.engines == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -59,8 +105,15 @@ jobs:
       # computation, no browser), so it runs on every push.
       - run: npm run unit:story
 
+      # Standalone strict typecheck of mapgen/ — no src/ or Supabase on the path.
+      - run: npm run mapgen:typecheck
+
+      - run: npm run unit:mapgen
+
   build-wiki:
     name: Build Matlu Codex (wiki/)
+    needs: scope
+    if: needs.scope.outputs.wiki == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -83,6 +136,8 @@ jobs:
 
   build-dev:
     name: Build Agentic Experiments (dev/)
+    needs: scope
+    if: needs.scope.outputs.dev == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

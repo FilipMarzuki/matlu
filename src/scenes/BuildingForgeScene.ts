@@ -406,19 +406,22 @@ export class BuildingForgeScene extends Phaser.Scene {
       promptKeywords: s.prompt_keywords ?? undefined,
       realWorldInspiration: s.real_world_inspiration ?? undefined,
     } satisfies ArchitectureStyle));
-    // Build a map of existing sprite configs so Supabase upgrade preserves them
-    const spritesMap = new Map<string, SpriteConfig[]>();
-    for (const e of this.entries) {
-      if (e.sprites?.length) spritesMap.set(e.id, e.sprites);
-    }
+    // Keep the full JSON entry for each building so the Supabase upgrade
+    // preserves fields this tool doesn't edit (count, zone, minTier,
+    // unlockConditions, …). Saving writes this.entries back to
+    // building-registry.json, which SettlementGenerator uses as its offline
+    // fallback — dropping those fields there breaks settlement generation.
+    const jsonEntries = new Map<string, RegistryEntry>();
+    for (const e of this.entries) jsonEntries.set(e.id, e);
     this.entries = mw.buildings.map((b: DbBuilding) => ({
+      ...jsonEntries.get(b.slug),
       id: b.slug,
       name: b.name,
       category: b.category ?? 'residential',
       baseSizeRange: [b.base_size_min ?? 2, b.base_size_max ?? 3] as [number, number],
       baseDepthRange: b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] as [number, number] : undefined,
       heightHint: b.height_hint ?? 'standard',
-      sprites: spritesMap.get(b.slug),
+      sprites: jsonEntries.get(b.slug)?.sprites,
     }));
     const ikiCheck = (a: ArchitectureStyle) =>
       a.id === 'IKIBEKI-DENCRAFT' || a.name === 'Ikibeki Dencraft';

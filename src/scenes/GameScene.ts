@@ -8,6 +8,7 @@ import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { generateTreePlacements, type TreeRegistry } from '../world/TreeScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import { log } from '../lib/logger';
+import { loadAudioManifest } from '../audio/AudioLoader';
 import { NavScene } from './NavScene';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
@@ -51,6 +52,8 @@ import {
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
+import { queueDialogTreeLoad, getDialogTree } from '../dialog/loadDialogTree';
+import type { DialogTree } from '../dialog/dialogTree';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { Dustling } from '../entities/Dustling';
 import { DryShade } from '../entities/DryShade';
@@ -63,10 +66,11 @@ import { StormSovereign } from '../heroes/StormSovereign';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
-import { layoutSettlement } from '../world/SettlementLayout';
-import { generateSettlement, initSettlementData } from '../world/SettlementGenerator';
-import { placeBuildings } from '../world/SettlementPlacement';
-import type { SettlementSite, Geography } from '../world/SettlementSpec';
+import { layoutSettlement } from '../../mapgen/SettlementLayout';
+import { generateSettlement } from '../../mapgen/SettlementGenerator';
+import { placeBuildings } from '../../mapgen/SettlementPlacement';
+import type { SettlementSite, Geography } from '../../mapgen/SettlementSpec';
+import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
@@ -82,6 +86,8 @@ import type { PerceptionEntry } from '../systems/PerceptionSystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
+import { BarkSystem, type NpcBarkEntry } from '../systems/BarkSystem';
+import npcBarks from '../data/npcBarks.json';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -198,13 +204,6 @@ const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'torrent' | 'stormsovere
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
-
-/** NPC dialog lines — one per settlement, shown when the player presses E nearby. */
-const NPC_DIALOG: Record<string, string> = {
-  strandviken:  'Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.',
-  skogsglanten: 'Skogen minner om saker. Lyssna när vinden vänder.',
-  klippbyn:     'Det är kallt här uppe. Men utsikten — den ljuger aldrig.',
-};
 
 /** Portrait texture key + display name for each settlement NPC. */
 const NPC_PORTRAIT: Record<string, { portrait: string; name: string }> = {
@@ -467,6 +466,8 @@ export class GameScene extends Phaser.Scene {
   perceptionSystem!: PerceptionSystem;
   discoverySystem!: DiscoverySystem;
   projectSystem!: ProjectSystem;
+  /** Ambient NPC one-liners on proximity (#948) — separate from the E-key dialog system. */
+  private barkSystem = new BarkSystem(npcBarks as NpcBarkEntry[]);
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -826,89 +827,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     // ── Audio ──────────────────────────────────────────────────────────────────
-    // Phaser tries each format in order and picks the first the browser supports.
-    // .ogg is smaller and preferred; .mp3 is the fallback for Safari.
-    this.load.audio('forest-ambience', [
-      'assets/audio/forest-ambience.ogg',
-      'assets/audio/forest-ambience.mp3',
-    ]);
-    // FIL-108: ocean/shore ambience — deep ambient drone used as coastal presence
-    this.load.audio('ocean-ambience', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/underwater world.ogg',
-    ]);
-    // FIL-112: mountain wind — Cozy Tunes Pro "Gentle Breeze" loop (CC0-compatible)
-    this.load.audio('sfx-wind', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Gentle Breeze.ogg',
-    ]);
-    // FIL-110: settlement presence — soft ambient loop as distant life texture near hamlets/villages
-    this.load.audio('sfx-settlement', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg',
-    ]);
-    // FIL-117: night ambience — eerie presence sound fades in at dusk and peaks during night.
-    // Replace with a dedicated crickets/insect loop when one is sourced from freesound.org.
-    this.load.audio('night-ambience', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg',
-    ]);
-    // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
-    // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
-    // dusk → Evening Harmony, night → Polar Lights.
-    const cozyBase = 'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks';
-    this.load.audio('music-dawn',  [`${cozyBase}/Sunlight Through Leaves.ogg`]);
-    this.load.audio('music-day',   [`${cozyBase}/Whispering Woods.ogg`]);
-    this.load.audio('music-dusk',  [`${cozyBase}/Evening Harmony.ogg`]);
-    this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
-    // Phase-transition stinger: single bell strike at the moment the crossfade starts (FIL-122)
-    // impactBell_heavy_001 is distinct from _000 (sfx-swipe-hit) and _004 (sfx-swipe)
-    this.load.audio('sfx-phase-stinger', ['assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_001.ogg']);
-
-    // ── Event SFX ─────────────────────────────────────────────────────────────────
-    const ken = 'assets/audio/kenney_impact-sounds/Audio';
-    const jingles = 'assets/audio/kenney_music-jingles/Audio';
-    // Collectible pickup: warm pizzicato jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-pickup',  [`${jingles}/Pizzicato jingles/jingles_PIZZI05.ogg`]);
-    // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-portal',  [`${jingles}/Steel jingles/jingles_STEEL05.ogg`]);
-    // FIL-111: victory jingle on level completion — warm pizzicato (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-victory', [`${jingles}/Pizzicato jingles/jingles_PIZZI07.ogg`]);
-    // Cleanse swipe gesture: bright bell whoosh (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-swipe',   [`${ken}/impactBell_heavy_004.ogg`]);
-    // Swipe makes contact with an enemy: deeper bell strike (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-swipe-hit', [`${ken}/impactBell_heavy_000.ogg`]);
-    // Corrupted enemy dies: soft organic dissolve/pop (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-enemy-death', [`${ken}/impactSoft_heavy_001.ogg`]);
-    // Button hover SFX for PauseMenuScene and SettingsScene (shared audio cache)
-    this.load.audio('sfx-hover', [`${ken}/impactPlate_light_000.ogg`]);
-    // Player takes damage: dull punch impact (Kenney Impact Sounds, CC0)
-    this.load.audio('sfx-player-hit',  [`${ken}/impactPunch_medium_000.ogg`]);
-    // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)
-    this.load.audio('sfx-corruption', ['assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg']);
-
-    // Load all 5 variants for three terrain surfaces from the Kenney Impact Sounds
-    // pack (CC0). Multiple variants prevent the "machine gun" effect (identical
-    // sounds repeating feel unnatural). Three surfaces map to terrain biome values:
-    //   grass    → meadow / forest floor (biome 0.33–0.80)
-    //   concrete → rocky shore and highland rock (biome 0.25–0.33 and ≥0.80)
-    //   wood     → dense forest (biome 0.65–0.80, same range as dark terrain)
-    const kenney = 'assets/audio/kenney_impact-sounds/Audio';
-    for (let i = 0; i < 5; i++) {
-      this.load.audio(`footstep-grass-${i}`,    `${kenney}/footstep_grass_00${i}.ogg`);
-      this.load.audio(`footstep-concrete-${i}`, `${kenney}/footstep_concrete_00${i}.ogg`);
-      this.load.audio(`footstep-wood-${i}`,     `${kenney}/footstep_wood_00${i}.ogg`);
-    }
-
-    // Animal rustle — soft impact sound plays when an animal starts fleeing.
-    // Using Kenney impactSoft (CC0) as a convincing "sudden movement" sound.
-    for (let i = 0; i < 5; i++) {
-      this.load.audio(`animal-rustle-${i}`, `${kenney}/impactSoft_medium_00${i}.ogg`);
-    }
-
-    // FIL-47: ambient animal calls — positional volume/pan driven by nearest animal.
-    // Source files from Freesound.org CC0 or Kenney Animal Pack (see FIL-47 for links).
-    // Missing files are silently skipped via cache.audio.has() checks in create().
-    this.load.audio('animal-bird', 'assets/audio/animal/bird-call.ogg');
-    this.load.audio('animal-deer', 'assets/audio/animal/deer-call.ogg');
-    this.load.audio('animal-hare', 'assets/audio/animal/hare-rustle.ogg');
-    this.load.audio('animal-fox',  'assets/audio/animal/fox-bark.ogg');
+    // All sound keys/paths live in src/data/audio-manifest.json (#944) so a remote
+    // sound designer can swap files without touching scene code.
+    loadAudioManifest(this);
 
     // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
     // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)
@@ -923,6 +844,13 @@ export class GameScene extends Phaser.Scene {
 
     // ── Tree registry (trees.json) ───────────────────────────────────────────────
     this.load.json('trees-registry', 'macro-world/trees.json');
+
+    // ── Settlement NPC dialog trees (#946) ───────────────────────────────────────
+    // One JSON file per settlement under public/data/dialog/<settlementId>.json.
+    // Dropping a new file there is enough to add/edit dialog — no TS change needed.
+    for (const s of SETTLEMENTS) {
+      queueDialogTreeLoad(this, s.id);
+    }
 
     // ── Nature sprites — DISABLED ──────────────────────────────────────────────
     // Preloads removed so we can re-place decorations deliberately.
@@ -1007,7 +935,7 @@ export class GameScene extends Phaser.Scene {
     const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
       { species: 'wolf',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 48 },
       { species: 'lynx',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
-      { species: 'wildcat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
+      { species: 'wildcat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 48 },
       { species: 'bear',         anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 48 },
       { species: 'squirrel',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
       { species: 'hedgehog',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
@@ -1217,7 +1145,7 @@ export class GameScene extends Phaser.Scene {
 
     this.tinkerTraySystem = new TinkerTraySystem(this);
     this.perceptionSystem = new PerceptionSystem(this);
-    this.discoverySystem = new DiscoverySystem(this);
+    this.discoverySystem = DiscoverySystem.of(this);
     this.projectSystem = new ProjectSystem(this);
 
     // Level 1 starts at dawn (FIL-37)
@@ -1798,6 +1726,7 @@ export class GameScene extends Phaser.Scene {
       this.updateAnimalAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateNpcBarks(time);
       this.updateVendorInteraction();
       this.updateLootChestInteraction();
       this.updateShrine();
@@ -8436,9 +8365,11 @@ export class GameScene extends Phaser.Scene {
         if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
           this.npcDialogActive = true;
           const sid = npc.getData('settlementId') as string;
-          let text = NPC_DIALOG[sid] ?? 'Välkommen.';
+          const tree = getDialogTree(this, sid);
+          const startNode = tree.nodes[tree.startNode];
 
           // Active perception (#824): check tray slots 0-1 against NPC perception tags
+          let text = startNode.text;
           const entries = NPC_PERCEPTION[sid];
           if (entries) {
             const match = this.perceptionSystem.checkAndApply(entries, this);
@@ -8446,13 +8377,19 @@ export class GameScene extends Phaser.Scene {
               text += '\n\n' + match.entry.text;
             }
           }
+          // Clone rather than mutate the cached tree — repeat visits must not
+          // stack perception bonus text onto the same cached node.
+          const dialogTree: DialogTree = text === startNode.text
+            ? tree
+            : { ...tree, nodes: { ...tree.nodes, [tree.startNode]: { ...startNode, text } } };
 
           const npcInfo = NPC_PORTRAIT[sid];
           const dialogData: NpcDialogData = {
             callerKey: this.scene.key,
-            text,
+            text: '',
             speakerName: npcInfo?.name,
             portrait: npcInfo?.portrait,
+            dialogTree,
           };
           this.scene.pause();
           this.scene.launch('NpcDialogScene', dialogData as unknown as object);
@@ -8460,6 +8397,53 @@ export class GameScene extends Phaser.Scene {
         return; // only the nearest NPC counts per frame
       }
     }
+  }
+
+  /**
+   * Ambient NPC barks (#948) — a floating one-liner above an NPC's head when
+   * the player walks close, with no keypress required. Deliberately separate
+   * from updateNpcProximity(): barks are flavor, not a dialog panel, and the
+   * two systems key off the same settlementNpcs array but never block each
+   * other — a bark can pop while the "[E] Talk"-style prompt is also showing.
+   *
+   * BarkSystem (pure logic) owns the proximity radius + per-NPC cooldown +
+   * random line selection; this method only measures distance and renders.
+   */
+  private updateNpcBarks(time: number): void {
+    for (const npc of this.settlementNpcs) {
+      const sid = npc.getData('settlementId') as string;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+      const line = this.barkSystem.tryBark(sid, dist, time);
+      if (line) this.spawnBarkText(npc.x, npc.y - npc.displayHeight, line);
+    }
+  }
+
+  /**
+   * Floating bark text above an NPC's head — fades out after ~3 s. Styled
+   * like the vendor/shrine prompts (small monospace + stroke) rather than
+   * spawnFloatText's reward-popup look, since a bark is ambient flavor, not
+   * a reward notification.
+   */
+  private spawnBarkText(x: number, y: number, text: string): void {
+    const label = this.add
+      .text(x, y - 6, text, {
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#f0ead6',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(500);
+
+    this.tweens.add({
+      targets: label,
+      y: y - 26,
+      alpha: 0,
+      duration: 3000,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
   }
 
   // ── Wildlife info popup ─────────────────────────────────────────────────────
@@ -9346,7 +9330,7 @@ export class GameScene extends Phaser.Scene {
         cultureId: 'ikibeki',
       };
 
-      const { spec, buildings } = generateSettlement(site, s.name, rng, this.settlementOverlayTier);
+      const { spec, buildings } = generateSettlement(site, s.name, rng, getMapgenData(), this.settlementOverlayTier);
 
       // Placement grid size — enough tiles to cover the settlement radius.
       const gridSize = Math.max(20, Math.ceil(spec.radius / TILE_SIZE) * 2 + 4);

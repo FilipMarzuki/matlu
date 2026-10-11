@@ -1,0 +1,218 @@
+name: DevCycle 3c — Risk review
+
+# Risk-based review routing (#1431). A script — not a model — scores each PR
+# from the paths it touches, its size and whether code changed without tests
+# (rules: .github/review-risk.json), labels it risk:low / risk:medium / risk:high
+# and comments the reasons. The tier decides which review models must agree
+# before DevCycle 4 merges (#1481) — never a person; people decide game design:
+#
+#   low     DevCycle 3 — Review (the Claude review agent) approves
+#   medium  + a second opinion from another model family (REVIEW_MODEL_MEDIUM)
+#             says approve
+#   high    + one focused pass per lens (determinism, saves, general) on a
+#             stronger model (REVIEW_MODEL_HIGH) finds nothing
+#
+# risk-score.mjs --gate checks this in every merge path, on the head commit only:
+# a new commit re-runs the reviews. When the paid reviews finish, this starts
+# DevCycle 4, so a merge isn't stranded when the review agent approved first.
+#
+# Triggers:
+#   - CI passed on a non-draft PR          → score + paid reviews
+#   - a PR is marked ready for review      → score; if CI already passed on the
+#     head commit, paid reviews + start DevCycle 3 — Review (marking ready
+#     doesn't re-run CI, so nothing else would). If CI is still running, the
+#     CI-passed trigger above does it instead — never both, so no paid review
+#     runs twice.
+#   - workflow_dispatch with a PR number   → score + paid reviews (re-run a held
+#     PR's reviews)
+#
+# Safety: PR events use `pull_request_target`, so this file runs as it is on the
+# base branch, never as a PR edited it, and every job checks out the base
+# branch — a PR can't change the rules or the workflow it is judged by. No job
+# runs the PR's code. Paid model calls only run for PRs from this repo.
+#
+# Requires: secret OPENROUTER_API_KEY. Without it (and without the fallback) the review steps log why and
+# exit green, but post nothing — so the gate holds every medium and high PR. Optional variables: REVIEW_MODEL_MEDIUM, REVIEW_MODEL_HIGH
+# (OpenRouter model ids).
+# Fallback (#1509): with secret ANTHROPIC_PLAYTEST_KEY, Claude (variable REVIEW_FALLBACK_MODEL, default
+# claude-sonnet-5-5) reviews whenever OpenRouter can't: out of credit, down, or no key. The review still
+# counts at the gate, says it's weak, and the PR is labelled weak-review to revisit. Other workflows are started with this run's own
+# GITHUB_TOKEN (`actions: write` below): a workflow_dispatch sent with it does
+# start a run, unlike most events it causes. GH_TRACKER_TOKEN can't — it has no
+# Actions permission, and every dispatch made with it failed (#1476).
+
+on:
+  workflow_run:
+    workflows: ["DevCycle 2 — CI"]
+    types: [completed]
+  pull_request_target:
+    types: [ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to score and review (e.g. 123)'
+        required: true
+        type: string
+
+# One group per PR and event.
+concurrency:
+  group: risk-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.run_id }}-${{ github.event.action || github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  score:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      pr_number: ${{ steps.find-pr.outputs.pr_number }}
+      tier: ${{ steps.score.outputs.tier }}
+      lenses: ${{ steps.score.outputs.lenses }}
+      same_repo: ${{ steps.score.outputs.same_repo }}
+      draft: ${{ steps.score.outputs.draft }}
+      ci_ok: ${{ steps.score.outputs.ci_ok }}
+    steps:
+      # The default branch's rules and scripts, never the PR's own.
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20.19.0'
+
+      - name: Find PR number
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          # The CI run names its PR directly; the SHA lookup is the fallback
+          # (forks leave pull_requests empty).
+          RUN_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          PR="${INPUT_PR:-${EVENT_PR:-$RUN_PR}}"
+          if [ -z "$PR" ] && [ -n "$HEAD_SHA" ]; then
+            PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number // empty')
+          fi
+          echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Score, label and comment
+        id: score
+        if: steps.find-pr.outputs.pr_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          # Drafts get scored when they're marked ready, not on every push.
+          DRAFT=$(gh api "repos/${{ github.repository }}/pulls/${{ steps.find-pr.outputs.pr_number }}" --jq '.draft' 2>/dev/null || echo false)
+          if [ "$DRAFT" = "true" ]; then
+            echo "PR is a draft — skipping"; echo "draft=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          node .github/scripts/risk-score.mjs --pr ${{ steps.find-pr.outputs.pr_number }} --apply
+
+      - name: Start DevCycle 3 — Review (marked ready, CI already passed)
+        if: github.event.action == 'ready_for_review' && steps.score.outputs.ci_ok == 'true'
+        # The paid reviews below need this job to succeed; a failed dispatch
+        # mustn't take them down with it (#1476).
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run review-agent.yml --repo ${{ github.repository }} \
+            -f pr_number=${{ steps.find-pr.outputs.pr_number }}
+
+  second-opinion:
+    needs: score
+    if: >
+      needs.score.outputs.draft != 'true' &&
+      needs.score.outputs.same_repo == 'true' &&
+      needs.score.outputs.ci_ok == 'true' &&
+      (needs.score.outputs.tier == 'medium' || needs.score.outputs.tier == 'high')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20.19.0'
+      - name: Second-opinion review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_MEDIUM || vars.SECOND_REVIEW_MODEL || 'google/gemini-2.5-pro' }}
+          # When OpenRouter can't review, Claude does, marked weak (#1509).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          REVIEW_FALLBACK_MODEL: ${{ vars.REVIEW_FALLBACK_MODEL || 'claude-sonnet-5-5' }}
+        run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }}
+
+  focused:
+    needs: score
+    if: >
+      needs.score.outputs.draft != 'true' &&
+      needs.score.outputs.same_repo == 'true' &&
+      needs.score.outputs.ci_ok == 'true' &&
+      needs.score.outputs.tier == 'high'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        lens: ${{ fromJSON(needs.score.outputs.lenses) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20.19.0'
+      - name: Focused review — ${{ matrix.lens }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SECOND_REVIEW_MODEL: ${{ vars.REVIEW_MODEL_HIGH || 'openai/gpt-5' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          REVIEW_FALLBACK_MODEL: ${{ vars.REVIEW_FALLBACK_MODEL || 'claude-sonnet-5-5' }}
+        run: node .github/scripts/run-second-review.js --pr ${{ needs.score.outputs.pr_number }} --focus ${{ matrix.lens }}
+
+  # The tier's reviews are in (#1481): ask DevCycle 4 to merge. Its gate checks
+  # that the review agent approves the head commit and the tier's models agree,
+  # so a PR whose models disagree, or whose review agent hasn't finished, is held
+  # there — and when the review agent finishes later, its own completion starts
+  # DevCycle 4 again.
+  merge-check:
+    needs: [score, second-opinion, focused]
+    if: >
+      !cancelled() &&
+      needs.score.outputs.draft != 'true' &&
+      needs.score.outputs.same_repo == 'true' &&
+      needs.score.outputs.ci_ok == 'true' &&
+      (needs.score.outputs.tier == 'medium' || needs.score.outputs.tier == 'high')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # A review that failed leaves the gate waiting for it: say so, rather than hold in silence.
+      - name: Note a failed review
+        if: needs.second-opinion.result == 'failure' || needs.focused.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/issues/${{ needs.score.outputs.pr_number }}/comments" \
+            -f body="A model review (second opinion: ${{ needs.second-opinion.result }}, focused: ${{ needs.focused.result }}) failed, so the merge gate is waiting for it. Re-run *DevCycle 3c — Risk review* with this PR number (Actions → workflow_dispatch)."
+      - name: Start DevCycle 4 — Merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run auto-merge.yml --repo ${{ github.repository }} \
+            -f pr_number=${{ needs.score.outputs.pr_number }}

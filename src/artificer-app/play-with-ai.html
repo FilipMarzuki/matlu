@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Let your AI play the Artificer: add the MCP server to Claude or any MCP client, and it plays Greywind Reach one move at a time." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+    />
+    <title>Play with your AI — Artificer</title>
+  </head>
+  <body>
+    <!-- Served at /play-with-ai/ (#1556): scripts/build-artificer.mjs builds it beside the game. -->
+    <main class="wrap guide">
+      <header>
+        <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
+        <span class="spacer"></span>
+        <span class="ctl"><a class="pill" href="/">‹ BACK TO THE GAME</a></span>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">PLAY WITH YOUR AI</p>
+        <h2>Let your AI live through the winter</h2>
+        <p class="lede">
+          Greywind Reach is a text game, so an AI can play it. Add the Artificer to your AI as an
+          <b>MCP server</b> and ask it to play: it reads the valley, decides, and makes
+          <b>one move at a time</b>. It thinks on your AI's account, not ours.
+        </p>
+        <p class="lede alt">Rather play it yourself, as text? <a href="/console/">Open the console</a>: type or tap, on any screen. Every finished game goes on the <a href="/records/">Records</a>.</p>
+        <div class="url">
+          <code id="mcp-url">https://artificer.corewarden.app/mcp</code>
+          <button class="pill" type="button" id="copy">COPY</button>
+        </div>
+      </section>
+
+      <div class="cols">
+        <section class="box">
+          <p class="eyebrow">IN CLAUDE</p>
+          <ol>
+            <li>Open <b>Settings → Connectors</b> and add a <b>custom connector</b>.</li>
+            <li>Name it <b>Artificer</b> and paste the address above. No sign-in is needed.</li>
+            <li>In a chat, turn the connector on and say: <i>“Start a new game of the Artificer and play the first day.”</i></li>
+          </ol>
+        </section>
+
+        <section class="box">
+          <p class="eyebrow">IN OTHER APPS</p>
+          <p>Any app that connects to remote MCP servers over HTTP can use the same address.</p>
+          <p class="label">Claude Code</p>
+          <pre><code>claude mcp add --transport http artificer https://artificer.corewarden.app/mcp</code></pre>
+          <p class="note">Apps that only start local servers (stdio) can't reach it directly.</p>
+        </section>
+      </div>
+
+      <section class="box">
+        <p class="eyebrow">THE TOOLS YOUR AI GETS</p>
+        <dl class="tools">
+          <dt>new_game</dt><dd>Start a game. Gives a <code>game_id</code> to pass to every other tool, and the opening view.</dd>
+          <dt>look</dt><dd>The whole picture: the day, the body, stores, camp, the land, and the moves open now.</dd>
+          <dt>act</dt><dd>One move, such as <code>scout</code>, <code>water</code> or <code>end_day</code>. Answers with what changed and a status line.</dd>
+          <dt>plan_day</dt><dd>A whole day of actions in one go, once the Warden has learned to plan.</dd>
+          <dt>choose</dt><dd>An answer in an encounter, the caravan meeting, or on the road.</dd>
+          <dt>rules</dt><dd>How the valley works: seasons, the body, building, the rings of land, the road.</dd>
+        </dl>
+      </section>
+
+      <section class="box">
+        <p class="eyebrow">A SAMPLE OPENING</p>
+        <p>From a real game, played by a small model that knew only what the server tells it:</p>
+        <div class="turn"><span class="who">AI</span><code>act { "move": "scout" }</code></div>
+        <pre class="reply">Scouted the near ground — you can see where food, water, wood and stone lie.
+You've worked out landmarks — pick three high points and you are never lost.
+Milestone — Get your bearings
+
+Day 1 · 3.2/14h · Vigor 91/100 · Clarity 97/100 · Condition 100 · food 2 · water 2 · firewood 0 · rations 4</pre>
+        <div class="turn"><span class="who">AI</span><code>act { "move": "end_day" }</code></div>
+        <pre class="reply">A cold, broken night — the exposure bites.
+1 raw food went bad.
+Morning: fog.
+
+Day 2 · 0/14h · Vigor 73/105 · Clarity 100/100 · Condition 92 · food 3 · water 6 · firewood 3 · rations 4</pre>
+        <p class="note">It had no camp yet, and the night told it so.</p>
+      </section>
+
+      <section class="box fair">
+        <p class="eyebrow">FAIR PLAY</p>
+        <ul>
+          <li><b>No accounts.</b> Each address can start 20 games and make 5,000 moves a day.</li>
+          <li><b>No peeking.</b> A game's seed stays on our server, so nobody can see the weather coming.</li>
+          <li><b>Name your model if you like.</b> <code>new_game</code> takes the model's name; it's shown as <i>self-reported</i>.</li>
+          <li><b>Plain HTTP works too:</b> <a href="/api/v1/rules">/api/v1/rules</a> describes the moves, and games are at <code>/api/v1/games</code>.</li>
+        </ul>
+      </section>
+    </main>
+    <script type="module" src="/src/artificer-app/play-with-ai.ts"></script>
+  </body>
+</html>

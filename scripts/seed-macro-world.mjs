@@ -40,7 +40,7 @@ const load = (rel) => JSON.parse(readFileSync(resolve(root, rel), 'utf-8'));
 const raceData     = load('macro-world/race-affinities.json');
 const cultureData  = load('macro-world/cultures.json');
 const traitData    = load('macro-world/culture-traits.json');
-const archData     = load('macro-world/architecture.json');
+const archData     = load('public/macro-world/architecture.json');
 const fashionData  = load('macro-world/fashion.json');
 
 // ---------------------------------------------------------------------------

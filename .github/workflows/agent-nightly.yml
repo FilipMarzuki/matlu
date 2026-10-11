@@ -215,7 +215,7 @@ jobs:
       - name: Swap mislabelled agent:already-shipped → agent:success
         # Step 0 of .agents/per-issue.md is the only legitimate place for
         # agent:already-shipped (supersession exit, no PR opened). If the
-        # session reached Step 3 and opened a PR, the model sometimes
+        # session reached Wrap-up step 3 and opened a PR, the model sometimes
         # mis-applies already-shipped instead of agent:success — see #658.
         # This guard catches that and swaps the label so weekly stats and
         # human readers see the correct outcome.

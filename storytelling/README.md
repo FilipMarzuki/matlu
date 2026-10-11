@@ -158,7 +158,7 @@ Matlu world, write small adapters that emit a `WorldSpec`:
 - **mana** ← a corruption/ley overlay;
 - **cultures** ← `macro-world/cultures.json` → succession law + name pools +
   drive/temperament biases (so regions read as *places*);
-- **resources** ← `macro-world/resources.json`;
+- **resources** ← `macro-world/item-registry.json`;
 - **dynasties/characters** ← lore (WORLD.md / Notion).
 
 The engine never changes — each new world is just a different `WorldSpec`. (That

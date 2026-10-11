@@ -1,0 +1,293 @@
+/**
+ * Character stats (#1256, epic #1255): six base stats in the Drakar och
+ * Demoner style, under the skills. Skills say what you've practised; stats say
+ * what you're built for.
+ *
+ * Scores run 3–18 (10 is average) and are chosen by point-buy at creation.
+ * Every effect works off d = score − 10, a few percent per point.
+ *
+ * Like traits, stats act only on drains, recovery, costs and bonuses — never
+ * on Vigor/Clarity caps, which drift back to the baseline each night and which
+ * winter readiness checks (caps drift back to the baseline each night).
+ *
+ * Unlike skills (#1241), stats are shown exactly: you know your own body and
+ * mind. Pure: Region 1 and the road read `statEffects` and `statDrain`.
+ */
+
+import type { ActionId } from './region1';
+import type { SkillId } from './skills';
+
+export type StatId = 'str' | 'con' | 'agi' | 'int' | 'wil' | 'cha';
+export type Stats = Record<StatId, number>;
+
+export const STATS: Readonly<Record<StatId, { name: string; short: string; blurb: string }>> = {
+  str: { name: 'Strength', short: 'STR', blurb: 'heavy work — wood, stone, building — tires the body less' },
+  con: { name: 'Constitution', short: 'CON', blurb: 'hunger and thirst cost less Condition; you heal faster' },
+  agi: { name: 'Agility', short: 'AGI', blurb: 'hunting, tracking, scouting, handcraft and walking cost less' },
+  int: { name: 'Intelligence', short: 'INT', blurb: 'more insight from study; finer crafts' },
+  wil: { name: 'Willpower', short: 'WIL', blurb: 'work wears the mind less; focus holds at lower Clarity' },
+  cha: { name: 'Charisma', short: 'CHA', blurb: 'people trust you sooner and deal fairer (on the caravan road)' },
+};
+export const STAT_IDS = Object.keys(STATS) as StatId[];
+
+/** Average in everything — old saves, quick starts, and the AI's default. */
+export const DEFAULT_STATS: Readonly<Stats> = { str: 10, con: 10, agi: 10, int: 10, wil: 10, cha: 10 };
+
+/** Point-buy (#1256): 6 points; raising costs 1 per step to 13 and 2 per step for 14–15; lowering (to 7) refunds 1 per step. */
+export const POINT_BUDGET = 6;
+export const CREATION_MIN = 7;
+export const CREATION_MAX = 15;
+/** The highest score where a step still costs 1 point. */
+const CHEAP_UP_TO = 13;
+
+/** Points a score costs at creation (negative: a refund for lowering). */
+export function scoreCost(score: number): number {
+  if (score <= 10) return score - 10;
+  const cheap = Math.min(score, CHEAP_UP_TO) - 10;
+  return cheap + 2 * Math.max(0, score - CHEAP_UP_TO);
+}
+
+/** Total points a spread costs. */
+export const pointCost = (s: Stats): number => STAT_IDS.reduce((n, id) => n + scoreCost(s[id]), 0);
+
+/** A legal creation spread: all six stats, whole numbers within 7–15, at most {@link POINT_BUDGET} points. */
+export function validStats(x: unknown): x is Stats {
+  if (typeof x !== 'object' || x === null) return false;
+  const s = x as Record<string, unknown>;
+  const scoresOk = STAT_IDS.every(id => Number.isInteger(s[id]) && (s[id] as number) >= CREATION_MIN && (s[id] as number) <= CREATION_MAX);
+  return scoresOk && pointCost(s as Stats) <= POINT_BUDGET;
+}
+
+/** Points left to spend on a spread. */
+export const pointsLeft = (s: Stats): number => POINT_BUDGET - pointCost(s);
+
+// ── Effects ─────────────────────────────────────────────────────────────────
+
+/** Work that leans on Strength. */
+export const HEAVY_ACTIONS: readonly ActionId[] = ['wood', 'quarry', 'build'];
+/** Work that leans on Agility (plus any handcraft craft). */
+export const AGILE_ACTIONS: readonly ActionId[] = ['hunt', 'track', 'scout', 'survey', 'lookout'];
+
+/** What a spread does, as multipliers (1 = no change) and additions. */
+export interface StatEffects {
+  /** STR: Vigor drain on heavy work. */
+  heavyVigor: number;
+  /** AGI: drain (Vigor and Clarity) on nimble work. */
+  agileDrain: number;
+  /** AGI: drain of walking out to the rings. */
+  travel: number;
+  /** CON: Condition lost to hunger and thirst. */
+  deprivationCondition: number;
+  /** CON: Condition healed overnight. */
+  heal: number;
+  /** INT: insight from study. */
+  insight: number;
+  /** INT: added to the craft-grade score (+1 at 13, −1 at 7). */
+  craftGrade: number;
+  /** WIL: Clarity drain on all work. */
+  clarityDrain: number;
+  /** WIL: Clarity lost to hunger and thirst. */
+  deprivationClarity: number;
+  /** WIL: Clarity below which focus turns unreliable (30 at WIL 10). */
+  unreliableBelow: number;
+  /** CHA: added to people's starting trust on the road (#1246). */
+  trust: number;
+  /** CHA: multiplies what you pay (and divides what you're paid) on the road (#1247). */
+  priceFactor: number;
+}
+
+export function statEffects(s: Stats): StatEffects {
+  const d = (id: StatId): number => s[id] - 10;
+  return {
+    heavyVigor: 1 - 0.03 * d('str'),
+    agileDrain: 1 - 0.03 * d('agi'),
+    travel: 1 - 0.03 * d('agi'),
+    deprivationCondition: 1 - 0.03 * d('con'),
+    heal: 1 + 0.03 * d('con'),
+    insight: 1 + 0.05 * d('int'),
+    // Truncate toward zero, so only a real lean (±3) moves the grade (+ 0 turns −0 into 0).
+    craftGrade: Math.trunc(d('int') / 3) + 0,
+    clarityDrain: 1 - 0.02 * d('wil'),
+    deprivationClarity: 1 - 0.03 * d('wil'),
+    unreliableBelow: 30 - 2 * d('wil'),
+    trust: d('cha'),
+    priceFactor: 1 - 0.02 * d('cha'),
+  };
+}
+
+/** Drain multipliers from stats for one piece of work (`skill`: the skill it trains, for handcraft crafts). */
+export function statDrain(s: Stats, action: ActionId, skill: SkillId | null): { vigor: number; clarity: number } {
+  const e = statEffects(s);
+  const agile = AGILE_ACTIONS.includes(action) || skill === 'handcraft' ? e.agileDrain : 1;
+  return {
+    vigor: (HEAVY_ACTIONS.includes(action) ? e.heavyVigor : 1) * agile,
+    clarity: e.clarityDrain * agile,
+  };
+}
+
+// ── Creation helpers (#1258) ────────────────────────────────────────────────
+
+/** Can this stat go up one step at creation (under the max, and affordable)? */
+export const canRaise = (s: Stats, id: StatId): boolean =>
+  s[id] < CREATION_MAX && scoreCost(s[id] + 1) - scoreCost(s[id]) <= pointsLeft(s);
+/** Can this stat go down one step at creation (above the minimum)? */
+export const canLower = (s: Stats, id: StatId): boolean => s[id] > CREATION_MIN;
+/** Points the next step up would cost (1, or 2 above 13). */
+export const raiseCost = (score: number): number => scoreCost(score + 1) - scoreCost(score);
+
+/** A signed whole number: "+3", "−9" (a real minus sign), "±0". */
+const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0');
+
+/** What a score does, in a few words, for the creation screen and the WARDEN tab. */
+export function statNote(id: StatId, score: number): string {
+  const d = score - 10;
+  const e = statEffects({ ...DEFAULT_STATS, [id]: score });
+  if (d === 0) return 'average';
+  switch (id) {
+    case 'str': return `heavy work ${signed(-3 * d)}% Vigor`;
+    case 'con': return `hunger & thirst ${signed(-3 * d)}% Condition · healing ${signed(3 * d)}%`;
+    case 'agi': return `nimble work & walking ${signed(-3 * d)}% effort`;
+    case 'int': return `study ${signed(5 * d)}% insight${e.craftGrade ? ` · craft grade ${signed(e.craftGrade)}` : ''}`;
+    case 'wil': return `mind strain ${signed(-2 * d)}% · focus holds to ${e.unreliableBelow} Clarity`;
+    case 'cha': return `trust ${signed(d)} · prices ${signed(-2 * d)}% (on the road)`;
+  }
+}
+
+// ── Growth by use, and wear (#1257) ─────────────────────────────────────────
+// Stats change slowly over a character's life: the work you do exercises its stat, hour for hour,
+// and enough of it raises the stat a point; hardship wears Constitution down. What's been gained
+// and lost is kept apart from the chosen (adult) stats and the age (#1399), so growing up never
+// undoes training and training never moves the potential you chose.
+
+/** The human peak and the floor: no stat rises past 18 or falls below 3. */
+export const STAT_PEAK = 18, STAT_LOW = 3;
+
+/**
+ * Exercise hours for the next point by score alone: 30 × (score − 8)², at least 120 (10→11 and
+ * below: 120h; 14→15: 1,080h). A weak stat costs the floor — never more than a 10 (#1440): an
+ * untrained body gains fastest.
+ */
+export const STAT_MIN_HOURS = 120;
+export const EXERCISE_TO_NEXT = (score: number): number => Math.max(STAT_MIN_HOURS, 30 * Math.max(0, score - 8) ** 2);
+
+/** The body's stats taper with training (#1440); the mind's (INT, WIL) and CHA keep the steady curve. */
+export const TAPERED: readonly StatId[] = ['str', 'con', 'agi'];
+
+/**
+ * Exercise hours for a stat's next point (#1440). For STR, CON and AGI, each point already gained by
+ * use (`trained`, net of wear) doubles the cost: 120h, 240h, 480h, 960h — the first gains come fast,
+ * then a plateau. That's the larger of this taper and the score curve, so they never stack: a weak
+ * Warden who trains pays the taper, a naturally strong one the score curve. Wear lowers `trained`,
+ * so strength lost comes back cheaper than strength never had.
+ */
+export function exerciseToNext(id: StatId, score: number, trained = 0): number {
+  const byScore = EXERCISE_TO_NEXT(score);
+  return TAPERED.includes(id) ? Math.max(byScore, STAT_MIN_HOURS * 2 ** Math.max(0, trained)) : byScore;
+}
+
+/**
+ * The right skill builds its stat: practising a skill exercises the stat it leans on. Felling and
+ * stonework build the arms, hunting, scouting and handwork the hands and feet, fieldcraft and
+ * foraging the body's endurance, memory and first aid the head.
+ */
+export const SKILL_STAT: Readonly<Record<SkillId, StatId>> = {
+  woodcraft: 'str', stonework: 'str', hunting: 'agi', scouting: 'agi', handcraft: 'agi',
+  fieldcraft: 'con', foraging: 'con', memory: 'int', firstaid: 'int',
+};
+/** Exercise per hour of skilled work, by the skill's level: untrained 0.5 … Journeyman 1.5. The better you are, the more it builds. */
+export const skillExercise = (level: number): number => 0.5 + 0.25 * level;
+/** Hard work: draining Vigor this fast (per hour, or pushing past empty) builds STR and CON; Clarity this fast, INT and WIL. */
+export const HARD_VIGOR = 4, HARD_CLARITY = 4;
+/** Exercise per hour of hard work, on top of the skill's. */
+export const HARD_EXERCISE = 0.5;
+
+/** A stretch of work, as stat growth sees it. Rates are the work's own (negative drains), before skill or tools ease it. */
+export interface Work {
+  hours: number;
+  skill: SkillId | null;
+  level: number;
+  vigorRate: number;
+  clarityRate: number;
+  /** Pushed Vigor past empty. */
+  pushed?: boolean;
+  /** Begun with a tired mind (Clarity under 40) or locked to survival: steels the will. */
+  tiredMind?: boolean;
+  /** Study: reading and working things out, INT hour for hour. */
+  study?: boolean;
+}
+
+/** The exercise hours a stretch of work gives each stat (#1257): the right skill, hard work, and a tired mind. */
+export function exerciseFrom(w: Work): Partial<Stats> {
+  const out: Partial<Stats> = {};
+  const add = (id: StatId, h: number) => { if (h > 0) out[id] = Math.round(((out[id] ?? 0) + h) * 100) / 100; };
+  if (w.hours <= 0) return out;
+  if (w.skill) add(SKILL_STAT[w.skill], w.hours * skillExercise(w.level));
+  if (w.study) add('int', w.hours);
+  if (-w.vigorRate >= HARD_VIGOR || w.pushed) { add('str', w.hours * HARD_EXERCISE); add('con', w.hours * HARD_EXERCISE); }
+  if (-w.clarityRate >= HARD_CLARITY) { add('int', w.hours * HARD_EXERCISE); add('wil', w.hours * HARD_EXERCISE); }
+  if (w.tiredMind) add('wil', w.hours);
+  return out;
+}
+
+/**
+ * Growth comes in recovery (#1414): work builds pending exercise, and a proper night (fed, watered,
+ * not cold) banks at most this many hours of it per stat. More than that in one stretch is wasted —
+ * the body can only rebuild so much a night.
+ */
+export const RECOVERY_CAP = 4;
+/** What the journal says when training outran recovery. */
+export const OVERTRAINED = 'You pushed harder than one night can mend';
+export const overtrainedLine = (hours: number): string => `${OVERTRAINED} — ${Math.round(hours)}h of it went for nothing.`;
+
+/** WIL is exercised by work done with a tired mind (Clarity under this at the start) — or locked to survival. */
+export const WIL_EXERCISE_BELOW = 40;
+/** CON: each night survived hungry or thirsty counts this much, plus every hour worked beyond this in a day. */
+export const HARD_NIGHT_EXERCISE = 4, LONG_DAY_HOURS = 10;
+/** Wear: a night at this many nights hungry (or thirsty) adds 1; at WEAR_LIMIT, CON drops a point and wear resets. */
+export const WEAR_HUNGRY = 3, WEAR_THIRSTY = 2, WEAR_LIMIT = 3;
+
+/** What the character carries of it: points gained or lost by use and wear, exercise towards the next point, and wear. */
+export interface Growth { trained?: Partial<Stats>; exercise?: Partial<Stats>; wear?: number }
+
+/** The stats now: the chosen ones as grown at this age (#1399), plus what's been gained or lost (#1257), within 3–18. */
+export function withTraining(grown: Readonly<Stats>, trained: Partial<Stats> | undefined): Stats {
+  const out = { ...grown };
+  for (const id of STAT_IDS) out[id] = Math.max(STAT_LOW, Math.min(STAT_PEAK, grown[id] + (trained?.[id] ?? 0)));
+  return out;
+}
+
+/**
+ * Exercise a stat (pure): add the hours, and while they reach the next point (and the stat is under
+ * the peak), raise it. Returns the new stats and growth, and the scores reached (for the journal).
+ */
+export function exercise(stats: Readonly<Stats>, growth: Growth, id: StatId, hours: number): { stats: Stats; growth: Growth; reached: number[] } {
+  if (hours <= 0) return { stats: { ...stats }, growth, reached: [] };
+  const s = { ...stats };
+  const trained = { ...(growth.trained ?? {}) };
+  let ex = (growth.exercise?.[id] ?? 0) + hours;
+  const reached: number[] = [];
+  // Each point gained raises `trained`, so a tapered stat's next point costs more inside this loop too.
+  for (let cost = exerciseToNext(id, s[id], trained[id] ?? 0); s[id] < STAT_PEAK && ex >= cost; cost = exerciseToNext(id, s[id], trained[id] ?? 0)) {
+    ex -= cost;
+    s[id] += 1;
+    trained[id] = (trained[id] ?? 0) + 1;
+    reached.push(s[id]);
+  }
+  // At the peak, there's nothing more to work towards.
+  if (s[id] >= STAT_PEAK) ex = 0;
+  return { stats: s, growth: { ...growth, ...(reached.length ? { trained } : {}), exercise: { ...(growth.exercise ?? {}), [id]: Math.round(ex * 100) / 100 } }, reached };
+}
+
+/** Lose a point of a stat to hardship (pure), never below the floor. */
+export function wearDown(stats: Readonly<Stats>, growth: Growth, id: StatId): { stats: Stats; growth: Growth; lost: boolean } {
+  if (stats[id] <= STAT_LOW) return { stats: { ...stats }, growth, lost: false };
+  return { stats: { ...stats, [id]: stats[id] - 1 }, growth: { ...growth, trained: { ...(growth.trained ?? {}), [id]: (growth.trained?.[id] ?? 0) - 1 } }, lost: true };
+}
+
+/** What the journal says when a stat rises — felt, not hidden. */
+const GAIN_WORDS: Readonly<Record<StatId, string>> = {
+  str: 'The heavy work has hardened your arms', agi: 'You move quicker and surer than you did', int: 'Using your head has sharpened it',
+  wil: 'Pushing on when you were spent has steeled you', con: 'Hardship has toughened you', cha: 'Talking to people has come easier',
+};
+export const gainLine = (id: StatId, score: number): string => `${GAIN_WORDS[id]} — ${STATS[id].name} ${score}.`;
+export const wearLine = (thirst: boolean, score: number): string => `${thirst ? 'Thirst' : 'Hunger'} has left its mark — Constitution ${score}.`;

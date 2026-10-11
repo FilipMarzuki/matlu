@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- interactive-widget=resizes-content: on phones, the on-screen keyboard shrinks the page
+         instead of covering it, so the command line stays in view above the keyboard. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <meta name="description" content="Play the Artificer as text: Greywind Reach in a console, typed or tapped, on any screen." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+    />
+    <title>Console — Artificer</title>
+  </head>
+  <body>
+    <!-- Served at /console/ (#1557): scripts/build-artificer.mjs builds it beside the game. -->
+    <div class="console">
+      <header>
+        <h1>❄ GREYWIND <span class="mark">REACH</span> <span class="sub">CONSOLE</span></h1>
+        <span class="spacer"></span>
+        <span class="ctl wide-only"><a class="pill" href="/records/">RECORDS</a></span>
+        <span class="ctl wide-only"><a class="pill" href="/play-with-ai/">PLAY WITH YOUR AI</a></span>
+        <span class="ctl"><a class="pill" href="/">‹ THE GAME</a></span>
+      </header>
+      <div id="out" class="out" role="log" aria-live="polite" aria-label="Game text"></div>
+      <div id="status" class="status" aria-live="polite"></div>
+      <div id="chips" class="chips" aria-label="Moves open now"></div>
+      <form id="cmd" class="cmd" autocomplete="off">
+        <span class="prompt" aria-hidden="true">›</span>
+        <input id="line" name="line" type="text" inputmode="text" enterkeyhint="send" autocapitalize="off" spellcheck="false" aria-label="Command" placeholder="a move, or help" />
+        <button class="pill" type="submit">GO</button>
+      </form>
+    </div>
+    <script type="module" src="/src/artificer-app/console.ts"></script>
+  </body>
+</html>

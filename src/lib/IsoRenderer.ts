@@ -13,6 +13,7 @@
  */
 
 import * as Phaser from 'phaser';
+import { footprintSpan } from '../../mapgen/SettlementPlacement';
 
 /** All the parameters needed to convert between tile and screen space. */
 export interface IsoConfig {
@@ -128,32 +129,27 @@ export function drawIsoBox(
   tx: number,
   ty: number,
   widthTiles: number,
-  _depthTiles: number,
+  depthTiles: number,
   heightPx: number,
   color: number,
   alpha: number,
 ): IsoBoxCorners {
-  // The building footprint extends `half` tiles in each direction from centre.
-  // ceil matches the stamp logic in SettlementPlacement.
-  const half = Math.ceil(widthTiles / 2);
-  const { x, y } = isoPos(cfg, tx - half, ty - half);
-  const hw = cfg.isoW / 2;
-  const hh = cfg.isoH / 2;
+  // The footprint covers exactly widthTiles × depthTiles tiles around (tx,ty),
+  // the same span SettlementPlacement reserves (footprintSpan). The ground
+  // corners are the north apexes of the footprint's corner tiles.
+  const [loX] = footprintSpan(widthTiles);
+  const [loY] = footprintSpan(depthTiles);
+  const x0 = tx + loX;
+  const y0 = ty + loY;
+  const groundN = isoPos(cfg, x0, y0);
+  const botE = isoPos(cfg, x0 + widthTiles, y0);
+  const botS = isoPos(cfg, x0 + widthTiles, y0 + depthTiles);
+  const botW = isoPos(cfg, x0, y0 + depthTiles);
 
-  const fullW = 2 * half + 1;
-  // _depthTiles kept in the signature for API symmetry with SettlementForgeScene's drawIsoBox.
-  // Footprint is always square so we only use fullW.
-  const sw = hw * fullW;
-  const sh = hh * fullW; // always square footprint
-
-  const topN = { x: x,      y: y - heightPx };
-  const topE = { x: x + sw, y: y + sh - heightPx };
-  const topS = { x: x,      y: y + sh * 2 - heightPx };
-  const topW = { x: x - sw, y: y + sh - heightPx };
-
-  const botE = { x: x + sw, y: y + sh };
-  const botS = { x: x,      y: y + sh * 2 };
-  const botW = { x: x - sw, y: y + sh };
+  const topN = { x: groundN.x, y: groundN.y - heightPx };
+  const topE = { x: botE.x,    y: botE.y - heightPx };
+  const topS = { x: botS.x,    y: botS.y - heightPx };
+  const topW = { x: botW.x,    y: botW.y - heightPx };
 
   const fillQuad = (
     c: number, a: number,

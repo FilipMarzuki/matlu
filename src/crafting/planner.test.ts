@@ -1,0 +1,157 @@
+/**
+ * Acceptance tests for #1184 — the sub-action planner. One test per
+ * Given/When/Then criterion. Fixtures are local so the tests don't depend on
+ * the live recipes.json balance.
+ */
+
+import { describe, it, expect } from 'vitest';
+import {
+  nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, GUILD_RANKS, rankByName, offersGoals, type Automation,
+} from './planner';
+import type { HarvestSource, Recipe } from './ActionQueue';
+
+const PLANK: Recipe = { id: 'plank', name: 'Plank', inputs: [{ item: 'wood-log', qty: 2 }], output: { item: 'plank', qty: 1 }, timeBase: 3 };
+const ROPE: Recipe = { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, timeBase: 2 };
+const SNARE: Recipe = { id: 'snare', name: 'Snare', inputs: [{ item: 'rope', qty: 1 }, { item: 'wood-log', qty: 1 }], output: { item: 'snare', qty: 1 }, timeBase: 3 };
+const RECIPES = [PLANK, ROPE, SNARE];
+
+const PINE: HarvestSource = { id: 'pine', label: 'Pine', yields: [{ itemId: 'wood-log', min: 1, max: 2 }], durationTicks: 5 };
+const OAK: HarvestSource = { id: 'oak', label: 'Oak', yields: [{ itemId: 'wood-log', min: 2, max: 3 }], durationTicks: 5 };
+const MEADOW: HarvestSource = { id: 'meadow', label: 'Meadow', yields: [{ itemId: 'plant-fiber', min: 1, max: 1 }], durationTicks: 2 };
+const SOURCES = [PINE, OAK, MEADOW];
+
+/** Tiny inventory stub: the planner only reads. */
+function inv(stock: Record<string, number> = {}) {
+  return {
+    getQty: (id: string) => stock[id] ?? 0,
+    has: (id: string, qty = 1) => (stock[id] ?? 0) >= qty,
+  };
+}
+
+const goal = (recipeId: string, depth = 0) => ({ recipeId, depth });
+
+describe('nextStep (#1184 acceptance)', () => {
+  it('1. given 2 wood-log and goal plank, any automation → craft', () => {
+    for (const a of [AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL]) {
+      expect(nextStep(goal('plank'), inv({ 'wood-log': 2 }), RECIPES, SOURCES, a)).toEqual({ kind: 'craft' });
+    }
+  });
+
+  it('2. given empty inventory, goal plank, sources [pine, oak], HARVEST → harvest oak (higher expected yield)', () => {
+    expect(nextStep(goal('plank'), inv(), RECIPES, [PINE, OAK], AUTOMATION_HARVEST))
+      .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'wood-log' });
+  });
+
+  it('3. given empty inventory, goal snare, WORKSHOP → subgoal rope (first missing input is craftable)', () => {
+    expect(nextStep(goal('snare'), inv(), RECIPES, SOURCES, AUTOMATION_WORKSHOP))
+      .toEqual({ kind: 'subgoal', recipeId: 'rope', itemId: 'rope' });
+  });
+
+  it('4. given the same but HARVEST → blocked: automation on rope', () => {
+    expect(nextStep(goal('snare'), inv(), RECIPES, SOURCES, AUTOMATION_HARVEST))
+      .toEqual({ kind: 'blocked', itemId: 'rope', reason: 'automation' });
+  });
+
+  it('5. given goal snare at depth 1 with WORKSHOP (maxDepth 1), empty inventory → blocked: depth on rope', () => {
+    expect(nextStep(goal('snare', 1), inv(), RECIPES, SOURCES, AUTOMATION_WORKSHOP))
+      .toEqual({ kind: 'blocked', itemId: 'rope', reason: 'depth' });
+  });
+
+  it('6. given 1 rope but no wood-log, goal snare, WORKSHOP → harvest wood-log (first missing input, not first input)', () => {
+    const step = nextStep(goal('snare'), inv({ rope: 1 }), RECIPES, SOURCES, AUTOMATION_WORKSHOP);
+    expect(step).toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'wood-log' });
+  });
+
+  it('7. given goal plank with nothing producing wood-log, FULL → blocked: no-source', () => {
+    expect(nextStep(goal('plank'), inv(), [PLANK], [MEADOW], AUTOMATION_FULL))
+      .toEqual({ kind: 'blocked', itemId: 'wood-log', reason: 'no-source' });
+  });
+
+  it('8. given recipes A (b→a) and B (a→b), goal A with ancestry [b], FULL → blocked: cycle on b', () => {
+    const A: Recipe = { id: 'a', name: 'A', inputs: [{ item: 'b', qty: 1 }], output: { item: 'a', qty: 1 }, timeBase: 1 };
+    const B: Recipe = { id: 'b', name: 'B', inputs: [{ item: 'a', qty: 1 }], output: { item: 'b', qty: 1 }, timeBase: 1 };
+    expect(nextStep(goal('a', 1), inv(), [A, B], [], AUTOMATION_FULL, ['b']))
+      .toEqual({ kind: 'blocked', itemId: 'b', reason: 'cycle' });
+  });
+
+  it('9. given any inputs, two calls are deeply equal (pure)', () => {
+    const args: [ReturnType<typeof goal>, ReturnType<typeof inv>, Recipe[], HarvestSource[], Automation] =
+      [goal('snare'), inv({ 'plant-fiber': 1 }), RECIPES, SOURCES, AUTOMATION_FULL];
+    expect(nextStep(...args)).toEqual(nextStep(...args));
+  });
+});
+
+/** #1195 — the automation presets are the guild ranks. */
+describe('guild ranks (#1195 acceptance)', () => {
+  // 1. Four ranks, in order, with the capabilities of the old presets.
+  it('1. lists apprentice, journeyman, master, artificer with their capabilities', () => {
+    expect(GUILD_RANKS.map(r => r.rank)).toEqual(['apprentice', 'journeyman', 'master', 'artificer']);
+    expect(GUILD_RANKS.map(r => r.label)).toEqual(['Apprentice', 'Journeyman', 'Master', 'Artificer']);
+    const caps = GUILD_RANKS.map(({ mayHarvest, mayCraftSubgoals, maxDepth }) => ({ mayHarvest, mayCraftSubgoals, maxDepth }));
+    expect(caps).toEqual([
+      { mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
+    ]);
+  });
+
+  // 2. rankByName gives the same object as the list and the old alias.
+  it('2. rankByName(journeyman) is GUILD_RANKS[1] and AUTOMATION_HARVEST', () => {
+    expect(rankByName('journeyman')).toBe(GUILD_RANKS[1]);
+    expect(rankByName('journeyman')).toBe(AUTOMATION_HARVEST);
+  });
+
+  // Goals are offered by capability, and the shared rank objects can't be changed.
+  it('offers goals only to a level that can do something, and freezes the ranks', () => {
+    expect(GUILD_RANKS.map(offersGoals)).toEqual([false, true, true, true]);
+    expect(offersGoals({ ...rankByName('journeyman'), mayHarvest: false })).toBe(false);
+    expect(Object.isFrozen(rankByName('master'))).toBe(true);
+  });
+});
+
+// #1192: a source that gives nothing of the item right now — out of season, or gated to a biome
+// the settlement doesn't have — is no source. The planner sees the season and biome the harvest will.
+describe('nextStep sees the season and the biome (#1192 acceptance)', () => {
+  // The issue's fixtures: Oak gives wood and (seasonal) fibre; round(1 × 0.25) = 0 fibre in winter.
+  const S_OAK: HarvestSource = {
+    id: 'oak', label: 'Oak Tree', durationTicks: 5,
+    yields: [{ itemId: 'wood-log', min: 1, max: 2 }, { itemId: 'plant-fiber', min: 1, max: 1, seasonal: true }],
+  };
+
+  it('1. given rope, [oak, meadow] and winter → harvest meadow (oak’s fibre is 0 in winter)', () => {
+    // Without a season the two tie and map order keeps oak — the loop the issue found.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK, MEADOW], AUTOMATION_HARVEST))
+      .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'plant-fiber' });
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK, MEADOW], AUTOMATION_HARVEST, [], { season: 'winter' }))
+      .toEqual({ kind: 'harvest', sourceId: 'meadow', itemId: 'plant-fiber' });
+  });
+
+  it('2. given rope, [oak] only and winter → blocked: nothing gives plant-fiber now', () => {
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK], AUTOMATION_HARVEST, [], { season: 'winter' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable', season: 'winter' });
+    // In spring the oak's fibre is back.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [S_OAK], AUTOMATION_HARVEST, [], { season: 'spring' }))
+      .toEqual({ kind: 'harvest', sourceId: 'oak', itemId: 'plant-fiber' });
+  });
+
+  it('a year whose yields leave none of the item: blocked, naming the year', () => {
+    expect(nextStep(goal('plank'), inv(), RECIPES, [PINE, OAK], AUTOMATION_HARVEST, [], { yieldMultiplier: 0 }))
+      .toEqual({ kind: 'blocked', itemId: 'wood-log', reason: 'unavailable', year: true });
+    // Without automation to harvest, that's the reason, whatever the year.
+    expect(nextStep(goal('plank'), inv(), RECIPES, [PINE, OAK], AUTOMATION_NONE, [], { yieldMultiplier: 0 }))
+      .toEqual({ kind: 'blocked', itemId: 'wood-log', reason: 'automation' });
+  });
+
+  it('a yield gated to a biome the settlement lacks is no source', () => {
+    const MARSH: HarvestSource = { id: 'marsh', label: 'Marsh', durationTicks: 2, yields: [{ itemId: 'plant-fiber', min: 2, max: 2, biomes: ['wetland'] }] };
+    // The marsh would win on yield (2 > 1), but its fibre doesn't drop in the forest.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH, MEADOW], AUTOMATION_HARVEST, [], { biome: 'forest' }))
+      .toEqual({ kind: 'harvest', sourceId: 'meadow', itemId: 'plant-fiber' });
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH], AUTOMATION_HARVEST, [], { biome: 'forest' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable' });
+    // In winter too, the biome is the reason, not the season.
+    expect(nextStep(goal('rope'), inv(), RECIPES, [MARSH], AUTOMATION_HARVEST, [], { biome: 'forest', season: 'winter' }))
+      .toEqual({ kind: 'blocked', itemId: 'plant-fiber', reason: 'unavailable' });
+  });
+});

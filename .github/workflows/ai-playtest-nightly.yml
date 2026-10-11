@@ -1,0 +1,112 @@
+name: Artificer AI playtest (nightly, on change)
+
+# Plays the AI model roster (src/artificer-ai/roster.ts) through Artificer
+# Region 1 — but only on days when the sim actually changed. Every night it
+# counts commits merged to main in the last 24 hours that touch the Artificer
+# sim or the AI harness; with none, it stops before installing anything ($0).
+#
+# On a changed day it runs the free random baselines plus `npm run ai:bench`
+# (≈ $0.40 for the full roster, capped by AI_BENCH_BUDGET), builds the
+# progression report, posts a Markdown summary on the run page and uploads the
+# HTML report + transcripts as the `ai-playtest` artifact (#1231).
+#
+# Optional: secret ANTHROPIC_PLAYTEST_KEY plays Claude models on Anthropic credit first (#1506).
+# Requires: secret OPENROUTER_API_KEY (same as DevCycle 3b). Without it, only
+# the free baselines run. Optional variables: AI_BENCH_BUDGET (USD, default 1),
+# AI_BENCH_MIN_CHANGES (commits needed to trigger, default 1).
+# Manual runs (Actions tab) skip the change check.
+
+on:
+  schedule:
+    # 23:15 UTC: the end of a working day of PRs, before the 02:00 nightly agent starts the next batch.
+    - cron: '15 23 * * *'
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'Games per model'
+        required: false
+        default: '1'
+      budget:
+        description: 'Spend cap in USD (blank = AI_BENCH_BUDGET or 1)'
+        required: false
+        default: ''
+
+concurrency:
+  group: ai-playtest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  playtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # full history, so the last day's commits can be counted
+
+      - name: Did the sim change today?
+        id: gate
+        env:
+          MIN_CHANGES: ${{ vars.AI_BENCH_MIN_CHANGES || '1' }}
+        run: |
+          # Squash merges put one commit on main per PR, so this counts merged PRs that touched the code.
+          CHANGES=$(git log origin/main --since="24 hours ago" --format=%H -- \
+            src/artificer src/artificer-ai scripts/ai-play.ts scripts/ai-bench.ts | wc -l)
+          echo "Commits touching the Artificer sim in the last 24h: $CHANGES (need $MIN_CHANGES)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$CHANGES" -ge "$MIN_CHANGES" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No Artificer changes in the last 24h ($CHANGES < $MIN_CHANGES) — skipping the playtest." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - name: Random baselines (free)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          npx tsx scripts/ai-play.ts --player random --mode legal --runs 200 --out ai-runs/nightly --quiet
+          npx tsx scripts/ai-play.ts --player random --mode uniform --runs 200 --seed 10001 --out ai-runs/nightly --quiet
+
+      - name: Model roster
+        if: steps.gate.outputs.run == 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Claude models play on the owner's Anthropic credit while it lasts, then through
+          # OpenRouter (#1506). Its own secret: ANTHROPIC_API_KEY is the agents' fallback key.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PLAYTEST_KEY }}
+          BUDGET: ${{ inputs.budget || vars.AI_BENCH_BUDGET || '1' }}
+          RUNS: ${{ inputs.runs || '1' }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Neither OPENROUTER_API_KEY nor ANTHROPIC_PLAYTEST_KEY is set — baselines only." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx tsx scripts/ai-bench.ts --runs "$RUNS" --budget "$BUDGET" --out ai-runs/nightly
+
+      - name: Progression report
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          npx tsx scripts/ai-report.ts --in ai-runs/nightly --out ai-runs/nightly/report.html --md ai-runs/nightly/summary.md
+          cat ai-runs/nightly/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.gate.outputs.run == 'true' && always()
+        with:
+          name: ai-playtest
+          # Random-baseline transcripts are bulky and reproducible from their seeds, so they stay out.
+          path: |
+            ai-runs/nightly/
+            !ai-runs/nightly/*-random-*.json
+          retention-days: 30

@@ -15,112 +15,49 @@
 
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
-import { playerItems, type RegistryItem } from '../lib/items';
+import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
+import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { DiscoveryToast } from '../ui/DiscoveryToast';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
 import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
-import { cliffKeyForBiome, SHORE_BIOME_MAP } from '../world/biomes';
+import { cliffKeyForBiome } from '../world/biomes';
 import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
+import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
+import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, type TreeSize } from '../world/CollisionGrid';
+import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
 
-// ── Grid constants ─────────────────────────────────────────────────────────
-// 60×60 grid. Left half (tx 0-29) = homestead meadow, water body in the SW.
-// Right half (tx 30-59) = WorldForge terrain (elevation, river, waterfall, ocean).
-// Mountain range along NE border blends into WF highlands.
+// ── Grid ──────────────────────────────────────────────────────────────────
+// The 60×60 grid (meadow left half, WorldForge terrain right half, mountain
+// range along the NE border) is authored once in public/assets/maps/homestead.json
+// (#1173) — this scene only reads it. Dimensions come from the loaded level.
 
 const TILE_SIZE = 32;
-const GRID_W = 60;       // tiles wide (tx axis)
-const GRID_H = 60;       // tiles tall (ty axis)
-const WORLD_W = GRID_W * TILE_SIZE;
-const WORLD_H = GRID_H * TILE_SIZE;
 const PLAYER_SPEED = 120;
 const INTERACT_RADIUS = 50;
-
-// Offset to shift original 20×20 resource/node placements into the left half.
-const HS_OFFSET = 5;
+const DEFAULT_MAP_ID = 'homestead';
 
 // ── Iso projection ────────────────────────────────────────────────────────
-// 2:1 diamond for a non-square grid (GRID_W × GRID_H).
+// 2:1 diamond. ISO_ORIGIN_X/ISO_W/ISO_H depend on grid size, so they're
+// computed once the level is loaded (see this.isoOriginX/isoW/isoH).
 
 const ISO_TILE_W = 32;
 const ISO_TILE_H = 16;
-const ISO_ORIGIN_X = GRID_H * (ISO_TILE_W / 2);  // W apex → left edge
-const ISO_W = (GRID_W + GRID_H) * (ISO_TILE_W / 2);
-const ISO_H = (GRID_W + GRID_H) * (ISO_TILE_H / 2) + ISO_TILE_H;
 
 // ── Cliff / elevation ─────────────────────────────────────────────────────
 const CLIFF_H = 32;  // one elevation step = one 32×32 cliff block
 
-// ── Zone system ───────────────────────────────────────────────────────────
-// Left half (tx < 30): forest (west) → meadow (east) with wavy transition.
-// Right half (tx ≥ 30): full WorldForge terrain at native 30×30 size.
-
-type ZoneType = 'homestead' | 'wf';
-
-function getZone(tx: number, _ty: number): ZoneType {
-  // Right half → WorldForge terrain (elevation, river, waterfall)
-  if (tx >= 30) return 'wf';
-  return 'homestead';
-}
-
-/**
- * Wavy forest/meadow boundary — returns a value from 0 (deep forest) to 1
- * (open meadow).  The boundary line meanders around tx ≈ 15 using layered
- * sine waves so the edge feels organic, not a straight vertical cut.
- */
-function forestMeadowBlend(tx: number, ty: number): number {
-  const edge = 21
-    + Math.sin(ty * 0.22) * 3.5
-    + Math.cos(ty * 0.11 + 1.7) * 2.0
-    + Math.sin(ty * 0.37 + tx * 0.05) * 1.5;
-
-  // Transition width: ~4 tiles of blended zone
-  const half = 2;
-  if (tx <= edge - half) return 0;   // pure forest
-  if (tx >= edge + half) return 1;   // pure meadow
-  return (tx - (edge - half)) / (half * 2);  // 0→1 across transition
-}
-
-// ── WorldForge terrain (right half, local coords ltx=tx-30, lty=ty) ───────
-// Ported from WorldForgeScene.buildDisplay() — full elevation, river, cliffs,
-// waterfall, biome bands. Local diagonal ld = ltx+lty runs NW→SE within the
-// 30×30 sub-grid.
-
-const WF_GRID_W   = 30;   // WF sub-grid width (ltx range: 0-29)
-const WF_ELEV_CUT = 10;   // ld < this → highlands
-const WF_OCEAN_CUT = 48;  // ld > this → ocean
-
-/** River centre at local diagonal ld — meanders via two sine terms. */
-function wfRiverCenter(ld: number): number {
-  return Math.round(ld / 2 + Math.sin(ld * 0.35) * 3 + Math.cos(ld * 0.65) * 1.5);
-}
-
-/** Curved boundary perturbation for biome edges. */
-const wfCurveDepth = (h: number) =>
-  Math.round(Math.sin(h * 0.29) * 2.5 + Math.cos(h * 0.53) * 1.5);
-
-/** Elevation: 0 = lowland, 1 = mid, 2 = peak (WF right half). */
-function wfGetElev(ltx: number, lty: number): 0 | 1 | 2 {
-  const ld = ltx + lty;
-  const horiz = ltx - lty;
-  const effDist = WF_ELEV_CUT + wfCurveDepth(horiz) - ld;
-  if (effDist <= 0) return 0;
-  if (horiz > 7) return effDist > 3 ? 2 : 1;
-  return 2;
-}
-
-/** Unified elevation for the full map — highland strip along NE edge. */
-function getElev(tx: number, ty: number): 0 | 1 | 2 {
-  if (tx >= 30) return wfGetElev(tx - 30, ty);
-  const horiz = tx - ty;
-  const effDist = WF_ELEV_CUT + wfCurveDepth(horiz) - ty;
-  if (effDist <= 0) return 0;
-  return effDist > 3 ? 2 : 1;
-}
-
+// One ramp connecting the lowland meadow to the mid highland strip (#936).
+// (21,10) is the highland tile with the cliff edge (elev 1, drops south);
+// its south neighbour (21,11) is lowland (elev 0) but blocked in the map's
+// Collision layer — both tiles are force-unblocked below so the ramp works.
+const RAMPS: RampDef[] = [
+  { tx: 21, ty: 10, fromElev: 0, toElev: 1 },
+];
 
 /** Dual-grid tile hash (natural texture variety within a biome). */
 function wfTileHash(tx: number, ty: number): number {
@@ -132,17 +69,26 @@ function wfTileHash(tx: number, ty: number): number {
   return fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
 }
 
-function hsWorldToIso(wx: number, wy: number): { x: number; y: number } {
-  const tx = wx / TILE_SIZE;
-  const ty = wy / TILE_SIZE;
-  return {
-    x: ISO_ORIGIN_X + (tx - ty) * (ISO_TILE_W / 2),
-    y: (tx + ty) * (ISO_TILE_H / 2),
-  };
+function hsIsoDepth(wx: number, wy: number, elev = 0): number {
+  // Standing higher reads visually like standing further "forward" in the
+  // iso projection, so bump depth the same way moving one tile would.
+  return (wx + wy) / TILE_SIZE + elev;
 }
 
-function hsIsoDepth(wx: number, wy: number): number {
-  return (wx + wy) / TILE_SIZE;
+/**
+ * Wavy forest/meadow boundary — returns a value from 0 (deep forest) to 1
+ * (open meadow). Drives tree-scatter density only (#1173) — the floor
+ * texture itself comes from the map's baked Biome layer, not this formula.
+ */
+function forestMeadowBlend(tx: number, ty: number): number {
+  const edge = 21
+    + Math.sin(ty * 0.22) * 3.5
+    + Math.cos(ty * 0.11 + 1.7) * 2.0
+    + Math.sin(ty * 0.37 + tx * 0.05) * 1.5;
+  const half = 2;
+  if (tx <= edge - half) return 0;   // pure forest
+  if (tx >= edge + half) return 1;   // pure meadow
+  return (tx - (edge - half)) / (half * 2);  // 0→1 across transition
 }
 
 /**
@@ -245,6 +191,20 @@ export class HomesteadScene extends Phaser.Scene {
 
   constructor() { super({ key: HomesteadScene.KEY }); }
 
+  // ── Map (#1173) ───────────────────────────────────────────────────────
+  private level!: LdtkLevel;
+  private heightGrid!: IntGridLayer;
+  private biomeGrid!: IntGridLayer;
+  private cliffBiomeGrid!: IntGridLayer;
+  private riverGrid!: IntGridLayer;
+  private gridW = 0;
+  private gridH = 0;
+  private worldW = 0;
+  private worldH = 0;
+  private isoOriginX = 0;
+  private isoW = 0;
+  private isoH = 0;
+
   private player!: Phaser.Physics.Arcade.Image;
   private playerIso!: Phaser.GameObjects.Sprite;  // animated sprite in iso space
   private interactZone!: Phaser.GameObjects.Arc;
@@ -266,7 +226,7 @@ export class HomesteadScene extends Phaser.Scene {
 
   // ── Building placement ─────────────────────────────────────────────────
   private selectedBuilding: BuildingDef | null = null;
-  private occupied = new Uint8Array(GRID_W * GRID_H);
+  private occupied!: Uint8Array;
   private placedBuildings: Phaser.GameObjects.Image[] = [];
   private toolbarBtns: Phaser.GameObjects.Container[] = [];
   private ghostSprite: Phaser.GameObjects.Image | null = null;
@@ -281,18 +241,24 @@ export class HomesteadScene extends Phaser.Scene {
   private wfSprites: Phaser.GameObjects.Image[] = [];  // waterfall wall tiles
 
   // ── Walkability ───────────────────────────────────────────────────────
-  // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * GRID_W + tx.
-  private walkGrid = new Uint8Array(GRID_W * GRID_H);
-  private roadGrid = new Uint8Array(GRID_W * GRID_H);
+  // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * this.gridW + tx.
+  private walkGrid!: Uint8Array;
+  private roadGrid!: Uint8Array;
   private bridgeTiles: { tx: number; ty: number }[] = [];
   private debugGridGfx: Phaser.GameObjects.Graphics | null = null;
   private playerTileGfx: Phaser.GameObjects.Graphics | null = null;
 
+  // ── Elevation walkability (#936) ────────────────────────────────────────
+  private rampSet = buildRampSet(RAMPS);
+  private rampMap = buildRampMap(RAMPS);
+  private playerElev = 0;
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.json('item-registry', '/macro-world/item-registry.json');
+    // The item registry is bundled (REGISTRY_ITEMS), not loaded here: it isn't in the build's public/ (#1512).
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
+    this.load.json('homestead-map', `/assets/maps/${DEFAULT_MAP_ID}.json`);
 
     // All biome tile packs (meadow, forest, cold-granite, bare-summit, etc.)
     preloadTilePacks(this);
@@ -441,18 +407,51 @@ export class HomesteadScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor('#1a3a1a');
 
-    // Physics world stays in flat grid space
-    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+    // ── Map (#1173) ─────────────────────────────────────────────────────
+    this.level = parseLdtkLevel(this.cache.json.get('homestead-map'));
+    this.heightGrid = this.level.intGrids.HeightMap;
+    this.biomeGrid = this.level.intGrids.Biome;
+    this.cliffBiomeGrid = this.level.intGrids.CliffBiome;
+    this.riverGrid = this.level.intGrids.River;
+    const collisionLayer = this.level.intGrids.Collision;
+    this.gridW = collisionLayer.cols;
+    this.gridH = collisionLayer.rows;
+    this.worldW = this.level.width;
+    this.worldH = this.level.height;
+    this.isoOriginX = this.gridH * (ISO_TILE_W / 2);
+    this.isoW = (this.gridW + this.gridH) * (ISO_TILE_W / 2);
+    this.isoH = (this.gridW + this.gridH) * (ISO_TILE_H / 2) + ISO_TILE_H;
+    this.occupied = new Uint8Array(this.gridW * this.gridH);
+    this.walkGrid = Uint8Array.from(collisionLayer.values);
+    this.roadGrid = new Uint8Array(this.gridW * this.gridH);
 
-    // ── Pre-pass: build walkGrid + road path before rendering ──────────
-    this.buildWalkGrid();
+    // Collision layer blocks deep water, but its SE-offset vs the Biome
+    // layer leaves a strip of visually-wet shore tiles walkable (#938).
+    // Grow the blocked zone by one tile around every water tile so the
+    // player stops right at the shore instead of wading into it.
+    bufferShoreline(this.walkGrid, this.biomeGrid);
+
+    // Ramp tiles (and their lowland foot) must stay walkable even if the
+    // Collision layer blocks them — they're the designated crossing points
+    // through the cliff-edge block (#936).
+    for (const { tx, ty } of RAMPS) {
+      this.walkGrid[ty * this.gridW + tx] = 0;
+      this.walkGrid[(ty + 1) * this.gridW + tx] = 0; // south foot of the ramp
+    }
+
+    // Physics world stays in flat grid space
+    this.physics.world.setBounds(0, 0, this.worldW, this.worldH);
+
+    // ── Pre-pass: road path before rendering (walkGrid comes from the map) ──
     this.buildRoadPath();
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
-    // Load item definitions from the unified registry (replaces resources.json).
-    const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
-    if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
+    // Recipe discovery starts now, not when the crafting menu first opens: every harvest from
+    // here on counts toward memory recipes like healing salve (#1515).
+    DiscoverySystem.of(this);
+    // Load item definitions from the unified registry.
+    inv.loadResourceDefs(playerItems(REGISTRY_ITEMS) as never[]);
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 
@@ -481,171 +480,41 @@ export class HomesteadScene extends Phaser.Scene {
       g.destroy();
     }
 
-    // The main biome used for WF midlands (Meadow).
-    const wfBiome = 6;
-
-    for (let diag = 0; diag < GRID_W + GRID_H - 1; diag++) {
-      const txMin = Math.max(0, diag - (GRID_H - 1));
-      const txMax = Math.min(diag, GRID_W - 1);
+    for (let diag = 0; diag < this.gridW + this.gridH - 1; diag++) {
+      const txMin = Math.max(0, diag - (this.gridH - 1));
+      const txMax = Math.min(diag, this.gridW - 1);
       for (let tx = txMin; tx <= txMax; tx++) {
         const ty = diag - tx;
-        const zone = getZone(tx, ty);
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
-        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+        const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
         const baseDepth = hsIsoDepth(wx, wy);
 
-        // ── Left half: meadow with elevation along NE edge ───────────
-        if (zone !== 'wf') {
-          const tileElev = getElev(tx, ty);
-          const posY = isoY - tileElev * CLIFF_H;
-          const th = wfTileHash(tx, ty);
-
-          // Water body in the SW — wavy shoreline continuing from the WF ocean
-          const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
-          const hsIsWater = tileElev === 0 && ty > shoreEdge;
-
-          let pack: string;
-          if (hsIsWater) {
-            // Water tile — rendered below, skip biome pack
-            pack = '';
-          } else if (ty <= 2 && tileElev === 2) {
-            pack = CUSTOM_TILE_PACKS[11]!;
-          } else if (tileElev === 2) {
-            pack = CUSTOM_TILE_PACKS[10]!;
-          } else if (tileElev === 1) {
-            pack = CUSTOM_TILE_PACKS[9]!;
-          } else if (ty > shoreEdge - 2) {
-            // Sandy shore transition near water edge
-            pack = CUSTOM_TILE_PACKS[2]!;
-          } else {
-            // Forest on the left, meadow on the right, with a wavy blend zone.
-            // In the transition strip, use a seeded coin-flip per tile so tiles
-            // interleave naturally instead of a hard line.
-            const blend = forestMeadowBlend(tx, ty);
-            if (blend <= 0) {
-              pack = 'forest';
-            } else if (blend >= 1) {
-              pack = 'meadow';
-            } else {
-              // Transition: probabilistic mix based on blend + tile hash
-              const roll = (wfTileHash(tx, ty) % 100) / 100;
-              pack = roll < blend ? 'meadow' : 'forest';
-            }
-          }
-
-          const sDrop = tileElev > 0 && ty + 1 < GRID_H ? tileElev - getElev(tx, ty + 1) : 0;
-          const eDrop = tileElev > 0 && tx + 1 < GRID_W ? tileElev - getElev(tx + 1, ty) : 0;
-          const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
-          const hasCliff = sDrop > 0 || eDrop > 0 || wDrop > 0;
-
-          // walkGrid already populated by buildWalkGrid() pre-pass.
-
-          if (hsIsWater) {
-            this.add.image(isoX, posY, 'iso-tiles', 105)
-              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
-          } else if (hasCliff) {
-            const cliffBiome = tileElev === 2 ? 11 : tileElev === 1 ? 10 : 9;
-            const cliffKey = cliffKeyForBiome(cliffBiome);
-            const maxDrop = Math.max(sDrop, eDrop, wDrop);
-            for (let step = maxDrop * 2; step >= 1; step--) {
-              this.add.image(isoX, posY + step * (CLIFF_H / 2), cliffKey)
-                .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
-            }
-            this.add.image(isoX, posY, `${pack}-${th}`)
-              .setOrigin(0.5, 0).setDepth(baseDepth - 999);
-          } else {
-            this.add.image(isoX, posY, `${pack}-${th}`)
-              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
-          }
-
-          // ── Road overlay on the homestead half ──────────────────────────
-          // Skip bridge tiles (rendered separately) and water tiles
-          if (this.isRoad(tx, ty) && !hsIsWater && !this.isBridgeTile(tx, ty) && tileElev === 0) {
-            let mask = 0;
-            if (tx === 0   || this.isRoad(tx - 1, ty)) mask |= 1;  // NW
-            if (this.isRoad(tx, ty - 1))                mask |= 2;  // NE
-            if (tx === GRID_W - 1 || this.isRoad(tx + 1, ty)) mask |= 4;  // SE
-            if (this.isRoad(tx, ty + 1))                mask |= 8;  // SW
-            const frame = ROAD_BITMASK_TO_FRAME[mask];
-            this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
-              .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
-          }
-          continue;
-        }
-
-        // ── Right half: WorldForge terrain (local coords) ─────────────
-        const ltx = tx - 30;   // 0-29 within the WF sub-grid
-        const lty = ty;        // 0-29
-        const ld    = ltx + lty;
-        const horiz = ltx - lty;
-        const tileElev = wfGetElev(ltx, lty);
-
-        // Curved boundary thresholds
-        const effElevCut  = WF_ELEV_CUT + wfCurveDepth(horiz);
-        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
-        const elevDist  = effElevCut - ld;
-        const oceanDist = ld - effOceanCut;
-
-        // All land tiles use meadow (same as homestead half)
-        const landBiome = wfBiome;
-
-        // River channel — 2 tiles wide
-        const onRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
-
-        // Splash pool at waterfall base
-        const atWfBase = tileElev === 0 && (() => {
-          for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
-            const nx = ltx + dx, ny = lty + dy;
-            if (nx < 0 || ny < 0 || nx >= WF_GRID_W || ny >= GRID_H) continue;
-            if (wfGetElev(nx, ny) > 0 && Math.abs(nx - wfRiverCenter(nx + ny)) <= 1) return true;
-          }
-          return false;
-        })();
-
-        // Determine tile type (water vs land biome)
-        let isWater = false;
-        let customPack: string | undefined;
-        const shoreBiome = SHORE_BIOME_MAP[landBiome] ?? 2;
-
-        if (oceanDist > 1) {
-          isWater = true;
-        } else if (oceanDist > 0) {
-          isWater = true;
-        } else if (oceanDist === 0) {
-          if (onRiver) { isWater = true; }
-          else { customPack = CUSTOM_TILE_PACKS[shoreBiome]; }
-        } else if (elevDist > 1) {
-          if (onRiver || atWfBase) { isWater = true; }
-          else { customPack = CUSTOM_TILE_PACKS[11]; }
-        } else if (elevDist === 1) {
-          if (onRiver || atWfBase) { isWater = true; }
-          else { customPack = CUSTOM_TILE_PACKS[10]; }
-        } else if (elevDist === 0 || elevDist === -1) {
-          if (onRiver || atWfBase) { isWater = true; }
-          else { customPack = CUSTOM_TILE_PACKS[landBiome]; }
-        } else if (onRiver || atWfBase) {
-          isWater = true;
-        } else {
-          customPack = CUSTOM_TILE_PACKS[landBiome];
-        }
-
-        // Cliff detection (neighbour drops)
-        const southDrop = tileElev > 0 && lty + 1 < GRID_H ? tileElev - wfGetElev(ltx, lty + 1) : 0;
-        const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID_W ? tileElev - wfGetElev(ltx + 1, lty) : 0;
-        const westDrop  = tileElev > 0 && ltx > 0            ? tileElev - wfGetElev(ltx - 1, lty) : 0;
-        const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
-        const isOnRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
-
-        // walkGrid already populated by buildWalkGrid() pre-pass.
-
-        // Floor Y raised by elevation
+        const tileElev = intGridGet(this.heightGrid, tx, ty);
+        const biomeId = intGridGet(this.biomeGrid, tx, ty);
+        const isWater = biomeId === 0;
+        const pack = CUSTOM_TILE_PACKS[biomeId] ?? 'meadow';
         const posY = isoY - tileElev * CLIFF_H;
-        const th = wfTileHash(ltx, lty);
+        // Variant hash used local WF coords on the right half, global
+        // coords on the left half — an original quirk kept for visual parity.
+        const th = tx < 30 ? wfTileHash(tx, ty) : wfTileHash(tx - 30, ty);
+
+        // Cliff detection from neighbour elevations. The west comparison
+        // skips exactly the homestead/WF seam column (tx === 30) — the two
+        // halves use unrelated elevation formulas there, so the original
+        // code never diffed across that one boundary (it still does on the
+        // east side, tx === 29 looking into tx === 30).
+        const southElev = ty + 1 < this.gridH ? intGridGet(this.heightGrid, tx, ty + 1) : tileElev;
+        const eastElev  = tx + 1 < this.gridW ? intGridGet(this.heightGrid, tx + 1, ty) : tileElev;
+        const westElev  = (tx > 0 && tx !== 30) ? intGridGet(this.heightGrid, tx - 1, ty) : tileElev;
+        const southDrop = tileElev > 0 ? tileElev - southElev : 0;
+        const eastDrop  = tileElev > 0 ? tileElev - eastElev : 0;
+        const westDrop  = tileElev > 0 ? tileElev - westElev : 0;
+        const hasCliff = southDrop > 0 || eastDrop > 0 || westDrop > 0;
+        const isOnRiver = intGridGet(this.riverGrid, tx, ty) === 1;
 
         if (hasCliff) {
-          const cliffBiome = elevDist > 1 ? 11 : elevDist === 1 ? 10
-            : elevDist === 0 ? 9 : landBiome;
+          const cliffBiome = intGridGet(this.cliffBiomeGrid, tx, ty);
           const cliffKey = cliffKeyForBiome(cliffBiome);
           const maxDrop = Math.max(southDrop, eastDrop, westDrop);
           const useWaterfall = southDrop > 0 && isOnRiver;
@@ -708,10 +577,10 @@ export class HomesteadScene extends Phaser.Scene {
           }
 
           // Floor on top of cliff
-          if (customPack) {
-            this.add.image(isoX, posY, `${customPack}-${th}`)
+          if (!isWater) {
+            this.add.image(isoX, posY, `${pack}-${th}`)
               .setOrigin(0.5, 0).setDepth(baseDepth - 999);
-          } else if (isWater) {
+          } else {
             this.add.image(isoX, posY, 'iso-tiles', 105)
               .setOrigin(0.5, 0).setDepth(baseDepth - 999);
           }
@@ -720,20 +589,30 @@ export class HomesteadScene extends Phaser.Scene {
           if (isWater) {
             this.add.image(isoX, posY, 'iso-tiles', 105)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
-          } else if (customPack) {
-            this.add.image(isoX, posY, `${customPack}-${th}`)
+          } else {
+            this.add.image(isoX, posY, `${pack}-${th}`)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
           }
         }
 
-        // ── Road overlay on WF half ─────────────────────────────────────
-        // Skip bridge tiles and water — bridge sprites handle the crossing
-        if (this.isRoad(tx, ty) && !this.isBridgeTile(tx, ty) && !isWater && tileElev === 0) {
+        // ── Road overlay ─────────────────────────────────────────────────
+        // Skip bridge tiles (rendered separately). Water-classified bank
+        // tiles beside a bridge still get the overlay (#931) — otherwise
+        // the Biome layer's wider water band leaves a 1-tile visual gap
+        // between the road and the bridge.
+        if (
+          roadOverlayVisible(
+            tx, ty,
+            (x, y) => this.isRoad(x, y),
+            (x, y) => intGridGet(this.biomeGrid, x, y) === 0,
+            (x, y) => this.isBridgeTile(x, y),
+          ) && tileElev === 0
+        ) {
           let mask = 0;
-          if (this.isRoad(tx - 1, ty))                mask |= 1;
-          if (this.isRoad(tx, ty - 1))                mask |= 2;
-          if (tx === GRID_W - 1 || this.isRoad(tx + 1, ty)) mask |= 4;
-          if (this.isRoad(tx, ty + 1))                mask |= 8;
+          if (tx === 0 || this.isRoad(tx - 1, ty)) mask |= 1;  // NW
+          if (this.isRoad(tx, ty - 1))              mask |= 2;  // NE
+          if (tx === this.gridW - 1 || this.isRoad(tx + 1, ty)) mask |= 4;  // SE
+          if (this.isRoad(tx, ty + 1))              mask |= 8;  // SW
           const frame = ROAD_BITMASK_TO_FRAME[mask];
           this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
             .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
@@ -745,13 +624,25 @@ export class HomesteadScene extends Phaser.Scene {
     for (const { tx, ty } of this.bridgeTiles) {
       const wx = tx * TILE_SIZE;
       const wy = ty * TILE_SIZE;
-      const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+      const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
       this.add.image(isoX, isoY + ISO_TILE_H / 2, 'bridge-mid')
         .setDisplaySize(ISO_TILE_W * 1.2, ISO_TILE_H * 1.8)
         .setOrigin(0.5, 0.5)
         .setDepth(hsIsoDepth(wx, wy));
       // Unblock so the player can walk across
-      this.walkGrid[ty * GRID_W + tx] = 0;
+      this.walkGrid[ty * this.gridW + tx] = 0;
+    }
+
+    // ── Unblock road tiles ───────────────────────────────────────────────
+    // Road tiles can sit on cliff-adjacent ground that the Collision layer
+    // marked blocked; clear them so the player can walk the road's full
+    // length. Bridge tiles are unblocked separately above.
+    for (let ty = 0; ty < this.gridH; ty++) {
+      for (let tx = 0; tx < this.gridW; tx++) {
+        if (this.isRoad(tx, ty) && !this.isBridgeTile(tx, ty)) {
+          this.walkGrid[ty * this.gridW + tx] = 0;
+        }
+      }
     }
 
     // ── Debug tile grid overlay ─────────────────────────────────────────
@@ -831,7 +722,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.player.setVisible(false);
 
     // Visible animated sprite in iso space
-    const { x: spawnIsoX, y: spawnIsoY } = hsWorldToIso(spawnWx, spawnWy);
+    const { x: spawnIsoX, y: spawnIsoY } = this.worldToIso(spawnWx, spawnWy);
     this.playerIso = this.add.sprite(spawnIsoX, spawnIsoY, this.characterKey);
     this.playerIso.setOrigin(0.5, 1); // anchor at feet
     this.playerIso.setScale(0.45);    // ~34px wide — fits one iso tile
@@ -845,37 +736,22 @@ export class HomesteadScene extends Phaser.Scene {
     zoneBody.setCircle(INTERACT_RADIUS);
     zoneBody.setOffset(-INTERACT_RADIUS, -INTERACT_RADIUS);
 
-    // ── Resource nodes ────────────────────────────────────────────────────
-    // Positions are in world space; ResourceNode renders at world coords
-    // but we reposition them to iso space after creation.
+    // ── Resource nodes (#1173) ───────────────────────────────────────────
+    // Positions come from the map's ResourceNode entities; ResourceNode
+    // renders at world coords but we reposition them to iso space after
+    // creation.
     const nodeDefs = this.cache.json.get('resource-nodes') as { nodeTypes: ResourceNodeTypeDef[] } | undefined;
-    if (nodeDefs?.nodeTypes) {
-      // Placements in world-space tile coords (tx, ty) → world pixels
-      // Placements shifted by HS_OFFSET so they sit in the centre homestead zone.
-      const placements: { defId: string; tx: number; ty: number }[] = [
-        { defId: 'tree',  tx: 4  + HS_OFFSET, ty: 5  + HS_OFFSET },
-        { defId: 'tree',  tx: 6  + HS_OFFSET, ty: 7  + HS_OFFSET },
-        { defId: 'tree',  tx: 3  + HS_OFFSET, ty: 9  + HS_OFFSET },
-        { defId: 'tree',  tx: 5  + HS_OFFSET, ty: 12 + HS_OFFSET },
-        { defId: 'rock',  tx: 14 + HS_OFFSET, ty: 4  + HS_OFFSET },
-        { defId: 'rock',  tx: 16 + HS_OFFSET, ty: 5  + HS_OFFSET },
-        { defId: 'ore',   tx: 15 + HS_OFFSET, ty: 14 + HS_OFFSET },
-        { defId: 'ore',   tx: 17 + HS_OFFSET, ty: 16 + HS_OFFSET },
-        { defId: 'herb',  tx: 9  + HS_OFFSET, ty: 3  + HS_OFFSET },
-        { defId: 'herb',  tx: 12 + HS_OFFSET, ty: 12 + HS_OFFSET },
-        { defId: 'berry', tx: 10 + HS_OFFSET, ty: 15 + HS_OFFSET },
-        { defId: 'berry', tx: 6  + HS_OFFSET, ty: 14 + HS_OFFSET },
-        { defId: 'water', tx: 12 + HS_OFFSET, ty: 17 + HS_OFFSET },
-      ];
-
+    const entitiesLayer = this.level.entityLayers.Entities;
+    if (nodeDefs?.nodeTypes && entitiesLayer) {
       const nodeGroup = this.physics.add.staticGroup();
 
-      for (const p of placements) {
-        const def = nodeDefs.nodeTypes.find(d => d.id === p.defId);
+      for (const e of entitiesOfType(entitiesLayer, 'ResourceNode')) {
+        const defId = String(e.fields.nodeType ?? '');
+        const def = nodeDefs.nodeTypes.find(d => d.id === defId);
         if (!def) continue;
-        const wx = p.tx * TILE_SIZE + TILE_SIZE / 2;
-        const wy = p.ty * TILE_SIZE + TILE_SIZE / 2;
-        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+        const wx = e.x;
+        const wy = e.y;
+        const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
         const node = new ResourceNode(this, isoX, isoY, def, inv);
         node.setDepth(hsIsoDepth(wx, wy));
         // Store world coords for depth sorting and proximity checks
@@ -926,8 +802,8 @@ export class HomesteadScene extends Phaser.Scene {
     cam.setBounds(
       -cam.width / (2 * 3),
       -cam.height / (2 * 3),
-      ISO_W + cam.width / 3,
-      ISO_H + cam.height / 3,
+      this.isoW + cam.width / 3,
+      this.isoH + cam.height / 3,
     );
     cam.startFollow(this.playerIso, true, 0.08, 0.08);
 
@@ -937,6 +813,9 @@ export class HomesteadScene extends Phaser.Scene {
     // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
     const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
     uiCam.setScroll(0, 0);
+
+    // "New recipe" toasts (#1529), drawn on the UI camera at native size.
+    new DiscoveryToast(this, uiCam);
 
     // Helper: mark game objects as UI-only (visible on uiCam, hidden on main).
     const addUi = (...objs: Phaser.GameObjects.GameObject[]) => {
@@ -1013,14 +892,14 @@ export class HomesteadScene extends Phaser.Scene {
     const dirStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '10px', color: '#88aa88', fontFamily: 'monospace',
     };
-    const cx = ISO_W / 2;   // centre of diamond in iso space
-    const cy = ISO_H / 2;
+    const cx = this.isoW / 2;   // centre of diamond in iso space
+    const cy = this.isoH / 2;
     const pad = 14;          // px outside the diamond edge
     // N = top apex, S = bottom apex, W = left apex, E = right apex
     this.add.text(cx, -pad, 'N', dirStyle).setOrigin(0.5, 1);
-    this.add.text(cx, ISO_H + pad, 'S', dirStyle).setOrigin(0.5, 0);
+    this.add.text(cx, this.isoH + pad, 'S', dirStyle).setOrigin(0.5, 0);
     this.add.text(-pad, cy, 'W', dirStyle).setOrigin(1, 0.5);
-    this.add.text(ISO_W + pad, cy, 'E', dirStyle).setOrigin(0, 0.5);
+    this.add.text(this.isoW + pad, cy, 'E', dirStyle).setOrigin(0, 0.5);
 
     // ── Building toolbar + placement ─────────────────────────────────────
     this.createBuildToolbar();
@@ -1123,8 +1002,8 @@ export class HomesteadScene extends Phaser.Scene {
 
     // Clamp to world bounds
     const margin = TILE_SIZE * 0.5;
-    this.player.x = Phaser.Math.Clamp(this.player.x, margin, WORLD_W - margin);
-    this.player.y = Phaser.Math.Clamp(this.player.y, margin, WORLD_H - margin);
+    this.player.x = Phaser.Math.Clamp(this.player.x, margin, this.worldW - margin);
+    this.player.y = Phaser.Math.Clamp(this.player.y, margin, this.worldH - margin);
 
     // ── Tile collision — walk grid + sub-tile cliff-base check ─────────
     const BODY_R = 6;
@@ -1133,26 +1012,16 @@ export class HomesteadScene extends Phaser.Scene {
       for (const [ox, oy] of [[-BODY_R,-BODY_R],[BODY_R,-BODY_R],[-BODY_R,BODY_R],[BODY_R,BODY_R]]) {
         const ttx = Math.floor((wx + ox) / TILE_SIZE);
         const tty = Math.floor((wy + oy) / TILE_SIZE);
-        if (ttx < 0 || tty < 0 || ttx >= GRID_W || tty >= GRID_H) return true;
-        if (this.walkGrid[tty * GRID_W + ttx] === 1) return true;
+        if (ttx < 0 || tty < 0 || ttx >= this.gridW || tty >= this.gridH) return true;
+        if (this.walkGrid[tty * this.gridW + ttx] === 1) return true;
       }
-      // Sub-tile cliff-base check: if the tile to the north has a cliff
-      // dropping south, block the northern half of this tile.
+      // Sub-tile cliff-edge check: block the half of this tile nearest any
+      // south/east/west drop (ramps bypass it) — see ElevationWalk (#936).
       const ttx = Math.floor(wx / TILE_SIZE);
       const tty = Math.floor(wy / TILE_SIZE);
-      const localY = wy - tty * TILE_SIZE;  // 0-31 within the tile
-      // North neighbour drops south → block top half of this tile
-      if (tty > 0 && localY < TILE_SIZE / 2) {
-        const nElev = getElev(ttx, tty - 1);
-        if (nElev > getElev(ttx, tty)) return true;
-      }
-      // West neighbour drops east → block left half
       const localX = wx - ttx * TILE_SIZE;
-      if (ttx > 0 && localX < TILE_SIZE / 2) {
-        const wElev = getElev(ttx - 1, tty);
-        if (wElev > getElev(ttx, tty)) return true;
-      }
-      return false;
+      const localY = wy - tty * TILE_SIZE;
+      return isCliffBlocked(this.heightGrid, this.rampSet, ttx, tty, localX, localY, TILE_SIZE);
     };
 
     if (isBlocked(this.player.x, this.player.y)) {
@@ -1178,9 +1047,10 @@ export class HomesteadScene extends Phaser.Scene {
     // Offset sprite so feet land in the centre of the tile diamond.
     // The diamond centre is at (isoX, isoY + ISO_TILE_H/2) relative to
     // the north apex; shift sprite there.
-    const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
-    this.playerIso.setPosition(isoX, isoY + ISO_TILE_H);
-    this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
+    this.playerElev = effectiveElevation(this.heightGrid, this.rampMap, this.player.x, this.player.y, TILE_SIZE);
+    const { x: isoX, y: isoY } = this.worldToIso(this.player.x, this.player.y);
+    this.playerIso.setPosition(isoX, isoY + ISO_TILE_H - this.playerElev * CLIFF_H);
+    this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y, this.playerElev));
 
     // ── Player tile highlight — golden diamond on the tile the player occupies
     if (this.playerTileGfx) {
@@ -1189,7 +1059,8 @@ export class HomesteadScene extends Phaser.Scene {
       const pty = Math.floor(this.player.y / TILE_SIZE);
       const twx = ptx * TILE_SIZE;
       const twy = pty * TILE_SIZE;
-      const { x: tix, y: tiy } = hsWorldToIso(twx, twy);
+      const { x: tix, y: tiyFlat } = this.worldToIso(twx, twy);
+      const tiy = tiyFlat - intGridGet(this.heightGrid, ptx, pty) * CLIFF_H;
       const hw = ISO_TILE_W / 2;
       const hh = ISO_TILE_H / 2;
       this.playerTileGfx.lineStyle(1.5, 0xf0c040, 0.8);
@@ -1360,24 +1231,33 @@ export class HomesteadScene extends Phaser.Scene {
 
   // ── Iso ↔ tile conversion ──────────────────────────────────────────────
 
+  private worldToIso(wx: number, wy: number): { x: number; y: number } {
+    const tx = wx / TILE_SIZE;
+    const ty = wy / TILE_SIZE;
+    return {
+      x: this.isoOriginX + (tx - ty) * (ISO_TILE_W / 2),
+      y: (tx + ty) * (ISO_TILE_H / 2),
+    };
+  }
+
   private isoToTile(isoX: number, isoY: number): { tx: number; ty: number } | null {
-    const relX = isoX - ISO_ORIGIN_X;
+    const relX = isoX - this.isoOriginX;
     const relY = isoY;
     const hw = ISO_TILE_W / 2;
     const hh = ISO_TILE_H / 2;
     const tx = Math.floor(((relX / hw) + (relY / hh)) / 2);
     const ty = Math.floor(((relY / hh) - (relX / hw)) / 2);
-    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return null;
+    if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridH) return null;
     return { tx, ty };
   }
 
   // ── Placement logic ────────────────────────────────────────────────────
 
   private canPlace(def: BuildingDef, tx: number, ty: number): boolean {
-    if (tx + def.footW > GRID_W || ty + def.footD > GRID_H) return false;
+    if (tx + def.footW > this.gridW || ty + def.footD > this.gridH) return false;
     for (let dx = 0; dx < def.footW; dx++) {
       for (let dy = 0; dy < def.footD; dy++) {
-        if (this.occupied[(ty + dy) * GRID_W + (tx + dx)]) return false;
+        if (this.occupied[(ty + dy) * this.gridW + (tx + dx)]) return false;
       }
     }
     return true;
@@ -1388,13 +1268,13 @@ export class HomesteadScene extends Phaser.Scene {
 
     for (let dx = 0; dx < def.footW; dx++) {
       for (let dy = 0; dy < def.footD; dy++) {
-        this.occupied[(ty + dy) * GRID_W + (tx + dx)] = 1;
+        this.occupied[(ty + dy) * this.gridW + (tx + dx)] = 1;
       }
     }
 
     const centreWx = (tx + def.footW / 2) * TILE_SIZE;
     const centreWy = (ty + def.footD / 2) * TILE_SIZE;
-    const { x: isoX, y: isoY } = hsWorldToIso(centreWx, centreWy);
+    const { x: isoX, y: isoY } = this.worldToIso(centreWx, centreWy);
 
     const sprite = this.add.image(isoX, isoY, def.spriteKey);
     sprite.setOrigin(0.5, 0.75);
@@ -1411,7 +1291,7 @@ export class HomesteadScene extends Phaser.Scene {
     if (this.footprintGfx) this.footprintGfx.destroy();
     if (this.ghostSprite) this.ghostSprite.destroy();
 
-    const outOfBounds = tx + def.footW > GRID_W || ty + def.footD > GRID_H;
+    const outOfBounds = tx + def.footW > this.gridW || ty + def.footD > this.gridH;
     let blocked = outOfBounds;
     if (!outOfBounds) blocked = !this.canPlace(def, tx, ty);
 
@@ -1423,7 +1303,7 @@ export class HomesteadScene extends Phaser.Scene {
         for (let dy = 0; dy < def.footD; dy++) {
           const wx = (tx + dx) * TILE_SIZE;
           const wy = (ty + dy) * TILE_SIZE;
-          const { x: ix, y: iy } = hsWorldToIso(wx, wy);
+          const { x: ix, y: iy } = this.worldToIso(wx, wy);
           const hw = ISO_TILE_W / 2;
           const hh = ISO_TILE_H / 2;
           gfx.lineStyle(1.5, color, 0.7);
@@ -1445,7 +1325,7 @@ export class HomesteadScene extends Phaser.Scene {
     if (!outOfBounds) {
       const centreWx = (tx + def.footW / 2) * TILE_SIZE;
       const centreWy = (ty + def.footD / 2) * TILE_SIZE;
-      const { x: isoX, y: isoY } = hsWorldToIso(centreWx, centreWy);
+      const { x: isoX, y: isoY } = this.worldToIso(centreWx, centreWy);
       this.ghostSprite = this.add.image(isoX, isoY, def.spriteKey);
       this.ghostSprite.setOrigin(0.5, 0.75);
       this.ghostSprite.setAlpha(blocked ? 0.3 : 0.5);
@@ -1457,84 +1337,27 @@ export class HomesteadScene extends Phaser.Scene {
     }
   }
 
-  // ── Walk grid + road path (pre-pass before rendering) ────────────────
-
-  /** Populate walkGrid from terrain — water + cliff SE-offset blocking. */
-  private buildWalkGrid(): void {
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 0; tx < GRID_W; tx++) {
-        if (tx < 30) {
-          // Homestead half
-          const tileElev = getElev(tx, ty);
-          const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
-          const hsIsWater = tileElev === 0 && ty > shoreEdge;
-
-          if (hsIsWater && ty + 1 < GRID_H && tx + 1 < GRID_W) {
-            this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          }
-          const sDrop = tileElev > 0 && ty + 1 < GRID_H ? tileElev - getElev(tx, ty + 1) : 0;
-          const eDrop = tileElev > 0 && tx + 1 < GRID_W ? tileElev - getElev(tx + 1, ty) : 0;
-          const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
-          if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          if (eDrop > 0 && tx + 1 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
-          if (wDrop > 0)                     this.walkGrid[ty * GRID_W + tx] = 1;
-        } else {
-          // WF half
-          const ltx = tx - 30, lty = ty;
-          const ld = ltx + lty, horiz = ltx - lty;
-          const tileElev = wfGetElev(ltx, lty);
-          const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
-          const oceanDist = ld - effOceanCut;
-          const onRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
-
-          // Splash pool at waterfall base
-          const atWfBase = tileElev === 0 && (() => {
-            for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
-              const nx = ltx + dx, ny = lty + dy;
-              if (nx < 0 || ny < 0 || nx >= WF_GRID_W || ny >= GRID_H) continue;
-              if (wfGetElev(nx, ny) > 0 && Math.abs(nx - wfRiverCenter(nx + ny)) <= 1) return true;
-            }
-            return false;
-          })();
-
-          // Same isWater logic as the WF terrain loop
-          let isWater = false;
-          if (oceanDist > 0) { isWater = true; }
-          else if (oceanDist === 0) { if (onRiver) isWater = true; }
-          else if (onRiver || atWfBase) { isWater = true; }
-
-          if (isWater && ty + 1 < GRID_H && tx + 1 < GRID_W) {
-            this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          }
-          const southDrop = tileElev > 0 && lty + 1 < GRID_H ? tileElev - wfGetElev(ltx, lty + 1) : 0;
-          const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID_W ? tileElev - wfGetElev(ltx + 1, lty) : 0;
-          const westDrop  = tileElev > 0 && ltx > 0            ? tileElev - wfGetElev(ltx - 1, lty) : 0;
-          if (southDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          if (eastDrop > 0 && tx + 1 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
-          if (westDrop > 0)                      this.walkGrid[ty * GRID_W + tx] = 1;
-        }
-      }
-    }
-  }
+  // ── Road path (pre-pass before rendering) ─────────────────────────────
+  // walkGrid itself comes straight from the map's Collision layer (#1173).
 
   /** Build cost grid from walkGrid, run A*, populate roadGrid + bridgeTiles. */
   private buildRoadPath(): void {
-    const cost = new Float32Array(GRID_W * GRID_H);
-    for (let i = 0; i < GRID_W * GRID_H; i++) {
+    const { gridW, gridH } = this;
+    const cost = new Float32Array(gridW * gridH);
+    for (let i = 0; i < gridW * gridH; i++) {
       // Blocked tiles are impassable; clear tiles cost 1
       cost[i] = this.walkGrid[i] === 1 ? 0 : 1;
     }
 
-    // Override: river tiles in WF half are expensive but crossable (→ bridge)
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 30; tx < GRID_W; tx++) {
-        const ltx = tx - 30, ld = ltx + ty;
-        const horiz = ltx - ty;
-        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
-        if (ld - effOceanCut >= 0) continue;  // ocean — stay impassable
-        if (wfGetElev(ltx, ty) > 0) continue; // cliff — stay impassable
-        if (Math.abs(ltx - wfRiverCenter(ld)) <= 1) {
-          cost[ty * GRID_W + tx] = 30;  // river — crossable via bridge
+    // Override: river tiles in WF half are expensive but crossable (→ bridge).
+    // RiverCrossable is pre-baked (#1173): inland river tiles only, not the
+    // ocean/river-mouth band and not cliffs — the map file already resolved
+    // that distinction.
+    const riverCrossable = this.level.intGrids.RiverCrossable;
+    if (riverCrossable) {
+      for (let ty = 0; ty < gridH; ty++) {
+        for (let tx = 30; tx < gridW; tx++) {
+          if (intGridGet(riverCrossable, tx, ty) === 1) cost[ty * gridW + tx] = 30;
         }
       }
     }
@@ -1543,27 +1366,27 @@ export class HomesteadScene extends Phaser.Scene {
     // This prevents A* from running along the edge to reach a fixed ty.
     // Vertical penalty (3×) biases toward horizontal travel.
     const startTx = 2, startTy = 15;
-    const goalTx = GRID_W - 3, goalTy = 10;
-    const path = aStarWeighted(cost, GRID_W, GRID_H,
+    const goalTx = gridW - 3, goalTy = 10;
+    const path = aStarWeighted(cost, gridW, gridH,
       startTx, startTy, goalTx, goalTy, 20000, 3);
 
     if (path) {
       // Extend road straight west from start to map edge
       for (let tx = 0; tx <= startTx; tx++) {
-        this.roadGrid[startTy * GRID_W + tx] = 1;
+        this.roadGrid[startTy * gridW + tx] = 1;
       }
       // Mark A* path
       for (const p of path) {
-        this.roadGrid[p.y * GRID_W + p.x] = 1;
+        this.roadGrid[p.y * gridW + p.x] = 1;
       }
       // Extend road straight east from goal to map edge
       const endTy = path.length > 0 ? path[path.length - 1].y : goalTy;
-      for (let tx = goalTx; tx < GRID_W; tx++) {
-        this.roadGrid[endTy * GRID_W + tx] = 1;
+      for (let tx = goalTx; tx < gridW; tx++) {
+        this.roadGrid[endTy * gridW + tx] = 1;
       }
       // Bridge tiles = road tiles on water (cost ≥ 30)
       for (const p of path) {
-        if (cost[p.y * GRID_W + p.x] >= 30) {
+        if (cost[p.y * gridW + p.x] >= 30) {
           this.bridgeTiles.push({ tx: p.x, ty: p.y });
         }
       }
@@ -1571,8 +1394,8 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   private isRoad(tx: number, ty: number): boolean {
-    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
-    return this.roadGrid[ty * GRID_W + tx] === 1;
+    if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridH) return false;
+    return this.roadGrid[ty * this.gridW + tx] === 1;
   }
 
   private isBridgeTile(tx: number, ty: number): boolean {
@@ -1590,12 +1413,12 @@ export class HomesteadScene extends Phaser.Scene {
     const hw = ISO_TILE_W / 2;
     const hh = ISO_TILE_H / 2;
 
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 0; tx < GRID_W; tx++) {
-        const blocked = this.walkGrid[ty * GRID_W + tx] === 1;
+    for (let ty = 0; ty < this.gridH; ty++) {
+      for (let tx = 0; tx < this.gridW; tx++) {
+        const blocked = this.walkGrid[ty * this.gridW + tx] === 1;
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
-        const { x: ix, y: iy } = hsWorldToIso(wx, wy);
+        const { x: ix, y: iy } = this.worldToIso(wx, wy);
 
         gfx.lineStyle(0.5, blocked ? 0xff4444 : 0x44ff44, blocked ? 0.4 : 0.15);
         gfx.beginPath();
@@ -1638,14 +1461,14 @@ export class HomesteadScene extends Phaser.Scene {
       nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
     }
 
-    for (let tx = 1; tx < GRID_W - 1; tx++) {
-      for (let ty = 1; ty < GRID_H - 1; ty++) {
+    for (let tx = 1; tx < this.gridW - 1; tx++) {
+      for (let ty = 1; ty < this.gridH - 1; ty++) {
         // Skip non-walkable tiles and roads
-        if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
+        if (this.walkGrid[ty * this.gridW + tx] === 1) continue;
         if (this.isRoad(tx, ty)) continue;
 
         // Only spawn on flat meadow — skip water, rock, granite, summit tiles
-        const tileElev = getElev(tx, ty);
+        const tileElev = intGridGet(this.heightGrid, tx, ty);
         const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
         const hsIsWater = tileElev === 0 && ty > shoreEdge;
         if (hsIsWater) continue;
@@ -1657,8 +1480,8 @@ export class HomesteadScene extends Phaser.Scene {
           for (let dy = -1; dy <= 1 && !nearCliff; dy++) {
             if (dx === 0 && dy === 0) continue;
             const nx = tx + dx, ny = ty + dy;
-            if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
-              if (getElev(nx, ny) > 0) nearCliff = true;
+            if (nx >= 0 && nx < this.gridW && ny >= 0 && ny < this.gridH) {
+              if (intGridGet(this.heightGrid, nx, ny) > 0) nearCliff = true;
             }
           }
         }
@@ -1728,7 +1551,7 @@ export class HomesteadScene extends Phaser.Scene {
           const jy = ((hash(tx, ty, 0x222) % 20) - 10) * 0.6;
           const wx = tx * TILE_SIZE + TILE_SIZE / 2 + jx;
           const wy = ty * TILE_SIZE + TILE_SIZE / 2 + jy;
-          const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+          const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
 
           const tree = this.add.image(isoX, isoY, textureKey);
           tree.setOrigin(0.5, 1);
@@ -1741,6 +1564,10 @@ export class HomesteadScene extends Phaser.Scene {
           const baseScale = isMature ? 0.55 : isSapling ? 0.3 : 0.4;
           const scaleJitter = 1 + ((hash(tx, ty, 0x333) % 20) - 10) * 0.01;
           tree.setScale(baseScale * scaleJitter * forestScaleBoost);
+
+          // Block movement under the canopy (#934).
+          const treeSize: TreeSize = isMature ? 'mature' : isSapling ? 'sapling' : 'young';
+          blockTreeFootprint(this.walkGrid, this.gridW, this.gridH, tx, ty, treeSize);
         }
       }
     }
@@ -1846,9 +1673,9 @@ export class HomesteadScene extends Phaser.Scene {
     // Iso helper that converts world-to-iso and back, matching the scene's projection.
     // WildlifeSystem uses world-space physics bodies + iso-projected visual sprites.
     const isoToWorld = (ix: number, iy: number): { x: number; y: number } => {
-      // Invert hsWorldToIso: ix = O + (tx-ty)*Tw/2, iy = (tx+ty)*Th/2
+      // Invert worldToIso: ix = O + (tx-ty)*Tw/2, iy = (tx+ty)*Th/2
       const sum  = iy / (ISO_TILE_H / 2);               // tx + ty
-      const diff = (ix - ISO_ORIGIN_X) / (ISO_TILE_W / 2); // tx - ty
+      const diff = (ix - this.isoOriginX) / (ISO_TILE_W / 2); // tx - ty
       const tx = (sum + diff) / 2;
       const ty = (sum - diff) / 2;
       return { x: tx * TILE_SIZE, y: ty * TILE_SIZE };
@@ -1857,10 +1684,10 @@ export class HomesteadScene extends Phaser.Scene {
     this.wildlife = new WildlifeSystem({
       scene: this,
       faunaRegistry: faunaReg,
-      worldW: WORLD_W,
-      worldH: WORLD_H,
+      worldW: this.worldW,
+      worldH: this.worldH,
       tileSize: TILE_SIZE,
-      worldToIso: hsWorldToIso,
+      worldToIso: (wx: number, wy: number) => this.worldToIso(wx, wy),
       isoToWorld,
       isoDepth: hsIsoDepth,
       // Spawn a variety of wildlife — all species with sprites
@@ -1887,8 +1714,8 @@ export class HomesteadScene extends Phaser.Scene {
       scaleOverride: 0.55,
       // Pass walkGrid so animals avoid water, cliffs, and other blocked tiles
       walkGrid: this.walkGrid,
-      gridW: GRID_W,
-      gridH: GRID_H,
+      gridW: this.gridW,
+      gridH: this.gridH,
       getEnvContext: (): WildlifeEnvContext => ({
         isRaining: false,
         season: 'summer',
@@ -1954,34 +1781,18 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // Spawn a few NPCs at fixed positions on the homestead meadow.
-    // Simple wandering NPCs — they idle, walk around, and play role animations.
-    const NPC_SPAWNS = [
-      // Fieldborn villagers
-      { id: 'fieldborn-farmer',       wx: 18, wy: 25, role: 'dig' },
-      { id: 'fieldborn-blacksmith',   wx: 22, wy: 20, role: 'hammer' },
-      { id: 'fieldborn-guard',        wx: 14, wy: 18, role: 'alert' },
-      { id: 'fieldborn-hearthkeeper', wx: 20, wy: 22, role: 'serve' },
-      { id: 'fieldborn-shrine',       wx: 16, wy: 16, role: 'pray' },
-      // Ikibeki villagers
-      { id: 'ikibeki-trader',         wx: 20, wy: 30, role: 'gesture' },
-      { id: 'ikibeki-highfang',       wx: 24, wy: 18, role: 'alert' },
-      { id: 'ikibeki-barmaid',        wx: 22, wy: 28, role: 'serve' },
-      { id: 'ikibeki-brewer',         wx: 24, wy: 26, role: 'stir' },
-      { id: 'ikibeki-herbalist',      wx: 16, wy: 30, role: 'gesture' },
-      { id: 'ikibeki-stablehand',     wx: 26, wy: 22, role: 'brush' },
-      { id: 'ikibeki-woodcutter',     wx: 10, wy: 22, role: 'dig' },
-      // Wallborn
-      { id: 'wallborn-gate-guard',    wx: 14, wy: 14, role: 'alert' },
-      // Independent
-      { id: 'wanderer',               wx: 12, wy: 28, role: 'idle' },
-    ];
+    // Spawn NPCs from the map's NPC entities (#1173) — simple wandering
+    // villagers that idle, walk around, and play role animations.
+    const entitiesLayer = this.level.entityLayers.Entities;
+    if (!entitiesLayer) return;
 
-    for (const spawn of NPC_SPAWNS) {
-      const wx = spawn.wx * TILE_SIZE;
-      const wy = spawn.wy * TILE_SIZE;
-      const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
-      const texKey = `npc-${spawn.id}-idle-se`;
+    for (const e of entitiesOfType(entitiesLayer, 'NPC')) {
+      const npcId = String(e.fields.npcId ?? '');
+      const role = String(e.fields.role ?? 'idle');
+      const wx = e.x;
+      const wy = e.y;
+      const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
+      const texKey = `npc-${npcId}-idle-se`;
       if (!this.textures.exists(texKey)) continue;
 
       const npc = this.add.sprite(isoX, isoY, texKey, 0);
@@ -1990,12 +1801,12 @@ export class HomesteadScene extends Phaser.Scene {
       npc.setDepth(hsIsoDepth(wx, wy));
 
       // Play idle animation
-      const idleAnim = `npc-${spawn.id}-idle-se-anim`;
+      const idleAnim = `npc-${npcId}-idle-se-anim`;
       if (this.anims.exists(idleAnim)) npc.play(idleAnim);
 
       // Store data for future NPC AI system
-      npc.setData('npcId', spawn.id);
-      npc.setData('role', spawn.role);
+      npc.setData('npcId', npcId);
+      npc.setData('role', role);
       npc.setData('worldX', wx);
       npc.setData('worldY', wy);
     }

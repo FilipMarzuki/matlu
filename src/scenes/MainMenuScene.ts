@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
 import { UI } from '../ui/UIFactory';
+import { loadAudioManifest } from '../audio/AudioLoader';
 
 /**
  * MainMenuScene — the game's entry point.
@@ -17,15 +18,7 @@ export class MainMenuScene extends Phaser.Scene {
 
   preload(): void {
     UI.preloadUI(this);
-    this.load.audio('sfx-click', [
-      'assets/audio/kenney_impact-sounds/Audio/impactGeneric_light_003.ogg',
-    ]);
-    this.load.audio('sfx-hover', [
-      'assets/audio/kenney_impact-sounds/Audio/impactPlate_light_000.ogg',
-    ]);
-    this.load.audio('music-menu', [
-      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Wanderers Tale.ogg',
-    ]);
+    loadAudioManifest(this);
   }
 
   create(): void {

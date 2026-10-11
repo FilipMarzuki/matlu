@@ -26,14 +26,19 @@ import * as Phaser from 'phaser';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import type { InventorySystem } from '../systems/InventorySystem';
 import type { TinkerTraySystem } from '../systems/TinkerTraySystem';
+import { resolveHarvest, type ResourceNodeYield } from '../crafting/actions';
+
+/**
+ * Emitted on game.events after every harvest, with what it yielded (`{ itemId, qty }[]`). The
+ * DiscoverySystem counts it toward memory recipes (#1515); the node doesn't need to know who listens.
+ */
+export const RESOURCE_GATHERED = 'resource-gathered';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface ResourceNodeYield {
-  itemId: string;
-  min: number;
-  max: number;
-}
+// The yield type now lives with the pure harvest rules in src/crafting/actions.ts;
+// re-exported here so existing imports from this module keep working.
+export type { ResourceNodeYield };
 
 export interface ResourceNodeTypeDef {
   id: string;
@@ -215,11 +220,13 @@ export class ResourceNode extends InteractiveObject {
   private gather(): void {
     if (this._nodeState !== 'ready') return;
 
-    // Add items to inventory
-    for (const y of this.def.yields) {
-      const qty = Phaser.Math.Between(y.min, y.max);
-      if (qty > 0) this.inventory.add(y.itemId, qty);
+    // The rules (what drops, how many) live in the Phaser-free resolveHarvest so
+    // the crafting sim can reuse them; this class only applies the result.
+    const outcome = resolveHarvest(this.def.yields, { rng: Math.random });
+    for (const { itemId, qty } of outcome.items) {
+      this.inventory.add(itemId, qty);
     }
+    if (outcome.items.length > 0) this.scene.game.events.emit(RESOURCE_GATHERED, outcome.items);
 
     // Deplete
     this._nodeState = 'depleted';

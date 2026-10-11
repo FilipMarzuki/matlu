@@ -27,7 +27,7 @@ You have **3 minutes**. Do not explore the codebase open-endedly.
 ## Step 1 — Fetch PR info
 
 ```bash
-gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName
+gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences,labels
 gh pr diff {{pr_number}}
 ```
 
@@ -43,27 +43,47 @@ Check the diff against these criteria:
 - **No security issues** — no hardcoded secrets, no XSS/injection vectors
 - **TypeScript** — no `any` casts that bypass type safety, no ignored errors
 - **No unrelated changes** — diff should match the PR scope
+- **Acceptance tests (systems issues only)** — if the PR body has an
+  **Acceptance tests** section, every row must point at a test that exists in
+  the diff, and no existing test may be deleted, skipped (`.skip`, `xit`) or
+  loosened without a written reason in the PR body. For a PR that closes an
+  issue labelled `systems` (and none of `art`, `ui-hud`, `ui-menus`, `world`),
+  a missing Acceptance tests section is also a block — check the issue with
+  `gh issue view <n> --json labels,body` (one extra call, counts toward the
+  3-file budget).
+
+- **Design decisions** — if the PR body has a **Design decisions** table,
+  check each row against the diff. Is the decision what the code actually
+  does? Does its **Wrong if…** condition hold anywhere in the diff? A row
+  whose "wrong if" the diff makes true is a correctness failure: block, and
+  quote the row. Don't accept a stated reason just because it is stated.
 
 ### Should pass (comment but don't block)
+- **Unlisted decisions** — on a medium- or high-risk PR (`risk:*` label), name
+  any significant choice the diff makes that the Design decisions table leaves
+  out (or note the table is missing). Don't block for this.
 - **Naming** — variables/functions have clear, descriptive names
 - **Dead code** — no commented-out code or unused imports left behind
 - **Educational comments** — non-obvious Phaser/game-dev patterns have brief explanations (the owner is learning)
 
 ### Skip (don't review)
 - Code style / formatting — handled by tooling
-- Test coverage — no test framework in this project yet
+- Test coverage beyond the acceptance tests above — CI already runs
+  `npm run unit:src`; don't ask for extra tests on visual/UI work
 
 ---
 
-## Step 3 — High-risk file check
+## Step 3 — High-risk files
 
-Flag (but don't block) if the PR touches:
-- `.github/workflows/` — CI/CD changes
-- `CLAUDE.md` — project instructions
-- `vite.config.ts` or `tsconfig.json` — build config
-- `package.json` — dependency changes (script-only is fine)
+Don't flag high-risk files for a person. The risk score (`.github/review-risk.json`,
+#1431) already routes them to stronger review models: CI workflows and scripts,
+`CLAUDE.md` and `.agents/`, build config and dependencies, save format, seeded
+randomness, Supabase and scripts that spend money. Those models' verdicts gate the
+merge (#1481). People decide game design; implementation merges on the models'
+reviews.
 
-Add a note: "Touches high-risk file(s) — human should glance at this."
+Check those files like any other. If the PR touches one, say in your review what
+you checked there (e.g. "the new workflow step only runs on same-repo PRs").
 
 ---
 

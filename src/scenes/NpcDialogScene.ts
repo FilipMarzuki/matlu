@@ -1,4 +1,6 @@
 import * as Phaser from 'phaser';
+import { getStartNode, getNode, type DialogTree, type DialogNodeDef } from '../dialog/dialogTree';
+import type { DialogRunner } from '../dialog/DialogRunner';
 
 /**
  * NpcDialogScene — a pause overlay for story dialog with typewriter text reveal.
@@ -25,6 +27,19 @@ import * as Phaser from 'phaser';
  * Optional `choices[]` are rendered as buttons after the text is fully revealed.
  * Clicking a choice emits 'dialog-choice' with the choice id and closes the dialog.
  * If there are no choices, clicking anywhere advances or closes.
+ *
+ * ## Dialog trees (#946)
+ * When `dialogTree` is passed instead, the scene walks the tree itself: each
+ * choice click re-plays the typewriter for the `next` node rather than closing
+ * the scene, until it reaches a node with no choices (the tree's end).
+ *
+ * ## Dialog runner (#943)
+ * When `dialogRunner` is passed, it takes priority over `dialogTree` — the
+ * scene no longer walks node ids itself, it just reads
+ * `runner.currentNode`/`runner.visibleChoices` (already condition-filtered)
+ * and calls `runner.choose(i)` / `runner.advance()`. A node with no visible
+ * choices but a `next` field auto-advances a beat after its text finishes;
+ * `runner.currentNode === null` closes the dialog.
  */
 
 const CHARS_PER_SECOND = 38;
@@ -37,15 +52,22 @@ export interface DialogChoice {
 export interface NpcDialogData {
   /** Key of the scene that launched this dialog — used to resume it and emit events */
   callerKey: string;
-  /** The line of text to display */
+  /** The line of text to display. Ignored when `dialogTree` is set — the tree's start node supplies it. */
   text: string;
-  /** Optional choices shown after text is fully revealed */
+  /** Optional choices shown after text is fully revealed. Ignored when `dialogTree` is set. */
   choices?: DialogChoice[];
   /** NPC name shown above the text */
   speakerName?: string;
   /** Phaser texture key for a 96×96 portrait shown left of the text panel */
   portrait?: string;
+  /** JSON-authored multi-node branching conversation (#946). Takes priority over text/choices. */
+  dialogTree?: DialogTree;
+  /** Condition-aware runner driving the tree (#943). Takes priority over `dialogTree` and `text`/`choices`. */
+  dialogRunner?: DialogRunner;
 }
+
+/** Auto-advance delay (ms) after a no-choice node's text finishes typing, before `runner.advance()` fires. */
+const AUTO_ADVANCE_DELAY = 500;
 
 export class NpcDialogScene extends Phaser.Scene {
   private dialogData!: NpcDialogData;
@@ -63,6 +85,35 @@ export class NpcDialogScene extends Phaser.Scene {
   // We cast it because Phaser types the arg as `object`.
   init(data: object): void {
     this.dialogData = data as NpcDialogData;
+    if (this.dialogData.dialogRunner) {
+      this.applyRunnerNode();
+    } else if (this.dialogData.dialogTree) {
+      this.applyNode(getStartNode(this.dialogData.dialogTree));
+    }
+  }
+
+  /** Copies a tree node's text/choices onto dialogData so create()/update() render it unchanged. */
+  private applyNode(node: DialogNodeDef): void {
+    this.dialogData.text = node.text;
+    // `id` carries the target node id in tree mode — showChoices() reads it back in advanceToNode().
+    this.dialogData.choices = node.choices.map(c => ({ id: c.next, label: c.label }));
+  }
+
+  /**
+   * Copies the runner's current node onto dialogData, condition-filtering
+   * choices via `visibleChoices` and letting the node override the
+   * speaker name / portrait for this beat only. `id` carries the choice's
+   * index into `visibleChoices` — showChoices() reads it back as a number.
+   */
+  private applyRunnerNode(): void {
+    const runner = this.dialogData.dialogRunner;
+    const node = runner?.currentNode;
+    if (!runner || !node) return;
+
+    this.dialogData.text = node.text;
+    if (node.npcName) this.dialogData.speakerName = node.npcName;
+    if (node.portraitKey) this.dialogData.portrait = node.portraitKey;
+    this.dialogData.choices = runner.visibleChoices.map((c, i) => ({ id: String(i), label: c.label }));
   }
 
   create(): void {
@@ -153,7 +204,7 @@ export class NpcDialogScene extends Phaser.Scene {
 
     if (chars >= this.fullText.length) {
       this.revealed = true;
-      this.showChoices();
+      this.onFullyRevealed();
     }
   }
 
@@ -163,12 +214,49 @@ export class NpcDialogScene extends Phaser.Scene {
       this.charProgress = this.fullText.length;
       this.textObj.setText(this.fullText);
       this.revealed = true;
-      this.showChoices();
+      this.onFullyRevealed();
     } else if (!this.dialogData.choices || this.dialogData.choices.length === 0) {
+      // Runner node is mid auto-advance (scheduled below) — ignore manual taps until it fires.
+      if (this.dialogData.dialogRunner?.currentNode?.next !== undefined) return;
       // No choices — clicking closes the dialog
       this.close(undefined);
     }
     // If choices exist and are shown, closing happens via choice button clicks
+  }
+
+  /** Shows choice buttons, or — in runner mode — schedules the next node's auto-advance. */
+  private onFullyRevealed(): void {
+    this.showChoices();
+
+    const runner = this.dialogData.dialogRunner;
+    const hasVisibleChoices = !!this.dialogData.choices && this.dialogData.choices.length > 0;
+    if (runner && !hasVisibleChoices && runner.currentNode?.next !== undefined) {
+      this.time.delayedCall(AUTO_ADVANCE_DELAY, () => {
+        runner.advance();
+        this.refreshFromRunner();
+      });
+    }
+  }
+
+  /** Re-reads the runner's current node after choose()/advance() and restarts the typewriter, or closes on END. */
+  private refreshFromRunner(): void {
+    const runner = this.dialogData.dialogRunner;
+    if (!runner) return;
+
+    if (!runner.currentNode) {
+      this.close(undefined);
+      return;
+    }
+
+    this.applyRunnerNode();
+
+    this.choiceButtons.forEach(btn => btn.destroy());
+    this.choiceButtons = [];
+
+    this.fullText = this.dialogData.text;
+    this.charProgress = 0;
+    this.revealed = false;
+    this.textObj.setText('');
   }
 
   private showChoices(): void {
@@ -194,11 +282,43 @@ export class NpcDialogScene extends Phaser.Scene {
         .setScrollFactor(0)
         .setDepth(902)
         .setInteractive()
-        .on('pointerdown', () => this.close(choice.id))
+        .on('pointerdown', () => {
+          // Runner mode (#943) walks via DialogRunner.choose(); plain tree
+          // mode (#946) walks node ids itself; non-tree dialogs keep the
+          // original close-and-emit behavior.
+          if (this.dialogData.dialogRunner) {
+            this.dialogData.dialogRunner.choose(Number(choice.id));
+            this.refreshFromRunner();
+          } else if (this.dialogData.dialogTree) {
+            this.advanceToNode(choice.id);
+          } else {
+            this.close(choice.id);
+          }
+        })
         .on('pointerover', function (this: Phaser.GameObjects.Text) { this.setColor('#ffffff'); })
         .on('pointerout',  function (this: Phaser.GameObjects.Text) { this.setColor('#ffe066'); });
       this.choiceButtons.push(btn);
     });
+  }
+
+  /**
+   * Walks the dialog tree to `nodeId`, clears the old choice buttons, and
+   * restarts the typewriter for the new node's text (#946). advanceOrClose()
+   * closes the scene once a node with no choices is reached.
+   */
+  private advanceToNode(nodeId: string): void {
+    const tree = this.dialogData.dialogTree;
+    if (!tree) return;
+
+    this.applyNode(getNode(tree, nodeId));
+
+    this.choiceButtons.forEach(btn => btn.destroy());
+    this.choiceButtons = [];
+
+    this.fullText = this.dialogData.text;
+    this.charProgress = 0;
+    this.revealed = false;
+    this.textObj.setText('');
   }
 
   private close(choiceId: string | undefined): void {
