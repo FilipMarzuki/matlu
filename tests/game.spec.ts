@@ -6,15 +6,35 @@ const SCENE_READY_MS = 45_000; // extra time for GameScene.create() to finish (h
 // ─── Smoke test ───────────────────────────────────────────────────────────────
 
 test('game canvas renders without crashing', async ({ page }) => {
+  // Listen before navigating, so an uncaught error anywhere in the boot counts.
+  // The listener used to start after the canvas appeared and stop a second
+  // later, so an error thrown during loading counted only if it happened to
+  // land in that second: four failed audio decodes on every page load turned
+  // CI red about one run in thirty (#1489, #1537).
+  const errors: string[] = [];
+  page.on('pageerror', err => errors.push(err.message));
+
   await page.goto('/');
 
   // Phaser creates a <canvas> element inside #game-container
   const canvas = page.locator('#game-container canvas');
   await expect(canvas).toBeVisible({ timeout: GAME_BOOT_MS });
 
+  // The canvas appears before the menu has loaded anything. Wait until the
+  // menu scene has run preload() (which loads and decodes every sound in the
+  // audio manifest) and create(), so loading errors are in before we check.
+  // `status >= RUNNING` rather than isActive(): it stays true if the scene
+  // later pauses or stops, so the wait can't miss its moment.
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as { __game?: Phaser.Game; Phaser?: typeof Phaser };
+      const menu = w.__game?.scene?.getScene('MainMenuScene');
+      return !!menu && !!w.Phaser && menu.sys.settings.status >= w.Phaser.Scenes.RUNNING;
+    },
+    { timeout: SCENE_READY_MS },
+  );
+
   // No uncaught errors should have occurred
-  const errors: string[] = [];
-  page.on('pageerror', err => errors.push(err.message));
   await page.waitForTimeout(1_000);
   expect(errors).toHaveLength(0);
 });

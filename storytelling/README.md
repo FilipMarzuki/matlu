@@ -94,6 +94,7 @@ arrive from many sources in one year (plague, age, murder, war).
 | `world-spec.ts` | `WorldSpec` schema + `DEFAULT_SPEC` (the world as DATA) |
 | `seed.ts` | `loadWorld(spec)` — turn a WorldSpec into a live World |
 | `tick.ts` | One year, in canonical order |
+| `regions.ts` | The regional level (#1598): provinces grouped around market towns, a running political and economic state, regional events in their own log (`docs/regional-level.md`) |
 | `sifter.ts` | Story sifting (significance + shapes) |
 | `arcs.ts` | Group significant events into story arcs (threads) |
 | `render.ts` | Stub templated prose renderer |

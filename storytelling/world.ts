@@ -48,6 +48,9 @@ import type {
   InventionId,
   Province,
   ProvinceId,
+  Region,
+  RegionId,
+  RegionalEvent,
   Scheme,
   Siege,
   Title,
@@ -196,11 +199,33 @@ export class World {
   treaties: Treaty[] = [];
   events: WorldEvent[] = [];
 
+  // Regional level (regions.ts, #1598): regions by id, the region of each
+  // province, and the regional event log. The log is kept apart from `events`
+  // on purpose: `events` is the canon the golden hashes pin, and regional
+  // events are a reading of it (plus a little weather and luck of their own),
+  // so keeping them apart lets the level grow without moving a hash.
+  regions = new Map<RegionId, Region>();
+  regionOf = new Map<ProvinceId, RegionId>();
+  regionalEvents: RegionalEvent[] = [];
+  // The regional level's own random stream, derived from the world seed. A
+  // second, independent mulberry32: drawing from it never shifts `rng`, so the
+  // main simulation reads exactly the numbers it always did.
+  regionRng: RNG;
+  private nextRegionalEventId = 1;
+
   private nextEventId = 1;
   private nextEntityId = 1;
 
   constructor(seed: number) {
     this.rng = new RNG(seed);
+    this.regionRng = new RNG(regionalSeed(seed));
+  }
+
+  // Log a regional event (regions.ts). Like `log`, but to the regional log.
+  logRegional(fields: Omit<RegionalEvent, "id" | "year">): RegionalEvent {
+    const ev: RegionalEvent = { id: this.nextRegionalEventId++, year: this.year, ...fields };
+    this.regionalEvents.push(ev);
+    return ev;
   }
 
   // A monotonic id source for generated characters, goals, schemes, etc.
@@ -697,4 +722,14 @@ export function personalCombat(c: Character): number {
     for (const s of c.skills) p += SKILL_COMBAT[s] ?? 0;
   }
   return p;
+}
+
+// The regional stream's seed: the world seed run through a 32-bit mix (the
+// "murmur3 finaliser") with a fixed salt, so seeds 1 and 2 give unrelated
+// regional streams rather than streams one step apart.
+export function regionalSeed(seed: number): number {
+  let h = (seed ^ 0x5eed4e91) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
 }

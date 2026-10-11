@@ -552,10 +552,12 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .pinfo { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pinfo b { font-size: 13px; }
 .prole { font-size: 11px; color: var(--dim); text-transform: capitalize; margin: 0; }
-.tbar { display: block; height: 6px; border-radius: 3px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; margin-top: 3px; }
-.tbar span { display: block; height: 100%; background: var(--teal); }
-.tbar span.friend { background: var(--gold); }
 .tnum { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* Rapport (#1578): how someone seems with you, a word in place of the old trust bar, cooler to warmer. */
+.rapport { font-size: 11px; font-style: italic; letter-spacing: .3px; color: var(--dim); text-transform: none; cursor: help; }
+.rapport.rp-civil, .rapport.rp-cordial { color: var(--ice); }
+.rapport.rp-friendly, .rapport.rp-warm { color: var(--teal); }
+.rapport.rp-trusted, .rapport.rp-close { color: var(--gold); }
 .picons { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .vbadge { position: relative; display: inline-grid; place-items: center; border-radius: 9px; border: 2px solid var(--border2); font-family: var(--display); font-size: 16px; color: var(--ink); background: var(--sub2); flex: none; }
 .vbadge i { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-size: 13px; }
@@ -736,6 +738,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .chronicle { max-width: 72ch; }
 .chronhead { margin-top: 14px; }
 .chron { margin: 0 0 5px; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.chron.regional { color: var(--dim); overflow-wrap: anywhere; }
+.regmark { color: var(--gold); }
 .provinfo .dim { color: var(--faint); }
 .lordships .faint { color: var(--faint); }
 

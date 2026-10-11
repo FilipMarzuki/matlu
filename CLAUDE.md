@@ -222,7 +222,8 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | GitHub state | Meaning |
 | ------------ | ------- |
 | Open (no label) | Backlog — not yet started |
-| Open + `in-progress` | Actively being implemented |
+| Open + `in-progress` | Actively being implemented (the nightly agents skip it) |
+| Open + `epic` | Groups a track's sub-issues (GitHub sub-issues); never built itself, so triage and the nightly agent skip it (#1593) |
 | Closed | Done — PR merged or issue resolved |
 
 **Label conventions:**
@@ -231,7 +232,7 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | ----- | ------ |
 | Readiness | `ready`, `needs-refinement`, `blocked`, `too-large` |
 | Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation`, `agent:already-shipped` |
-| State | `in-progress` |
+| State | `in-progress`, `epic` |
 | Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
 | Type | `type:feature`, `type:bug`, `type:refactor`, `type:perf`, `type:infra`, `type:docs`, `type:spike` |
 

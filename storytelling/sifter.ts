@@ -9,7 +9,7 @@
 // lives — deliberately separate from rendering, so judgment and prose decouple.
 
 import { SPEC_REGISTRY } from "./event-spec.js";
-import type { CharId, EventType, WorldEvent } from "./types.js";
+import type { CharId, EventType, RegionalEventKind, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
 // ---------------------------------------------------------------------------
@@ -163,6 +163,35 @@ function seatKingdom(w: World, charId: string | null): string | null {
     if (prov) return liegeKingdom(w, prov.titleId);
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Regional events (regions.ts, #1598) — how much each is worth telling, on the
+// same scale as BASE below. Kept here so the sifter stays the one judge of
+// significance; regions.ts asks when it logs an event. Regional events are a
+// countryside's news, not court drama, so most sit below the chronicle's usual
+// cutoff (4–5): they're for what people in the region know (facts), and only
+// the great ones (famine, plague, a house falling) would make a chronicle.
+// ---------------------------------------------------------------------------
+const REGIONAL_BASE: Record<RegionalEventKind, number> = {
+  LORD_DIED: 4, SEAT_VACANT: 5, SEAT_SEIZED: 6, HOUSE_RISES: 4, HOUSE_FALLS: 5,
+  FEUD: 5, BORDER_WAR: 4, ALLIANCE: 3, LEVY_RAISED: 3, TAXES_RAISED: 3, TAXES_EASED: 2,
+  HARVEST_GOOD: 2, HARVEST_POOR: 3, SHORTAGE: 3, BOOM: 3, SLUMP: 4,
+  VENTURE_OPENED: 3, VENTURE_THRIVES: 3, VENTURE_FAILING: 3, VENTURE_CLOSED: 4,
+  ROAD_THRIVES: 2, ROAD_FAILS: 3,
+  FAMINE: 6, PLAGUE: 6, BANDITRY: 3, HARD_WINTER: 3, FAIR: 2, FESTIVAL: 2, MIGRATION: 3, UNREST: 4,
+};
+
+export function regionalSignificance(kind: RegionalEventKind, data: Record<string, string | number | boolean>): number {
+  let s = REGIONAL_BASE[kind];
+  // A great lord's death, a famine or plague that took most of the region, a
+  // named outlaw: each worth a point more.
+  if (kind === "LORD_DIED" && data["tier"] !== "county") s += 1;
+  if (kind === "FAMINE" && Number(data["provinces"] ?? 1) >= 2) s += 1;
+  if (kind === "PLAGUE" && Number(data["provinces"] ?? 1) * 2 > Number(data["of"] ?? 1)) s += 1;
+  if (kind === "BANDITRY" && data["named"]) s += 1;
+  if (kind === "SEAT_SEIZED" && data["lowborn"]) s += 1;
+  return s;
 }
 
 // Baseline drama by type before context adjustments. Partial because events

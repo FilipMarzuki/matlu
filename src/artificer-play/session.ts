@@ -326,7 +326,7 @@ function freeQuestionsText(r: RoadState): string {
   const open = peopleHere(r).filter(p => !(r.questioned ?? []).includes(p.id));
   if (!open.length) return '';
   const experiment = featureById('free-questions')?.stage === 'experimental' ? ' (an experiment)' : '';
-  return `Free questions${experiment}: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, whatever their trust. ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
+  return `Free questions${experiment}: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, however well they know you. ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
 }
 
 const ROAD_VERBS = ['talk', 'ask', 'question', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];

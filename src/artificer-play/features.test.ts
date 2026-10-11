@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, startGame, view, serialize, gameFrom, GAME_VERSION } from './session';
 import { handle, memoryStore, type ApiRequest } from './api';
 import { hollowfordGame } from './fixtures';
-import { loadChoices, saveChoices, devMode, DEV_BY_DEFAULT } from '../artificer-app/feature-choices';
+import { loadChoices, saveChoices, devMode, devTruths, DEV_BY_DEFAULT } from '../artificer-app/feature-choices';
 
 let n = 0;
 const deps = { now: () => Date.parse('2026-10-11T12:00:00Z'), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, newSeed: () => 's1' };
@@ -23,8 +23,8 @@ function hollowfordWith(features: Record<string, boolean>) {
 
 describe('Features in the session core (#1579)', () => {
   it('a game says which rule features it plays with, defaults unless switched', () => {
-    expect(view(startGame({ seed: 'f1' })).features).toEqual({ 'free-questions': true });
-    expect(view(startGame({ seed: 'f1', features: { 'free-questions': false } })).features).toEqual({ 'free-questions': false });
+    expect(view(startGame({ seed: 'f1' })).features).toEqual({ 'free-questions': true, referrals: true });
+    expect(view(startGame({ seed: 'f1', features: { 'free-questions': false } })).features).toEqual({ 'free-questions': false, referrals: true });
   });
 
   it('with free questions off, the ask move is refused and the road view doesn’t offer it', () => {
@@ -57,17 +57,17 @@ describe('Features through the API (#1579)', () => {
     const r = await handle(post('/api/v1/games', { features: { 'free-questions': false } }), store, deps);
     expect(r.status).toBe(201);
     const b = r.body as { id: string; features: Record<string, boolean> };
-    expect(b.features).toEqual({ 'free-questions': false });
+    expect(b.features).toEqual({ 'free-questions': false, referrals: true });
     // Played to its end (sleeping every night), its record says what was on.
     for (let i = 0; i < 120 && store.rows.get(b.id)!.phase !== 'ended'; i++) {
       const v = (await handle({ method: 'GET', path: `/api/v1/games/${b.id}`, ip: '203.0.113.7' }, store, deps)).body as { phase: string; moves: { move: unknown }[] };
       await handle(post(`/api/v1/games/${b.id}/moves`, { move: v.phase === 'day' || v.phase === 'road' ? { endDay: true } : v.moves[0].move }), store, deps);
     }
     const run = (await store.runBySource(`game:${b.id}`))!;
-    expect(run.detail.features).toEqual({ 'free-questions': false });
+    expect(run.detail.features).toEqual({ 'free-questions': false, referrals: true });
     // The lists carry the features, so the Records page can mark experimental runs.
     const list = (await handle({ method: 'GET', path: '/api/v1/runs', ip: '203.0.113.7' }, store, deps)).body as { recent: { features?: unknown }[] };
-    expect(list.recent[0].features).toEqual({ 'free-questions': false });
+    expect(list.recent[0].features).toEqual({ 'free-questions': false, referrals: true });
   }, 30_000);
 
   it('refuses a feature it doesn’t know, or switches that aren’t true or false', async () => {
@@ -113,5 +113,17 @@ describe('The player’s switches and dev mode, in the browser (#1579)', () => {
     // Without storage, the address alone, else the default.
     expect(devMode('', null)).toBe(true);
     expect(devMode('?dev=off', null)).toBe(false);
+  });
+
+  it('shows the hidden truths only with ?dev=truths, never in plain dev mode (#1578)', () => {
+    const s = fakeStore();
+    expect(devTruths('', s)).toBe(false);
+    expect(devMode('?dev=truths', s)).toBe(true);
+    expect(devTruths('?dev=truths', s)).toBe(true);
+    expect(devTruths('', s)).toBe(true); // remembered
+    expect(devTruths('?dev', s)).toBe(false); // plain dev mode turns them off again
+    expect(devTruths('', s)).toBe(false);
+    expect(devTruths('?dev=truths', null)).toBe(true);
+    expect(devTruths('', null)).toBe(false);
   });
 });

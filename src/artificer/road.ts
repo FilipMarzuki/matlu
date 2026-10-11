@@ -28,7 +28,7 @@ import { deflectionOf } from './free-questions';
 import { featureOn } from './features';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
-import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
+import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, FRIEND_TRUST, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
 import { availableQuests, canComplete, questById, toolFor, DELIVER_FAIL_TRUST, EXPIRE_TRUST, HAND_OVER_HOURS, QUEST_TRUST, QUEST_TRUST_VILLAGE, REPAIR_INSIGHT, REPAIR_RATES, SCOUT_RATES, type QuestStatus, type QuestTemplate } from './quests';
 import { practise, skillFor, skillLevel, perceivedLevel, drainMult, LEVELS, SKILLS, type SkillId } from './skills';
@@ -40,6 +40,7 @@ import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
 import { streamFor } from './rng';
 import { seedOf } from './talents';
+import { momentOfTruth, readingLeft, SECRET_GATE } from './rapport';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -94,8 +95,16 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   legDay: number;
   /** How you came through the winter: hale is `thrive`, worn or broken `ragged`. Later issues key trust and standing off it. */
   arrival: 'thrive' | 'ragged';
-  /** Trust per person met (#1246), 0–100. */
+  /**
+   * Trust per person met (#1246), 0–100. Hidden from the player (#1578): every gate reads it, but
+   * what the player sees is how each person seems (rapport.ts), which can be off.
+   */
   trust: Record<string, number>;
+  /**
+   * How much of the misreading of each person is left (#1578), 0–1: a moment of truth halves it.
+   * Absent, or a person missing from it, is all of it; a road from before rapport has none.
+   */
+  readings?: Record<string, number>;
   /** Lore lines each person has told you, and talks since they ran out (for diminishing returns). */
   told: Record<string, number>;
   idleTalks: Record<string, number>;
@@ -246,11 +255,37 @@ function clone(s: RoadState): RoadState {
     ...(s.noticed ? { noticed: Object.fromEntries(Object.entries(s.noticed).map(([k, v]) => [k, [...v]])) } : {}),
     ...(s.leads ? { leads: s.leads.map(l => ({ ...l })) } : {}),
     ...(s.deeds ? { deeds: [...s.deeds] } : {}),
+    ...(s.readings ? { readings: { ...s.readings } } : {}),
     log: [...s.log],
   };
 }
 
 const say = (s: RoadState, text: string, kind: LogEntry['kind']): void => { s.log.push({ day: s.day, text, kind }); };
+
+/**
+ * A moment of truth (#1578): `pid` has just shown where you really stand with them (a friend's
+ * price, a free lesson, a favour asked, a secret). Your read of them moves halfway to the truth, and
+ * if that changes how they seem, the journal says so. The gates never read this: only the views do.
+ */
+function showsTruth(next: RoadState, pid: string): void {
+  const t = momentOfTruth(next, pid);
+  next.readings = t.readings;
+  if (t.line) say(next, t.line, 'milestone');
+}
+
+/**
+ * Someone who now trusts you enough to remember you (#1250) shows it (#1578): the WARDEN tab lists
+ * them as a contact, so it's a moment of truth too. Only people already met (`before.trust`), and
+ * not twice in one action: if this action already showed you where you stand with them, that's it.
+ */
+function contactsMade(next: RoadState, before: Pick<RoadState, 'trust' | 'readings'>): void {
+  for (const [pid, t] of Object.entries(next.trust)) {
+    const was = before.trust[pid];
+    if (was === undefined || was >= CONTACT_TRUST || t < CONTACT_TRUST) continue;
+    if (readingLeft(next, pid) !== (before.readings?.[pid] ?? 1)) continue;
+    showsTruth(next, pid);
+  }
+}
 
 /** The leg you're on. */
 export const legOf = (s: RoadState): Leg => ROUTE[s.leg];
@@ -316,6 +351,8 @@ function leaveVillage(s: RoadState, id: string): void {
 /** Do one thing now. Nothing happens once the road is over, or when the day's hours are spent. */
 export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   const next = runRoadActionCore(s, id);
+  // Someone who came to trust you enough to remember you, by whatever this action was (#1578).
+  if (next !== s) contactsMade(next, s);
   // A hidden talent's hand on the road (#1265) — Silver Tongue's fairer prices and warmer welcome, say.
   if (next !== s && hasHidden(s.character.talents)) noticeHidden(next, differenceOf(next, runRoadActionCore(hiddenless(s), id)));
   return next;
@@ -335,6 +372,8 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     if (r.told > (next.told[pid] ?? 0)) next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.line)])];
     // A fellow traveller's talk (#1245) also teaches a little of their trade: insight in their concept per line told.
     if (person.concept && r.told > (next.told[pid] ?? 0)) addInsight(next.concepts, person.concept, TRAVELLER_INSIGHT, CRAFT_WORLD.concepts);
+    // A line they'd only tell someone they trust (#1578): a secret is a moment of truth.
+    const secret = r.told > (next.told[pid] ?? 0) && person.lore[r.told - 1].at >= SECRET_GATE;
     next.trust[pid] = r.trust;
     next.told[pid] = r.told;
     next.idleTalks[pid] = r.idleTalks;
@@ -344,6 +383,7 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     next.hoursToday += TALK_HOURS;
     exerciseStats(next, { cha: TALK_HOURS }); // talking to people (#1257)
     say(next, r.line, 'action');
+    if (secret) showsTruth(next, pid);
     return next;
   }
   if (id.startsWith('ask:')) return askAbout(next, id.slice(4));
@@ -442,6 +482,8 @@ function trade(next: RoadState, id: string): RoadState {
   next.today.loadClarity += a.loadClarity;
   next.hoursToday += TRADE_HOURS;
   exerciseStats(next, { cha: TRADE_HOURS }); // haggling, too (#1257)
+  // A friend's price, paid or got (#1578): that's where you stand with them, in marks.
+  if (terms.trust >= FRIEND_TRUST) showsTruth(next, terms.trader);
   return next;
 }
 
@@ -461,6 +503,8 @@ function accept(next: RoadState, qid: string): RoadState {
   const n = quest.needs;
   if (n.kind === 'deliver') next.stores[n.item] += n.qty;
   say(next, `${nameOf(quest.giver)}: "${quest.offer}" You take on ${quest.title}.`, 'action');
+  // They asked you for help (#1578): no one asks a favour of someone they don't trust a little.
+  showsTruth(next, quest.giver);
   return next;
 }
 
@@ -620,12 +664,16 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // does a lead to them on it (#1497): someone they know sent you. The two add up.
   const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
-  const r = ask(person, key, focusInline(f), (next.trust[pid] ?? 0) + shown + sent, next.asked?.[pid] ?? []);
+  const own = next.trust[pid] ?? 0;
+  // Referrals (#1609) are a switchable rule feature: read from this run's saved switches, never a global.
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals') });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told') noteLead(next, person, key, r.answer);
+  // A secret told on their trust alone (#1578), not because someone sent you or you'd noticed: a moment of truth.
+  if (r.kind === 'told' && r.answer.at >= SECRET_GATE && own >= r.answer.at) showsTruth(next, pid);
   return next;
 }
 
@@ -797,6 +845,8 @@ function healAt(next: RoadState, hid: string): RoadState {
   next.injuries = next.injuries!.map(i => (i === target ? cared : i));
   const set = cared.mended && !target.mended;
   say(next, `${healer.name} tends your ${INJURY_NAME[target.kind]}${set ? ' and sets it properly — it will heal straight' : ''}.${fee ? ` (${fee} marks)` : ' — no charge between friends'}`, 'milestone');
+  // Care for nothing, between friends (#1578): a moment of truth.
+  if (!fee) showsTruth(next, hid);
   return next;
 }
 
@@ -849,6 +899,8 @@ function learn(next: RoadState, spec: string): RoadState {
     addInsight(next.concepts, concept, LESSON_INSIGHT, CRAFT_WORLD.concepts);
     say(next, `${teacher.name} talks you through ${concept} — it makes more sense now.${paid}`, 'milestone');
   }
+  // A lesson for nothing, between friends (#1578): a moment of truth.
+  if (!fee) showsTruth(next, tid);
   return next;
 }
 
@@ -946,7 +998,10 @@ export function endRoadDay(s: RoadState): RoadState {
     }
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+    const met = { trust: { ...next.trust }, readings: next.readings };
     arriveWithDeliveries(next, now.id);
+    // A delivery's thanks can make a friend of the giver (#1578).
+    contactsMade(next, met);
   }
   return dawn(next);
 }
@@ -1024,6 +1079,8 @@ export function chooseRoadOption(s: RoadState, optionId: string): RoadState {
   next.hoursToday += (o.cost?.hours ?? 0) + (effect.hours ?? 0);
   next.pending = null;
   say(next, `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  // Someone the encounter made a friend of (#1578).
+  contactsMade(next, s);
   if (next.vitals.condition <= 0) {
     next.outcome = { kind: 'died', vitals: next.vitals };
     say(next, `Killed by ${effect.killedBy ?? 'what met you on the road'}.`, 'outcome');

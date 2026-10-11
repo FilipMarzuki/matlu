@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Fetches GitHub Issues eligible for the per-issue nightly agent.
 //
-// Eligibility: open issues with "ready" label but NOT "blocked", and not
-// already targeted by an open bender/* PR (avoids duplicate
-// agent cycles while a PR is in flight).
+// Eligibility: open issues with "ready" label but NOT "blocked", "epic",
+// "in-progress" or "agent:in-progress", and not already closed by an open PR on
+// any branch (avoids building work twice while a PR is in flight, #1593).
 //
 // Emits a JSON array of GitHub issue numbers (e.g. [42, 43]) on stdout.
 // In GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT so the
@@ -79,26 +79,35 @@ async function main() {
       `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
     );
 
-    // Fetch all open PRs and build a set of issue numbers that already have an
-    // in-flight agent PR (bender/*). This prevents the race condition
-    // where agent:in-progress is removed after a successful run but the PR hasn't
-    // merged yet, causing the next cycle to pick the same issue again.
+    // Fetch all open PRs (drafts too) and build a set of issue numbers one of them
+    // already closes. Any branch in this repo counts, not only Bender's own
+    // (bender/*): an interactive or subagent session's claude/* PR means the work
+    // is taken too (#1593). This also covers the race where agent:in-progress is
+    // removed after a successful run but the PR hasn't merged yet.
     const openPRs = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
     );
-    const issuesWithAgentPR = new Set();
+    const issuesWithOpenPR = new Set();
     for (const pr of openPRs) {
-      const branch = pr.head?.ref ?? '';
-      if (!branch.startsWith('bender/')) continue;
+      // Only PRs from branches of this repo. Anyone can open a PR from a fork, and
+      // its body could otherwise "take" any issue and starve the nightly agent.
+      if (pr.head?.repo?.full_name !== REPO) continue;
       const body = pr.body ?? '';
-      for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
-        issuesWithAgentPR.add(parseInt(m[1], 10));
+      // GitHub's closing keywords: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved,
+      // with an optional colon ("Closes: #12"), followed by one issue or a list of
+      // them ("Closes #12, #34 and #56"). GitHub itself only closes the first of a
+      // list, but the PR still means to do the rest, so they count as taken.
+      const keyword = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(#\d+(?:\s*(?:,|&|\band\b)\s*#\d+)*)/gi;
+      for (const m of body.matchAll(keyword)) {
+        for (const n of m[1].matchAll(/#(\d+)/g)) issuesWithOpenPR.add(parseInt(n[1], 10));
       }
     }
-    console.error(`[fetch] ${issuesWithAgentPR.size} issue(s) blocked by in-flight agent PRs: ${JSON.stringify([...issuesWithAgentPR])}`);
+    console.error(`[fetch] ${issuesWithOpenPR.size} issue(s) taken by open PRs: ${JSON.stringify([...issuesWithOpenPR])}`);
 
     // GitHub Issues API also returns pull requests — exclude them.
-    // Also exclude issues that also carry the "blocked" label.
+    // Also exclude issues that are blocked, already being built (`in-progress`
+    // is set by interactive and subagent sessions, `agent:in-progress` by
+    // Bender), or epics: an epic groups sub-issues and is never built itself (#1593).
     // Sort: bugs and rework first (they affect players now), then everything else.
     const hasLabel = (issue, name) => issue.labels.some(l => l.name === name);
     const bugPriority = (issue) => {
@@ -110,7 +119,9 @@ async function main() {
       .filter(i => !i.pull_request)
       .filter(i => !hasLabel(i, 'blocked'))
       .filter(i => !hasLabel(i, 'agent:in-progress'))
-      .filter(i => !issuesWithAgentPR.has(i.number))
+      .filter(i => !hasLabel(i, 'in-progress'))
+      .filter(i => !hasLabel(i, 'epic'))
+      .filter(i => !issuesWithOpenPR.has(i.number))
       .sort((a, b) => bugPriority(a) - bugPriority(b))
       .map(i => i.number);
   }

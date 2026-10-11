@@ -58,6 +58,8 @@ export function roadInvariantViolations(r: RoadState): string[] {
   };
   num('marks', r.marks);
   for (const [id, t] of Object.entries(r.trust)) num(`trust ${id}`, t, 0, 100);
+  // What's left of a misreading (#1578) is a share: a moment of truth halves it, never past 0.
+  for (const [id, f] of Object.entries(r.readings ?? {})) num(`reading ${id}`, f, 0, 1);
   for (const [k, v] of Object.entries(r.stores)) num(`stores.${k}`, v);
   const v = r.vitals;
   num('vigor', v.vigor.current, 0, v.vigor.cap);
