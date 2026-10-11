@@ -9,6 +9,8 @@
  * - Switch off, and in runs from before it: today's answers, word for word.
  * - Every fact is true, names a source that exists, and keeps to canon (no faiths).
  * - The free questions a player would ask (scope-questions.fixture.ts) match more often.
+ * - With knowledge questions (#1611) on too, a free question matches and is answered from the scope
+ *   facts, at their gates; with the scope facts off, free questions match as without them.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -18,6 +20,7 @@ import { ANSWERS, TELLS, answerFor, ask, topicsKnownBy } from './asks';
 import { ALL_FACTS, FACTS, ROAD_REGION, SCOPE_FACTS, factsFor, knowerOf, resolve, scopeFactEntries } from './facts';
 import { featureOn, ruleFeatures } from './features';
 import { HINTS, matchQuestion } from './free-questions';
+import { matchFreeQuestion } from './knowledge-questions';
 import { knows, SENSITIVITY_TRUST, type Fact, type ScopeKind } from './knowledge';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, isTopicKind, mentionsIn, topicDef } from './topics';
@@ -337,6 +340,68 @@ describe('Free questions the road can now answer (#1610)', () => {
     ];
     expect(lines.filter(t => mentionsIn(t).includes('place:north-road'))).toEqual([]);
     expect(SCOPE_FACTS.some(f => mentionsIn(f.text).includes('place:north-road'))).toBe(true);
+  });
+});
+
+describe('Scope facts with knowledge questions (#1610 with #1611)', () => {
+  const KQ_OFF = { ...ON, 'knowledge-questions': false };
+  const SCOPE_OFF = { ...ON, 'scope-facts': false };
+  /** A free question to someone in Hollowford, matched and played as the session plays it, at `trust`. */
+  const freeQuestion = (pid: string, question: string, features: Record<string, boolean>, trust: number) => {
+    const r = onTheRoad(features);
+    const topic = matchFreeQuestion(pid, question, [], r.features);
+    const after = runRoadAction({ ...r, trust: { ...r.trust, [pid]: trust } }, `question:${pid}${topic ? `:${topic}` : ''}` as Parameters<typeof runRoadAction>[1]);
+    return { topic, line: after.log.at(-1)?.text, told: (after.asked?.[pid] ?? []).includes(topic ?? '') };
+  };
+
+  it('both on: a village question is matched and answered from the scope facts, at the right trust', () => {
+    // Maren is the elder, so she reaches Hollowford's guarded news (depth 3, gate 25): kept back below it.
+    expect(freeQuestion('hf-maren', 'What does Hollowford live on?', ON, 20)).toEqual({
+      topic: 'place:hollowford', told: false,
+      line: 'You ask Maren about Hollowford. Maren looks at you a long moment. "Maybe. Ask me again when I know you better."',
+    });
+    const told = freeQuestion('hf-maren', 'What does Hollowford live on?', ON, 30);
+    expect(told.topic).toBe('place:hollowford');
+    expect(told.told).toBe(true);
+    expect(told.line).toMatch(/^You ask Maren about Hollowford\. Maren: "The ford is older than the village/);
+    // Isa isn't the elder: she knows the village's public word on it, and tells it to anyone.
+    expect(freeQuestion('hf-isa', 'What does Hollowford live on?', ON, 0)).toMatchObject({ topic: 'place:hollowford', told: true });
+    expect(freeQuestion('hf-isa', 'What does Hollowford live on?', ON, 0).line).toMatch(/Isa: "Hollowford lives on barley and sheep/);
+  });
+
+  it('scope facts off: the same question isn’t matched, and the topic gets no answer', () => {
+    expect(freeQuestion('hf-maren', 'What does Hollowford live on?', SCOPE_OFF, 30)).toMatchObject({ topic: null, told: false });
+    const r = onTheRoad(SCOPE_OFF);
+    const after = runRoadAction({ ...r, trust: { ...r.trust, 'hf-maren': 90 } }, 'question:hf-maren:place:hollowford');
+    expect(after.asked?.['hf-maren'] ?? []).not.toContain('place:hollowford');
+  });
+
+  it('knowledge questions off: the scope facts are matched and answered past the gates, as #1575 answers', () => {
+    expect(freeQuestion('hf-maren', 'What does Hollowford live on?', KQ_OFF, 20)).toMatchObject({ topic: 'place:hollowford', told: true });
+  });
+
+  it('the scope facts’ hints are read only with the scope facts: off, "sheep" names nothing an old answer mentions', () => {
+    // Yrsa's foraging answer mentions Hollowford; read in every run, "sheep" (Hollowford's hint)
+    // would match it through that mention.
+    expect(matchFreeQuestion('sm-yrsa', 'Tell me about the sheep', [], SCOPE_OFF)).toBe(null);
+    expect(matchFreeQuestion('sm-yrsa', 'Tell me about the sheep', [], undefined)).toBe(null);
+    expect(matchQuestion('sm-yrsa', 'Tell me about the sheep')).toBe(null);
+  });
+
+  it('answers many more of the fixture’s questions with the knowledge model’s matching too', () => {
+    const counts = Object.keys(VILLAGES).map(v => {
+      const qs = SCOPE_QUESTIONS.filter(q => q.village === v);
+      const match = (f: Record<string, boolean>) => qs.map(q => ({ q, t: matchFreeQuestion(q.person, q.question, [], f) }));
+      const before = match(SCOPE_OFF), after = match(ON);
+      const right = (m: typeof before) => m.filter(x => x.q.want !== null && x.t === x.q.want).length;
+      return { v, n: qs.length, before: before.filter(x => x.t).length, rightBefore: right(before), after: after.filter(x => x.t).length, right: right(after) };
+    });
+    // Pinned, as the #1575 matcher's numbers above: what the PR reports.
+    expect(counts).toEqual([
+      { v: 'hollowford', n: 25, before: 4, rightBefore: 1, after: 21, right: 19 },
+      { v: 'saltmere', n: 25, before: 7, rightBefore: 1, after: 21, right: 18 },
+      { v: 'kestrel-gate', n: 25, before: 11, rightBefore: 4, after: 23, right: 18 },
+    ]);
   });
 });
 

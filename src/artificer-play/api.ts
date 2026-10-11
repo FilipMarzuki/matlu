@@ -44,6 +44,7 @@ import { currentRun } from '../artificer-app/controller';
 import { heirloomsOf } from '../artificer/legacy';
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
+import { isQuestionTopic } from '../artificer/knowledge-questions';
 import { personById } from '../artificer/villages';
 import { FEATURES, validFeatures, type FeatureSwitches } from '../artificer/features';
 
@@ -243,9 +244,15 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     const text = cleanQuestion(body.question);
     if (!text) return fail(400, 'There\'s no question in that.');
     // The topic the page matched, kept only if it's one this person knows. Self-reported, like a model name.
-    const topic = typeof body.topic === 'string' && knowsAbout(person, body.topic) ? body.topic : null;
+    // With the knowledge model's matching (#1611) a topic can also be a People's or culture's ways, or
+    // one someone nearby knows: `isQuestionTopic` checks those.
+    const topic = typeof body.topic === 'string' && (knowsAbout(person, body.topic) || isQuestionTopic(person, body.topic)) ? body.topic : null;
     const trust = typeof body.trust === 'number' && Number.isFinite(body.trust) ? Math.min(100, Math.max(0, Math.round(body.trust))) : 0;
-    const q: Question = { question: text, person, topic, answered: topic !== null, trust, gameVersion: GAME_VERSION, surface: 'web' };
+    // Whether they told you anything, as the page saw it (#1611: a match can meet a gate, or be one
+    // someone else knows). A page from before says nothing; its matches were all topics the person
+    // knows, and always answered.
+    const answered = topic !== null && (typeof body.answered === 'boolean' ? body.answered : knowsAbout(person, topic));
+    const q: Question = { question: text, person, topic, answered, trust, gameVersion: GAME_VERSION, surface: 'web' };
     if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
     return { status: 201, body: { kept: true } };
   }
@@ -347,7 +354,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (r.asked) {
       const a = r.asked;
       const q: Question = {
-        question: a.text, person: a.person, topic: a.topic, answered: a.topic !== null, trust: a.trust,
+        question: a.text, person: a.person, topic: a.topic, answered: a.answered, trust: a.trust,
         gameVersion: record.version, surface: record.surface === 'bench' ? 'api' : record.surface,
       };
       // Kept if today's limits allow. A failure is logged, not passed on: the move itself was saved.

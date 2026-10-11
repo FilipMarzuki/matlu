@@ -25,7 +25,10 @@ export interface Question {
   /** Who was asked (a person id), and the topic it matched (a focus key), or null for none. */
   person: string;
   topic: string | null;
-  /** Whether they answered: a match is always answered (v0 passes the gates), so this is `topic !== null` for now. */
+  /**
+   * Whether they answered: told you something. Without the knowledge model's matching (#1611) a
+   * match is always answered (v0 passes the gates); with it, a match can meet a gate or a referral.
+   */
   answered: boolean;
   /** The person's trust in the Warden when asked, 0–100. */
   trust: number;

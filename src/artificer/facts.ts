@@ -139,6 +139,9 @@ export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
   ...(e.lead ? { lead: e.lead } : {}),
 }));
 
+/** Whether a set of facts has the scope facts in it (`factsFor` with the switch on, or ALL_FACTS). */
+export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f => f.id.startsWith('scope:'));
+
 /** Every fact any game can hold: today's, and the scope facts. */
 export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS];
 

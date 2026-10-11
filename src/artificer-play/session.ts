@@ -25,8 +25,8 @@ import { encounterById, optionsFor } from '../artificer/encounters';
 import { meetingOptions } from '../artificer/caravan-meeting';
 import { ROAD_DAYS, peopleHere, type RoadActionId, type RoadState } from '../artificer/road';
 import { observe, observeEncounter, observeMeeting, observeRoad } from '../artificer-ai/observe';
-import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
-import { factsFor } from '../artificer/facts';
+import { QUESTION_CHARS } from '../artificer/free-questions';
+import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
 import { GAME_VERSION } from './version';
@@ -97,6 +97,8 @@ export interface AskedQuestion {
   person: string;
   text: string;
   topic: string | null;
+  /** Whether they told you something (#1611: a matched question can meet a gate, or a referral). */
+  answered: boolean;
   trust: number;
 }
 
@@ -166,10 +168,15 @@ export function apply(g: Game, move: Move): ApplyResult {
     if ((r.questioned ?? []).includes(person)) return refuse(`You've asked ${who.name} your question this stay. Ask someone else, or ask again at the next stop.`);
     const text = cleanQuestion(question);
     if (!text) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
-    const topic = matchQuestion(person, text, r.asked?.[person] ?? [], factsFor(r.features));
+    // Matched by the run's own switches (#1611): with knowledge-questions on, the knowledge model's
+    // topics; off, #1575's matching. Either way only the topic is played, never the words.
+    const topic = matchFreeQuestion(person, text, r.asked?.[person] ?? [], r.features);
     played = { do: `question:${person}${topic ? `:${topic}` : ''}` };
-    asked = { person, text, topic, trust: Math.round(r.trust[person] ?? 0) };
     next = roadAct(before, played.do as RoadActionId);
+    // Answered means told: the topic is among what they've told you now (again counts). A match
+    // can still go unanswered with the knowledge model: not yet, or a referral.
+    const answered = topic !== null && (next.road?.asked?.[person] ?? []).includes(topic);
+    asked = { person, text, topic, answered, trust: Math.round(r.trust[person] ?? 0) };
   } else if ('set' in move) {
     const r = applySet(before, move.set);
     if (typeof r === 'string') return refuse(r);
@@ -327,7 +334,7 @@ function freeQuestionsText(r: RoadState): string {
   const open = peopleHere(r).filter(p => !(r.questioned ?? []).includes(p.id));
   if (!open.length) return '';
   const experiment = featureById('free-questions')?.stage === 'experimental' ? ' (an experiment)' : '';
-  return `Free questions${experiment}: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. They answer from what they know, however well they know you. ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
+  return `Free questions${experiment}: once per stay you may ask each person here one question in your own words, as { "ask": { "person": "<id>", "question": "…" } }, up to ${QUESTION_CHARS} characters. ${featureOn(r.features, 'knowledge-questions') ? 'They answer from what they know, their people\'s ways too, and say more the better they know you; what they don\'t know, they may send you to someone who does.' : 'They answer from what they know, however well they know you.'} ${QUESTION_NOTICE} Not asked yet: ${open.map(p => `${p.name} (${p.id})`).join(', ')}.`;
 }
 
 const ROAD_VERBS = ['talk', 'ask', 'question', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];

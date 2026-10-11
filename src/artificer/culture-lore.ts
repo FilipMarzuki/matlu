@@ -12,7 +12,9 @@
  * rumours, confidence and lies (#1580) can use the beliefs here that are half-true or wrong (each
  * says what is `actually` so). The trust gates are knowledge.ts's own (`SENSITIVITY_TRUST`).
  *
- * Nothing reads this yet: no road, free-question, save or RNG change comes with it.
+ * Free questions read it (#1611, knowledge-questions.ts, behind the `knowledge-questions` switch):
+ * a question about a People's or culture's ways is matched with `matchLore` and said as `voicedAt`
+ * voices it. Nothing else does: no save or RNG change comes with it.
  * Pure and deterministic: the same question, asked of the same person at the same trust, always
  * matches the same claims.
  */

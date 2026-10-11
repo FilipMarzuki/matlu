@@ -44,6 +44,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Asked about something they don\'t know, a person names someone nearby who would.',
   },
   {
+    // Its own switch, not `free-questions`: with it a free question stops passing the trust gates
+    // (#1575's rule) and answers the way the knowledge model does, which is a different game, so
+    // a run from before it (absent: false) must keep playing its questions the old way on replay.
+    id: 'knowledge-questions', name: 'Questions people answer from what they know', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1611,
+    note: 'A free question is matched to what the person knows, their People\'s and culture\'s ways too, and answered as an ask is: trust opens what they\'ll say, and someone who doesn\'t know may send you to someone who does.',
+  },
+  {
     // A rules feature: it changes what people can tell you (more topics answered, other referrals,
     // other leads), so a run from before it (absent: false) keeps today's answers on replay.
     id: 'scope-facts', name: 'What everyone knows', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1610,

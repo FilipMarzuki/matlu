@@ -129,7 +129,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     title: 'Ask someone a question',
     description: [
       'On the road: ask someone here one question in your own words, once per person per stay, up to 200',
-      'characters. They answer from what they know, however well they know you, or say they can\'t. The view lists who',
+      'characters. They answer from what they know, or say they can\'t; the view says how far trust matters in this game, and lists who',
       'can still be asked. Questions are kept to improve the game, with nothing about the player: never put',
       'anyone\'s name, age or details in one.',
     ].join(' '),

@@ -115,13 +115,21 @@ describe('Keeping questions through the API (#1575)', () => {
     const ok = await handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'Where is iron?', topic: 'material:iron', trust: 31.6 }), store, deps);
     expect(ok.status).toBe(201);
     expect(store.questions[0]).toMatchObject({ person: 'hf-orrin', topic: 'material:iron', answered: true, trust: 32, surface: 'web', gameVersion: GAME_VERSION });
-    // A topic the person doesn't know is kept as none.
-    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'What is the Dyprike?', topic: 'group:dyprike' }), store, deps);
+    // A topic nobody here knows is kept as none.
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where is mana-granite?', topic: 'material:mana-granite' }), store, deps);
     expect(store.questions[1]).toMatchObject({ topic: null, answered: false });
+    // One the person doesn't know but someone near them does (#1611): kept, as a referral, not answered.
+    // Foraging, which Isa knows and Maren doesn't in any game (with the scope facts, #1610, Maren
+    // knows the road's word on iron, so iron is no longer a referral for her).
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where do mushrooms grow?', topic: 'skill:foraging' }), store, deps);
+    expect(store.questions[2]).toMatchObject({ topic: 'skill:foraging', answered: false });
+    // Their People's ways, told: the page says it answered.
+    await handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'What do the Bergfolk believe?', topic: 'group:Bergfolk/values', answered: true }), store, deps);
+    expect(store.questions[3]).toMatchObject({ topic: 'group:Bergfolk/values', answered: true });
     // Nobody the road has, or no question: refused, nothing kept.
     expect((await handle(post('/api/v1/questions', { person: 'zz-nobody', question: 'Hi?' }), store, deps)).status).toBe(400);
     expect((await handle(post('/api/v1/questions', { person: 'hf-orrin', question: '' }), store, deps)).status).toBe(400);
-    expect(store.questions).toHaveLength(2);
+    expect(store.questions).toHaveLength(4);
   });
 
   it('holds the limits: per address per day, then everyone’s together', async () => {
