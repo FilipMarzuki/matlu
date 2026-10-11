@@ -152,4 +152,12 @@ describe('The Artificer over MCP (#1556)', () => {
     expect(clientFromSessionId('someone-elses-id')).toBeNull();
     expect(clientFromSessionId(null)).toBeNull();
   });
+
+  it("starts this week's world when new_game asks for it (#1559), and says so", async () => {
+    const client = await connect('modern');
+    const t = textOf(await client.callTool({ name: 'new_game', arguments: { weekly: true } }));
+    expect(t).toMatch(/weekly world, \d{4}-W\d{2}/);
+    expect(JSON.parse(rowFor(idIn(t)).session).id).toMatch(/^play-wk-\d{4}-W\d{2}-[0-9a-f]{8}$/);
+    await client.close();
+  });
 });

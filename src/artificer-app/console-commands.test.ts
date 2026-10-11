@@ -44,6 +44,9 @@ describe('The console command line (#1557)', () => {
     expect(parseCommand('help', day1)).toEqual({ kind: 'help' });
     expect(parseCommand('new Vega', day1)).toEqual({ kind: 'new', name: 'Vega' });
     expect(parseCommand('new game', day1)).toEqual({ kind: 'new', name: undefined });
+    // This week's world (#1559), with or without a name.
+    expect(parseCommand('new weekly', day1)).toEqual({ kind: 'new', name: undefined, weekly: true });
+    expect(parseCommand('New Week Vega', day1)).toEqual({ kind: 'new', name: 'Vega', weekly: true });
     expect(moveOf('help', encounter)).toEqual({ choose: 'help' });
     expect(moveOf('walk on', encounter)).toEqual({ choose: 'leave' });
     expect(parseCommand('', day1).kind).toBe('error');

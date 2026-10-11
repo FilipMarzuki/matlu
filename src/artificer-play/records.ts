@@ -15,8 +15,19 @@
  */
 
 export type PlayerKind = 'person' | 'ai';
-/** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or (#1559) the web game. */
+/** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or the web game (#1559, re-simulated before it counts). */
 export type Surface = 'api' | 'mcp' | 'console' | 'bench' | 'web';
+
+/**
+ * Does a run count on the boards and for achievements (#1559)? Every game the server chose the world
+ * for does: API, MCP, console and playtest games, and the weekly world. A web run on a world the page
+ * picked itself doesn't: anyone could try worlds offline and send only an easy one (seed-shopping).
+ * It's still kept and shown as the player's run, marked as their own world, just not ranked.
+ * The week is on a summary (`week`) or in a stored record's `detail.week`.
+ */
+export function isRanked(r: { surface: Surface; week?: string | null; detail?: { week?: string } }): boolean {
+  return r.surface !== 'web' || !!(r.week ?? r.detail?.week);
+}
 
 /** A finished game, as the Records pages read it. */
 export interface Run {
@@ -78,6 +89,8 @@ export interface RunDetail {
   milestones?: { name: string; day: number }[];
   /** The run's rule features (#1579), each on or off. Absent on the playtest's records and older ones. */
   features?: Record<string, boolean>;
+  /** The weekly world it was played on (#1559), "2026-W41"; absent for any other world. */
+  week?: string;
 }
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */
@@ -88,9 +101,10 @@ export interface StoredRun extends Run {
 
 /**
  * A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't
- * read, except its rule features (#1579), which mark experimental runs.
+ * read, except its rule features (#1579), which mark experimental runs, and its week (#1559), which
+ * marks a run of the weekly world.
  */
-export type RunSummary = Omit<StoredRun, 'detail'> & { features?: Record<string, boolean> | null };
+export type RunSummary = Omit<StoredRun, 'detail'> & { features?: Record<string, boolean> | null; week?: string | null };
 
 /** An AI's record for the dev site's AI page (GET /api/v1/runs/ai): the summary and when each milestone came. */
 export type AiRun = RunSummary & { milestoneDays: { name: string; day: number }[] | null };
