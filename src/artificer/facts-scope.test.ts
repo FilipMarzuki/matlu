@@ -347,9 +347,10 @@ describe('Every scope fact can be checked against canon (#1610)', () => {
 
   it('holds only true facts (the canon rule is for true facts; rumours come with slice G)', () => {
     for (const e of ENTRIES) expect(e.truth, e.id).toBe('true');
-    // Some are written to fit canon rather than quoted from it, and say so.
-    expect(ENTRIES.filter(e => e.invented).length).toBeGreaterThan(0);
-    expect(ENTRIES.filter(e => !e.invented).length).toBeGreaterThan(0);
+    // Some were written for the game to fit canon rather than quoted from it; the owner reviewed
+    // them and made them canon (2026-10-11), and each says when.
+    expect(ENTRIES.filter(e => e.canonised).length).toBeGreaterThan(0);
+    for (const e of ENTRIES) if (e.canonised) expect(e.canonised, e.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('keeps to canon on faith: the gods are dead, so nobody worships them', () => {

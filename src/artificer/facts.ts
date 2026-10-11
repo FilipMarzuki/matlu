@@ -99,14 +99,15 @@ export const FACTS: readonly Fact[] = [
 /**
  * A scope fact as written in content/scope-facts.json (#1610, knowledge slice C): the model's
  * `Fact`, plus where it came from. `source` names the canon it rests on (`file § heading › label`,
- * or `file › label` for code); `invented` marks what canon doesn't say outright, written to fit it.
+ * or `file › label` for code). `canonised` dates a fact written for the game to fit canon (not quoted
+ * from it) that the owner then made canon after a review (2026-10-11, #1610); canon from here on.
  * Only true facts so far: the canon rule (the owner's answer 6) holds for every one.
  */
 export interface ScopeFactEntry extends Omit<Fact, 'id' | 'sensitivity'> {
   id: string;
   sensitivity?: Sensitivity;
   source: string;
-  invented?: boolean;
+  canonised?: string;
 }
 
 // TypeScript types an imported JSON file from its contents with every string widened to `string`
