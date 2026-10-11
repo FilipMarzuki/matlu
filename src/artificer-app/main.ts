@@ -47,6 +47,7 @@ import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
 import { devMode, loadChoices, saveChoices } from './feature-choices';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
+import { feltWord } from '../artificer/rapport';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { ringPinChip, ringPins, pinsList } from './pins-view';
@@ -647,7 +648,7 @@ function roadKeepsBlock(a: AppState): string {
   if (!a.road && !marks && !contacts.length) return '';
   return `<p class="eyebrow" style="margin-top:16px">THE ROAD — marks &amp; contacts</p>
     <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
-    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')} · trust ${Math.round(a.road?.trust[id] ?? CONTACT_TRUST)}</span></li>`; }).join('')}</ul>` : `<p class="mood">No contacts yet — anyone whose trust in you reaches ${CONTACT_TRUST} will remember you.</p>`}`;
+    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
 }
 
 /** The hike pack (#1400): what you brought, each with what it does, and what's left of what runs out. */
@@ -1096,7 +1097,8 @@ function featuresPanel(a: AppState): string {
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
 const ROAD_TABS: { id: RoadTab; label: string }[] = [{ id: 'road', label: 'ROAD' }, { id: 'quests', label: 'QUESTS' }, { id: 'warden', label: 'WARDEN' }, { id: 'journal', label: 'JOURNAL' }];
 let roadTab: RoadTab = 'road';
-const roadUi: RoadUi = { person: null };
+// Dev mode (#1579) shows each person's true trust beside how they seem (#1578).
+const roadUi: RoadUi = { person: null, dev };
 
 /**
  * The Warden on the road, in Region 1's shape — so the Warden tab shows what the road
