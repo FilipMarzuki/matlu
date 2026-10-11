@@ -11,7 +11,7 @@ import type { Arc } from "./arcs.js";
 import { SPEC_REGISTRY } from "./event-spec.js";
 import { topHeroes } from "./magic.js";
 import type { FocusContext } from "./sifter.js";
-import type { Character, WorldEvent } from "./types.js";
+import type { Character, RegionalEvent, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
 // Regnal numbering: across two centuries a house reuses given names, so an
@@ -693,6 +693,112 @@ export function renderLayeredChronicle(
   }
 
   return out.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Regional events (regions.ts, #1598) — one plain sentence each, as the people
+// of the region would tell it. Like renderEvent, it only phrases what the
+// regional level recorded. A region is named after its market town: "the
+// Hollowford country".
+// ---------------------------------------------------------------------------
+const REGION_TRADE: Record<string, string> = {
+  farming: "its fields", lumber: "timber", mining: "ore from its mines", fishing: "its fisheries",
+  herding: "its flocks", peat: "peat and reed", trading: "its market",
+};
+
+export function regionalTrade(livelihood: string): string {
+  return REGION_TRADE[livelihood] ?? livelihood;
+}
+
+export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
+  const region = w.regions.get(ev.regionId);
+  const here = region ? `the ${region.name} country` : "the country";
+  const Here = here[0].toUpperCase() + here.slice(1);
+  const other = w.regions.get(ev.otherRegionId ?? "");
+  const there = other ? `the ${other.name} country` : "the next country";
+  const at = ev.provinceId ? provName(w, ev.provinceId) : here;
+  const house = String(ev.data["house"] ?? "");
+  const venture = String(ev.data["venture"] ?? "venture");
+  // One lord can hold several seats in a region; the regional level tells it once and counts them.
+  const extra = Number(ev.data["seats"] ?? 1) - 1;
+  const titled = (id: string | null) => titleName(w, id) + (extra > 0 ? ` and ${extra === 1 ? "another seat" : `${extra} other seats`}` : "");
+  const ventureAt = ev.provinceId ? `the ${venture} at ${provName(w, ev.provinceId)}` : `the ${venture}`;
+  switch (ev.kind) {
+    case "LORD_DIED":
+      return `${who(w, ev.targetId)} died, and ${who(w, ev.actorId)} took up ${titled(ev.titleId)}.`;
+    case "SEAT_VACANT":
+      return `${who(w, ev.targetId)} died with no clear heir, and ${titled(ev.titleId)} lay empty.`;
+    case "SEAT_SEIZED":
+      return ev.data["lowborn"]
+        ? `${who(w, ev.actorId)}, born to no house of note, seized ${titled(ev.titleId)}.`
+        : `${who(w, ev.actorId)} seized ${titled(ev.titleId)} from ${who(w, ev.targetId)}.`;
+    case "HOUSE_RISES":
+      return ev.data["from"]
+        ? `The house of ${house} rose to lead ${here}, over the house of ${ev.data["from"]}.`
+        : `The house of ${house} came to lead ${here}.`;
+    case "HOUSE_FALLS":
+      return `The house of ${house} lost its last seat in ${here}.`;
+    case "FEUD":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} fought over ${titled(ev.titleId)}; ${ev.data["attacker_won"] ? `${name(w, ev.actorId)} won` : `${name(w, ev.targetId)} held`}.`;
+    case "BORDER_WAR":
+      return `${who(w, ev.actorId)} came from outside ${here} to fight for ${titled(ev.titleId)}, and ${ev.data["attacker_won"] ? "took it" : "was turned back"}.`;
+    case "ALLIANCE":
+      return ev.data["union"]
+        ? `${who(w, ev.actorId)} and ${who(w, ev.targetId)} joined their houses by marriage.`
+        : `${who(w, ev.actorId)} and ${who(w, ev.targetId)} swore an alliance.`;
+    case "LEVY_RAISED":
+      return ev.titleId
+        ? `${who(w, ev.actorId)} called up the men of ${here} to fight over ${titled(ev.titleId)}.`
+        : `${who(w, ev.actorId)} called up the men of ${here} for war.`;
+    case "TAXES_RAISED":
+      return `The lords of ${here} raised their dues, and people grumbled.`;
+    case "TAXES_EASED":
+      return `The lords of ${here} eased their dues.`;
+    case "HARVEST_GOOD":
+      return `${Here} brought in a bumper harvest.`;
+    case "HARVEST_POOR":
+      return `The harvest failed across ${here}, and people went hungry.`;
+    case "SHORTAGE":
+      return `Bread grew dear in ${here}: ${Number(ev.data["price"] ?? 1).toFixed(1)} times its usual price.`;
+    case "BOOM":
+      return `Good times came to ${here}.`;
+    case "SLUMP":
+      return `Hard times came to ${here}.`;
+    case "VENTURE_OPENED":
+      return `A new ${venture} was opened at ${at}.`;
+    case "VENTURE_THRIVES":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} was thriving.`;
+    case "VENTURE_FAILING":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} was failing.`;
+    case "VENTURE_CLOSED":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} closed.`;
+    case "ROAD_THRIVES":
+      return `Trade flourished on the road between ${here} and ${there}.`;
+    case "ROAD_FAILS":
+      return `Trade dwindled on the road between ${here} and ${there}.`;
+    case "FAMINE": {
+      const n = Number(ev.data["provinces"] ?? 1);
+      return n > 1 ? `Famine struck ${here}, in ${n} of its lands.` : `Famine struck ${at}.`;
+    }
+    case "PLAGUE": {
+      const n = Number(ev.data["provinces"] ?? 1);
+      return n > 1 ? `Plague swept through ${here}, ${n} of its ${ev.data["of"]} lands.` : `Plague struck ${at}.`;
+    }
+    case "BANDITRY":
+      return ev.actorId ? `${who(w, ev.actorId)} led outlaws on the roads of ${at}.` : `Bandits troubled the roads around ${at}.`;
+    case "HARD_WINTER":
+      return `A hard winter gripped ${here}.`;
+    case "FAIR":
+      return `A great fair was held at ${at}.`;
+    case "FESTIVAL":
+      return `A festival was held at ${at}.`;
+    case "MIGRATION":
+      return other
+        ? `People fleeing ${ev.data["cause"]} in ${there} came through ${here}.`
+        : `Newcomers arrived in ${at}.`;
+    case "UNREST":
+      return `There was unrest in ${at}.`;
+  }
 }
 
 // Render the whole selected chronicle as dated lines, grouped by year (the flat,

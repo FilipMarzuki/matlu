@@ -126,6 +126,11 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
       // voyages to new lands, and the Reach is inland.
       id: p.id, name: p.name, terrain: p.terrain, fertility: p.fertility, coastal: false, river: p.river,
       neighbors: p.neighbors, population: p.population, mana: p.mana,
+      // For the engine's regional economy only (#1598): a lake to fish, and how much of the land is
+      // bare rock (scree and fell) to mine. Nothing else in the engine reads either on a surface
+      // province, so the history itself (history.test.ts pins its event log) doesn't change.
+      lake: p.lakeside,
+      mineralWealth: Math.round(rockShare(reach, p) * 100) / 100,
     })),
     titles,
     dynasties,
@@ -196,6 +201,13 @@ function fullName(world: World, id: string): string {
   const c = world.char(id)!;
   const house = world.dynasty(c.dynastyId);
   return house ? `${c.name} of ${house.name}` : c.name;
+}
+
+/** The share of a province's land that's scree, fell or snow: rock, not soil. */
+function rockShare(reach: Reach, p: Province): number {
+  const land = p.cells.filter(i => reach.cells[i].biome !== 'lake' && reach.cells[i].biome !== 'river');
+  if (!land.length) return 0;
+  return land.filter(i => ['scree', 'fell', 'snow'].includes(reach.cells[i].biome)).length / land.length;
 }
 
 const cultureOf = (c: ReachCulture) => REACH_CULTURES.find(s => s.id === c)!;
