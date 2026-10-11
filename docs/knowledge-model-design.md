@@ -242,6 +242,21 @@ guilds, academies and companies come with the told history (`ReachHistory.orgs`)
 `world/organisations.ts` turns those in a road village's province into organisations, members and
 facts; like the rest of the history, nothing in play reads them until slice F.
 
+**Slice D's ties in the game (#1588):** a small tie graph (`src/artificer/ties.ts`,
+`content/ties.json`), every entry a placeholder for the owner: eight ties of kind `kin`, `friend`,
+`rival`, `debt` or `colleague`, four between road people (Orrin and Sabine, Maren and Tobin, Tobin
+and Hedda, Hedda and Bodil) and four to people elsewhere the Reach's deeds touched (Orrin's
+sister's girl, the old scholar, the lost herald, the starving man). Each side holds its own
+opinion, -100 to 100 as the story engine's `Character.opinion`, and may say something about the
+other: a person-scope fact (`tie:<tie>:<holder>`) about `person:<other>`, with a sensitivity and a
+truth. Maren's view of Tobin is the one `false` claim; Hedda's says otherwise, so the clash is
+there for #1580's journal, and `facts.ts` `claimsTold` reads the false claims told off `asked`
+with nothing new saved. A tie carries word: when the Warden first meets someone, the warmest
+friend they've helped (a quest done for them, or a deed for someone elsewhere) adds up to
+`TIE_WORD` (15) trust, scaled by the hearer's opinion of that friend. Behind the `ties` rule
+switch. Secrets, lies with a reason, and road people drawn from the engine's characters (#1586)
+are still to come.
+
 ## Questions for the owner
 
 1. **Truth vs rumour:** how often should people be confidently wrong, and how often lie? (The

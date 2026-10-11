@@ -23,8 +23,9 @@
  */
 
 import { ANSWERS, type Answer } from './answers';
-import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity, type Standing } from './knowledge';
+import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
 import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
+import { TIE_FACTS } from './ties';
 import { featureOn, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
@@ -148,28 +149,46 @@ export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
 /** Whether a set of facts has the scope facts in it (`factsFor` with the switch on, or ALL_FACTS). */
 export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f => f.id.startsWith('scope:'));
 
-/** Every fact any game can hold: today's, the scope facts, and the organisations' (#1587). */
-export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS];
+/** Every fact any game can hold: today's, the scope facts, the organisations' (#1587) and the ties' (#1588). */
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS];
 
-// The four sets a run can play with, built once, so a run's facts are always the same array (and
-// the common cases are the very arrays above: none of the switches, FACTS; all of them, ALL_FACTS).
-const ONLY_SCOPE: readonly Fact[] = [...FACTS, ...SCOPE_FACTS];
-const ONLY_ORGS: readonly Fact[] = [...FACTS, ...ORG_FACTS];
+/**
+ * The switchable sets of facts, in the order they join today's: what everyone knows (#1610), the
+ * organisations' (#1587), and what people say of those they're tied to (#1588).
+ */
+const SWITCHED_FACTS: readonly { feature: string; facts: readonly Fact[] }[] = [
+  { feature: 'scope-facts', facts: SCOPE_FACTS },
+  { feature: 'organisations', facts: ORG_FACTS },
+  { feature: 'ties', facts: TIE_FACTS },
+];
+
+// Each combination of switches is built once and kept, so a run's facts are always the same array
+// (and the common cases are the very arrays above: none of the switches, FACTS; all of them,
+// ALL_FACTS). Keyed by which switches are on, as a string of 0s and 1s ('101': scope facts and
+// ties, no organisations): eight combinations at most.
+const FACT_SETS = new Map<string, readonly Fact[]>([['000', FACTS], ['111', ALL_FACTS]]);
 
 /**
  * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
  * after today's (so a person's own words still come first); with `organisations` on (#1587), the
- * organisations' facts after those. Off, and in every run from before a switch, without them, so
- * those runs replay with the answers they had.
+ * organisations' facts after those; with `ties` on (#1588), what people say of those they're tied
+ * to. Off, and in every run from before a switch, without them, so those runs replay with the
+ * answers they had.
  *
- * Today's facts are all a person's own, the most specific scope there is, so adding either set
+ * Today's facts are all a person's own, the most specific scope there is, so adding any set
  * never changes an answer someone already gave: it only answers what they didn't know (an
  * organisation's fact does come before what their village or the road says, being more
- * specific), changes who they'd refer you to, and adds leads.
+ * specific, and so does a tie's, about the person it's a view of: Maren's own opinion of Tobin
+ * before what all Hollowford says of him), changes who they'd refer you to, and adds leads.
  */
 export function factsFor(features: FeatureSwitches | undefined): readonly Fact[] {
-  const scope = featureOn(features, 'scope-facts'), orgs = featureOn(features, 'organisations');
-  return scope ? (orgs ? ALL_FACTS : ONLY_SCOPE) : orgs ? ONLY_ORGS : FACTS;
+  const key = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) ? '1' : '0')).join('');
+  let facts = FACT_SETS.get(key);
+  if (!facts) {
+    facts = [...FACTS, ...SWITCHED_FACTS.filter((_, i) => key[i] === '1').flatMap(s => s.facts)];
+    FACT_SETS.set(key, facts);
+  }
+  return facts;
 }
 
 /**
@@ -240,4 +259,24 @@ export function answerOf(f: Fact): Answer {
     ...(f.insight ? { insight: f.insight } : {}),
     ...(f.lead ? { lead: { who: f.lead, ...(f.leadAbout ? { about: f.leadAbout } : {}) } } : {}),
   };
+}
+
+/** A claim someone told the Warden that isn't simply so (#1588): who said it, about what, the fact, and its truth. */
+export interface ClaimTold { person: string; topic: string; fact: string; truth: Exclude<Truth, 'true'> }
+
+/**
+ * The claims told so far that aren't true, read off what's been told (`asked`: the topics each
+ * person has answered) and the run's facts. Nothing new is saved: what someone answered a topic
+ * with is the most specific fact they know about it, and the model finds the same one again
+ * (asking with infinite trust only opens gates, it never picks a different fact). Keys that are
+ * no fact's topic (a deed told, a People's ways) find nothing and are skipped. The game always
+ * knows the truth (design §7) while the player hears only the words; #1580's journal reads this.
+ */
+export function claimsTold(asked: Readonly<Record<string, readonly string[]>> | undefined, facts: readonly Fact[] = FACTS): ClaimTold[] {
+  const out: ClaimTold[] = [];
+  for (const [person, topics] of Object.entries(asked ?? {})) for (const topic of topics) {
+    const r = resolve(person, topic, Infinity, { facts, others: [] });
+    if (r?.kind === 'told' && r.fact.truth !== 'true') out.push({ person, topic, fact: r.fact.id, truth: r.fact.truth });
+  }
+  return out;
 }

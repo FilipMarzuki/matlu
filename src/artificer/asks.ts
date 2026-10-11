@@ -18,7 +18,7 @@
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
 import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { tells, type Fact, type Standing } from './knowledge';
+import { tells, type Fact, type Standing, type Truth } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -132,7 +132,11 @@ export function topicsKnownBy(personId: string, facts: readonly Fact[] = FACTS):
 }
 
 export type AskResult =
-  | { kind: 'told'; line: string; answer: Answer }
+  /**
+   * `truth` is the told fact's (#1588): what the world says of the claim, never shown to the
+   * player. Someone can say a `false` thing with full confidence (Maren on Tobin); the game knows.
+   */
+  | { kind: 'told'; line: string; answer: Answer; truth: Truth }
   | { kind: 'not-yet'; line: string }
   /**
    * They don't know. `referral` is who nearby would (the knowledge model's transactive memory,
@@ -168,5 +172,5 @@ export function ask(p: Person, key: string, about: string, trust: number, answer
   // a lie would read as not yet until then, which is what the person would be doing: not telling.
   if (r.kind !== 'told') return { kind: 'not-yet', line: `${p.name} looks at you a long moment. "Maybe. Ask me again when I know you better."` };
   const a = answerOf(r.fact);
-  return { kind: 'told', line: `${p.name}: "${a.text}"`, answer: a };
+  return { kind: 'told', line: `${p.name}: "${a.text}"`, answer: a, truth: r.fact.truth };
 }

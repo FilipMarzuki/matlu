@@ -68,6 +68,7 @@ The Artificer is the master for materials and concepts (CLAUDE.md, #1531), and o
 | `src/artificer/content/scope-facts.json` | Facts everyone in a village, road, trade or skill knows | **Master** (Artificer) | Repo file / PR |
 | `src/artificer/content/organisations.json` | Organisations on the road and what members know (placeholders for owner review) | **Master** (Artificer) | Repo file / PR |
 | `src/artificer/content/classes.json` | Every Mistheim [Class]: kind, holders, WORLD.md source, dates; a test keeps it in step with WORLD.md (#1637, `docs/class-registry.md`) | **Master** (Artificer) | Repo file / PR |
+| `src/artificer/content/ties.json` | Ties between the road's people (kin, friends, rivals, debts) and what each says of the other (placeholders for owner review, #1588) | **Master** (Artificer) | Repo file / PR |
 | `src/artificer/region1.ts`, `kit.ts`, `trade.ts`, `techniques.ts` | Materials, recipes, items, techniques | **Master** (#1531) | Repo file / PR (code, so CI and tests) |
 | `src/artificer/villages.ts` | The road villages, their people (People, culture, role), lore lines | **Master** for those places and people | Repo file / PR |
 | `src/artificer/economy.ts` | Each road village's dominant, secondary and founding trade | **Master** for the road villages' economies; generated places come from the story engine | Repo file / PR |
