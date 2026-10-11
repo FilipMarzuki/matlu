@@ -1448,7 +1448,7 @@ root.addEventListener('submit', e => {
   const raw = (form.elements.namedItem('q') as HTMLInputElement | null)?.value ?? '';
   const clean = cleanQuestion(raw);
   if (!r || !clean || (r.questioned ?? []).includes(pid)) return;
-  const topic = clean.text ? matchQuestion(pid, clean.text, r.asked?.[pid] ?? []) : null;
+  const topic = matchQuestion(pid, clean, r.asked?.[pid] ?? []);
   const trust = Math.round(r.trust[pid] ?? 0);
   const next = roadAct(state, `question:${pid}${topic ? `:${topic}` : ''}`);
   if (!next.road?.questioned?.includes(pid)) { update(next); return; }

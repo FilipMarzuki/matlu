@@ -4,14 +4,17 @@
 --
 -- Only the server touches this table, with the service-role key: RLS is on and there are no
 -- policies. Questions are cleaned before they're written (src/artificer-play/questions.ts): cut to
--- 200 characters, with email addresses, links and runs of digits taken out, and one holding a
--- blocked word is kept as blocked, without its text. Nothing about the player is stored: no
--- address, no account, no game id.
+-- 200 characters, with email addresses, links and runs of digits taken out. Nothing about the
+-- player is stored: no address, no account, no game id.
+--
+-- `blocked` is unused and always false: a word filter was planned, then dropped before release
+-- (the owner's call: a word list can't be made complete). It stays because the column was already
+-- live; drop it with the views' references when convenient.
 
 create table if not exists public.artificer_questions (
   id            uuid primary key default gen_random_uuid(),
   created_at    timestamptz not null default now(),
-  -- The question as cleaned, or null when it held a blocked word.
+  -- The question as cleaned (never null in practice: see `blocked` above).
   question      text check (question is null or char_length(question) <= 200),
   blocked       boolean not null default false,
   -- Who was asked (a person id in src/artificer/villages.ts), and the topic it matched (a focus

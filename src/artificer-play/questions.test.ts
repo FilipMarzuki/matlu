@@ -16,23 +16,21 @@ import { hollowfordGame as atHollowford } from './fixtures';
 describe('Cleaning a question to keep (#1575)', () => {
   it('cuts it to the length cap, and drops control and invisible characters', () => {
     const c = cleanQuestion(`  Where\u0000 is​ the\nsmith?  ${'a'.repeat(300)}`)!;
-    expect([...c.text!].length).toBeLessThanOrEqual(QUESTION_CHARS);
-    expect(c.text!.startsWith('Where is the smith?')).toBe(true);
-    expect(c.blocked).toBe(false);
+    expect([...c].length).toBeLessThanOrEqual(QUESTION_CHARS);
+    expect(c.startsWith('Where is the smith?')).toBe(true);
   });
 
   it('cuts out runs of digits, email addresses and links: anything about the player', () => {
-    expect(cleanQuestion('call me on 070-123 45 67 ok?')!.text).toBe('call me on … ok?');
-    expect(cleanQuestion('I was born in 2014, is that old?')!.text).toBe('I was born in …, is that old?');
-    expect(cleanQuestion('mail kid@example.com or see https://example.com/me')!.text).toBe('mail … or see …');
+    expect(cleanQuestion('call me on 070-123 45 67 ok?')).toBe('call me on … ok?');
+    expect(cleanQuestion('I was born in 2014, is that old?')).toBe('I was born in …, is that old?');
+    expect(cleanQuestion('mail kid@example.com or see https://example.com/me')).toBe('mail … or see …');
     // Small numbers are part of ordinary questions.
-    expect(cleanQuestion('Is day 45 midwinter?')!.text).toBe('Is day 45 midwinter?');
+    expect(cleanQuestion('Is day 45 midwinter?')).toBe('Is day 45 midwinter?');
   });
 
-  it('keeps a question with a blocked word as blocked, without its text; a fair word in a survival game passes', () => {
-    expect(cleanQuestion('what the fuck is iron')).toEqual({ text: null, blocked: true });
-    expect(cleanQuestion('sh1t!')).toEqual({ text: null, blocked: true });
-    expect(cleanQuestion('How do I kill a wolf?')).toEqual({ text: 'How do I kill a wolf?', blocked: false });
+  it('keeps every word: there is no word filter, and only the owner reads the questions', () => {
+    expect(cleanQuestion('How do I kill a wolf?')).toBe('How do I kill a wolf?');
+    expect(cleanQuestion('what the hell is iron')).toBe('what the hell is iron');
   });
 
   it('has no question in nothing', () => {
@@ -50,7 +48,7 @@ describe('A free question as a move (#1575): console, MCP and the API', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.played).toEqual({ do: 'question:hf-orrin:material:iron' });
-    expect(r.asked).toMatchObject({ person: 'hf-orrin', text: 'Where do people round here get ore?', blocked: false, topic: 'material:iron' });
+    expect(r.asked).toMatchObject({ person: 'hf-orrin', text: 'Where do people round here get ore?', topic: 'material:iron' });
     expect(r.changed.join(' ')).toContain(answerFor('hf-orrin', 'material:iron')!.text);
     // Asked once this stay: no longer offered, and a second is refused, changing nothing.
     expect(view(r.game).text).not.toMatch(/Not asked yet:.*Orrin/);
@@ -58,13 +56,11 @@ describe('A free question as a move (#1575): console, MCP and the API', () => {
     expect(again.ok).toBe(false);
   });
 
-  it('deflects what it can’t match, and a blocked question, which is played without a topic', () => {
+  it('deflects what it can’t match, played without a topic', () => {
     const g = atHollowford();
-    const r = apply(g, { ask: { person: 'hf-maren', question: 'what the fuck is iron' } });
-    expect(r.ok && r.played).toEqual({ do: 'question:hf-maren' });
-    expect(r.ok && r.asked).toMatchObject({ text: null, blocked: true, topic: null });
     const odd = apply(g, { ask: { person: 'hf-tobin', question: 'What is the meaning of life?' } });
-    expect(odd.ok && odd.asked?.topic).toBeNull();
+    expect(odd.ok && odd.played).toEqual({ do: 'question:hf-tobin' });
+    expect(odd.ok && odd.asked).toMatchObject({ text: 'What is the meaning of life?', topic: null });
     expect(odd.ok && odd.changed.join(' ')).toMatch(/Tobin thinks it over/);
   });
 
@@ -98,7 +94,7 @@ describe('Keeping questions through the API (#1575)', () => {
     expect(r.status).toBe(200);
     expect(store.rows.get(id)!.moves).toEqual([{ do: 'question:hf-isa:skill:foraging' }]);
     expect(store.questions).toEqual([{
-      question: 'Which mushrooms can I eat? My number is …', blocked: false, person: 'hf-isa', topic: 'skill:foraging', answered: true,
+      question: 'Which mushrooms can I eat? My number is …', person: 'hf-isa', topic: 'skill:foraging', answered: true,
       trust: expect.any(Number), gameVersion: GAME_VERSION, surface: 'console',
     }]);
     // No address, hash, game id or seed in what's kept.

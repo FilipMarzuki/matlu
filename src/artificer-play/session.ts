@@ -94,8 +94,7 @@ export type ApplyResult =
 /** A free question as asked (#1575): what may be kept of it, who, what it matched, and their trust then. */
 export interface AskedQuestion {
   person: string;
-  text: string | null;
-  blocked: boolean;
+  text: string;
   topic: string | null;
   trust: number;
 }
@@ -157,12 +156,11 @@ export function apply(g: Game, move: Move): ApplyResult {
     if (!who) return refuse(`There's no one called "${person}" here. Here: ${peopleHere(r).map(p => `${p.name} (${p.id})`).join(', ')}.`);
     if (r.hoursToday >= DAY_HOURS) return refuse('The day is spent: end the day, and ask tomorrow.');
     if ((r.questioned ?? []).includes(person)) return refuse(`You've asked ${who.name} your question this stay. Ask someone else, or ask again at the next stop.`);
-    const clean = cleanQuestion(question);
-    if (!clean) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
-    // A blocked question matches nothing: they deflect, and it's kept without its words.
-    const topic = clean.text ? matchQuestion(person, clean.text, r.asked?.[person] ?? []) : null;
+    const text = cleanQuestion(question);
+    if (!text) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
+    const topic = matchQuestion(person, text, r.asked?.[person] ?? []);
     played = { do: `question:${person}${topic ? `:${topic}` : ''}` };
-    asked = { person, text: clean.text, blocked: clean.blocked, topic, trust: Math.round(r.trust[person] ?? 0) };
+    asked = { person, text, topic, trust: Math.round(r.trust[person] ?? 0) };
     next = roadAct(before, played.do as RoadActionId);
   } else if ('set' in move) {
     const r = applySet(before, move.set);

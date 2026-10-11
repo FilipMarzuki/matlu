@@ -168,13 +168,12 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (body === undefined) return fail(400, 'The body must be JSON.');
     const person = typeof body.person === 'string' ? body.person : '';
     if (!personById(person)) return fail(400, 'The body must be { "person": "<person id>", "question": "…" }, with someone the road has.');
-    const clean = cleanQuestion(body.question);
-    if (!clean) return fail(400, 'There\'s no question in that.');
-    // The topic the page matched, kept only if it's one this person knows. Self-reported, like a
-    // model name; a blocked question matched nothing.
-    const topic = clean.text && typeof body.topic === 'string' && knowsAbout(person, body.topic) ? body.topic : null;
+    const text = cleanQuestion(body.question);
+    if (!text) return fail(400, 'There\'s no question in that.');
+    // The topic the page matched, kept only if it's one this person knows. Self-reported, like a model name.
+    const topic = typeof body.topic === 'string' && knowsAbout(person, body.topic) ? body.topic : null;
     const trust = typeof body.trust === 'number' && Number.isFinite(body.trust) ? Math.min(100, Math.max(0, Math.round(body.trust))) : 0;
-    const q: Question = { question: clean.text, blocked: clean.blocked, person, topic, answered: topic !== null, trust, gameVersion: GAME_VERSION, surface: 'web' };
+    const q: Question = { question: text, person, topic, answered: topic !== null, trust, gameVersion: GAME_VERSION, surface: 'web' };
     if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
     return { status: 201, body: { kept: true } };
   }
@@ -265,7 +264,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (r.asked) {
       const a = r.asked;
       const q: Question = {
-        question: a.text, blocked: a.blocked, person: a.person, topic: a.topic, answered: a.topic !== null, trust: a.trust,
+        question: a.text, person: a.person, topic: a.topic, answered: a.topic !== null, trust: a.trust,
         gameVersion: record.version, surface: record.surface === 'bench' ? 'api' : record.surface,
       };
       // Kept if today's limits allow. A failure is logged, not passed on: the move itself was saved.

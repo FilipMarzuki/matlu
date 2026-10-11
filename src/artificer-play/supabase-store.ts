@@ -107,7 +107,7 @@ const runFromRow = (r: RunRow): StoredRun => ({ ...summaryFromRow(r), detail: r.
 const QUESTIONS = 'artificer_questions';
 
 export const questionToRow = (q: Question) => ({
-  question: q.question, blocked: q.blocked, person: q.person, topic: q.topic, answered: q.answered,
+  question: q.question, person: q.person, topic: q.topic, answered: q.answered,
   // The column allows 0-100: a trust outside it would cost the question.
   trust: Math.min(100, Math.max(0, Math.round(q.trust))), game_version: q.gameVersion, surface: q.surface,
 });
