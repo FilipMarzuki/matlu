@@ -1080,7 +1080,7 @@
     {
       "id": "human",
       "name": "Humans",
-      "description": "Earth arrivals. Appeared through an unknown mechanism — no one knows why. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming. In Mistheim they are two Peoples: the Riksfolk of the Realm and the Strandfolk of the harbour coast (#1623).",
+      "description": "Native to Mistheim, and joined by Earth arrivals: humans lived here before the worlds merged, and some of their ancestors came through with the Earth fragments, every one of them without memory of Earth, and married into the humans already here. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming. In Mistheim they are two Peoples: the Riksfolk of the Realm and the Strandfolk of the harbour coast (#1623).",
       "biomeAffinity": {
         "marine": -0.2,
         "hot_desert": 0.2,

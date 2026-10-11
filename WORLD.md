@@ -1857,9 +1857,13 @@ that pays no due to any lord is "waste" in the Landslag, waste belongs to the cr
 crown grants it by charter to whoever will fence it and farm it. Most of the Realm's history
 is that one rule, applied.
 
-Where humans came from is argued. Other Peoples' stories say humans arrived, not grew; the
-Riksfolk say they were always here, and point to the old ruins on the Wildkin's side of the
-Alå. Nobody knows who built those ruins.
+Where humans came from is half argued and half known. Humans were in Mistheim before the worlds
+merged. When the Earth fragments came, people came with them, and every Earth arrival came
+without memory of Earth: no names, no tongue, no story of where they had been. They married
+into the humans already here, so most humans today have Earth ancestors somewhere back in the
+line, and nobody can say which. Other Peoples' stories remember only the arrivals and say humans
+came, not grew; the Riksfolk say they were always here, and point to the old ruins on the
+Wildkin's side of the Alå. Nobody knows who built those ruins. *(Owner, 2026-10-11, #1623.)*
 
 Representative Classes: [Reeve], [Dikemaster], [Hedge-Warden], [Knight], [Charter-Clerk],
 [Marshal].

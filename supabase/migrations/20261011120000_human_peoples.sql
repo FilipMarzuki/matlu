@@ -91,7 +91,8 @@ on conflict (ancestry_id, feature_id) do nothing;
 -- 3. `human` is the humans' umbrella again. Clear the orc columns only once `markfolk` holds them.
 update public.ancestries h
 set name = 'Humans',
-    description = h.description || ' In Mistheim they are two Peoples: the Riksfolk of the Realm and the Strandfolk of the harbour coast (#1623).',
+    -- Canon (owner, 2026-10-11): humans are native to Mistheim; some ancestors were Earth arrivals, who all came without memory.
+    description = 'Native to Mistheim, and joined by Earth arrivals: humans lived here before the worlds merged, and some of their ancestors came through with the Earth fragments, every one of them without memory of Earth, and married into the humans already here. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming. In Mistheim they are two Peoples: the Riksfolk of the Realm and the Strandfolk of the harbour coast (#1623).',
     body_plan = null, build = null, surface = null, silhouette = null, head = null, senses = null,
     anatomy = null, variation = null, sprite_note = null, sprite_resolution = null, lifespan = null
 where h.slug = 'human' and h.name = 'Markfolk'
