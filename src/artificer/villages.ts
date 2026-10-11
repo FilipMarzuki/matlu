@@ -15,6 +15,7 @@
  */
 
 import type { SkillId } from './skills';
+import { featureOn, type FeatureSwitches } from './features';
 
 export type Role = 'trader' | 'teacher' | 'healer' | 'elder' | 'smith' | 'hunter' | 'caravaneer' | 'tinker';
 
@@ -36,8 +37,12 @@ export interface Teaching {
   concept?: string;
 }
 
-/** One of the 15 Mistheim Peoples (docs/peoples-and-races.md), by its canonical TitleCase id. */
-export type People = 'Bergfolk' | 'Lövfolk' | 'Markfolk' | 'Viddfolk' | 'Steinfolk' | 'Pandor' | 'Deepwalkers' | 'Merfolk' | 'Goblins' | 'Fae' | 'Giants' | 'Dragons' | 'Everstill' | 'Constructs' | 'Remnants';
+/**
+ * A Mistheim People someone on the road can be (docs/peoples-and-races.md), by its canonical
+ * TitleCase id: the 15 first named, and the two human Peoples, the Riksfolk and the Strandfolk
+ * (#1623), since a human walks the road (#1631, `asPlayed`). The Wildkin, the 16th, don't yet.
+ */
+export type People = 'Bergfolk' | 'Lövfolk' | 'Markfolk' | 'Viddfolk' | 'Steinfolk' | 'Pandor' | 'Deepwalkers' | 'Merfolk' | 'Goblins' | 'Fae' | 'Giants' | 'Dragons' | 'Everstill' | 'Constructs' | 'Remnants' | 'Riksfolk' | 'Strandfolk';
 
 export interface Person {
   id: string;
@@ -275,6 +280,30 @@ export const LESSON_HOURS = 4, LESSON_FEE = 6, FRIEND_LESSON = 40;
 export const LESSON_INSIGHT = 6;
 /** An honest appraisal takes this long; once per teacher per village stay. */
 export const APPRAISE_HOURS = 1;
+
+/**
+ * Humans on the road (#1631, behind the `humans-on-the-road` rule switch): who someone is, as a
+ * run with the switch on plays them. VILLAGES is how the road was written, and how every run from
+ * before the switch replays; this says who is someone else now.
+ *
+ * Maren of Hollowford is Riksfolk, a human of the Realm. Her culture is fieldborn, which
+ * cultures.json gives the Riksfolk 0.4 of, and her lines were already theirs: WORLD.md says hill
+ * families in the Realm's north "are losing their own high fields to the grey, one fence at a
+ * time", and she tells you her mother moved her fence down the hill, "one fence at a time". The
+ * ford stones fit too (river fords are among the Realm's resources). The same person with the
+ * same lines, trade and job: only her People changes, so none of the road's numbers move.
+ */
+export const HUMANS_ON_THE_ROAD: Readonly<Record<string, People>> = { 'hf-maren': 'Riksfolk' };
+
+/**
+ * `p` as a run plays them, by its saved rule switches: with `humans-on-the-road` on, their People
+ * from HUMANS_ON_THE_ROAD; off (and in every run from before the switch), as written. Returns `p`
+ * itself when nothing changes, so callers that compare people keep working.
+ */
+export function asPlayed(p: Person, features: FeatureSwitches | undefined): Person {
+  const people = HUMANS_ON_THE_ROAD[p.id];
+  return people && people !== p.people && featureOn(features, 'humans-on-the-road') ? { ...p, people } : p;
+}
 
 /** The people of a village, or none outside one. */
 export const peopleOf = (villageId: string | null): readonly Person[] => (villageId ? VILLAGES[villageId]?.people ?? [] : []);

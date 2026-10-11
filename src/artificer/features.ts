@@ -76,6 +76,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'organisations', name: 'Organisations', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1587,
     note: 'People belong to organisations (the Compact, the Vidde Accords, the Compact of Knowing, the Bergfolk holds): members know what their organisation knows, keep its secrets from outsiders or are bound to tell, and a deed told to one member is known to them all.',
   },
+  {
+    // A rules feature: it changes who someone on the road is (villages.ts `asPlayed`: Maren of
+    // Hollowford is Riksfolk, a human), so what they answer for their People and which topics
+    // open. A run from before it (absent: false) keeps Maren a Markfolk orc on replay.
+    id: 'humans-on-the-road', name: 'Humans on the road', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1631,
+    note: 'Humans walk the road: Maren of Hollowford is Riksfolk, one of the two human Peoples, and speaks for them.',
+  },
 ];
 
 /** Switches by feature id. */

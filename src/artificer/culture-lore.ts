@@ -90,10 +90,9 @@ export interface GroupLore {
 }
 
 /**
- * A People the lore knows: villages.ts's 15, the Wildkin, the 16th (owner, 2026-10-11, #1606), and the
- * two human Peoples, the Riksfolk and the Strandfolk (owner, 2026-10-11, #1623: the Markfolk are the
- * orcs, humans are their own Peoples). Nobody on the road is one of these three yet, so villages.ts's
- * `People` stays as it is.
+ * A People the lore knows: villages.ts's, which since #1631 include the two human Peoples, the
+ * Riksfolk and the Strandfolk (owner, 2026-10-11, #1623: the Markfolk are the orcs, humans are their
+ * own Peoples), and the Wildkin, the 16th (owner, 2026-10-11, #1606), whom nobody on the road is yet.
  */
 export type LorePeople = People | 'Wildkin' | 'Riksfolk' | 'Strandfolk';
 
@@ -339,26 +338,46 @@ export const TOPIC_HINTS: readonly (readonly [LoreTopic, RegExp])[] = [
 const YOU = /\b(?:you|your|yours|yourself|yourselves)\b/i;
 const YOUR_PEOPLE = /\byour (?:people|folk|kind|kin)\b/i;
 
-/** Every way each People and culture can be named, longest first so "Viddfolk Camps" beats "Viddfolk". */
-const NAMERS: readonly { scope: LoreScope; re: RegExp }[] = [
-  ...PEOPLE_LORE.map(g => ({ scope: { kind: 'people' as const, id: g.id }, names: g.names })),
-  ...CULTURE_LORE.map(g => ({ scope: { kind: 'culture' as const, id: g.id }, names: g.names })),
-].map(({ scope, names }) => ({
-  scope,
+/**
+ * Names that stand for more than one People. "Humans" is both human Peoples (owner, 2026-10-11,
+ * #1631): asked what humans value, or what someone thinks of humans, the answer speaks for the
+ * Riksfolk and the Strandfolk both. (`Humans` is the umbrella's name in Supabase too, never a
+ * People with lore of its own.)
+ */
+export const UMBRELLAS: readonly { names: readonly string[]; scopes: readonly LoreScope[] }[] = [
+  { names: ['humans', 'human', 'humankind', 'mankind'], scopes: [{ kind: 'people', id: 'Riksfolk' }, { kind: 'people', id: 'Strandfolk' }] },
+];
+
+/**
+ * Every way each People and culture can be named, longest first so "Viddfolk Camps" beats
+ * "Viddfolk". A name stands for one group, or for several (an umbrella).
+ */
+const NAMERS: readonly { scopes: readonly LoreScope[]; re: RegExp }[] = [
+  ...PEOPLE_LORE.map(g => ({ scopes: [{ kind: 'people' as const, id: g.id }], names: g.names })),
+  ...CULTURE_LORE.map(g => ({ scopes: [{ kind: 'culture' as const, id: g.id }], names: g.names })),
+  ...UMBRELLAS,
+].map(({ scopes, names }) => ({
+  scopes,
   re: new RegExp(`\\b(?:${[...names].sort((a, b) => b.length - a.length).map(escape).join('|')})\\b`, 'gi'),
 }));
 
-/** The groups a question names, in the order it names them, each once. Overlaps go to the longer name. */
-function groupsIn(q: string): { scope: LoreScope; at: number }[] {
-  const hits = NAMERS.flatMap(n => [...q.matchAll(n.re)].map(m => ({ scope: n.scope, at: m.index ?? 0, len: m[0].length })));
+const sameGroup = (a: readonly LoreScope[], b: readonly LoreScope[]): boolean =>
+  a.length === b.length && a.every((s, i) => s.kind === b[i].kind && s.id === b[i].id);
+
+/**
+ * The groups a question names, in the order it names them, each once. Overlaps go to the longer
+ * name. Each is the scopes its name stands for: one, or several for an umbrella ("humans").
+ */
+function groupsIn(q: string): { scopes: readonly LoreScope[]; at: number }[] {
+  const hits = NAMERS.flatMap(n => [...q.matchAll(n.re)].map(m => ({ scopes: n.scopes, at: m.index ?? 0, len: m[0].length })));
   hits.sort((a, b) => a.at - b.at || b.len - a.len);
   const kept: typeof hits = [];
   for (const h of hits) {
     const last = kept[kept.length - 1];
     if (last && h.at < last.at + last.len) continue; // inside a longer name already kept
-    if (!kept.some(k => k.scope.kind === h.scope.kind && k.scope.id === h.scope.id)) kept.push(h);
+    if (!kept.some(k => sameGroup(k.scopes, h.scopes))) kept.push(h);
   }
-  return kept.map(({ scope, at }) => ({ scope, at }));
+  return kept.map(({ scopes, at }) => ({ scopes, at }));
 }
 
 /** What a question asks, read off its words. */
@@ -370,6 +389,13 @@ export interface LoreQuery {
   topic: LoreTopic | null;
   /** Put to the person themself: 'people' for "your people", 'culture' for a plain "you". */
   you: LoreScopeKind | null;
+  /**
+   * Every group `subject` and `of` stand for: one each, or several when the question names an
+   * umbrella ("What do humans value?": the Riksfolk and the Strandfolk). `subject` and `of` are the
+   * first of each, so a reader that only wants one still has it. Empty when there's none.
+   */
+  subjects: readonly LoreScope[];
+  ofs: readonly LoreScope[];
 }
 
 /** Reads a question: which groups it names, what about them, and whether it asks the person themself. */
@@ -381,12 +407,13 @@ export function parseLoreQuestion(question: string): LoreQuery {
   const groups = groupsIn(q);
   if (groups.length >= 2) {
     // "What do the Bergfolk think of goblins?": the first named holds the view, the second is its object.
-    return { subject: groups[0].scope, of: groups[1].scope, topic: topic === null || topic === 'values' ? 'view' : topic, you };
+    const [s, o] = groups;
+    return { subject: s.scopes[0], of: o.scopes[0], topic: topic === null || topic === 'values' ? 'view' : topic, you, subjects: s.scopes, ofs: o.scopes };
   }
   const only = groups[0];
   // "What do you think of goblins?": one group, named after the view words, put to the person: it's the object.
-  if (only && topic === 'view' && you && hint?.m && only.at > hint.m.index) return { subject: null, of: only.scope, topic, you };
-  return { subject: only?.scope ?? null, of: null, topic, you };
+  if (only && topic === 'view' && you && hint?.m && only.at > hint.m.index) return { subject: null, of: only.scopes[0], topic, you, subjects: [], ofs: only.scopes };
+  return { subject: only?.scopes[0] ?? null, of: null, topic, you, subjects: only?.scopes ?? [], ofs: [] };
 }
 
 /** Who's being asked, as the lore sees them: their People and their culture (a villages.ts `Person` will do). */
@@ -410,9 +437,14 @@ const belongs = (k: LoreKnower, s: LoreScope): boolean => (s.kind === 'people' ?
 const viewsOf = (holder: LoreScope, of: LoreScope): ScopedClaim[] =>
   scopedClaims(holder).filter(c => c.topic === 'view' && c.of?.kind === of.kind && c.of.id === of.id);
 
-/** The first of `holders` with a view of `of`, and only theirs. */
-const firstViews = (holders: readonly LoreScope[], of: LoreScope): ScopedClaim[] =>
-  holders.map(h => viewsOf(h, of)).find(cs => cs.length > 0) ?? [];
+/**
+ * The first of `holders` with a view of any of `ofs`, and only theirs: its views of each of them,
+ * in order. One holder, so a lore key (holder/view/of+of) finds the same claims again.
+ */
+const firstViews = (holders: readonly LoreScope[], ofs: readonly LoreScope[]): ScopedClaim[] =>
+  holders.map(h => ofs.flatMap(of => viewsOf(h, of))).find(cs => cs.length > 0) ?? [];
+
+const inScopes = (s: LoreScope | undefined, all: readonly LoreScope[]): boolean => !!s && all.some(a => a.kind === s.kind && a.id === s.id);
 
 /**
  * The claims that answer `question`, asked of `knower` (or of nobody in particular), most specific
@@ -442,20 +474,25 @@ export function matchLore(question: string, knower?: LoreKnower, trust?: number,
     : [];
 
   const claims: ScopedClaim[] = [];
-  if (query.subject) {
-    const s = query.subject;
-    if (!knower || belongs(knower, s)) {
-      const all = scopedClaims(s);
-      claims.push(...(topic === 'view'
-        ? all.filter(c => c.topic === 'view' && c.of?.kind === query.of?.kind && c.of?.id === query.of?.id)
-        : all.filter(c => c.topic === topic)));
+  if (query.subjects.length) {
+    // A member answers for their own group only: asked about humans, a Riksfolk speaks for the
+    // Riksfolk, not the Strandfolk. Nobody in particular speaks for every group named.
+    const mine = knower ? query.subjects.filter(s => belongs(knower, s)) : query.subjects;
+    if (mine.length) {
+      for (const s of mine) {
+        const all = scopedClaims(s);
+        claims.push(...(topic === 'view'
+          ? all.filter(c => c.topic === 'view' && inScopes(c.of, query.ofs))
+          : all.filter(c => c.topic === topic)));
+      }
     } else if (topic !== 'view') {
-      // An outsider: what their culture (else their People) thinks of the group named.
-      claims.push(...firstViews(own, s));
+      // An outsider: what their culture (else their People) thinks of the group named, or of
+      // each of the groups an umbrella stands for.
+      claims.push(...firstViews(own, query.subjects));
     }
   } else if (query.you && query.topic) {
     // "You" alone says nothing about lore ("What's your favourite colour?"): it takes a topic word too.
-    if (topic === 'view') { if (query.of) claims.push(...firstViews(own, query.of)); }
+    if (topic === 'view') { if (query.ofs.length) claims.push(...firstViews(own, query.ofs)); }
     else for (const s of own) claims.push(...scopedClaims(s).filter(c => c.topic === topic));
   }
   const unique = claims.filter((c, i) => claims.findIndex(d => d.id === c.id) === i);
