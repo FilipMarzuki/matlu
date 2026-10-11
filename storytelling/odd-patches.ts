@@ -29,7 +29,8 @@
 // It runs at the very end of tick(), after the regional level, so this year's
 // rolls everywhere else are exactly as they were.
 
-import { commonSurname } from "./names.js";
+import { commonSurname, givenName } from "./names.js";
+import type { RNG } from "./rng.js";
 import { carryingCapacity } from "./geography.js";
 import { createCharacter, createDynasty } from "./people.js";
 import type { Character, Province, ProvinceId, WorldEvent } from "./types.js";
@@ -200,11 +201,17 @@ export function spawnOddPatch(w: World, provinceId: ProvinceId): WorldEvent | nu
 
   const named = rng.int(PATCH_NAMED[0], PATCH_NAMED[1]);
   const people: Character[] = [];
+  const usedNames = new Set<string>();
   for (let i = 0; i < named; i++) {
     const sex = rng.chance(0.5) ? "male" : "female";
     // The first is the one the chronicle names; all are grown, none has a past.
     const age = i === 0 ? rng.int(20, 40) : rng.int(16, 45);
+    // Each a different given name: strangers who arrived together aren't told
+    // apart by regnal numbers ("Gunhild I", "Gunhild II") like a house's generations.
+    const name = freshName(w, rng, culture, sex, usedNames);
+    usedNames.add(name);
     people.push(createCharacter(w, {
+      name,
       sex,
       dynastyId: house.id,
       birthYear: w.year - age,
@@ -232,6 +239,20 @@ export function spawnOddPatch(w: World, provinceId: ProvinceId): WorldEvent | nu
     provinceId: p.id,
     data: { house: house.name, race, culture, named, souls, unexpected, teller, setting: settingOf(p) },
   });
+}
+
+/**
+ * A given name none of the group has yet, from the settling culture's pool
+ * (one draw from the stream), or else from the global pool, trying a few
+ * times. All draws come from the odd-patches stream.
+ */
+function freshName(w: World, rng: RNG, cultureId: string, sex: "male" | "female", used: ReadonlySet<string>): string {
+  const culture = w.cultures.get(cultureId);
+  const pool = ((sex === "male" ? culture?.namesMale : culture?.namesFemale) ?? []).filter((n) => !used.has(n));
+  if (pool.length) return rng.pick(pool);
+  let name = givenName(rng, sex);
+  for (let tries = 0; used.has(name) && tries < 8; tries++) name = givenName(rng, sex);
+  return name;
 }
 
 /** A human settlement on the surface, big enough to notice, with room to grow. */

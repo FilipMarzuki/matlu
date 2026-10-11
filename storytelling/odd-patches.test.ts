@@ -156,6 +156,32 @@ describe("odd patches of humans (#1633)", () => {
     expect(ev.data["unexpected"]).toBe(true); // no humans in the hold before them
   });
 
+  // Scenario 3b
+  // Given many odd patches, in places with small name pools and none,
+  // When their people are named,
+  // Then no two strangers of one patch share a given name (no "Gunhild I" among them).
+  test("strangers of one patch never share a given name", () => {
+    for (let i = 0; i < 40; i++) {
+      const w = loadWorld(tinySpec(), 100 + i);
+      for (const where of ["berg", "vale", "wood"]) {
+        const ev = spawnOddPatch(w, where)!;
+        const house = w.char(ev.actorId)!.dynastyId;
+        const names = w.living().filter((c) => c.dynastyId === house).map((c) => c.name);
+        expect(new Set(names).size, names.join(",")).toBe(names.length);
+      }
+    }
+    // And with no culture at all (the global name pool).
+    const bare = tinySpec();
+    for (const d of bare.dynasties) delete d.culture;
+    for (let i = 0; i < 40; i++) {
+      const w = loadWorld(bare, 300 + i);
+      const ev = spawnOddPatch(w, "berg")!;
+      const house = w.char(ev.actorId)!.dynastyId;
+      const names = w.living().filter((c) => c.dynastyId === house).map((c) => c.name);
+      expect(new Set(names).size, names.join(",")).toBe(names.length);
+    }
+  });
+
   // Scenario 4
   // Given a world with humans,
   // When the pass runs, an odd patch is planted or a settlement grows,
