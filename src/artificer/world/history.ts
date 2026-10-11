@@ -175,22 +175,15 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
     provinces: provinces.list.map(p => {
       const title = world.province(p.id)?.titleId ? world.title(world.province(p.id)!.titleId) : undefined;
       const holder = title?.holderId ? world.char(title.holderId) : undefined;
-      // One line per deed: the engine often logs a deed twice (a murder, and the kinslaying it was),
-      // so keep only the most significant event per person per year.
-      const seen = new Set<string>();
-      const lines = chronicle
-        .filter(ev => where(ev) === p.id)
-        .sort((a, b) => b.significance - a.significance || a.id - b.id)
-        .filter(ev => { const k = `${ev.year}|${ev.actorId ?? ev.id}`; if (seen.has(k)) return false; seen.add(k); return true; })
-        .slice(0, LINES_PER_PROVINCE)
-        .sort((a, b) => a.year - b.year || a.id - b.id)
-        .map(ev => ({ year: ev.year, text: renderEvent(world, ev) }));
+      const lines = pickLines(chronicle.filter(ev => where(ev) === p.id), world.year)
+        .map(ev => ({ year: ev.year, text: renderEvent(world, ev), kind: ev.type, house: houseOf(world, ev) }));
       return {
         id: p.id,
         name: p.name,
         culture: cultureName(p.culture),
         title: title?.name ?? p.name,
         holder: holder ? fullName(world, holder.id) : null,
+        house: holder ? world.dynasty(holder.dynastyId)?.name ?? null : null,
         lines,
       };
     }),
@@ -309,6 +302,60 @@ export function regionsOf(world: World): RegionHistory[] {
       lines,
     };
   });
+}
+
+/**
+ * Which of a province's told events it keeps: its LINES_PER_PROVINCE most significant, oldest
+ * first, with one place reserved for living memory (#1586). The most significant events tend to
+ * be old (across 24 seeds only a fifth of kept events were within LIVING_MEMORY, and half the road
+ * villages had nothing true and recent to tell), so when none of the top ones is within living
+ * memory but some event is, the most significant recent one takes the last place. A province with
+ * no recent event keeps its top ones as before.
+ *
+ * Only chooses among events already logged and sifted: the engine's random stream and event log
+ * are untouched (history.test.ts pins the log), so only what's told changes (HISTORY_VERSION 5).
+ */
+export function pickLines<E extends Pick<WorldEvent, 'id' | 'year' | 'significance' | 'actorId'>>(events: readonly E[], present: number, n = LINES_PER_PROVINCE): E[] {
+  // One line per deed: the engine often logs a deed twice (a murder, and the kinslaying it was),
+  // so keep only the most significant event per person per year.
+  const seen = new Set<string>();
+  const ranked = [...events]
+    .sort((a, b) => b.significance - a.significance || a.id - b.id)
+    .filter(ev => { const k = `${ev.year}|${ev.actorId ?? ev.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  // The same test as the chronicle's LIVING MEMORY section and remembered.ts `recall`.
+  const living = (ev: E) => present - ev.year <= LIVING_MEMORY;
+  const kept = ranked.slice(0, n);
+  const recent = ranked.find(living);
+  // (If fewer than n were told, all are kept, recent included, so this only ever swaps out the last.)
+  if (n > 0 && recent && !kept.some(living)) kept[kept.length - 1] = recent;
+  return kept.sort((a, b) => a.year - b.year || a.id - b.id);
+}
+
+/**
+ * Server games (API, MCP, console) have no told history to hand, and telling one costs a quarter
+ * to half a second, too much for every new game (PR #1592's timings). So they're to compute what
+ * the villages remember lazily, the first time a road question needs a regional fact, and keep it
+ * per seed: this is that keeping, a small LRU of the last `size` seeds (most games are played by
+ * the seed that started them, and a handful of live games per instance is the common case).
+ * Not wired into play yet: no caller needs regional facts so far. `tell` is for tests.
+ */
+export function rememberedCache(size = 4, tell: (seed: number) => Remembered = rememberedOf): (seed: number) => Remembered {
+  const kept = new Map<number, Remembered>(); // insertion order = least recently used first
+  return seed => {
+    let r = kept.get(seed);
+    if (r) kept.delete(seed);
+    else r = tell(seed);
+    kept.set(seed, r);
+    while (kept.size > Math.max(1, size)) kept.delete(kept.keys().next().value!);
+    return r;
+  };
+}
+
+/** The house a deed touches: its doer's (or, with no doer, the one it was done to), for who has a stake in telling it. */
+function houseOf(world: World, ev: WorldEvent): string | null {
+  const who = world.char(ev.actorId ?? ev.targetId);
+  const id = who?.dynastyId ?? (typeof ev.data.dynasty === 'string' ? ev.data.dynasty : null);
+  return id ? world.dynasty(id)?.name ?? null : null;
 }
 
 /** A fingerprint of the event log: the same seed must always log the same events (tests pin it). */
