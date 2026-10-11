@@ -133,8 +133,8 @@ export const QUESTS: readonly QuestTemplate[] = [
   // ── Each village's trade (#1599, economy.ts) ──
   // One job per village that comes from what it lives on, with the `village-economies` switch:
   // Hollowford's barley terraces (it's spring: the seed is in), Saltmere's smoke-racks (the
-  // steppe has no trees, and "a ration smoked well lasts the winter", Hedda), Kestrel Gate's
-  // ore off the passes.
+  // steppe has no trees, and "a ration smoked well lasts the winter", Hedda: the hearths burn
+  // reed and peat, #1627, but smoking wants wood), Kestrel Gate's ore off the passes.
   q({
     id: 'hf-terrace', giver: 'hf-isa', village: 'hollowford', title: 'Stones for the terraces', feature: 'village-economies',
     offer: 'The thaw brought down a wall on the barley terraces, and the seed is already in. If the rain gets at it before the wall is up, the soil goes into the river. Bring me five good stones and I\'ll lay them.',
@@ -143,7 +143,7 @@ export const QUESTS: readonly QuestTemplate[] = [
   }),
   q({
     id: 'sm-smoke-racks', giver: 'sm-hedda', village: 'saltmere', title: 'Wood for the smoke-racks', feature: 'village-economies',
-    offer: 'The salt we rake for nothing, but there isn\'t a tree between here and the steppe\'s end, and fish salted without smoke keeps a week. Bring me six armfuls and I\'ll pay you in salt fish.',
+    offer: 'The salt we rake for nothing, and reed and peat keep the hearths going, but there isn\'t a tree between here and the steppe\'s end, and fish salted without wood-smoke keeps a week. Bring me six armfuls and I\'ll pay you in salt fish.',
     thanks: 'Smell that? That\'s a winter\'s worth of fish, done properly. Here, for the road, as promised.',
     needs: { kind: 'fetch', item: 'firewood', qty: 6 }, reward: { marks: 4, item: { item: 'rations', qty: 3 } },
   }),

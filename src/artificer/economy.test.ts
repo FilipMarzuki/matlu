@@ -17,6 +17,7 @@ import { QUESTS } from './quests';
 import { VILLAGES } from './villages';
 import { FEATURES } from './features';
 import { ANCHORS } from './world/provinces';
+import scopeFacts from './content/scope-facts.json';
 import {
   VILLAGE_ECONOMY, arrivalLines, economyLine, economyOfProvince, localMarket, tradesOf, ventureFits, PLENTIFUL, SCARCE,
 } from './economy';
@@ -70,9 +71,12 @@ describe('Each road village has a stated economy (#1599)', () => {
       const trader = VILLAGES[id].people.find(p => p.role === 'trader')!;
       // What the village makes, its trader already stocks.
       for (const g of e.plentiful) expect(TRADER_STOCK[trader.id].sells, `${id} ${g}`).toContain(g);
-      // What it lacks, someone there wants: the trader's wants, or a villager's need for an item of that kind.
+      // What it lacks, someone there wants (the trader's wants, or a villager's need for an item of
+      // that kind), or its land can't give it: the Gate is a pass, and a pass has no fields. (Fuel
+      // was the Gate's wanted lack until #1627 made everyday fuel local.)
       const wanted = new Set<Kind>([...TRADER_STOCK[trader.id].wants, ...VILLAGES[id].people.flatMap(p => (p.need.kind === 'item' ? [KIND_OF[p.need.item]] : []))]);
-      expect(e.scarce.some(k => wanted.has(k)), id).toBe(true);
+      const landLacks: readonly string[] = id === 'kestrel-gate' ? ['food'] : [];
+      expect(e.scarce.some(k => wanted.has((KIND_OF[k] ?? k) as Kind) || landLacks.includes(k)), id).toBe(true);
     }
   });
 
@@ -179,10 +183,57 @@ describe('With village economies on, each village offers a job from its trade, a
       const lines = arrivalLines(id)!;
       expect(lines[0]).toBe(VILLAGE_ECONOMY[id].scene);
       expect(lines[1]).toBe(VILLAGE_ECONOMY[id].story);
-      expect(lines[2]).toMatch(/cheap here; .* dear, and sell well\.$/);
+      expect(lines[2]).toBe(VILLAGE_ECONOMY[id].fuel.line);
+      expect(lines[3]).toMatch(/cheap here; .* dear, and sell well\.$/);
       expect(at(id, ON).log.some(l => l.text.includes(VILLAGE_ECONOMY[id].scene)), id).toBe(true);
       expect(at(id, OFF).log.some(l => l.text.includes(VILLAGE_ECONOMY[id].scene)), id).toBe(false);
     }
-    expect(arrivalLines('hollowford')![2]).toBe('Fresh food and hides are cheap here; tools and firewood are dear, and sell well.');
+    expect(arrivalLines('hollowford')![3]).toBe('Fresh food and hides are cheap here; tools are dear, and sell well.');
+  });
+});
+
+describe('Everyday fuel is local (#1627)', () => {
+  const facts = (scopeFacts as { facts: { id: string; text: string }[] }).facts;
+
+  it('lists fuel as scarce at no road village, and makes no wood-burning village dear in firewood', () => {
+    for (const id of ANCHORS) {
+      const e = VILLAGE_ECONOMY[id];
+      expect(e.scarce, id).not.toContain('fuel');
+      if (e.fuel.burns === 'wood') expect(e.scarce, id).not.toContain('firewood');
+    }
+    // Owner: Hollowford and Kestrel Gate get their wood from their own woodlots and slopes.
+    expect(VILLAGE_ECONOMY.hollowford.fuel.burns).toBe('wood');
+    expect(VILLAGE_ECONOMY['kestrel-gate'].fuel.burns).toBe('wood');
+  });
+
+  it('keeps Saltmere\'s timber scarce while it burns reed, peat and dung of its own', () => {
+    const mere = VILLAGE_ECONOMY.saltmere;
+    expect(mere.fuel.burns).toBe('peat');
+    expect(mere.fuel.line).toMatch(/reed.*peat.*dung/);
+    // Wood is dear there as timber (the good), not because Saltmere lacks fuel (the kind).
+    expect(mere.scarce).toContain('firewood');
+    expect(mere.scarce).not.toContain('fuel');
+    expect(arrivalLines('saltmere')![3]).toBe('Salted rations and fresh food are cheap here; firewood and leather goods are dear, and sell well.');
+  });
+
+  it('prices firewood as the fuel rule says, with the switch on: dear only at Saltmere', () => {
+    const ten = (id: string) => buyPrice('firewood', 10, tradeTerms(at(id, ON))!);
+    expect(ten('saltmere')).toBe(Math.round(10 * 1.25 * SCARCE)); // Hedda: base markup, timber dear
+    expect(ten('kestrel-gate')).toBe(11); // the Gate's market markup, nothing more: it cuts its own
+    // Tobin doesn't stock firewood; selling it to him fetches its plain worth, not a scarce price.
+    expect(sellPrice('firewood', 'sound', 10, tradeTerms(at('hollowford', ON))!)).toBe(10);
+  });
+
+  it('says the same in the people\'s lines, the scope facts and the market', () => {
+    // Hedda's smoke-rack job still wants wood, and says the hearths burn reed and peat.
+    const racks = QUESTS.find(q => q.id === 'sm-smoke-racks')!;
+    expect(racks.needs).toMatchObject({ kind: 'fetch', item: 'firewood' });
+    expect(racks.offer).toMatch(/reed and peat keep the hearths/);
+    // What everyone in Saltmere and the Gate knows of wood, and Hollowford's canon line on its copses.
+    expect(facts.find(f => f.id === 'saltmere/wood')!.text).toMatch(/reed .*peat and dried dung/);
+    expect(facts.find(f => f.id === 'kestrel-gate/wood')!.text).toMatch(/cuts its own wood/);
+    expect(facts.find(f => f.id === 'hollowford/wood')!.text).toMatch(/copses above the terraces/);
+    // No scope fact says a road village is short of fuel or firewood.
+    expect(facts.filter(f => /(short of|scarce)\b.*\b(fuel|firewood)|(fuel|firewood)\b.*\b(short|scarce)/i.test(f.text)).map(f => f.id)).toEqual([]);
   });
 });
