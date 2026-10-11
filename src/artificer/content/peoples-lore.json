@@ -1,5 +1,5 @@
 {
-  "_doc": "What each of the 16 Mistheim Peoples (the Wildkin added 2026-10-11, #1606) values, shames, does and believes about the others (#1590). Written for the knowledge model (#1577 slice C) and for claims, rumours and lies (#1580); read through src/artificer/culture-lore.ts. Every claim names its source (file § heading › label); invented: true marks what canon doesn't say, built on that source. A claim with truth rumour or false says what is actually so. docs/culture-lore.md explains it.",
+  "_doc": "What each of the 18 Mistheim Peoples (the Wildkin added 2026-10-11, #1606; the Riksfolk and the Strandfolk, #1623) values, shames, does and believes about the others (#1590). Written for the knowledge model (#1577 slice C) and for claims, rumours and lies (#1580); read through src/artificer/culture-lore.ts. Every claim names its source (file § heading › label); invented: true marks what canon doesn't say, built on that source. A claim with truth rumour or false says what is actually so. docs/culture-lore.md explains it.",
   "peoples": [
     {
       "id": "Bergfolk",
@@ -70,6 +70,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin at the pass-towns trade fair. Why we're coming out of the mountains is hold business.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › Dvergr","invented":true,"sensitivity":"guarded"}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm has bought a great deal of our iron lately. We have started asking what it's for.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › started asking what it's for"}
+        ],
+        "Strandfolk": [
+          {"text":"Shipwrights. They buy our nails by the barrel and complain by the barrel.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal","invented":true}
         ]
       },
       "sayings": [
@@ -144,6 +150,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin's Great Clans won't add new council seats. We know that problem well.","truth":"true","source":"macro-world/race-affinities.json › THE CLAN QUESTION","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm has changed its whole shape several times since I was young. Humans call that history.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › a single Lövfolk","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Humans live too briefly to learn the sea. The Strandfolk only guess.","truth":"rumour","source":"WORLD.md § The Strandfolk — humans of the harbour coast › short lives","invented":true,"strength":"loose","actually":{"text":"Strandfolk build most of the hulls on Mistheim's coasts, and Strandfolk crews sail them.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Strandfolk crews sail them"}}
         ]
       },
       "sayings": [
@@ -220,6 +232,13 @@
         ],
         "Wildkin": [
           {"text":"Beastkin are wild things. They couldn't keep a field.","truth":"false","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization","invented":true,"strength":"held","actually":{"text":"The Wildkin are an old, stable kingdom of forests, meadows and market squares.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization"}}
+        ],
+        "Riksfolk": [
+          {"text":"Neighbours across the fens. They buy our grain in bad years and hate needing to. We count, and smile.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
+          {"text":"Humans can't farm wet ground. Leave them the hills.","truth":"false","source":"WORLD.md § The Riksfolk — humans of the Realm › Where they live","invented":true,"strength":"held","actually":{"text":"Riksfolk [Dikemasters] drained the West March, and drained fen is the best soil in the lowlands.","source":"WORLD.md § The West March and the Wildkin border › How the March grew"}}
+        ],
+        "Strandfolk": [
+          {"text":"Our grain goes to half the continent in Strandfolk hulls. They carry it, we grow it, both keep the accounts.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
         ]
       },
       "sayings": [
@@ -295,6 +314,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin kingdom is small and walled by mountain and sea. Our songs give it a short verse.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › never been large","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"We carry the Marshal's letters like anyone's. Every word is remembered, and she knows it.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Relations"}
+        ],
+        "Strandfolk": [
+          {"text":"Harbour letters come inland with our heralds. The Strandfolk respect anyone who travels for a living.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › respect anyone who travels for a living"}
         ]
       },
       "sayings": [
@@ -368,6 +393,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin have never called us. Their mountains and their sea do the work of a wall.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › have always been its walls","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Humans build in timber and earth. A Riksfolk ditch is good work, though. We'd know.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › How the March grew","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"A harbour wall should be stone. The Strandfolk agree, and can't afford it.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal, stone","invented":true}
         ]
       },
       "sayings": [
@@ -443,6 +474,12 @@
         ],
         "Wildkin": [
           {"text":"Our records on the beastkin are thin. They never had a reason to look outward.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm has been an empire, kingdoms and a republic. Our records hold every one, and how each ended.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › It is a long list","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Strandfolk captains bring the newest charts home; the keepers remember them; our archive keeps both.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › the charts and the memory","invented":true}
         ]
       },
       "sayings": [
@@ -516,6 +553,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin are afraid of the sea.","truth":"rumour","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true,"strength":"loose","actually":{"text":"The Wildkin fish from the shore and gather shellfish. They just build no boats.","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › fish from shore"}}
+        ],
+        "Riksfolk": [
+          {"text":"Riksfolk sign onto every harbour crew. Short lives, quick hands, and they learn fast.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Riksfolk are found in harbour towns","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Harbour partners. We keep the memory and the salt; they keep the boats. Neither could manage alone.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Harbour partners"}
         ]
       },
       "sayings": [
@@ -589,6 +632,12 @@
         ],
         "Wildkin": [
           {"text":"A shore people who never come out to us. We like them already.","truth":"true","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Inland humans. They have never come down to the water to ask us anything.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Where they live","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Their nets come down over our water, and they ask about it as if we owed them an answer.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Nets come up cut","invented":true}
         ]
       },
       "sayings": [
@@ -662,6 +711,12 @@
         ],
         "Wildkin": [
           {"text":"Beastkin markets are full of fox traders. Tough bargainers, and fair.","truth":"true","source":"macro-world/race-affinities.json › Redtail","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm's lords pay well for ruin maps, and never ask how we got them.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Every wreck on the coast is on our maps. The Strandfolk buy them and call it luck.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
         ]
       },
       "sayings": [
@@ -735,6 +790,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin meadows have fine edges. We were in them long before the clans.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › longer than the peoples","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Humans write every bargain down. A written bargain is still a bargain.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › written law","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Storm-right is a bargain every harbour keeps. We admire a bargain kept.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right","invented":true}
         ]
       },
       "sayings": [
@@ -808,6 +869,12 @@
         ],
         "Wildkin": [
           {"text":"Aldriksson says the beastkin are new. Everyone is new, to Aldriksson.","truth":"true","source":"WORLD.md § The Giants — the Seven › Aldriksson","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm has changed its shape many times while we slept. It will change again.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Short lives and many governments","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Small boats on the sea, coming and going like weather.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Where they live","invented":true}
         ]
       },
       "sayings": [
@@ -881,6 +948,12 @@
         ],
         "Wildkin": [
           {"text":"A small kingdom, walled by sea and mountain. None of us has claimed it. Yet.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers › Five major dragon territories","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Marshal gathers iron and an army. Territory is a thing a dragon understands.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › standing army","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"They carry everyone's goods and keep none of them. A strange way to hold a hoard.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › carry anything that floats","invented":true}
         ]
       },
       "sayings": [
@@ -954,6 +1027,12 @@
         ],
         "Wildkin": [
           {"text":"The beastkin say their dead stay dead. Vitstad would like a word about that.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › their dead stay dead","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"Humans live eighty years and change their rulers every few. We keep the records they lose.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › eighty years","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Short lives, long coasts. The Strandfolk remember by charts, the Deepwalkers by voice. We keep both.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › the charts and the memory","invented":true}
         ]
       },
       "sayings": [
@@ -1027,6 +1106,12 @@
         ],
         "Wildkin": [
           {"text":"A beastkin child takes after one parent's line, never both, and nobody knows why. We find that interesting.","truth":"true","source":"macro-world/race-affinities.json › never a blend","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Realm's charter rolls are very exact. We find that restful.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › charter roll","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"Storm-right has no exceptions. We find that admirable.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right","invented":true}
         ]
       },
       "sayings": [
@@ -1100,6 +1185,12 @@
         ],
         "Wildkin": [
           {"text":"The Wildkin were not always walled in.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The Riksfolk write down what is theirs. It is not.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Strandfolk": [
+          {"text":"The Strandfolk come back from the sea. Mostly.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
         ]
       },
       "sayings": [
@@ -1175,6 +1266,17 @@
         ],
         "Remnants": [
           {"text":"Our snake dens bring old knowledge to the council. They may know what a Remnant is. They haven't said.","truth":"true","source":"macro-world/race-affinities.json › Snake dens","invented":true}
+        ],
+        "Riksfolk": [
+          {"text":"The fence-folk came from the east one fence at a time. Our packs ran those meadows once; now we only remember them.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › What the Wildkin remember"},
+          {"text":"Iron hinges, latched doors, market squares: they came west with the fence-folk. The old wolves still grumble.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Human influence crept in"},
+          {"text":"The fence-folk came west to drive us into the sea.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › What the Wildkin remember","invented":true,"strength":"held","actually":{"text":"They came for farmland, one charter at a time. The Realm always had easier directions to grow, and most March farmers never wanted a war.","source":"WORLD.md § The West March and the Wildkin border › How the March grew"}},
+          {"text":"A Riksfolk signs a treaty with one hand and moves a fence with the other.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The Alder War and the Stone Line","invented":true,"strength":"held","actually":{"text":"Not one stone of the Stone Line has moved in a hundred and forty years. The new trouble is harsher talk and border incidents, on both sides.","source":"WORLD.md § The West March and the Wildkin border › The border now"}},
+          {"text":"The fence-folk don't care for the land. They just dig it up.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › How the March grew","invented":true,"strength":"loose","actually":{"text":"A March farmer's charter roll holds every ditch and boundary back to the first fence their family dug.","source":"WORLD.md § The West March and the Wildkin border › charter roll"}},
+          {"text":"Their realm has had three kinds of rulers in five hundred years. Longburrow's young ones like the old republic far too much, the old bears say.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Clan Question, seen from the March"}
+        ],
+        "Strandfolk": [
+          {"text":"Boat people far down the coast? A fox trader's story. Nobody goes out on the sea.","truth":"false","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true,"strength":"loose","actually":{"text":"The Strandfolk sail the coasts east of the delta. They've never had a reason to sail the Wildkin's sea.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › nobody in the Hamnlag has had a reason"}}
         ]
       },
       "sayings": [
@@ -1182,6 +1284,173 @@
         {"text":"We were here before you counted.","source":"macro-world/race-affinities.json › We were here before you counted"},
         {"text":"The oldest houses look like dens. The newest have iron hinges.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › iron hinges"},
         {"text":"Old blood, old rules.","source":"macro-world/race-affinities.json › old blood, old rules"}
+      ]
+    },
+    {
+      "id": "Riksfolk",
+      "name": "Riksfolk",
+      "names": ["Riksfolk","Riket","the Realm","fence-folk","West March"],
+      "voice": {"text":"Quick and plain, with a clerk's ear. They quote the charter, then the clause, then the witnesses.","source":"WORLD.md § The Riksfolk — humans of the Realm › written law","invented":true},
+      "values": [
+        {"text":"Kings come and go; the written law stays. Nobody argues with a charter.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Kings come and go"},
+        {"text":"A field fenced, farmed and written down is yours, and your children's after you.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › whoever will fence it and farm it"},
+        {"text":"Make your own place. A younger child doesn't wait for land; they go and find it.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › younger children, landless"}
+      ],
+      "taboos": [
+        {"text":"Moving a boundary at night. A fence moves in daylight, with neighbours watching, or not at all.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight"},
+        {"text":"Leaving an insult unanswered. A March family's standing is what it's seen to do.","truth":"true","source":"AXES.md § Notes on individual scores › visible deeds","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"You give your name and where your charter lies: Anna, of the third ditch at Alåbro.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Alåbro","invented":true},
+        "trade": {"text":"Any sale bigger than a cow goes in the market roll, with two witnesses. The Landslag says so.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › written law","invented":true},
+        "mourning": {"text":"No prayers. The dead one's name is read from the charter roll at the field's edge, and the heir's is written in.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › charter roll","invented":true},
+        "debt": {"text":"A debt goes before the [Reeve], who writes it down. Once it's written, the whole village holds you to it.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › [Reeve]","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"We buy their iron. The Marshal's army has bought a great deal of it lately, and the holds are asking why.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › started asking what it's for"}
+        ],
+        "Lövfolk": [
+          {"text":"An elf remembers when the Realm was a republic. Ask one how it ended, and clear your evening.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › a single Lövfolk","invented":true},
+          {"text":"The elves think they're better than everyone.","truth":"rumour","source":"WORLD.md § Safe to use freely › Elves","invented":true,"strength":"held","actually":{"text":"Lövfolk opinions set hard after three hundred years; their councils have held the same seats for four centuries. Their young often leave.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them"}}
+        ],
+        "Markfolk": [
+          {"text":"Orc farmers across the fens. We buy their grain in bad years, and hate needing to.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Relations"},
+          {"text":"Orcs are warriors first. Give one a field and he'll want a fight over it.","truth":"false","source":"WORLD.md § Safe to use freely › Orcs","invented":true,"strength":"held","actually":{"text":"The Markfolk are the continent's best farmers. A Level 35 [Watermaster] is more powerful than many a [Knight].","source":"WORLD.md § The Markfolk — orcs of the southern plains › more powerful than many a [Knight]"}}
+        ],
+        "Viddfolk": [
+          {"text":"The Marshal's letters go by herald, and every word is remembered. She knows it.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Relations"}
+        ],
+        "Steinfolk": [
+          {"text":"The Steinfolk build in stone, not magic. Whatever the Dry does, their walls will stand.","truth":"true","source":"WORLD.md § The Dry's political effect › who build in stone","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The pandas have a record of everything, even the years the Realm would rather forget.","truth":"true","source":"WORLD.md § The Dry's political effect › The Pandor have the records","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"A contract a Deepwalker keeper witnessed binds in every court of the Realm.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › considered legally binding","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"Merfolk are a sailor's story.","truth":"false","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Merfolk","invented":true,"strength":"loose","actually":{"text":"The Merfolk are real. Strandfolk nets over Merfolk waters come up cut.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Nets come up cut"}}
+        ],
+        "Goblins": [
+          {"text":"Goblins know every ruin and sell the maps. The March lords pay, and don't ask how.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
+        ],
+        "Fae": [
+          {"text":"A fae deal is a trick. Never make one at the edge of a wood.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"strength":"held","actually":{"text":"Fae deals are always technically fair. The trouble is what \"fair\" means to someone a thousand years old.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"}}
+        ],
+        "Giants": [
+          {"text":"The Seven are older than any crown. The Old Accords say leave them be, and even the Marshal does.","truth":"true","source":"WORLD.md § Alliances and political arrangements › no warfare in Giant or Dragon","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Dragons are wicked, and hoard gold to spite us.","truth":"false","source":"WORLD.md § Safe to use freely › Dragons","invented":true,"strength":"held","actually":{"text":"Dragons aren't evil. Their goals just don't fit our ideas of right and wrong.","source":"WORLD.md § Safe to use freely › Dragons"}}
+        ],
+        "Everstill": [
+          {"text":"The Pale City's dead are the corruption's work.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true,"strength":"loose","actually":{"text":"The Everstill died and didn't stay dead without any help from the corruption: their Classes carried on.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}}
+        ],
+        "Constructs": [
+          {"text":"Constructs guard the road junctions and ruins that nobody else wants to.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"Ask the thing at the Threefold Crossroads a question and you'll get a true answer. Not a useful one.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left › Threefold Crossroads","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The West March was fenced by charter, in daylight, with witnesses. By our law every field of it is fair.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight"},
+          {"text":"The western meadows were empty when our people came. Nobody lived on land with no fence.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › Why they believed it was right","strength":"firm","actually":{"text":"Wildkin packs roamed and hunted those meadows for generations. Their dens moved with the game, so the land was used, just never fenced.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely"}},
+          {"text":"The old ruins over the Alå were built by our ancestors. We were there first.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › Why they believed it was right","strength":"held","actually":{"text":"The ruins are older than the beastkin kingdom and look built by human hands, but nobody knows who built them. Nothing ties them to the Realm.","source":"macro-world/setting-corewarden.md § Below — The Underworld › Human ruins"}},
+          {"text":"The Highfang wants the March back, and is only waiting for a weak year.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true,"strength":"held","actually":{"text":"The Wildkin have never been conquerors. Their council is debating, not plotting, and the corruption is pushing both sides.","source":"macro-world/setting-corewarden.md § East — The Human Lands › The beastkin are not conquerors"}},
+          {"text":"The Stone Line has held for a hundred and forty years. The boar clans set the stones with us, and their word on a boundary is good.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Alder War and the Stone Line"},
+          {"text":"Four seats on their council and none for the rabbits. And they call us unsettled.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Clan Question, seen from the March"}
+        ],
+        "Strandfolk": [
+          {"text":"Kin by blood, strangers by law. They pay no due to any crown, and the Marshal would like a harbour.","truth":"true","source":"WORLD.md § The Riksfolk — humans of the Realm › Relations"}
+        ]
+      },
+      "sayings": [
+        {"text":"Kings come and go. The Landslag stays.","source":"WORLD.md § The Riksfolk — humans of the Realm › Kings come and go","invented":true},
+        {"text":"A fence moves in daylight, or not at all.","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight"},
+        {"text":"Dig the ditch, build the fence, write it down.","source":"WORLD.md § The West March and the Wildkin border › They dug a ditch","invented":true},
+        {"text":"Four seats and none for the rabbits, and they call us unsettled.","source":"WORLD.md § The West March and the Wildkin border › The Clan Question, seen from the March"}
+      ]
+    },
+    {
+      "id": "Strandfolk",
+      "name": "Strandfolk",
+      "names": ["Strandfolk","Hamnlag","shore-folk","skerry folk"],
+      "voice": {"text":"Loud across water, short on deck. Every order said once, plainly, because a misheard one drowns people.","source":"AXES.md § Notes on individual scores › Strandfolk","invented":true},
+      "values": [
+        {"text":"Storm-right: in a storm every harbour is open to every boat, whatever its flag or its debts.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right"},
+        {"text":"The boat next to yours will come when you call. Be that boat.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › will come when they call"},
+        {"text":"Nobody rules a harbour town but its own shipmasters.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › its own council of shipmasters"}
+      ],
+      "taboos": [
+        {"text":"Turning a boat away in a storm. A harbour that did would lose its place in the Hamnlag.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › that broke storm-right would lose its place in the Hamnlag"},
+        {"text":"Staying put because someone told you to.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › patience with anyone who wants them to stay put","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"You call out your boat's name first, then your own, then your harbour.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Hamnlag","invented":true},
+        "trade": {"text":"Freight is paid by weight, on scales every Hamnlag harbour keeps the same.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › a set of weights and measures"},
+        "mourning": {"text":"No prayers. A drowned sailor's name is cut into the harbour wall, and every boat in port sounds its horn once.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › The sea, and the short lives","invented":true},
+        "debt": {"text":"A Hamnlag debt is witnessed by a Deepwalker keeper. Nobody argues with one.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › witnessed by a Deepwalker"}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"Bergfolk iron for our nails and anchors, and they price it like gold.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"The elves think they're better than everyone.","truth":"rumour","source":"WORLD.md § Safe to use freely › Elves","invented":true,"strength":"held","actually":{"text":"Lövfolk opinions set hard after three hundred years; their councils have held the same seats for four centuries. Their young often leave.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them"}}
+        ],
+        "Markfolk": [
+          {"text":"Our best customer. Delta grain goes to half the continent in our holds.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Half the delta's grain"}
+        ],
+        "Viddfolk": [
+          {"text":"Hamnlag letters go inland by herald. Anyone who travels for a living is all right by us.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › respect anyone who travels for a living"}
+        ],
+        "Steinfolk": [
+          {"text":"A harbour wall should be Steinfolk stone. We'd hire them for every one, if we could afford it.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Scarce: farmland, metal, stone","invented":true}
+        ],
+        "Pandor": [
+          {"text":"Tell a Deepwalker keeper something and the pandas will hear of it. They share one law.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Compact of Knowing","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"Harbour partners: they keep the salt, the charts and the memory; we build the boats and fill them.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › keep the salt, the charts and the memory"},
+          {"text":"A keeper never misremembers. That's why their word is good.","truth":"false","source":"WORLD.md § The Strandfolk — humans of the harbour coast › witnessed by a Deepwalker","invented":true,"strength":"loose","actually":{"text":"The Dry touches a keeper's memory first. Some have begun to misremember, and they fear it more than anything.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › They begin to misremember"}}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk cut our nets on purpose, to drive us off their water.","truth":"rumour","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Nets come up cut","invented":true,"strength":"held","actually":{"text":"Nobody can prove who cuts the nets. The Merfolk don't answer when asked.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Nobody can prove why"}}
+        ],
+        "Goblins": [
+          {"text":"Every wreck on the coast is on a goblin map. Buy one, and don't ask how they know.","truth":"true","source":"WORLD.md § Resource geography › the Goblin Compact, which has the maps","invented":true}
+        ],
+        "Fae": [
+          {"text":"A fae deal is a trick. Never make one on a calm sea at dusk.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"strength":"held","actually":{"text":"Fae deals are always technically fair. The trouble is what \"fair\" means to someone a thousand years old.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"}}
+        ],
+        "Giants": [
+          {"text":"The Old Accords say no fighting in Giant or Dragon country. That goes for crews ashore too.","truth":"true","source":"WORLD.md § Alliances and political arrangements › no warfare in Giant or Dragon","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Saltmara holds the deep southern coast. Our pilots steer well round her waters.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers › Saltmara","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The Pale City's dead are the corruption's work.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true,"strength":"loose","actually":{"text":"The Everstill died and didn't stay dead without any help from the corruption: their Classes carried on.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}}
+        ],
+        "Constructs": [
+          {"text":"Constructs guard old junctions and ruins nobody else wants. Not one has ever asked us for a berth.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"A harbour story says something at the Threefold Crossroads answers any question. Truly, and uselessly.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left › Threefold Crossroads","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"Past where the coast turns west there's nothing but sea.","truth":"false","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Their charts end","invented":true,"strength":"loose","actually":{"text":"Past the Realm lies the Wildkin's coast, where beastkin fish from the shore and build no boats.","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats"}}
+        ],
+        "Riksfolk": [
+          {"text":"Kin by blood, strangers by law. The Marshal wants a harbour, and she can keep wanting.","truth":"true","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Relations"}
+        ]
+      },
+      "sayings": [
+        {"text":"Every harbour is open in a storm.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › storm-right","invented":true},
+        {"text":"Be the boat that comes when called.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › will come when they call","invented":true},
+        {"text":"Our charts end where the coast turns west. For now.","source":"WORLD.md § The Strandfolk — humans of the harbour coast › Their charts end","invented":true}
       ]
     }
   ]

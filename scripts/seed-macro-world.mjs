@@ -50,7 +50,9 @@ const fashionData  = load('macro-world/fashion.json');
 // ---------------------------------------------------------------------------
 
 const PEOPLE_TO_ANCESTRY = {
-  'Markfolk':    'human',
+  'Markfolk':    'markfolk',
+  'Riksfolk':    'riksfolk',
+  'Strandfolk':  'strandfolk',
   'Bergfolk':    'dvergr',
   'Lövfolk':     'sylphari',
   'Deepwalkers': 'deepwalkers',

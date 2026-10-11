@@ -1079,8 +1079,8 @@
     },
     {
       "id": "human",
-      "name": "Markfolk",
-      "description": "Earth arrivals. Appeared through an unknown mechanism — no one knows why. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming.",
+      "name": "Humans",
+      "description": "Native to Mistheim, and joined by Earth arrivals: humans lived here before the worlds merged, and some of their ancestors came through with the Earth fragments, every one of them without memory of Earth, and married into the humans already here. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming. In Mistheim they are two Peoples: the Riksfolk of the Realm and the Strandfolk of the harbour coast (#1623).",
       "biomeAffinity": {
         "marine": -0.2,
         "hot_desert": 0.2,
@@ -1480,6 +1480,156 @@
       "populationWeight": 0.1,
       "mixingBehavior": "adaptable",
       "namingBase": "norse-beast"
+    },
+    {
+      "id": "markfolk",
+      "name": "Markfolk",
+      "description": "Orcs of the southern plains and delta: the Merkförbund, a confederation of forty-three cities and two hundred farming communities. The best farmers and [Watermasters] on the continent, with a dry-comedy tradition about how much everyone needs their grain.",
+      "biomeAffinity": {
+        "marine": -0.2,
+        "hot_desert": 0.2,
+        "cold_desert": 0.1,
+        "savanna": 0.4,
+        "grassland": 0.6,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.7,
+        "tropical_rainforest": 0.1,
+        "temperate_rainforest": 0.3,
+        "taiga": 0.3,
+        "tundra": 0,
+        "glacier": -0.5,
+        "wetland": 0.5
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          20,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          25,
+          70
+        ],
+        "tolerance": [
+          10,
+          85
+        ]
+      },
+      "featureBonus": {
+        "river": 0.6,
+        "open_plain": 0.4,
+        "trade_route": 0.3
+      },
+      "clustering": "tight",
+      "populationWeight": 0.5,
+      "mixingBehavior": "integrated",
+      "namingBase": "earth-mixed"
+    },
+    {
+      "id": "riksfolk",
+      "name": "Riksfolk",
+      "description": "Humans of the Realm (Riket): river lowlands and low hills on the Wildkin's eastern border. Charters, the Landslag, and a Marshal consolidating the kingdoms. The West March and the Stone Line.",
+      "biomeAffinity": {
+        "marine": -0.2,
+        "hot_desert": 0.2,
+        "cold_desert": 0.1,
+        "savanna": 0.4,
+        "grassland": 0.6,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.7,
+        "tropical_rainforest": 0.1,
+        "temperate_rainforest": 0.3,
+        "taiga": 0.3,
+        "tundra": 0,
+        "glacier": -0.5,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          20,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          25,
+          70
+        ],
+        "tolerance": [
+          10,
+          85
+        ]
+      },
+      "featureBonus": {
+        "earth_fragment": 0.6,
+        "river": 0.4,
+        "hills": 0.3,
+        "trade_route": 0.3
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.5,
+      "mixingBehavior": "cosmopolitan",
+      "namingBase": "earth-mixed"
+    },
+    {
+      "id": "strandfolk",
+      "name": "Strandfolk",
+      "description": "Humans of the harbour coast east of the delta: shipwrights, fishers and freighters. The Hamnlag, a league of free harbour towns, and storm-right.",
+      "biomeAffinity": {
+        "marine": 0.3,
+        "hot_desert": 0.2,
+        "cold_desert": 0.1,
+        "savanna": 0.4,
+        "grassland": 0.6,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.7,
+        "tropical_rainforest": 0.1,
+        "temperate_rainforest": 0.3,
+        "taiga": 0.3,
+        "tundra": 0,
+        "glacier": -0.5,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          20,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          25,
+          70
+        ],
+        "tolerance": [
+          10,
+          85
+        ]
+      },
+      "featureBonus": {
+        "earth_fragment": 0.6,
+        "coast": 0.8,
+        "archipelago": 0.5,
+        "island": 0.3,
+        "trade_route": 0.3
+      },
+      "clustering": "tight",
+      "populationWeight": 0.5,
+      "mixingBehavior": "welcoming",
+      "namingBase": "earth-mixed"
     }
   ]
 }

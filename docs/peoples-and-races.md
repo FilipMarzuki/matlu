@@ -4,13 +4,13 @@
 
 ## Decision
 
-There is **one race vocabulary** in Matlu: the **16 Mistheim Peoples**, the 15 named in `WORLD.md` and scored in `AXES.md`, and the Wildkin (added 2026-10-11, below).
+There is **one race vocabulary** in Matlu: the **18 Mistheim Peoples**, the 15 first named in `WORLD.md` and scored in `AXES.md`, the Wildkin, and the two human Peoples, the Riksfolk and the Strandfolk (all added 2026-10-11, below).
 
 | # | People | Notes |
 |---|---|---|
 | 1 | Bergfolk | Mountain hold-culture, runesmiths |
 | 2 | Lövfolk | Long-lived elven Rasa healers |
-| 3 | Markfolk | Farmers, dry-comedy, Dignity-mode |
+| 3 | Markfolk | Orcs of the southern plains. Farmers, dry-comedy, Dignity-mode. Their fields grow east onto the steppe (#1620) |
 | 4 | Viddfolk | Route-singers, high plains |
 | 5 | Steinfolk | Stone-folk |
 | 6 | Pandor | Panda-scholar archivists |
@@ -24,8 +24,16 @@ There is **one race vocabulary** in Matlu: the **16 Mistheim Peoples**, the 15 n
 | 14 | Constructs | Made things; Bergfolk-built majority |
 | 15 | Remnants | Inscrutable ancients |
 | 16 | Wildkin | Beastkin clans (wolf, bear, fox, hawk, boar, cat, rabbit, snake); the Highfang and the Great Clans. Core Warden's homeland. |
+| 17 | Riksfolk | Humans of the Realm (Riket), the setting bible's human lands on the Wildkin's eastern border: charters, the Landslag, a Marshal consolidating the kingdoms. The West March and the Stone Line (#1623) |
+| 18 | Strandfolk | Humans of the harbour coast east of the delta: shipwrights and freighters, the Hamnlag of free harbour towns, storm-right (#1623) |
 
 **Wildkin (owner, 2026-10-11, #1603):** the beastkin of Core Warden's setting bible (`macro-world/setting-corewarden.md`) are the 16th People, and their kingdom between the mountains and the sea is **the core area** of Mistheim. The `ikibeki` culture is theirs; Supabase keeps one ancestry per clan (`Wildkin (Wolf)`…) under `Wildkin`. They still need their `WORLD.md` section and `AXES.md` scoring (#1606).
+
+**Humans and orcs (owner, 2026-10-11, #1623):** "There needs to be human peoples but also an orc people, you decide which is which." Decided: **the Markfolk are the orc People**, as `WORLD.md` already had it ("The Markfolk — orcs of the southern plains"), and **humans are their own Peoples**: the **Riksfolk** (#17), the human realm of the setting bible on the Wildkin's eastern border, and the **Strandfolk** (#18), harbour-coast humans, so humans aren't one realm. This undoes #709's folding of `human` into the Markfolk. Both names are Swedish-styled placeholders (*rike*, realm; *strand*, shore) until the owner reviews them. Supabase keeps the `human` ancestry as the umbrella `Humans`, with one ancestry per human People and a separate `markfolk` ancestry for the orcs (migration `20261011120000_human_peoples.sql`, not yet applied). The cultures that were human before #709 get the human Peoples back in their `racePreferences` (table below). Each has a `WORLD.md` section and an `AXES.md` scoring.
+
+**Where humans come from (owner, 2026-10-11):** "Humans are not earth arrivals, some of their ancestors are but humans were here too. However all previous earthlings came without memories." Humans are native to Mistheim. Some of their ancestors came through with the Earth fragments, and every Earth arrival came without memory of Earth, so no human remembers Earth and most have an Earth ancestor somewhere in the line.
+
+**What people know (owner, 2026-10-11):** "The people here do not know where those humans, the extra ones, came from. But throughout history there have been odd patches of extra humans in unexpected places. And sometimes human settlements have grown in strange ways." In the world, the Earth arrivals are a pattern nobody can explain, not a known fact: lore and history should show the patches and the strange growth, never the cause.
 
 Race IDs use **TitleCase** to match `AXES.md` and the Peoples Notion DB (#625). Cultures (`macro-world/cultures.json`) reference Peoples by these IDs in `racePreferences`.
 
@@ -45,30 +53,32 @@ The 12 stale IDs are folded into the closest canonical People rather than promot
 
 ## Mapping (cultures.json racePreferences)
 
-| Culture | Old `racePreferences` | New `racePreferences` |
-|---|---|---|
-| coastborn | `{ "human": 1.0 }` | `{ "Markfolk": 0.7, "Deepwalkers": 0.3 }` |
-| ridgefolk | `{ "human": 1.0 }` | `{ "Markfolk": 0.5, "Bergfolk": 0.5 }` |
-| fieldborn | `{ "human": 1.0 }` | `{ "Markfolk": 1.0 }` |
-| wallborn | `{ "human": 1.0 }` | `{ "Markfolk": 0.5, "Bergfolk": 0.3, "Pandor": 0.2 }` |
-| mountainhold | `{ "dvergr": 1.0 }` | `{ "Bergfolk": 1.0 }` |
-| sylvan-enclave | `{ "sylphari": 1.0 }` | `{ "Lövfolk": 1.0 }` |
-| bazaar-folk | `{ "goblin": 1.0 }` | `{ "Goblins": 1.0 }` |
-| waterstead | `{ "pandor": 1.0 }` | `{ "Pandor": 1.0 }` |
-| steading | `{ "troll": 1.0 }` | `{ "Giants": 1.0 }` |
-| dragonkin-remnant | `{ "draak": 1.0 }` | `{ "Dragons": 1.0 }` |
-| reefborn | `{ "korallfolk": 1.0 }` | `{ "Merfolk": 1.0 }` |
-| steppe-camp | `{ "steppevarg": 1.0 }` | `{ "Viddfolk": 1.0 }` |
-| harborfolk | `{ "sjovandrare": 1.0 }` | `{ "Markfolk": 0.6, "Deepwalkers": 0.4 }` |
-| caravan-folk | `{ "sandhari": 1.0 }` | `{}` (no canonical desert People; sample regional demographics) |
-| windfarer-eyrie | `{ "vindfarare": 1.0 }` | `{ "Viddfolk": 0.7, "Bergfolk": 0.3 }` |
-| grovekin | `{ "rotfolk": 1.0 }` | `{ "Lövfolk": 1.0 }` |
-| workshop-collective | `{ "grynfolk": 1.0 }` | `{ "Bergfolk": 0.6, "Constructs": 0.4 }` |
-| crystal-resonance | `{ "kristallbundna": 1.0 }` | `{ "Fae": 1.0 }` |
-| refuge-keepers | `{ "vandoda": 1.0 }` | `{ "Remnants": 0.7, "Constructs": 0.3 }` |
-| ironborne-encampment | `{ "jarnborn": 1.0 }` | `{ "Steinfolk": 0.7, "Bergfolk": 0.3 }` |
-| thicket-dwellers | `{ "skogsvattar": 1.0 }` | `{ "Lövfolk": 1.0 }` |
-| **nestborne** | `{ "chitinvavare": 1.0 }` | **retired** (insectoid trait set has no canonical analog) |
+| Culture | Old `racePreferences` | New `racePreferences` | Since #1623 (human Peoples) |
+|---|---|---|---|
+| coastborn | `{ "human": 1.0 }` | `{ "Markfolk": 0.7, "Deepwalkers": 0.3 }` | `{ "Strandfolk": 0.6, "Deepwalkers": 0.3, "Markfolk": 0.1 }` |
+| ridgefolk | `{ "human": 1.0 }` | `{ "Markfolk": 0.5, "Bergfolk": 0.5 }` | `{ "Bergfolk": 0.5, "Riksfolk": 0.3, "Markfolk": 0.2 }` |
+| fieldborn | `{ "human": 1.0 }` | `{ "Markfolk": 1.0 }` | `{ "Markfolk": 0.6, "Riksfolk": 0.4 }` |
+| wallborn | `{ "human": 1.0 }` | `{ "Markfolk": 0.5, "Bergfolk": 0.3, "Pandor": 0.2 }` | `{ "Bergfolk": 0.3, "Riksfolk": 0.3, "Markfolk": 0.2, "Pandor": 0.2 }` |
+| mountainhold | `{ "dvergr": 1.0 }` | `{ "Bergfolk": 1.0 }` | unchanged |
+| sylvan-enclave | `{ "sylphari": 1.0 }` | `{ "Lövfolk": 1.0 }` | unchanged |
+| bazaar-folk | `{ "goblin": 1.0 }` | `{ "Goblins": 1.0 }` | unchanged |
+| waterstead | `{ "pandor": 1.0 }` | `{ "Pandor": 1.0 }` | unchanged |
+| steading | `{ "troll": 1.0 }` | `{ "Giants": 1.0 }` | unchanged |
+| dragonkin-remnant | `{ "draak": 1.0 }` | `{ "Dragons": 1.0 }` | unchanged |
+| reefborn | `{ "korallfolk": 1.0 }` | `{ "Merfolk": 1.0 }` | unchanged |
+| steppe-camp | `{ "steppevarg": 1.0 }` | `{ "Viddfolk": 1.0 }` | unchanged |
+| harborfolk | `{ "sjovandrare": 1.0 }` | `{ "Markfolk": 0.6, "Deepwalkers": 0.4 }` | `{ "Strandfolk": 0.5, "Deepwalkers": 0.4, "Markfolk": 0.1 }` |
+| caravan-folk | `{ "sandhari": 1.0 }` | `{}` (no canonical desert People; sample regional demographics) | unchanged |
+| windfarer-eyrie | `{ "vindfarare": 1.0 }` | `{ "Viddfolk": 0.7, "Bergfolk": 0.3 }` | unchanged |
+| grovekin | `{ "rotfolk": 1.0 }` | `{ "Lövfolk": 1.0 }` | unchanged |
+| workshop-collective | `{ "grynfolk": 1.0 }` | `{ "Bergfolk": 0.6, "Constructs": 0.4 }` | unchanged |
+| crystal-resonance | `{ "kristallbundna": 1.0 }` | `{ "Fae": 1.0 }` | unchanged |
+| refuge-keepers | `{ "vandoda": 1.0 }` | `{ "Remnants": 0.7, "Constructs": 0.3 }` | unchanged |
+| ironborne-encampment | `{ "jarnborn": 1.0 }` | `{ "Steinfolk": 0.7, "Bergfolk": 0.3 }` | unchanged |
+| thicket-dwellers | `{ "skogsvattar": 1.0 }` | `{ "Lövfolk": 1.0 }` | unchanged |
+| **nestborne** | `{ "chitinvavare": 1.0 }` | **retired** (insectoid trait set has no canonical analog) | retired |
+
+The #1623 column puts the human Peoples back where `human` stood before #709, keeping a share for the Markfolk, who have lived in those cultures in Artificer's villages since. The Reach's own copy of these weights (`src/artificer/world/peoples.ts`, `PEOPLES_OF`) is left as it was, because changing it changes every generated Reach (an open question for the owner).
 
 Weights are first-pass and intended to be tuned later when settlement generation has visible output to balance against.
 

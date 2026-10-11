@@ -3,7 +3,8 @@
  * does and believes about the others, as claims the knowledge model (#1577) can be given, each
  * checkable against canon.
  *
- * Coverage rule: all 16 Peoples (the 15 of WORLD.md and the Wildkin, #1606), and every culture the
+ * Coverage rule: all 18 Peoples (the first 15 of WORLD.md, the Wildkin, #1606, and the two human Peoples,
+ * the Riksfolk and the Strandfolk, #1623), and every culture the
  * caravan road uses (each villager's and traveller's `culture`, and each village's `cultures`).
  * Every People holds a view of every other People; every road culture a view of every other road
  * culture and of every People.
@@ -96,9 +97,9 @@ const veit = personById('kg-veit')!;
 const runa = personById('kg-runa')!;
 
 describe('World lore covers every People and road culture (#1590)', () => {
-  it('has lore for exactly the 16 Peoples, the Wildkin among them, under the canon ids code uses', () => {
+  it('has lore for exactly the 18 Peoples, the Wildkin and the human Peoples among them, under the canon ids code uses', () => {
     expect(DOC_PEOPLES.length).toBeGreaterThanOrEqual(15);
-    expect(CANON_PEOPLES).toHaveLength(16);
+    expect(CANON_PEOPLES).toHaveLength(18);
     expect([...PEOPLES]).toEqual(CANON_PEOPLES);
     expect(allPeopleLore().map(p => p.id)).toEqual(CANON_PEOPLES);
     for (const p of allPeopleLore()) expect(p.name).toBe(p.id);
@@ -134,7 +135,7 @@ describe('World lore covers every People and road culture (#1590)', () => {
     for (const c of allCultureLore()) {
       expect(Object.keys(c.views).sort(), c.id).toEqual(ROAD_CULTURES.filter(x => x !== c.id));
       for (const [of, cs] of Object.entries(c.views)) expect(cs.length, `${c.id} of ${of}`).toBeGreaterThan(0);
-      // Item 4 (owner, 2026-10-11): cultures hold views of Peoples too, all 16.
+      // Item 4 (owner, 2026-10-11): cultures hold views of Peoples too, all 18.
       expect(Object.keys(c.peopleViews), c.id).toEqual([...PEOPLES]);
       for (const [of, cs] of Object.entries(c.peopleViews)) expect(cs.length, `${c.id} of ${of}`).toBeGreaterThan(0);
     }
@@ -390,5 +391,53 @@ describe('The Wildkin, the 16th People (#1606)', () => {
     expect(matchLore('What do the beastkin value?')!.claims.map(c => c.id)).toEqual(['people:Wildkin/values/0', 'people:Wildkin/values/1', 'people:Wildkin/values/2']);
     expect(matchLore('How do the Wildkin mourn?')!.claims[0].text).toMatch(/dead stay dead/);
     expect(matchLore('What do the Pandor think of the beastkin?')!.claims[0].id).toBe('people:Pandor/view:Wildkin/0');
+  });
+});
+
+describe('Humans and orcs: the Markfolk are orcs, humans are their own Peoples (#1623)', () => {
+  const RACES = JSON.parse(read('macro-world/race-affinities.json')) as { races: { id: string; name: string; description: string }[] };
+  const PREFS = Object.fromEntries((JSON.parse(read('macro-world/cultures.json')) as { cultures: { id: string; racePreferences: Record<string, number> }[] })
+    .cultures.map(c => [c.id, c.racePreferences]));
+  const world = read('WORLD.md');
+
+  it('names the Markfolk as orcs and two human Peoples in the canon list, each with a WORLD.md section', () => {
+    expect(peopleLore('Markfolk')!.names).toContain('orcs');
+    expect(CANON_PEOPLES.slice(-2)).toEqual(['Riksfolk', 'Strandfolk']);
+    expect(sectionOf(world, 'The Markfolk — orcs of the southern plains')).not.toBeNull();
+    expect(sectionOf(world, 'The Riksfolk — humans of the Realm')).not.toBeNull();
+    expect(sectionOf(world, 'The Strandfolk — humans of the harbour coast')).not.toBeNull();
+  });
+
+  it('gives the Wildkin border to the Riksfolk, not the Markfolk', () => {
+    const border = /West March|Alå|Stone Line|fence-folk/;
+    const markfolkLines = [...Object.values(peopleLore('Markfolk')!.views).flat(), ...peopleLore('Wildkin')!.views.Markfolk];
+    expect(markfolkLines.filter(c => border.test(c.text) || c.source.includes('West March')).map(c => c.text)).toEqual([]);
+    expect(peopleLore('Riksfolk')!.views.Wildkin.some(c => c.source.includes('The West March and the Wildkin border'))).toBe(true);
+    expect(peopleLore('Wildkin')!.views.Riksfolk.some(c => /fence-folk/.test(c.text))).toBe(true);
+    // The West March section sits under the Riksfolk, not the Markfolk.
+    expect(sectionOf(world, 'The Markfolk — orcs of the southern plains')).not.toMatch(/West March/);
+    expect(sectionOf(world, 'The Riksfolk — humans of the Realm')).toMatch(/#### The West March and the Wildkin border/);
+  });
+
+  it('maps the human ancestry to the human Peoples, and the orcs to their own', () => {
+    const human = RACES.races.find(r => r.id === 'human')!;
+    expect(human.name).toBe('Humans');
+    expect(human.description).toMatch(/Riksfolk.*Strandfolk/);
+    expect(RACES.races.find(r => r.id === 'markfolk')?.name).toBe('Markfolk');
+    expect(RACES.races.find(r => r.id === 'riksfolk')?.name).toBe('Riksfolk');
+    expect(RACES.races.find(r => r.id === 'strandfolk')?.name).toBe('Strandfolk');
+  });
+
+  it('puts a human People back in every culture that was human before #709', () => {
+    for (const id of ['coastborn', 'ridgefolk', 'fieldborn', 'wallborn', 'harborfolk']) {
+      expect((PREFS[id].Riksfolk ?? 0) + (PREFS[id].Strandfolk ?? 0), id).toBeGreaterThan(0);
+      expect(Object.values(PREFS[id]).reduce((a, b) => a + b, 0), id).toBeLessThanOrEqual(1.0001);
+    }
+  });
+
+  it('is found by the matcher under its own names', () => {
+    expect(matchLore('What do the fence-folk value?')!.claims[0].id).toBe('people:Riksfolk/values/0');
+    expect(matchLore('What do the Strandfolk think of the Merfolk?')!.claims[0].id).toBe('people:Strandfolk/view:Merfolk/0');
+    expect(matchLore('What do the beastkin think of the Riksfolk?')!.claims[0].text).toMatch(/fence-folk/);
   });
 });
