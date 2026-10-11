@@ -11,6 +11,11 @@
  *
  * Nothing in play reads these yet: the knowledge model answering from them is its own slice.
  *
+ * **One list of what a place knows (#1618).** Each village also gets its country (the generated
+ * region its province lies in, #1598) and `known`: its own facts and its country's regional facts
+ * (regional-facts.ts) as one list, with a seizure, a lord's death or who holds the seat that both
+ * tell merged into one fact (`placeKnowledge`). `facts` stays as it was for existing callers.
+ *
  * Pure and deterministic: the same told history gives the same facts, with no randomness of its
  * own. It reads a told history as plain data (history-format.ts) and never runs the engine, so the
  * page can call it with the history it keeps, and only a caller with no history to hand pays for
@@ -35,11 +40,11 @@
  */
 
 import type { Fact, Sensitivity } from '../knowledge';
-import { LIVING_MEMORY, type HistoryLine, type ProvinceHistory, type ReachHistory } from './history-format';
+import { LIVING_MEMORY, type HistoryLine, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { generateReach } from './reach';
 import { provincesOf, type AnchorId, type Provinces } from './provinces';
-import { NORTH_ROAD, generatedRegions, roadRegions, type GeneratedRegions, type VillageRegion } from './regions';
-import { GENERATION } from './regional-facts';
+import { NORTH_ROAD, generatedRegions, regionOf, roadRegions, type GeneratedRegions, type VillageRegion } from './regions';
+import { GENERATION, factsOfRegion, type RegionalFact } from './regional-facts';
 
 export { GENERATION };
 
@@ -131,6 +136,18 @@ export interface VillageMemory extends VillageRegion {
   events: RememberedEvent[];
   /** All of the above as facts: the holder (for the province and for the road), then the events. */
   facts: RememberedFact[];
+  /**
+   * The generated region its province lies in (#1598, e.g. `hollowford-country`): its country,
+   * whose news it hears. Not `region`: for the road villages the crafted north road wins there,
+   * which is the road's scope, not the country's. Null when `generated` knows no region for the
+   * province, or the history has none by that id.
+   */
+  country: string | null;
+  /**
+   * Everything the place knows, as one list (#1618): `facts` and its country's regional facts
+   * (regional-facts.ts `factsOfRegion`), with what both tell merged into one (`placeKnowledge`).
+   */
+  known: PlaceFact[];
 }
 
 export interface Remembered {
@@ -156,12 +173,19 @@ export function remembered(history: ReachHistory, provinces: Provinces = provinc
       // The province ids (`p3`) only mean something within one Reach: a history and provinces
       // from different seeds would pair the wrong places, so refuse rather than misread.
       if (!p || p.name !== where.province.name) throw new Error(`This history (seed ${history.seed}) has no province ${where.province.name} (${where.province.id}): the provinces are another seed's.`);
+      const facts = [...holderFacts(where, p), ...p.lines.map((line, k) => eventFact(where.village, line, history.year, k, p.house))];
+      // The country: the generated region, asked for directly, so the crafted north road winning
+      // the village's `region` doesn't hide the country it actually lies in.
+      const countryId = generated(where.province.id);
+      const country = countryId ? history.regions.find(r => r.id === countryId) ?? null : null;
       return {
         ...where,
         title: p.title,
         holder: p.holder,
         events: p.lines.map(line => recall(line, history.year)),
-        facts: [...holderFacts(where, p), ...p.lines.map((line, k) => eventFact(where.village, line, history.year, k, p.house))],
+        facts,
+        country: country?.id ?? null,
+        known: placeKnowledge(where.village, p, facts, country, history.year),
       };
     }),
   };
@@ -229,3 +253,124 @@ function holderFacts(where: VillageRegion, p: ProvinceHistory): RememberedFact[]
 }
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+// --- One list of what a place knows (#1618) ---
+
+/**
+ * A fact in a place's one list (`VillageMemory.known`): one of its own remembered facts, or one of
+ * its country's regional facts. A fact that merged the two names what it took in (`absorbs`).
+ */
+export type PlaceFact = (RememberedFact | RegionalFact) & {
+  /** The ids of the regional facts merged into this one because they tell the same thing. */
+  absorbs?: readonly string[];
+};
+
+/**
+ * The engine's event kinds each regional event kind is read from (storytelling/regions.ts: the
+ * `switch` in its politics pass, its `UNREST`, `ARRIVALS`, `BANDITS` and `FAIRS` sets, and the
+ * famine and plague pass). Kept here as names so this module never loads the engine; if the
+ * regional level starts reading another engine event, add it here (remembered-known.test.ts
+ * checks the four sets against that file's source). Regional kinds that come from no one engine event (a
+ * hard winter, a boom, a venture's luck, levies, dues, a flared feud) aren't listed: no
+ * province line tells the same thing.
+ */
+export const SAME_EVENT_KINDS: Readonly<Record<string, readonly string[]>> = {
+  LORD_DIED: ['SUCCESSION'],
+  SEAT_VACANT: ['SUCCESSION_CRISIS'],
+  SEAT_SEIZED: ['USURP', 'LOWBORN_RISE'],
+  FEUD: ['WAR'],
+  BORDER_WAR: ['WAR'],
+  FAMINE: ['FAMINE'],
+  PLAGUE: ['PLAGUE'],
+  FESTIVAL: ['FESTIVAL_HELD'],
+  FAIR: ['GREAT_MARKET_FAIR', 'GRAND_FAIR'],
+  BANDITRY: ['HIGHWAY_ROBBER_LEGEND', 'BANDIT_KING_RISES', 'MASS_JAILBREAK'],
+  UNREST: ['FOOD_RIOT', 'MARKETPLACE_RIOT', 'PEASANT_REVOLT', 'BREAD_RIOT', 'TAX_REVOLT', 'URBAN_MOB_RIOT', 'TAX_COLLECTOR_LYNCHED', 'PEASANT_JACQUERIE'],
+  MIGRATION: [
+    'REFUGEES_ARRIVE', 'SETTLED_NEW_HOMELAND', 'BARBARIAN_INVASION', 'DIASPORA_FORMED',
+    'LOST_ROMAN_LEGION', 'LOST_VIKING_EXPEDITION', 'LOST_MONGOL_TUMEN', 'LOST_GREEK_HOPLITES', 'LOST_EGYPTIAN_PRIESTHOOD',
+    'LOST_CELTIC_WARBAND', 'LOST_SAMURAI_RETINUE', 'LOST_BYZANTINE_CATAPHRACTS', 'LOST_PERSIAN_IMMORTALS',
+    'LOST_CARTHAGINIAN_FLEET', 'LOST_NORMAN_KNIGHTS', 'LOST_HAN_EXPEDITION',
+  ],
+};
+
+/** Regional kinds told once for the whole region, with no province when several of its lands suffered. */
+const REGION_WIDE: ReadonlySet<string> = new Set(['FAMINE', 'PLAGUE']);
+
+/**
+ * Whether a province's told event and one of its region's told events are the same happening:
+ * the same year, the regional kind read from the province event's kind (`SAME_EVENT_KINDS`), and
+ * the same place, or, for a famine or plague across several of the region's lands (told with no
+ * province), the region's telling of it. Told lines carry no engine event id, so this is what's
+ * left to match on, and it's enough: a province tells one deed per person per year (history.ts
+ * `pickLines`) and the regional level tells a deed once, so a year, a kind and a place pin it.
+ */
+export function sameEvent(line: HistoryLine, province: string, regional: RegionLine): boolean {
+  if (line.year !== regional.year || !line.kind) return false;
+  if (!(SAME_EVENT_KINDS[regional.kind] ?? []).includes(line.kind)) return false;
+  return regional.province === province || (regional.province === null && REGION_WIDE.has(regional.kind));
+}
+
+/**
+ * Two facts telling the same thing, as one. The place's own (`own`) keeps its id and scope and
+ * takes the richer text (the longer; its own on a tie), the stricter sensitivity, the shallower
+ * depth, and both facts' topics. Truth is the same for both (the same year against the same
+ * LIVING_MEMORY); if it ever weren't, the less certain would win.
+ *
+ * Why the place's own scope: the knowledge model gives a fact one scope, and everyone in the
+ * village lives in its country, so for the people this list is about, the village scope loses
+ * nothing. It's the more specific scope, which the model answers from first anyway (knowledge.ts
+ * `SPECIFICITY`). Depth only gets shallower: the country tells a seizure to most (depth 2), the
+ * village to everyone (1), so everyone in the village knows it.
+ */
+export function mergeFacts(own: RememberedFact, regional: RegionalFact): PlaceFact {
+  return {
+    ...own,
+    about: [...own.about, ...regional.about.filter(a => !own.about.includes(a))],
+    text: regional.text.length > own.text.length ? regional.text : own.text,
+    sensitivity: STEPS[Math.max(STEPS.indexOf(own.sensitivity), STEPS.indexOf(regional.sensitivity))],
+    truth: own.truth === regional.truth ? own.truth : 'rumour',
+    depth: Math.min(own.depth, regional.depth) as 1 | 2 | 3,
+    absorbs: [regional.id],
+  };
+}
+
+/**
+ * What one road village knows, as one list (#1618): its own remembered facts (`facts`: who holds
+ * it, for the village and for the road, and its told events), then its country's regional facts
+ * (regional-facts.ts `factsOfRegion`). Two that tell the same thing become one (`mergeFacts`, at
+ * the village fact's place in the list):
+ * - **who holds it**: the village's holder fact and its country's `lord:` fact for its seat;
+ * - **an event**: one of its told events and its country's telling of it (`sameEvent`).
+ * The north-road holder fact stays as it is: it's the caravan's (scope `north-road`), who live in
+ * no village and no country, and no country fact can stand in for it.
+ *
+ * Every regional fact left keeps its own id, scope and fields, so a country's facts are the same
+ * in every village's list that has them: an id means one thing in every list. A merged fact keeps
+ * the village fact's id (`history:<village>:…`), which only that village's list has.
+ * Pure: no randomness, nothing read but the arguments.
+ */
+export function placeKnowledge(village: AnchorId, p: ProvinceHistory, facts: readonly RememberedFact[], country: RegionHistory | null, present: number): PlaceFact[] {
+  if (!country) return [...facts];
+  const regional = factsOfRegion(country, present);
+  const byId = new Map(regional.map(f => [f.id, f]));
+  const lineId = (i: number) => `region:${country.id}:${country.lines[i].year}:${i}`;
+  const absorbed = new Set<string>();
+  const own: PlaceFact[] = facts.map(f => {
+    let match: RegionalFact | undefined;
+    if (f.id === `history:${village}:holder`) {
+      // The country's lord fact for this seat, if it names the same holder (it should: both are
+      // read from the same title at the end of the history).
+      const lord = byId.get(`region:${country.id}:lord:${regionOf(p)}`);
+      if (lord && p.holder && lord.text.startsWith(`${p.holder} holds `)) match = lord;
+    } else {
+      const k = p.lines.findIndex((line, i) => f.id === `history:${village}:${line.year}:${i}`);
+      const j = k < 0 ? -1 : country.lines.findIndex((r, i) => !absorbed.has(lineId(i)) && sameEvent(p.lines[k], p.name, r));
+      if (j >= 0) match = byId.get(lineId(j));
+    }
+    if (!match) return f;
+    absorbed.add(match.id);
+    return mergeFacts(f, match);
+  });
+  return [...own, ...regional.filter(f => !absorbed.has(f.id))];
+}
