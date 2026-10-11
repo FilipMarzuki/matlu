@@ -11,6 +11,7 @@ import { validFeatures, type FeatureSwitches } from '../artificer/features';
 
 const CHOICES_KEY = 'artificer.features';
 const DEV_KEY = 'artificer.dev';
+const TRUTHS_KEY = 'artificer.truths';
 
 /** What storage looks like to this file: enough of `localStorage` to read and write. */
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -65,5 +66,26 @@ export function devMode(search = globalThis.location?.search ?? '', store: Store
     return kept === '1' ? true : kept === '0' ? false : DEV_BY_DEFAULT;
   } catch {
     return asked === null ? DEV_BY_DEFAULT : asked !== '0' && asked !== 'off';
+  }
+}
+
+/**
+ * Whether dev mode also shows the truths the game hides from players (#1578): the true trust beside
+ * each felt word, and each skill's true level. Only `?dev=truths` turns this on (and it's remembered);
+ * any other `?dev…` turns it off again. Dev mode alone, on for everyone while the game is an
+ * experiment, never shows them: hidden information stays hidden from players (the owner's call).
+ * `?dev=truths` also turns dev mode on (devMode reads it as on).
+ */
+export function devTruths(search = globalThis.location?.search ?? '', store: Store | null = storage()): boolean {
+  const asked = new URLSearchParams(search).get('dev');
+  try {
+    if (asked !== null) {
+      const on = asked === 'truths';
+      store?.setItem(TRUTHS_KEY, on ? '1' : '0');
+      return on;
+    }
+    return store?.getItem(TRUTHS_KEY) === '1';
+  } catch {
+    return asked === 'truths';
   }
 }

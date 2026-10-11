@@ -26,7 +26,7 @@ export const STATS: Readonly<Record<StatId, { name: string; short: string; blurb
   agi: { name: 'Agility', short: 'AGI', blurb: 'hunting, tracking, scouting, handcraft and walking cost less' },
   int: { name: 'Intelligence', short: 'INT', blurb: 'more insight from study; finer crafts' },
   wil: { name: 'Willpower', short: 'WIL', blurb: 'work wears the mind less; focus holds at lower Clarity' },
-  cha: { name: 'Charisma', short: 'CHA', blurb: 'people trust you sooner and deal fairer (on the caravan road)' },
+  cha: { name: 'Charisma', short: 'CHA', blurb: 'people trust you sooner, you read them truer, and they deal fairer (on the caravan road)' },
 };
 export const STAT_IDS = Object.keys(STATS) as StatId[];
 
@@ -94,6 +94,11 @@ export interface StatEffects {
   trust: number;
   /** CHA: multiplies what you pay (and divides what you're paid) on the road (#1247). */
   priceFactor: number;
+  /**
+   * CHA: multiplies how far off your read of people is (#1578, rapport.ts). Someone good with people
+   * reads them truer: 0.6 at CHA 15, 1.24 at CHA 7, never below 0.2 (no one reads minds).
+   */
+  misread: number;
 }
 
 export function statEffects(s: Stats): StatEffects {
@@ -112,6 +117,7 @@ export function statEffects(s: Stats): StatEffects {
     unreliableBelow: 30 - 2 * d('wil'),
     trust: d('cha'),
     priceFactor: 1 - 0.02 * d('cha'),
+    misread: Math.max(0.2, 1 - 0.08 * d('cha')),
   };
 }
 
@@ -149,7 +155,8 @@ export function statNote(id: StatId, score: number): string {
     case 'agi': return `nimble work & walking ${signed(-3 * d)}% effort`;
     case 'int': return `study ${signed(5 * d)}% insight${e.craftGrade ? ` · craft grade ${signed(e.craftGrade)}` : ''}`;
     case 'wil': return `mind strain ${signed(-2 * d)}% · focus holds to ${e.unreliableBelow} Clarity`;
-    case 'cha': return `trust ${signed(d)} · prices ${signed(-2 * d)}% (on the road)`;
+    // Words, not the trust number (#1578): the player never sees the score people keep on them.
+    case 'cha': return `${d > 0 ? 'warmer welcome · truer read of people' : 'cooler welcome · poorer read of people'} · prices ${signed(-2 * d)}% (on the road)`;
   }
 }
 
