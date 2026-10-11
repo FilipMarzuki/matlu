@@ -6,33 +6,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, type Region1State } from '../artificer/region1';
-import { createVitals } from '../artificer/vitality';
+import { createRegion1 } from '../artificer/region1';
 import { answerFor } from '../artificer/asks';
-import { villageOf } from '../artificer/road';
-import { view, apply, gameFrom, serialize, GAME_VERSION, type Game, type Move } from './session';
+import { view, apply, gameFrom, serialize, GAME_VERSION } from './session';
 import { handle, memoryStore, LIMITS, type ApiRequest, type GameRecord } from './api';
 import { cleanQuestion, QUESTION_CHARS } from './questions';
-
-const must = (g: Game, m: Move): Game => {
-  const r = apply(g, m);
-  if (!r.ok) throw new Error(`${JSON.stringify(m)} refused: ${r.error}`);
-  return r.game;
-};
-
-/** A game that's reached Hollowford on the caravan road (the session test's thaw survivor, ridden on). */
-function atHollowford(): Game {
-  const s = createRegion1({}, undefined, { id: 'play-thaw', name: 'Vega' });
-  const vitals = createVitals({ condition: 90 });
-  const sim: Region1State = { ...s, day: 61, vitals, tools: [], stores: { ...s.stores, rawFood: 10, water: 10, materials: 6, hides: 0, rations: 0 }, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals } };
-  let g = gameFrom({ sim, queue: [], stage: 'reach' }, 'play-thaw');
-  for (let i = 0; i < 6 && view(g).phase === 'meeting'; i++) g = must(g, view(g).moves[0].move);
-  for (let i = 0; i < 20 && view(g).phase !== 'ended' && (view(g).phase === 'road-encounter' || !villageOf(g.app.road!)); i++) {
-    g = must(g, view(g).phase === 'road-encounter' ? view(g).moves[0].move : { endDay: true });
-  }
-  expect(villageOf(g.app.road!)).toBe('hollowford');
-  return g;
-}
+import { hollowfordGame as atHollowford } from './fixtures';
 
 describe('Cleaning a question to keep (#1575)', () => {
   it('cuts it to the length cap, and drops control and invisible characters', () => {

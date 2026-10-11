@@ -120,6 +120,21 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     inputSchema: z.object({ game_id: gameId, option: z.string().describe('The option id, e.g. "help" or "board".') }),
   }, async ({ game_id, option }) => after(await call('POST', movesPath(game_id), { move: { choose: option } })));
 
+  server.registerTool('ask_question', {
+    title: 'Ask someone a question',
+    description: [
+      'On the road: ask someone here one question in your own words, once per person per stay, up to 200',
+      'characters. They answer from what they know, whatever their trust, or say they can\'t. The view lists who',
+      'can still be asked. Questions are kept to improve the game, with nothing about the player: never put',
+      'anyone\'s name, age or details in one.',
+    ].join(' '),
+    inputSchema: z.object({
+      game_id: gameId,
+      person: z.string().describe('The person id from the view, e.g. "hf-orrin".'),
+      question: z.string().describe('The question, e.g. "Where does the iron here come from?"'),
+    }),
+  }, async ({ game_id, person, question }) => after(await call('POST', movesPath(game_id), { move: { ask: { person, question } } })));
+
   server.registerTool('rules', {
     title: 'Read the rules',
     description: 'How Greywind Reach works: seasons, the body, stores, building, the land in rings, the caravan and the road. Read it once at the start.',

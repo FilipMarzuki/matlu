@@ -11,6 +11,8 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { makeHandler } from './vercel-handler';
 import { memoryStore, type GameRecord } from './api';
 import { clientFromSessionId, sessionIdFor, toMove } from './mcp';
+import { serialize } from './session';
+import { hollowfordGame } from './fixtures';
 
 let server: Server;
 let base = '';
@@ -38,10 +40,10 @@ const rowFor = (id: string): GameRecord => store.rows.get(id)!;
 
 describe('The Artificer over MCP (#1556)', () => {
   for (const era of ['legacy', 'modern'] as const) {
-    it(`${era}: lists the six tools, each with a description and an input schema`, async () => {
+    it(`${era}: lists the seven tools, each with a description and an input schema`, async () => {
       const client = await connect(era);
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(['act', 'choose', 'look', 'new_game', 'plan_day', 'rules']);
+      expect(tools.map(t => t.name).sort()).toEqual(['act', 'ask_question', 'choose', 'look', 'new_game', 'plan_day', 'rules']);
       for (const t of tools) {
         expect(t.description?.length).toBeGreaterThan(40);
         expect(t.inputSchema.type).toBe('object');
@@ -116,6 +118,21 @@ describe('The Artificer over MCP (#1556)', () => {
     expect(last).toContain(`${base.replace(/^http:/, 'https:')}/records/?game=${id}`);
     const run = await store.runBySource(`game:${id}`);
     expect(run).toMatchObject({ surface: 'mcp', playerKind: 'ai', model: 'some-model', client: 'recorder', nickname: 'Vega' });
+    await client.close();
+  });
+
+  it('asks a villager a free question, which is kept as asked over MCP (#1575)', async () => {
+    const client = await connect('modern', 'asker');
+    const id = idIn(textOf(await client.callTool({ name: 'new_game', arguments: { name: 'Vega' } })));
+    // Move the game on to Hollowford, as if it had been ridden there.
+    store.rows.set(id, { ...rowFor(id), session: serialize(hollowfordGame()), phase: 'road' });
+    const r = await client.callTool({ name: 'ask_question', arguments: { game_id: id, person: 'hf-orrin', question: 'Where does the ore come from?' } });
+    expect(isError(r)).toBe(false);
+    expect(textOf(r)).toContain('Sabine at Kestrel Gate');
+    expect(rowFor(id).moves.at(-1)).toEqual({ do: 'question:hf-orrin:material:iron' });
+    expect(store.questions.at(-1)).toMatchObject({ person: 'hf-orrin', topic: 'material:iron', surface: 'mcp', question: 'Where does the ore come from?' });
+    // Once per stay.
+    expect(isError(await client.callTool({ name: 'ask_question', arguments: { game_id: id, person: 'hf-orrin', question: 'And smiths?' } }))).toBe(true);
     await client.close();
   });
 
