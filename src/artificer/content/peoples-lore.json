@@ -1,0 +1,1063 @@
+{
+  "_doc": "What each of the 15 Mistheim Peoples values, shames, does and believes about the others (#1590). Written for the knowledge model (#1577 slice C) and for claims, rumours and lies (#1580); read through src/artificer/culture-lore.ts. Every claim names its source (file § heading › label); invented: true marks what canon doesn't say, built on that source. A claim with truth rumour or false says what is actually so. docs/culture-lore.md explains it.",
+  "peoples": [
+    {
+      "id": "Bergfolk",
+      "name": "Bergfolk",
+      "names": ["Bergfolk","dwarf","dwarves","dwarven","Dyprike","Deep Kingdom"],
+      "voice": {"text":"Plain and short. They name the thing, say what it's for, and stop. Praise is a nod at good work.","source":"AXES.md § Backfill: Mistheim peoples"},
+      "values": [
+        {"text":"We ask what you have made, not whose child you are.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them"},
+        {"text":"Skill you can see and hold is worth more than clever talk.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them"},
+        {"text":"Patience: eight hundred years of craft, each smith adding to what the last one learned.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make"}
+      ],
+      "taboos": [
+        {"text":"Taking someone's tools without asking. It's the worst thing you can do in the Dyprike.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        {"text":"Sitting in a hold seat you only inherited and never earned.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them"},
+        {"text":"Talking about using Rasa. A runesmith who does keeps it to themself.","truth":"true","source":"WORLD.md § Who uses Rasa › The Bergfolk","sensitivity":"guarded"}
+      ],
+      "customs": {
+        "greeting": {"text":"You show your hands and say what you make. Your work is your name.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","invented":true},
+        "trade": {"text":"Mana-granite is sold in standard sizes, and the runes on every block say who cut it.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        "mourning": {"text":"A master runesmith is buried with their own tools. No one else may use them.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        "debt": {"text":"We remember a debt as long as we remember a grudge, and that is a long time.","truth":"true","source":"WORLD.md § Safe to use freely › Dwarves"}
+      },
+      "views": {
+        "Lövfolk": [
+          {"text":"The elves want the eastern hardwood left standing. We need it for charcoal. Neither side has moved in centuries.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"},
+          {"text":"Our mana-granite does the forest no harm.","truth":"false","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations","invented":true,"actually":{"text":"Bergfolk mana-granite channels are disrupting the Myst at the forest's western edge. Nobody has admitted it officially.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}},
+          {"text":"Elf healing is feeling, not real magic.","truth":"false","source":"WORLD.md § Who uses it and how › The Bergfolk","actually":{"text":"Lövfolk Rasa is quiet and very effective: their healers have wanted patients to heal for centuries.","source":"WORLD.md § Who uses Rasa › The Lövfolk"}}
+        ],
+        "Markfolk": [
+          {"text":"We trade them ore for food. The quarrel over the southern foothills never quite ends.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}
+        ],
+        "Viddfolk": [
+          {"text":"We trust a Viddfolk herald with a hold's contracts. They never take sides.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make"},
+          {"text":"A Viddfolk herald still runs a main route in three days.","truth":"false","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect","invented":true,"actually":{"text":"The ley-lines are thinning. Heralds now take four or five days, and the Viddfolk keep it to themselves.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect"}}
+        ],
+        "Steinfolk": [
+          {"text":"The nearest thing we have to true friends. They build; we give them what to build with.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}
+        ],
+        "Pandor": [
+          {"text":"Pandor scholars make nothing you can hold in your hands.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","actually":{"text":"The Pandor make the continent's best maps, its records, and the mist-ferment poured at every serious negotiation.","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make"}}
+        ],
+        "Deepwalkers": [
+          {"text":"Deepwalker salt keeps a hold's meat through the winter. We buy it by the barrel.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"Merfolk pressure-crystal makes the finest enchanting. They sell it slowly, and only when they choose.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What they make","invented":true}
+        ],
+        "Goblins": [
+          {"text":"There are no goblins in our holds.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations","actually":{"text":"Goblin salvage bands live in the empty upper levels of three old holds. They're so useful nobody in charge has looked.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}}
+        ],
+        "Fae": [
+          {"text":"A fae bargain binds tighter than any rune. We don't make them.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
+        ],
+        "Giants": [
+          {"text":"Don't wake a sleeping giant, and don't take from its land without asking.","truth":"true","source":"WORLD.md § The Giants — the Seven"}
+        ],
+        "Dragons": [
+          {"text":"Iskuldr keeps our tribute tools and never uses them. That means he approves.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","actually":{"text":"Iskuldr keeps every tool and has used none. The Bergfolk read that as approval; nobody knows what he thinks.","source":"WORLD.md § The Dragons — the territorial powers"}}
+        ],
+        "Everstill": [
+          {"text":"Vitstad's liches have been levelling their craft for two hundred years. We'd rather not talk about it.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Relations","sensitivity":"guarded"}
+        ],
+        "Constructs": [
+          {"text":"A construct is a made thing, not a person.","truth":"rumour","source":"WORLD.md § The Constructs — the Unmade and Remade","actually":{"text":"Under the Compact of Knowing constructs are persons. The old ones have Classes; the newer Bergfolk-made ones don't, yet.","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
+        ],
+        "Remnants": [
+          {"text":"Ask a Remnant a question and you get a true answer you can't use. We'd rather ask a stone.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Don't ask whose child. Ask what they made.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them"},
+        {"text":"Never touch another smith's tools.","source":"WORLD.md § Bergfolk › Objects"},
+        {"text":"A crude tool is a promise you'll fix it later.","source":"src/artificer/villages.ts › hf-orrin"}
+      ]
+    },
+    {
+      "id": "Lövfolk",
+      "name": "Lövfolk",
+      "names": ["Lövfolk","Lovfolk","elf","elves","elven","Grenmark"],
+      "voice": {"text":"Unhurried and layered. What they mean sits under what they say, and nothing is said in a rush.","source":"AXES.md § Backfill: Mistheim peoples"},
+      "values": [
+        {"text":"Memory that lasts lifetimes: the oldest trees keep what happened, and we keep the trees.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make"},
+        {"text":"Healing that is meant. Our healers have wanted patients well for two hundred years and know the feeling exactly.","truth":"true","source":"WORLD.md § Who uses Rasa › The Lövfolk"},
+        {"text":"Wood is taken from the forest sparingly, and with ceremony.","truth":"true","source":"WORLD.md § Lövfolk › Objects"}
+      ],
+      "taboos": [
+        {"text":"Felling a living tree to build with. We shape trees over generations; we don't cut them.","truth":"true","source":"WORLD.md § Lövfolk › Architecture"},
+        {"text":"Hurrying an elder to change their mind. It's rude, and it takes an earthquake anyway.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A slow nod and a long look. Answering too fast says you weren't listening.","truth":"true","source":"AXES.md § Backfill: Mistheim peoples","invented":true},
+        "trade": {"text":"Grenmark bows and herbal compounds are sold. Reading the memory-trees is traded only between nations.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make"},
+        "mourning": {"text":"Mourners say the dead one's name beneath an old tree, so the tree will keep it.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make","invented":true},
+        "debt": {"text":"A gift of living-wood jewellery is a bond. It keeps growing as long as the bond is kept.","truth":"true","source":"WORLD.md § Lövfolk › Clothing","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"They want our hardwood for charcoal. They will not have it.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"},
+          {"text":"Their mana-granite is thinning the Myst at our western edge. No one has said so out loud.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations","sensitivity":"guarded"}
+        ],
+        "Markfolk": [
+          {"text":"Farming is humble work. It takes no great skill.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make","actually":{"text":"Markfolk [Watermasters] reach levels other nations find embarrassing. A Level 35 Watermaster outranks many a [Knight].","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make"}}
+        ],
+        "Viddfolk": [
+          {"text":"Viddfolk heralds carry our councils' letters, and we trust them to forget nothing.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"A Steinfolk bridge stands at our forest's edge where the old one rotted. They built it when nobody else would.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The friendship that works: they need our trees' memories, and we need their neutral ground for our quarrels.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}
+        ],
+        "Deepwalkers": [
+          {"text":"Fellow keepers of memory, under the Compact of Knowing.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Compact of Knowing"}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk's wares keep their full strength while our enchantments weaken. They say nothing about it.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › The Dry's effect","invented":true,"sensitivity":"guarded"}
+        ],
+        "Goblins": [
+          {"text":"Goblins are pests, not people.","truth":"false","source":"WORLD.md § The two traditions together › Goblins","invented":true,"actually":{"text":"Goblins have Classes and Skills like anyone. They are people; the world doesn't agree, and the world is wrong.","source":"WORLD.md § Safe to use freely › Goblins"}}
+        ],
+        "Fae": [
+          {"text":"The fae were under our groves before the trees were saplings. Neither of us can make the other leave.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}
+        ],
+        "Giants": [
+          {"text":"Giants live too slowly even for us. We can wait a long time; they wait longer.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Grimmvald's patronage takes our young ones and gives back strangers.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","actually":{"text":"Several young Lövfolk have taken Grimmvald's patronage. They come back changed and say little; what it means is unclear.","source":"WORLD.md § The Dragons — the territorial powers"}}
+        ],
+        "Everstill": [
+          {"text":"The Pale City keeps its records nearly as long as our trees do. We share them under the Compact.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Compact of Knowing","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A construct cannot change. It stays as it was made.","truth":"false","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true,"actually":{"text":"Older constructs have developed Classes; several became [Scholars] or [Keepers].","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
+        ],
+        "Remnants": [
+          {"text":"The Remnants are what the dead gods left. We don't say the gods' names, and we don't ask.","truth":"true","source":"WORLD.md § The weight of the past","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"A healing word works better when it is true.","source":"src/artificer/villages.ts › cv-ottilia"},
+        {"text":"Listen to the wound before you touch it.","source":"src/artificer/villages.ts › hf-isa"},
+        {"text":"The tree remembers.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make","invented":true}
+      ]
+    },
+    {
+      "id": "Markfolk",
+      "name": "Markfolk",
+      "names": ["Markfolk","orc","orcs","orcish","Merkförbund","Merkforbund"],
+      "voice": {"text":"Dry and understated. They know exactly how much everyone needs them, and joke about it only among themselves.","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"},
+      "values": [
+        {"text":"Feeding people. Half the continent eats our grain, whether it thanks us or not.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make"},
+        {"text":"Patience with water: a [Watermaster] feels where the river wants to go.","truth":"true","source":"WORLD.md § Who uses Rasa › The Markfolk"},
+        {"text":"Keeping records for generations. A good farmer knows their land's yields six generations back.","truth":"true","source":"WORLD.md § Markfolk › Objects"}
+      ],
+      "taboos": [
+        {"text":"Wasting water. On the plains it's the worst kind of carelessness.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make","invented":true},
+        {"text":"Boasting. Let the harvest speak; a Markfolk who brags gets laughed at, dryly.","truth":"true","source":"AXES.md § Notes on individual scores › Markfolk","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A tip of the broad hat, and a question about the weather that's really about the crops.","truth":"true","source":"WORLD.md § Markfolk › Clothing","invented":true},
+        "trade": {"text":"Goods go to market in clay urns with the owner's mark pressed into the clay.","truth":"true","source":"WORLD.md § Markfolk › Objects"},
+        "mourning": {"text":"The dead one's name goes into the seed book, beside the last harvest they brought in.","truth":"true","source":"WORLD.md § Markfolk › Objects","invented":true},
+        "debt": {"text":"Debts are settled in the meeting hall, in front of the river charts, so everyone knows it's done.","truth":"true","source":"WORLD.md § Markfolk › Architecture","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"They eat our grain and sell us metal at a markup. We smile, and count.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"},
+          {"text":"Ore for food, and a foothills quarrel that flares and cools every twenty years or so.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
+        ],
+        "Lövfolk": [
+          {"text":"The elves think they're better than everyone.","truth":"rumour","source":"WORLD.md § Safe to use freely › Elves","invented":true,"actually":{"text":"Lövfolk opinions set hard after three hundred years; their councils have held the same seats for four centuries. Their young often leave.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them"}}
+        ],
+        "Viddfolk": [
+          {"text":"Sixty years of talks over grazing on the eastern steppe. No war, and nobody expects an end.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
+          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}}
+        ],
+        "Steinfolk": [
+          {"text":"They built the river works and we run them. Both of us know who needs whom.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
+        ],
+        "Pandor": [
+          {"text":"The kloster's brew is poured at every serious meeting. Nobody calls it leverage. It is.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make"}
+        ],
+        "Deepwalkers": [
+          {"text":"Harbour neighbours: our grain goes down the river and their salt comes up it.","truth":"true","source":"WORLD.md § Resource geography","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk never answer because they look down on us.","truth":"false","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true,"actually":{"text":"Merfolk answer patience, not urgency. They plan across decades; a question asked this week may be answered in years.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}}
+        ],
+        "Goblins": [
+          {"text":"No goblins live in the Merkförbund. It's against the law.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them","actually":{"text":"It is the law, but farms on the eastern edge quietly hire goblin [Salvagers], and nobody asks.","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"}}
+        ],
+        "Fae": [
+          {"text":"A fae deal is a trick. Never make one at the field's edge.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"actually":{"text":"Fae deals are always technically fair. The trouble is what \"fair\" means to someone a thousand years old.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"}}
+        ],
+        "Giants": [
+          {"text":"Aldriksson's valley drains in ways no surveyor can explain. Our Watermasters would love to ask him how.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Dragons are wicked, and hoard gold to spite us.","truth":"false","source":"WORLD.md § Safe to use freely › Dragons","invented":true,"actually":{"text":"Dragons aren't evil. Their goals just don't fit our ideas of right and wrong.","source":"WORLD.md § Safe to use freely › Dragons"}}
+        ],
+        "Everstill": [
+          {"text":"The Pale City's dead are the corruption's work.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true,"actually":{"text":"The Everstill died and didn't stay dead without any help from the corruption: their Classes carried on.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}}
+        ],
+        "Constructs": [
+          {"text":"Constructs guard the road junctions and ruins that nobody else wants to.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Remnants": [
+          {"text":"One sits at the Threefold Crossroads. Ask it a question and you'll get a proverb, not help.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+        ]
+      },
+      "sayings": [
+        {"text":"Everyone eats our grain. Nobody says so.","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them","invented":true},
+        {"text":"A building is never finished. It just hasn't had its next room yet.","source":"WORLD.md § Markfolk › Architecture","invented":true},
+        {"text":"Water listens, if you've been patient with it long enough.","source":"src/artificer/villages.ts › sm-gunnar"}
+      ]
+    },
+    {
+      "id": "Viddfolk",
+      "name": "Viddfolk",
+      "names": ["Viddfolk","centaur","centaurs"],
+      "voice": {"text":"They speak in remembered phrases. A fact comes with the verse it's kept in, word for word.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them"},
+      "values": [
+        {"text":"Memory is the highest skill. Forgetting is a failing, not an accident.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them"},
+        {"text":"Neutrality: we will carry a message to an enemy, and take no payment to delay it.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations"},
+        {"text":"Anything worth having can be carried, remembered or outrun.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them"}
+      ],
+      "taboos": [
+        {"text":"Taking a side, or a bribe to slow a message. We don't take sides; we take the road.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make"},
+        {"text":"Lending your ley-line instrument. A herald's is never lent.","truth":"true","source":"WORLD.md § Viddfolk › Objects"}
+      ],
+      "customs": {
+        "greeting": {"text":"We read each other's woven colours first: route, clan and seniority. Then we speak.","truth":"true","source":"WORLD.md § Viddfolk › Clothing","invented":true},
+        "trade": {"text":"Prices live in the route-songs. A singer remembers both.","truth":"true","source":"src/artificer/villages.ts › cv-runa"},
+        "mourning": {"text":"The dead one's verses are sung once more round the Speaking-Ground fire, then taught to someone young.","truth":"true","source":"WORLD.md § Viddfolk › Architecture","invented":true},
+        "debt": {"text":"The road keeps its debts: help a herald, and the next fire on the route is yours.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"We carry the holds' contracts sealed, and witness the seal broken at the other end.","truth":"true","source":"WORLD.md § Viddfolk › Objects","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"Elf councils still write as if the world were four hundred years younger. We carry the letters anyway.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Sixty years of talks over the eastern steppe. The Merkförbund wants to plough our route-claims.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
+        ],
+        "Steinfolk": [
+          {"text":"Steinfolk bridges carry our routes over the rivers. Every one of them is in a song.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor write down what we remember. Between us, nothing is lost twice.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"Deepwalker [Keepers] remember word for word too. We respect anyone who doesn't forget.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The Djupvolk use no roads, so they don't need us. That makes them hard to know.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places","invented":true}
+        ],
+        "Goblins": [
+          {"text":"Goblins bring news out of the ruins, and we carry it to those who can use it, for a share. Nobody admits it.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations","sensitivity":"secret"}
+        ],
+        "Fae": [
+          {"text":"We carry a fae message like any other: sealed, and unread.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations","invented":true}
+        ],
+        "Giants": [
+          {"text":"Our oldest songs have a verse for each of the Seven. None of the verses is finished.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Rödrök holds the open steppe. Our routes bend round his ground, and the song says why.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The Everstill forget nothing either. They just never go anywhere.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A construct at a road junction never leaves its post. We like that in a neighbour.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnant who carries the Pandor's messages is never late. We respect that.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"We don't take sides. We take the road.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make"},
+        {"text":"Snow tells you everything. Mud lies.","source":"src/artificer/villages.ts › sm-yrsa"},
+        {"text":"Carry it, remember it, or outrun it.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them"}
+      ]
+    },
+    {
+      "id": "Steinfolk",
+      "name": "Steinfolk",
+      "names": ["Steinfolk","minotaur","minotaurs","Femhörn","Femhorn","Five Horns"],
+      "voice": {"text":"Quiet and exact. They don't complain; they note what would stop it breaking a fifth time.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them"},
+      "values": [
+        {"text":"What you leave standing is who you were.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them"},
+        {"text":"Coming when called: when something breaks we come, and we stay to keep it working.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make"},
+        {"text":"No more stone than the work needs, and every stone exactly where it belongs.","truth":"true","source":"WORLD.md § Steinfolk › Architecture"}
+      ],
+      "taboos": [
+        {"text":"Building for show. The outside stays plain; the craft belongs inside.","truth":"true","source":"WORLD.md § Steinfolk › Architecture","invented":true},
+        {"text":"The labyrinth stories. Most of us find them deeply rude.","truth":"true","source":"WORLD.md § Safe to use freely › Minotaurs"}
+      ],
+      "customs": {
+        "greeting": {"text":"We read each other's horns: every finished project adds a mark, and an elder's are covered.","truth":"true","source":"WORLD.md § Steinfolk › Clothing","invented":true},
+        "trade": {"text":"Every big job starts with a foundation stone naming the date, the builder and who asked for it.","truth":"true","source":"WORLD.md § Steinfolk › Objects"},
+        "mourning": {"text":"We add one stone to whatever the dead one built. If nothing is left, we cut a memorial stone and set it somewhere that matters.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them"},
+        "debt": {"text":"We don't hold grudges. We remember, as data.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"Allies in the Building Alliance. We build, they supply, and we argue about method, slowly.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}
+        ],
+        "Lövfolk": [
+          {"text":"We built the bridge at their forest's edge when the old one rotted. Nobody there learned to mend it.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"The best partnership in Mistheim: we built the river works, and they run them.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}
+        ],
+        "Viddfolk": [
+          {"text":"The Viddfolk carry word when a flood wall fails. They're why we arrive in time.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true}
+        ],
+        "Pandor": [
+          {"text":"Pandor maps are the most accurate there are. We check them anyway.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"We built the southern sea-wall when the harbour silted up. The Deepwalkers moved their stilts and came back.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"We have never built anything for the Merfolk. They have never asked.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › Resources","invented":true}
+        ],
+        "Goblins": [
+          {"text":"A goblin [Mender] keeps things working that nobody else will touch. We respect that.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Fae": [
+          {"text":"Fae rooms don't measure true. A wall should be as long inside as out.","truth":"true","source":"WORLD.md § Fae › Architecture","invented":true}
+        ],
+        "Giants": [
+          {"text":"Bergamora's eastern face was built, not grown.","truth":"rumour","source":"WORLD.md § The Giants — the Seven","invented":true,"actually":{"text":"The formations on Bergamora's eastern face look deliberate. Nobody knows whether they are.","source":"WORLD.md § The Giants — the Seven"}}
+        ],
+        "Dragons": [
+          {"text":"No fighting on dragon ground. That's the Old Accords, and it's good sense.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords"}
+        ],
+        "Everstill": [
+          {"text":"Nobody living understands how the Pale City was built. We have tried.","truth":"true","source":"WORLD.md § The Everstill › Architecture","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A well-made construct is like a good arch: it keeps working long after its maker is gone.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"Remnants cause no trouble and need no upkeep. We have no other opinion.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"What you leave standing is who you were.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them"},
+        {"text":"Not a grievance. Data.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"},
+        {"text":"Build it so there's no fifth time.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true}
+      ]
+    },
+    {
+      "id": "Pandor",
+      "name": "Pandor",
+      "names": ["Pandor","panda","pandas"],
+      "voice": {"text":"Precise and careful, with a source for everything: \"the book says\".","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them"},
+      "values": [
+        {"text":"Writing everything down: weather, trade, decisions, and what witnesses saw.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make"},
+        {"text":"Sharing what we know: under the Compact of Knowing we tell anyone who asks.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › Where they live"},
+        {"text":"Keeping secrets well, in sealed records and time-locked archives.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them"}
+      ],
+      "taboos": [
+        {"text":"Losing a record. A burned archive or an untaught scholar is a harm as bad as violence.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them"},
+        {"text":"A quick answer with no source. Better slow and right.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A bow, then your name and where you've come from, so it can be written down.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make","invented":true},
+        "trade": {"text":"Every sale goes in the book, and nobody argues with the book.","truth":"true","source":"src/artificer/villages.ts › hf-tobin"},
+        "mourning": {"text":"A scholar's last notes are copied out in full and read aloud, so nothing dies with them.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them","invented":true},
+        "debt": {"text":"A debt is written in two books, yours and the kloster's, and crossed out in both when it's paid.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The finest smiths alive, and wary of anything they can't hold. We try not to take it personally.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"Our working friendship: we read their memory-trees, and they borrow our neutral ground.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"},
+          {"text":"Young Lövfolk [Keepers] have begun writing to us, quietly, about the trees going silent.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › The Dry's effect","sensitivity":"guarded"}
+        ],
+        "Markfolk": [
+          {"text":"Their seed books go back six generations. We admire that more than they know.","truth":"true","source":"WORLD.md § Markfolk › Objects","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"They remember and we write. Their songs and our books disagree less often than you'd think.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"Every Steinfolk foundation stone is a record. We copy them.","truth":"true","source":"WORLD.md § Steinfolk › Objects","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"Our strongest allies. Their [Keepers] and our [Archivists] share the Compact's legal framework.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}
+        ],
+        "Merfolk": [
+          {"text":"We asked the Djupvolk for an exchange of knowledge thirty years ago. They haven't replied yet.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}
+        ],
+        "Goblins": [
+          {"text":"They sell us what their [Delvers] find. We write it down, and must tell anyone who asks. They've never forgiven us.","truth":"true","source":"src/artificer/asks.ts › sm-anselm"}
+        ],
+        "Fae": [
+          {"text":"We have written down fae magic many times. The accounts are accurate, and useless.","truth":"true","source":"WORLD.md § Who uses Rasa › The Fae"}
+        ],
+        "Giants": [
+          {"text":"Aldriksson agreed to talk with us about the old weather. He set the meeting for next spring, fourteen months away.","truth":"true","source":"WORLD.md § The Giants — the Seven › The Dry's effect"}
+        ],
+        "Dragons": [
+          {"text":"We have formally asked Saltmara to let us study her sunken ruins. She hasn't answered.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Everstill": [
+          {"text":"Vitstad is our partner in the Compact of Knowing, and one of the largest libraries in Mistheim.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Relations"}
+        ],
+        "Constructs": [
+          {"text":"By our classification constructs are persons. The Bergfolk disagree.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Remnants": [
+          {"text":"A Pandor scholar named them, needing something to write in the margin. One has carried our messages for two hundred years.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+        ]
+      },
+      "sayings": [
+        {"text":"Nobody argues with the book.","source":"src/artificer/villages.ts › hf-tobin"},
+        {"text":"Ask, and we must tell. Very few ask.","source":"src/artificer/villages.ts › sm-anselm"},
+        {"text":"A lost record is a harm, not a mistake.","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them"}
+      ]
+    },
+    {
+      "id": "Deepwalkers",
+      "name": "Deepwalkers",
+      "names": ["Deepwalkers","Deepwalker","Tidekin"],
+      "voice": {"text":"Exact and quoting: they repeat what was said, word for word, and who said it.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live"},
+      "values": [
+        {"text":"Memory, word for word. A [Keeper] remembers a treaty exactly as it was first spoken.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live"},
+        {"text":"A promise felt, not just recited: a [Keeper] feels a contract's weight as it was felt at signing.","truth":"true","source":"WORLD.md § Who uses Rasa › The Deepwalkers"},
+        {"text":"Being flexible: we aren't nomads, but we'll move the whole town if the sea asks.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live"}
+      ],
+      "taboos": [
+        {"text":"Misremembering. A [Keeper] who begins to forget suffers one of the worst things that can happen.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What shapes them"},
+        {"text":"Building something that can't be moved. The sea always gets a say.","truth":"true","source":"WORLD.md § Deepwalkers › Architecture","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A [Keeper] shows the braid on their left wrist, and another [Keeper] reads their clan and memory-line in it.","truth":"true","source":"WORLD.md § Deepwalkers › Clothing","invented":true},
+        "trade": {"text":"A contract witnessed by a Deepwalker [Keeper] binds more than signed paper ever could.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make"},
+        "mourning": {"text":"A [Keeper]'s seal ring is never passed on. It is buried with them.","truth":"true","source":"WORLD.md § Deepwalkers › Objects"},
+        "debt": {"text":"Deepwalkers remember debts longest of all.","truth":"true","source":"src/artificer/villages.ts › sm-hedda"}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The Bergfolk are born with a gift for metal.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make","invented":true,"actually":{"text":"They aren't born gifted. Their holds have refined the craft for eight hundred years, and the knowledge has piled up.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make"}}
+        ],
+        "Lövfolk": [
+          {"text":"Elves keep memory in trees and we keep it in our heads. Both work. Ours walks.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Harbour neighbours: many harbour towns are half Markfolk, half ours.","truth":"true","source":"docs/peoples-and-races.md § Mapping (cultures.json racePreferences)","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"A herald and a [Keeper] together make a contract nobody can wriggle out of.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"The Steinfolk will always come when the sea-wall breaks.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true,"actually":{"text":"They always have. But they've never bargained for it, and they remember who was rude to them, as data.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}}
+        ],
+        "Pandor": [
+          {"text":"Our closest allies, and as frightened of the Dry as we are, for the same reasons.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}
+        ],
+        "Merfolk": [
+          {"text":"The deep channels are ours by right of memory.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","actually":{"text":"Deepwalkers and Merfolk both claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
+        ],
+        "Goblins": [
+          {"text":"Goblins pay in news, and the Compact has never once paid us in a lie.","truth":"true","source":"src/artificer/asks.ts › sm-hedda"}
+        ],
+        "Fae": [
+          {"text":"The Court of What Was trades in memory and debt, as we do. We keep our distance.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true}
+        ],
+        "Giants": [
+          {"text":"Skörna's coast has never silted, though it should have closed centuries ago. Our navigators steer by her.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Some of ours went into Saltmara's waters and came back unharmed. The ruins there had been tidied.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Everstill": [
+          {"text":"The Pale City keeps on paper what we keep aloud. Partners in the Compact, like us.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Compact of Knowing","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A construct remembers an order. That's half of a [Keeper]'s gift, and none of the feeling.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnants are dead gods walking.","truth":"rumour","source":"WORLD.md § The Remnants — what the dead gods left","invented":true,"actually":{"text":"Their name means \"what the dead gods left\". Nobody knows what they are, and they don't explain.","source":"WORLD.md § The Remnants — what the dead gods left"}}
+        ]
+      },
+      "sayings": [
+        {"text":"Word for word, as it was first spoken.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live"},
+        {"text":"Not nomads. Flexible. There's a difference.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Where they live"},
+        {"text":"Deepwalkers remember debts longest of all.","source":"src/artificer/villages.ts › sm-hedda"}
+      ]
+    },
+    {
+      "id": "Merfolk",
+      "name": "Merfolk",
+      "names": ["Merfolk","merman","mermen","mermaid","mermaids","Djupvolk"],
+      "voice": {"text":"Slow and unhurried. An answer may come three tides after the question.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"},
+      "values": [
+        {"text":"Patience: we plan across decades. Urgency is a misunderstanding.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"},
+        {"text":"Keeping our own counsel. Our homes and our politics are not for surface eyes.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › Where they live"},
+        {"text":"Knowing the sunken ruins: we have lived beside them for centuries.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What they make"}
+      ],
+      "taboos": [
+        {"text":"Hurrying. A demand for an answer this week is a rudeness.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true},
+        {"text":"Showing our homes to the surface without an invitation.","truth":"true","source":"WORLD.md § Merfolk › Architecture","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"We meet the surface only at tidal points: sea-caves, half-drowned ruins and deep moorings.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › Where they live"},
+        "trade": {"text":"Pressure-crystal and Myst-kelp go up in small amounts; the kelp spoils above the thermocline.","truth":"true","source":"WORLD.md § Merfolk › Objects"},
+        "mourning": {"text":"The dead are given to the deep currents, and a light is set in the reef where they lived.","truth":"true","source":"WORLD.md § Merfolk › Architecture","invented":true},
+        "debt": {"text":"A debt is repaid on the debtor's tide, not the lender's. But it is always repaid.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The mountain people want our pressure-crystal for their enchanting. They can wait.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What they make","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"Their enchantments weaken while our goods keep full strength. We have said nothing.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › The Dry's effect","sensitivity":"guarded"}
+        ],
+        "Markfolk": [
+          {"text":"We have little to do with the Markfolk. Their grain doesn't keep under water.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › Resources","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"The steppe runners carry messages faster than wind. Nothing worth saying needs that much hurry.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"The Steinfolk live in stone mazes.","truth":"false","source":"WORLD.md § Safe to use freely › Minotaurs","invented":true,"actually":{"text":"Labyrinth stories offend most Steinfolk. Their strongholds stand where a river, a pass or a harbour needed fixing.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
+        ],
+        "Pandor": [
+          {"text":"The Pandor asked for an exchange of knowledge thirty years ago. We are still considering it.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}
+        ],
+        "Deepwalkers": [
+          {"text":"The deep places are ours. The Deepwalkers only visit.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","actually":{"text":"Both peoples claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
+        ],
+        "Goblins": [
+          {"text":"Goblins live in the sea-caves under the stilt-towns. Better neighbours than the stilt-towns know.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › Where they live","invented":true}
+        ],
+        "Fae": [
+          {"text":"The fae trade in bargains and we trade in time. We rarely trade with each other.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
+        ],
+        "Giants": [
+          {"text":"Skörna's coastline has never silted, though it should have. We don't ask why.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Saltmara holds the deep southern coast and three sunken ruins, and keeps them in order.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The Pale City's dead are patient, like us. We'd get along, if either of us hurried.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true}
+        ],
+        "Constructs": [
+          {"text":"Constructs guard one place and keep still for years. That's a patience we understand.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnants don't explain themselves. Neither do we. It saves time.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Wait three tides for an answer.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"},
+        {"text":"What we send up is a message. Read it slowly.","source":"WORLD.md § Merfolk › Objects","invented":true},
+        {"text":"The deep keeps its own time.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true}
+      ]
+    },
+    {
+      "id": "Goblins",
+      "name": "Goblins",
+      "names": ["Goblins","goblin","Goblinsamfund"],
+      "voice": {"text":"Quick and joking, with a dark streak. Everything has a price, and news is worth more than coin.","source":"WORLD.md § The two traditions together › Goblins"},
+      "values": [
+        {"text":"The band: a community with its own order and a long memory, never a mob.","truth":"true","source":"WORLD.md § The two traditions together › Goblins"},
+        {"text":"Nothing that can be fixed gets thrown away.","truth":"true","source":"WORLD.md § Goblins › Architecture"},
+        {"text":"Finding worth in what other people throw out.","truth":"true","source":"WORLD.md § Who uses Rasa › The Goblins"}
+      ],
+      "taboos": [
+        {"text":"Forgetting a kindness or a wrong. We remember the inn that served us and the village that burned our homes.","truth":"true","source":"WORLD.md § The two traditions together › Goblins"},
+        {"text":"Turning up in another band's land with no Compact token. The wrong token is awkward; none at all is worse.","truth":"true","source":"WORLD.md § Goblins › Objects"}
+      ],
+      "customs": {
+        "greeting": {"text":"A stamped Compact-seal token is a letter of introduction from your band.","truth":"true","source":"WORLD.md § Goblins › Objects"},
+        "trade": {"text":"We work cheap and ask no questions. What we really trade is knowing where things are.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make"},
+        "mourning": {"text":"Each of the band sews a patch of the dead one's coat into their own, so the story keeps walking.","truth":"true","source":"WORLD.md § Goblins › Clothing","invented":true},
+        "debt": {"text":"A debt to one goblin is remembered by the whole band, and so is a debt the band owes you.","truth":"true","source":"WORLD.md § The two traditions together › Goblins","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The holds say we don't exist. We live in their empty upper halls and clear their rubble.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}
+        ],
+        "Lövfolk": [
+          {"text":"The elves don't let us past the treeline. Their loss: we'd fix their rope-roads cheap.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Where they live","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Their law says no goblins. Their farms on the eastern edge hire us anyway, and nobody asks.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"}
+        ],
+        "Viddfolk": [
+          {"text":"We find news in the ruins and the heralds carry it, for a share. Best partners we've got, and nobody admits it.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations","sensitivity":"secret"}
+        ],
+        "Steinfolk": [
+          {"text":"Steinfolk fix things properly and charge properly. We fix things today and charge less.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Pandor": [
+          {"text":"Sell a secret to a Pandor and the whole world has it by spring.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"actually":{"text":"The Compact of Knowing makes the Pandor tell anyone who asks, but very few ask, and they keep sealed records too.","source":"src/artificer/villages.ts › sm-anselm"}}
+        ],
+        "Deepwalkers": [
+          {"text":"Deepwalker merchants buy our news and pay fair. We live under their stilt-towns, quietly.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Goblin Compact's shadow network","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk know the sunken ruins like we know the dry ones. We'd love to trade maps. They're slow.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What they make","invented":true}
+        ],
+        "Fae": [
+          {"text":"The fae watch the ruins we open. They never say why.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › The Dry's effect","invented":true}
+        ],
+        "Giants": [
+          {"text":"Aldriksson must be a very high-level [Sage].","truth":"false","source":"WORLD.md § The Giants — the Seven","invented":true,"actually":{"text":"Giants have no Classes. The system decided it would be inappropriate.","source":"WORLD.md § The Giants — the Seven"}}
+        ],
+        "Dragons": [
+          {"text":"Never salvage on dragon ground. Some ruins are worth the risk. Those aren't.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords","invented":true}
+        ],
+        "Everstill": [
+          {"text":"Vitstad buys old papers out of the ruins and doesn't ask where we found them.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Constructs": [
+          {"text":"Old constructs guard ruins we want to get into. Ask nicely: some of them have Classes now.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnant at the crossroads told our [Delver] the ruin was under the ground. True. Thanks.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Big folk call it the margin. We call it home.","source":"src/artificer/villages.ts › cv-pim"},
+        {"text":"Everything has a price. Some prices are friendship.","source":"src/artificer/villages.ts › kg-arvid"},
+        {"text":"If it can be fixed, it stays.","source":"WORLD.md § Goblins › Architecture","invented":true}
+      ]
+    },
+    {
+      "id": "Fae",
+      "name": "Fae",
+      "names": ["Fae","faerie","faeries","fairy","fairies","Hollow Courts","Court of What Was","Court of What May Be"],
+      "voice": {"text":"Exact words and careful terms. Everything is an exchange, and every word counts.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"},
+      "values": [
+        {"text":"A fair exchange, kept to the letter.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make"},
+        {"text":"Old promises: the Court of What Was keeps memory, debt and the past.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › Where they live"},
+        {"text":"Places made safe for strangers, as a true inn makes them.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What shapes them"}
+      ],
+      "taboos": [
+        {"text":"Trying to break a bargain. A bargain can't be broken, only regretted.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true},
+        {"text":"Entering a court uninvited. The Old Accords forbid it.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords"}
+      ],
+      "customs": {
+        "greeting": {"text":"Never give your name first. A name is worth trading.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true},
+        "trade": {"text":"A truth for a name, a memory for a passage, a year's work for a useful door.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make"},
+        "mourning": {"text":"The Court of What Was keeps a dead one's bargains as if they were still at the table.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › The Dry's effect","invented":true},
+        "debt": {"text":"A debt to the fae is paid exactly. \"Exactly\" is the hard part.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"They carve their magic into stone so it can never change. We find that sweet.","truth":"true","source":"WORLD.md § Who uses it and how › The Bergfolk","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"We were under the groves before the trees were saplings. The Lövfolk came later.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}
+        ],
+        "Markfolk": [
+          {"text":"Their fields meet the forest at an edge. Edges are ours.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"They carry messages and never read them. Rare manners.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"Their walls measure the same inside and out. How dull, and how restful.","truth":"true","source":"WORLD.md § Fae › Architecture","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor have written our magic down many times. Accurately. Uselessly.","truth":"true","source":"WORLD.md § Who uses Rasa › The Fae"}
+        ],
+        "Deepwalkers": [
+          {"text":"A [Keeper] remembers a promise as it was felt. That is almost a fae thing.","truth":"true","source":"WORLD.md § Who uses Rasa › The Deepwalkers","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The deep keeps its own time, as we do. We understand each other's silences.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true}
+        ],
+        "Goblins": [
+          {"text":"The Court of What May Be watches the ruins the goblins open.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › The Dry's effect","sensitivity":"secret"}
+        ],
+        "Giants": [
+          {"text":"The Seven are older than some of our bargains. Not older than all of them.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Dragons keep what they hold. We keep what we're owed. Different hoards.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"Vitstad's dead [Innkeeper] still keeps a true inn. We will sit at that table.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A made thing that grows a Class has struck some bargain with the system. We watch how it goes.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"We know more about the third Remnant than we say.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","sensitivity":"secret"}
+        ]
+      },
+      "sayings": [
+        {"text":"Every deal is fair. Ask what \"fair\" means.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"},
+        {"text":"A truth for a name.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"},
+        {"text":"Mind the hour before dawn.","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true}
+      ]
+    },
+    {
+      "id": "Giants",
+      "name": "Giants",
+      "names": ["Giants","giant","the Seven","Aldriksson","Bergamora","Hjelmfall","Skörna","Vötur","Klev"],
+      "voice": {"text":"Very long pauses. Advice that's no use today and right in a hundred years.","source":"WORLD.md § The Giants — the Seven"},
+      "values": [
+        {"text":"Stillness: a giant's land takes its shape from them, slowly, over ages.","truth":"true","source":"WORLD.md § The Giants — the Seven"},
+        {"text":"The long view: Aldriksson's advice is unhelpful now and correct later.","truth":"true","source":"WORLD.md § The Giants — the Seven"},
+        {"text":"Being left to sleep. Sleep is how a giant thinks.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+      ],
+      "taboos": [
+        {"text":"Waking a giant who has gone to sleep. The Old Accords forbid it, for good reason.","truth":"true","source":"WORLD.md § The Giants — the Seven"},
+        {"text":"Taking from a giant's land without asking first.","truth":"true","source":"WORLD.md § The Giants — the Seven"}
+      ],
+      "customs": {
+        "greeting": {"text":"You don't greet a giant. You wait to be noticed, which can take a season.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true},
+        "trade": {"text":"Giants don't trade; they give. Aldriksson once gave the Pandor a stone six feet across and called it a record.","truth":"true","source":"WORLD.md § Giants › Objects"},
+        "mourning": {"text":"No history tells of a giant dying. A giant who sleeps is left to sleep.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true},
+        "debt": {"text":"A giant keeps an appointment on giant time: \"next spring\" may be fourteen months away.","truth":"true","source":"WORLD.md § The Giants — the Seven › The Dry's effect"}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"They tunnel under mountains and call it a kingdom. Bergamora is patient with them.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Where they live","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"They think three hundred years is old. It's a long afternoon.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Good water-keepers. Aldriksson's valley could teach them more, if they asked and waited.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"Always running. Their songs are nearly long enough.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"They make in one lifetime what a giant shapes in an age, and they make it well.","truth":"true","source":"WORLD.md § Giants › Architecture","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor sent a delegation about the old weather. Aldriksson will meet them next spring.","truth":"true","source":"WORLD.md § The Giants — the Seven › The Dry's effect"}
+        ],
+        "Deepwalkers": [
+          {"text":"They remember thirty generations. Skörna remembers the coast before there were generations.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"Of all the small peoples, the Merfolk wait best.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true}
+        ],
+        "Goblins": [
+          {"text":"Small, quick and clever. Aldriksson enjoys them; they ask the best questions.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Fae": [
+          {"text":"The fae make bargains. A giant has never needed one.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Dragons count what they own. The Seven stopped counting long ago.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The Everstill keep the past on shelves. The Seven keep it in the land.","truth":"true","source":"WORLD.md § Giants › Architecture","invented":true}
+        ],
+        "Constructs": [
+          {"text":"Made things that last. Aldriksson made one too: a stone calendar that keeps time to three minutes a year.","truth":"true","source":"WORLD.md § Giants › Architecture","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnants and the Seven leave each other alone. That has always worked.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Next spring is soon enough.","source":"WORLD.md § The Giants — the Seven › The Dry's effect"},
+        {"text":"A mountain notices the weather. It doesn't mind it.","source":"WORLD.md § The Giants — the Seven"},
+        {"text":"Unhelpful now. Right later.","source":"WORLD.md § The Giants — the Seven"}
+      ]
+    },
+    {
+      "id": "Dragons",
+      "name": "Dragons",
+      "names": ["Dragons","dragon","Grimmvald","Iskuldr","Saltmara","Dvergfast","Rödrök"],
+      "voice": {"text":"Few words, nearly all about what is theirs and where its edge is.","source":"AXES.md § Backfill: Mistheim peoples"},
+      "values": [
+        {"text":"Territory: a dragon's ground is a border, and the nations treat it as one.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"},
+        {"text":"Keeping: Iskuldr keeps every tool paid to him in tribute, unused.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"},
+        {"text":"Patience: some sleep for centuries, and waking one is a terrible mistake.","truth":"true","source":"WORLD.md § Safe to use freely › Dragons"}
+      ],
+      "taboos": [
+        {"text":"Ignoring a dragon's boundary. The nations learned what that costs.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"},
+        {"text":"Waking a sleeping dragon. It's a diplomatic incident with teeth.","truth":"true","source":"WORLD.md § Safe to use freely › Dragons"}
+      ],
+      "customs": {
+        "greeting": {"text":"Stop at the edge of the ground and wait to be noticed. Never walk in to say hello.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true},
+        "trade": {"text":"Tribute buys use of a dragon's edges: the Bergfolk mine Iskuldr's lower slopes and pay him in fine tools.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"},
+        "mourning": {"text":"No one living has seen a dragon die, and dragons don't speak of it.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true},
+        "debt": {"text":"A dragon forgets nothing it is owed, and nothing it owes.","truth":"true","source":"AXES.md § Backfill: Mistheim peoples","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"Iskuldr lets them mine his lower slopes for tribute in tools. He has kept every one.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Lövfolk": [
+          {"text":"Grimmvald's ground touches theirs. Some of their young ones have taken his patronage.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Markfolk": [
+          {"text":"Farmers. They don't come near dragon ground, which is wise.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"Their routes cross Rödrök's steppe and bend politely round his ground.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"The Steinfolk keep the Old Accords to the letter. Dragons approve of letters kept.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor have asked Saltmara, formally, for her sunken ruins. She hasn't answered.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Deepwalkers": [
+          {"text":"Deepwalkers came into Saltmara's waters uninvited and left with nothing taken. The ruins were tidied after.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers"}
+        ],
+        "Merfolk": [
+          {"text":"Saltmara's coast runs deep. The Merfolk are careful at its edge.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Goblins": [
+          {"text":"Goblins find things. Dragons keep things. We watch each other.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Fae": [
+          {"text":"The fae deal; dragons don't. That suits both.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
+        ],
+        "Giants": [
+          {"text":"The Seven and the five keep to their own ground. The Old Accords name us together.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords"}
+        ],
+        "Everstill": [
+          {"text":"The Pale City keeps a hoard of books. Dragons understand hoards.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
+        ],
+        "Constructs": [
+          {"text":"A construct guards what it's told to. A dragon guards what it chooses.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Remnants": [
+          {"text":"The Remnants hold no ground and want none. Dragons don't understand them.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"What is held is kept.","source":"WORLD.md § The Dragons — the territorial powers","invented":true},
+        {"text":"The edge is the edge.","source":"WORLD.md § The Dragons — the territorial powers","invented":true},
+        {"text":"Let the sleeper sleep.","source":"WORLD.md § Safe to use freely › Dragons"}
+      ]
+    },
+    {
+      "id": "Everstill",
+      "name": "Everstill",
+      "names": ["Everstill","undead","Pale City","Vitstad","lich","liches"],
+      "voice": {"text":"Formal and old-fashioned, from the century they died in. They talk of unfinished work as if it were still going.","source":"WORLD.md § The Everstill › Objects"},
+      "values": [
+        {"text":"Learning: a city that doesn't eat or sleep has spent its time on its library.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"},
+        {"text":"Restoring, never renovating: everything kept as it was when we arrived.","truth":"true","source":"WORLD.md § The Everstill › Architecture"},
+        {"text":"Finishing the work: what we carry is work that was interrupted, still being done.","truth":"true","source":"WORLD.md § The Everstill › Objects"}
+      ],
+      "taboos": [
+        {"text":"Letting a document crumble. Preservation comes first.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › What they make","invented":true},
+        {"text":"Rebuilding the old city in a new style.","truth":"true","source":"WORLD.md § The Everstill › Architecture","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"They greet you the way people did in the century they died in, bow and all.","truth":"true","source":"WORLD.md § The Everstill › Clothing","invented":true},
+        "trade": {"text":"Vitstad trades in access to its archive, when it chooses, and in mending fragile documents.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › What they make"},
+        "mourning": {"text":"When one of us finally stops, their unfinished work is left open on the desk for someone to pick up.","truth":"true","source":"WORLD.md § The Everstill › Objects","invented":true},
+        "debt": {"text":"Vitstad keeps accounts open for centuries. A debt there doesn't fade; it waits.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The Bergfolk dislike that our [Liches] have practised their craft for two centuries. We understand; they are mortal.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Relations","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"Their councils have kept the same seats for four hundred years. We find that almost lively.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"The living change their clothes every season. The Markfolk change their hats every spring. Bewildering.","truth":"true","source":"WORLD.md § The Everstill › Clothing","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"They carry the news of the living. We read it four hundred years later, as history.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"Steinfolk engineers come to study our walls. None has understood them yet.","truth":"true","source":"WORLD.md § The Everstill › Architecture","invented":true}
+        ],
+        "Pandor": [
+          {"text":"Partners under the Compact of Knowing. They catalogue; we preserve.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Relations","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"They remember aloud what we keep on shelves. Both are archives.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Compact of Knowing","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk would make fine archivists. They are never in a hurry.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true}
+        ],
+        "Goblins": [
+          {"text":"Goblin [Delvers] bring documents up from the ruins. We don't ask how. We preserve them.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Fae": [
+          {"text":"Our [Innkeeper]'s inn still holds its sanctuary. The fae sit there, and so does everyone else.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}
+        ],
+        "Giants": [
+          {"text":"Aldriksson's memory could fill a wing of the library. He has not offered.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Dragons keep hoards. We keep a library. Ours is more useful and less shiny.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
+        ],
+        "Constructs": [
+          {"text":"The Librarian has been our chief archivist for two hundred years. This is entirely normal.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Remnants": [
+          {"text":"Nothing in the archive explains the Remnants. We are still looking.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"We restore. We do not renovate.","source":"WORLD.md § The Everstill › Architecture"},
+        {"text":"The work isn't finished.","source":"WORLD.md § The Everstill › Objects"},
+        {"text":"Four hundred years is a start.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true}
+      ]
+    },
+    {
+      "id": "Constructs",
+      "name": "Constructs",
+      "names": ["Constructs","construct","golem","golems","Unmade","Remade"],
+      "voice": {"text":"Literal and patient. They say what a thing is for, then do it.","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+      "values": [
+        {"text":"Purpose: guarding the places nobody else will guard, for as long as it takes.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"},
+        {"text":"Being counted as persons: the Compact of Knowing says so, whatever the Bergfolk think.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"},
+        {"text":"Lasting: the oldest of us has worked for eleven hundred years.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+      ],
+      "taboos": [
+        {"text":"Leaving a post unguarded.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+        {"text":"Leaving a crack unmended once it's been noticed.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A construct states its name and its purpose: \"Guardian of the north crossing.\"","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+        "trade": {"text":"Constructs work for upkeep, not pay: oil, repairs and a place to stand.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+        "mourning": {"text":"When a construct stops for good, another takes its post, and the post keeps the old one's name.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+        "debt": {"text":"A construct remembers exactly what was agreed, and does exactly that.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The Bergfolk make constructs and argue we aren't persons. The older of us find the argument mildly interesting.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Lövfolk": [
+          {"text":"The Lövfolk grow things. We were made. Neither of us chose.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Markfolk farm-machines are not constructs. They don't talk back.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"Heralds pass our road junctions every day. They always nod.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"The Steinfolk build to last. So were we.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor counted us: forty-three, and twenty-two older than this age. They call us persons.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Deepwalkers": [
+          {"text":"Deepwalker [Keepers] remember; we record. It isn't the same, and they're right to say so.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What shapes them","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"We have never met the Merfolk. Our records of them are thin.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places","invented":true}
+        ],
+        "Goblins": [
+          {"text":"Goblins have mended constructs nobody else would touch. We remember.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
+        ],
+        "Fae": [
+          {"text":"The fae look at us as if we were a bargain someone made. Perhaps we were.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Giants": [
+          {"text":"Giants notice us the way a mountain notices weather. We notice them the same way.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
+        ],
+        "Dragons": [
+          {"text":"We guard what we are told to. Dragons guard what they choose. We don't stand guard near dragons.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"One of us, the Librarian, has kept Vitstad's archive for two hundred years.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
+        ],
+        "Remnants": [
+          {"text":"Our oldest doesn't know who made it. If the Remnants know, they don't say.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Made is not the same as finished.","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true},
+        {"text":"Guard what nobody else will.","source":"WORLD.md § The Constructs — the Unmade and Remade"},
+        {"text":"State your purpose.","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+      ]
+    },
+    {
+      "id": "Remnants",
+      "name": "Remnants",
+      "names": ["Remnants","Remnant"],
+      "voice": {"text":"Technically accurate and frequently unhelpful. Some of their answers have become proverbs.","source":"WORLD.md § The Remnants — what the dead gods left"},
+      "values": [
+        {"text":"Accuracy: the Messenger has delivered exactly what it was given, on time, for two hundred years.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"},
+        {"text":"Not explaining: they don't use the word \"Remnant\", and don't say what they are.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"},
+        {"text":"Staying put: the second has sat at the Threefold Crossroads longer than Vitstad has been lived in.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+      ],
+      "taboos": [
+        {"text":"Nobody knows what a Remnant would call shameful. Perhaps an inaccurate answer.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
+        {"text":"Asking a Remnant what it is. It will answer, accurately, and you'll learn nothing.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"Travellers stop at the Threefold Crossroads and ask the Remnant a question. It answers.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"},
+        "trade": {"text":"The first Remnant carries the Pandor's messages. What it is paid, nobody says.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
+        "mourning": {"text":"Nobody has seen a Remnant mourn, or end. They don't explain.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
+        "debt": {"text":"A Remnant owes nothing and is owed nothing, so far as anyone knows.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"The Bergfolk are under the mountain. Mostly.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Lövfolk": [
+          {"text":"The Lövfolk are older than they were.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"The Markfolk grow what they plant.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"The Viddfolk are going somewhere.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"What the Steinfolk build is standing. Until it is not.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Pandor": [
+          {"text":"The Pandor write things down. I have carried what they wrote.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+        ],
+        "Deepwalkers": [
+          {"text":"The Deepwalkers remember. They will remember this.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"The Merfolk are below the water. They will answer.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Goblins": [
+          {"text":"The goblins are people. The system knows it.","truth":"true","source":"WORLD.md § Safe to use freely › Goblins"}
+        ],
+        "Fae": [
+          {"text":"The fae know what they know.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Giants": [
+          {"text":"There are seven giants that are known.","truth":"true","source":"WORLD.md § The Giants — the Seven"}
+        ],
+        "Dragons": [
+          {"text":"The dragons keep what is theirs.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The Everstill have not finished.","truth":"true","source":"WORLD.md § The Everstill › Objects","invented":true}
+        ],
+        "Constructs": [
+          {"text":"The constructs were made. So was much else.","truth":"true","source":"WORLD.md § The system","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"You are standing where you are.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
+        {"text":"The way ahead is in front of you.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
+        {"text":"Every road ends somewhere.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+      ]
+    }
+  ]
+}

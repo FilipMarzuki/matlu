@@ -1,0 +1,737 @@
+{
+  "_doc": "What each culture on the caravan road values, shames, does and thinks of the road's other cultures (#1590). Ids and names are macro-world/cultures.json's (not edited here: it stays layout only). Read through src/artificer/culture-lore.ts; see docs/culture-lore.md.",
+  "cultures": [
+    {
+      "id": "fieldborn",
+      "name": "Fieldborn",
+      "names": ["fieldborn","field-born","field born"],
+      "voice": {"text":"Dry as a summer field. They count twice, say half, and forgive slowly.","source":"src/artificer/world/peoples.ts › fieldborn"},
+      "values": [
+        {"text":"Patience with the land: you plant, you wait, you count.","truth":"true","source":"src/artificer/world/peoples.ts › fieldborn"},
+        {"text":"Counting everything twice.","truth":"true","source":"src/artificer/villages.ts › hf-maren"},
+        {"text":"Keeping the farm whole: the land goes to the eldest child.","truth":"true","source":"src/artificer/world/peoples.ts › fieldborn"}
+      ],
+      "taboos": [
+        {"text":"Moving a fence in the night. Fences move in daylight, with everyone watching, or not at all.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true},
+        {"text":"Forgiving too quickly. A quick pardon means the wrong didn't matter.","truth":"true","source":"src/artificer/world/peoples.ts › fieldborn","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A word about the weather and a look at your boots: the mud says where you've walked.","truth":"true","source":"macro-world/cultures.json › fieldborn","invented":true},
+        "trade": {"text":"Barley is the coin of the valley. Even the goblins in the quarry are paid in it.","truth":"true","source":"src/artificer/asks.ts › hf-maren","invented":true},
+        "mourning": {"text":"No prayers: the old gods are dead and their names aren't said. The family walks the dead one's fields and names what they grew.","truth":"true","source":"WORLD.md § The weight of the past","invented":true},
+        "debt": {"text":"A debt is paid at harvest, never before, and counted twice when it is.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+      },
+      "views": {
+        "ridgefolk": [
+          {"text":"Our neighbours up the slope. They keep the hill fires, we keep the valley fields, and we share the ford.","truth":"true","source":"src/artificer/villages.ts › hollowford","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Saltmere writes every sale down. Honest, and slow.","truth":"true","source":"src/artificer/villages.ts › hf-tobin","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The holds ask what you've made. We ask what you've grown. Same question, really.","truth":"true","source":"src/artificer/world/peoples.ts › mountainhold","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The Gate counts you, and you remember being counted.","truth":"true","source":"src/artificer/asks.ts › hf-maren"}
+        ],
+        "caravan-folk": [
+          {"text":"Every spring the caravan brings someone half-dead out of the Reach.","truth":"true","source":"src/artificer/villages.ts › hf-maren"}
+        ],
+        "grovekin": [
+          {"text":"Grovekin heal with words and willow bark, and never hurry.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"Harbour folk salt everything and argue about all of it.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe folk own nothing they can't carry. You can't plant a field like that.","truth":"true","source":"macro-world/cultures.json › steppe-camp","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge takes in anyone the road spits out. We send them our spare bread.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"The ironborne bring ore down off the passes. We don't need much iron; a good plough lasts.","truth":"true","source":"src/artificer/asks.ts › hf-orrin","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"There's a goblin band in the old quarry above the ford. Neighbours, and we don't ask where the tools came from.","truth":"true","source":"src/artificer/asks.ts › hf-maren","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"That is how we lose land here: one fence at a time.","source":"src/artificer/villages.ts › hf-maren"},
+        {"text":"We only built where the river let us.","source":"src/artificer/villages.ts › hf-maren"},
+        {"text":"Count it twice.","source":"src/artificer/villages.ts › hf-maren","invented":true}
+      ]
+    },
+    {
+      "id": "ridgefolk",
+      "name": "Ridgefolk",
+      "names": ["ridgefolk","ridge-folk","ridge folk"],
+      "voice": {"text":"Gruff and generous, and impossible to rush. Advice first, warmth after.","source":"src/artificer/world/peoples.ts › ridgefolk"},
+      "values": [
+        {"text":"Generosity: advice for anyone who asks, whether they wanted it or not.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk"},
+        {"text":"Doing it right the first time. A crude tool is a promise you'll fix it later.","truth":"true","source":"src/artificer/villages.ts › hf-orrin"},
+        {"text":"Shares for all: land is split among all the children, not handed to one.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk"}
+      ],
+      "taboos": [
+        {"text":"Breaking your word. Ridgefolk are bound by honour.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk"},
+        {"text":"Rushing someone at their work. You wait until they're done.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"Come to the hearth first. Nobody talks business on a cold doorstep.","truth":"true","source":"macro-world/cultures.json › ridgefolk","invented":true},
+        "trade": {"text":"Stone and timber are sold by the cartload, and a handshake by the fire seals it.","truth":"true","source":"macro-world/cultures.json › ridgefolk","invented":true},
+        "mourning": {"text":"The dead one's hearth is banked and left to burn out on its own. Nobody relights it until morning.","truth":"true","source":"macro-world/cultures.json › ridgefolk","invented":true},
+        "debt": {"text":"Debts are shared like land: a family owes together and pays together.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley folk count everything twice and forgive slowly. Good neighbours at the ford.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Saltmere's book has a page for everyone. Even us.","truth":"true","source":"src/artificer/villages.ts › sm-anselm","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The holds ask what you've made, not whose child you are. Some of us left a hold seat for a forge.","truth":"true","source":"src/artificer/villages.ts › hf-orrin"}
+        ],
+        "wallborn": [
+          {"text":"The Gate takes a toll on everything that moves. Sell before you get there.","truth":"true","source":"src/artificer/villages.ts › hf-tobin","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan comes up the valley every spring when the snow lets go. We keep a fire lit for it.","truth":"true","source":"src/artificer/villages.ts › cv-bodil","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Grovekin healers listen to a wound before they touch it. Let them.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"Salt comes up from the mere and our smoked meat goes down. Both keep a winter.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe folk keep the road past the mere. Under the Accords, nobody argues.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge at Saltmere takes in anyone. We send down blankets when we can.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"Iron doesn't come from these hills. The ironborne bring ore down off the passes.","truth":"true","source":"src/artificer/asks.ts › hf-orrin"}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblin traders never name a price first, so they always win the bargain.","truth":"rumour","source":"src/artificer/villages.ts › kg-arvid","invented":true,"actually":{"text":"They do wait for you to name yours, but that's caution, not cheating.","source":"src/artificer/villages.ts › kg-arvid"}}
+        ]
+      },
+      "sayings": [
+        {"text":"Make it sound the first time.","source":"src/artificer/villages.ts › hf-orrin"},
+        {"text":"These hills give stone and grudges.","source":"src/artificer/asks.ts › hf-orrin"},
+        {"text":"Fire first, talk after.","source":"macro-world/cultures.json › ridgefolk","invented":true}
+      ]
+    },
+    {
+      "id": "waterstead",
+      "name": "Pandor Watersteads",
+      "names": ["waterstead","watersteads","Pandor Watersteads"],
+      "voice": {"text":"Patient and precise, delighted by a new question, and always checking the book.","source":"src/artificer/villages.ts › sm-anselm"},
+      "values": [
+        {"text":"The book: every winter the Reach gives back is written down.","truth":"true","source":"src/artificer/villages.ts › sm-anselm"},
+        {"text":"Telling anyone who asks what the book says.","truth":"true","source":"src/artificer/villages.ts › sm-anselm"},
+        {"text":"Listening to water. It answers those who are patient with it long enough.","truth":"true","source":"src/artificer/villages.ts › sm-gunnar"}
+      ],
+      "taboos": [
+        {"text":"Tearing a page out of the book. A mistake is crossed through, never removed.","truth":"true","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What shapes them","invented":true},
+        {"text":"Letting the sluices silt up. Neglected water shames the whole stead.","truth":"true","source":"src/artificer/villages.ts › sm-gunnar","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"Your name, where you came from and the day go into the book before the tea.","truth":"true","source":"src/artificer/villages.ts › sm-anselm","invented":true},
+        "trade": {"text":"Every sale is written in the book, and nobody argues with the book.","truth":"true","source":"src/artificer/villages.ts › hf-tobin"},
+        "mourning": {"text":"The dead one's page is copied out fair, and their last winter is read aloud.","truth":"true","source":"src/artificer/villages.ts › sm-anselm","invented":true},
+        "debt": {"text":"A debt is a line in the book, crossed through when paid. Unpaid lines are read out at the Moot.","truth":"true","source":"src/artificer/world/peoples.ts › waterstead","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Hollowford's harvests are in our book back forty winters. They don't know we have them.","truth":"true","source":"src/artificer/villages.ts › sm-anselm","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk tell you what they know slowly, by the fire. We write it down faster.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The holds trust a carved rune over a written page. Both last, if they're kept.","truth":"true","source":"WORLD.md § Who uses it and how › The Bergfolk","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The book has Kestrel Gate's iron price for every year since the wall was built.","truth":"true","source":"src/artificer/asks.ts › sm-anselm"}
+        ],
+        "caravan-folk": [
+          {"text":"Every caravan is in the book: the day it came, and who came with it.","truth":"true","source":"src/artificer/villages.ts › sm-anselm","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Grovekin heal by speaking. We write down what they say, when they let us.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"The harbour folk salt the fish and we write down how much. Between us, the mere is kept.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"The steppe folk keep their records in songs. We've copied some down. They sing them better.","truth":"true","source":"src/artificer/villages.ts › cv-runa","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge writes nothing down, so we keep its book for it.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"The ironborne doubled the iron price to get rich.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"actually":{"text":"The price has doubled in forty winters. The book doesn't say why.","source":"src/artificer/asks.ts › sm-anselm"}}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblins sell us what they find in the ruins, and we must tell anyone who asks. They've never forgiven us.","truth":"true","source":"src/artificer/asks.ts › sm-anselm","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Nobody argues with the book.","source":"src/artificer/villages.ts › hf-tobin"},
+        {"text":"Water listens, if you've been patient with it.","source":"src/artificer/villages.ts › sm-gunnar"},
+        {"text":"Very few ask.","source":"src/artificer/villages.ts › sm-anselm"}
+      ]
+    },
+    {
+      "id": "mountainhold",
+      "name": "Bergfolk Holds",
+      "names": ["mountainhold","mountain hold","mountain holds","Bergfolk Holds","the holds"],
+      "voice": {"text":"Severe, then suddenly kind. They teach the way the mountain does: slowly.","source":"src/artificer/villages.ts › kg-runa"},
+      "values": [
+        {"text":"What you make is who you are. Make something that will outlast you.","truth":"true","source":"src/artificer/villages.ts › kg-runa"},
+        {"text":"Merit over birth: the clan's elders lead, and craft decides who rises.","truth":"true","source":"src/artificer/world/peoples.ts › mountainhold"},
+        {"text":"Patience with stone: dry-stone walls that stand three hundred years without mortar.","truth":"true","source":"src/artificer/villages.ts › kg-runa"}
+      ],
+      "taboos": [
+        {"text":"Touching another smith's tools without leave.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        {"text":"Letting the forge go cold. It is the hold's second hearth.","truth":"true","source":"src/artificer/asks.ts › kg-runa","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"In the hall you name your craft before your family.","truth":"true","source":"src/artificer/world/peoples.ts › mountainhold","invented":true},
+        "trade": {"text":"Tools leave the hold rune-marked: who made them, and how.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        "mourning": {"text":"A master is buried with their own tools.","truth":"true","source":"WORLD.md § Bergfolk › Objects"},
+        "debt": {"text":"A debt is cut into the hall's tally-stone and cut out when it's paid. The stone remembers.","truth":"true","source":"WORLD.md § Bergfolk › Objects","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley farmers. They feed the hold and we shoe their ploughs. A fair trade.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Building Alliance","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Half hold-blood and half valley. Some of the best of them left a hold seat for a forge.","truth":"true","source":"src/artificer/villages.ts › hf-orrin","invented":true}
+        ],
+        "waterstead": [
+          {"text":"The Saltmere book writes down everything and makes nothing. Still, it's honest.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The Gate's wall is good stonework. Ours is older.","truth":"true","source":"src/artificer/villages.ts › kg-runa","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan carries our work down to the lowlands, where they pay silly money for it.","truth":"true","source":"src/artificer/villages.ts › kg-arvid","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Below the ash line the grovekin's herb book serves you better; above it, the mountain's herbs are bitter and true.","truth":"true","source":"src/artificer/asks.ts › kg-runa"}
+        ],
+        "harborfolk": [
+          {"text":"Harbour salt keeps the hold's meat. We pay in tools.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"The steppe folk build nothing that lasts. They choose not to, which is odd.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them"}
+        ],
+        "refuge-keepers": [
+          {"text":"A refuge built in a ruin. Better a ruin kept than a ruin wasted.","truth":"true","source":"macro-world/cultures.json › refuge-keepers","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"Smiths trained in the holds go down to the encampment. Sabine did, and she likes being asked why.","truth":"true","source":"src/artificer/asks.ts › kg-runa"}
+        ],
+        "bazaar-folk": [
+          {"text":"There are no goblins in the holds.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations","actually":{"text":"Goblin salvage bands live in the empty upper levels of three old holds.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}}
+        ]
+      },
+      "sayings": [
+        {"text":"A mountain teaches slowly and forgives nothing.","source":"src/artificer/villages.ts › kg-runa"},
+        {"text":"Stonework is patience with a hammer.","source":"src/artificer/villages.ts › kg-runa"},
+        {"text":"What you make is who you are.","source":"src/artificer/villages.ts › kg-runa"}
+      ]
+    },
+    {
+      "id": "wallborn",
+      "name": "Wallborn",
+      "names": ["wallborn","wall-born","wall born"],
+      "voice": {"text":"Formal and careful. Every word is weighed as if it had a toll.","source":"src/artificer/villages.ts › kg-veit"},
+      "values": [
+        {"text":"Keeping the wall: the toll pays for the wall, and the wall pays for the peace.","truth":"true","source":"src/artificer/villages.ts › kg-veit"},
+        {"text":"Counting: wagons, heads and goods, and the kestrels too.","truth":"true","source":"src/artificer/asks.ts › kg-veit"},
+        {"text":"Letters and records. The Gate values reading.","truth":"true","source":"src/artificer/world/peoples.ts › wallborn"}
+      ],
+      "taboos": [
+        {"text":"Slipping past the count. Dodging it shames you, not the Gate.","truth":"true","source":"src/artificer/asks.ts › kg-veit","invented":true},
+        {"text":"Saying aloud what the wall was built against. We stopped saying; we didn't stop keeping the wall.","truth":"true","source":"src/artificer/villages.ts › kg-veit","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"You will be counted: wagons, heads and goods. Don't take it personally.","truth":"true","source":"src/artificer/asks.ts › kg-veit"},
+        "trade": {"text":"Everything that moves through the Gate pays a toll, and the toll is folded into every price inside.","truth":"true","source":"src/artificer/asks.ts › hf-tobin"},
+        "mourning": {"text":"The dead are counted one last time: their name is read from the gate roll at dusk.","truth":"true","source":"src/artificer/world/peoples.ts › wallborn","invented":true},
+        "debt": {"text":"A debt to the Gate is written in the roll. You can pass, but you'll be counted again on the way back.","truth":"true","source":"src/artificer/asks.ts › kg-veit","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Hollowford folk come through rarely, and keep the stamped paper on the wall for years.","truth":"true","source":"src/artificer/asks.ts › hf-maren","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk carts bring stone and timber. Easy to count, slow to unload.","truth":"true","source":"src/artificer/villages.ts › cv-runa","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Saltmere's book and our roll agree on most things. We check.","truth":"true","source":"src/artificer/asks.ts › sm-anselm","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The hold above the Gate keeps its own counsel, and its own count.","truth":"true","source":"src/artificer/asks.ts › hf-orrin","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan pays its toll and is counted here, every spring.","truth":"true","source":"src/artificer/villages.ts › kestrel-gate"}
+        ],
+        "grovekin": [
+          {"text":"Grovekin come through with herbs we can't name. We count them anyway.","truth":"true","source":"src/artificer/asks.ts › kg-veit","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"Salt comes up to the Gate by the cartload and goes back as coin, less the toll.","truth":"true","source":"src/artificer/asks.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Viddfolk heralds pass with sealed cylinders. We count the herald, never the message.","truth":"true","source":"WORLD.md § Viddfolk › Objects","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"Refuges inside old ruins. We'd wall them properly, if they'd let us.","truth":"true","source":"macro-world/cultures.json › refuge-keepers","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"Every hinge on the gate is ironborne work.","truth":"true","source":"src/artificer/asks.ts › kg-sabine"}
+        ],
+        "bazaar-folk": [
+          {"text":"The Compact's people come with stamped tokens instead of papers. We let them; the winch needs a goblin more often than the wall admits.","truth":"true","source":"src/artificer/asks.ts › kg-veit"}
+        ]
+      },
+      "sayings": [
+        {"text":"Kestrel Gate keeps the road. The road keeps us.","source":"src/artificer/villages.ts › kg-veit"},
+        {"text":"The toll pays for the wall. The wall pays for the peace.","source":"src/artificer/villages.ts › kg-veit"},
+        {"text":"We count the kestrels too.","source":"src/artificer/asks.ts › kg-veit"}
+      ]
+    },
+    {
+      "id": "caravan-folk",
+      "name": "Caravan Camps",
+      "names": ["caravan-folk","caravan folk","caravan people","caravan camps"],
+      "voice": {"text":"Practical and tireless, fond of every wagon like a relative, and always counting the miles to the next inn.","source":"src/artificer/villages.ts › cv-bodil"},
+      "values": [
+        {"text":"Reaching an inn before dark: under an innkeeper's roof no one draws a blade.","truth":"true","source":"src/artificer/villages.ts › cv-bodil"},
+        {"text":"Getting everyone through. Nobody is left on the road if a wagon can carry them.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true},
+        {"text":"The wagons: every one looked after like family.","truth":"true","source":"src/artificer/villages.ts › cv-bodil"}
+      ],
+      "taboos": [
+        {"text":"Drawing a blade under an inn's roof. That law is older than any kingdom.","truth":"true","source":"WORLD.md § Inns"},
+        {"text":"Hoarding water on the road. What's in the barrel is everyone's.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"\"Road's long,\" and you offer a drink from your waterskin before you ask anything.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true},
+        "trade": {"text":"Prices are kept in songs: every road has a song, and every song has the prices in it.","truth":"true","source":"src/artificer/villages.ts › cv-runa"},
+        "mourning": {"text":"At the next inn the dead one's name is said, and the innkeeper sets out one more cup.","truth":"true","source":"WORLD.md § Inns","invented":true},
+        "debt": {"text":"Caravan debts ride from spring to spring. Everyone knows who owes Hedda three barrels.","truth":"true","source":"src/artificer/villages.ts › cv-bodil"}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Hollowford is the only ford before the spring flood. We cross there or wait a month.","truth":"true","source":"src/artificer/villages.ts › hollowford"}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk feed you and give you advice you didn't ask for. Take both.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Saltmere's prices are honest. The book sees to it.","truth":"true","source":"src/artificer/villages.ts › hf-tobin"}
+        ],
+        "mountainhold": [
+          {"text":"Hold-made tools sell for silly money in the lowlands. Pack them carefully.","truth":"true","source":"src/artificer/villages.ts › kg-arvid","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The Gate counts the wagons, then the people, then the wagons again in case one walked off.","truth":"true","source":"src/artificer/asks.ts › cv-bodil"}
+        ],
+        "grovekin": [
+          {"text":"Most of what ails a traveller is food, drink or sleep, missing. Our herbwife says so.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia"}
+        ],
+        "harborfolk": [
+          {"text":"Hedda is owed by half the valley, and she tells everyone.","truth":"true","source":"src/artificer/villages.ts › cv-bodil"}
+        ],
+        "steppe-camp": [
+          {"text":"The Viddfolk keep the steppe road. Where they sing, the road is safe.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge takes anyone the road spits out. We've left a few there to mend.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"The ironborne mend axles at the Gate. Dear, but sound.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"A goblin tinker on the wagon is worth two spare wheels.","truth":"true","source":"src/artificer/villages.ts › cv-pim","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Under an innkeeper's roof no one draws a blade.","source":"src/artificer/villages.ts › cv-bodil"},
+        {"text":"Every road has a song, and every song has the prices in it.","source":"src/artificer/villages.ts › cv-runa"},
+        {"text":"Most years someone is waiting. Some years no one is.","source":"src/artificer/villages.ts › cv-bodil"}
+      ]
+    },
+    {
+      "id": "grovekin",
+      "name": "Lövfolk Groves",
+      "names": ["grovekin","grove-kin","grove folk","Lövfolk Groves"],
+      "voice": {"text":"Unhurried and exact; soft-spoken, very old, and quietly amused by everyone.","source":"src/artificer/villages.ts › cv-ottilia"},
+      "values": [
+        {"text":"Listening before touching: a wound is heard before it's treated.","truth":"true","source":"src/artificer/villages.ts › hf-isa"},
+        {"text":"A healing word works only when it's true, so you never lie to the sick.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia"},
+        {"text":"Healing that is spoken, not brewed.","truth":"true","source":"src/artificer/villages.ts › hf-isa"}
+      ],
+      "taboos": [
+        {"text":"Promising a patient they'll be well when you don't know it.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true},
+        {"text":"Cutting a living tree. The grove is shaped, never felled.","truth":"true","source":"macro-world/cultures.json › grovekin","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A grovekin greets you by looking at your hands: frost and work leave marks you don't feel yet.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true},
+        "trade": {"text":"Herbs are given to the sick and sold to the well.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true},
+        "mourning": {"text":"The dead are laid among the grove's roots, and the living speak their name to the oldest tree.","truth":"true","source":"macro-world/cultures.json › grovekin","invented":true},
+        "debt": {"text":"A healing is never owed. Bringing food afterwards is the custom.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley folk work until they break, then come to us. We'd rather see them sooner.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk are gruff to hide how kind they are. We don't mind.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+        ],
+        "waterstead": [
+          {"text":"The steads write down every cure we tell them. Some even work written down.","truth":"true","source":"WORLD.md § Who uses Rasa › The Lövfolk","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"Hold folk call Rasa sentiment. Their best smiths use it anyway, and don't say so.","truth":"true","source":"WORLD.md § Who uses Rasa › The Bergfolk"}
+        ],
+        "wallborn": [
+          {"text":"The Gate counts our herbs. It can't tell one leaf from another.","truth":"true","source":"src/artificer/asks.ts › kg-veit","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"The spring wagon brings the half-frozen out of the Reach. Some of us came that way ourselves.","truth":"true","source":"src/artificer/villages.ts › hf-isa"}
+        ],
+        "harborfolk": [
+          {"text":"Harbour folk are loud and warm. Good company for a slow recovery.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe folk heal on the move. We'd make them sit.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"Clean water first, everything else after. The refuge has it right.","truth":"true","source":"src/artificer/villages.ts › sm-liv"}
+        ],
+        "ironborne-encampment": [
+          {"text":"Forge burns and ash coughs come down from the encampment. We keep salve ready.","truth":"true","source":"src/artificer/villages.ts › kestrel-gate","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblin menders fix anything but a fever. That's ours.","truth":"true","source":"src/artificer/villages.ts › cv-pim","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"A healing word works better when it is true.","source":"src/artificer/villages.ts › cv-ottilia"},
+        {"text":"You learn what you can carry, and you leave the rest.","source":"src/artificer/villages.ts › hf-isa"},
+        {"text":"Drink, eat, sleep.","source":"src/artificer/villages.ts › cv-ottilia"}
+      ]
+    },
+    {
+      "id": "harborfolk",
+      "name": "Harbor Towns",
+      "names": ["harborfolk","harbourfolk","harbor folk","harbour folk","Harbor Towns"],
+      "voice": {"text":"Loud, warm, and never quite finished with an argument.","source":"src/artificer/villages.ts › sm-hedda"},
+      "values": [
+        {"text":"Keeping: the water gives, and we salt it and keep it.","truth":"true","source":"src/artificer/villages.ts › sm-hedda"},
+        {"text":"Remembering debts, and getting them paid.","truth":"true","source":"src/artificer/villages.ts › sm-hedda"},
+        {"text":"Building on stilts over the water, ready for it to change its mind.","truth":"true","source":"macro-world/cultures.json › harborfolk"}
+      ],
+      "taboos": [
+        {"text":"Smoking a ration badly. Done well it lasts the winter; done badly, a week, and everyone knows who did it.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true},
+        {"text":"Forgetting a promise made at the water's edge.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A harbour greeting is a line of song, and you answer with the next one.","truth":"true","source":"macro-world/cultures.json › harborfolk","invented":true},
+        "trade": {"text":"Salt fish, salt pork, salt everything.","truth":"true","source":"src/artificer/villages.ts › sm-hedda"},
+        "mourning": {"text":"The dead one's name is carved into the piling anchors, beside the tide marks.","truth":"true","source":"WORLD.md § Deepwalkers › Architecture","invented":true},
+        "debt": {"text":"A debt is remembered out loud, to everyone, until it's paid.","truth":"true","source":"src/artificer/villages.ts › cv-bodil","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley folk buy our salt and complain about the price. Every year.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk trade smoked meat for salt and never haggle. Suspicious.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "waterstead": [
+          {"text":"The steads keep the book and the sweet wells; we keep the salt. The mere needs both.","truth":"true","source":"src/artificer/villages.ts › saltmere","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The holds buy salt by the barrel and pay in tools. Good tools.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
+        ],
+        "wallborn": [
+          {"text":"Salt goes up to the Gate by the cartload and comes back as coin, less the toll. Always less the toll.","truth":"true","source":"src/artificer/asks.ts › sm-hedda"}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan master owes us three barrels from two springs ago.","truth":"true","source":"src/artificer/villages.ts › sm-hedda"}
+        ],
+        "grovekin": [
+          {"text":"Grovekin healers are quiet. We make up for it.","truth":"true","source":"src/artificer/villages.ts › cv-ottilia","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe folk speak in verses and eat our fish. Fair trade.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge says don't drink at the north end of the mere. They're right; we don't.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"Ironborne hooks hold a net better than any others.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblins pay in news, and the news is usually good. Never once a lie.","truth":"true","source":"src/artificer/asks.ts › sm-hedda"}
+        ]
+      },
+      "sayings": [
+        {"text":"The mere gives and we keep.","source":"src/artificer/villages.ts › sm-hedda"},
+        {"text":"Smoked well, it lasts the winter. Smoked badly, a week.","source":"src/artificer/villages.ts › sm-hedda"},
+        {"text":"A debt floats. It always comes back to shore.","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+      ]
+    },
+    {
+      "id": "steppe-camp",
+      "name": "Viddfolk Camps",
+      "names": ["steppe-camp","steppe camp","steppe camps","Viddfolk Camps","steppe folk"],
+      "voice": {"text":"Few words, sharp eyes, and no patience for hurry.","source":"src/artificer/villages.ts › sm-yrsa"},
+      "values": [
+        {"text":"Patience. It gets you more than arrows.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa"},
+        {"text":"Keeping the road: a route-claim is the oldest promise in Mistheim.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa"},
+        {"text":"Travelling light: a camp goes up and comes down in under an hour.","truth":"true","source":"WORLD.md § Viddfolk › Architecture"}
+      ],
+      "taboos": [
+        {"text":"Hurrying the hunt, or the talk.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true},
+        {"text":"Leaving a fire-circle unswept when the camp moves on.","truth":"true","source":"macro-world/cultures.json › steppe-camp","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"You come to the camp fire and wait to be offered a place. Then you tell what you've seen on the road.","truth":"true","source":"macro-world/cultures.json › steppe-camp","invented":true},
+        "trade": {"text":"News is traded first and goods after. A camp that likes your road may buy your hides.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true},
+        "mourning": {"text":"The camp sings the dead one's road, every verse, then moves on.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true},
+        "debt": {"text":"Under the Accords the road keeps its debts.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley folk fence the land. We don't understand fences, but we go round them.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk light their fires on the hills. From the steppe we see them and know the road is clear.","truth":"true","source":"macro-world/cultures.json › ridgefolk","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Saltmere's wells are sweet. We water the herds there and write nothing down.","truth":"true","source":"src/artificer/villages.ts › saltmere","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"The holds dig down. We go along. Both of us find things.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The Gate's verse is the shortest in the song: wall, toll, count, through.","truth":"true","source":"src/artificer/asks.ts › cv-runa","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan keeps to our road, and we keep it safe for them.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "grovekin": [
+          {"text":"A grovekin healer taught our hunters which plants the deer eat.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+        ],
+        "harborfolk": [
+          {"text":"The harbour folk dry fish on racks by the mere. We trade them hides.","truth":"true","source":"src/artificer/villages.ts › saltmere","invented":true}
+        ],
+        "refuge-keepers": [
+          {"text":"Lost riders end up at the refuge. We go and fetch them.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"Our arrowheads are Gate iron. An iron point comes back out of the deer.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblin news travels on our road. We carry it and say nothing.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations","invented":true,"sensitivity":"guarded"}
+        ]
+      },
+      "sayings": [
+        {"text":"Patience gets you more than arrows.","source":"src/artificer/villages.ts › sm-yrsa"},
+        {"text":"Snow tells you everything. Mud lies.","source":"src/artificer/villages.ts › sm-yrsa"},
+        {"text":"We don't take sides. We take the road.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make"}
+      ]
+    },
+    {
+      "id": "refuge-keepers",
+      "name": "Remnant Refuges",
+      "names": ["refuge-keepers","refuge keepers","refuge-keeper","Remnant Refuges"],
+      "voice": {"text":"Brisk and tireless. They've seen too much to be surprised.","source":"src/artificer/villages.ts › sm-liv"},
+      "values": [
+        {"text":"Taking in anyone the road spits out. That's what a refuge is.","truth":"true","source":"src/artificer/villages.ts › sm-liv"},
+        {"text":"Clean water first. Everything else after.","truth":"true","source":"src/artificer/villages.ts › sm-liv"},
+        {"text":"Using what's left: a refuge is built inside an old ruin.","truth":"true","source":"macro-world/cultures.json › refuge-keepers"}
+      ],
+      "taboos": [
+        {"text":"Turning anyone away from the door.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true},
+        {"text":"Asking newcomers where they came from before they've eaten.","truth":"true","source":"src/artificer/asks.ts › sm-liv","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"Water first, before your name. Then a bed, then questions, if there are any.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true},
+        "trade": {"text":"A refuge doesn't sell. Everyone who stays mends something; that's the rent.","truth":"true","source":"macro-world/cultures.json › refuge-keepers","invented":true},
+        "mourning": {"text":"The lamps are always kept low; for the dead they're put out for one night.","truth":"true","source":"macro-world/cultures.json › refuge-keepers","invented":true},
+        "debt": {"text":"Kindness on the road comes back to the refuge's table: a stranger who was fed is fed again.","truth":"true","source":"src/artificer/asks.ts › sm-liv","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley folk send bread when the winter's hard. They don't say so.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk send blankets and advice. We keep the blankets.","truth":"true","source":"src/artificer/world/peoples.ts › ridgefolk","invented":true}
+        ],
+        "waterstead": [
+          {"text":"The stead's wells are clean. We send our sick there for water.","truth":"true","source":"src/artificer/villages.ts › saltmere","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"Hold folk rarely need us. When they do, they don't say so.","truth":"true","source":"src/artificer/villages.ts › kg-runa","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The Gate counts people. We just feed them.","truth":"true","source":"src/artificer/asks.ts › kg-veit","invented":true}
+        ],
+        "caravan-folk": [
+          {"text":"Every spring the caravan leaves someone with us who needs rest before the hills.","truth":"true","source":"src/artificer/villages.ts › hf-maren","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Grovekin heal slower than we'd like and better than we can.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"The harbour folk are loud, and they always have spare fish.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe riders bring us the lost from the open grass.","truth":"true","source":"src/artificer/villages.ts › sm-yrsa","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"The ironborne mend our hinges for nothing. We don't ask why.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblins built half our walls out of what they found. Good walls.","truth":"true","source":"macro-world/cultures.json › bazaar-folk","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"Clean water first. Everything else after.","source":"src/artificer/villages.ts › sm-liv"},
+        {"text":"That's what a refuge is.","source":"src/artificer/villages.ts › sm-liv"},
+        {"text":"You'll eat with us tonight.","source":"src/artificer/asks.ts › sm-liv"}
+      ]
+    },
+    {
+      "id": "ironborne-encampment",
+      "name": "Steinfolk Encampments",
+      "names": ["ironborne-encampment","ironborne","ironborn","Steinfolk Encampments","encampment"],
+      "voice": {"text":"Blunt and funny, and proud of every hinge they've hung.","source":"src/artificer/villages.ts › kg-sabine"},
+      "values": [
+        {"text":"Good iron sings when you strike it. Bad iron argues.","truth":"true","source":"src/artificer/villages.ts › kg-sabine"},
+        {"text":"Work that never runs out: hinges, axles, arrowheads.","truth":"true","source":"src/artificer/villages.ts › kg-sabine"},
+        {"text":"Doing it twice to be sure: quench twice when the ash is on the anvil.","truth":"true","source":"src/artificer/villages.ts › kg-sabine"}
+      ],
+      "taboos": [
+        {"text":"Selling bad iron as good.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true},
+        {"text":"Building anything crooked. The encampment is laid out true.","truth":"true","source":"macro-world/cultures.json › ironborne-encampment","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A nod at the anvil. You don't shake a smith's hand mid-strike.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true},
+        "trade": {"text":"The ironborne bring ore down off the passes, and the best of it goes to the Gate's smiths.","truth":"true","source":"src/artificer/asks.ts › hf-orrin"},
+        "mourning": {"text":"As the Steinfolk do, they add to what the dead one made: one last rivet in their last work.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true},
+        "debt": {"text":"A debt is paid in iron by weight, never in promises.","truth":"true","source":"src/artificer/villages.ts › kg-sabine","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Valley ploughs last too long. Bad for business.","truth":"true","source":"src/artificer/asks.ts › hf-orrin","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"There's a ridge smith at Hollowford who's hold-trained, whatever he says. You can hear it in his edges.","truth":"true","source":"src/artificer/asks.ts › kg-sabine"}
+        ],
+        "waterstead": [
+          {"text":"Saltmere's book says iron is dear. The passes are steep. Both true.","truth":"true","source":"src/artificer/asks.ts › sm-anselm","invented":true}
+        ],
+        "mountainhold": [
+          {"text":"Many of us were hold-trained before we came down to the encampment.","truth":"true","source":"src/artificer/asks.ts › kg-runa","invented":true}
+        ],
+        "wallborn": [
+          {"text":"Every hinge on the gate is ours. When it squeaks, that's the gate counting.","truth":"true","source":"src/artificer/asks.ts › kg-sabine"}
+        ],
+        "caravan-folk": [
+          {"text":"The caravan breaks axles, we mend them, and it breaks them again. Good customers.","truth":"true","source":"src/artificer/villages.ts › cv-bodil","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Grovekin salve is the only thing for a forge burn.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"Harbour folk want hooks by the hundred. We make them by the thousand.","truth":"true","source":"src/artificer/villages.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"Steppe hunters buy our arrowheads. An iron point comes back out of the deer.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+        ],
+        "refuge-keepers": [
+          {"text":"We mend the refuge's hinges for nothing. Somebody should.","truth":"true","source":"src/artificer/villages.ts › sm-liv","invented":true}
+        ],
+        "bazaar-folk": [
+          {"text":"Goblins buy the ore we don't want and sell it on to people who can't tell the difference.","truth":"true","source":"src/artificer/asks.ts › kg-arvid"}
+        ]
+      },
+      "sayings": [
+        {"text":"Good iron sings. Bad iron argues.","source":"src/artificer/villages.ts › kg-sabine"},
+        {"text":"A smith here never runs out of work.","source":"src/artificer/villages.ts › kg-sabine"},
+        {"text":"Quench twice, to be sure.","source":"src/artificer/villages.ts › kg-sabine"}
+      ]
+    },
+    {
+      "id": "bazaar-folk",
+      "name": "Goblin Warrens",
+      "names": ["bazaar-folk","bazaar folk","Goblin Warrens","warren","warrens"],
+      "voice": {"text":"Smiling and careful, and never the first to name a price.","source":"src/artificer/villages.ts › kg-arvid"},
+      "values": [
+        {"text":"Everything has a price. Some prices are friendship.","truth":"true","source":"src/artificer/villages.ts › kg-arvid"},
+        {"text":"Fixing nearly anything with what other people throw away.","truth":"true","source":"src/artificer/villages.ts › cv-pim"},
+        {"text":"Building into what's already there: rooms inside ruins, floors on top of floors.","truth":"true","source":"macro-world/cultures.json › bazaar-folk"}
+      ],
+      "taboos": [
+        {"text":"Selling the same map twice.","truth":"true","source":"src/artificer/asks.ts › kg-arvid","invented":true},
+        {"text":"Throwing away something that could be mended.","truth":"true","source":"WORLD.md § Goblins › Architecture","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"A smile, a kind word about your boots, and a long wait for you to speak first.","truth":"true","source":"src/artificer/villages.ts › kg-arvid","invented":true},
+        "trade": {"text":"Never name the price first. Let the buyer do it.","truth":"true","source":"src/artificer/villages.ts › kg-arvid"},
+        "mourning": {"text":"The warren keeps the dead one's tools in use. A tool that works is a goblin remembered.","truth":"true","source":"WORLD.md § Goblins › Objects","invented":true},
+        "debt": {"text":"A debt can be paid in news, and good news pays double.","truth":"true","source":"src/artificer/asks.ts › kg-arvid","invented":true}
+      },
+      "views": {
+        "fieldborn": [
+          {"text":"Hollowford calls us neighbours and doesn't ask where the tools came from. The best kind of neighbour.","truth":"true","source":"src/artificer/asks.ts › hf-maren","invented":true}
+        ],
+        "ridgefolk": [
+          {"text":"Ridgefolk tools are sound. In the lowlands they pay silly money for them.","truth":"true","source":"src/artificer/villages.ts › kg-arvid","invented":true}
+        ],
+        "waterstead": [
+          {"text":"Tell a Saltmere scholar anything and the whole valley knows by spring.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"actually":{"text":"They must tell anyone who asks, but very few ask.","source":"src/artificer/villages.ts › sm-anselm"}}
+        ],
+        "mountainhold": [
+          {"text":"The holds say we don't live in their upper halls. We do.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations","invented":true}
+        ],
+        "wallborn": [
+          {"text":"The toll-keeper drinks. Arrive at dusk.","truth":"true","source":"src/artificer/villages.ts › kg-arvid"}
+        ],
+        "caravan-folk": [
+          {"text":"Caravan folk sell before the wall if they're clever. Most aren't.","truth":"true","source":"src/artificer/asks.ts › hf-tobin","invented":true}
+        ],
+        "grovekin": [
+          {"text":"Grovekin pay in salves, and the salves are worth more than coin.","truth":"true","source":"src/artificer/villages.ts › hf-isa","invented":true}
+        ],
+        "harborfolk": [
+          {"text":"Harbour folk pay fair and complain loudly. We like them.","truth":"true","source":"src/artificer/asks.ts › sm-hedda","invented":true}
+        ],
+        "steppe-camp": [
+          {"text":"The steppe road carries our news, and the heralds take a share.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › Relations","sensitivity":"secret"}
+        ],
+        "refuge-keepers": [
+          {"text":"The refuge walls are our work. They never asked where the stones came from.","truth":"true","source":"macro-world/cultures.json › refuge-keepers","invented":true}
+        ],
+        "ironborne-encampment": [
+          {"text":"The ironborne keep the best ore. We sell the rest to people who can't tell the difference.","truth":"true","source":"src/artificer/asks.ts › kg-arvid"}
+        ]
+      },
+      "sayings": [
+        {"text":"Everything has a price at the Gate. Some prices are friendship.","source":"src/artificer/villages.ts › kg-arvid"},
+        {"text":"Big folk call the edge of things the margin. We call it home.","source":"src/artificer/villages.ts › cv-pim"},
+        {"text":"Never name your price first.","source":"src/artificer/villages.ts › kg-arvid"}
+      ]
+    }
+  ]
+}
