@@ -30,6 +30,7 @@ export interface ProvinceSpec {
   subsurface?: boolean;   // underground hall; uses mineralWealth instead of fertility
   mineralWealth?: number; // 0..1; carrying capacity base when subsurface
   zoneFlags?: string[];   // authored tags: "port", "sanctuary", "battlefield" etc.
+  veil?: number;          // 0..1 Ether veil (1 = sealed, the default); only read with --ether
 }
 
 export interface TitleSpec {

@@ -40,7 +40,8 @@ interface Args {
   chronicle: number | undefined; // chronicle window (years)
   prehistory: boolean; // generate a mythic deep past before the sim
   prehistorySpan: number; // years of prehistory to reach back over
-  catastrophes: boolean; // enable exogenous world shocks (blight, portals, mana ruptures)
+  catastrophes: boolean;
+  ether: boolean; // enable the Ether layer (spirit realm merging into Mistheim) // enable exogenous world shocks (blight, portals, mana ruptures)
   focus: string | null; // entity name to focus the chronicle on
   focusScale: FocusScale | null; // override auto-detected scale
 }
@@ -62,6 +63,7 @@ function parseArgs(argv: string[]): Args {
     prehistory: false,
     prehistorySpan: 800,
     catastrophes: false,
+    ether: false,
     focus: null,
     focusScale: null,
   };
@@ -80,6 +82,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--living") args.living = parseInt(argv[++i], 10);
     else if (a === "--chronicle") args.chronicle = parseInt(argv[++i], 10);
     else if (a === "--catastrophes") args.catastrophes = true;
+    else if (a === "--ether") args.ether = true;
     else if (a === "--focus") args.focus = argv[++i];
     else if (a === "--focus-scale") args.focusScale = argv[++i] as FocusScale;
     else if (a === "--prehistory") {
@@ -118,6 +121,13 @@ function main(): void {
     world.catastrophesEnabled = true;
   }
 
+  // Opt into the Ether — the spirit realm merging into Mistheim. Veils thin
+  // where the dead pile up; anchored spirits linger until their anchor resolves.
+  // Off by default so the base chronicle and golden hashes are unaffected.
+  if (args.ether) {
+    world.etherEnabled = true;
+  }
+
   // Optional deep past: manufacture a mythic prehistory (a golden age, a
   // cataclysm, lost arts, migrations) and leave residue — ancestral grudges —
   // in the starting world, so the present begins already freighted with history.
@@ -146,7 +156,7 @@ function main(): void {
   console.log("═".repeat(64));
   console.log("A CHRONICLE OF THE MATLU MULTIWORLD");
   console.log(
-    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}${args.spec ? ` · world: ${args.spec.split("/").pop()}` : args.world !== "default" ? ` · world: ${args.world}` : ""}`,
+    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}${args.ether ? " · ether: on" : ""}${args.spec ? ` · world: ${args.spec.split("/").pop()}` : args.world !== "default" ? ` · world: ${args.world}` : ""}`,
   );
   console.log("═".repeat(64));
 
@@ -183,7 +193,7 @@ function main(): void {
   if (args.save) {
     const dir = saveRun(
       world,
-      { seed: args.seed, years: args.years, magic: args.magic, version: STORY_VERSION },
+      { seed: args.seed, years: args.years, magic: args.magic, ether: args.ether, version: STORY_VERSION },
       arcs,
     );
     console.log(`\nSaved run to ${dir}/ (events.ndjson + meta.json).`);

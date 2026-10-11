@@ -1,6 +1,6 @@
 # The Ether — design doc
 
-Status: **design** (no engine code yet) · Issue: #1131
+Status: **Phase 1 implemented** (`storytelling/ether.ts`, `--ether`, #1573) · Design issue: #1131
 
 The Ether is the spirit realm, one of the worlds merging into the Matlu multiworld.
 This doc covers what it is, the rules it follows, the events it adds to generated
@@ -150,6 +150,8 @@ When an anchor is resolved, the spirit **moves on permanently**
 - Broken oath: the oathbreaker makes amends or dies marked.
 - Last of the house: the seat passes to someone who restores the house's name
   (e.g. an adoptive heir), or the hall falls.
+  *(Phase 1 does not model either yet, so these spirits stay. Phase 2 adds
+  the hall's resolution; Phase 6 turns the oldest into wraiths.)*
 - Unsettled house: the dispute ends, whichever way it ends.
 
 These give story arcs a clean ending: the haunting ends and the dead rest.

@@ -34,6 +34,7 @@ import { TRADE_SPECS } from "./trade-events.js";
 import { UNION_SPECS } from "./union-events.js";
 import { URBAN_SPECS } from "./urban-events.js";
 import { WILDLIFE_SPECS } from "./wildlife-events.js";
+import { ETHER_SPECS } from "./ether-events.js";
 
 registerSpecs(ACADEMY_SPECS);
 registerSpecs(BETRAYAL_SPECS);
@@ -65,3 +66,4 @@ registerSpecs(TRADE_SPECS);
 registerSpecs(UNION_SPECS);
 registerSpecs(URBAN_SPECS);
 registerSpecs(WILDLIFE_SPECS);
+registerSpecs(ETHER_SPECS); // no triggers — scoring/prose/arcs only; ether.ts drives it
