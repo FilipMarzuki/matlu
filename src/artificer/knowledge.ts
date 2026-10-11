@@ -1,7 +1,8 @@
 /**
- * What people know: the knowledge model's prototype (spike #1577, design in
- * docs/knowledge-model-design.md). Not read by the game yet: today's answers still come from
- * asks.ts `ANSWERS`. This is the shape the design proposes, small enough to test on its own.
+ * What people know: the knowledge model (spike #1577, design in docs/knowledge-model-design.md;
+ * in the game since slice A, #1609). This file is the model alone: types and resolution, with no
+ * data. The game's facts and people, and the asks that read them, are in facts.ts; today's
+ * hand-written answers (answers.ts) are person-scope facts there, word for word.
  *
  * People know things because of who they are. A **fact** belongs to a **scope** (the world, a
  * region, a village, a People or culture, an organisation, a job or skill, or one person) and
@@ -39,6 +40,10 @@ export interface Fact {
   depth?: 1 | 2 | 3;
   /** Someone it sends you to (a person id): a lead (#1497). */
   lead?: string;
+  /** What the lead is about, a focus key, when it isn't the topic asked (an Answer's `lead.about`). */
+  leadAbout?: string;
+  /** Insight in a concept, for a fact that teaches something (an Answer's `insight`). */
+  insight?: { concept: string; amount: number };
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */

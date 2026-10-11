@@ -17,16 +17,24 @@ describe('Feature switches (#1579)', () => {
     expect(new Set(FEATURES.map(x => x.id)).size).toBe(FEATURES.length);
   });
 
+  it('registers referrals as an experimental rule feature, on by default, and off for runs from before its switch', () => {
+    const f = FEATURES.find(x => x.id === 'referrals');
+    expect(f).toMatchObject({ stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1609 });
+    expect(f?.note).toBeTruthy();
+    expect(featureOn(undefined, 'referrals')).toBe(false);
+    expect(featureOn({ referrals: true }, 'referrals')).toBe(true);
+  });
+
   it('writes a new game’s rule features out in full: defaults, with the player’s switches on top, unknown ids dropped', () => {
-    expect(ruleFeatures()).toEqual({ 'free-questions': true });
-    expect(ruleFeatures({ 'free-questions': false, 'no-such-thing': true })).toEqual({ 'free-questions': false });
+    expect(ruleFeatures()).toEqual({ 'free-questions': true, referrals: true });
+    expect(ruleFeatures({ 'free-questions': false, 'no-such-thing': true })).toEqual({ 'free-questions': false, referrals: true });
   });
 
   it('reads a run’s switches as saved, and a run from before the switches as each feature’s `absent`', () => {
     expect(featureOn({ 'free-questions': false }, 'free-questions')).toBe(false);
     expect(featureOn(undefined, 'free-questions')).toBe(true);
     expect(featureOn({}, 'no-such-thing')).toBe(false);
-    expect(featuresOf(undefined)).toEqual({ 'free-questions': true });
+    expect(featuresOf(undefined)).toEqual({ 'free-questions': true, referrals: false });
   });
 
   it('names the experimental features that are on, and checks the shape of a saved set', () => {
@@ -58,8 +66,8 @@ function onTheRoad(features: Record<string, boolean> | undefined): ReturnType<ty
 
 describe('A run keeps the rule features it started with (#1579)', () => {
   it('a new game saves its switches in its world', () => {
-    expect(makeWarden({ id: 'w-a' }).sim.config.world.features).toEqual({ 'free-questions': true });
-    expect(makeWarden({ id: 'w-b' }, undefined, { 'free-questions': false }).sim.config.world.features).toEqual({ 'free-questions': false });
+    expect(makeWarden({ id: 'w-a' }).sim.config.world.features).toEqual({ 'free-questions': true, referrals: true });
+    expect(makeWarden({ id: 'w-b' }, undefined, { 'free-questions': false }).sim.config.world.features).toEqual({ 'free-questions': false, referrals: true });
   });
 
   it('the road carries them, and a free question is refused when the feature is off', () => {
@@ -78,7 +86,7 @@ describe('A run keeps the rule features it started with (#1579)', () => {
   it('keeps them through a save, and drops only a malformed set (the rest of the world stays)', () => {
     const app = makeWarden({ id: 'w-save' }, undefined, { 'free-questions': false });
     const back = deserialize(serialize(app))!;
-    expect(back.sim.config.world.features).toEqual({ 'free-questions': false });
+    expect(back.sim.config.world.features).toEqual({ 'free-questions': false, referrals: true });
     const raw = JSON.parse(serialize(app));
     raw.sim.config.world.features = { 'free-questions': 'nope' };
     const fixed = deserialize(JSON.stringify(raw))!;
@@ -88,5 +96,24 @@ describe('A run keeps the rule features it started with (#1579)', () => {
     const road = onTheRoad({ 'free-questions': false });
     const onRoad = { ...app, stage: 'road', road } as AppState;
     expect(deserialize(serialize(onRoad))?.road?.features).toEqual({ 'free-questions': false });
+  });
+});
+
+describe('Referrals (#1609): someone who doesn’t know names who would', () => {
+  const askMarenAboutIron = (features: Record<string, boolean> | undefined) => {
+    const r = onTheRoad(features);
+    const before = { ...r, focus: { kind: 'material', id: 'iron' } as const, trust: { ...r.trust, 'hf-maren': 90 } };
+    return runRoadAction(before, 'ask:hf-maren').log.at(-1)?.text;
+  };
+  const TODAY = 'Maren thinks, and shakes their head. "I don\'t know much about iron."';
+
+  it('with the switch on, Maren on iron sends you to Tobin', () => {
+    expect(askMarenAboutIron({ referrals: true })).toBe('Maren thinks, and shakes their head. "I couldn\'t tell you — Tobin would know."');
+  });
+
+  it('with it off, or for a run from before the switch, the line is today’s', () => {
+    expect(askMarenAboutIron({ referrals: false })).toBe(TODAY);
+    expect(askMarenAboutIron({ 'free-questions': true })).toBe(TODAY);
+    expect(askMarenAboutIron(undefined)).toBe(TODAY);
   });
 });

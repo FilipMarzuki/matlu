@@ -144,7 +144,7 @@ Hollowford country.", `renderRegionalEventNamed`).
   shows as a small gold mark (and explains in one line at the top). Nothing goes into
   `World.events` and nothing draws from `World.rng`, so the hashes and the Reach's pinned log
   don't move.
-- **`HISTORY_VERSION`** 5 since #1608: the regions push back, so the same seed lives a different
+- **`HISTORY_VERSION`** 6 since #1608 (5 was #1586): the regions push back, so the same seed lives a different
   history, and the told regions carry `unsettled` and each province's `wealth`.
 - A **hard winter** now says when it cost lives ("…and the old and the weak died of the cold";
   "…and many died of the cold and hunger" when it took 1.8% or more, which is worth a point more,

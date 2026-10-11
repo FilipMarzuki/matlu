@@ -94,7 +94,7 @@ describe("The Reach's generated history (#1540)", () => {
   // provinces or the houses, or to storytelling/'s random stream (when its golden hashes in
   // testkit.ts are rebaselined, rebaseline this too). Bump HISTORY_VERSION with it, so a kept
   // history from the old code is told again. Last moved by #1608 (regions push back into the
-  // simulation), with HISTORY_VERSION 5.
+  // simulation), with HISTORY_VERSION 6.
   it('tells the same history from the same seed, and a different one from another', () => {
     const a = logHash(seedOf('w-vega'));
     expect(a).toBe('c9178419c645b79c');
