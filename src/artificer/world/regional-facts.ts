@@ -68,9 +68,22 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const TRADE: Record<string, string> = {
   farming: 'its fields', lumber: 'timber', mining: 'ore', fishing: 'fish', herding: 'its flocks', peat: 'peat and reed', trading: 'its market',
 };
-const LIVES: Record<string, string> = {
-  farming: 'farms', lumber: 'cuts timber', mining: 'mines', fishing: 'fishes', herding: 'herds', peat: 'cuts peat and reed', trading: 'trades',
+
+const FOUNDED: Record<string, string> = {
+  crossing: 'the ford', farming: 'its fields', lumber: 'the woods', mining: 'a seam of ore', fishing: 'the fishing',
+  herding: 'its pastures', peat: 'the peat cuttings',
 };
+
+/** "Hollowford grew up around the ford; today it lives on its market, and on timber besides." */
+export function placeTrade(p: RegionHistory['provinces'][number]): string {
+  const founded = FOUNDED[p.founding] ?? p.founding;
+  const today = TRADE[p.livelihood] ?? p.livelihood;
+  const also = (p.secondary ?? []).map(t => TRADE[t] ?? t);
+  const besides = also.length ? `, and on ${also.join(' and ')} besides` : '';
+  return p.founding === p.livelihood
+    ? `${p.name} grew up around ${founded}, and still lives on ${today}${besides}.`
+    : `${p.name} grew up around ${founded}; today it lives on ${today}${besides}.`;
+}
 
 /** One region's facts: how things stand now, then what happened there, oldest first. */
 export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[] {
@@ -86,8 +99,10 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
 
   // --- economy, as it stands ---
   facts.push(now('trade', 'economy', `${Name} lives on ${TRADE[r.primary] ?? r.primary}; its market is at ${r.centre.name}.`, 1, { about: [place(r.centre.name)] }));
-  for (const p of r.provinces.slice(1)) {
-    facts.push(now(`livelihood:${slug(p.name)}`, 'economy', `${p.name} mostly ${LIVES[p.livelihood] ?? p.livelihood}.`, 1, { about: [place(p.name)] }));
+  // Each place: what it grew up around, and what it lives on today ("Hollowford grew up around
+  // the ford; today it lives on its market, and on timber besides").
+  for (const p of r.provinces) {
+    facts.push(now(`livelihood:${slug(p.name)}`, 'economy', placeTrade(p), p.name === r.centre.name ? 1 : 2, { about: [place(p.name)] }));
   }
   const ventureText = {
     thriving: `The ${r.venture.kind} at ${r.venture.province} is thriving.`,

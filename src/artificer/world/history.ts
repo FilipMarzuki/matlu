@@ -26,7 +26,7 @@ import { provincesOf, type Province, type Provinces } from './provinces';
 import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
 import { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { renderRegionalEvent, renderRegionalEventNamed } from '../../../storytelling/render';
-import { regionLabel } from '../../../storytelling/regions';
+import { nameRegions, regionLabel } from '../../../storytelling/regions';
 import { hasAlliance } from '../../../storytelling/diplomacy';
 
 export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory, type HistoryLine, type RegionHistory, type RegionLine } from './history-format';
@@ -148,6 +148,9 @@ export function simulateReach(seed: number, years = HISTORY_YEARS): { reach: Rea
   // The engine gets its own seed, derived like the grid's streams, so it shares no stream with the sim.
   const world = loadWorld(reachSpec(reach, provinces), seedOf(`${seed}|world|history`));
   for (let y = 0; y < years; y++) tick(world);
+  // Name the regions from the history just lived (a mine, a hero, a hardship, a quarrel, or the
+  // market town). After the last tick and RNG-free, so the event log stays as it was.
+  nameRegions(world);
   return { reach, provinces, world };
 }
 
@@ -272,7 +275,7 @@ export function regionsOf(world: World): RegionHistory[] {
       id: idOf(r.id),
       name: regionLabel(r),
       centre: { id: r.centreId, name: r.name },
-      provinces: r.provinceIds.map(id => ({ id, name: provName(id)!, livelihood: r.livelihoods[id] })),
+      provinces: r.provinceIds.map(id => ({ id, name: provName(id)!, livelihood: r.livelihoods[id], secondary: [...r.secondary[id]], founding: r.founding[id] })),
       primary: r.primary,
       venture: { kind: r.venture.kind, province: provName(r.venture.provinceId)!, state: r.venture.state, since: r.venture.since },
       prosperity: r.prosperity,

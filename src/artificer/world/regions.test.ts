@@ -15,6 +15,7 @@ import { generateReach } from './reach';
 import { provincesOf } from './provinces';
 import { reachSpec, runHistory, simulateReach, regionalChronicleEvents, REGION_CHRONICLE_THRESHOLD, HISTORY_YEARS } from './history';
 import { sift } from '../../../storytelling/sifter';
+import { MAX_REGION, MIN_REGION, regionLabel } from '../../../storytelling/regions';
 import { extractArcs } from '../../../storytelling/arcs';
 import { EXTRA_MARK, renderLayeredChronicle, renderRegionalEventNamed } from '../../../storytelling/render';
 import { GENERATION, factsOfRegion, lineFact, regionalFacts, regionOfProvince } from './regional-facts';
@@ -38,9 +39,10 @@ describe('Regions of the Reach (#1598)', () => {
       expect(new Set(all).size).toBe(all.length);
       for (const r of world.regions.values()) {
         expect(r.provinceIds[0]).toBe(r.centreId);
-        expect(r.provinceIds.length, `${r.name} (seed ${seed})`).toBeGreaterThanOrEqual(2);
-        expect(r.provinceIds.length, `${r.name} (seed ${seed})`).toBeLessThanOrEqual(6);
-        // In one piece, and no further than two borders from its market town (a few days across).
+        // 3 to 6 provinces (owner, 2026-10-11); the Reach's 11 provinces always allow it.
+        expect(r.provinceIds.length, `${r.name} (seed ${seed})`).toBeGreaterThanOrEqual(MIN_REGION);
+        expect(r.provinceIds.length, `${r.name} (seed ${seed})`).toBeLessThanOrEqual(MAX_REGION);
+        // In one piece, and no further than three borders from its market town (a few days across).
         const hops = new Map([[r.centreId, 0]]);
         let frontier = [r.centreId];
         while (frontier.length) {
@@ -51,7 +53,7 @@ describe('Regions of the Reach (#1598)', () => {
           frontier = next;
         }
         expect(hops.size, `${r.name} is in one piece (seed ${seed})`).toBe(r.provinceIds.length);
-        expect(Math.max(...hops.values())).toBeLessThanOrEqual(2);
+        expect(Math.max(...hops.values())).toBeLessThanOrEqual(3);
         // Every province lives on something; the market town on its market, the region on its land.
         expect(r.livelihoods[r.centreId]).toBe('trading');
         expect(r.primary).not.toBe('trading');
@@ -101,6 +103,37 @@ describe('Regional history and facts (#1598)', () => {
     }
   });
 
+  it('names each region from its history, keeping its id', () => {
+    const named: string[] = [];
+    for (const h of [...histories, ...SEEDS.slice(4, 8).map(seed => runHistory(seed))]) {
+      const names = h.regions.map(r => r.name);
+      expect(new Set(names).size, `names unique (seed ${h.seed})`).toBe(names.length);
+      // The id is always the market town's, whatever the name: facts and #1592 key on it.
+      for (const r of h.regions) expect(r.id).toBe(`${r.centre.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-country`);
+      // At least half keep their market town's name, so travellers can find their way.
+      const market = h.regions.filter(r => r.name === `the ${r.centre.name} country`).length;
+      expect(market * 2, `seed ${h.seed}`).toBeGreaterThanOrEqual(h.regions.length);
+      named.push(...h.regions.filter(r => r.name !== `the ${r.centre.name} country`).map(r => r.name));
+    }
+    // Over eight seeds some regions are known for something else: a trade, a hero, a hardship, a quarrel.
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.every(n => /^(the (Ironvein|Timberwold|Netwater|Sheepwalks|Peatmoors|Golden Fields|Marches of Old Feud|Feuding March)|the .+ (Vein|Wold|Water|Walks|Moors|Fields)|the (Lean|Hungry|Pale|Fever) \w+|.+'s Land|the Land of .+)$/.test(n)), named.join(', ')).toBe(true);
+  });
+
+  it('tells what each place grew up around and lives on today', () => {
+    for (const h of histories) for (const r of h.regions) {
+      for (const p of r.provinces) {
+        expect(p.secondary).not.toContain(p.livelihood);
+        expect(p.secondary.length).toBeLessThanOrEqual(2);
+        expect(p.founding).not.toBe('trading');
+        const fact = factsOfRegion(r, h.year).find(f => f.id === `region:${r.id}:livelihood:${p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+        expect(fact?.text).toMatch(new RegExp(`^${p.name} grew up around `));
+      }
+      // The market town lives on its market, whatever it grew up around.
+      expect(r.provinces[0].livelihood).toBe('trading');
+    }
+  });
+
   it('marks old events as rumour known to few, and recent ones as true, known to most or all', () => {
     const h = histories[0];
     const r = h.regions[0];
@@ -141,7 +174,7 @@ describe('Big regional events in the told chronicle (#1598)', () => {
       let last = -1;
       for (const e of big) {
         const sentence = renderRegionalEventNamed(world, e).replace(/\.$/, '');
-        expect(sentence).toContain(`the ${world.regions.get(e.regionId)!.name} country`);
+        expect(sentence).toContain(regionLabel(world.regions.get(e.regionId)!));
         const at = lines.findIndex((l, i) => i > last && l.includes(EXTRA_MARK) && l.includes(sentence));
         expect(at, `${e.year} ${e.kind} (seed ${seed})`).toBeGreaterThan(last);
         last = at;

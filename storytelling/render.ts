@@ -13,6 +13,7 @@ import { topHeroes } from "./magic.js";
 import type { FocusContext } from "./sifter.js";
 import type { Character, RegionalEvent, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
+import { regionLabel } from "./regions.js";
 
 // Regnal numbering: across two centuries a house reuses given names, so an
 // undisambiguated chronicle has three "Brigid of Corvane"s and reads as a
@@ -753,16 +754,16 @@ export function renderRegionalEventNamed(w: World, ev: RegionalEvent): string {
   const text = renderRegionalEvent(w, ev);
   const region = w.regions.get(ev.regionId);
   if (!region) return text;
-  const label = `the ${region.name} country`;
+  const label = regionLabel(region);
   return text.toLowerCase().includes(label.toLowerCase()) ? text : `${text.replace(/\.$/, "")}, in ${label}.`;
 }
 
 export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
   const region = w.regions.get(ev.regionId);
-  const here = region ? `the ${region.name} country` : "the country";
+  const here = region ? regionLabel(region) : "the country";
   const Here = here[0].toUpperCase() + here.slice(1);
   const other = w.regions.get(ev.otherRegionId ?? "");
-  const there = other ? `the ${other.name} country` : "the next country";
+  const there = other ? regionLabel(other) : "the next country";
   const at = ev.provinceId ? provName(w, ev.provinceId) : here;
   const house = String(ev.data["house"] ?? "");
   const venture = String(ev.data["venture"] ?? "venture");

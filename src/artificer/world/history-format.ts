@@ -56,11 +56,16 @@ export interface RegionHistory {
   /** `hollowford-country`: the market town's name as a key, plus `-country`, so it never reads
    *  the same as a province's own region id (PR #1592's regions.ts `regionOf` gives `hollowford`). */
   id: string;
-  /** "the Hollowford country". */
+  /** What people call it, named from its history (storytelling/regions.ts nameRegions): "the
+   *  Hollowford country" (its market town), "the Timberwold" (its trade), "Sigmund's Land" (a
+   *  hero), "the Lean Woods" (a hardship), "the Marches of Old Feud" (a quarrel). Display only:
+   *  `id` stays the market town's. */
   name: string;
   centre: { id: string; name: string };
-  /** The centre first. Each lives on its own trade (`livelihood`): the land's best, or the market's. */
-  provinces: { id: string; name: string; livelihood: string }[];
+  /** The centre first. Each lives on its own trade (`livelihood`, its dominant one: the land's
+   *  best, or the market's), may have `secondary` trades its land also supports, and grew up
+   *  around its `founding` (a trade, or `crossing`: a ford), which can differ from today's. */
+  provinces: { id: string; name: string; livelihood: string; secondary: string[]; founding: string }[];
   /** What the region as a whole lives on: farming, lumber, mining, fishing, herding or peat. */
   primary: string;
   /** Its big enterprise (a mine, a lumber camp…), where it is, how it's doing, and since when. */

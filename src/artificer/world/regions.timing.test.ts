@@ -37,4 +37,4 @@ it('times the regional pass within runHistory', async () => {
   const n = seeds.length;
   console.log(`runHistory: ${(total / n).toFixed(0)} ms a seed, of which the regional pass ${(regionalMs / n).toFixed(1)} ms (${((100 * regionalMs) / total).toFixed(1)}%); regionalFacts: ${(facts / n).toFixed(2)} ms for ${Math.round(factCount / n)} facts`);
   expect(regionalMs).toBeGreaterThan(0);
-});
+}, 30_000);

@@ -28,6 +28,7 @@ import { regionalSignificance } from "./sifter.js";
 import type {
   CharId,
   EventType,
+  Founding,
   HarvestGrade,
   Livelihood,
   Province,
@@ -42,8 +43,11 @@ import type {
 } from "./types.js";
 import type { World } from "./world.js";
 
-/** About this many provinces per region. The Reach's 8–12 provinces make 3–4 regions. */
-export const PROVINCES_PER_REGION = 3;
+/** About this many provinces per region. The Reach's 11 provinces make 2–3 regions. */
+export const PROVINCES_PER_REGION = 4;
+/** A region's size, where the world has the provinces for it (owner, 2026-10-11): 3 to 6. */
+export const MIN_REGION = 3;
+export const MAX_REGION = 6;
 
 // ---------------------------------------------------------------------------
 // Forming regions
@@ -62,6 +66,13 @@ export const PROVINCES_PER_REGION = 3;
  *    smallest, so regions come out much the same size; always a bordering
  *    province, so every region is one piece.
  * 3. A part of the map no centre can reach (an island) gets its own centre.
+ * 4. Size, 3 to 6 provinces (MIN_REGION, MAX_REGION): the number of centres is
+ *    kept between N/6 and N/3, and a region left under 3 (hemmed in by its
+ *    neighbours) takes a bordering province from a neighbour that can spare
+ *    one (keeps 3+, stays in one piece, keeps its centre), or else joins a
+ *    neighbouring region when the two together are 6 or fewer. A world too
+ *    small or too broken up for that (under 3 provinces, an island of 1–2)
+ *    keeps its smaller regions.
  */
 export function formRegions(w: World): void {
   const P = [...w.provinces.values()];
@@ -69,7 +80,7 @@ export function formRegions(w: World): void {
   const index = new Map(P.map((p, i) => [p.id, i]));
   const adj = P.map((p) => new Set(p.neighbors.map((n) => index.get(n)).filter((i): i is number => i !== undefined)));
 
-  const target = Math.max(1, Math.round(P.length / PROVINCES_PER_REGION));
+  const target = Math.max(1, Math.min(Math.floor(P.length / MIN_REGION), Math.max(Math.ceil(P.length / MAX_REGION), Math.round(P.length / PROVINCES_PER_REGION))));
   const byPop = P.map((_p, i) => i).sort((a, b) => P[b].population - P[a].population || a - b);
   const centres: number[] = [];
   for (const i of byPop) {
@@ -100,8 +111,10 @@ export function formRegions(w: World): void {
     owner[left] = members.length;
     members.push([left]);
   }
+  fixSizes(members, owner, adj, P);
 
   for (const m of members) {
+    if (!m.length) continue; // joined into a neighbour
     const [centreIdx, ...rest] = m;
     const centre = P[centreIdx];
     const provinceIds = [centre.id, ...rest.sort((a, b) => a - b).map((i) => P[i].id)];
@@ -111,6 +124,61 @@ export function formRegions(w: World): void {
   }
   // Roads: one to each region sharing a border, starting middling.
   for (const r of w.regions.values()) for (const n of neighbourRegions(w, r)) r.roads[n] = 0.4;
+}
+
+/**
+ * Bring regions under MIN_REGION up to size (step 4 of formRegions): take a
+ * bordering province from a neighbour that can spare it, else join a
+ * neighbour when the two fit in MAX_REGION. Deterministic: smallest region
+ * first, then the most populous province / the smallest neighbour.
+ */
+function fixSizes(members: number[][], owner: number[], adj: Set<number>[], P: Province[]): void {
+  const connected = (m: number[]): boolean => {
+    const inside = new Set(m);
+    const seen = new Set([m[0]]);
+    const stack = [m[0]];
+    while (stack.length) for (const n of adj[stack.pop()!]) if (inside.has(n) && !seen.has(n)) { seen.add(n); stack.push(n); }
+    return seen.size === m.length;
+  };
+  for (let guard = 0; guard < P.length * 4; guard++) {
+    const small = members
+      .map((_m, r) => r)
+      .filter((r) => members[r].length > 0 && members[r].length < MIN_REGION)
+      .sort((a, b) => members[a].length - members[b].length || a - b);
+    if (!small.length) return;
+    let changed = false;
+    for (const r of small) {
+      const m = members[r];
+      // Take: a bordering province whose region has some to spare and stays whole.
+      const takes: number[] = [];
+      for (const i of m) for (const n of adj[i]) {
+        const o = owner[n];
+        if (o === r || o < 0 || members[o].length <= MIN_REGION || members[o][0] === n) continue;
+        if (connected(members[o].filter((x) => x !== n))) takes.push(n);
+      }
+      if (takes.length) {
+        const pick = [...new Set(takes)].sort((a, b) => Number(adj[m[0]].has(b)) - Number(adj[m[0]].has(a)) || P[b].population - P[a].population || a - b)[0];
+        const from = owner[pick];
+        members[from] = members[from].filter((x) => x !== pick);
+        owner[pick] = r;
+        m.push(pick);
+        changed = true;
+        break;
+      }
+      // Join: the smallest neighbouring region the two fit in; the bigger centre leads.
+      const nbrs = [...new Set(m.flatMap((i) => [...adj[i]].map((n) => owner[n])))].filter((o) => o !== r && o >= 0 && members[o].length + m.length <= MAX_REGION);
+      if (nbrs.length) {
+        const o = nbrs.sort((a, b) => members[a].length - members[b].length || a - b)[0];
+        const [keep, gone] = P[members[o][0]].population >= P[m[0]].population ? [o, r] : [r, o];
+        for (const i of members[gone]) owner[i] = keep;
+        members[keep].push(...members[gone]);
+        members[gone] = [];
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+  }
 }
 
 // How well each kind of land suits each livelihood (0..1-ish). Farming also
@@ -156,6 +224,18 @@ function newRegion(w: World, centre: Province, provinceIds: ProvinceId[]): Regio
     livelihoods[p.id] = pick;
     used.add(pick);
   }
+  // Secondary trades: what else the land supports well (at least 0.4, and at
+  // least half its best), besides what it lives on. Founding: what the place
+  // grew up around: a market town on a river at its ford, else its land's best
+  // trade (before the region's villages spread out over different trades).
+  const secondary: Record<ProvinceId, Livelihood[]> = {};
+  const founding: Record<ProvinceId, Founding> = {};
+  for (const p of provs) {
+    const ranked = (Object.entries(livelihoodScores(p)) as [Exclude<Livelihood, "trading">, number][]).sort((a, b) => b[1] - a[1]);
+    const top = ranked[0][1];
+    secondary[p.id] = ranked.filter(([k, v]) => k !== livelihoods[p.id] && v >= 0.4 && v >= top * 0.5).slice(0, 2).map(([k]) => k);
+    founding[p.id] = p.id === centre.id && p.riverConnected ? "crossing" : ranked[0][0];
+  }
   // What the region as a whole lives on: the land's best trade weighted by how
   // many people work each province (the market town included: its hinterland).
   const totals = new Map<Livelihood, number>();
@@ -172,6 +252,8 @@ function newRegion(w: World, centre: Province, provinceIds: ProvinceId[]): Regio
     centreId: centre.id,
     provinceIds,
     livelihoods,
+    secondary,
+    founding,
     primary,
     venture: { kind: VENTURE_OF[primary], provinceId: venue.id, health, state: health >= 0.75 ? "thriving" : "steady", since: w.year },
     prosperity: 0.5,
@@ -201,9 +283,111 @@ export function neighbourRegions(w: World, r: Region): RegionId[] {
   return [...w.regions.keys()].filter((id) => out.has(id));
 }
 
-/** "the Hollowford country": how people name a region after its market town. */
-export function regionLabel(r: Pick<Region, "name">): string {
-  return `the ${r.name} country`;
+/** "the Hollowford country": how people name a region after its market town (until nameRegions names it). */
+export function regionLabel(r: Pick<Region, "name" | "label">): string {
+  return r.label ?? `the ${r.name} country`;
+}
+
+// ---------------------------------------------------------------------------
+// Naming regions (owner, 2026-10-11): a region is called after what matters
+// most in it, which its history decides: its market town, a mine or other
+// trade it's known for, a hero, a hardship, or a quarrel. So it's named once,
+// after the history is lived, from its own log and state, not at formation
+// (then only the land is known: no heroes, famines or quarrels yet).
+//
+// What a region is known for is what sets it apart from its neighbours: over
+// 150 years every region has feuds and lean years, so a quarrel or hardship
+// names only the region that had clearly the most of it. Each kind of name is
+// given once in the world, the strongest claim first, and at least half the
+// regions keep their market town's name, so travellers can still find their
+// way. No randomness (no World.rng, no regional stream); display only: the
+// region's id, and every fact key built on it, stays as it was.
+// ---------------------------------------------------------------------------
+
+/** The market town's own score: another name must beat it. */
+const MARKET_SCORE = 5;
+
+const LAND_WORD: Record<Terrain, string> = {
+  meadow: "Meads", plains: "Fields", hills: "Hills", forest: "Woods", swamp: "Fens", mountain: "Fells",
+  steppe: "Downs", coast: "Shore", desert: "Sands", jungle: "Wilds",
+};
+/** Names for a region known for its trade, best first (the second if the first is taken). */
+const TRADE_NAMES: Record<Exclude<Livelihood, "trading">, (venue: string) => string[]> = {
+  mining: (v) => ["the Ironvein", `the ${v} Vein`],
+  lumber: (v) => ["the Timberwold", `the ${v} Wold`],
+  fishing: (v) => ["the Netwater", `the ${v} Water`],
+  herding: (v) => ["the Sheepwalks", `the ${v} Walks`],
+  peat: (v) => ["the Peatmoors", `the ${v} Moors`],
+  farming: (v) => ["the Golden Fields", `the ${v} Fields`],
+};
+
+export type RegionNameKind = "hero" | "quarrel" | "hardship" | "trade" | "market";
+export interface RegionNameCandidate { regionId: RegionId; kind: RegionNameKind; score: number; names: string[] }
+
+/** Every name each region could go by, with its score, strongest first. */
+export function regionNameCandidates(w: World): RegionNameCandidate[] {
+  const regions = [...w.regions.values()];
+  const tally = (r: Region, ...kinds: RegionalEventKind[]) => w.regionalEvents.filter((e) => e.regionId === r.id && kinds.includes(e.kind)).length;
+  const fights = new Map(regions.map((r) => [r.id, tally(r, "FEUD", "BORDER_WAR")]));
+  // A famine counts double: it's rarer than plague.
+  const hard = new Map(regions.map((r) => [r.id, tally(r, "FAMINE") * 2 + tally(r, "PLAGUE")]));
+  const mean = (m: Map<RegionId, number>) => [...m.values()].reduce((a, b) => a + b, 0) / Math.max(1, m.size);
+  const fightMean = mean(fights), hardMean = mean(hard);
+  const out: RegionNameCandidate[] = [];
+
+  for (const r of regions) {
+    const centre = w.province(r.centreId);
+    const land = centre ? LAND_WORD[centre.terrain] : "Lands";
+    // A hero: someone born to no house who seized a seat here, and whose house
+    // still holds land in the region. People name the land after them.
+    const hero = w.regionalEvents.find((e) => e.regionId === r.id && e.kind === "SEAT_SEIZED" && e.data["lowborn"] && e.actorId
+      && (r.houses[w.char(e.actorId)?.dynastyId ?? ""] ?? 0) > 0);
+    // Or a hero of the engine's own (HERO_RISEN, worlds with magic), risen here: read, not drawn.
+    const risen = w.events.find((e) => e.type === "HERO_RISEN" && e.actorId && e.provinceId && r.provinceIds.includes(e.provinceId));
+    const heroId = risen?.actorId ?? hero?.actorId ?? null;
+    const first = heroId ? (w.char(heroId)?.name ?? "").replace(/\s+[IVXLC]+$/, "") : "";
+    if (first) out.push({ regionId: r.id, kind: "hero", score: 7, names: [`${first}'s Land`, `the Land of ${first}`] });
+    // A quarrel or a hardship: only clearly more than the world's usual (half again the mean).
+    const f = fights.get(r.id)!;
+    if (f >= 5 && f >= fightMean * 1.5) out.push({ regionId: r.id, kind: "quarrel", score: 4 + 2 * f / Math.max(1, fightMean), names: ["the Marches of Old Feud", "the Feuding March"] });
+    const h = hard.get(r.id)!;
+    if (h >= 4 && h >= hardMean * 1.5) {
+      const famine = tally(r, "FAMINE") * 2 >= tally(r, "PLAGUE");
+      out.push({ regionId: r.id, kind: "hardship", score: 4 + 2 * h / Math.max(1, hardMean), names: famine ? [`the Lean ${land}`, `the Hungry ${land}`] : [`the Pale ${land}`, `the Fever ${land}`] });
+    }
+    // Its trade: a venture thriving now, or a working mine (a landmark people know from afar).
+    const venue = w.province(r.venture.provinceId)?.name ?? r.name;
+    const primary = r.primary as Exclude<Livelihood, "trading">;
+    if (r.venture.state === "thriving") out.push({ regionId: r.id, kind: "trade", score: 5.5, names: TRADE_NAMES[primary](venue) });
+    else if (primary === "mining" && r.venture.state !== "closed") out.push({ regionId: r.id, kind: "trade", score: 5.2, names: TRADE_NAMES.mining(venue) });
+    out.push({ regionId: r.id, kind: "market", score: MARKET_SCORE, names: [`the ${r.name} country`] });
+  }
+  return out.sort((a, b) => b.score - a.score || a.regionId.localeCompare(b.regionId));
+}
+
+/**
+ * Name every region from its history (sets `Region.label`). Called once the
+ * history is lived (the Artificer's simulateReach), never during it: it only
+ * reads, so the event log and every hash stay as they are. Strongest claim
+ * first; each kind but the market town's once; names unique; at least half
+ * the regions (rounded up) keep their market town's name.
+ */
+export function nameRegions(w: World): void {
+  const special = Math.floor(w.regions.size / 2);
+  const usedKinds = new Set<RegionNameKind>();
+  const taken = new Set<string>();
+  let given = 0;
+  for (const c of regionNameCandidates(w)) {
+    const r = w.regions.get(c.regionId)!;
+    if (r.label) continue;
+    if (c.kind !== "market" && (usedKinds.has(c.kind) || given >= special || c.score <= MARKET_SCORE)) continue;
+    const name = c.names.find((n) => !taken.has(n));
+    if (!name) continue;
+    r.label = name;
+    taken.add(name);
+    if (c.kind !== "market") { usedKinds.add(c.kind); given++; }
+  }
+  for (const r of w.regions.values()) r.label ??= `the ${r.name} country`;
 }
 
 // ---------------------------------------------------------------------------

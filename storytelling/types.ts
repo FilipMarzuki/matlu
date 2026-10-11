@@ -950,6 +950,11 @@ export type RegionId = string;
 
 // What a place lives on. `trading` is the market town's; the rest come from the land.
 export type Livelihood = "farming" | "lumber" | "mining" | "fishing" | "herding" | "peat" | "trading";
+// What a settlement grew up around: a trade its land gave, or a river crossing
+// (a market town on a river grew at the ford). It can differ from what the
+// place lives on now: a ford that became a market, a farm village that took
+// up timber because its neighbours already farmed.
+export type Founding = Exclude<Livelihood, "trading"> | "crossing";
 
 // The region's big enterprise, named for what it lives on: a mine for a mining
 // country, a lumber camp for a forest one. Its fortunes are the region's
@@ -960,10 +965,16 @@ export type HarvestGrade = "bumper" | "good" | "fair" | "poor" | "failed";
 
 export interface Region {
   id: RegionId; // `r_<market centre's province id>`
-  name: string; // the market centre's name; told as "the <name> country"
+  name: string; // the market centre's name; told as "the <name> country" until named
+  // What people call it once its history is lived (regions.ts nameRegions): its
+  // market town, a mine, a hero, a hardship or a quarrel. "the Ironvein",
+  // "Doran's Land". Display only; the id never changes. Unset: "the <name> country".
+  label?: string;
   centreId: ProvinceId; // the market town
   provinceIds: ProvinceId[]; // the centre first, then by id
-  livelihoods: Record<ProvinceId, Livelihood>; // what each of its provinces lives on
+  livelihoods: Record<ProvinceId, Livelihood>; // what each of its provinces lives on (its dominant trade)
+  secondary: Record<ProvinceId, Livelihood[]>; // other trades its land supports, best first (at most 2)
+  founding: Record<ProvinceId, Founding>; // what the settlement first grew up around
   primary: Livelihood; // what the region as a whole lives on (never `trading`)
   venture: { kind: string; provinceId: ProvinceId; health: number; state: VentureState; since: number };
 
