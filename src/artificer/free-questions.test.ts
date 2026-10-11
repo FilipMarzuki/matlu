@@ -59,6 +59,9 @@ describe('Matching a free question to what someone knows (#1575)', () => {
   it('matches nothing when nothing they know is in it, or only their own name is', () => {
     expect(matchQuestion('hf-orrin', 'What is your favourite colour?')).toBeNull();
     expect(matchQuestion('hf-orrin', 'Orrin, how are you today?')).toBeNull();
+    // Her name is a hint at the hides she's owed, but said to her it's only her name.
+    expect(matchQuestion('sm-hedda', 'Hedda, what do you think of the caravan?')).toBeNull();
+    expect(matchQuestion('hf-tobin', 'Who is Hedda?')).toBe('quest:hf-hides-saltmere');
     expect(matchQuestion('hf-orrin', '   ')).toBeNull();
     // Hedda knows nothing about iron, however it's asked.
     expect(matchQuestion('sm-hedda', 'Where do I get iron ore?')).toBeNull();

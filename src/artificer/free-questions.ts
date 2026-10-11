@@ -21,6 +21,7 @@
 import { answerFor, topicsKnownBy } from './asks';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, TOPIC_KINDS, isTopicKind, mentionsIn, topicDef } from './topics';
+import { personById } from './villages';
 import conceptsRegistry from './content/concepts.json';
 
 /** Long enough for a real question, short enough not to be a letter. */
@@ -88,10 +89,12 @@ const MENTIONED = 1;
  * first as written.
  */
 export function matchQuestion(personId: string, question: string, answered: readonly string[] = []): string | null {
-  const q = question.slice(0, QUESTION_CHARS * 2);
+  // Naming the person you're asking says nothing about what you're asking them ("Hedda, what's
+  // Saltmere like?" isn't about the hides she's owed, though her name points at them), so it goes.
+  const name = personById(personId)?.name;
+  const q = (name ? question.replace(new RegExp(`\\b${escape(name)}\\b`, 'gi'), ' ') : question).slice(0, QUESTION_CHARS * 2);
   if (!q.trim()) return null;
   const named = topicsIn(q);
-  // Naming the person you're asking says nothing about what you're asking them.
   named.delete(`person:${personId}`);
   let best: { key: string; score: number; fresh: boolean } | null = null;
   for (const key of topicsKnownBy(personId)) {
