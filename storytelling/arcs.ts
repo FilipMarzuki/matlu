@@ -174,6 +174,10 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
     case "MANA_RUPTURE":
     case "CORRUPTION_SPREADS":
     case "DELVED_TOO_DEEP":
+    // Odd patches and strange growths (#1633) cluster under the place: a valley
+    // where strangers keep turning up is its own thread.
+    case "ODD_PATCH":
+    case "STRANGE_GROWTH":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
     case "ERUPTION":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
@@ -284,6 +288,8 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
       if (has("KNOWLEDGE_LOST"))                 return `The Silence of ${prov} (${span})`;
       if (has("TRIBUTE_IMPOSED") || has("TRIBUTE_REVOKED")) return `The Tributes of ${prov} (${span})`;
       if (has("TRADE_ROUTE_ESTABLISHED") || has("TRADE_ROUTE_DISRUPTED")) return `The Trade of ${prov} (${span})`;
+      // Only a thread of nothing but strangers: a plague year among them stays a calamity.
+      if (events.every((e) => e.type === "ODD_PATCH" || e.type === "STRANGE_GROWTH")) return `The Strangers of ${prov} (${span})`;
       return `The Calamities of ${prov} (${span})`;
     }
     case "culture": {

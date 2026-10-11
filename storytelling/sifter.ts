@@ -301,6 +301,11 @@ const BASE: Partial<Record<EventType, number>> = {
   DOOM_FULFILLED:               10,
   LEGEND_INSCRIBED:             9,  // a figure passes into cultural memory
   LEGEND_INVOKED:               6,  // a later character calls the old name
+  // Odd patches of humans (odd-patches.ts, #1633) — mysteries the whole
+  // countryside talks about for a generation. A patch (strangers with no past)
+  // sits with plague; a village swelling with no arrivals is a step quieter.
+  ODD_PATCH:                    7,
+  STRANGE_GROWTH:               5,
 };
 
 export interface SiftResult {
@@ -458,6 +463,19 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
         if (ev.data["trait"] === "slavery") s += 2;
         if (ev.data["adopted"] === false) s += 1; // abandonment is harder to tell
         if (ev.data["tier"] === "both") s += 1;   // cross-tier establishment
+        break;
+      }
+      case "ODD_PATCH": {
+        // Strangers where there were no humans at all are the stranger story.
+        if (ev.data["unexpected"]) {
+          s += 1;
+          tags.push("unexplained");
+        }
+        break;
+      }
+      case "STRANGE_GROWTH": {
+        // A village that grew by a sixth or more in a year is remembered.
+        if (Number(ev.data["share"] ?? 0) >= 0.15) s += 1;
         break;
       }
       case "ASH_SUMMER": {

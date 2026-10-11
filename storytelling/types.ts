@@ -1538,7 +1538,13 @@ export type EventType =
   | "CIVIC_CHARTER_GRANTED"     // city elevated to charter/free-status
   | "NOBLE_HOSTAGE_TAKEN"       // burghers seize a lord to extract concessions
   | "SUMPTUARY_LAW_PASSED"      // nobles restrict burgher displays of wealth
-  | "PATRONAGE_EXTENDED";       // patrician family bankrolls a scholar/artist
+  | "PATRONAGE_EXTENDED"        // patrician family bankrolls a scholar/artist
+  // --- Odd patches of humans (odd-patches.ts, #1633) ---
+  // Throughout history extra humans turn up where nobody expected them, and
+  // human settlements sometimes grow faster than births allow. Nobody in the
+  // world knows why, and the chronicle never says: both are told as mysteries.
+  | "ODD_PATCH"                 // a group of humans with no past is found somewhere unexpected
+  | "STRANGE_GROWTH";           // a human settlement swells with no arrivals from any known place
 
 export interface WorldEvent {
   id: number;

@@ -221,12 +221,21 @@ export class World {
   regionalCursor: number | null = null;
   private nextRegionalEventId = 1;
 
+  // The odd-patches stream (odd-patches.ts, #1633): a third independent
+  // mulberry32, derived from the world seed with its own salt. The rolls for
+  // "do strangers turn up this year, and where" come only from here, so a world
+  // with no humans in it never draws from it at all, and in a world with humans
+  // the main stream reads the same numbers it always did until the strangers
+  // themselves start living (marrying, ageing, dying) in it.
+  oddPatchRng: RNG;
+
   private nextEventId = 1;
   private nextEntityId = 1;
 
   constructor(seed: number) {
     this.rng = new RNG(seed);
     this.regionRng = new RNG(regionalSeed(seed));
+    this.oddPatchRng = new RNG(oddPatchSeed(seed));
   }
 
   // Log a regional event (regions.ts). Like `log`, but to the regional log.
@@ -746,7 +755,18 @@ export function personalCombat(c: Character): number {
 // "murmur3 finaliser") with a fixed salt, so seeds 1 and 2 give unrelated
 // regional streams rather than streams one step apart.
 export function regionalSeed(seed: number): number {
-  let h = (seed ^ 0x5eed4e91) >>> 0;
+  return mixSeed(seed, 0x5eed4e91);
+}
+
+// The odd-patches stream's seed (#1633): the same mix with a different salt,
+// so it shares nothing with the main or the regional stream.
+export function oddPatchSeed(seed: number): number {
+  return mixSeed(seed, 0x0dd9a7c4);
+}
+
+// A world seed and a salt, mixed into an unrelated 32-bit seed.
+function mixSeed(seed: number, salt: number): number {
+  let h = (seed ^ salt) >>> 0;
   h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
   return (h ^ (h >>> 16)) >>> 0;

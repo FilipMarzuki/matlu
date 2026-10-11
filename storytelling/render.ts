@@ -10,6 +10,7 @@
 import type { Arc } from "./arcs.js";
 import { SPEC_REGISTRY } from "./event-spec.js";
 import { topHeroes } from "./magic.js";
+import { isHumanRace } from "./odd-patches.js";
 import type { FocusContext } from "./sifter.js";
 import type { Character, RegionalEvent, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
@@ -75,6 +76,59 @@ function provName(w: World, id: string | null): string {
 function tagsOf(ev: WorldEvent): string[] {
   const t = ev.data["_tags"];
   return typeof t === "string" && t.length ? t.split(",") : [];
+}
+
+// ---------------------------------------------------------------------------
+// Odd patches of humans (#1633) — what each People says about them. WORLD.md:
+// "Every People has a story for it: the Lövfolk say humans root like weeds, the
+// Bergfolk say the deep rock coughs them up, the goblins say humans breed when
+// nobody's looking and won't hear otherwise. Other Peoples remember mostly the
+// patches and say humans came, not grew; the Riksfolk say they were always
+// here." Keyed by the People's id, lower-cased and without accents ("Lövfolk"
+// → "lovfolk"), so a spec that names its races that way gets these for free.
+// None of them is the cause, and none may name it.
+// ---------------------------------------------------------------------------
+const PATCH_SETTING: Record<string, string> = {
+  shore: "wandering the shore", woods: "in the woods", valley: "in a high valley",
+  marsh: "among the reeds", open: "out on the open land", fields: "on the edge of the fields",
+};
+
+const ODD_HUMAN_SAYINGS: Record<string, (people: string) => string> = {
+  lovfolk: (p) => `${p} said humans root like weeds.`,
+  bergfolk: (p) => `${p} said the deep rock had coughed them up.`,
+  goblin: (p) => `${p} said humans breed when nobody's looking, and would hear nothing else.`,
+  goblins: (p) => `${p} said humans breed when nobody's looking, and would hear nothing else.`,
+  riksfolk: (p) => `${p} said humans had always been here.`,
+};
+
+// Races the engine knows as kinds of creature read as plain plurals ("the
+// orcs"); a People with a name of its own keeps it ("the Bergfolk", "the Pandor").
+const KIND_PLURAL: Record<string, string> = {
+  human: "humans", orc: "orcs", dwarf: "dwarfs", elf: "elves", goblin: "goblins", troll: "trolls",
+};
+
+function peopleKey(id: string): string {
+  return id.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/**
+ * What a People says when strangers turn up or a human village swells: one
+ * sentence, past tense, for the end of the chronicle line. A RaceSpec's own
+ * `oddHumansSaying` wins; then what WORLD.md has that People say; then, for a
+ * human People, that they took the strangers in; then "humans come; they do
+ * not grow". With no People at all, nobody says anything more.
+ */
+export function oddHumansSaying(w: World, raceId: string): string {
+  const race = raceId ? w.races.get(raceId) : undefined;
+  if (!race) return "Nobody could say more than that.";
+  if (race.oddHumansSaying) return race.oddHumansSaying;
+  const key = peopleKey(race.id);
+  const name = KIND_PLURAL[key] ?? `${race.name}`;
+  const people = `The ${name}`;
+  const known = ODD_HUMAN_SAYINGS[key] ?? ODD_HUMAN_SAYINGS[peopleKey(race.name)];
+  if (known) return known(people);
+  if (isHumanRace(race)) return `Even the ${name} there could not say where the new faces came from.`;
+  return `${people} said only that humans come; they do not grow.`;
 }
 
 // The core: one event -> one chronicle sentence.
@@ -173,6 +227,21 @@ export function renderEvent(w: World, ev: WorldEvent): string {
 
     case "HARVEST_FAILURE":
       return `The harvest failed at ${provName(w, ev.provinceId)}.`;
+
+    // Odd patches of humans (#1633): told as mysteries. The line says what was
+    // seen and what the neighbours said, never why: nobody in the world knows.
+    case "ODD_PATCH": {
+      const where = PATCH_SETTING[String(ev.data["setting"] ?? "")] ?? "on the edge of the fields";
+      const souls = Number(ev.data["souls"] ?? 0);
+      const teller = oddHumansSaying(w, String(ev.data["teller"] ?? ""));
+      return `Strangers were found ${where} at ${provName(w, ev.provinceId)}: some ${souls} humans no one had seen before, ${who(w, ev.actorId)} among them, with no kin to name and no memory of where they had come from. They stayed, and took up the ways of the place. ${teller}`;
+    }
+    case "STRANGE_GROWTH": {
+      const teller = oddHumansSaying(w, String(ev.data["teller"] ?? ""));
+      const share = Number(ev.data["share"] ?? 0);
+      const part = share >= 0.18 ? "a fifth" : share >= 0.15 ? "a sixth" : share >= 0.12 ? "an eighth" : "a tenth";
+      return `${provName(w, ev.provinceId)} grew by ${part} in a single year, some ${ev.data["gain"]} souls more than any cradle could account for, and no road had brought them. ${teller}`;
+    }
 
     case "GRUDGE_FORMED":
       return `${who(w, ev.actorId)} swore a grudge against ${who(w, ev.targetId)}.`;
