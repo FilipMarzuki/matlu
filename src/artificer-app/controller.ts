@@ -14,6 +14,7 @@ import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blocke
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
 import { leadOnLoad, type Lead } from '../artificer/asks';
+import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -419,7 +420,7 @@ function parseRoad(x: unknown): RoadState | null {
     // Signs noticed (#1496); a road from before has none.
     ...(isObj(x.noticed) ? { noticed: Object.fromEntries(Object.entries(x.noticed).map(([k, v]) => [k, strs(v)])) } : {}),
     // Leads (#1497); likewise.
-    ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads) } : {}),
+    ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads, x.features) } : {}),
     // Deeds carried out of the Reach (#1499); likewise.
     ...(Array.isArray(x.deeds) ? { deeds: strs(x.deeds) } : {}),
     // What's left of each misreading (#1578), a share from 0 to 1; anything else is dropped, and
@@ -435,12 +436,14 @@ function parseRoad(x: unknown): RoadState | null {
  */
 /**
  * Saved leads (#1497): each needs who, about and from, and is kept only if that person's answer
- * really gives it (`leadOnLoad`), rebuilt from the data. Undefined if never saved.
+ * really gives it (`leadOnLoad`), rebuilt from the data. Undefined if never saved. The answers
+ * are the run's (`features`, the road's saved switches): with the scope facts (#1610) only if it had them.
  */
-function readLeads(x: unknown): Lead[] | undefined {
+function readLeads(x: unknown, features: unknown): Lead[] | undefined {
   if (!Array.isArray(x)) return undefined;
+  const facts = factsFor(validFeatures(features) ? features : undefined);
   return x.filter((l): l is Record<string, string> => isObj(l) && typeof l.who === 'string' && typeof l.about === 'string' && typeof l.from === 'string')
-    .map(l => leadOnLoad(l.who, l.about, l.from))
+    .map(l => leadOnLoad(l.who, l.about, l.from, facts))
     .filter((l): l is Lead => l !== undefined);
 }
 
@@ -454,7 +457,7 @@ function readFocus(f: unknown, from: Record<string, unknown>): Focus | null {
     trust: obj(from.trust) as Record<string, number>,
     quests: obj(from.quests),
     heard: Array.isArray(from.heard) ? from.heard.filter((x): x is string => typeof x === 'string') : [],
-    leads: readLeads(from.leads) ?? [],
+    leads: readLeads(from.leads, from.features) ?? [],
   };
   return refusalOf(saved, parsed) ? null : parsed;
 }

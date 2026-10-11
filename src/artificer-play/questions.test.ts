@@ -119,8 +119,10 @@ describe('Keeping questions through the API (#1575)', () => {
     await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where is mana-granite?', topic: 'material:mana-granite' }), store, deps);
     expect(store.questions[1]).toMatchObject({ topic: null, answered: false });
     // One the person doesn't know but someone near them does (#1611): kept, as a referral, not answered.
-    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where is iron?', topic: 'material:iron' }), store, deps);
-    expect(store.questions[2]).toMatchObject({ topic: 'material:iron', answered: false });
+    // Foraging, which Isa knows and Maren doesn't in any game (with the scope facts, #1610, Maren
+    // knows the road's word on iron, so iron is no longer a referral for her).
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where do mushrooms grow?', topic: 'skill:foraging' }), store, deps);
+    expect(store.questions[2]).toMatchObject({ topic: 'skill:foraging', answered: false });
     // Their People's ways, told: the page says it answered.
     await handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'What do the Bergfolk believe?', topic: 'group:Bergfolk/values', answered: true }), store, deps);
     expect(store.questions[3]).toMatchObject({ topic: 'group:Bergfolk/values', answered: true });

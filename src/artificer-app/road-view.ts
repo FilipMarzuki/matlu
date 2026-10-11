@@ -16,6 +16,7 @@ import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
 import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
+import { factsFor } from '../artificer/facts';
 import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { answerQuestion, parseLoreKey, questionAbout } from '../artificer/knowledge-questions';
@@ -278,7 +279,7 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
       const label = questionAbout(k);
       return lore.kind === 'told' ? `<p class="mood told"><b>${esc(label[0].toUpperCase() + label.slice(1))}</b> — “${esc(lore.answer.text)}”</p>` : '';
     }
-    const a = answerFor(p.id, k);
+    const a = answerFor(p.id, k, factsFor(r.features));
     const about = parseFocus(k);
     return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : k)}</b> — “${esc(a.text)}”</p>` : '';
   }).join('');
