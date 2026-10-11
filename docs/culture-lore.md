@@ -1,6 +1,6 @@
 # What Peoples and cultures value, believe and keep
 
-**Issue:** #1590 (the Wildkin: #1606) · **Status:** content and reader written, not yet read by the game
+**Issue:** #1590 (the Wildkin: #1606; the Markfolk's eastern charters: #1620) · **Status:** content and reader written, not yet read by the game
 **Files:** `src/artificer/content/peoples-lore.json`, `src/artificer/content/cultures-lore.json`, read through `src/artificer/culture-lore.ts` (tests: `culture-lore.test.ts`)
 **Feeds:** the knowledge model's scope content (#1577 slice C, `docs/knowledge-model-design.md`) and rumours, confidence and lies (#1580)
 
@@ -28,8 +28,8 @@ false belief says what is `actually` so, with its own source, so #1580 can corre
 firmly it's held (`strength`: `firm`, `held` or `loose`). A few claims carry a `sensitivity`
 (`guarded`, `secret`) where canon says it's kept quiet; the rest are `public`.
 
-**Counts:** 828 claims (396 for the Peoples, 432 for the cultures): 769 true, 31 rumours, 28
-false. Views: 250 People-to-People, 132 culture-to-culture, 192 culture-to-People. 113 sayings and
+**Counts:** 830 claims (398 for the Peoples, 432 for the cultures): 771 true, 31 rumours, 28
+false. Views: 252 People-to-People, 132 culture-to-culture, 192 culture-to-People. 113 sayings and
 voice lines. Every People met on the road holds at least one wrong or half-true belief; the 59
 wrong views are 13 firm, 23 held and 23 loose.
 
@@ -102,6 +102,9 @@ check that the file, the heading and the label are really there. Most of it rest
   customs: Bergfolk tools buried with their master, Deepwalker seal rings buried with their
   [Keeper], Steinfolk adding a stone to what the dead built); *Who uses Rasa*; *Alliances*; *Safe to
   use freely* (the canon prejudices about goblins, dragons, elves and minotaurs).
+- **`WORLD.md` § The eastern charters** (#1620): how the Merkförbund grows east onto the steppe's
+  edge, the charter law for "open land", and the route gates, behind the Markfolk's and the
+  Viddfolk's views of each other.
 - **`AXES.md`**: each People's context score and mode, for their voice.
 - **`src/artificer/villages.ts`, `answers.ts` and `asks.ts`**: the road's own people. Culture lore leans on what
   they already say (Maren for fieldborn, Orrin for ridgefolk, Anselm and Gunnar for waterstead,
@@ -127,11 +130,11 @@ made. A test keeps it so.
 ## What's invented
 
 `invented: true` marks a line canon doesn't state outright. It still names the source it was built
-on, and nothing invented contradicts a canon statement. 563 of the 828 claims are invented:
+on, and nothing invented contradicts a canon statement. 563 of the 830 claims are invented:
 
 - **Most customs** (78 of 112): canon gives a few (above); greetings, debts and most mourning
   customs are new.
-- **Most People-to-People views** (179 of 250): canon gives the *Relations* pairs (Bergfolk with Markfolk, Lövfolk,
+- **Most People-to-People views** (179 of 252): canon gives the *Relations* pairs (Bergfolk with Markfolk, Lövfolk,
   Steinfolk and Goblins; Lövfolk with Pandor, Bergfolk and Fae; Markfolk with Bergfolk, Steinfolk
   and Viddfolk; Viddfolk with all nations and the Goblins; Steinfolk with Markfolk and Bergfolk;
   Deepwalkers with Merfolk and Pandor; the Pandor's dealings with the Merfolk, Giants, Dragons,
@@ -268,8 +271,8 @@ Free questions read it (#1611, behind `knowledge-questions`), and the place nudg
    `docs/peoples-and-races.md`. The lore follows the docs and `world/peoples.ts`. Fix the export?
 5. **A `culture` topic kind.** Wiring this in (slice C) needs `topics.ts` to name cultures, as it
    already names Peoples (`group:<People>`). `culture:<id>` is the key used here.
-6. **Wildkin and the human lands.** The setting bible's eastern human empire has no People of its
-   own in Mistheim's list (#709 folded "human" into others). The Wildkin lore here says nothing of
-   it, and doesn't name the Markfolk as those neighbours. Should a People hold that role?
+6. **Wildkin and the human lands.** Decided (owner, 2026-10-11): the Markfolk are the orc People and
+   don't border the Wildkin; the setting bible's eastern human empire becomes a human People of its
+   own (#1623). Its lore comes with that issue.
 7. **Wildkin in `villages.ts`.** The road's `People` type still has 15; the lore adds the Wildkin
    as `LorePeople` beside it. Widen `People` when a Wildkin first walks the road?

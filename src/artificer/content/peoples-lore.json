@@ -182,7 +182,8 @@
         ],
         "Viddfolk": [
           {"text":"Sixty years of talks over grazing on the eastern steppe. No war, and nobody expects an end.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
-          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"strength":"firm","actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}}
+          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"strength":"firm","actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}},
+          {"text":"Where a charter fence crosses a route, the gate stands open on route days. Shut it and the council and the Viddfolk both fine you.","truth":"true","source":"WORLD.md § The eastern charters › Route gates"}
         ],
         "Steinfolk": [
           {"text":"They built the river works and we run them. Both of us know who needs whom.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
@@ -255,7 +256,8 @@
           {"text":"Elf councils still write as if the world were four hundred years younger. We carry the letters anyway.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them","invented":true}
         ],
         "Markfolk": [
-          {"text":"Sixty years of talks over the eastern steppe. The Merkförbund wants to plough our route-claims.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
+          {"text":"Sixty years of talks over the eastern steppe. The Merkförbund wants to plough our route-claims.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
+          {"text":"Merkförbund law calls our routes open land, because they have no fence. The Accords they signed say a route is ours wherever it runs.","truth":"true","source":"WORLD.md § The eastern charters › The charters"}
         ],
         "Steinfolk": [
           {"text":"Steinfolk bridges carry our routes over the rivers. Every one of them is in a song.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make","invented":true}
