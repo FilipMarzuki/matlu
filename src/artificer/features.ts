@@ -62,6 +62,12 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'candour-by-place', name: 'Candour shaped by place', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1619,
     note: 'Where people are changes how openly they speak their minds: blunter in a hard place or harsh weather, more careful under a strict lord or in uneasy times.',
   },
+  {
+    // A rules feature: it changes prices, what's offered and the quests (economy.ts), so a run
+    // from before it (absent: false) keeps today's market and jobs on replay.
+    id: 'village-economies', name: 'Village economies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1599,
+    note: 'Each village lives on its own trade: what it makes is cheap there, what it lacks is dear and sells well, and each has a job that comes from its work.',
+  },
 ];
 
 /** Switches by feature id. */

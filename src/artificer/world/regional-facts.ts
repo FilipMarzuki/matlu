@@ -23,6 +23,7 @@
  * Pure and deterministic: plain data in, plain data out, no randomness, no engine.
  */
 
+import { economyLine, economyOfProvince, ventureFits, TRADE_WORDS } from '../economy';
 import { LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 
 /** A regional fact: the knowledge model's `Fact` shape (design §1), with when and what kind. */
@@ -87,24 +88,26 @@ export function regionOfProvince(history: ReachHistory, province: string): Regio
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
-const TRADE: Record<string, string> = {
-  farming: 'its fields', lumber: 'timber', mining: 'ore', fishing: 'fish', herding: 'its flocks', peat: 'peat and reed', trading: 'its market',
-};
-
-const FOUNDED: Record<string, string> = {
-  crossing: 'the ford', farming: 'its fields', lumber: 'the woods', mining: 'a seam of ore', fishing: 'the fishing',
-  herding: 'its pastures', peat: 'the peat cuttings',
-};
-
-/** "Hollowford grew up around the ford; today it lives on its market, and on timber besides." */
+/**
+ * What a place grew up around and lives on today, from its economy (economy.ts, #1599): a road
+ * village's as written ("Saltmere grew up around the fishing, when the mere was still sweet
+ * water; today it lives on salt…"), any other place's as the engine gave it ("Ravenford grew up
+ * around the ford; today it lives on its market, and on timber besides"). The engine scores the
+ * land at a road village's seat like any other, so without this it could tell Saltmere as a
+ * lumber town.
+ */
 export function placeTrade(p: RegionHistory['provinces'][number]): string {
-  const founded = FOUNDED[p.founding] ?? p.founding;
-  const today = TRADE[p.livelihood] ?? p.livelihood;
-  const also = (p.secondary ?? []).map(t => TRADE[t] ?? t);
-  const besides = also.length ? `, and on ${also.join(' and ')} besides` : '';
-  return p.founding === p.livelihood
-    ? `${p.name} grew up around ${founded}, and still lives on ${today}${besides}.`
-    : `${p.name} grew up around ${founded}; today it lives on ${today}${besides}.`;
+  return economyLine(p.name, economyOfProvince(p));
+}
+
+/**
+ * The region's venture as people at `place` tell it. At a road village that doesn't live on the
+ * venture's trade (a lumber camp at Saltmere, which lives on salt), it's out in the province's
+ * land beyond the village, not in it: the engine put it there because that land suits it.
+ */
+export function ventureWhere(r: RegionHistory): string {
+  const p = r.provinces.find(x => x.name === r.venture.province);
+  return p && !ventureFits(economyOfProvince(p), r.venture.kind) ? `out beyond ${r.venture.province}` : `at ${r.venture.province}`;
 }
 
 /** One region's facts: how things stand now, then what happened there, oldest first. */
@@ -120,7 +123,7 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   const facts: RegionalFact[] = [];
 
   // --- economy, as it stands ---
-  facts.push(now('trade', 'economy', `${Name} lives on ${TRADE[r.primary] ?? r.primary}; its market is at ${r.centre.name}.`, 1, { about: [place(r.centre.name)] }));
+  facts.push(now('trade', 'economy', `${Name} lives on ${TRADE_WORDS[r.primary] ?? r.primary}; its market is at ${r.centre.name}.`, 1, { about: [place(r.centre.name)] }));
   // Each place: what it grew up around, and what it lives on today ("Hollowford grew up around
   // the ford; today it lives on its market, and on timber besides").
   for (const p of r.provinces) {
@@ -135,11 +138,12 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
     facts.push(now(`wealth:${slug(richest.name)}`, 'economy', `${richest.name} is the best-off place in ${r.name}: its stores are full${(richest.wealth ?? 0.5) >= RICH ? ' and its people want for little' : ''}.`, 2, { about: [place(richest.name)] }));
     facts.push(now(`wealth:${slug(poorest.name)}`, 'economy', `${poorest.name} is the worst-off place in ${r.name}${(poorest.wealth ?? 0.5) <= POOR ? ': it has fallen on hard times' : ''}.`, 2, { about: [place(poorest.name)] }));
   }
+  const where = ventureWhere(r);
   const ventureText = {
-    thriving: `The ${r.venture.kind} at ${r.venture.province} is thriving.`,
-    steady: `The ${r.venture.kind} at ${r.venture.province} gets by.`,
-    failing: `The ${r.venture.kind} at ${r.venture.province} is failing.`,
-    closed: `The ${r.venture.kind} at ${r.venture.province} has closed.`,
+    thriving: `The ${r.venture.kind} ${where} is thriving.`,
+    steady: `The ${r.venture.kind} ${where} gets by.`,
+    failing: `The ${r.venture.kind} ${where} is failing.`,
+    closed: `The ${r.venture.kind} ${where} has closed.`,
   }[r.venture.state];
   facts.push(now('venture', 'economy', ventureText, 1, { about: [place(r.venture.province)] }));
   facts.push(now('times', 'economy',
@@ -181,10 +185,14 @@ export function lineFact(r: RegionHistory, line: RegionLine, present: number, k 
   const living = ago <= LIVING_MEMORY;
   const depth: 1 | 2 | 3 = !living ? 3 : ago <= GENERATION && line.significance > 2 ? 1 : 2;
   const when = ago === 0 ? 'This year' : ago === 1 ? 'A year ago' : `${ago} years ago`;
+  // The engine's venture news names the venture "at" its province ("The lumber camp at Saltmere
+  // was thriving."); at a road village that doesn't live on it, it's out beyond (`ventureWhere`).
+  const beyond = line.kind.startsWith('VENTURE_') && line.province === r.venture.province && ventureWhere(r).startsWith('out beyond');
+  const told = beyond ? line.text.replace(` at ${line.province}`, ` out beyond ${line.province}`) : line.text;
   return {
     id: `region:${r.id}:${line.year}:${k}`,
     about: [`region:${r.id}`, ...(line.province ? [`place:${slug(line.province)}`] : [])],
-    text: `${when}, in year ${line.year}: ${line.text}`,
+    text: `${when}, in year ${line.year}: ${told}`,
     scope: { kind: 'region', id: r.id },
     sensitivity: GUARDED.has(line.kind) ? 'guarded' : 'public',
     truth: living ? 'true' : 'rumour',

@@ -28,6 +28,7 @@ import { deflectionOf } from './free-questions';
 import { factsFor } from './facts';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
+import { arrivalLines, localMarket } from './economy';
 import { villagePlace } from './place-candour';
 import type { Place } from './culture-lore';
 import { noticesToday, NOTICE_TRUST } from './notice';
@@ -442,7 +443,13 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const trader = traderAmong(peopleHere(s));
   if (!trader) return null;
   const stock = TRADER_STOCK[trader.id];
-  return { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+  const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+  // Village economies (#1599): the village's own market sets what's cheap and dear, and its
+  // trader always stocks what the village makes. Off (and in runs from before the switch), the
+  // terms are exactly as they were.
+  const local = featureOn(s.features, 'village-economies') ? localMarket(villageOf(s)) : null;
+  if (!local) return base;
+  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local };
 }
 
 /** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */
@@ -502,7 +509,7 @@ function trade(next: RoadState, id: string): RoadState {
 // ── Quests (#1248) ──────────────────────────────────────────────────────────
 
 /** The quests on offer where you are. */
-export const questsHere = (s: RoadState): QuestTemplate[] => availableQuests(villageOf(s), s.trust, s.quests);
+export const questsHere = (s: RoadState): QuestTemplate[] => availableQuests(villageOf(s), s.trust, s.quests, s.features);
 
 const nameOf = (pid: string): string => personById(pid)?.name ?? pid;
 const bump = (s: RoadState, pid: string, by: number): void => { s.trust[pid] = Math.max(0, Math.min(100, (s.trust[pid] ?? 0) + by)); };
@@ -1041,6 +1048,11 @@ export function endRoadDay(s: RoadState): RoadState {
     }
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+    // What the village lives on (#1599): how it looks and sounds, its trade, and its market.
+    if (featureOn(next.features, 'village-economies')) {
+      const lines = arrivalLines(now.id);
+      if (lines) say(next, lines.join(' '), 'action');
+    }
     const met = { trust: { ...next.trust }, readings: next.readings };
     arriveWithDeliveries(next, now.id);
     // A delivery's thanks can make a friend of the giver (#1578).

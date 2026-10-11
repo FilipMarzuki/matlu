@@ -234,9 +234,10 @@ describe('Given the engine\'s state, when a village\'s history is generated, the
   });
 
   it('tells a good or bad year for the village\'s own trade, from its wealth and its venture', () => {
-    const rich = localHistory(input({ country: country({ provinces: [{ id: 'p3', name: 'Saltmere', livelihood: 'fishing', secondary: [], founding: 'fishing', wealth: 0.8 }] }) }), NONE).entries.find(e => e.slot === 'trade')!;
+    // With no economy written for it (`{}`), the village lives on what the engine says: fishing.
+    const rich = localHistory(input({ country: country({ provinces: [{ id: 'p3', name: 'Saltmere', livelihood: 'fishing', secondary: [], founding: 'fishing', wealth: 0.8 }] }) }), NONE, {}).entries.find(e => e.slot === 'trade')!;
     expect(rich.text).toMatch(/^It was a good year for Saltmere: the nets/);
-    const poor = localHistory(input({ country: country({ provinces: [{ id: 'p3', name: 'Saltmere', livelihood: 'fishing', secondary: [], founding: 'fishing', wealth: 0.2 }] }) }), NONE).entries.find(e => e.slot === 'trade')!;
+    const poor = localHistory(input({ country: country({ provinces: [{ id: 'p3', name: 'Saltmere', livelihood: 'fishing', secondary: [], founding: 'fishing', wealth: 0.2 }] }) }), NONE, {}).entries.find(e => e.slot === 'trade')!;
     expect(poor.text).toMatch(/^It was a bad year for Saltmere: the fish/);
     // The country's venture, when it's here and changed within the local years, is the village's trade news.
     const venture = localHistory(input({ country: country({ venture: { kind: 'fishery', province: 'Saltmere', state: 'failing', since: PRESENT - 4 } }) }), NONE).entries.find(e => e.slot === 'trade')!;
