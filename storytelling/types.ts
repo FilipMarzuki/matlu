@@ -934,6 +934,13 @@ export interface Province {
   // The last year plague struck here, written by runPlague for every province
   // it reached (its PLAGUE event only names where it started).
   plaguedYear?: number;
+  // How well-off the province is, 0..1 (0.5 = getting by): its stores, coin and
+  // trade. Written by the regional level each year (regions.ts pushBack, #1608):
+  // it eases toward the region's prosperity and its roads' trade, and a levy,
+  // a hard winter, famine or bandits take from it. Read by World.power (a rich
+  // province raises more for its holder) and by the magic layer's treasury.
+  // Optional (read as 0.5) so hand-built provinces needn't set it; seed.ts does.
+  wealth?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -943,8 +950,9 @@ export interface Province {
 // seed time; each year regions.ts reads what the year did to their provinces
 // and holders and keeps a running political and economic state, logging
 // regional events to their own log (World.regionalEvents), never to
-// World.events, and drawing only from their own random stream. So adding the
-// level moved no golden hash: the canonical event log is untouched.
+// World.events, and drawing only from their own random stream. Adding the level
+// (#1598) moved no golden hash; letting it push back into provinces and people
+// (#1608: Province.wealth, populations, opinions, claims) did.
 // ---------------------------------------------------------------------------
 export type RegionId = string;
 
@@ -991,6 +999,11 @@ export interface Region {
   houses: Record<string, number>; // dynasty id → titles seated in the region it holds
   leadingHouse: string | null; // the dynasty holding the most (ties: the higher title)
   feuds: Record<string, number>; // "dynA|dynB" (sorted) → the last year their lords fought
+  // 0..1: how unsettled its politics are (#1608). A lord's death, an empty seat
+  // or a seized one raises it; it fades over a few quiet years. While it's up,
+  // its lords trust each other less, bandits find it easier, and an old feud
+  // can flare into a fresh claim (regions.ts pushBack).
+  unsettled: number;
 
   // Hysteresis flags and cooldowns, so a state crossing a line is told once
   // rather than every year it hovers there.
@@ -1007,6 +1020,7 @@ export type RegionalEventKind =
   | "HOUSE_RISES" // a house became the region's leading house
   | "HOUSE_FALLS" // a house lost its last seat in the region
   | "FEUD" // two of the region's lords went to war with each other
+  | "FEUD_FLARES" // an old feud flared up again: one lord laid claim to the other's seat (#1608)
   | "BORDER_WAR" // an outside lord fought for a title in the region
   | "ALLIANCE" // one of its lords made an alliance or a dynastic union
   | "LEVY_RAISED" // its men were called up for war

@@ -130,7 +130,8 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
       neighbors: p.neighbors, population: p.population, mana: p.mana,
       // For the engine's regional economy only (#1598): a lake to fish, and how much of the land is
       // bare rock (scree and fell) to mine. Nothing else in the engine reads either on a surface
-      // province, so the history itself (history.test.ts pins its event log) doesn't change.
+      // province, but since #1608 the regional economy pushes back (a thriving mine makes its
+      // province rich, and its lord stronger), so they shape the history too.
       lake: p.lakeside,
       mineralWealth: Math.round(rockShare(reach, p) * 100) / 100,
     })),
@@ -281,7 +282,7 @@ export function regionsOf(world: World): RegionHistory[] {
       id: idOf(r.id),
       name: regionLabel(r),
       centre: { id: r.centreId, name: r.name },
-      provinces: r.provinceIds.map(id => ({ id, name: provName(id)!, livelihood: r.livelihoods[id], secondary: [...r.secondary[id]], founding: r.founding[id] })),
+      provinces: r.provinceIds.map(id => ({ id, name: provName(id)!, livelihood: r.livelihoods[id], secondary: [...r.secondary[id]], founding: r.founding[id], wealth: world.province(id)?.wealth ?? 0.5 })),
       primary: r.primary,
       venture: { kind: r.venture.kind, province: provName(r.venture.provinceId)!, state: r.venture.state, since: r.venture.since },
       prosperity: r.prosperity,
@@ -289,6 +290,7 @@ export function regionsOf(world: World): RegionHistory[] {
       harvest: r.harvest,
       levy: r.levy,
       tax: r.tax,
+      unsettled: r.unsettled,
       leadingHouse: r.leadingHouse ? houseName(r.leadingHouse) : null,
       lords: holders.map(h => ({ province: provName(h.title.provinceId)!, text: `${fullName(world, h.holder)} holds the ${h.title.name}.` })),
       feuds: Object.entries(r.feuds)
