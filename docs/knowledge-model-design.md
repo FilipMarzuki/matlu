@@ -220,6 +220,13 @@ organisation and person scopes, and four people. It shows:
 
 A first, then B and C together; E as soon as A lands.
 
+**Slice C in the game (#1610):** 66 hand-written facts in `src/artificer/content/scope-facts.json`
+(30 village, 21 for the north road, 11 role, 4 taught-skill), behind the `scope-facts` rule switch
+(`facts.ts` `factsFor`). Each names its canon source; `facts-scope.test.ts` checks them. People's
+and cultures' ways stay in the culture lore (#1590). Two rules came with it: nobody answers about
+themself from what their village says of them (`knowledge.ts` `tells`), and for one topic in one
+scope the deeper fact is written first, so elders (and traders, on the road) say more.
+
 ## Questions for the owner
 
 1. **Truth vs rumour:** how often should people be confidently wrong, and how often lie? (The
