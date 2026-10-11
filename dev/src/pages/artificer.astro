@@ -61,7 +61,7 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
 
       <section class="chart-card">
         <h2>Across game versions</h2>
-        <p class="dim">The share of each model's runs that lived to the thaw, version by version (the four models with the most runs).</p>
+        <p class="dim">The share of each model's runs that lived to the thaw, version by version, for the four models with the most runs overall.</p>
         <div class="chart-box" id="trend-box"><canvas id="trend" aria-label="Share of runs that lived to the thaw, by game version and model"></canvas></div>
         <p class="dim" id="trend-note" hidden></p>
       </section>
@@ -91,6 +91,8 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
 
   let all: AiRun[] = [];
   const charts: Record<string, any> = {};
+  /** Each line's colour belongs to its model, picked once from every run, so a filter never repaints one. */
+  let colourOf = new Map<string, string>();
 
   // ── Small helpers ─────────────────────────────────────────────────────────
   const livedToThaw = (r: AiRun): boolean => r.outcome === 'arrived' || r.outcome === 'survived' || r.stage === 'road';
@@ -189,9 +191,11 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       type: 'bar',
       data: { labels: rows.map(r => r.model), datasets: [{ label: 'Mean cost per run (USD)', data: rows.map(r => r.mean), backgroundColor: ACCENT, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] },
       options: {
-        indexAxis: 'y', maintainAspectRatio: false,
+        indexAxis: 'y', maintainAspectRatio: false, animation: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c: any) => ` ${usd(c.parsed.x)} per run` } } },
-        scales: { x: { grid: { color: GRID }, ticks: { color: TEXT, callback: (v: number) => `$${v}` } }, y: { grid: { display: false }, ticks: { color: TEXT } } },
+        // The axis shows the model without its provider ("anthropic/…"), so names fit on a phone;
+        // the tooltip and the tables keep the full id.
+        scales: { x: { grid: { color: GRID }, ticks: { color: TEXT, callback: (v: number) => `$${v}` } }, y: { grid: { display: false }, ticks: { color: TEXT, callback: (_v: number, i: number) => rows[i].model.split('/').pop() } } },
       },
     });
   }
@@ -208,18 +212,18 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
     }
     $('trend-box').hidden = false;
     note.hidden = true;
-    const top = byModel(runs).slice(0, LINES.length);
+    const top = byModel(runs).filter(([model]) => colourOf.has(model));
     chart('trend', {
       type: 'line',
       data: {
         labels: versions,
-        datasets: top.map(([model, rs], i) => ({
-          label: model, borderColor: LINES[i], backgroundColor: LINES[i], borderWidth: 2, pointRadius: 4, pointBorderColor: '#111118', pointBorderWidth: 2, spanGaps: true,
+        datasets: top.map(([model, rs]) => ({
+          label: model, borderColor: colourOf.get(model), backgroundColor: colourOf.get(model), borderWidth: 2, pointRadius: 4, pointBorderColor: '#111118', pointBorderWidth: 2, spanGaps: true,
           data: versions.map(v => { const at = rs.filter(r => r.gameVersion === v); return at.length ? Math.round((100 * at.filter(livedToThaw).length) / at.length) : null; }),
         })),
       },
       options: {
-        maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
         plugins: { legend: { labels: { color: TEXT, usePointStyle: true } }, tooltip: { callbacks: { label: (c: any) => ` ${c.dataset.label}: ${c.parsed.y}%` } } },
         scales: { y: { min: 0, max: 100, grid: { color: GRID }, ticks: { color: TEXT, callback: (v: number) => `${v}%` } }, x: { grid: { display: false }, ticks: { color: TEXT } } },
       },
@@ -247,6 +251,8 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       return;
     }
     if (!all.length) { $('status').textContent = 'No AI runs recorded yet: the nightly playtest adds its games after its next run.'; return; }
+    // The four models with the most runs overall get a line each, in a fixed colour.
+    colourOf = new Map(byModel(all).slice(0, LINES.length).map(([model], i) => [model, LINES[i]]));
     const versions = [...new Set(all.map(r => r.gameVersion))];
     $('f-version').append(...versions.map(v => Object.assign(document.createElement('option'), { value: v, textContent: v })));
     $('f-surface').addEventListener('change', render);
@@ -257,27 +263,31 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
   void start();
 </script>
 
-<style>
-  .art { display: grid; gap: 1.5rem; }
-  .intro p { color: var(--text-dim); max-width: 70ch; margin: 0.5rem 0 0; }
-  .dim { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.75rem; }
-  .filters { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.9rem; color: var(--text-dim); }
-  .filters label { display: inline-flex; align-items: center; gap: 0.5rem; }
-  .filters select { background: var(--surface-hi); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; }
-  #body { display: grid; gap: 2rem; }
-  #body[hidden] { display: none; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
-  .tile { display: grid; gap: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
-  .tile .label { color: var(--text-dim); font-size: 0.85rem; }
-  .tile .value { font-size: 1.6rem; font-weight: 600; color: var(--text); }
-  section h2 { margin: 0 0 0.25rem; }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
-  th { color: var(--text-dim); font-weight: 600; background: var(--surface); }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-  tbody tr:last-child td { border-bottom: 0; }
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-  .chart-box { position: relative; height: 280px; min-width: 0; }
-  .chart-box[hidden] { display: none; }
+<style is:global>
+  /* Global, but every rule under .art: the tables and tiles are built by the script at runtime, and
+     Astro's scoped styles only reach elements written in this file's markup. */
+  /* minmax(0, 1fr): a grid track otherwise grows to its widest content (the tables), and the page with it. */
+  .art { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .art .intro p { color: var(--text-dim); max-width: 70ch; margin: 0.5rem 0 0; }
+  .art .dim { color: var(--text-dim); font-size: 0.9rem; margin: 0 0 0.75rem; }
+  .art .filters { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.9rem; color: var(--text-dim); }
+  .art .filters label { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .art .filters select { background: var(--surface-hi); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; }
+  .art #body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  .art #body[hidden] { display: none; }
+  .art .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+  .art .tile { display: grid; gap: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+  .art .tile .label { color: var(--text-dim); font-size: 0.85rem; }
+  .art .tile .value { font-size: 1.6rem; font-weight: 600; color: var(--text); }
+  .art section h2 { margin: 0 0 0.25rem; }
+  .art .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .art table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0; }
+  .art th, .art td { padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .art th { color: var(--text-dim); font-weight: 600; background: var(--surface); }
+  .art td.num, .art th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .art td.num { font-family: var(--mono); }
+  .art tbody tr:last-child td { border-bottom: 0; }
+  .art .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .art .chart-box { position: relative; height: 280px; min-width: 0; }
+  .art .chart-box[hidden] { display: none; }
 </style>
