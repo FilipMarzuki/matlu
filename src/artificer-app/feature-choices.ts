@@ -42,16 +42,28 @@ export function saveChoices(choices: FeatureSwitches, store: Store | null = stor
 }
 
 /**
- * Whether dev mode is on: `?dev` in the address turns it on and remembers it, `?dev=0` turns it off.
- * Dev mode shows the features panel and the truths the game hides from players.
+ * Dev mode is on unless a player turns it off, while the whole game is still an experiment (the
+ * owner's call, #1579). Turn this to false when the Artificer settles: then only `?dev` opens it.
+ */
+export const DEV_BY_DEFAULT = true;
+
+/**
+ * Whether dev mode is on: `?dev=0` in the address turns it off and remembers it, `?dev` turns it on
+ * and remembers it; with neither remembered, `DEV_BY_DEFAULT`. Dev mode shows the features panel and
+ * the truths the game hides from players.
  */
 export function devMode(search = globalThis.location?.search ?? '', store: Store | null = storage()): boolean {
   const asked = new URLSearchParams(search).get('dev');
   try {
-    if (asked === '0' || asked === 'off') store?.removeItem(DEV_KEY);
-    else if (asked !== null) store?.setItem(DEV_KEY, '1');
-    return store?.getItem(DEV_KEY) === '1';
+    // Asked in the address: that, and remembered for the next visit.
+    if (asked !== null) {
+      const on = asked !== '0' && asked !== 'off';
+      store?.setItem(DEV_KEY, on ? '1' : '0');
+      return on;
+    }
+    const kept = store?.getItem(DEV_KEY);
+    return kept === '1' ? true : kept === '0' ? false : DEV_BY_DEFAULT;
   } catch {
-    return asked !== null && asked !== '0' && asked !== 'off';
+    return asked === null ? DEV_BY_DEFAULT : asked !== '0' && asked !== 'off';
   }
 }
