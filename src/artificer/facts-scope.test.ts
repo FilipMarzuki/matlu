@@ -392,7 +392,9 @@ describe('Scope facts with knowledge questions (#1610 with #1611)', () => {
     const counts = Object.keys(VILLAGES).map(v => {
       const qs = SCOPE_QUESTIONS.filter(q => q.village === v);
       const match = (f: Record<string, boolean>) => qs.map(q => ({ q, t: matchFreeQuestion(q.person, q.question, [], f) }));
-      const before = match(SCOPE_OFF), after = match(ON);
+      // Before: neither the scope facts nor the organisations' (#1587), which answer a few of these
+      // questions too (Anselm on Saltmere, from the book); after: everything on.
+      const before = match({ ...SCOPE_OFF, organisations: false }), after = match(ON);
       const right = (m: typeof before) => m.filter(x => x.q.want !== null && x.t === x.q.want).length;
       return { v, n: qs.length, before: before.filter(x => x.t).length, rightBefore: right(before), after: after.filter(x => x.t).length, right: right(after) };
     });
