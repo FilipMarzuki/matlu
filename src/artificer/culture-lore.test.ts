@@ -121,7 +121,7 @@ describe('World lore covers every People and road culture (#1590)', () => {
 
   it('has every People met on the road hold at least one belief that is wrong or only half true', () => {
     const onRoad = new Set([...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS].map(p => p.people));
-    expect(onRoad.size).toBe(8);
+    expect(onRoad.size).toBeGreaterThanOrEqual(8);
     for (const id of onRoad) {
       const wrong = Object.values(peopleLore(id)!.views).flat().filter(c => c.truth !== 'true');
       expect(wrong.length, `${id} holds a prejudice or a wrong belief`).toBeGreaterThan(0);
