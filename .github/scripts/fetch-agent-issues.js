@@ -90,8 +90,9 @@ async function main() {
     const issuesWithOpenPR = new Set();
     for (const pr of openPRs) {
       const body = pr.body ?? '';
-      // GitHub's closing keywords: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved.
-      for (const m of body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi)) {
+      // GitHub's closing keywords: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved,
+      // with an optional colon ("Closes: #12").
+      for (const m of body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/gi)) {
         issuesWithOpenPR.add(parseInt(m[1], 10));
       }
     }
