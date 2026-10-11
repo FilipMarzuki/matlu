@@ -310,9 +310,12 @@ Free questions read it (#1611, behind `knowledge-questions`), and the place nudg
    already names Peoples (`group:<People>`). `culture:<id>` is the key used here.
 6. ~~**Wildkin and the human lands.**~~ Decided (owner, 2026-10-11, #1623): the Riksfolk. See item
    6 under *Decided*.
-7. **Wildkin and humans in `villages.ts`.** The road's `People` type still has 15; the lore adds the
-   Wildkin, the Riksfolk and the Strandfolk as `LorePeople` beside it. Widen `People` when one first
-   walks the road? Some road people the old mapping made Markfolk (fieldborn Maren of Hollowford)
-   could be human now, if the owner wants humans on the road.
-8. **"Humans" as a name.** The matcher doesn't take "humans" for either People, since it can't tell
-   which is meant. Should it answer for both, or ask?
+7. **Wildkin in `villages.ts`.** Humans decided (owner, 2026-10-11, #1631): the road's `People`
+   type now holds the Riksfolk and the Strandfolk, and with the `humans-on-the-road` switch Maren of
+   Hollowford is Riksfolk (villages.ts `asPlayed`). The Wildkin are still `LorePeople` only: widen
+   `People` when one first walks the road?
+8. ~~**"Humans" as a name.**~~ Decided (owner, 2026-10-11, #1631): it answers for both. "Humans"
+   (and "human", "humankind", "mankind") names the Riksfolk and the Strandfolk together
+   (`UMBRELLAS`): "What do humans value?" gives both Peoples' values; "What do you think of
+   humans?" one holder's views of both, kept as a lore key `…/view/group:Riksfolk+group:Strandfolk`.
+   A human answers for their own People only.

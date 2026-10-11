@@ -98,6 +98,12 @@ export interface VillageEconomy extends Economy {
   fuel: LocalFuel;
   /** What it looks and sounds like when the caravan rolls in, from what it lives on. */
   scene: string;
+  /**
+   * Whether its traders sell at a market town's keener prices (`MARKET_MARKUP`). Unset, it does
+   * when it lives on trading. Hollowford trades at its ford (#1631), but with one trader and no
+   * choice of stalls, so it says `false`.
+   */
+  market?: boolean;
 }
 
 /**
@@ -121,8 +127,9 @@ export interface LocalFuel {
 
 /**
  * The road villages' economies, written to agree with villages.ts and with their people:
- * - **Hollowford** lives on its terraced barley, and its sheepfolds besides; the ford was there
- *   before the village (Maren). It has no iron ("that's Gate work", Orrin). Its wood comes down
+ * - **Hollowford** lives on its terraced barley, and its sheepfolds and the trade at its ford
+ *   besides: Tobin buys "what travels well" from everyone who has to cross there (#1631). The ford
+ *   was there before the village (Maren). It has no iron ("that's Gate work", Orrin). Its wood comes down
  *   from the copses above the terraces (its scope facts), so it isn't short of fuel: Orrin's
  *   forge "eats wood faster than I can cut it" because he's busy, not because the hill is bare.
  * - **Saltmere** lives on salt ("salt fish, salt pork, salt everything", Hedda), and on the fish
@@ -135,8 +142,10 @@ export interface LocalFuel {
  */
 export const VILLAGE_ECONOMY: Readonly<Record<AnchorId, VillageEconomy>> = {
   hollowford: {
-    dominant: 'farming', secondary: ['herding'], founding: 'crossing', crafted: true,
-    story: 'Hollowford grew up around the ford, where the river let it; today it lives on the barley on its terraces, and on its sheep besides.',
+    dominant: 'farming', secondary: ['herding', 'trading'], founding: 'crossing', crafted: true,
+    story: 'Hollowford grew up around the ford, where the river let it; today it lives on the barley on its terraces, and on its sheep and the trade at the ford besides.',
+    // One trader at the ford (Tobin), not a market of stalls: his prices stay a village trader's.
+    market: false,
     plentiful: ['rawFood', 'hides'],
     scarce: ['tools'],
     fuel: { burns: 'wood', line: 'Its hearths burn wood from the copses above the terraces.' },
@@ -259,7 +268,7 @@ export interface LocalMarket {
 export function localMarket(village: string | null, crafted: CraftedEconomies = VILLAGE_ECONOMY): LocalMarket | null {
   const e = village ? crafted[village as AnchorId] : undefined;
   if (!e) return null;
-  return { plentiful: e.plentiful, scarce: e.scarce, market: livesOn(e, 'trading') };
+  return { plentiful: e.plentiful, scarce: e.scarce, market: e.market ?? livesOn(e, 'trading') };
 }
 
 /** How a kind of goods and a good are named in the line about the market. */

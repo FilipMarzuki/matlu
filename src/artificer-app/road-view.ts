@@ -9,7 +9,7 @@
 
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, type RoadState } from '../artificer/road';
-import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
+import { asPlayed, peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
@@ -174,7 +174,7 @@ function personCard(r: RoadState, p: Person, open: boolean, ui: RoadUi): string 
   const sent = sentBy(r, p.id);
   const icons = [seen.length && `<span title="${esc(seen.join(' '))}">👁</span>`, lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
   return `<button class="pcard ${open ? 'on' : ''}" data-person="${esc(p.id)}" aria-expanded="${open}">
-    ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))}</span>
+    ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(asPlayed(p, r.features).people)} · ${esc(cultureName(p.culture))}</span>
     <span class="tnum">${rapportTag(r, p, ui)}${r.contacts.includes(p.id) ? ' · remembers you' : ''}${sent ? ` · the one ${esc(sent)} mentioned` : ''}</span></span>
     <span class="picons">${icons}</span></button>`;
 }
@@ -335,7 +335,7 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
 function personSheet(r: RoadState, p: Person, ui: RoadUi): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
-  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · ${rapportTag(r, p, ui)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
+  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(asPlayed(p, r.features).people)} · ${esc(cultureName(p.culture))} · ${rapportTag(r, p, ui)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
     ${conversation(r, p, told, ui)}
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
