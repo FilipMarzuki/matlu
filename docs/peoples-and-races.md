@@ -33,6 +33,8 @@ There is **one race vocabulary** in Matlu: the **18 Mistheim Peoples**, the 15 f
 
 **Where humans come from (owner, 2026-10-11):** "Humans are not earth arrivals, some of their ancestors are but humans were here too. However all previous earthlings came without memories." Humans are native to Mistheim. Some of their ancestors came through with the Earth fragments, and every Earth arrival came without memory of Earth, so no human remembers Earth and most have an Earth ancestor somewhere in the line.
 
+**What people know (owner, 2026-10-11):** "The people here do not know where those humans, the extra ones, came from. But throughout history there have been odd patches of extra humans in unexpected places. And sometimes human settlements have grown in strange ways." In the world, the Earth arrivals are a pattern nobody can explain, not a known fact: lore and history should show the patches and the strange growth, never the cause.
+
 Race IDs use **TitleCase** to match `AXES.md` and the Peoples Notion DB (#625). Cultures (`macro-world/cultures.json`) reference Peoples by these IDs in `racePreferences`.
 
 **Cultures are race-agnostic** (per `cultures.json` `_doc`) — a culture is a settlement style, not a People. `racePreferences` is a **soft weighted hint** to the settlement generator and may now contain **multiple Peoples with weights summing to ≤ 1.0**.

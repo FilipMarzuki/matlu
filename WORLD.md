@@ -1857,13 +1857,23 @@ that pays no due to any lord is "waste" in the Landslag, waste belongs to the cr
 crown grants it by charter to whoever will fence it and farm it. Most of the Realm's history
 is that one rule, applied.
 
-Where humans came from is half argued and half known. Humans were in Mistheim before the worlds
-merged. When the Earth fragments came, people came with them, and every Earth arrival came
-without memory of Earth: no names, no tongue, no story of where they had been. They married
-into the humans already here, so most humans today have Earth ancestors somewhere back in the
-line, and nobody can say which. Other Peoples' stories remember only the arrivals and say humans
-came, not grew; the Riksfolk say they were always here, and point to the old ruins on the
-Wildkin's side of the Alå. Nobody knows who built those ruins. *(Owner, 2026-10-11, #1623.)*
+Where humans came from is argued. Humans were in Mistheim before the worlds merged. Some of
+their ancestors came later, with the Earth fragments, and every one of those came without
+memory: no names, no tongue, no story of where they had been. They married into the humans
+already here, so most humans today have such an ancestor somewhere back in the line, and nobody
+can say which. *(Owner, 2026-10-11, #1623.)*
+
+Nobody in Mistheim knows this. What people know is the pattern. All through the histories there
+are odd patches of extra humans in places nobody expected them: a valley that held two families
+one winter and forty the next, a coast where strangers were found wandering the shingle with no
+words anyone knew, a village that doubled between one harvest and the next and could not say
+where its new people had come from. Some human settlements have grown in strange ways, faster
+than any birth rate, around nothing anyone can point to. Every People has a story for it: the
+Lövfolk say humans root like weeds, the Bergfolk say the deep rock coughs them up, the goblins say
+humans breed when nobody's looking and won't hear otherwise. Other Peoples remember mostly the
+patches and say humans came, not grew; the Riksfolk say they were always here, and point to the
+old ruins on the Wildkin's side of the Alå. Nobody knows who built those ruins. *(Owner,
+2026-10-11.)*
 
 Representative Classes: [Reeve], [Dikemaster], [Hedge-Warden], [Knight], [Charter-Clerk],
 [Marshal].
