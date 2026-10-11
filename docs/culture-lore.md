@@ -70,6 +70,28 @@ So Runa (mountainhold) says goblins steal to a stranger; Veit (wallborn) keeps h
 goblins back until trust 50, hedges it, and says it plainly at 75; Isa (grovekin) half believes
 beastkin change shape, and only a close friend hears it.
 
+### Where they are (#1619)
+
+A culture's candour is how its people speak in ordinary times. Where they are now nudges it, one
+step at most either way, so a culture still sounds like itself (`effectiveCandour(candour, place)`):
+
+| Shift | When |
+|---|---|
+| +1, blunter | a **hard place** (times hard, bread dear, a poor or failed harvest, the place on hard times) or **harsh weather** (winter, a storm, snow) |
+| −1, more guarded | a **feared or strict lord** (or whoever holds the place) |
+| +1, more open | a **lax or well-liked lord** |
+| −1, more guarded | an **uneasy region**: lords dead, seats changed hands lately (#1608 `unsettled`) |
+
+The shifts add up and are kept to one step, then to the scale: a hard place under a feared lord
+cancels out, and a blunt people can't get blunter. A region of a told history reads as a place with
+`placeOfRegion` (place-candour.ts), turning where its facts do ("Times are hard", "tax heavily", "the
+lords are uneasy"); heavy dues read as a strict lord, light ones as a lax one. The road villages
+have places written by hand (`VILLAGE_PLACES`, invented to fit villages.ts): **Hollowford** is hard
+(its high fields dead to the corruption), **Saltmere** ordinary, **Kestrel Gate** held strictly (nothing
+passes uncounted). So at Hollowford Maren (fieldborn, guarded) speaks plainly and tells you at
+trust 25 what her people think of the Fae; at Kestrel Gate Runa hedges her view of goblins to a
+stranger. Free questions use it behind the `candour-by-place` rule switch (road.ts `questionPlace`).
+
 ## Where it came from
 
 Every claim, saying and correction names its **source** as `file § heading › label`, and the tests
@@ -196,8 +218,8 @@ belief is new, and only the correction is canon.
   or `culture` scope, a topic (`values`, `taboos`, `greeting`, `trade`, `mourning`, `debt`, `view`),
   `about` keys (`group:Bergfolk` as `topics.ts` already names Peoples; `culture:ridgefolk`, which
   has no topic kind yet), `truth`, `sensitivity` and `depth` (1 unless said).
-- `voicingGates`, `voicedAt`, `candourOf`: the rule above.
-- `matchLore(question, knower?, trust?)`: names, aliases ("dwarves", "the Dyprike", "harbour folk",
+- `voicingGates`, `voicedAt`, `candourOf`: the rule above; `effectiveCandour`, `placeShift`: where they are.
+- `matchLore(question, knower?, trust?, place?)`: names, aliases ("dwarves", "the Dyprike", "harbour folk",
   "beastkin") and a few topic words, in the style of `free-questions.ts`. A member of the group
   named answers from its own lore ("What do the Bergfolk believe?" to Orrin: the Bergfolk's
   values), and never speaks for another group's opinions. The order otherwise:
@@ -213,9 +235,10 @@ belief is new, and only the correction is canon.
   - **Given a trust**, it returns only what they'd say at it, how each is said (`voicing`), and
     whether they're holding something back (`holdingBack`, and `opensAt`, the trust at which they'd
     say more). The candour is the knower's culture's (with nobody in particular, the claim's own
-    culture's, else `plain`). Without a trust it returns everything that answers, as before.
+    culture's, else `plain`), nudged by `place` when one is given. Without a trust it returns
+    everything that answers, as before.
 
-Nothing on the road reads it yet: no play, save or RNG change.
+Free questions read it (#1611, behind `knowledge-questions`), and the place nudge (#1619, behind `candour-by-place`); no save or RNG change comes with either.
 
 ## Decided (owner, 2026-10-11)
 
@@ -233,9 +256,10 @@ Nothing on the road reads it yet: no play, save or RNG change.
 
 1. **Reviewing the placeholders.** Who reviews the invented views, and when (the lore agents, or the
    owner as they come up in play)?
-2. **Regional candour.** Candour is set per culture. Should a region (the Reach, the Wildkin's
-   core area) shift it too, as the owner's "local and regional culture" suggests? Nothing on the
-   road has a region field yet.
+2. **Regional candour.** Answered (owner, 2026-10-11, #1619): place shifts it, one step at most:
+   hardship and harsh weather make people blunter, a strict lord or unease more guarded. See
+   *Where they are*. Still open: the road villages' places are hand-written placeholders until the
+   road's history runs in the sim (slice F) and `placeOfRegion` can read them.
 3. **The off-road Peoples** (Merfolk, Fae, Giants, Dragons, Everstill, Constructs, Remnants, and now
    the Wildkin) have full lore though nobody on the road is one of them. Keep it, or trim to what
    other Peoples say of them?
