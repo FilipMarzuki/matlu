@@ -49,6 +49,14 @@ export interface RegionalFact {
 /** About a generation (as #1592's remembered.ts): within it, everyone remembers; beyond it, most. */
 export const GENERATION = LIVING_MEMORY / 2;
 
+/** A region's richest and poorest places are told when their wealth (#1608; 0.5 getting by) is this far apart. */
+const WEALTH_SPREAD = 0.12;
+/** ...and the richest is "wanting for little" at this or more, the poorest "on hard times" at this or less. */
+const RICH = 0.68;
+const POOR = 0.32;
+/** A region is told as uneasy at this unsettlement or more (#1608): about a seized seat in the last year or two. */
+const UNSETTLED = 0.25;
+
 /** Lines whose subject people are careful about. */
 const GUARDED = new Set(['FEUD', 'SEAT_SEIZED']);
 
@@ -104,6 +112,15 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   for (const p of r.provinces) {
     facts.push(now(`livelihood:${slug(p.name)}`, 'economy', placeTrade(p), p.name === r.centre.name ? 1 : 2, { about: [place(p.name)] }));
   }
+  // How well off its places are (#1608), only where one stands out from the rest: people talk
+  // about the richest and the poorest place around, not every place that gets by. (How the
+  // region as a whole is doing is the `times` fact below.)
+  const byWealth = [...r.provinces].sort((a, b) => (b.wealth ?? 0.5) - (a.wealth ?? 0.5) || a.name.localeCompare(b.name));
+  const richest = byWealth[0], poorest = byWealth[byWealth.length - 1];
+  if (richest && poorest && (richest.wealth ?? 0.5) - (poorest.wealth ?? 0.5) >= WEALTH_SPREAD) {
+    facts.push(now(`wealth:${slug(richest.name)}`, 'economy', `${richest.name} is the best-off place in ${r.name}: its stores are full${(richest.wealth ?? 0.5) >= RICH ? ' and its people want for little' : ''}.`, 2, { about: [place(richest.name)] }));
+    facts.push(now(`wealth:${slug(poorest.name)}`, 'economy', `${poorest.name} is the worst-off place in ${r.name}${(poorest.wealth ?? 0.5) <= POOR ? ': it has fallen on hard times' : ''}.`, 2, { about: [place(poorest.name)] }));
+  }
   const ventureText = {
     thriving: `The ${r.venture.kind} at ${r.venture.province} is thriving.`,
     steady: `The ${r.venture.kind} at ${r.venture.province} gets by.`,
@@ -126,6 +143,8 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   r.lords.forEach(lord => facts.push(now(`lord:${slug(lord.province)}`, 'politics', lord.text, lord.province === r.centre.name ? 1 : 2, { about: [place(lord.province)] })));
   facts.push(now('dues', 'politics',
     r.tax >= 0.45 ? `The lords of ${r.name} tax heavily.` : r.tax <= 0.25 ? `The lords of ${r.name} ask little in dues.` : `The lords' dues in ${r.name} are what they've always been.`, 1));
+  // Unsettled (#1608): lords dying and seats changing hands lately make people wary of what's next.
+  if ((r.unsettled ?? 0) >= UNSETTLED) facts.push(now('unsettled', 'politics', `The lords of ${r.name} are uneasy: lords have died and seats have changed hands lately.`, 1, { sensitivity: 'guarded' }));
   if (r.levy >= 0.2) facts.push(now('levy', 'politics', `Many of ${r.name}'s men are away, called up for their lords' wars.`, 1));
   for (const f of r.feuds) {
     facts.push(now(`feud:${slug(f.houses.join('-'))}`, 'politics', `The houses of ${f.houses[0]} and ${f.houses[1]} are at odds: their lords last fought in year ${f.year}.`, 2, { sensitivity: 'guarded' }));

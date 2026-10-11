@@ -8,7 +8,9 @@
 
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
 // 4: histories carry their regions, and the chronicle their big regional events (#1598).
-export const HISTORY_VERSION = 4;
+// 5: regions push back into the simulation (#1608), so the same seed lives a different history;
+//    regions carry how unsettled they are, and their provinces how well off.
+export const HISTORY_VERSION = 5;
 
 /**
  * The last this many years are told event by event ("living memory"); older years as threads.
@@ -64,8 +66,10 @@ export interface RegionHistory {
   centre: { id: string; name: string };
   /** The centre first. Each lives on its own trade (`livelihood`, its dominant one: the land's
    *  best, or the market's), may have `secondary` trades its land also supports, and grew up
-   *  around its `founding` (a trade, or `crossing`: a ford), which can differ from today's. */
-  provinces: { id: string; name: string; livelihood: string; secondary: string[]; founding: string }[];
+   *  around its `founding` (a trade, or `crossing`: a ford), which can differ from today's.
+   *  `wealth` 0–1 is how well off it is (0.5 getting by; #1608: trade and prosperity raise it,
+   *  levies, hard winters, famine and bandits take from it). */
+  provinces: { id: string; name: string; livelihood: string; secondary: string[]; founding: string; wealth: number }[];
   /** What the region as a whole lives on: farming, lumber, mining, fishing, herding or peat. */
   primary: string;
   /** Its big enterprise (a mine, a lumber camp…), where it is, how it's doing, and since when. */
@@ -78,6 +82,8 @@ export interface RegionHistory {
   /** 0–1: how many men are away at war; how heavy the lords' dues are. */
   levy: number;
   tax: number;
+  /** 0–1: how unsettled its politics are (#1608): raised by lords' deaths and empty or seized seats. */
+  unsettled: number;
   /** The house holding the most of its seats, e.g. "Hedlund" (null if none). */
   leadingHouse: string | null;
   /** Who holds each of its seats now, centre first: "Ivar of Hedlund holds the Hundred of Ravenford." */

@@ -93,10 +93,11 @@ describe("The Reach's generated history (#1540)", () => {
   // The pin moves when the generator or the engine changes what happens: a change to the grid, the
   // provinces or the houses, or to storytelling/'s random stream (when its golden hashes in
   // testkit.ts are rebaselined, rebaseline this too). Bump HISTORY_VERSION with it, so a kept
-  // history from the old code is told again.
+  // history from the old code is told again. Last moved by #1608 (regions push back into the
+  // simulation), with HISTORY_VERSION 5.
   it('tells the same history from the same seed, and a different one from another', () => {
     const a = logHash(seedOf('w-vega'));
-    expect(a).toBe('035bcfef2de0d294');
+    expect(a).toBe('c9178419c645b79c');
     expect(logHash(seedOf('w-vega'))).toBe(a);
     expect(logHash(seedOf('w-astrid'))).not.toBe(a);
   });

@@ -134,6 +134,26 @@ describe('Regional history and facts (#1598)', () => {
     }
   });
 
+  it('tells how the region pushes back (#1608): its best- and worst-off places, and an uneasy country', () => {
+    for (const h of histories) for (const r of h.regions) {
+      expect(r.unsettled).toBeGreaterThanOrEqual(0);
+      expect(r.unsettled).toBeLessThanOrEqual(1);
+      for (const p of r.provinces) expect(p.wealth >= 0 && p.wealth <= 1, `${p.name} wealth ${p.wealth}`).toBe(true);
+    }
+    const h = histories[0];
+    const base = h.regions[0];
+    const [first, ...rest] = base.provinces;
+    // All getting by: nothing to say about any one place, and no unease.
+    const even = { ...base, unsettled: 0, provinces: base.provinces.map(p => ({ ...p, wealth: 0.5 })) };
+    expect(factsOfRegion(even, h.year).some(f => f.id.includes(':wealth:') || f.id.endsWith(':unsettled'))).toBe(false);
+    // One rich place and one poor: both told; and a region just shaken by a seized seat is uneasy.
+    const uneven = { ...base, unsettled: 0.4, provinces: [{ ...first, wealth: 0.8 }, ...rest.map((p, i) => ({ ...p, wealth: i === rest.length - 1 ? 0.2 : 0.5 }))] };
+    const facts = factsOfRegion(uneven, h.year);
+    expect(facts.find(f => f.id.endsWith(`:wealth:${first.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`))?.text).toMatch(/best-off place.*want for little/);
+    expect(facts.find(f => f.text.includes('worst-off place'))?.text).toMatch(/hard times/);
+    expect(facts.find(f => f.id.endsWith(':unsettled'))?.sensitivity).toBe('guarded');
+  });
+
   it('marks old events as rumour known to few, and recent ones as true, known to most or all', () => {
     const h = histories[0];
     const r = h.regions[0];
