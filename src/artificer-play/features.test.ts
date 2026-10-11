@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, startGame, view, serialize, gameFrom, GAME_VERSION } from './session';
 import { handle, memoryStore, type ApiRequest } from './api';
 import { hollowfordGame } from './fixtures';
-import { loadChoices, saveChoices, devMode } from '../artificer-app/feature-choices';
+import { loadChoices, saveChoices, devMode, DEV_BY_DEFAULT } from '../artificer-app/feature-choices';
 
 let n = 0;
 const deps = { now: () => Date.parse('2026-10-11T12:00:00Z'), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, newSeed: () => 's1' };
@@ -102,12 +102,16 @@ describe('The player’s switches and dev mode, in the browser (#1579)', () => {
     expect(loadChoices(null)).toEqual({});
   });
 
-  it('turns dev mode on with ?dev, remembers it, and off with ?dev=0', () => {
+  it('has dev mode on by default while the game is an experiment; ?dev=0 turns it off and ?dev back on, remembered', () => {
     const s = fakeStore();
-    expect(devMode('', s)).toBe(false);
-    expect(devMode('?dev', s)).toBe(true);
+    expect(DEV_BY_DEFAULT).toBe(true);
     expect(devMode('', s)).toBe(true);
     expect(devMode('?dev=0', s)).toBe(false);
     expect(devMode('', s)).toBe(false);
+    expect(devMode('?dev', s)).toBe(true);
+    expect(devMode('', s)).toBe(true);
+    // Without storage, the address alone, else the default.
+    expect(devMode('', null)).toBe(true);
+    expect(devMode('?dev=off', null)).toBe(false);
   });
 });

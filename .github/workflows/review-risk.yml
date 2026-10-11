@@ -15,6 +15,8 @@ name: DevCycle 3c — Risk review
 # risk-score.mjs --gate checks this in every merge path, on the head commit only:
 # a new commit re-runs the reviews. When the paid reviews finish, this starts
 # DevCycle 4, so a merge isn't stranded when the review agent approved first.
+# A review agent this workflow started finishes by starting DevCycle 4 too
+# (#1582), so one that approves after the paid reviews isn't stranded either.
 #
 # Triggers:
 #   - CI passed on a non-draft PR          → score + paid reviews

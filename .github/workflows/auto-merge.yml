@@ -4,7 +4,9 @@ name: DevCycle 4 — Merge
 # PR has been approved. This ensures every merge goes through CI + Review.
 # Also started by DevCycle 3c with a PR number when a medium- or high-risk
 # PR's model reviews have finished (#1481), so a merge isn't stranded when the
-# Review agent approved before they posted.
+# Review agent approved before they posted; and by the Review agent itself
+# when it was dispatched (#1582), since a run started with GITHUB_TOKEN fires
+# no workflow_run event for the trigger below.
 on:
   workflow_run:
     workflows: ["DevCycle 3 — Review"]

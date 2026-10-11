@@ -1059,7 +1059,7 @@ let encounterAfter: EncounterAfter | null = null;
 
 // ── Feature switches and dev mode (#1579) ──────────────────────────────────
 
-/** Dev mode (`?dev` in the address, remembered; `?dev=0` turns it off): the features panel and hidden truths. */
+/** Dev mode (on by default while the game is an experiment; `?dev=0` turns it off, remembered): the features panel and hidden truths. */
 const dev = devMode();
 let showFeatures = false;
 
@@ -1088,7 +1088,7 @@ function featuresPanel(a: AppState): string {
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
   }).join('');
   return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
-    <p class="mood">Kept in this browser, and used by the text console too. Skills show their true level while dev mode is on. Add <code>?dev=0</code> to the address to leave dev mode.</p></section>`;
+    <p class="mood">Kept in this browser, and used by the text console too. Skills show their true level while dev mode is on. It's on for everyone while the game is an experiment: add <code>?dev=0</code> to the address to leave it, <code>?dev</code> to come back.</p></section>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
