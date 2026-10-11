@@ -24,9 +24,10 @@
  * and a lore topic is a key too, so it replays without the question. A lore key names whose ways
  * and what about them:
  *
- *   <holder>[+<holder>]/<lore topic>[/<of>]      e.g.  group:Bergfolk/values
- *                                                      culture:caravan-folk+group:Goblins/mourning
- *                                                      group:Markfolk/view/group:Fae
+ *   <holder>[+<holder>]/<lore topic>[/<of>[+<of>]]   e.g.  group:Bergfolk/values
+ *                                                          culture:caravan-folk+group:Goblins/mourning
+ *                                                          group:Markfolk/view/group:Fae
+ *                                                          culture:ridgefolk/view/group:Riksfolk+group:Strandfolk
  *
  * where a holder (and `of`) is a People's topic key (`group:<People>`, as topics.ts has it) or a
  * culture's (`culture:<id>`, culture-lore.ts `topicKeyOf`). `culture:` isn't a topics.ts kind on
@@ -62,7 +63,11 @@ function scopeOfKey(key: string): LoreScope | null {
   return null;
 }
 
-export interface LoreKey { holders: LoreScope[]; topic: LoreTopic; of?: LoreScope }
+/**
+ * A lore key read back. A view is of one group (`of`), or of several when the question named an
+ * umbrella ("humans", #1631): `ofs` has them all, and `of` is the first.
+ */
+export interface LoreKey { holders: LoreScope[]; topic: LoreTopic; of?: LoreScope; ofs?: LoreScope[] }
 
 /** A lore key read back, or null if it isn't one (every focus key, and anything malformed). */
 export function parseLoreKey(key: string): LoreKey | null {
@@ -71,24 +76,29 @@ export function parseLoreKey(key: string): LoreKey | null {
   const holders = parts[0].split('+').map(scopeOfKey);
   const topic = parts[1] as LoreTopic;
   if (!holders.length || holders.some(h => h === null) || !LORE_TOPICS.includes(topic)) return null;
-  // Only a view is of someone, and a view is always of someone.
-  const of = parts[2] !== undefined ? scopeOfKey(parts[2]) : undefined;
-  if ((topic === 'view') !== (of !== undefined) || of === null) return null;
-  return { holders: holders as LoreScope[], topic, ...(of ? { of } : {}) };
+  // Only a view is of someone, and a view is always of someone (one group, or several: `of+of`).
+  const ofs = parts[2] !== undefined ? parts[2].split('+').map(scopeOfKey) : undefined;
+  if ((topic === 'view') !== (ofs !== undefined) || ofs?.some(o => o === null)) return null;
+  return { holders: holders as LoreScope[], topic, ...(ofs ? { of: ofs[0]!, ofs: ofs as LoreScope[] } : {}) };
 }
 
 const sameScope = (a: LoreScope, b: LoreScope | undefined): boolean => !!b && a.kind === b.kind && a.id === b.id;
 
+/** Each scope once, in the order first met. */
+const distinct = (scopes: readonly LoreScope[]): LoreScope[] => scopes.filter((s, i, all) => all.findIndex(t => sameScope(s, t)) === i);
+
 /**
  * The key for what `matchLore` found: whose claims (in the order it gave them), about what. Every
- * claim it returns for one question shares a topic, and a view's claims share who they're about,
- * so this is enough to find the same claims again (`loreClaims`).
+ * claim it returns for one question shares a topic, and a view's claims are about the group the
+ * question named, or the groups an umbrella stands for ("humans"), so this is enough to find the
+ * same claims again (`loreClaims`).
  */
 export function loreKeyOf(claims: readonly ScopedClaim[]): string | null {
   if (!claims.length) return null;
-  const holders = claims.map(c => c.scope).filter((s, i, all) => all.findIndex(t => sameScope(s, t)) === i);
-  const { topic, of } = claims[0];
-  return `${holders.map(topicKeyOf).join('+')}/${topic}${topic === 'view' && of ? `/${topicKeyOf(of)}` : ''}`;
+  const holders = distinct(claims.map(c => c.scope));
+  const { topic } = claims[0];
+  const ofs = topic === 'view' ? distinct(claims.map(c => c.of).filter((o): o is LoreScope => !!o)) : [];
+  return `${holders.map(topicKeyOf).join('+')}/${topic}${ofs.length ? `/${ofs.map(topicKeyOf).join('+')}` : ''}`;
 }
 
 /** Whether `p` belongs to a People or culture: the only lore anyone answers from is their own. */
@@ -102,7 +112,8 @@ const belongsTo = (p: Person, s: LoreScope): boolean => (s.kind === 'people' ? p
 export function loreClaims(p: Person, key: string): ScopedClaim[] | null {
   const k = parseLoreKey(key);
   if (!k || !k.holders.every(h => belongsTo(p, h))) return null;
-  const claims = k.holders.flatMap(h => scopedClaims(h).filter(c => c.topic === k.topic && (k.topic !== 'view' || sameScope(c.of!, k.of))));
+  const ofs = k.ofs ?? [];
+  const claims = k.holders.flatMap(h => scopedClaims(h).filter(c => c.topic === k.topic && (k.topic !== 'view' || ofs.some(o => sameScope(o, c.of)))));
   return claims.length ? claims : null;
 }
 
@@ -219,7 +230,7 @@ const groupName = (s: LoreScope): string => `the ${s.kind === 'people' ? s.id : 
 /** How a free question's topic reads mid-sentence: "iron", "the Compact", "how their people mourn". */
 export function questionAbout(topic: string): string {
   const lore = parseLoreKey(topic);
-  if (lore) return lore.of ? `${LORE_ABOUT.view} ${groupName(lore.of)}` : LORE_ABOUT[lore.topic];
+  if (lore) return lore.ofs ? `${LORE_ABOUT.view} ${lore.ofs.map(groupName).join(' and ')}` : LORE_ABOUT[lore.topic];
   const f = parseFocus(topic);
   return f ? focusInline(f) : topic;
 }
