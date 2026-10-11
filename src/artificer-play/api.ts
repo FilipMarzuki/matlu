@@ -64,15 +64,19 @@ export interface GameStore {
   countAllStartedSince(sinceIso: string): Promise<number>;
   /** Count one move by this address on this UTC day (YYYY-MM-DD) and return its moves that day, this one included. */
   countMove(ipKey: string, day: string): Promise<number>;
-  /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. */
-  insertRun(sourceKey: string, run: Run): Promise<void>;
+  /** Write a finished game's record (#1558), once per source: a second write for the same `sourceKey` is ignored. True if it added one. */
+  insertRun(sourceKey: string, run: Run): Promise<boolean>;
   /** The newest records of one game version, newest first, without `detail`. */
   recentRuns(limit: number, version: string): Promise<RunSummary[]>;
   /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
   bestRuns(limit: number, version: string): Promise<RunSummary[]>;
   runBySource(sourceKey: string): Promise<StoredRun | null>;
-  /** The newest AI records of every version, newest first, with their milestone days. */
-  aiRuns(limit: number): Promise<AiRun[]>;
+  /**
+   * AI records of every version, newest first, with their milestone days: the playtest's (only the
+   * server writes those) and other AIs' (anyone can, through this API), each with its own limit, so
+   * a flood of outside games can't push the playtest's history off the page.
+   */
+  aiRuns(limits: { bench: number; outside: number }): Promise<AiRun[]>;
 }
 
 export interface ApiRequest {
@@ -121,7 +125,7 @@ const ALL_MOVES = 'all';
 export const CONSOLE_CLIENT = 'artificer-console';
 
 /** How many records the lists send: the newest and the best (GET /runs), and the AIs' (GET /runs/ai). */
-export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: 1000, aiCacheSeconds: 300 };
+export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300 };
 
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
@@ -278,14 +282,19 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
       return n;
     },
     insertRun: async (key, run) => {
+      if (runs.has(key)) return false;
       // A fake clock that only moves forward, so "newest first" is well defined in tests.
-      if (!runs.has(key)) runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
+      runs.set(key, { ...structuredClone(run), id: crypto.randomUUID(), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, ++written)).toISOString() });
+      return true;
     },
     recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
     bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
-    aiRuns: async limit => [...runs.values()].filter(r => r.playerKind === 'ai').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
-      .map(({ detail, ...summary }) => ({ ...summary, milestoneDays: detail.milestones ?? null })),
+    aiRuns: async ({ bench, outside }) => {
+      const newest = [...runs.values()].filter(r => r.playerKind === 'ai').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return [...newest.filter(r => r.surface === 'bench').slice(0, bench), ...newest.filter(r => r.surface !== 'bench').slice(0, outside)]
+        .map(({ detail, ...summary }) => ({ ...summary, milestoneDays: detail.milestones ?? null }));
+    },
   };
 }
 

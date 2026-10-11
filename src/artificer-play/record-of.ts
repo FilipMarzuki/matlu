@@ -51,10 +51,11 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
   const onRoad = app.stage === 'road' && !!app.road;
   if (onRoad ? !app.road!.outcome : !app.sim.outcome) throw new Error('only a finished game has a run record');
   const rec: RunRecord = onRoad ? summarizeRoad(app.road!, app.sim, 1) : summarizeRun(app.sim, 1);
-  // Skills, concepts, stats and the body keep changing on the road, so they're read from wherever
-  // the run ended; the land, the stores and readiness are the Reach's (at the thaw, if it rode on).
+  // Skills, concepts, the land, the stores and readiness are the Reach's (at the thaw, for a run that
+  // rode on): a playtest transcript keeps those only for the Reach, and records from both sources
+  // must compare like with like. Stats and the body are read from wherever the run ended.
   const last = currentRun(app);
-  const skills = Object.fromEntries(SKILL_IDS.map(id => [id, skillLevel(last.skills, id)]));
+  const skills = Object.fromEntries(SKILL_IDS.map(id => [id, skillLevel(app.sim.skills, id)]));
   // The road counts its own days from 1 at the thaw (as summarizeRoad does).
   const roadDay = (d: number): number => app.sim.day + d - 1;
   const milestones = milestoneDays([
@@ -77,7 +78,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
     larderMidwinter: measures.larderMidwinter ?? null,
     shelterTier: rec.tier,
     skillLevels: Object.values(skills).reduce((n, l) => n + l, 0),
-    conceptRanks: conceptRanks(last),
+    conceptRanks: conceptRanks(app.sim),
     recipes: rec.recipes,
     milestones: rec.milestones,
     moves: meta.moves,
@@ -85,7 +86,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
     detail: {
       site: rec.site, tools: rec.tools, topConcept: rec.topConcept, skills, ...(rec.road ? { road: rec.road } : {}),
       ...progressDetail(progressOf(app.sim, 0)),
-      concepts: Object.fromEntries(Object.entries(last.concepts).map(([id, c]) => [id, c.rank])),
+      concepts: Object.fromEntries(Object.entries(app.sim.concepts).map(([id, c]) => [id, c.rank])),
       stats: { ...last.character.stats },
       vitals: { vigor: Math.round(v.vigor.current), clarity: Math.round(v.clarity.current), condition: Math.round(v.condition) },
       milestones,
@@ -125,7 +126,8 @@ export function runOfTranscript(t: Transcript, meta: { gameVersion: string; clie
   const roadDay = (d: number): number => t.record.day + d - 1;
   // The first snapshot at or past the morning of midwinter (a snapshot is taken after the night,
   // so its day is the morning about to start). It counts only if the Warden woke to it: a later
-  // turn was played, or the run lived to the thaw.
+  // turn was played, or the run lived to the thaw. A transcript doesn't say its calendar, so this
+  // assumes the default one, which the nightly playtest plays (a shortened test year would be off).
   const midwinter = DEFAULT_CALENDAR.winterDay + MIDWINTER_AFTER;
   const at = t.turns.findIndex(x => x.progress.day >= midwinter);
   const woke = at >= 0 && (at < t.turns.length - 1 || t.record.kind === 'survived');

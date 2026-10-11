@@ -144,9 +144,11 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       return data as number;
     },
     async insertRun(sourceKey, run) {
-      // A second record for the same source is turned away by the unique key, and that's fine.
-      const { error } = await db.from(RUNS).upsert(runToRow(sourceKey, run), { onConflict: 'source_key', ignoreDuplicates: true });
+      // A second record for the same source is turned away by the unique key, and that's fine; the
+      // rows that come back say whether this one was added.
+      const { data, error } = await db.from(RUNS).upsert(runToRow(sourceKey, run), { onConflict: 'source_key', ignoreDuplicates: true }).select('id');
       check(error, 'insert run');
+      return (data?.length ?? 0) > 0;
     },
     async recentRuns(limit, version) {
       const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
@@ -158,11 +160,17 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       check(error, 'best runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
-    async aiRuns(limit) {
+    async aiRuns({ bench, outside }) {
       // `milestoneDays:detail->milestones` picks one field out of the jsonb, so the rest of detail stays home.
-      const { data, error } = await db.from(RUNS).select(`${SUMMARY_COLUMNS}, milestoneDays:detail->milestones`).eq('player_kind', 'ai').order('created_at', { ascending: false }).limit(limit);
-      check(error, 'ai runs');
-      return ((data ?? []) as unknown as (RunRow & { milestoneDays: AiRun['milestoneDays'] })[]).map(r => ({ ...summaryFromRow(r), milestoneDays: r.milestoneDays ?? null }));
+      const columns = `${SUMMARY_COLUMNS}, milestoneDays:detail->milestones`;
+      const [mine, theirs] = await Promise.all([
+        db.from(RUNS).select(columns).eq('surface', 'bench').order('created_at', { ascending: false }).limit(bench),
+        db.from(RUNS).select(columns).eq('player_kind', 'ai').neq('surface', 'bench').order('created_at', { ascending: false }).limit(outside),
+      ]);
+      check(mine.error, 'ai runs (bench)');
+      check(theirs.error, 'ai runs (outside)');
+      return ([...(mine.data ?? []), ...(theirs.data ?? [])] as unknown as (RunRow & { milestoneDays: AiRun['milestoneDays'] })[])
+        .map(r => ({ ...summaryFromRow(r), milestoneDays: r.milestoneDays ?? null }));
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();

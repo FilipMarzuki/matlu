@@ -37,8 +37,13 @@ if (!dry && !store) {
   process.exit(0);
 }
 
-let uploaded = 0, skipped = 0, failed = 0;
-for (const file of readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
+let uploaded = 0, already = 0, skipped = 0, failed = 0;
+// The baselines' files (ai-play.ts names them <time>-random-…, <time>-scripted-…) are skipped by
+// name: the nightly writes hundreds of them, and there's no point reading them to throw them away.
+const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+const baselines = files.filter(f => /-(random|scripted)-/.test(f));
+skipped += baselines.length;
+for (const file of files.filter(f => !baselines.includes(f)).sort()) {
   const raw = readFileSync(join(dir, file), 'utf8');
   let t: Transcript;
   try {
@@ -59,9 +64,12 @@ for (const file of readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
     continue;
   }
   try {
-    await store!.insertRun(source, run);
-    console.log(`uploaded ${file}: ${line}`);
-    uploaded++;
+    if (await store!.insertRun(source, run)) {
+      console.log(`uploaded ${file}: ${line}`);
+      uploaded++;
+    } else {
+      already++; // uploaded before: the same transcript, the same key
+    }
   } catch (e) {
     // One bad record shouldn't stop the rest; the job shows the count at the end.
     console.error(`failed ${file}: ${e instanceof Error ? e.message : String(e)}`);
@@ -69,5 +77,5 @@ for (const file of readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
   }
 }
 
-console.log(`${dry ? 'Would upload' : 'Uploaded'} ${uploaded} run${uploaded === 1 ? '' : 's'} (game version ${GAME_VERSION}); skipped ${skipped}${failed ? `; ${failed} failed` : ''}.`);
+console.log(`${dry ? 'Would upload' : 'Uploaded'} ${uploaded} run${uploaded === 1 ? '' : 's'} (game version ${GAME_VERSION}); ${already ? `${already} already there; ` : ''}skipped ${skipped}${failed ? `; ${failed} failed` : ''}.`);
 if (failed) process.exitCode = 1;

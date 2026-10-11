@@ -69,7 +69,8 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
   </div>
 </Base>
 
-<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<!-- Pinned to an exact version, so a new release can't change the page without a deploy. -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
 <script>
   /** One record, as GET /api/v1/runs/ai sends it (src/artificer-play/records.ts AiRun). */
@@ -145,13 +146,18 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       const cost = rs.map(r => r.costUsd).filter((x): x is number => x !== null);
       const thaw = rs.filter(livedToThaw).length;
       const mean = cost.length ? cost.reduce((n, x) => n + x, 0) / cost.length : null;
+      // Cost per thaw only over the runs whose cost is known: dividing their spend by every thaw
+      // (MCP runs have no cost) would make it look cheaper than it is.
+      const priced = rs.filter(r => r.costUsd !== null);
+      const pricedThaws = priced.filter(livedToThaw).length;
+      const perThaw = pricedThaws ? priced.reduce((n, r) => n + r.costUsd!, 0) / pricedThaws : null;
       return {
         thawShare: thaw / rs.length, endDay: median(rs.map(r => r.endDay)) ?? 0,
         cells: [
           model, String(rs.length), pct(thaw, rs.length), pct(rs.filter(r => r.outcome === 'arrived').length, rs.length),
           show(median(rs.map(r => r.endDay))), show(median(rs.flatMap(r => (r.readyDay === null ? [] : [r.readyDay])))),
           show(median(rs.flatMap(r => (r.larderMidwinter === null ? [] : [r.larderMidwinter])))), show(median(rs.map(r => r.milestones))),
-          show(median(rs.map(r => r.skillLevels))), usd(mean), thaw && cost.length ? usd(cost.reduce((n, x) => n + x, 0) / thaw) : '—',
+          show(median(rs.map(r => r.skillLevels))), usd(mean), usd(perThaw),
         ],
       };
     }).sort((a, b) => b.thawShare - a.thawShare || b.endDay - a.endDay);

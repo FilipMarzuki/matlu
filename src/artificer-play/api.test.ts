@@ -253,6 +253,14 @@ describe('Run records from the play API (#1558)', () => {
     expect(new Set(runs.map(x => x.gameVersion)).size).toBe(2);
     expect(runs[0]).not.toHaveProperty('detail');
     expect(runs[0].milestoneDays).toEqual(own.detail.milestones);
+    // A record is written once per source, and says whether it was added.
+    expect(await store.insertRun('bench:once', { ...own, surface: 'bench' })).toBe(true);
+    expect(await store.insertRun('bench:once', { ...own, surface: 'bench' })).toBe(false);
+    // Outside games, however many, can't push the playtest's runs off the list: each has its own limit.
+    for (let i = 0; i < 5; i++) await store.insertRun(`flood:${i}`, { ...own, surface: 'api' });
+    const capped = await store.aiRuns({ bench: 10, outside: 2 });
+    expect(capped.filter(x => x.surface === 'bench')).toHaveLength(1);
+    expect(capped.filter(x => x.surface !== 'bench')).toHaveLength(2);
   });
 
   it("still saves the move that ends a game when its record can't be written", async () => {
