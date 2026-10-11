@@ -133,10 +133,10 @@ function playerCell(r: RunSummary): Node {
 /** Rows shown before "Show all": the board reads at a glance, and the rest is one tap away. */
 const BEST_SHOWN = 10;
 
-function renderBest(box: HTMLElement, best: RunSummary[], mine: StoredRun | null): void {
+function renderBest(box: HTMLElement, best: RunSummary[], mine: StoredRun | null, empty: () => HTMLElement = emptyNote): void {
   box.replaceChildren();
   if (!best.length) {
-    box.append(emptyNote());
+    box.append(empty());
     return;
   }
   const t = table(
@@ -366,7 +366,7 @@ async function main(): Promise<void> {
     const keep = (rs: RunSummary[]): RunSummary[] => (hideExperimental ? rs.filter(r => !experimental(r)) : rs);
     renderBest($('#best'), keep(best), own);
     renderSpread(keep(recent));
-    if (week) renderBest($('#week'), keep(week.runs), own);
+    if (week) renderBest($('#week'), keep(week.runs), own, () => el('p', 'quiet', "No runs on this week's world yet. Be the first."));
     else $('#week').replaceChildren(el('p', 'quiet', "This week's records can't be reached right now. Try again in a while."));
   };
   // Only offered when there's something to leave out.

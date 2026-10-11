@@ -10,6 +10,7 @@
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
  *   GET  /api/v1/runs/week[/:week]   a weekly world's records, best first (#1559) → 200
+ *   POST /api/v1/runs/submit         a web-game run, replayed before it counts (#1559) { log, claim, name? } → 201 | 422 why
  *   GET  /api/v1/weekly              this week's world: its week and seed (#1559) → 200
  *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
  *   GET  /api/v1/rules               the rules text        → 200
@@ -36,7 +37,11 @@ import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game
 import { measure, runOf, type GameMeasures } from './record-of';
 import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
 import { achievementsOf, type Achievement } from './achievements';
-import { gameIdOf, isoWeek, isWeekId, weekEnd, weekOfId, weekStart, weeklySeedOf } from './weekly';
+import { gameIdOf, isoWeek, isWeekId, previousWeek, weekEnd, weekOfId, weekStart, weeklySeedOf } from './weekly';
+import { heirloomsAllowed, logProblem, replayWeb } from './web-run';
+import { claimMismatch, claimOf, type WebLog } from './web-log';
+import { currentRun } from '../artificer-app/controller';
+import { heirloomsOf } from '../artificer/legacy';
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
 import { personById } from '../artificer/villages';
@@ -144,7 +149,16 @@ export const LIMITS = {
   // leave room for several games a day each, and keep a year of everyone's inside the free tier.
   questionsPerIpPerDay: 200, questionsPerDay: 2000,
   bodyBytes: 16_384, nameChars: 24,
+  // A web run's log (#1559): its start and every move of a whole run, a few hundred of them, so far
+  // more than one move's body. Its moves are capped by movesPerGame, like any game's.
+  submitBodyBytes: 262_144,
 };
+
+/** Where a web run is sent (#1559): its body may be bigger than any other request's. */
+export const SUBMIT_PATH = '/api/v1/runs/submit';
+
+/** The web game's client name (src/artificer-app/main.ts): its runs are played by people, in the browser. */
+export const WEB_CLIENT = 'artificer-web';
 
 /** The usage counter's key for every move by anyone (artificer_play_usage). */
 const ALL_MOVES = 'all';
@@ -177,7 +191,8 @@ export function isWeeklyWorld(id: string, salt = ''): boolean {
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
 export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = defaultDeps, limits = LIMITS): Promise<ApiResponse> {
-  if ((req.body?.length ?? 0) > limits.bodyBytes) return fail(413, `The body is over ${limits.bodyBytes} bytes.`);
+  const maxBody = req.path.replace(/\/+$/, '') === SUBMIT_PATH ? limits.submitBodyBytes : limits.bodyBytes;
+  if ((req.body?.length ?? 0) > maxBody) return fail(413, `The body is over ${maxBody} bytes.`);
   const parts = req.path.replace(/\/+$/, '').split('/').filter(Boolean); // ['api', 'v1', ...]
   if (parts[0] !== 'api' || parts[1] !== 'v1') return fail(404, 'Not found.');
   const [, , resource, id, sub] = parts;
@@ -234,6 +249,8 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
     return { status: 201, body: { kept: true } };
   }
+  // POST /api/v1/runs/submit: a web-game run, replayed here before it counts (#1559).
+  if (req.method === 'POST' && resource === 'runs' && id === 'submit' && !sub) return submitWebRun(req, store, deps, limits);
   if (resource !== 'games') return fail(404, 'Not found.');
 
   // POST /api/v1/games: start a game.
@@ -349,6 +366,108 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   }
 
   return fail(405, `${req.method} isn't allowed here.`);
+}
+
+/**
+ * A web-game run sent to the records (#1559): `{ log, claim, name }`. The page ran the sim itself,
+ * so nothing it says is taken on trust: the log is replayed from its start (web-run.ts), and only a
+ * run that ends the way the claim says gets a record. It's stored as a finished game (surface
+ * `web`, played by a person) so it has a game id like any other, its record lives where the Records
+ * page looks (`?game=<id>`), and it counts towards the same daily limits on games.
+ *
+ * The game id is made from the log itself, so sending the same run twice finds the first one.
+ */
+async function submitWebRun(req: ApiRequest, store: GameStore, deps: ApiDeps, limits: typeof LIMITS): Promise<ApiResponse> {
+  const body = parseBody(req.body);
+  if (body === undefined) return fail(400, 'The body must be JSON.');
+  const problem = logProblem(body.log, limits.movesPerGame);
+  if (problem) return fail(400, problem);
+  const log = body.log as WebLog;
+  if (log.version !== GAME_VERSION) {
+    return fail(422, `This run was played on another version of the game (${log.version}; this one is ${GAME_VERSION}), so it can't be replayed here.`);
+  }
+
+  // The same run sent again is the game it made the first time (its id is made from its log),
+  // answered even past today's limits: nothing new is stored.
+  const id = webGameId(log);
+  const existing = await store.get(id);
+  if (existing) {
+    // Its record may not have been written then (a database blip): write it now.
+    const game = deserialize(existing.session);
+    if (game && !(await store.runBySource(sourceOf(id)))) await saveRun(store, existing, game);
+    return { status: 200, body: { id, record: `/records/?game=${id}`, already: true, ...(await achievementsBody(store, id)) } };
+  }
+
+  const ipKey = keyOf(req.ip, deps.salt);
+  const since = new Date(deps.now() - 24 * 3600_000).toISOString();
+  if ((await store.countStartedSince(ipKey, since)) >= limits.gamesPerIpPerDay) return fail(429, `This address has sent or started ${limits.gamesPerIpPerDay} games in the last day. Try again later.`);
+  if ((await store.countAllStartedSince(since)) >= limits.gamesPerDay) return fail(429, `The Reach has had ${limits.gamesPerDay} games in the last day, as many as it takes. Try again later today.`);
+
+  // The weekly world: believed only if the id is that week's real world, and only this week's or
+  // last week's (a run begun on Sunday night may end on Monday). It starts as everyone does, with
+  // nothing an earlier Warden left.
+  const start = log.start;
+  const week = weekOfId(start.id);
+  if (week) {
+    const now = isoWeek(deps.now());
+    if (!isWeeklyWorld(start.id, deps.weeklySalt)) return fail(422, `This isn't the world of ${week}.`);
+    if (week !== now && week !== previousWeek(now)) return fail(422, `The world of ${week} has closed: weekly runs count in their own week, or the week after.`);
+    if (start.heirlooms?.length) return fail(422, 'A run of the weekly world starts with nothing an earlier Warden left.');
+  }
+
+  // Heirlooms (#1455) are believed only from a run this server has checked: one sent here (or played
+  // through the API), named by its game id, and they must be among what it left.
+  if (start.heirlooms?.length) {
+    const from = start.heirloomsFrom ? await store.get(start.heirloomsFrom) : null;
+    if (from?.phase !== 'ended') return fail(422, 'This Warden started with heirlooms from a run that wasn\'t sent to the records, so the run can\'t be checked.');
+    const left = deserialize(from.session);
+    if (!left) return fail(422, 'This Warden\'s heirlooms come from a run on an older version of the game, so the run can\'t be checked.');
+    if (!heirloomsAllowed(start.heirlooms, heirloomsOf(currentRun(left.app)).heirlooms ?? [])) return fail(422, 'The heirlooms aren\'t what that run left.');
+  }
+
+  const name = cleanName(body.name, limits.nameChars);
+  // A log the page couldn't have written may make the sim throw rather than refuse a move: either
+  // way, it doesn't replay.
+  let replay: ReturnType<typeof replayWeb>;
+  try {
+    replay = replayWeb(log);
+  } catch (e) {
+    console.error('web run replay threw', e);
+    replay = { ok: false, error: 'the game couldn\'t play one of its moves.', at: -1 };
+  }
+  if (!replay.ok) return { status: 422, body: { error: `The run doesn't replay: ${replay.error}`, at: replay.at } };
+  const run = runOf(replay.app, replay.measures, { playerKind: 'person', model: null, client: WEB_CLIENT, surface: 'web', gameVersion: GAME_VERSION, name, moves: log.moves.length });
+  const differs = claimMismatch(body.claim, run);
+  if (differs.length) {
+    return { status: 422, body: { error: `The run replays to a different end (${differs.join(', ')}), so it can't count.`, differs, replayed: claimOf(run) } };
+  }
+
+  const nowIso = new Date(deps.now()).toISOString();
+  const game: Game = { id: start.id, app: replay.app };
+  const record: GameRecord = {
+    id, version: GAME_VERSION, session: serialize(game), moves: log.moves as Move[], phase: 'ended', name, client: WEB_CLIENT, model: null,
+    ipKey, surface: 'web', player: 'person', measures: replay.measures, createdAt: nowIso, updatedAt: nowIso,
+  };
+  await store.insert(record);
+  // Unlike a game that ends on a move, the player asked for this record, so a failure to write it
+  // is theirs to see (the handler answers 500), and sending again writes it (above).
+  await store.insertRun(sourceOf(id), run);
+  return { status: 201, body: { id, record: `/records/?game=${id}`, ...(await achievementsBody(store, id)) } };
+}
+
+/** The achievements to send with a record, as a body fragment: nothing if they can't be worked out now. */
+async function achievementsBody(store: GameStore, gameId: string): Promise<{ achievements?: Achievement[] }> {
+  const achievements = await achievementsFor(store, gameId);
+  return achievements ? { achievements } : {};
+}
+
+/**
+ * A web run's game id: a hash of its log, shaped like the UUIDs other games get (the column is a
+ * uuid). The same run sent twice is the same game.
+ */
+function webGameId(log: WebLog): string {
+  const h = createHash('sha256').update(JSON.stringify({ version: log.version, start: log.start, moves: log.moves })).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
 /**
