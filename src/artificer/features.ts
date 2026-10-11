@@ -90,6 +90,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'ties', name: 'Ties between people', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1588,
     note: 'People on the road have kin, friends, rivals and debts: ask one about another and you hear their own opinion, which can be wrong, and helping someone warms their friends to you before you meet.',
   },
+  {
+    // A rules feature: it changes what people say (a lie instead of "not yet", a rumour as it reached
+    // them) and adds the journal's lines, so a run from before it (absent: false) keeps today's
+    // answers on replay.
+    id: 'rumours-and-lies', name: 'Rumours and lies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1580,
+    note: 'Not everyone tells the truth: rumours grow as they travel, and some people lie for a reason (a secret they keep, a friend they cover for, a sale) until they trust you. Your journal keeps who said what, and flags it when two accounts clash.',
+  },
 ];
 
 /** Switches by feature id. */

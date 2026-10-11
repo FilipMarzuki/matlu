@@ -51,8 +51,11 @@ export interface Fact {
   leadAbout?: string;
   /** Insight in a concept, for a fact that teaches something (an Answer's `insight`). */
   insight?: { concept: string; amount: number };
-  /** Where the holder got it (#1580): what a rumour passed along carries. Absent, it's read off the scope. */
-  source?: Exclude<ClaimSource, 'made-up'>;
+  /**
+   * Where the holder got it (#1580): what a rumour passed along carries. Absent, it's read off the
+   * scope. (Not `source`: content entries use that for the canon a fact rests on.)
+   */
+  claimSource?: Exclude<ClaimSource, 'made-up'>;
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */
@@ -170,7 +173,7 @@ export const SOURCE_HEDGE: Readonly<Record<Exclude<ClaimSource, 'made-up'>, stri
 /** How sure a claim sounds, from where the fact sits and what it is. Part of the answer (#1580). */
 export function hedgeOf(f: Fact): string {
   // Where the holder says they got it, when the fact carries that (#1580: a rumour passed along).
-  if (f.source) return SOURCE_HEDGE[f.source];
+  if (f.claimSource) return SOURCE_HEDGE[f.claimSource];
   if (f.truth === 'rumour') return 'I heard';
   if (f.scope.kind === 'person') return 'I saw it myself';
   if (f.scope.kind === 'world' || f.scope.kind === 'region') return 'Everyone says';

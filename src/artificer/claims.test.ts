@@ -77,6 +77,9 @@ describe('#1580 acceptance', () => {
 
     it('Given the same rumour, When it drifts twice, Then it drifts the same way (seeded, not random)', () => {
       expect(driftOf(wolves)).toEqual(driftOf(wolves));
+      const fish = claimEntries().rumours.find(r => r.id === 'mere-fish')!;
+      expect(driftOf(fish).map(h => [h.n, h.where])).toEqual(PINNED_FISH);
+      expect(driftOf(fish)[2].text).toBe('Everyone\'s saying it: twelve fish floating belly-up at the still north end of the mere in a single morning. Whatever is in the water there, don\'t drink it.');
     });
 
     it('Given a traveller carries a rumour on, When it drifts, Then it grows at least as much as when a villager does: weak ties carry news furthest from the truth', () => {
@@ -91,7 +94,7 @@ describe('#1580 acceptance', () => {
 
     it('Given a rumour in the run, When someone on its path is asked, Then they answer with their hop, hedged by where they got it', () => {
       const liv = resolve('sm-liv', 'place:north-road', 100, { facts: FACTS_ON });
-      expect(liv).toMatchObject({ kind: 'told', hedge: 'Everyone says', fact: { truth: 'rumour', source: 'common' } });
+      expect(liv).toMatchObject({ kind: 'told', hedge: 'Everyone says', fact: { truth: 'rumour', claimSource: 'common' } });
       const runa = resolve('kg-runa', 'place:north-road', 100, { facts: FACTS_ON });
       expect(runa).toMatchObject({ kind: 'told', hedge: 'I saw it myself', fact: { truth: 'true' } });
     });
@@ -227,8 +230,10 @@ describe('#1580 acceptance', () => {
   });
 });
 
-/** The pass-wolves rumour's drift, pinned: [number, place] at each hop. */
-const PINNED_WOLVES: [number, string][] = [[3, 'the high pass above the Gate'], [0, ''], [0, '']];
+/** The pass-wolves rumour's drift, pinned: [number, place] at each hop. A change to the drift rule moves these. */
+const PINNED_WOLVES: [number, string][] = [[3, 'the high pass above the Gate'], [4, 'the Gate road below the wall'], [5, 'the Gate road below the wall']];
+/** The mere-fish rumour's, likewise: Runa the route-singer, a weak tie, doubles it. */
+const PINNED_FISH: [number, string][] = [[4, 'the still north end of the mere'], [8, 'the still north end of the mere'], [12, 'the still north end of the mere']];
 
 describe('The claims data', () => {
   it('names the canon each entry rests on, and the line is really there', () => {

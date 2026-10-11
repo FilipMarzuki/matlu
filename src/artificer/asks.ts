@@ -18,7 +18,7 @@
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
 import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { tells, type Fact, type Standing, type Truth } from './knowledge';
+import { tells, type Fact, type Lie, type Standing, type Truth } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -144,6 +144,11 @@ export type AskResult =
    * from before referrals, word for word.
    */
   | { kind: 'unknown'; line: string; referral: string | null }
+  /**
+   * They said something else instead (#1580): a lie, for a reason, read exactly like an answer. The
+   * game knows (`lie`); the player hears only the words. The road keeps it as `claimed:<topic>`.
+   */
+  | { kind: 'lied'; line: string; lie: Lie }
   /** Asked and answered before: nothing new, and no time spent. */
   | { kind: 'again'; line: string };
 
@@ -153,11 +158,19 @@ export type AskResult =
  * (facts.ts `resolve`): told, not yet (the gate is the true trust you bring, never a felt word),
  * or doesn't know, and who nearby would.
  */
-export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; standing?: Standing } = {}): AskResult {
-  if (answered.includes(key)) return { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
+export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>> } = {}): AskResult {
+  const again: AskResult = { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
+  if (answered.includes(key)) return again;
   // The facts are the run's (facts.ts `factsFor`, #1610): a caller that doesn't pass them gets today's.
-  // So is the Warden's standing with organisations (#1587): none unless the run's switch passes it.
-  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS, ...(opts.standing ? { standing: opts.standing } : {}) });
+  // So is the Warden's standing with organisations (#1587): none unless the run's switch passes it,
+  // and so are the run's lies (#1580, claims.ts `liesFor`).
+  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS, ...(opts.standing ? { standing: opts.standing } : {}), ...(opts.lies ? { lies: opts.lies } : {}) });
+  if (r?.kind === 'lied') {
+    // Told the lie before (`claimed:<topic>`) and still not trusting you enough to stop: they stick
+    // to it, as anyone asked twice would. Trusted enough, the lie is skipped and the truth comes out.
+    if (answered.includes(`claimed:${key}`)) return again;
+    return { kind: 'lied', line: `${p.name}: "${r.text}"`, lie: r.lie };
+  }
   if (!r || r.kind === 'unknown') {
     const referral = r?.referral ?? null;
     // The referrals switch (#1609) is the run's, so the caller passes it in: a caller that doesn't
@@ -168,8 +181,6 @@ export function ask(p: Person, key: string, about: string, trust: number, answer
       : `${p.name} thinks, and shakes their head. "I don't know much about ${about}."`;
     return { kind: 'unknown', line, referral };
   }
-  // No one lies yet (that's slice G, #1580), so the model only says told, not yet or unknown here;
-  // a lie would read as not yet until then, which is what the person would be doing: not telling.
   if (r.kind !== 'told') return { kind: 'not-yet', line: `${p.name} looks at you a long moment. "Maybe. Ask me again when I know you better."` };
   const a = answerOf(r.fact);
   return { kind: 'told', line: `${p.name}: "${a.text}"`, answer: a, truth: r.fact.truth };

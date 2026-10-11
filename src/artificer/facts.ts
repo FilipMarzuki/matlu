@@ -23,9 +23,10 @@
  */
 
 import { ANSWERS, type Answer } from './answers';
-import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
+import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Lie, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
 import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
 import { TIE_FACTS } from './ties';
+import { RUMOUR_FACTS } from './claims';
 import { featureOn, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
@@ -149,8 +150,8 @@ export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
 /** Whether a set of facts has the scope facts in it (`factsFor` with the switch on, or ALL_FACTS). */
 export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f => f.id.startsWith('scope:'));
 
-/** Every fact any game can hold: today's, the scope facts, the organisations' (#1587) and the ties' (#1588). */
-export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS];
+/** Every fact any game can hold: today's, the scope facts, the organisations' (#1587), the ties' (#1588) and the rumours' (#1580). */
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS, ...RUMOUR_FACTS];
 
 /**
  * The switchable sets of facts, in the order they join today's: what everyone knows (#1610), the
@@ -160,13 +161,14 @@ const SWITCHED_FACTS: readonly { feature: string; facts: readonly Fact[] }[] = [
   { feature: 'scope-facts', facts: SCOPE_FACTS },
   { feature: 'organisations', facts: ORG_FACTS },
   { feature: 'ties', facts: TIE_FACTS },
+  { feature: 'rumours-and-lies', facts: RUMOUR_FACTS },
 ];
 
 // Each combination of switches is built once and kept, so a run's facts are always the same array
 // (and the common cases are the very arrays above: none of the switches, FACTS; all of them,
-// ALL_FACTS). Keyed by which switches are on, as a string of 0s and 1s ('101': scope facts and
-// ties, no organisations): eight combinations at most.
-const FACT_SETS = new Map<string, readonly Fact[]>([['000', FACTS], ['111', ALL_FACTS]]);
+// ALL_FACTS). Keyed by which switches are on, as a string of 0s and 1s, in SWITCHED_FACTS' order
+// ('1010': scope facts and ties, no organisations or rumours): sixteen combinations at most.
+const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], ['1111', ALL_FACTS]]);
 
 /**
  * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
@@ -180,6 +182,8 @@ const FACT_SETS = new Map<string, readonly Fact[]>([['000', FACTS], ['111', ALL_
  * organisation's fact does come before what their village or the road says, being more
  * specific, and so does a tie's, about the person it's a view of: Maren's own opinion of Tobin
  * before what all Hollowford says of him), changes who they'd refer you to, and adds leads.
+ * With `rumours-and-lies` on (#1580), each rumour as it reached the people on its path: theirs
+ * alone, so the same holds.
  */
 export function factsFor(features: FeatureSwitches | undefined): readonly Fact[] {
   const key = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) ? '1' : '0')).join('');
@@ -244,10 +248,15 @@ export function nearbyOf(personId: string): Knower[] {
  * no one on the road. `facts` and `others` default to the game's; tests and later slices can pass
  * their own. `standing` is the Warden's with each organisation (#1587, orgs.ts `standingFrom`):
  * it counts toward an organisation's own facts with any of its members; none if not passed.
+ * `lies` are the run's (#1580, claims.ts `liesFor`), by person; none if not passed.
  */
-export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[]; standing?: Standing } = {}): KnowledgeAnswer | undefined {
-  const k = KNOWERS[personId];
-  if (!k) return undefined;
+export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>> } = {}): KnowledgeAnswer | undefined {
+  const known = KNOWERS[personId];
+  if (!known) return undefined;
+  // The run's lies (#1580, claims.ts `liesFor`), by person: none unless its switch passes them, so a
+  // person who'd rather not say says "not yet", as before. The model reads lies off the Knower.
+  const lies = opts.lies?.[personId];
+  const k = lies?.length ? { ...known, lies } : known;
   return answer(k, topic, trust, opts.facts ?? FACTS, ORGS, opts.others ?? nearbyOf(personId), opts.standing ?? {});
 }
 
