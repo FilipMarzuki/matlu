@@ -1,6 +1,6 @@
 # What Peoples and cultures value, believe and keep
 
-**Issue:** #1590 (the Wildkin: #1606) · **Status:** content and reader written, not yet read by the game
+**Issue:** #1590 (the Wildkin: #1606; the Markfolk border: #1620) · **Status:** content and reader written, not yet read by the game
 **Files:** `src/artificer/content/peoples-lore.json`, `src/artificer/content/cultures-lore.json`, read through `src/artificer/culture-lore.ts` (tests: `culture-lore.test.ts`)
 **Feeds:** the knowledge model's scope content (#1577 slice C, `docs/knowledge-model-design.md`) and rumours, confidence and lies (#1580)
 
@@ -28,10 +28,10 @@ false belief says what is `actually` so, with its own source, so #1580 can corre
 firmly it's held (`strength`: `firm`, `held` or `loose`). A few claims carry a `sensitivity`
 (`guarded`, `secret`) where canon says it's kept quiet; the rest are `public`.
 
-**Counts:** 828 claims (396 for the Peoples, 432 for the cultures): 769 true, 31 rumours, 28
-false. Views: 250 People-to-People, 132 culture-to-culture, 192 culture-to-People. 113 sayings and
-voice lines. Every People met on the road holds at least one wrong or half-true belief; the 59
-wrong views are 13 firm, 23 held and 23 loose.
+**Counts:** 842 claims (407 for the Peoples, 435 for the cultures): 776 true, 35 rumours, 31
+false. Views: 261 People-to-People, 132 culture-to-culture, 195 culture-to-People. 113 sayings and
+voice lines. Every People met on the road holds at least one wrong or half-true belief; the 66
+wrong views are 14 firm, 27 held and 25 loose.
 
 ## How openly a view is said
 
@@ -80,6 +80,9 @@ check that the file, the heading and the label are really there. Most of it rest
   customs: Bergfolk tools buried with their master, Deepwalker seal rings buried with their
   [Keeper], Steinfolk adding a stone to what the dead built); *Who uses Rasa*; *Alliances*; *Safe to
   use freely* (the canon prejudices about goblins, dragons, elves and minotaurs).
+- **`WORLD.md` § The West March and the Wildkin border** (#1620): the Markfolk and the Wildkin as
+  neighbours: the charters and the fence law, the Alder War and the Stone Line, how the Merkförbund
+  treats beastkin, the Clan Question from the March.
 - **`AXES.md`**: each People's context score and mode, for their voice.
 - **`src/artificer/villages.ts`, `answers.ts` and `asks.ts`**: the road's own people. Culture lore leans on what
   they already say (Maren for fieldborn, Orrin for ridgefolk, Anselm and Gunnar for waterstead,
@@ -105,19 +108,20 @@ made. A test keeps it so.
 ## What's invented
 
 `invented: true` marks a line canon doesn't state outright. It still names the source it was built
-on, and nothing invented contradicts a canon statement. 563 of the 828 claims are invented:
+on, and nothing invented contradicts a canon statement. 569 of the 842 claims are invented:
 
 - **Most customs** (78 of 112): canon gives a few (above); greetings, debts and most mourning
   customs are new.
-- **Most People-to-People views** (179 of 250): canon gives the *Relations* pairs (Bergfolk with Markfolk, Lövfolk,
+- **Most People-to-People views** (182 of 261): canon gives the *Relations* pairs (Bergfolk with Markfolk, Lövfolk,
   Steinfolk and Goblins; Lövfolk with Pandor, Bergfolk and Fae; Markfolk with Bergfolk, Steinfolk
   and Viddfolk; Viddfolk with all nations and the Goblins; Steinfolk with Markfolk and Bergfolk;
   Deepwalkers with Merfolk and Pandor; the Pandor's dealings with the Merfolk, Giants, Dragons,
   Everstill, Constructs and Remnants). The rest are new, written to fit each pair's canon.
   Everyone's view of the Wildkin, and theirs of everyone, is new apart from what the setting bible
-  says outright (the dwarves walking out, the dead that stay dead).
-- **Culture lore** is mostly new (325 of 432), since canon gives cultures only layout. It follows
-  the road's people closely. Of the 192 culture-to-People views, 166 are invented: most restate a
+  says outright (the dwarves walking out, the dead that stay dead), and the Markfolk and Wildkin
+  pair, which rests on `WORLD.md` § *The West March and the Wildkin border* (#1620).
+- **Culture lore** is mostly new (328 of 435), since canon gives cultures only layout. It follows
+  the road's people closely. Of the 195 culture-to-People views, 169 are invented: most restate a
   People's canon in the culture's voice, and say so in their source.
 
 ### The wrong beliefs
@@ -143,6 +147,9 @@ on, and nothing invented contradicts a canon statement. 563 of the 828 claims ar
 | Markfolk | Dragons | Dragons are wicked, and hoard gold to spite us. | false | held | invented |
 | Markfolk | Everstill | The Pale City's dead are the corruption's work. | false | loose | invented |
 | Markfolk | Wildkin | Beastkin are wild things. They couldn't keep a field. | false | held | invented |
+| Markfolk | Wildkin | The western meadows were empty when our people came. Nobody lived on land with no fence. | false | firm | canon |
+| Markfolk | Wildkin | The old ruins over the Alå were built by our ancestors. We were there first. | rumour | held | canon |
+| Markfolk | Wildkin | The Highfang wants the March back, and is only waiting for a weak year. | rumour | held | invented |
 | Viddfolk | Everstill | Nothing can touch the Everstill. They'll be here forever. | false | loose | invented |
 | Steinfolk | Giants | Bergamora's eastern face was built, not grown. | rumour | loose | invented |
 | Pandor | Steinfolk | The stronghold at the centre of the continent must guard an old ruin. | rumour | loose | invented |
@@ -157,6 +164,9 @@ on, and nothing invented contradicts a canon statement. 563 of the 828 claims ar
 | Goblins | Giants | Aldriksson must be a very high-level [Sage]. | false | loose | invented |
 | Wildkin | Merfolk | Nothing lives out past the shore. The sea is just the edge. | false | firm | invented |
 | Wildkin | Fae | Something at the meadow's edge at dawn bargains for names. Grandmothers warn the cubs. | rumour | held | invented |
+| Wildkin | Markfolk | The Markfolk came west to drive us into the sea. | false | held | invented |
+| Wildkin | Markfolk | A Markfolk signs a treaty with one hand and moves a fence with the other. | rumour | held | invented |
+| Wildkin | Markfolk | The Markfolk don't care for the land. They just dig it up. | false | loose | invented |
 | Wildkin | Everstill | The walking dead in the high passes come from the Pale City. | rumour | held | invented |
 | fieldborn | Merfolk | Merfolk are a story harbour folk tell to sell fish. | false | loose | invented |
 | fieldborn | Fae | Don't leave a gate open at the field's edge at dawn. That's how the fae walk in. | rumour | held | invented |
@@ -171,6 +181,7 @@ on, and nothing invented contradicts a canon statement. 563 of the 828 claims ar
 | mountainhold | Goblins | Goblins steal. Lock the upper levels. | false | firm | invented |
 | wallborn | Goblins | Goblins aren't really people, so they don't go on the roll. | false | held | invented |
 | wallborn | Remnants | Something passed the Gate once without being counted. The old keepers say it was a Remnant. | rumour | loose | invented |
+| wallborn | Wildkin | Wagons say the West March and the beastkin will come to blows within the year. | rumour | loose | invented |
 | caravan-folk | Merfolk | Camp too close to deep water and the Merfolk will pull your cart in. | rumour | loose | invented |
 | caravan-folk | Wildkin | Beastkin are wild animals that happen to talk. | false | held | invented |
 | grovekin | Markfolk | Farming takes strong arms, not much skill. | false | loose | invented |
@@ -228,6 +239,11 @@ Nothing on the road reads it yet: no play, save or RNG change.
 5. **The Wildkin are the 16th People** (#1606): full lore here, sourced to the setting bible. The
    tests take the canon list from `docs/peoples-and-races.md` plus the Wildkin until #1604 adds
    them to that table, and take the table as it is once it does.
+6. **The Markfolk are the Wildkin's eastern neighbours** (#1620): the setting bible's human kingdoms
+   pressing the eastern border are the Merkförbund's West March. `WORLD.md` § *The West March and
+   the Wildkin border* tells the history; the Markfolk's and the Wildkin's views of each other rest
+   on it, prejudice and wrong beliefs on both sides, and fieldborn and wallborn views of the
+   Wildkin follow it.
 
 ## Open questions for the owner
 
@@ -244,8 +260,7 @@ Nothing on the road reads it yet: no play, save or RNG change.
    `docs/peoples-and-races.md`. The lore follows the docs and `world/peoples.ts`. Fix the export?
 5. **A `culture` topic kind.** Wiring this in (slice C) needs `topics.ts` to name cultures, as it
    already names Peoples (`group:<People>`). `culture:<id>` is the key used here.
-6. **Wildkin and the human lands.** The setting bible's eastern human empire has no People of its
-   own in Mistheim's list (#709 folded "human" into others). The Wildkin lore here says nothing of
-   it, and doesn't name the Markfolk as those neighbours. Should a People hold that role?
+6. ~~**Wildkin and the human lands.**~~ Decided (owner, 2026-10-11, #1620): the setting bible's
+   human kingdoms are the Markfolk. See item 6 under *Decided*.
 7. **Wildkin in `villages.ts`.** The road's `People` type still has 15; the lore adds the Wildkin
    as `LorePeople` beside it. Widen `People` when a Wildkin first walks the road?
