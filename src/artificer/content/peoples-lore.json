@@ -245,7 +245,7 @@
         "greeting": {"text":"We read each other's woven colours first: route, clan and seniority. Then we speak.","truth":"true","source":"WORLD.md § Viddfolk › Clothing","invented":true},
         "trade": {"text":"Prices live in the route-songs. A singer remembers both.","truth":"true","source":"src/artificer/villages.ts › cv-runa"},
         "mourning": {"text":"The dead one's verses are sung once more round the Speaking-Ground fire, then taught to someone young.","truth":"true","source":"WORLD.md § Viddfolk › Architecture","invented":true},
-        "debt": {"text":"The road keeps its debts: help a herald, and the next fire on the route is yours.","truth":"true","source":"src/artificer/asks.ts › sm-yrsa"}
+        "debt": {"text":"The road keeps its debts: help a herald, and the next fire on the route is yours.","truth":"true","source":"src/artificer/answers.ts › sm-yrsa"}
       },
       "views": {
         "Bergfolk": [
@@ -419,7 +419,7 @@
           {"text":"We asked the Djupvolk for an exchange of knowledge thirty years ago. They haven't replied yet.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}
         ],
         "Goblins": [
-          {"text":"They sell us what their [Delvers] find. We write it down, and must tell anyone who asks. They've never forgiven us.","truth":"true","source":"src/artificer/asks.ts › sm-anselm"}
+          {"text":"They sell us what their [Delvers] find. We write it down, and must tell anyone who asks. They've never forgiven us.","truth":"true","source":"src/artificer/answers.ts › sm-anselm"}
         ],
         "Fae": [
           {"text":"We have written down fae magic many times. The accounts are accurate, and useless.","truth":"true","source":"WORLD.md § Who uses Rasa › The Fae"}
@@ -492,7 +492,7 @@
           {"text":"The deep channels are ours by right of memory.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","strength":"firm","actually":{"text":"Deepwalkers and Merfolk both claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
         ],
         "Goblins": [
-          {"text":"Goblins pay in news, and the Compact has never once paid us in a lie.","truth":"true","source":"src/artificer/asks.ts › sm-hedda"}
+          {"text":"Goblins pay in news, and the Compact has never once paid us in a lie.","truth":"true","source":"src/artificer/answers.ts › sm-hedda"}
         ],
         "Fae": [
           {"text":"The Court of What Was trades in memory and debt, as we do. We keep our distance.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true}
@@ -632,7 +632,7 @@
           {"text":"Steinfolk fix things properly and charge properly. We fix things today and charge less.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
         ],
         "Pandor": [
-          {"text":"Sell a secret to a Pandor and the whole world has it by spring.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"strength":"held","actually":{"text":"The Compact of Knowing makes the Pandor tell anyone who asks, but very few ask, and they keep sealed records too.","source":"src/artificer/villages.ts › sm-anselm"}}
+          {"text":"Sell a secret to a Pandor and the whole world has it by spring.","truth":"rumour","source":"src/artificer/answers.ts › sm-anselm","invented":true,"strength":"held","actually":{"text":"The Compact of Knowing makes the Pandor tell anyone who asks, but very few ask, and they keep sealed records too.","source":"src/artificer/villages.ts › sm-anselm"}}
         ],
         "Deepwalkers": [
           {"text":"Deepwalker merchants buy our news and pay fair. We live under their stilt-towns, quietly.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Goblin Compact's shadow network","invented":true}

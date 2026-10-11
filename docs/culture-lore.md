@@ -81,7 +81,7 @@ check that the file, the heading and the label are really there. Most of it rest
   [Keeper], Steinfolk adding a stone to what the dead built); *Who uses Rasa*; *Alliances*; *Safe to
   use freely* (the canon prejudices about goblins, dragons, elves and minotaurs).
 - **`AXES.md`**: each People's context score and mode, for their voice.
-- **`src/artificer/villages.ts` and `asks.ts`**: the road's own people. Culture lore leans on what
+- **`src/artificer/villages.ts`, `answers.ts` and `asks.ts`**: the road's own people. Culture lore leans on what
   they already say (Maren for fieldborn, Orrin for ridgefolk, Anselm and Gunnar for waterstead,
   Runa for mountainhold, Veit for wallborn, Bodil and cv-runa for caravan-folk, Isa and Ottilia for
   grovekin, Hedda for harborfolk, Yrsa for steppe-camp, Liv for refuge-keepers, Sabine for
