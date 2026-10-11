@@ -23,6 +23,7 @@
  */
 
 import { answerFor, topicsKnownBy } from './asks';
+import { ALL_FACTS, FACTS, hasScopeFacts } from './facts';
 import type { Fact } from './knowledge';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, TOPIC_KINDS, isTopicKind, mentionsIn, topicDef } from './topics';
@@ -41,7 +42,7 @@ const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * these people might really ask: "Where do I get ore?", "Who knows herbs?", "What's past the gate?"
  * Only topics someone has an answer for need a line here; add one with each new answer.
  */
-export const HINTS: Readonly<Record<string, RegExp>> = {
+const BASE_HINTS: Readonly<Record<string, RegExp>> = {
   'material:iron': /\b(?:ore|metals?|steel|ironwork|arrowheads?|nails?)\b/i,
   'role:smith': /\b(?:forges?|anvils?|smithy|metalwork(?:ing)?|hammers?)\b/i,
   'place:kestrel-gate': /\b(?:the gate|gate|the wall|tolls?|toll-keeper)\b/i,
@@ -49,6 +50,31 @@ export const HINTS: Readonly<Record<string, RegExp>> = {
   'skill:foraging': /\b(?:herbs?|mushrooms?|fungi|berries|roots|greens|edible|plants?|wild food)\b/i,
   'quest:hf-hides-saltmere': /\b(?:hides?|skins?|pelts?|Hedda)\b/i,
 };
+
+/**
+ * What everyone knows (#1610): the villages, the road, and who does what. Nobody knows these
+ * topics without the scope-facts switch, and they're only read in a run that has it (`scoped`
+ * below): a word like "sheep" names Hollowford, and Hollowford is mentioned in answers people gave
+ * before, so read in every run they'd change what an old-style question matches through a mention.
+ */
+const SCOPE_HINTS: Readonly<Record<string, RegExp>> = {
+  'place:north-road': /\b(?:the road|this road|roads|route|journey|how far|how long|bandits?|dangers?|dangerous)\b/i,
+  'place:hollowford': /\b(?:the ford|stepping stones|terraces|high fields|barley|sheep)\b/i,
+  'place:saltmere': /\b(?:the mere|mere|salt lake|the lake|wells?)\b/i,
+  'place:mistheim': /\b(?:lowlands?)\b/i,
+  'role:elder': /\b(?:in charge|rules? (?:here|this)|leaders?|chief|headman|headwoman)\b/i,
+  'role:trader': /\b(?:merchants?|shops?|wares|goods|store)\b/i,
+  'role:healer': /\b(?:heal|medicine|doctor|sick|ill|fever|hurt|injur(?:y|ed|ies))\b/i,
+  'role:hunter': /\b(?:hunt|game|deer|tracks?|tracking|traps?)\b/i,
+  'role:teacher': /\b(?:teach(?:es)?|learn|lessons?|training)\b/i,
+  'role:caravaneer': /\b(?:the caravan|caravan master|wagons?)\b/i,
+  'role:tinker': /\b(?:mend|repair|fix|broken|axles?)\b/i,
+  'skill:firstaid': /\b(?:wounds?|bandages?|splints?|bleeding)\b/i,
+};
+
+/** Every hint, in any run: what a topic can be named by when the scope facts are on. */
+export const HINTS: Readonly<Record<string, RegExp>> = { ...BASE_HINTS, ...SCOPE_HINTS };
+const hintsFor = (scoped: boolean): Readonly<Record<string, RegExp>> => (scoped ? HINTS : BASE_HINTS);
 
 /** How a skill is asked about: "Foraging" → forage, forager, foraging; "First aid" as said. */
 function skillPattern(id: string): RegExp | null {
@@ -59,8 +85,8 @@ function skillPattern(id: string): RegExp | null {
 
 const CONCEPT_NAMES: Readonly<Record<string, string>> = Object.fromEntries(conceptsRegistry.concepts.map(c => [c.id, c.name]));
 
-/** Every way `key` can be named in a question. */
-export function patternsOf(key: string): RegExp[] {
+/** Every way `key` can be named in a question; without `scoped` (a run without the scope facts, #1610), not by their hints. */
+export function patternsOf(key: string, scoped = true): RegExp[] {
   const at = key.indexOf(':');
   const kind = key.slice(0, at), id = key.slice(at + 1);
   const out: RegExp[] = [];
@@ -73,16 +99,19 @@ export function patternsOf(key: string): RegExp[] {
   } else if (kind === 'concept' && CONCEPT_NAMES[id]) {
     out.push(new RegExp(`\\b${escape(CONCEPT_NAMES[id])}\\b`, 'i'));
   }
-  if (HINTS[key]) out.push(HINTS[key]);
+  const hint = hintsFor(scoped)[key];
+  if (hint) out.push(hint);
   return out;
 }
 
 /** Every topic a question names, by name or by hint: the topic table, read case-insensitively. */
-const NAMEABLE: readonly { key: string; re: RegExp }[] = [
+const nameable = (scoped: boolean): readonly { key: string; re: RegExp }[] => [
   ...TOPIC_KINDS.flatMap(kind => Object.entries(TOPICS[kind]).filter(([, d]) => d.named).map(([id, d]) => ({ key: `${kind}:${id}`, re: ci(d.named!) }))),
-  ...Object.entries(HINTS).map(([key, re]) => ({ key, re })),
+  ...Object.entries(hintsFor(scoped)).map(([key, re]) => ({ key, re })),
 ];
-export const topicsIn = (question: string): Set<string> => new Set(NAMEABLE.filter(n => n.re.test(question)).map(n => n.key));
+const NAMEABLE = nameable(true);
+const NAMEABLE_UNSCOPED = nameable(false);
+export const topicsIn = (question: string, scoped = true): Set<string> => new Set((scoped ? NAMEABLE : NAMEABLE_UNSCOPED).filter(n => n.re.test(question)).map(n => n.key));
 
 /** What a name or word in the question is worth: naming the topic beats naming something its answer mentions. */
 export const NAMED = 3;
@@ -110,13 +139,15 @@ export interface KnownMatch { key: string; score: number; fresh: boolean }
  */
 export function bestKnownMatch(personId: string, q: string, answered: readonly string[] = [], facts?: readonly Fact[]): KnownMatch | null {
   if (!q) return null;
-  const named = topicsIn(q);
+  // The scope facts' hints are read only in a run with the scope facts (#1610).
+  const scoped = facts !== undefined && hasScopeFacts(facts);
+  const named = topicsIn(q, scoped);
   named.delete(`person:${personId}`);
   let best: KnownMatch | null = null;
   for (const key of topicsKnownBy(personId, facts)) {
     const answer = answerFor(personId, key, facts);
     if (!answer) continue;
-    const direct = named.has(key) || patternsOf(key).some(re => re.test(q)) ? NAMED : 0;
+    const direct = named.has(key) || patternsOf(key, scoped).some(re => re.test(q)) ? NAMED : 0;
     const through = mentionsIn(answer.text).filter(k => k !== key && named.has(k)).length * MENTIONED;
     const score = direct + through;
     const fresh = !answered.includes(key);
@@ -130,13 +161,18 @@ export function bestKnownMatch(personId: string, q: string, answered: readonly s
  * it. The best-scoring topic wins; on a tie, one they haven't told you yet (`answered`), then the
  * first as written. This is #1575's matching, which a run without `knowledge-questions` plays;
  * knowledge-questions.ts `matchFreeQuestion` picks between the two by the run's switches.
+ * `facts` are the run's (facts.ts `factsFor`, #1610); today's if not given.
  */
-export function matchQuestion(personId: string, question: string, answered: readonly string[] = []): string | null {
-  return bestKnownMatch(personId, questionFor(personId, question), answered)?.key ?? null;
+export function matchQuestion(personId: string, question: string, answered: readonly string[] = [], facts: readonly Fact[] = FACTS): string | null {
+  return bestKnownMatch(personId, questionFor(personId, question), answered, facts)?.key ?? null;
 }
 
-/** Whether `personId` has an answer for `key`: the road checks a matched topic with this. */
-export const knowsAbout = (personId: string, key: string): boolean => answerFor(personId, key) !== undefined;
+/**
+ * Whether `personId` has an answer for `key` in any game: the API keeps a web question's
+ * self-reported topic with this. Every fact counts (`ALL_FACTS`), the scope facts (#1610) too,
+ * since the API doesn't know which switches the asking game had.
+ */
+export const knowsAbout = (personId: string, key: string, facts: readonly Fact[] = ALL_FACTS): boolean => answerFor(personId, key, facts) !== undefined;
 
 const DEFLECTIONS = [
   "I'd have to think on that. Ask me something else next time.",
