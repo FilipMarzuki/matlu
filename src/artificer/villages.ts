@@ -56,6 +56,11 @@ export interface Person {
   teaches?: Teaching;
   /** A fellow traveller's craft (#1245): each lore line they share gives a little insight in it. */
   concept?: string;
+  /**
+   * Guarded by manner (#1578): dry, severe, sparing with words. They seem colder to you than they
+   * are — the "liking gap" is widest with someone who gives little away (rapport.ts).
+   */
+  reserved?: true;
 }
 
 export interface Village {
@@ -88,13 +93,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
     corruption: 'Above the village the high fields have gone grey-violet and hard. The plough rings on them, and nothing roots.',
     why: 'It is the only ford before the spring flood rises. The caravan crosses here or waits a month.',
     people: [
-      p('hf-maren', 'Maren', 'elder', 'Markfolk', 'fieldborn', 'Dry as a summer field; counts everything twice and forgives slowly.',
+      { ...p('hf-maren', 'Maren', 'elder', 'Markfolk', 'fieldborn', 'Dry as a summer field; counts everything twice and forgives slowly.',
         { kind: 'job', job: 'mend the ford stones' }, [
           [0, 'The ford was here before the village. We only built where the river let us.'],
           [25, 'Every spring the caravan brings someone half-dead out of the Reach. You look better than most.'],
           [50, 'The high fields have gone grey. Not frost — stone, from underneath. The plough rings on it, and nothing roots.'],
           [75, 'My mother kept a field up there. When the grey reached it, she moved the fence down the hill and never spoke of it again. That is how we lose land here: one fence at a time.'],
-        ]),
+        ]), reserved: true },
       p('hf-tobin', 'Tobin', 'trader', 'Goblins', 'caravan-folk', 'Quick, cheerful, and always listening for what something is really worth.',
         { kind: 'job', job: 'carry hides to Saltmere' }, [
           [0, 'Hides, salt, a good knife — I buy what travels well.'],
@@ -138,13 +143,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'Under the Compact of Knowing I must tell anyone who asks what the book says. Very few ask.'],
           [75, 'The book says the mere was sweet water once. The salt came in with an age that ended. Ages end here more often than people like to think.'],
         ], { skill: 'handcraft', techniques: ['weave', 'sewing', 'patterns'], recipes: ['hide-parka', 'waterskin'], concept: 'sealing' }),
-      p('sm-yrsa', 'Yrsa', 'hunter', 'Viddfolk', 'steppe-camp', 'Few words, sharp eyes, and no patience for people who hurry.',
+      { ...p('sm-yrsa', 'Yrsa', 'hunter', 'Viddfolk', 'steppe-camp', 'Few words, sharp eyes, and no patience for people who hurry.',
         { kind: 'job', job: 'scout the mere shore' }, [
           [0, 'The mere birds come at dusk. Patience gets you more than arrows.'],
           [25, 'Snow tells you everything an animal did. Mud lies.'],
           [50, 'This shore is a route-claim. Under the Vidde Accords my people keep the road, and every nation lets us. It is the oldest promise in Mistheim.'],
           [75, 'Our [Heralds] used to ride the ley-lines along this valley faster than wind. This year they rode like anyone else.'],
-        ], { skill: 'hunting', techniques: ['sign', 'stalking', 'dressing'], recipes: ['trap-snare'] }),
+        ], { skill: 'hunting', techniques: ['sign', 'stalking', 'dressing'], recipes: ['trap-snare'] }), reserved: true },
       p('sm-gunnar', 'Gunnar', 'elder', 'Markfolk', 'waterstead', 'Stubborn and kind, and certain the water is trying to tell him something.',
         { kind: 'job', job: 'clear the sluice' }, [
           [0, 'The mere is lower every year. Nobody listens to old men about water.'],
@@ -165,13 +170,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
     corruption: 'Ash comes down off the high pass on the west wind and settles grey on everything. It does not brush off, and some days the air is too heavy to hurry in.',
     why: 'Nothing goes into Mistheim\'s lowlands without passing the Gate. The caravan pays its toll and is counted here.',
     people: [
-      p('kg-veit', 'Veit', 'elder', 'Steinfolk', 'wallborn', 'Formal and careful; he weighs every word as if it had a toll.',
+      { ...p('kg-veit', 'Veit', 'elder', 'Steinfolk', 'wallborn', 'Formal and careful; he weighs every word as if it had a toll.',
         { kind: 'job', job: 'carry a message to Mistheim' }, [
           [0, 'Kestrel Gate keeps the road. The road keeps us.'],
           [25, 'The toll pays for the wall. The wall pays for the peace.'],
           [50, 'Mistheim is not what the caravan songs say. Go anyway.'],
           [75, 'The gate was built against something that came down the pass in an age that ended. We stopped saying what. We did not stop keeping the wall.'],
-        ]),
+        ]), reserved: true },
       p('kg-sabine', 'Sabine', 'smith', 'Steinfolk', 'ironborne-encampment', 'Blunt, funny, and proud of every hinge on the gate.',
         { kind: 'item', item: 'materials', qty: 5 }, [
           [0, 'Gate hinges, cart axles, arrowheads. A smith here never runs out of work.'],
@@ -185,13 +190,13 @@ export const VILLAGES: Readonly<Record<string, Village>> = {
           [50, 'The toll-keeper drinks. Arrive at dusk.'],
           [75, 'The Compact has mapped ruins no surface nation has found. Some of them are opening on their own now, seals that held for ages. Nobody will say why.'],
         ]),
-      p('kg-runa', 'Runa', 'teacher', 'Bergfolk', 'mountainhold', 'Severe, then suddenly kind; she teaches the way the mountain does.',
+      { ...p('kg-runa', 'Runa', 'teacher', 'Bergfolk', 'mountainhold', 'Severe, then suddenly kind; she teaches the way the mountain does.',
         { kind: 'job', job: 'gather mountain herbs' }, [
           [0, 'A mountain teaches slowly and forgives nothing.'],
           [25, 'Stonework is patience with a hammer.'],
           [50, 'The dry-stone walls of the hold have stood three hundred years without a drop of mortar.'],
           [75, 'In the holds, what you make is who you are. Make something that will outlast you, and you will never quite be gone.'],
-        ], { skill: 'stonework', techniques: ['cleave', 'knapping', 'drystone'], recipes: [], concept: 'joinery' }),
+        ], { skill: 'stonework', techniques: ['cleave', 'knapping', 'drystone'], recipes: [], concept: 'joinery' }), reserved: true },
     ],
   },
 };

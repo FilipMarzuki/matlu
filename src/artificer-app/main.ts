@@ -45,8 +45,9 @@ import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type Roa
 import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
-import { devMode, loadChoices, saveChoices } from './feature-choices';
+import { devMode, devTruths, loadChoices, saveChoices } from './feature-choices';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
+import { feltWord } from '../artificer/rapport';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { ringPinChip, ringPins, pinsList } from './pins-view';
@@ -647,7 +648,7 @@ function roadKeepsBlock(a: AppState): string {
   if (!a.road && !marks && !contacts.length) return '';
   return `<p class="eyebrow" style="margin-top:16px">THE ROAD — marks &amp; contacts</p>
     <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
-    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')} · trust ${Math.round(a.road?.trust[id] ?? CONTACT_TRUST)}</span></li>`; }).join('')}</ul>` : `<p class="mood">No contacts yet — anyone whose trust in you reaches ${CONTACT_TRUST} will remember you.</p>`}`;
+    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
 }
 
 /** The hike pack (#1400): what you brought, each with what it does, and what's left of what runs out. */
@@ -680,7 +681,7 @@ function skillsBlock(s: AppState['sim']): string {
     const lvl = Math.floor(seems);
     const name = LEVELS[lvl];
     // Dev mode (#1579) shows the true level the game hides.
-    const truth = dev ? ` <span class="devtruth" title="Dev mode: the true level">true: ${esc(LEVELS[skillLevel(s.skills, id)])}</span>` : '';
+    const truth = truths ? ` <span class="devtruth" title="Dev mode (?dev=truths): the true level">true: ${esc(LEVELS[skillLevel(s.skills, id)])}</span>` : '';
     return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
       + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}${truth}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
       + `<div class="techs">${TECHNIQUES.filter(t => t.skill === id).map(techChip(s)).join('')}</div></div>`;
@@ -1061,6 +1062,8 @@ let encounterAfter: EncounterAfter | null = null;
 
 /** Dev mode (on by default while the game is an experiment; `?dev=0` turns it off, remembered): the features panel and hidden truths. */
 const dev = devMode();
+/** The hidden truths (true trust, true skill levels): only with `?dev=truths`, never in plain dev mode (#1578). */
+const truths = devTruths();
 let showFeatures = false;
 
 /** A 🧪 in the header while this run plays with an experimental rule feature: it may change, or go. */
@@ -1088,7 +1091,7 @@ function featuresPanel(a: AppState): string {
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
   }).join('');
   return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
-    <p class="mood">Kept in this browser, and used by the text console too. Skills show their true level while dev mode is on. It's on for everyone while the game is an experiment: add <code>?dev=0</code> to the address to leave it, <code>?dev</code> to come back.</p></section>`;
+    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level and each person's true trust. It's on for everyone while the game is an experiment: add <code>?dev=0</code> to the address to leave it, <code>?dev</code> to come back.</p></section>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
@@ -1096,7 +1099,8 @@ function featuresPanel(a: AppState): string {
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
 const ROAD_TABS: { id: RoadTab; label: string }[] = [{ id: 'road', label: 'ROAD' }, { id: 'quests', label: 'QUESTS' }, { id: 'warden', label: 'WARDEN' }, { id: 'journal', label: 'JOURNAL' }];
 let roadTab: RoadTab = 'road';
-const roadUi: RoadUi = { person: null };
+// Dev mode (#1579) shows each person's true trust beside how they seem (#1578).
+const roadUi: RoadUi = { person: null, truths };
 
 /**
  * The Warden on the road, in Region 1's shape — so the Warden tab shows what the road
