@@ -221,6 +221,17 @@ describe('Server games: computed lazily, kept per seed (#1586, answer 3)', () =>
     const get = rememberedCache();
     expect(get(SEED)).toEqual(rememberedOf(SEED));
   });
+
+  // Acceptance criterion 3: a new API game (id `play-<seed>`) has its remembered facts on demand,
+  // from the Warden's id, as the page tells the same world; the second ask is the kept one.
+  it('has a new API game\'s facts on demand from its id, the second ask kept', () => {
+    const get = rememberedCache();
+    const seed = seedOf('play-acceptance-1586');
+    const first = get(seed);
+    expect(first.villages.map(v => v.village).sort()).toEqual(['hollowford', 'kestrel-gate', 'saltmere']);
+    expect(first.villages.every(v => v.title.length > 0 && v.facts.length > 0)).toBe(true);
+    expect(get(seed)).toBe(first);
+  });
 });
 
 describe('Sensitivity: how public it was, and the teller\'s stake (#1586, answer 4)', () => {
