@@ -25,6 +25,7 @@ import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingT
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
+import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
@@ -711,6 +712,7 @@ function noteLead(next: RoadState, person: Person, key: string, answer: Answer):
  * way it's an hour's talk, like an ask, and it uses up the question.
  *
  * Asked about something they've already told you, they tell you again, and nothing more comes of it.
+ * With `knowledge-questions` on (#1611), `knowingAnswer` answers instead, and the gates hold.
  */
 function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   // A switchable feature (#1579): off in this run, there's no free question to ask.
@@ -720,6 +722,10 @@ function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   if ((next.questioned ?? []).includes(pid)) { say(next, `Question: skipped — you've asked ${person.name} your question this stay.`, 'skip'); return next; }
   next.questioned = [...(next.questioned ?? []), pid];
   spendTalk(next, ASK_HOURS);
+  // Knowledge slice E (#1611) is its own rule switch: on, the question is answered the way the
+  // knowledge model answers an ask (gates, referrals, People's and culture's ways); off (and in
+  // every run from before the switch), exactly as #1575 played it, so old runs replay the same.
+  if (featureOn(next.features, 'knowledge-questions')) return knowingAnswer(next, person, topic);
   const answer = topic ? answerFor(pid, topic) : undefined;
   if (!answer) { say(next, deflectionOf(pid, person.name), 'action'); return next; }
   const again = (next.asked?.[pid] ?? []).includes(topic);
@@ -727,6 +733,29 @@ function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   const about = parseFocus(topic);
   say(next, `You ask ${person.name} about ${about ? focusInline(about) : topic}. ${person.name}: "${answer.text}"`, 'action');
   if (!again) noteLead(next, person, topic, answer);
+  return next;
+}
+
+/**
+ * A free question answered by the knowledge model (#1611, knowledge-questions.ts): the hour and
+ * the question are already spent. The trust it meets is an ask's: theirs, plus a gate for having
+ * noticed their tie to the topic (#1496) or being sent by a lead (#1497). Told, it's an answer
+ * like an ask's (remembered, trust for asking, names heard, its insight and lead), unless they've
+ * told you before; not yet, a referral or a deflection is only words.
+ */
+function knowingAnswer(next: RoadState, person: Person, topic: string): RoadState {
+  const pid = person.id;
+  const shown = (next.noticed?.[pid] ?? []).includes(topic) ? NOTICE_TRUST : 0;
+  const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
+  const own = next.trust[pid] ?? 0;
+  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals') });
+  if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
+  say(next, r.line, 'action');
+  if (r.kind === 'told' && !r.again) {
+    noteLead(next, person, topic, r.answer);
+    // As for an ask: a secret told on their trust alone is a moment of truth (#1578).
+    if (r.answer.at >= SECRET_GATE && own >= r.answer.at) showsTruth(next, pid);
+  }
   return next;
 }
 

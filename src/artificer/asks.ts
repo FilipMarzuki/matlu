@@ -18,7 +18,7 @@
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
 import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { knows } from './knowledge';
+import { knows, type Fact } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -108,10 +108,11 @@ export const sentTo = (leads: readonly Lead[] | undefined, who: string, key: str
  * Since #1609 a thin wrapper over the knowledge model: the most specific fact they know about it,
  * as an Answer, whatever your trust. Asking with infinite trust is how "whatever your trust" is
  * said to the model: every gate opens, so the fact comes back `told` if they know one at all.
- * No one else is passed in, since who'd know instead doesn't matter here.
+ * No one else is passed in, since who'd know instead doesn't matter here. `facts` defaults to
+ * the game's; tests (and free questions' tests, #1611) can pass their own.
  */
-export function answerFor(personId: string, key: string): Answer | undefined {
-  const r = resolve(personId, key, Infinity, { others: [] });
+export function answerFor(personId: string, key: string, facts: readonly Fact[] = FACTS): Answer | undefined {
+  const r = resolve(personId, key, Infinity, { others: [], facts });
   return r?.kind === 'told' ? answerOf(r.fact) : undefined;
 }
 
@@ -119,12 +120,12 @@ export function answerFor(personId: string, key: string): Answer | undefined {
  * Every focus key `personId` has an answer for: the topics of every fact they know, in the order
  * the facts are written (their own hand-written answers, then a teacher's own skill), each once.
  */
-export function topicsKnownBy(personId: string): string[] {
+export function topicsKnownBy(personId: string, facts: readonly Fact[] = FACTS): string[] {
   const k = knowerOf(personId);
   if (!k) return [];
   // A Set keeps the first time each key is seen, in insertion order, so the result is deduplicated
   // without losing the order the facts are written in.
-  return [...new Set(FACTS.filter(f => knows(k, f)).flatMap(f => f.about))];
+  return [...new Set(facts.filter(f => knows(k, f)).flatMap(f => f.about))];
 }
 
 export type AskResult =
