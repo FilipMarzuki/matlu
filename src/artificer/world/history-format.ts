@@ -8,19 +8,24 @@
 
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
 // 4: histories carry their regions, and the chronicle their big regional events (#1598).
-export const HISTORY_VERSION = 4;
+// 5: each province keeps one event from living memory when it has any, and lines carry their
+// kind and house (#1586).
+export const HISTORY_VERSION = 5;
 
 /**
  * The last this many years are told event by event ("living memory"); older years as threads.
  * Lives here, not in history.ts, so code that reads a told history (what the road villages
  * remember, remembered.ts) can tell living memory from legend without loading the engine.
  */
-// (Moved here as PR #1592 moves it, so the two branches agree when both land.)
 export const LIVING_MEMORY = 40;
 
 export interface HistoryLine {
   year: number;
   text: string;
+  /** The engine's event type (`WAR`, `MURDER`, `MADNESS_ONSET`…): how public it was (remembered.ts `publicityOf`). */
+  kind?: string;
+  /** The house the deed touches (its doer's, e.g. "Hedlund"), if any: who has a stake in it. */
+  house?: string | null;
 }
 
 export interface ProvinceHistory {
@@ -31,7 +36,9 @@ export interface ProvinceHistory {
   title: string;
   /** Who holds it at the end, e.g. "Ivar of Hedlund" (null if it lies vacant). */
   holder: string | null;
-  /** Its most significant events, oldest first. */
+  /** The holder's house, e.g. "Hedlund" (null if it lies vacant or the holder has none). */
+  house: string | null;
+  /** Its most significant events, oldest first, one of them within living memory if any is (history.ts `pickLines`). */
   lines: HistoryLine[];
 }
 

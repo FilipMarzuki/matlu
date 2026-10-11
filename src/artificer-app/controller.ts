@@ -81,8 +81,11 @@ export const newGame = (legacy?: Legacy, features?: FeatureSwitches): AppState =
  * or one still going: a plain new Warden with nothing.
  */
 export function newRun(from?: Region1State | RoadState, features?: FeatureSwitches): AppState {
-  return newGame(from?.outcome ? heirloomsOf(from) : undefined, features);
+  return newGame(legacyFor(from), features);
 }
+
+/** What a run leaves the next Warden (#1455): its tools, once it's over; nothing from a run still going. */
+export const legacyFor = (from?: Region1State | RoadState): Legacy | undefined => (from?.outcome ? heirloomsOf(from) : undefined);
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` takes the heirlooms from. */
 export const currentRun = (a: AppState): Region1State | RoadState => (a.stage === 'road' && a.road ? a.road : a.sim);
@@ -270,12 +273,17 @@ export function runQueuedDay(a: AppState): AppState {
   return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
 }
 
-/** Run day after day until the queue is empty (or the region resolves). */
-export function runWholeQueue(a: AppState): AppState {
+/**
+ * Run day after day until the queue is empty (or the region resolves). `onDay` sees each day as it
+ * runs, before and after: the web game writes each one down as that day's plan (#1559).
+ */
+export function runWholeQueue(a: AppState, onDay?: (before: AppState, after: AppState) => void): AppState {
   let s = a;
   // A waiting encounter (#1343) stops the run of days: the choice comes first.
   for (let i = 0; i < MAX_DAYS_PER_RUN && s.queue.length > 0 && !s.sim.outcome && !s.sim.pending; i++) {
-    s = runQueuedDay(s);
+    const next = runQueuedDay(s);
+    onDay?.(s, next);
+    s = next;
   }
   return s;
 }

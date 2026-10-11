@@ -16,7 +16,7 @@
 import {
   makeWarden, act, choose, carryOn, endTheDay, runQueuedDay, chooseFocus, chooseEating, settle, queueLocked,
   meetCaravan, meetingChoose, rideCaravan, stayBehind, roadAct, roadChoose, roadEndDay, newCharacterId,
-  serialize as serializeApp, deserialize as deserializeApp, SAVE_VERSION, type AppState,
+  serialize as serializeApp, deserialize as deserializeApp, type AppState,
 } from '../artificer-app/controller';
 import { ACTIONS, DAY_HOURS, EATING_PLANS, SITES, blockedReason, queueHours, queueId, type ActionId, type EatingPlan, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { RINGS, reachable, type Ring } from '../artificer/exploration';
@@ -29,13 +29,10 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
+import { GAME_VERSION } from './version';
 
-/**
- * The session format's version. A stored game from another version doesn't load (it starts over
- * rather than misreading), and every run record carries it so results compare like with like.
- * Bump it with the app's SAVE_VERSION or when the meaning of a move changes.
- */
-export const GAME_VERSION = `play-1/save-${SAVE_VERSION}`;
+/** The session format's version (version.ts): a stored game from another version doesn't load. */
+export { GAME_VERSION };
 
 export interface Game {
   /** Seeds the whole run (the Warden's id): the same id and the same moves give the same game. */
@@ -243,7 +240,8 @@ export function deserialize(raw: string): Game | null {
 
 // ── Internals ───────────────────────────────────────────────────────────────
 
-function phaseOf(a: AppState): Phase {
+/** The phase an app state is in. Exported for the web game's replays (web-run.ts), which read phases the same way. */
+export function phaseOf(a: AppState): Phase {
   if (a.stage === 'road' && a.road) return a.road.outcome ? 'ended' : a.road.pending ? 'road-encounter' : 'road';
   if (a.meeting && !a.meeting.ended) return 'meeting';
   if (a.sim.outcome) return 'ended';
@@ -253,9 +251,10 @@ function phaseOf(a: AppState): Phase {
 /**
  * The steps between moves that need no choice: a Warden who survives the thaw meets the caravan;
  * a meeting that ended aboard rides on down the road, one that ended with you staying behind ends
- * the run there. The page does these on a button; here they just happen.
+ * the run there. The page does these on a button; here they just happen (and in the web game's
+ * replays, web-run.ts, where the page's buttons aren't logged).
  */
-function advance(a: AppState): AppState {
+export function advance(a: AppState): AppState {
   let s = a;
   if (s.stage !== 'road' && s.sim.outcome?.kind === 'survived' && !s.meeting && !s.stayed) s = meetCaravan(s);
   if (s.meeting?.ended === 'board') s = rideCaravan(s);
@@ -339,14 +338,14 @@ function freeQuestionsText(r: RoadState): string {
 }
 
 const ROAD_VERBS = ['talk', 'ask', 'question', 'tell', 'heal', 'sell', 'buy', 'accept', 'complete', 'learn', 'appraise', 'craft', 'study'];
-function isRoadAction(id: string): boolean {
+export function isRoadAction(id: string): boolean {
   if (['rest', 'wait', 'tend', 'help'].includes(id)) return true;
   const [verb, rest] = id.split(/:(.*)/s);
   return ROAD_VERBS.includes(verb) && !!rest;
 }
 
 /** Free settings: focus, eating, site. A string is the reason one can't be set. */
-function applySet(a: AppState, set: { focus?: string; eating?: string; site?: string }): AppState | string {
+export function applySet(a: AppState, set: { focus?: string; eating?: string; site?: string }): AppState | string {
   let s = a;
   if (set.focus !== undefined) {
     const focus = set.focus === 'none' ? null : parseFocus(set.focus);

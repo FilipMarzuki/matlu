@@ -676,7 +676,7 @@
     },
     {
       "id": "half-giants",
-      "name": "Half-Giants",
+      "name": "Giants",
       "description": "Descendants or diminished kin of true giants. Enormous but not world-shaping. Details pending.",
       "biomeAffinity": {},
       "elevationAffinity": {
@@ -787,7 +787,7 @@
     },
     {
       "id": "steppevarg",
-      "name": "Steppevarg",
+      "name": "Viddfolk",
       "description": "Wolf-kin pack culture. Mounted herders of the open plains. The steppe belongs to them and everyone who crosses it knows it. Outsiders are tolerated, sometimes adopted — a Steppevarg tribe with a Goblin trader or a Dvergr smith in its ranks is normal.",
       "biomeAffinity": {
         "marine": -0.8,
@@ -835,7 +835,7 @@
     },
     {
       "id": "grynfolk",
-      "name": "Grynfolk",
+      "name": "Steinfolk",
       "description": "Small obsessive tinkerers. The race most aligned with Logic Core philosophy. Build complex things from simple parts. Every Grynfolk has a project that defines their identity — ask about it at your own risk. Cluster near Dvergr for materials but the two races have very different aesthetics.",
       "biomeAffinity": {
         "marine": -0.5,
@@ -884,7 +884,7 @@
     },
     {
       "id": "dvergr",
-      "name": "Dvergr",
+      "name": "Bergfolk",
       "description": "Mountain dwellers, master smiths. Underground cities carved into living rock. Rune-carvers and metallurgists. Their forges predate most surface civilizations.",
       "biomeAffinity": {
         "marine": -1,
@@ -933,7 +933,7 @@
     },
     {
       "id": "sylphari",
-      "name": "Sylphari",
+      "name": "Lövfolk",
       "description": "Nature-bound forest enclaves. Long-lived, slow to trust, protective of old-growth. The forest acts through them — not gently.",
       "biomeAffinity": {
         "marine": -0.8,
@@ -981,7 +981,7 @@
     },
     {
       "id": "draak",
-      "name": "Draak",
+      "name": "Dragons",
       "description": "Remnants of a once-great empire. Cold-blooded, alien thought patterns. Their ruins predate everyone else's memory. They can't fully explain their own history because their lifecycle involves forgetting. Territorial but not aggressive — they simply assume everything was theirs once.",
       "biomeAffinity": {
         "marine": -0.3,
@@ -1079,7 +1079,7 @@
     },
     {
       "id": "human",
-      "name": "Humans",
+      "name": "Markfolk",
       "description": "Earth arrivals. Appeared through an unknown mechanism — no one knows why. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming.",
       "biomeAffinity": {
         "marine": -0.2,

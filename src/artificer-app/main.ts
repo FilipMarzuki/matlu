@@ -46,6 +46,12 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
+import { weekOfId, shortWeek } from '../artificer-play/weekly';
+import { newLog, recordMove, runOver, claimOf, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
+import { runOf } from '../artificer-play/record-of';
+import { achievementsOf, type Achievement } from '../artificer-play/achievements';
+import type { RunSummary } from '../artificer-play/records';
+import type { Tool } from '../artificer/crafting';
 import { devMode, devTruths, loadChoices, saveChoices } from './feature-choices';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { feltWord } from '../artificer/rapport';
@@ -57,7 +63,7 @@ import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
-import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { inject } from '@vercel/analytics';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -1015,7 +1021,7 @@ function resolvePanel(a: AppState): string {
         <li>${r.choice === 'thaw' ? 'Reached the thaw' : r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.grade ? ` — <b>${r.grade}</b>` : ''}${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
-    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${s.outcome.kind === 'survived' ? thawSummary(a) : ''}${facts}`
+    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${s.outcome.kind === 'survived' ? thawSummary(a) : ''}${facts}${recordBox(a)}`
       // One run per Warden (#1455): whoever comes next is someone new, and finds what this one left.
       + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="reset" title="Someone new — they start with the tools this Warden left">✦ NEW WARDEN</button></div></div>`;
   }
@@ -1040,8 +1046,10 @@ function render(a: AppState): void {
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      ${weekChip(a)}
       ${experimentChip(a)}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="Let your AI play Greywind Reach">PLAY WITH YOUR AI</a></span>
+      <span class="ctl"><button class="pill" data-cmd="weekly" title="This week's world: the one everyone, people and AIs, plays this week">📅 THIS WEEK</button></span>
       ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -1077,6 +1085,12 @@ function experimentChip(a: AppState): string {
   const on = experimentalOn(featuresOf(a.sim.config.world.features));
   if (!on.length) return '';
   return `<span class="ctl"><span class="pill exp" title="This run plays with experimental features: ${esc(on.map(f => f.name).join(', '))}. They may change, or go.">🧪 EXPERIMENT</span></span>`;
+}
+
+/** A 📅 chip while this run plays the weekly world (#1559): its week, the same world everyone plays. */
+function weekChip(a: AppState): string {
+  const week = weekOfId(a.sim.character.id);
+  return week ? `<span class="counter ctl weekchip" title="This week's world (${week}): everyone, people and AIs, plays this one until Monday 00:00 UTC">📅 <b>${esc(shortWeek(week))}</b></span>` : '';
 }
 
 const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES</button></span>` : '');
@@ -1129,7 +1143,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r))
     : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">JOURNAL — THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">THE LAST OF THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi);
-  const end = r.outcome ? `${roadEnd(r)}<div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="Someone new — they start with the tools this Warden left">✦ NEW WARDEN</button></div>` : '';
+  const end = r.outcome ? `${roadEnd(r)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="Someone new — they start with the tools this Warden left">✦ NEW WARDEN</button></div>` : '';
   root.innerHTML = `
     <header>
       <h1>🛞 THE CARAVAN <span class="mark">ROAD</span></h1>
@@ -1137,7 +1151,9 @@ function renderRoad(a: AppState, r: RoadState): void {
       ${r.character.name ? `<button class="who" data-rtab="warden" title="Your Warden">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
       <span class="counter ctl">MARKS <b>${r.marks}</b></span>
       <span class="counter ctl">ROAD DAY <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
+      ${weekChip(a)}
       ${experimentChip(a)}
+      <span class="ctl"><button class="pill" data-cmd="weekly" title="This week's world: the one everyone, people and AIs, plays this week">📅 THIS WEEK</button></span>
       ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>
@@ -1176,6 +1192,52 @@ const root = document.getElementById('app') as HTMLElement;
 const saved = loadSaved();
 let state = saved ?? newGame(undefined, loadChoices());
 let history = loadHistory();
+
+// ── The run's log, for the records (#1559) ──────────────────────────────────
+// The page runs the sim itself, so a run it sends to the records is checked by playing it again on
+// the server (src/artificer-play/web-run.ts). For that it keeps a log from the start: who the Warden
+// was and every move (web-log.ts). The log sits under its own key beside the save and belongs to
+// one Warden: a log for anyone else (a save from before logs, say) means this run has none.
+const LOG_KEY = 'artificer.weblog.v1';
+/** The log, and once the run has been sent, its game id there and the achievements it got. */
+type Kept = Recorder & { sent?: { gameId: string; achievements?: Achievement[] } };
+
+function loadKept(): Kept | null {
+  try {
+    const k = JSON.parse(localStorage.getItem(LOG_KEY) ?? 'null') as Kept | null;
+    return k && k.log?.v === WEB_LOG_VERSION && Array.isArray(k.log.moves) && typeof k.log.start?.id === 'string' && !!k.measures && typeof k.measures === 'object' ? k : null;
+  } catch { return null; }
+}
+
+function saveKept(): void {
+  try {
+    if (kept) localStorage.setItem(LOG_KEY, JSON.stringify(kept));
+    else localStorage.removeItem(LOG_KEY);
+  } catch { /* the run plays on; it just can't be sent to the records */ }
+}
+
+let kept: Kept | null = loadKept();
+/** This run's log, or null when there's none for this Warden. */
+const logFor = (a: AppState): Kept | null => (kept && kept.log.start.id === a.sim.character.id ? kept : null);
+
+/**
+ * Begin a log for a Warden the page just made: what it passed to makeWarden, and what an earlier
+ * Warden left. Heirlooms say which run they came from only if that run was sent to the records,
+ * because the server can check them against no other.
+ */
+function startLog(a: AppState, spec: Omit<WebStart, 'id' | 'features' | 'heirlooms' | 'heirloomsFrom'>, heirlooms: Tool[] | null, heirloomsFrom: string | null = null): void {
+  const start: WebStart = { id: a.sim.character.id, ...spec, features: { ...(a.sim.config.world.features ?? {}) }, heirlooms, ...(heirlooms?.length && heirloomsFrom ? { heirloomsFrom } : {}) };
+  kept = { log: newLog(start), measures: {} };
+  saveKept();
+}
+// A first visit: a Warden made just now, with nothing behind it.
+if (!saved) startLog(state, {}, null);
+
+/** A move the page made: written down if it changed the game (web-log.ts recordMove), then shown. */
+function play(next: AppState, move: WebMove): void {
+  kept = recordMove(kept, state, next, move);
+  update(next);
+}
 
 // ── Arrival intro (#1228) ───────────────────────────────────────────────────
 // A separate overlay element, so the game renders (and stays usable) underneath
@@ -1233,7 +1295,12 @@ function startIntro(): void {
 function commitCharacter(): void {
   // The sim is made again from the draft — keeping what the last Warden left (#1455), which the intro already told them about.
   const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
-  state = makeWarden({ id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS }, age: draft.age }, left.heirlooms?.length ? left : undefined, loadChoices());
+  const legacy = left.heirlooms?.length ? left : undefined;
+  const spec = { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: [...draft.talents], stats: validStats(draft.stats) ? { ...draft.stats } : { ...DEFAULT_STATS }, age: draft.age };
+  // The log starts again from this Warden (#1559); the heirlooms came from the same run as before.
+  const from = kept?.log.start.heirloomsFrom ?? null;
+  state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
+  startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
   render(state);
 }
 
@@ -1251,7 +1318,13 @@ function advanceIntro(): void {
   if (!intro) return;
   if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
-  if (intro.beats[intro.i].kind === 'pack') { state = { ...state, sim: repack(state.sim, draftPack) }; render(state); }
+  if (intro.beats[intro.i].kind === 'pack') {
+    state = { ...state, sim: repack(state.sim, draftPack) };
+    // The pack is part of where the run starts (#1559), so the log's start says what was packed.
+    const k = logFor(state);
+    if (k && !k.log.moves.length) { kept = { ...k, log: { ...k.log, start: { ...k.log.start, pack: [...draftPack] } } }; saveKept(); }
+    render(state);
+  }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
@@ -1411,6 +1484,7 @@ function update(next: AppState): void {
   if (h.length !== history.length || h[0] !== history[0]) { history = h; saveHistory(history); }
   state = next;
   save(state);
+  saveKept();
   render(state);
 }
 
@@ -1440,23 +1514,27 @@ root.addEventListener('click', e => {
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
   else if (d.pinring) { const r = Number(d.pinring) as Ring; pinRing = pinRing === r ? null : r; render(state); }
-  else if (d.forget) update(forget(state, d.forget));
-  else if (d.interest) { const [id, n] = d.interest.split('|'); update(weighPin(state, id, Number(n) as 0 | 1 | 2 | 3)); }
-  else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
-  else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; update(chooseEating(state, plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length])); }
+  // Game moves go through play(), which writes them in the run's log (#1559); the plan's edits
+  // (queueing, options, removing) are the page's own and aren't moves.
+  else if (d.forget) play(forget(state, d.forget), { set: { forget: d.forget } });
+  else if (d.interest) { const [id, n] = d.interest.split('|'); play(weighPin(state, id, Number(n) as 0 | 1 | 2 | 3), { set: { pin: d.interest } }); }
+  else if (d.focus) { const f = parseFocus(d.focus); play(chooseFocus(state, f), { set: { focus: focusKey(f) } }); }
+  else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; const plan = plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length]; play(chooseEating(state, plan), { set: { eating: plan } }); }
   // Before planning is learned (#1350), a tap does the thing now.
-  else if (d.q) update(state.sim.canPlan ? enqueue(state, d.q as QueueId) : act(state, d.q as QueueId));
-  else if (d.cmd === 'endday') update(endTheDay(state));
+  else if (d.q) { if (state.sim.canPlan) update(enqueue(state, d.q as QueueId)); else play(act(state, d.q as QueueId), { do: d.q }); }
+  else if (d.cmd === 'endday') play(endTheDay(state), { endDay: true });
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
   else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
   else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
-  else if (d.site) update(settle(state, d.site as SiteId));
-  else if (d.cmd === 'day') update(runQueuedDay(state));
-  else if (d.cmd === 'all') update(runWholeQueue(state));
+  else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
+  // A day run from the plan is logged as that day's plan, as it stood.
+  else if (d.cmd === 'day') play(runQueuedDay(state), { plan: state.queue });
+  else if (d.cmd === 'all') { const next = runWholeQueue(state, (before, after) => { kept = recordMove(kept, before, after, { plan: before.queue }); }); update(next); }
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
-  else if (d.cmd === 'reset') { update(newRun(currentRun(state), loadChoices())); clearDraft(); startIntro(); }
+  else if (d.cmd === 'reset') { newWarden(); clearDraft(); startIntro(); }
+  else if (d.cmd === 'weekly') void startWeekly();
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {
@@ -1467,7 +1545,7 @@ root.addEventListener('click', e => {
       const fresh = next.road.log.slice(state.road.log.length).map(l => l.text);
       encounterAfter = { kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.road.outcome };
     }
-    update(next);
+    play(next, { choose: d.choose });
   }
   else if (d.choose) {
     const p = state.sim.pending, t = p && encounterById(p.id);
@@ -1481,17 +1559,18 @@ root.addEventListener('click', e => {
         truth: p ? truthLine(p.perceived ?? t.threat, t.threat, t.kind) : null,
       };
     }
-    update(next);
+    play(next, { choose: d.choose });
   }
-  else if (d.cmd === 'carryon') { encounterAfter = null; if (state.stage === 'road') render(state); else update(carryOn(state)); }
+  // Carrying on runs the rest of the planned day: logged as that day's plan, if it ran anything.
+  else if (d.cmd === 'carryon') { encounterAfter = null; if (state.stage === 'road') render(state); else play(carryOn(state), { plan: state.queue }); }
   // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
   // Meeting the caravan (#1356): open the dialogue, answer, then climb aboard or watch them go.
   else if (d.cmd === 'meet') update(meetCaravan(state));
-  else if (d.meet) update(meetingChoose(state, d.meet));
+  else if (d.meet) play(meetingChoose(state, d.meet), { choose: d.meet });
   else if (d.cmd === 'stay') update(stayBehind(state));
   else if (d.cmd === 'board' || d.cmd === 'ride') { roadTab = 'road'; roadUi.person = null; update(rideCaravan(state)); }
-  else if (d.road) update(roadAct(state, d.road as Parameters<typeof roadAct>[1]));
-  else if (d.cmd === 'roadday') { roadUi.person = null; update(roadEndDay(state)); }
+  else if (d.road) play(roadAct(state, d.road as Parameters<typeof roadAct>[1]), { do: d.road });
+  else if (d.cmd === 'roadday') { roadUi.person = null; play(roadEndDay(state), { endDay: true }); }
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
   else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
 });
@@ -1501,6 +1580,8 @@ root.addEventListener('click', e => {
 // words never go into the game or its save. Then it's sent to be kept, because what players ask
 // is what shows how to grow the game. Nothing waits for that, and if it fails the game goes on.
 root.addEventListener('submit', e => {
+  // Sending the run to the records (#1559).
+  if ((e.target as HTMLElement).closest('form[data-sendrun]')) { e.preventDefault(); void sendRun(); return; }
   const form = (e.target as HTMLElement).closest<HTMLFormElement>('form[data-question]');
   if (!form) return;
   e.preventDefault();
@@ -1512,14 +1593,16 @@ root.addEventListener('submit', e => {
   // Matched by this run's switches (#1611): the knowledge model's topics when knowledge-questions is on.
   const topic = matchFreeQuestion(pid, clean, r.asked?.[pid] ?? [], r.features);
   const trust = Math.round(r.trust[pid] ?? 0);
-  const next = roadAct(state, `question:${pid}${topic ? `:${topic}` : ''}`);
-  if (!next.road?.questioned?.includes(pid)) { update(next); return; }
+  const played = `question:${pid}${topic ? `:${topic}` : ''}`;
+  const next = roadAct(state, played as Parameters<typeof roadAct>[1]);
+  if (!next.road?.questioned?.includes(pid)) { play(next, { do: played }); return; }
   // Told, rather than kept back or sent elsewhere: the topic is among what they've told you now.
   const answered = topic !== null && (next.road.asked?.[pid] ?? []).includes(topic);
   // What they said, for their sheet: the journal's line without its "You ask Orrin about iron." lead-in.
   const said = next.road.log.slice(r.log.length).find(l => l.kind === 'action')?.text.replace(/^You ask [^.]+\. /, '') ?? '';
   roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), topic, reply: said } };
-  update(next);
+  // Logged as the road action it was played as: the words never go into the game or its log.
+  play(next, { do: played });
   // Same origin: the Artificer's site serves the play API (src/artificer-play/). The server cleans
   // the question again before it keeps it, so it's sent as typed.
   void fetch('/api/v1/questions', {
@@ -1528,6 +1611,154 @@ root.addEventListener('submit', e => {
   }).catch(() => undefined);
 });
 
+// ── A new Warden, and sending a run to the records (#1559) ──────────────────
+
+/**
+ * A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
+ * Their log says where the tools came from if that run was sent to the records, so the server can
+ * check them.
+ */
+function newWarden(): void {
+  const legacy = legacyFor(currentRun(state));
+  const next = newGame(legacy, loadChoices());
+  startLog(next, {}, legacy ? legacy.heirlooms ?? [] : null, logFor(state)?.sent?.gameId ?? null);
+  update(next);
+}
+
+/** The records box's state, for one run: the achievements worked out here, and sending the run. */
+interface RecordUi { forId: string; name: string; status: 'idle' | 'sending' | 'error'; message: string; fetched: boolean; preview: Achievement[] | null }
+let recordUi: RecordUi | null = null;
+
+function recordUiFor(a: AppState): RecordUi {
+  if (recordUi?.forId !== a.sim.character.id) {
+    recordUi = { forId: a.sim.character.id, name: currentRun(a).character.name, status: 'idle', message: '', fetched: false, preview: null };
+  }
+  return recordUi;
+}
+
+/** This run's record as the page works it out: what it claims, and what its achievements are worked out from. */
+const localRun = (a: AppState, k: Kept | null) =>
+  runOf(a, k?.measures ?? {}, { playerKind: 'person', model: null, client: 'artificer-web', surface: 'web', gameVersion: k?.log.version ?? '', name: recordUi?.name ?? null, moves: k?.log.moves.length ?? 0 });
+
+/**
+ * How this run compares, before it's sent: the records it would be compared with (this week's for a
+ * run of the weekly world, else the recent ones), fetched once per run. Started from the render,
+ * like the Reach's history (#1540): the box draws at once and fills in when they come.
+ */
+function previewAchievements(a: AppState, ui: RecordUi): void {
+  if (ui.fetched) return;
+  ui.fetched = true;
+  const week = weekOfId(a.sim.character.id);
+  void fetch(week ? `/api/v1/runs/week/${week}` : '/api/v1/runs')
+    .then(r => (r.ok ? r.json() as Promise<{ recent?: RunSummary[]; runs?: RunSummary[] }> : null))
+    .then(b => {
+      const list = b?.runs ?? b?.recent;
+      if (!list || recordUi !== ui || !runOver(state)) return;
+      ui.preview = achievementsOf(localRun(state, logFor(state)), list);
+      render(state);
+    })
+    .catch(() => undefined);
+}
+
+const achievementsHtml = (list: readonly Achievement[]): string =>
+  `<ul class="achlist">${list.map(x => `<li class="${x.status}" title="${esc(x.rule)}"><b>${x.status === 'earned' ? '★' : '☆'} ${esc(x.name)}</b><span>${esc(x.detail)}</span></li>`).join('')}</ul>`;
+
+/**
+ * The end of a run's records box: its achievements, and sending it to the records with a
+ * nickname. Opt-in: nothing is sent unless the player sends it. A run the server can't check (no
+ * log, or heirlooms from a run that wasn't sent) says so instead of offering to send.
+ */
+function recordBox(a: AppState): string {
+  if (!runOver(a)) return '';
+  const ui = recordUiFor(a);
+  const k = logFor(a);
+  const sent = k?.sent;
+  if (!sent) previewAchievements(a, ui);
+  const list = sent?.achievements ?? ui.preview;
+  const ach = list ? achievementsHtml(list) : '<p class="note">Working out how this run compares…</p>';
+  let foot: string;
+  if (sent) foot = `<p class="note">In the records. <a href="/records/?game=${esc(sent.gameId)}">See how it compares with everyone's ›</a></p>`;
+  else if (!k) foot = '<p class="note">This run began before runs could be sent to the records, so it can\'t be checked.</p>';
+  else if (k.log.start.heirlooms?.length && !k.log.start.heirloomsFrom) {
+    foot = '<p class="note">This Warden started with what an earlier one left, from a run that wasn\'t sent to the records, so the server can\'t check it. Send a run before you start the next Warden, and the next one can be sent too.</p>';
+  } else {
+    const sending = ui.status === 'sending';
+    foot = `<form data-sendrun><input id="runname" name="nick" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Nickname" aria-label="Your nickname on the records" value="${esc(ui.name)}">`
+      + `<button class="btn go" type="submit" ${sending ? 'disabled' : ''}>${sending ? 'SENDING…' : 'SEND TO THE RECORDS'}</button></form>`
+      + '<p class="note">The server plays your run again from the start before it counts. Only a nickname is kept, one word of letters.</p>'
+      + (ui.status === 'error' ? `<p class="note warn">${esc(ui.message)}</p>` : '');
+  }
+  return `<div class="runrecord"><p class="eyebrow">THE RECORDS</p>${ach}${foot}</div>`;
+}
+
+/** Send this run to the records (#1559): its log and what it came to, for the server to replay. */
+async function sendRun(): Promise<void> {
+  const k = logFor(state);
+  if (!k || k.sent || !runOver(state) || recordUi?.status === 'sending') return;
+  const ui = recordUiFor(state);
+  ui.status = 'sending';
+  render(state);
+  try {
+    const r = await fetch('/api/v1/runs/submit', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ log: k.log, claim: claimOf(localRun(state, k)), name: ui.name }),
+    });
+    const body = (await r.json().catch(() => ({}))) as { id?: string; achievements?: Achievement[]; error?: string };
+    if ((r.status === 201 || r.status === 200) && body.id) {
+      if (logFor(state) === k) { kept = { ...k, sent: { gameId: body.id, ...(body.achievements ? { achievements: body.achievements } : {}) } }; saveKept(); }
+      ui.status = 'idle';
+    } else {
+      ui.status = 'error';
+      ui.message = body.error ?? `Something went wrong (${r.status}). Try again in a while.`;
+    }
+  } catch {
+    ui.status = 'error';
+    ui.message = "The records can't be reached right now. Try again in a while.";
+  }
+  render(state);
+}
+
+// The nickname is kept as it's typed, so a redraw (the achievements coming in) doesn't lose it.
+root.addEventListener('input', e => {
+  const input = e.target as HTMLInputElement;
+  if (input.id === 'runname' && recordUi) recordUi.name = input.value;
+});
+
+// ── The weekly world (#1559) ────────────────────────────────────────────────
+
+/**
+ * Play this week's world: the same seed for everyone this week, people and AIs (weekly.ts). The page
+ * runs the sim itself, so it needs the seed, which the play API hands out for the current week. The
+ * Warden starts with nothing an earlier one left (no heirlooms), so everyone on the week's world
+ * begins alike, and goes through the creation screen as any new Warden does. True if it started.
+ */
+async function startWeekly(): Promise<boolean> {
+  let gameId: string | null = null;
+  try {
+    const r = await fetch('/api/v1/weekly');
+    const body = r.ok ? (await r.json()) as { gameId?: unknown } : null;
+    if (typeof body?.gameId === 'string' && weekOfId(body.gameId)) gameId = body.gameId;
+  } catch { /* offline, or the API isn't there (a local dev server): said below */ }
+  if (!gameId) {
+    alert("This week's world can't be reached right now. Try again in a while.");
+    return false;
+  }
+  if (state.sim.log.length > 0 && !runOver(state) && !confirm("Leave this run and start this week's world? This run can't be picked up again.")) return false;
+  const next = makeWarden({ id: gameId }, undefined, loadChoices());
+  startLog(next, {}, null);
+  update(next);
+  draft = { ...blankDraft(), id: gameId };
+  saveDraft();
+  startIntro();
+  return true;
+}
+
 render(state);
-// A Warden still being made (a first visit, or after New Game) picks up where it was (#1266).
-if (!saved || loadDraft()) startIntro();
+// `/?weekly` (the Records page links it) starts this week's world; the address loses it, so a reload
+// doesn't start it again. Otherwise a Warden still being made (a first visit, or after New Game)
+// picks up where it was (#1266).
+const resume = (): void => { if (!saved || loadDraft()) startIntro(); };
+if (new URLSearchParams(location.search).has('weekly')) {
+  window.history.replaceState(null, '', location.pathname); // `window.`: `history` here is the run history
+  void startWeekly().then(started => { if (!started) resume(); });
+} else resume();

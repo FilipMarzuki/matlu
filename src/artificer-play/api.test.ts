@@ -5,7 +5,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { handle, memoryStore, LIMITS, type ApiRequest } from './api';
+import { handle, memoryStore, weeklySeed, LIMITS, type ApiRequest } from './api';
+import { pagePlay } from './fixtures';
+import { startOf } from './web-run';
+import { newLog, claimOf, type WebStart } from './web-log';
+import { runOf } from './record-of';
+import { GAME_VERSION } from './session';
+import { ruleFeatures } from '../artificer/features';
+import { talentOffer, seedOf } from '../artificer/talents';
+import { heirloomsOf } from '../artificer/legacy';
+import { currentRun } from '../artificer-app/controller';
 
 let n = 0;
 // The seed is pinned so the weather is too: a foggy first morning would make scouting see nothing.
@@ -278,5 +287,200 @@ describe('Run records from the play API (#1558)', () => {
     }
     expect(store.rows.get(id)!.phase).toBe('ended');
     expect(errors).toHaveLength(1);
+  });
+});
+
+describe('Achievements from the play API (#1559)', () => {
+  it('the move that ends a game says which achievements it earned, against the records before it', async () => {
+    const store = memoryStore();
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) ids.push(((await handle(post('/api/v1/games', { model: 'm' }), store, deps)).body as { id: string }).id);
+    const ends = [];
+    for (const id of ids) ends.push(await playToTheEnd(store, id));
+    const list = ends[2].body.achievements as { id: string; status: string; detail: string }[];
+    expect(list.length).toBeGreaterThanOrEqual(5);
+    // Two runs before it: too few to call anything a percentile.
+    expect(list.find(a => a.id === 'top-tenth')!.status).toBe('open');
+    expect(list.find(a => a.id === 'top-tenth')!.detail).toMatch(/2 so far/);
+    expect(list.find(a => a.id === 'reached-mistheim')!.status).toBe('missed');
+  });
+
+  it("still ends the game, without achievements, when the records can't be read", async () => {
+    const store = memoryStore();
+    store.recentRuns = async () => { throw new Error('database down'); };
+    const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };
+    const realError = console.error;
+    console.error = () => {};
+    try {
+      const end = await playToTheEnd(store, id);
+      expect(end.status).toBe(200);
+      expect(end.body).not.toHaveProperty('achievements');
+      expect(end.body.record).toBe(`/records/?game=${id}`);
+    } finally {
+      console.error = realError;
+    }
+  });
+});
+
+describe('The weekly world from the play API (#1559)', () => {
+  /** The world a stored game plays: its session's id, which seeds it. */
+  const worldOf = (store: ReturnType<typeof memoryStore>, id: string): string => JSON.parse(store.rows.get(id)!.session).id as string;
+
+  it("Given this week, When anyone starts a weekly game, Then everyone gets the same world, and it's this week's", async () => {
+    const store = memoryStore();
+    const weekly = await handle(get('/api/v1/weekly'), store, deps);
+    expect(weekly.status).toBe(200);
+    const w = weekly.body as { week: string; seed: string; gameId: string; endsAt: string };
+    expect(w.week).toBe('2026-W41'); // deps.now is Sunday 11 October 2026
+    expect(w.gameId).toBe(`play-${w.seed}`);
+    expect(w.endsAt).toBe('2026-10-12T00:00:00.000Z');
+    expect(weekly.cache).toBe(300);
+
+    const a = await handle(post('/api/v1/games', { weekly: true }), store, deps);
+    const b = await handle(post('/api/v1/games', { weekly: true, name: 'Vega' }, '198.51.100.9'), store, deps);
+    const plain = await handle(post('/api/v1/games', {}), store, deps);
+    expect(a.status).toBe(201);
+    expect((a.body as { week?: string }).week).toBe('2026-W41');
+    expect(worldOf(store, (a.body as { id: string }).id)).toBe(w.gameId);
+    expect(worldOf(store, (b.body as { id: string }).id)).toBe(w.gameId);
+    expect((a.body as { text: string }).text).toBe((b.body as { text: string }).text);
+    expect(worldOf(store, (plain.body as { id: string }).id)).toBe('play-s1');
+    expect(plain.body).not.toHaveProperty('week');
+    expect((await handle(post('/api/v1/games', { weekly: 'yes' }), store, deps)).status).toBe(400);
+  });
+
+  it("makes next week's seed from a server secret, and knows a week's real world from a look-alike", async () => {
+    const { weeklySeed, isWeeklyWorld } = await import('./api');
+    expect(weeklySeed('2026-W41', 'secret')).not.toBe(weeklySeed('2026-W41'));
+    expect(weeklySeed('2026-W41', 'secret')).toMatch(/^wk-2026-W41-[0-9a-f]{8}$/);
+    const salted = await handle(get('/api/v1/weekly'), memoryStore(), { ...deps, weeklySalt: 'secret' });
+    expect((salted.body as { seed: string }).seed).toBe(weeklySeed('2026-W41', 'secret'));
+    expect(isWeeklyWorld(`play-${weeklySeed('2026-W41', 'secret')}`, 'secret')).toBe(true);
+    expect(isWeeklyWorld('play-wk-2026-W41-00000000', 'secret')).toBe(false);
+    expect(isWeeklyWorld('play-s1', 'secret')).toBe(false);
+  });
+
+  it("Given a weekly run that ends, Then its record carries the week, the week's board lists it, and its achievements compare within the week", async () => {
+    const store = memoryStore();
+    // Five runs on fresh worlds first: plenty to compare with, but none on this week's world.
+    for (let i = 0; i < 5; i++) await playToTheEnd(store, ((await handle(post('/api/v1/games', {}), store, deps)).body as { id: string }).id);
+    const { id } = (await handle(post('/api/v1/games', { weekly: true, name: 'Vega' }), store, deps)).body as { id: string };
+    const end = await playToTheEnd(store, id);
+    const run = (await store.runBySource(`game:${id}`))!;
+    expect(run.detail.week).toBe('2026-W41');
+    const top = (end.body.achievements as { id: string; status: string; detail: string }[]).find(a => a.id === 'top-tenth')!;
+    expect(top.status).toBe('open');
+    expect(top.detail).toMatch(/0 so far/);
+
+    const board = await handle(get('/api/v1/runs/week'), store, deps);
+    expect(board.status).toBe(200);
+    const body = board.body as { week: string; runs: { week: string | null; nickname: string | null }[] };
+    expect(body.week).toBe('2026-W41');
+    expect(body.runs).toHaveLength(1);
+    expect(body.runs[0]).toMatchObject({ week: '2026-W41', nickname: 'Vega' });
+    expect(((await handle(get('/api/v1/runs/week/2026-W40'), store, deps)).body as { runs: unknown[] }).runs).toHaveLength(0);
+    expect((await handle(get('/api/v1/runs/week/next-week'), store, deps)).status).toBe(400);
+    // The main lists mark it too.
+    const recent = ((await handle(get('/api/v1/runs'), store, deps)).body as { recent: { week: string | null }[] }).recent;
+    expect(recent.filter(r => r.week === '2026-W41')).toHaveLength(1);
+  });
+});
+
+describe('Web-game runs sent to the records, replayed first (#1559)', () => {
+  /** A whole run played as the web page plays it, and what the page would send: its log and its claim. */
+  function webRun(id: string, o: Partial<WebStart> = {}) {
+    const start: WebStart = { id, name: 'Vega', chosen: talentOffer(seedOf(id)).slice(0, 2), features: ruleFeatures(), heirlooms: null, ...o };
+    const { app, rec } = pagePlay(startOf(start), { log: newLog(start), measures: {} });
+    const claim = claimOf(runOf(app, rec.measures, { playerKind: 'person', model: null, client: 'artificer-web', surface: 'web', gameVersion: GAME_VERSION, name: 'Vega', moves: rec.log.moves.length }));
+    return { log: rec.log, claim, app };
+  }
+  const submit = (body: unknown, ip?: string) => handle(post('/api/v1/runs/submit', body, ip), memo.store, deps, memo.limits);
+  const memo: { store: ReturnType<typeof memoryStore>; limits: typeof LIMITS } = { store: memoryStore(), limits: LIMITS };
+  const fresh = (limits = LIMITS) => { memo.store = memoryStore(); memo.limits = limits; return memo.store; };
+
+  it('Given a run that replays to what the page says, Then it gets a record, as a person in the web game, with achievements; sent again, it is the same one', async () => {
+    const store = fresh();
+    const { log, claim } = webRun('w-test-sub1');
+    const r = await submit({ log, claim, name: 'Ada Lovelace' });
+    expect(r.status).toBe(201);
+    const { id, record, achievements } = r.body as { id: string; record: string; achievements: unknown[] };
+    expect(record).toBe(`/records/?game=${id}`);
+    expect(achievements.length).toBeGreaterThanOrEqual(5);
+    expect(store.rows.get(id)).toMatchObject({ surface: 'web', player: 'person', phase: 'ended', client: 'artificer-web' });
+    const run = ((await handle(get(`/api/v1/games/${id}/run`), store, deps)).body as { run: Record<string, unknown> }).run;
+    expect(run).toMatchObject({ surface: 'web', playerKind: 'person', nickname: 'Ada', outcome: claim.outcome, endDay: claim.endDay, moves: log.moves.length });
+    const again = await submit({ log, claim, name: 'Someone' });
+    expect(again.status).toBe(200);
+    expect(again.body).toMatchObject({ id, already: true });
+    expect(store.runs.size).toBe(1);
+  });
+
+  it("Given a run that doesn't replay to the same end, Then it's refused with 422 and nothing is kept", async () => {
+    const store = fresh();
+    const { log, claim } = webRun('w-test-sub2');
+    // A better end than the run had.
+    const better = await submit({ log, claim: { ...claim, outcome: claim.outcome === 'arrived' ? 'died' : 'arrived', skillLevels: claim.skillLevels + 5 } });
+    expect(better.status).toBe(422);
+    expect((better.body as { differs: string[] }).differs).toEqual(expect.arrayContaining(['outcome', 'skillLevels']));
+    // A move taken out of the middle: the rest no longer lines up.
+    const cut = await submit({ log: { ...log, moves: [...log.moves.slice(0, 10), ...log.moves.slice(12)] }, claim });
+    expect(cut.status).toBe(422);
+    // Another version's run, and something that isn't a log.
+    expect((await submit({ log: { ...log, version: 'play-0/save-1' }, claim })).status).toBe(422);
+    expect((await submit({ log: { nope: true }, claim })).status).toBe(400);
+    expect((await submit({ log: { ...log, start: { ...log.start, stats: { str: 18, con: 18, agi: 18, int: 18, wil: 18, cha: 18 } } }, claim })).status).toBe(400);
+    expect(store.rows.size).toBe(0);
+    expect(store.runs.size).toBe(0);
+  });
+
+  it("takes a whole run's log in one body, which no other request may send, and counts it among the day's games", async () => {
+    fresh({ ...LIMITS, gamesPerIpPerDay: 1 });
+    const padded = JSON.stringify({ log: { pad: 'x'.repeat(LIMITS.bodyBytes) } });
+    expect((await handle({ method: 'POST', path: '/api/v1/runs/submit', body: padded, ip: '203.0.113.7' }, memo.store, deps)).status).toBe(400);
+    expect((await handle({ method: 'POST', path: '/api/v1/games', body: padded, ip: '203.0.113.7' }, memo.store, deps)).status).toBe(413);
+    const one = webRun('w-test-sub3');
+    expect((await submit({ log: one.log, claim: one.claim })).status).toBe(201);
+    const two = webRun('w-test-sub4');
+    expect((await submit({ log: two.log, claim: two.claim })).status).toBe(429);
+    // Sending the first one again stores nothing new, so it's still answered.
+    expect((await submit({ log: one.log, claim: one.claim })).status).toBe(200);
+  });
+
+  it("Given this week's world, Then its runs count on its board; a look-alike world, an old week or heirlooms don't", async () => {
+    const store = fresh();
+    const weekly = `play-${weeklySeed('2026-W41')}`;
+    const w = webRun(weekly);
+    const ok = await submit({ log: w.log, claim: w.claim });
+    expect(ok.status).toBe(201);
+    expect((await store.runBySource(`game:${(ok.body as { id: string }).id}`))!.detail.week).toBe('2026-W41');
+    expect(((await handle(get('/api/v1/runs/week'), store, deps)).body as { runs: unknown[] }).runs).toHaveLength(1);
+    // Last week's world still counts (a run begun on Sunday night); the week before that has closed.
+    const last = webRun(`play-${weeklySeed('2026-W40')}`);
+    expect((await submit({ log: last.log, claim: last.claim })).status).toBe(201);
+    const old = webRun(`play-${weeklySeed('2026-W39')}`);
+    expect((await submit({ log: old.log, claim: old.claim })).status).toBe(422);
+    const fake = webRun('play-wk-2026-W41-00000000');
+    expect((await submit({ log: fake.log, claim: fake.claim })).body).toMatchObject({ error: expect.stringMatching(/isn't the world of 2026-W41/) });
+    const kept = { ...w.log, start: { ...w.log.start, heirlooms: [{ item: 'knife', grade: 'sound', heirloom: true }] } };
+    expect((await submit({ log: kept, claim: w.claim })).status).toBe(422);
+  });
+
+  it('Given heirlooms, Then they count only from a run that was sent and checked, and only what it left', async () => {
+    const store = fresh();
+    const first = webRun('w-test-heir1');
+    const a = await submit({ log: first.log, claim: first.claim });
+    expect(a.status).toBe(201);
+    const fromId = (a.body as { id: string }).id;
+    const left = heirloomsOf(currentRun(first.app)).heirlooms ?? [];
+    expect(left.length).toBeGreaterThan(0);
+    // The next Warden, with what the first one left.
+    const next = webRun('w-test-heir2', { heirlooms: left, heirloomsFrom: fromId });
+    expect((await submit({ log: next.log, claim: next.claim })).status).toBe(201);
+    // The same heirlooms without saying where from, and heirlooms that run never left.
+    const unchecked = webRun('w-test-heir3', { heirlooms: left });
+    expect((await submit({ log: unchecked.log, claim: unchecked.claim })).body).toMatchObject({ error: expect.stringMatching(/wasn't sent to the records/) });
+    const invented = webRun('w-test-heir4', { heirlooms: [{ item: left[0].item, grade: 'masterwork', heirloom: true }], heirloomsFrom: fromId });
+    expect((await submit({ log: invented.log, claim: invented.claim })).body).toMatchObject({ error: expect.stringMatching(/aren't what that run left/) });
+    expect(store.runs.size).toBe(2);
   });
 });

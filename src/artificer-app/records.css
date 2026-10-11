@@ -35,7 +35,8 @@ main.records {
 .records tr.mine td:first-child { box-shadow: inset 2px 0 0 var(--ice); }
 .records .more { margin-top: 10px; }
 /* Runs played with experimental features (#1579). */
-.records .exp { cursor: help; }
+.records .exp, .records .wk { cursor: help; }
+.records code { font-size: 12.5px; color: var(--ink); overflow-wrap: anywhere; }
 .records .exp-toggle { margin: 0 0 10px; }
 .records .exp-toggle[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
 

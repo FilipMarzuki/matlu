@@ -2,12 +2,16 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
+ *                                    (the move that ends a run also gets its record's link and achievements, #1559)
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
+ *   GET  /api/v1/runs/week[/:week]   a weekly world's records, best first (#1559) → 200
+ *   POST /api/v1/runs/submit         a web-game run, replayed before it counts (#1559) { log, claim, name? } → 201 | 422 why
+ *   GET  /api/v1/weekly              this week's world: its week and seed (#1559) → 200
  *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
  *   GET  /api/v1/rules               the rules text        → 200
  *
@@ -19,6 +23,11 @@
  * - The seed. A session's id seeds its world, and the sim's code is public, so anyone holding it
  *   could run the world ahead and see the weather and encounters coming. Players get a separate
  *   random game id.
+ *   The one exception is the weekly world (#1559, weekly.ts), whose seed GET /api/v1/weekly hands
+ *   to anyone: the web game runs the sim in the browser, so it can't play a world without its seed.
+ *   That's the trade-off of one shared world: on the weekly board anyone could run the week ahead,
+ *   people and AIs alike, so it's an open book, and a fair one, since everyone holds the same seed.
+ *   What stays secret is next week's: the seed is made from the week and a server secret.
  * - The player's address. It's kept only as a salted hash, for the per-address limits.
  */
 
@@ -26,7 +35,13 @@ import { createHash } from 'node:crypto';
 import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
-import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { compareRuns, isRanked, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { achievementsOf, type Achievement } from './achievements';
+import { gameIdOf, isoWeek, isWeekId, previousWeek, weekEnd, weekOfId, weekStart, weeklySeedOf } from './weekly';
+import { heirloomsAllowed, logProblem, replayWeb } from './web-run';
+import { claimMismatch, claimOf, type WebLog } from './web-log';
+import { currentRun } from '../artificer-app/controller';
+import { heirloomsOf } from '../artificer/legacy';
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
 import { isQuestionTopic } from '../artificer/knowledge-questions';
@@ -74,8 +89,10 @@ export interface GameStore {
   insertRun(sourceKey: string, run: Run): Promise<boolean>;
   /** The newest records of one game version, newest first, without `detail`. */
   recentRuns(limit: number, version: string): Promise<RunSummary[]>;
-  /** The best records of one game version, best first (by records.ts rankKey), without `detail`. */
+  /** The best ranked records of one game version (records.ts isRanked), best first (by records.ts rankKey), without `detail`. */
   bestRuns(limit: number, version: string): Promise<RunSummary[]>;
+  /** The best records of one game version played on one weekly world (#1559, `detail.week`), best first, without `detail`. */
+  weekRuns(week: string, version: string, limit: number): Promise<RunSummary[]>;
   runBySource(sourceKey: string): Promise<StoredRun | null>;
   /**
    * AI records of every version, newest first, with their milestone days: the playtest's (only the
@@ -111,6 +128,12 @@ export interface ApiDeps {
   salt?: string;
   /** A new game's seed. Random unless a test pins it (a world's weather comes from its seed). */
   newSeed?: () => string;
+  /**
+   * The secret the weekly world's seed is made from (#1559), so next week's world can't be worked
+   * out ahead. Empty means the seed follows from the week alone: fine for tests and local play.
+   * Changing it changes the world mid-week, so it's set once.
+   */
+  weeklySalt?: string;
 }
 
 /**
@@ -127,7 +150,16 @@ export const LIMITS = {
   // leave room for several games a day each, and keep a year of everyone's inside the free tier.
   questionsPerIpPerDay: 200, questionsPerDay: 2000,
   bodyBytes: 16_384, nameChars: 24,
+  // A web run's log (#1559): its start and every move of a whole run, a few hundred of them, so far
+  // more than one move's body. Its moves are capped by movesPerGame, like any game's.
+  submitBodyBytes: 262_144,
 };
+
+/** Where a web run is sent (#1559): its body may be bigger than any other request's. */
+export const SUBMIT_PATH = '/api/v1/runs/submit';
+
+/** The web game's client name (src/artificer-app/main.ts): its runs are played by people, in the browser. */
+export const WEB_CLIENT = 'artificer-web';
 
 /** The usage counter's key for every move by anyone (artificer_play_usage). */
 const ALL_MOVES = 'all';
@@ -138,12 +170,30 @@ const ALL_QUESTIONS = 'q:all';
 export const CONSOLE_CLIENT = 'artificer-console';
 
 /** How many records the lists send: the newest and the best (GET /runs), and the AIs' (GET /runs/ai). */
-export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300 };
+export const RUNS = { recent: 500, best: 50, cacheSeconds: 60, ai: { bench: 1500, outside: 300 }, aiCacheSeconds: 300, week: 500, weeklyCacheSeconds: 300 };
+
+/**
+ * The seed of a week's world (#1559): the week, and a tag made from it and the server's secret.
+ * The week is part of the seed so a game's week can be read back from its id (weekly.ts weekOfId).
+ */
+export function weeklySeed(week: string, salt = ''): string {
+  return weeklySeedOf(week, createHash('sha256').update(`${salt}|weekly|${week}`).digest('hex').slice(0, 8));
+}
+
+/**
+ * Is this id the real world of the week it names? A web run (#1559) names its world itself, so its
+ * week is believed only if its id is exactly the one that week's seed gives.
+ */
+export function isWeeklyWorld(id: string, salt = ''): boolean {
+  const week = weekOfId(id);
+  return week !== null && id === gameIdOf(weeklySeed(week, salt));
+}
 
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
 export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = defaultDeps, limits = LIMITS): Promise<ApiResponse> {
-  if ((req.body?.length ?? 0) > limits.bodyBytes) return fail(413, `The body is over ${limits.bodyBytes} bytes.`);
+  const maxBody = req.path.replace(/\/+$/, '') === SUBMIT_PATH ? limits.submitBodyBytes : limits.bodyBytes;
+  if ((req.body?.length ?? 0) > maxBody) return fail(413, `The body is over ${maxBody} bytes.`);
   const parts = req.path.replace(/\/+$/, '').split('/').filter(Boolean); // ['api', 'v1', ...]
   if (parts[0] !== 'api' || parts[1] !== 'v1') return fail(404, 'Not found.');
   const [, , resource, id, sub] = parts;
@@ -161,6 +211,27 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   // site, which is what the CORS headers are for. Cached five minutes: the playtest adds runs nightly.
   if (req.method === 'GET' && resource === 'runs' && id === 'ai' && !sub) {
     return { status: 200, body: { version: GAME_VERSION, runs: await store.aiRuns(RUNS.ai) }, cache: RUNS.aiCacheSeconds };
+  }
+  // GET /api/v1/runs/week[/:week]: one weekly world's records (#1559), best first: this week's, or
+  // the week named. This version's only, like the main boards. Cached a minute, like them.
+  if (req.method === 'GET' && resource === 'runs' && id === 'week') {
+    const week = sub ?? isoWeek(deps.now());
+    if (!isWeekId(week)) return fail(400, `"${week}" isn't a week. Weeks are ISO weeks, like ${isoWeek(deps.now())}.`);
+    return { status: 200, body: { version: GAME_VERSION, week, runs: await store.weekRuns(week, GAME_VERSION, RUNS.week) }, cache: RUNS.cacheSeconds };
+  }
+  // GET /api/v1/weekly: this week's world (#1559). Its seed is public for its week (see the header):
+  // the web game needs it to play the world in the browser.
+  if (req.method === 'GET' && resource === 'weekly' && !id) {
+    const week = isoWeek(deps.now());
+    const seed = weeklySeed(week, deps.weeklySalt);
+    const endsAt = weekEnd(week)!;
+    // Cached at the edge, but never past the week's end: a new week must bring its new world.
+    const left = Math.floor((endsAt - deps.now()) / 1000);
+    return {
+      status: 200,
+      body: { version: GAME_VERSION, week, seed, gameId: gameIdOf(seed), startsAt: new Date(weekStart(week)!).toISOString(), endsAt: new Date(endsAt).toISOString() },
+      ...(left > 0 ? { cache: Math.min(RUNS.weeklyCacheSeconds, left) } : {}),
+    };
   }
   // POST /api/v1/questions: keep a free question asked in the web game (#1575). The web game plays
   // on the page, so the question was matched and answered there; this only keeps it. If it fails,
@@ -185,6 +256,8 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
     return { status: 201, body: { kept: true } };
   }
+  // POST /api/v1/runs/submit: a web-game run, replayed here before it counts (#1559).
+  if (req.method === 'POST' && resource === 'runs' && id === 'submit' && !sub) return submitWebRun(req, store, deps, limits);
   if (resource !== 'games') return fail(404, 'Not found.');
 
   // POST /api/v1/games: start a game.
@@ -206,7 +279,10 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       const bad = validFeatures(body.features) ? Object.keys(body.features).filter(k => !known.includes(k)) : null;
       if (bad === null || bad.length) return fail(400, `"features" switches rule features on or off, as { "<id>": true | false }. Known: ${known.join(', ')}.`);
     }
-    const game = startGame({ seed: deps.newSeed?.(), name, features: body.features as FeatureSwitches | undefined });
+    if (body.weekly !== undefined && typeof body.weekly !== 'boolean') return fail(400, '"weekly" is true to play this week\'s world, the one everyone plays this week.');
+    // The weekly world (#1559): this week's seed for everyone; any other game gets a fresh one.
+    const seed = body.weekly === true ? weeklySeed(isoWeek(deps.now()), deps.weeklySalt) : deps.newSeed?.();
+    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined });
     const nowIso = new Date(deps.now()).toISOString();
     const client = shortText(body.client);
     // Where: the MCP server says so itself; the console by its client name; anything else is the API.
@@ -218,7 +294,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       name, client, model: shortText(body.model), ipKey, surface, player, measures: {}, createdAt: nowIso, updatedAt: nowIso,
     };
     await store.insert(record);
-    return { status: 201, body: gameBody(record.id, view(game)) };
+    return { status: 201, body: gameBody(record.id, view(game), game) };
   }
 
   if (!id) return fail(404, 'Not found.');
@@ -244,7 +320,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
   if (!game) return fail(410, 'This game was made by an older version of the Artificer and can\'t be continued. Start a new one.');
 
   // GET /api/v1/games/:id: view it.
-  if (req.method === 'GET' && !sub) return { status: 200, body: gameBody(id, view(game)) };
+  if (req.method === 'GET' && !sub) return { status: 200, body: gameBody(id, view(game), game) };
 
   // POST /api/v1/games/:id/moves: apply one move.
   if (req.method === 'POST' && sub === 'moves') {
@@ -288,13 +364,117 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
         console.error('question not kept', e);
       }
     }
-    // An ended game refuses moves, so this is the move that ended it: write its record, once.
-    if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
+    // An ended game refuses moves, so this is the move that ended it: write its record, once, and
+    // say how it compares (#1559).
+    if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view, r.game), changed: r.changed } };
     await saveRun(store, updated, r.game);
-    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed, record: `/records/?game=${id}` } };
+    const achievements = await achievementsFor(store, id);
+    return { status: 200, body: { ...gameBody(id, r.view, r.game), changed: r.changed, record: `/records/?game=${id}`, ...(achievements ? { achievements } : {}) } };
   }
 
   return fail(405, `${req.method} isn't allowed here.`);
+}
+
+/**
+ * A web-game run sent to the records (#1559): `{ log, claim, name }`. The page ran the sim itself,
+ * so nothing it says is taken on trust: the log is replayed from its start (web-run.ts), and only a
+ * run that ends the way the claim says gets a record. It's stored as a finished game (surface
+ * `web`, played by a person) so it has a game id like any other, its record lives where the Records
+ * page looks (`?game=<id>`), and it counts towards the same daily limits on games.
+ *
+ * The game id is made from the log itself, so sending the same run twice finds the first one.
+ */
+async function submitWebRun(req: ApiRequest, store: GameStore, deps: ApiDeps, limits: typeof LIMITS): Promise<ApiResponse> {
+  const body = parseBody(req.body);
+  if (body === undefined) return fail(400, 'The body must be JSON.');
+  const problem = logProblem(body.log, limits.movesPerGame);
+  if (problem) return fail(400, problem);
+  const log = body.log as WebLog;
+  if (log.version !== GAME_VERSION) {
+    return fail(422, `This run was played on another version of the game (${log.version}; this one is ${GAME_VERSION}), so it can't be replayed here.`);
+  }
+
+  // The same run sent again is the game it made the first time (its id is made from its log),
+  // answered even past today's limits: nothing new is stored.
+  const id = webGameId(log);
+  const existing = await store.get(id);
+  if (existing) {
+    // Its record may not have been written then (a database blip): write it now.
+    const game = deserialize(existing.session);
+    if (game && !(await store.runBySource(sourceOf(id)))) await saveRun(store, existing, game);
+    return { status: 200, body: { id, record: `/records/?game=${id}`, already: true, ...(await achievementsBody(store, id)) } };
+  }
+
+  const ipKey = keyOf(req.ip, deps.salt);
+  const since = new Date(deps.now() - 24 * 3600_000).toISOString();
+  if ((await store.countStartedSince(ipKey, since)) >= limits.gamesPerIpPerDay) return fail(429, `This address has sent or started ${limits.gamesPerIpPerDay} games in the last day. Try again later.`);
+  if ((await store.countAllStartedSince(since)) >= limits.gamesPerDay) return fail(429, `The Reach has had ${limits.gamesPerDay} games in the last day, as many as it takes. Try again later today.`);
+
+  // The weekly world: believed only if the id is that week's real world, and only this week's or
+  // last week's (a run begun on Sunday night may end on Monday). It starts as everyone does, with
+  // nothing an earlier Warden left.
+  const start = log.start;
+  const week = weekOfId(start.id);
+  if (week) {
+    const now = isoWeek(deps.now());
+    if (!isWeeklyWorld(start.id, deps.weeklySalt)) return fail(422, `This isn't the world of ${week}.`);
+    if (week !== now && week !== previousWeek(now)) return fail(422, `The world of ${week} has closed: weekly runs count in their own week, or the week after.`);
+    if (start.heirlooms?.length) return fail(422, 'A run of the weekly world starts with nothing an earlier Warden left.');
+  }
+
+  // Heirlooms (#1455) are believed only from a run this server has checked: one sent here (or played
+  // through the API), named by its game id, and they must be among what it left.
+  if (start.heirlooms?.length) {
+    const from = start.heirloomsFrom ? await store.get(start.heirloomsFrom) : null;
+    if (from?.phase !== 'ended') return fail(422, 'This Warden started with heirlooms from a run that wasn\'t sent to the records, so the run can\'t be checked.');
+    const left = deserialize(from.session);
+    if (!left) return fail(422, 'This Warden\'s heirlooms come from a run on an older version of the game, so the run can\'t be checked.');
+    if (!heirloomsAllowed(start.heirlooms, heirloomsOf(currentRun(left.app)).heirlooms ?? [])) return fail(422, 'The heirlooms aren\'t what that run left.');
+  }
+
+  const name = cleanName(body.name, limits.nameChars);
+  // A log the page couldn't have written may make the sim throw rather than refuse a move: either
+  // way, it doesn't replay.
+  let replay: ReturnType<typeof replayWeb>;
+  try {
+    replay = replayWeb(log);
+  } catch (e) {
+    console.error('web run replay threw', e);
+    replay = { ok: false, error: 'the game couldn\'t play one of its moves.', at: -1 };
+  }
+  if (!replay.ok) return { status: 422, body: { error: `The run doesn't replay: ${replay.error}`, at: replay.at } };
+  const run = runOf(replay.app, replay.measures, { playerKind: 'person', model: null, client: WEB_CLIENT, surface: 'web', gameVersion: GAME_VERSION, name, moves: log.moves.length });
+  const differs = claimMismatch(body.claim, run);
+  if (differs.length) {
+    return { status: 422, body: { error: `The run replays to a different end (${differs.join(', ')}), so it can't count.`, differs, replayed: claimOf(run) } };
+  }
+
+  const nowIso = new Date(deps.now()).toISOString();
+  const game: Game = { id: start.id, app: replay.app };
+  const record: GameRecord = {
+    id, version: GAME_VERSION, session: serialize(game), moves: log.moves as Move[], phase: 'ended', name, client: WEB_CLIENT, model: null,
+    ipKey, surface: 'web', player: 'person', measures: replay.measures, createdAt: nowIso, updatedAt: nowIso,
+  };
+  await store.insert(record);
+  // Unlike a game that ends on a move, the player asked for this record, so a failure to write it
+  // is theirs to see (the handler answers 500), and sending again writes it (above).
+  await store.insertRun(sourceOf(id), run);
+  return { status: 201, body: { id, record: `/records/?game=${id}`, ...(await achievementsBody(store, id)) } };
+}
+
+/** The achievements to send with a record, as a body fragment: nothing if they can't be worked out now. */
+async function achievementsBody(store: GameStore, gameId: string): Promise<{ achievements?: Achievement[] }> {
+  const achievements = await achievementsFor(store, gameId);
+  return achievements ? { achievements } : {};
+}
+
+/**
+ * A web run's game id: a hash of its log, shaped like the UUIDs other games get (the column is a
+ * uuid). The same run sent twice is the same game.
+ */
+function webGameId(log: WebLog): string {
+  const h = createHash('sha256').update(JSON.stringify({ version: log.version, start: log.start, moves: log.moves })).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 
 /**
@@ -309,6 +489,25 @@ async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<voi
     await store.insertRun(sourceOf(g.id), run);
   } catch (e) {
     console.error('run record not saved', g.id, e);
+  }
+}
+
+/**
+ * A finished game's achievements (#1559): its record against this version's recent ones, or for a
+ * run of the weekly world against that week's, the same lists the Records page compares with. Null
+ * when there's no record to compare (it wasn't written) or the records can't be read now:
+ * achievements are a bonus, never a reason to fail the move.
+ */
+async function achievementsFor(store: GameStore, gameId: string): Promise<Achievement[] | null> {
+  try {
+    const mine = await store.runBySource(sourceOf(gameId));
+    if (!mine) return null;
+    const week = mine.detail.week;
+    const others = week ? await store.weekRuns(week, mine.gameVersion, RUNS.week) : await store.recentRuns(RUNS.recent, mine.gameVersion);
+    return achievementsOf(mine, others);
+  } catch (e) {
+    console.error('achievements not worked out', gameId, e);
+    return null;
   }
 }
 
@@ -336,7 +535,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
   let written = 0;
   /** One version's records, as the lists send them (no detail). */
   const listed = (version: string): RunSummary[] =>
-    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail, ...summary }) => ({ ...summary, features: detail.features ?? null }));
+    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail, ...summary }) => ({ ...summary, features: detail.features ?? null, week: detail.week ?? null }));
   return {
     rows,
     runs,
@@ -363,7 +562,8 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
       return true;
     },
     recentRuns: async (limit, version) => listed(version).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit),
-    bestRuns: async (limit, version) => listed(version).sort(compareRuns).slice(0, limit),
+    bestRuns: async (limit, version) => listed(version).filter(isRanked).sort(compareRuns).slice(0, limit),
+    weekRuns: async (week, version, limit) => listed(version).filter(r => r.week === week).sort(compareRuns).slice(0, limit),
     runBySource: async key => runs.get(key) ?? null,
     aiRuns: async ({ bench, outside }) => {
       const newest = [...runs.values()].filter(r => r.playerKind === 'ai').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -377,9 +577,13 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
 
 const fail = (status: number, error: string): ApiResponse => ({ status, body: { error } });
 
-/** What a player gets back: the public id and the view. Never the session (seed and state). */
-function gameBody(id: string, v: View): Record<string, unknown> {
-  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features };
+/**
+ * What a player gets back: the public id and the view, and for a game of the weekly world its week
+ * (#1559). Never the session (seed and state).
+ */
+function gameBody(id: string, v: View, game: Game): Record<string, unknown> {
+  const week = weekOfId(game.id);
+  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features, ...(week ? { week } : {}) };
 }
 
 function rulesBody(): Record<string, unknown> {
@@ -397,6 +601,7 @@ function rulesBody(): Record<string, unknown> {
     },
     // Switchable features (#1579): rule features are set per game, at POST /api/v1/games { "features": { "<id>": false } }.
     features: FEATURES.map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
+    weekly: 'POST /api/v1/games { "weekly": true } plays this week\'s world: the same seed for everyone, people and AIs, Monday to Monday (UTC). Its runs are compared with each other at GET /api/v1/runs/week.',
   };
 }
 
