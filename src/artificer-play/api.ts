@@ -2,7 +2,7 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client?, model? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
@@ -30,6 +30,7 @@ import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, ty
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
 import { personById } from '../artificer/villages';
+import { FEATURES, validFeatures, type FeatureSwitches } from '../artificer/features';
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {
@@ -192,7 +193,13 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       return fail(429, `The Reach has had ${limits.gamesPerDay} games in the last day, as many as it takes. Try again later today.`);
     }
     const name = cleanName(body.name, limits.nameChars);
-    const game = startGame({ seed: deps.newSeed?.(), name });
+    // Rule features switched for this game (#1579): known ones only, so a typo isn't silently a default.
+    if (body.features !== undefined) {
+      const known = FEATURES.filter(f => f.kind === 'rules').map(f => f.id);
+      const bad = validFeatures(body.features) ? Object.keys(body.features).filter(k => !known.includes(k)) : null;
+      if (bad === null || bad.length) return fail(400, `"features" switches rule features on or off, as { "<id>": true | false }. Known: ${known.join(', ')}.`);
+    }
+    const game = startGame({ seed: deps.newSeed?.(), name, features: body.features as FeatureSwitches | undefined });
     const nowIso = new Date(deps.now()).toISOString();
     const client = shortText(body.client);
     // Where: the MCP server says so itself; the console by its client name; anything else is the API.
@@ -322,7 +329,7 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
   let written = 0;
   /** One version's records, as the lists send them (no detail). */
   const listed = (version: string): RunSummary[] =>
-    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail: _detail, ...summary }) => summary);
+    [...runs.values()].filter(r => r.gameVersion === version).map(({ detail, ...summary }) => ({ ...summary, features: detail.features ?? null }));
   return {
     rows,
     runs,
@@ -365,7 +372,7 @@ const fail = (status: number, error: string): ApiResponse => ({ status, body: { 
 
 /** What a player gets back: the public id and the view. Never the session (seed and state). */
 function gameBody(id: string, v: View): Record<string, unknown> {
-  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves };
+  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features };
 }
 
 function rulesBody(): Record<string, unknown> {
@@ -381,6 +388,8 @@ function rulesBody(): Record<string, unknown> {
       set: '{ "focus": "goal:larder" | "none", "eating": "full" | "half" | "none", "site": "cave" | … }: free, no hours.',
       ask: '{ "person": "<person id>", "question": "…" }: on the road, a question in your own words, once per person per stay (up to 200 characters). Questions are kept, with nothing about you, to improve the game.',
     },
+    // Switchable features (#1579): rule features are set per game, at POST /api/v1/games { "features": { "<id>": false } }.
+    features: FEATURES.map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
   };
 }
 

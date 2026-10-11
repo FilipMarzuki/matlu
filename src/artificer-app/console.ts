@@ -13,6 +13,7 @@ import './style.css';
 import './console.css';
 import { inject } from '@vercel/analytics';
 import { parseCommand, completions, commonPrefix, HELP, type MoveOption } from './console-commands';
+import { loadChoices } from './feature-choices';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -59,7 +60,8 @@ async function api(method: string, path: string, body?: unknown): Promise<{ stat
 
 async function newGame(name?: string): Promise<void> {
   // The client name tells the API this is the console (api.ts CONSOLE_CLIENT), and its players are people.
-  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person' });
+  // The browser's feature switches (#1579), shared with the game page: a feature switched off there is off here.
+  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person', features: loadChoices() });
   if (r.status !== 201) return failed(r);
   const g = r.body as unknown as GameBody;
   remember(g.id);

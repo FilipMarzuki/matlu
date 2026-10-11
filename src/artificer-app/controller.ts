@@ -17,7 +17,8 @@ import { leadOnLoad, type Lead } from '../artificer/asks';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
-import { FULL_WORLD, validWorld, type WorldConfig } from '../artificer/world';
+import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
+import { ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
@@ -62,13 +63,16 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
  * app makes a sim: a new game, and the creation screen's remake from the draft, both come here,
  * so what a legacy seeds can't be dropped by one and kept by the other.
  */
-export function makeWarden(who: WardenSpec, legacy?: Legacy): AppState {
-  // A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with the leader's packing list (#1400).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
+export function makeWarden(who: WardenSpec, legacy?: Legacy, features?: FeatureSwitches): AppState {
+  // The run's rule features (#1579): each default, with the player's own switches on top, fixed for
+  // the whole run. A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with
+  // the leader's packing list (#1400).
+  const world: WorldConfig = { ...GAME_WORLD, features: ruleFeatures(features) };
+  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
 }
 
 /** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
-export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharacterId() }, legacy);
+export const newGame = (legacy?: Legacy, features?: FeatureSwitches): AppState => makeWarden({ id: newCharacterId() }, legacy, features);
 
 /**
  * Start the next run (#1455): one run per Warden, so whoever comes next is someone new —
@@ -76,8 +80,8 @@ export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharac
  * road, whose tools pass on as heirlooms; nothing of the mind goes with a stranger. No run,
  * or one still going: a plain new Warden with nothing.
  */
-export function newRun(from?: Region1State | RoadState): AppState {
-  return newGame(from?.outcome ? heirloomsOf(from) : undefined);
+export function newRun(from?: Region1State | RoadState, features?: FeatureSwitches): AppState {
+  return newGame(from?.outcome ? heirloomsOf(from) : undefined, features);
 }
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` takes the heirlooms from. */
@@ -386,7 +390,7 @@ function parseRoad(x: unknown): RoadState | null {
   const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
   // The optional fields below are only ever loaded checked: left out of the spread, so one saved in
   // the wrong shape (a string where a list belongs) loads as absent instead of as itself.
-  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, ...rest } = x;
+  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, ...rest } = x;
   return {
     ...(rest as unknown as RoadState),
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
@@ -400,6 +404,8 @@ function parseRoad(x: unknown): RoadState | null {
     // neither, and loads without them (as it was saved).
     ...(Array.isArray(x.heard) ? { heard: strs(x.heard) } : {}),
     ...(isObj(x.asked) ? { asked: Object.fromEntries(Object.entries(x.asked).map(([k, v]) => [k, strs(v)])) } : {}),
+    // The run's rule features (#1579); a road from before has none, and reads as each feature's `absent`.
+    ...(validFeatures(x.features) ? { features: { ...x.features } } : {}),
     // Free questions asked this stay (#1575); a road from before has none.
     ...(Array.isArray(x.questioned) ? { questioned: strs(x.questioned) } : {}),
     // Signs noticed (#1496); a road from before has none.
@@ -541,7 +547,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // …and saves from before the 60-day year (#1301) keep their calendar, with a 30-day winter after it.
   const cal = cfg.calendar as Region1State['config']['calendar'];
   const calendar = isNum(cal.thawDay) ? { ...cal } : { ...cal, thawDay: cal.winterDay + 30 };
-  const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
+  const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? withValidFeatures(cfg.world) : { ...FULL_WORLD } };
   // …and saves from before land supply (#1304) get it from their trip counts.
   const ex = sim.explore as Record<string, unknown>;
   const explore = isObj(ex.supply) ? { ...(ex as unknown as Region1State['explore']) } : { ...(ex as unknown as Region1State['explore']), supply: supplyFromWorked(ex.worked as Region1State['explore']['worked']) };

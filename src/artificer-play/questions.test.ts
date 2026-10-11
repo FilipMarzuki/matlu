@@ -43,7 +43,7 @@ describe('Cleaning a question to keep (#1575)', () => {
 describe('A free question as a move (#1575): console, MCP and the API', () => {
   it('matches, answers past the gates, and plays as the topic it matched, never the words', () => {
     const g = atHollowford();
-    expect(view(g).text).toMatch(/Free questions:.*Orrin \(hf-orrin\)/s);
+    expect(view(g).text).toMatch(/Free questions.*Orrin \(hf-orrin\)/s);
     const r = apply(g, { ask: { person: 'hf-orrin', question: 'Where do people round here get ore?' } });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
