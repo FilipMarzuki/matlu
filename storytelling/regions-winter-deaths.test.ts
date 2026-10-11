@@ -76,7 +76,7 @@ describe("hard winters and famine carry off named people (#1617)", () => {
     // The winter's own event knows who it took, and tells the most notable.
     expect(winter.data["named_dead"]).toBe(frailBefore.length);
     expect(winter.actorId).not.toBeNull();
-    expect(renderRegionalEvent(w, winter)).toMatch(/Among the dead was/);
+    expect(renderRegionalEvent(w, winter)).toMatch(/Among the dead (was|were)/);
     expect(winter.significance).toBe(regionalSignificance("HARD_WINTER", winter.data));
     expect(renderEvent(w, deaths[0])).toMatch(/died of cold/);
   });

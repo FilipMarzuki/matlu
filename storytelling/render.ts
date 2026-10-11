@@ -755,7 +755,17 @@ export function renderRegionalEventNamed(w: World, ev: RegionalEvent): string {
   const region = w.regions.get(ev.regionId);
   if (!region) return text;
   const label = regionLabel(region);
-  return text.toLowerCase().includes(label.toLowerCase()) ? text : `${text.replace(/\.$/, "")}, in ${label}.`;
+  // The country goes after the first sentence: "Famine struck Ravenford, in the
+  // Hollowford country. Among the dead was…" (#1617 added that second sentence).
+  return text.toLowerCase().includes(label.toLowerCase()) ? text : text.replace(/\.(\s|$)/, `, in ${label}.$1`);
+}
+
+// "Among the dead was Aldric of Aldermark." — the most notable named person a
+// hard winter or a famine carried off (#1617), with a count when it took more.
+function namedDead(w: World, ev: RegionalEvent): string {
+  const n = Number(ev.data["named_dead"] ?? 0);
+  if (n <= 0 || !ev.actorId) return "";
+  return n > 1 ? ` Among the dead were ${who(w, ev.actorId)} and ${n - 1} more of name.` : ` Among the dead was ${who(w, ev.actorId)}.`;
 }
 
 export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
@@ -828,7 +838,7 @@ export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
       return `Trade dwindled on the road between ${here} and ${there}.`;
     case "FAMINE": {
       const n = Number(ev.data["provinces"] ?? 1);
-      return n > 1 ? `Famine struck ${here}, in ${n} of its lands.` : `Famine struck ${at}.`;
+      return (n > 1 ? `Famine struck ${here}, in ${n} of its lands.` : `Famine struck ${at}.`) + namedDead(w, ev);
     }
     case "PLAGUE": {
       const n = Number(ev.data["provinces"] ?? 1);
@@ -840,9 +850,9 @@ export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
       // Since #1608 a hard winter costs lives (more in a poor region). Populations
       // are abstract, so it's told by its share of the people, not a head count.
       const share = Number(ev.data["share"] ?? 0);
-      return share >= 0.018 ? `A hard winter gripped ${here}, and many died of the cold and hunger.`
+      return (share >= 0.018 ? `A hard winter gripped ${here}, and many died of the cold and hunger.`
         : share >= 0.012 ? `A hard winter gripped ${here}, and the old and the weak died of the cold.`
-        : `A hard winter gripped ${here}.`;
+        : `A hard winter gripped ${here}.`) + namedDead(w, ev);
     }
     case "FAIR":
       return `A great fair was held at ${at}.`;

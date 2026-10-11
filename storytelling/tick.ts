@@ -215,6 +215,11 @@ export function tick(w: World): void {
   // the golden hashes include them. Running last keeps this year's engine
   // rolls exactly as they were; only what follows feels the region.
   runRegions(w, evStart);
+  // A hard winter or a famine can carry off named people in the regional pass
+  // (#1617), lords among them. This sweep passes their titles the same year,
+  // so no seat is held by the dead into the next. The regional level hears of
+  // these deaths and successions next year (World.regionalCursor).
+  resolvePendingSuccessions(w);
 }
 
 // ---------------------------------------------------------------------------
