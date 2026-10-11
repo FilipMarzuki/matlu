@@ -13,7 +13,9 @@
 // 6: regions push back into the simulation (#1608), so the same seed lives a different history;
 //    regions carry how unsettled they are, and their provinces how well off.
 // 7: hard winters and famine carry off named people, and their titles pass the same year (#1617).
-export const HISTORY_VERSION = 7;
+// 8: the Reach's human Peoples take part in the engine's odd patches of humans and strange growth
+//    (#1633), so the same seed lives a different history.
+export const HISTORY_VERSION = 8;
 
 /**
  * The last this many years are told event by event ("living memory"); older years as threads.

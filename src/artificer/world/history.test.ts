@@ -93,11 +93,11 @@ describe("The Reach's generated history (#1540)", () => {
   // The pin moves when the generator or the engine changes what happens: a change to the grid, the
   // provinces or the houses, or to storytelling/'s random stream (when its golden hashes in
   // testkit.ts are rebaselined, rebaseline this too). Bump HISTORY_VERSION with it, so a kept
-  // history from the old code is told again. Last moved by #1617 (hard winters and famine carry
-  // off named people), with HISTORY_VERSION 7.
+  // history from the old code is told again. Last moved by #1633 (the Reach's human Peoples take
+  // part in the engine's odd patches of humans and strange growth), with HISTORY_VERSION 8.
   it('tells the same history from the same seed, and a different one from another', () => {
     const a = logHash(seedOf('w-vega'));
-    expect(a).toBe('4e7f533b1c9227c7');
+    expect(a).toBe('da7d183e41a87b5e');
     expect(logHash(seedOf('w-vega'))).toBe(a);
     expect(logHash(seedOf('w-astrid'))).not.toBe(a);
   });
