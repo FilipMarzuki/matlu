@@ -89,6 +89,8 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
  * would; and the told history (history-format.ts) names houses, never their People. The event log
  * (history.test.ts's pin), the told history and HISTORY_VERSION all stay as they were. Give a
  * People traits in REACH_PEOPLES, or tell a house's People, and they move: rebaseline and bump.
+ * (#1633 did: the human Peoples are `human` in REACH_PEOPLES, so the engine's odd patches of
+ * humans happen where human houses sit, and the pin and HISTORY_VERSION moved.)
  */
 export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number][]>> = {
   fieldborn: [['Markfolk', 0.6], ['Riksfolk', 0.4]],
@@ -121,7 +123,15 @@ export function racesOf(culture: ReachCulture): readonly [People, number][] {
   return own.some(([p]) => HUMAN_PEOPLES.includes(p)) ? own : [...own, ...ODD_PATCHES];
 }
 
-export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor', 'Riksfolk', 'Strandfolk'] as const).map(id => ({ id, name: id }));
+/**
+ * The Peoples as the history engine sees them. The human Peoples carry `human: true` (#1633), so
+ * the engine's odd patches (storytelling/odd-patches.ts) happen in the Reach: now and then humans
+ * with no past are found somewhere nobody expected them, and a human settlement grows faster than
+ * births allow, told as mysteries the history never explains. That changes what happens, so it
+ * moved history.test.ts's pin and HISTORY_VERSION went to 8.
+ */
+export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor', 'Riksfolk', 'Strandfolk'] as const)
+  .map(id => (HUMAN_PEOPLES.includes(id) ? { id, name: id, human: true } : { id, name: id }));
 
 /** What each culture calls a lordship: a county (one province) and a realm (several). */
 export const TITLE_WORDS: Readonly<Record<ReachCulture, Record<TitleSpec['tier'], string>>> = {

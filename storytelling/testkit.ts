@@ -70,11 +70,16 @@ export function canonHash(w: World): string {
 // winters and famine carry off named people (new DEATH events, from the
 // regional stream) and a succession sweep after the regional pass passes their
 // titles the same year; the guild-founding spec also stopped listing a master
-// already in another guild.
+// already in another guild. Rebaselined for #1633 (odd patches of humans):
+// the two frontier configs (the only ones with a human race) gain
+// STRANGE_GROWTH events (frontier·s5: years 1039 and 1080; with magic and
+// prehistory: 1039 and 1080), and the logs match the old ones event for event
+// up to the first of them. The default configs have no peoples, so no humans,
+// and their hashes are unchanged.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "e46be681" },
   { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "3429d6c0" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "1a772eed" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "957db3d2" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -82,7 +87,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "284e17d7",
+    hash: "24cb2e29",
   },
 ];
 
