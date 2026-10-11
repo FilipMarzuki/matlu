@@ -34,6 +34,9 @@ const LABELS = [
   // State — applied manually or by agents to show active work
   { name: 'in-progress', color: '74d7c4', description: 'Currently being implemented' },
 
+  // Epic (#1593) — groups a track's sub-issues; triage and Bender skip it, it's never built itself
+  { name: 'epic', color: '3e4b9e', description: 'Groups a track of sub-issues; never picked up by the nightly agents' },
+
   // Review risk (#1431) — set on PRs by DevCycle 3c from .github/review-risk.json.
   // The tier decides which review models must agree before a merge (#1481).
   { name: 'risk:low',       color: 'c2e0c6', description: 'Review risk: low — the review agent only' },
