@@ -220,7 +220,8 @@ Nothing on the road reads it yet: no play, save or RNG change.
 ## Decided (owner, 2026-10-11)
 
 1. **Prejudice isn't one level.** It's voiced by candour, strength and trust: the rule above.
-2. **Which invented views stand** stays open for now (below).
+2. **Invented views are placeholders.** Each stays marked `invented: true` until someone reviews it; the
+   canon *Relations* pairs are the only canon views. A view becomes canon only by review.
 3. **Mixed cultures:** the culture's custom wins over the People's. Built; a test pins it (Orrin, Veit).
 4. **Cultures hold views of Peoples:** all 12 road cultures, of all 16 Peoples. An outsider answers
    from their culture's view, else their People's.
@@ -230,8 +231,8 @@ Nothing on the road reads it yet: no play, save or RNG change.
 
 ## Open questions for the owner
 
-1. **Which invented views stand?** The *Relations* pairs above are canon; the other views, and
-   nearly all the culture-to-People ones, are mine. Any that should be vetoed or made canon?
+1. **Reviewing the placeholders.** Who reviews the invented views, and when (the lore agents, or the
+   owner as they come up in play)?
 2. **Regional candour.** Candour is set per culture. Should a region (the Reach, the Wildkin's
    core area) shift it too, as the owner's "local and regional culture" suggests? Nothing on the
    road has a region field yet.
