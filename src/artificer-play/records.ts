@@ -9,8 +9,9 @@
  * from a finished game is record-of.ts.
  *
  * Nothing personal goes in a record. The audience includes kids, so a nickname is cut to one word
- * of letters (no digits: they could be an age, a birth year or a phone number) and dropped if it
- * holds a blocked word, and there's no address, account or free text.
+ * of letters (no digits: they could be an age, a birth year or a phone number), and there's no
+ * address, account or free text. There's no word filter: a list of bad words can't be made complete
+ * and catches ordinary names, so the owner chose the shape rule alone (#1575).
  */
 
 export type PlayerKind = 'person' | 'ai';
@@ -91,22 +92,6 @@ export type AiRun = RunSummary & { milestoneDays: { name: string; day: number }[
 
 // ── Nicknames ───────────────────────────────────────────────────────────────
 
-/**
- * Blocked words, checked against the nickname with symbols squeezed out and look-alike digits read
- * as letters ("sh1t" → "shit"). Short on purpose: it catches what a kid shouldn't see on a public
- * board, and a false hit only costs the nickname (the run still counts, as "a Warden").
- *
- * Stems that never sit inside an ordinary name are blocked anywhere in it; short ones that do
- * ("Thora" holds "hora", "Peacock" holds "cock") only as the whole word, or its plural.
- */
-const BLOCKED_ANYWHERE = [
-  'fuck', 'shit', 'cunt', 'bitch', 'whore', 'slut', 'pussy', 'penis', 'vagina', 'porn', 'nigg', 'retard', 'nazi',
-  'hitler', 'suicid', 'wank', 'twat',
-  // Swedish, since the owner is
-  'fitta', 'knull', 'jävla', 'javla', 'helvete',
-];
-const BLOCKED_WORDS = ['dick', 'cock', 'sex', 'rape', 'kill', 'anal', 'boob', 'tit', 'tits', 'piss', 'fag', 'kkk', 'kuk', 'hora', 'neger', 'bög', 'mongo'];
-const LOOK_ALIKES: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i' };
 /** Long enough for a name, short enough not to be a message. */
 const NICKNAME_CHARS = 16;
 
@@ -116,10 +101,8 @@ const NICKNAME_CHARS = 16;
  * too easily someone's real name. "Warden" (the default) counts as no nickname.
  */
 export function nicknameOf(raw: string | null | undefined): string | null {
-  // Only the first word is kept, so only the first word is checked.
+  // Only the first word is kept.
   const token = raw?.trim().split(/\s+/)[0] ?? '';
-  const squeezed = token.toLowerCase().replace(/[0134578@$!]/g, c => LOOK_ALIKES[c] ?? c).replace(/[^\p{L}]/gu, '');
-  if (BLOCKED_ANYWHERE.some(w => squeezed.includes(w)) || BLOCKED_WORDS.some(w => squeezed === w || squeezed === `${w}s`)) return null;
   // Cut by characters, not UTF-16 units: half of a letter outside the basic plane is invalid text
   // that Postgres refuses, and the record would be lost.
   const word = [...token.replace(/[^\p{L}'-]/gu, '').replace(/^['-]+|['-]+$/g, '')].slice(0, NICKNAME_CHARS).join('');

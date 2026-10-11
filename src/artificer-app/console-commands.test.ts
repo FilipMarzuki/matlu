@@ -62,6 +62,21 @@ describe('The console command line (#1557)', () => {
     expect(c.kind === 'error' && c.message).toContain('"new"');
   });
 
+  it('asks on the road: about your focus, or a free question in your own words (#1575)', () => {
+    const road: MoveOption[] = [
+      { move: { do: 'rest' }, label: 'Rest' },
+      { move: { do: 'talk:hf-orrin' }, label: 'Talk with Orrin' },
+      { move: { do: 'talk:hf-tobin' }, label: 'Talk with Tobin' },
+    ];
+    expect(moveOf('ask orrin', road)).toEqual({ do: 'ask:hf-orrin' });
+    // The question goes as typed, case and all; the person by name or id.
+    expect(moveOf('ask Orrin Where does the Iron come from?', road)).toEqual({ ask: { person: 'hf-orrin', question: 'Where does the Iron come from?' } });
+    expect(moveOf('ask hf-tobin, what is the Compact?', road)).toEqual({ ask: { person: 'hf-tobin', question: 'what is the Compact?' } });
+    // Someone not here is sent as typed, and the game says who is.
+    expect(moveOf('ask sabine iron?', road)).toEqual({ ask: { person: 'sabine', question: 'iron?' } });
+    expect(completions('as', road)).toContain('ask ');
+  });
+
   it('completes words from the moves and its own commands', () => {
     expect(completions('sc', day1)).toContain('scout');
     expect(completions('gather', day1)).toEqual(expect.arrayContaining(['gather food', 'gather wood']));

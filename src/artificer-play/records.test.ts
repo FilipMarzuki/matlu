@@ -54,7 +54,7 @@ const run = (o: Partial<Run>): Run => ({
 });
 
 describe('Run records (#1558)', () => {
-  it('keeps a nickname to one word of letters, and drops blocked words and the default', () => {
+  it('keeps a nickname to one word of letters, and drops the default (no word filter: the owner’s call)', () => {
     expect(nicknameOf('Vega')).toBe('Vega');
     expect(nicknameOf('  Anna Svensson ')).toBe('Anna'); // a first and last name together could be a real person's
     expect(nicknameOf('Max2013')).toBe('Max'); // digits could be a birth year
@@ -67,10 +67,7 @@ describe('Run records (#1558)', () => {
     expect(nicknameOf('Warden')).toBeNull();
     expect(nicknameOf('')).toBeNull();
     expect(nicknameOf(null)).toBeNull();
-    expect(nicknameOf('sh1thead')).toBeNull(); // look-alike digits are read as letters
-    expect(nicknameOf('Fitta')).toBeNull();
-    expect(nicknameOf('dick')).toBeNull();
-    // Ordinary names that hold a short blocked stem stay.
+    // Ordinary names a word list would catch, which is why there isn't one (#1575).
     expect(nicknameOf('Thora')).toBe('Thora');
     expect(nicknameOf('Peacock')).toBe('Peacock');
     expect(nicknameOf('Skillet')).toBe('Skillet');

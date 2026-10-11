@@ -206,6 +206,14 @@ export function answerFor(personId: string, key: string): Answer | undefined {
   return ANSWERS[personId]?.[key] ?? (p ? teacherAnswer(p, key) : undefined);
 }
 
+/** Every focus key `personId` has an answer for, in the order they're written (a teacher's own skill last). */
+export function topicsKnownBy(personId: string): string[] {
+  const p = PEOPLE[personId];
+  const keys = Object.keys(ANSWERS[personId] ?? {});
+  const taught = p?.teaches ? `skill:${p.teaches.skill}` : null;
+  return taught && !keys.includes(taught) ? [...keys, taught] : keys;
+}
+
 export type AskResult =
   | { kind: 'told'; line: string; answer: Answer }
   | { kind: 'not-yet'; line: string }

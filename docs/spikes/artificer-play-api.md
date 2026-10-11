@@ -47,7 +47,7 @@ serialize(game) / deserialize(text), GAME_VERSION
    - Per-IP limits on games started and moves made.
 2. **Remote MCP server** (phase 3) at `artificer.corewarden.app/mcp`.
    - Anyone adds it in claude.ai as a custom connector, or in any client that speaks remote MCP.
-   - Tools: `new_game`, `look`, `act`, `plan_day`, `choose`, `rules`.
+   - Tools: `new_game`, `look`, `act`, `plan_day`, `choose`, `ask_question` (#1575), `rules`.
 3. **Text console for people** (phase 4) at `/console`. The same text game in the browser, played through the API.
 
 **Run records** (phase 5): every finished game writes a row in `artificer_runs`.
@@ -56,6 +56,8 @@ serialize(game) / deserialize(text), GAME_VERSION
 - **The outcome and key measures.**
 
 The nightly AI playtest uploads its runs too. Two pages read them live from Supabase, through the play API (`GET /api/v1/runs`, cached a minute at Vercel's edge): **Records** on the Artificer site for players, and an **AI page** on the dev site for progression and cost by model.
+
+**Free questions** (#1575, plan #1574): on the road a player may ask each person one question in their own words per stay, as the move `{ ask: { person, question } }` (the web game plays on the page and keeps its questions through `POST /api/v1/questions`). The server matches it to what that person knows, plays it as `question:<person>:<topic>`, and keeps the question, cleaned, in `artificer_questions`. The game and its stored moves see only the matched topic, never the words.
 
 **Fair comparisons and achievements** (phase 6):
 - **Web-game runs** are submitted with their seed and moves, and **re-simulated** on the server before they count. The sim is deterministic, so a replay is exact.

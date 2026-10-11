@@ -23,7 +23,8 @@ import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
 import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
-import { ask, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Lead } from './asks';
+import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
+import { deflectionOf } from './free-questions';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -117,6 +118,11 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   heard?: string[];
   /** What each person has answered when asked (#1495), by person id: the focus keys. Absent before asks. */
   asked?: Record<string, string[]>;
+  /**
+   * People you've asked a free question this stay (#1575): once each, in your own words. Cleared
+   * when the caravan moves on. Absent before free questions.
+   */
+  questioned?: string[];
   /** Signs you've noticed (#1496), by person id: the topic keys they're tied to. Absent before noticing. */
   noticed?: Record<string, string[]>;
   /** People answers have pointed you to (#1497), in the order you heard of them. Absent before leads. */
@@ -231,6 +237,7 @@ function clone(s: RoadState): RoadState {
     appraised: [...s.appraised],
     ...(s.heard ? { heard: [...s.heard] } : {}),
     ...(s.asked ? { asked: Object.fromEntries(Object.entries(s.asked).map(([k, v]) => [k, [...v]])) } : {}),
+    ...(s.questioned ? { questioned: [...s.questioned] } : {}),
     ...(s.noticed ? { noticed: Object.fromEntries(Object.entries(s.noticed).map(([k, v]) => [k, [...v]])) } : {}),
     ...(s.leads ? { leads: s.leads.map(l => ({ ...l })) } : {}),
     ...(s.deeds ? { deeds: [...s.deeds] } : {}),
@@ -279,7 +286,7 @@ export function setRoadFocus(s: RoadState, focus: Focus | null): RoadState {
  * (#1245): `craft:<recipe>`, `study:<concept>`, `tend`; on the wagon, `help`. A healer — Ottilia on the
  * wagon, or the village's — tends an injury (#1394): `heal:<healerId>`.
  */
-export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `ask:${string}` | `tell:${string}` | `heal:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
+export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` | `ask:${string}` | `question:${string}` | `tell:${string}` | `heal:${string}` | `sell:${string}` | `buy:${string}` | `accept:${string}` | `complete:${string}` | `learn:${string}` | `appraise:${string}` | `craft:${string}` | `study:${string}`
   /** Region 1's camp and land work — refused on the road ("Not from the wagon"), but named so a player can try. */
   | ActionId;
 
@@ -335,6 +342,7 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     return next;
   }
   if (id.startsWith('ask:')) return askAbout(next, id.slice(4));
+  if (id.startsWith('question:')) { const [pid, topic] = id.slice(9).split(/:(.*)/s); return freeQuestion(next, pid, topic ?? ''); }
   if (id.startsWith('tell:')) { const [pid, deed] = id.slice(5).split(':'); return tellOf(next, pid, deed ?? ''); }
   if (id.startsWith('sell:') || id.startsWith('buy:')) return trade(next, id);
   if (id.startsWith('accept:')) return accept(next, id.slice(7));
@@ -609,25 +617,61 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const r = ask(person, key, focusInline(f), (next.trust[pid] ?? 0) + shown + sent, next.asked?.[pid] ?? []);
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
-  const a = applyActivity(next.vitals, { hours: ASK_HOURS, vigorRate: 0, clarityRate: -1 });
+  spendTalk(next, ASK_HOURS);
+  if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
+  say(next, r.line, 'action');
+  if (r.kind === 'told') noteLead(next, person, key, r.answer);
+  return next;
+}
+
+/** An hour or so of talk: a little Clarity, and Charisma exercised (#1257). */
+function spendTalk(next: RoadState, hours: number): void {
+  const a = applyActivity(next.vitals, { hours, vigorRate: 0, clarityRate: -1 });
   next.vitals = a.vitals;
   next.today.loadClarity += a.loadClarity;
-  next.hoursToday += ASK_HOURS;
-  exerciseStats(next, { cha: ASK_HOURS });
-  if (r.kind === 'told') {
-    next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), key] };
-    next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
-    next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.answer.text)])];
-    if (r.answer.insight) addInsight(next.concepts, r.answer.insight.concept, r.answer.insight.amount, CRAFT_WORLD.concepts);
-  }
-  say(next, r.line, 'action');
-  // An answer that sends you to someone elsewhere (#1497): a lead, in the quest log.
-  const lead = r.kind === 'told' ? leadOf(r.answer, key, pid) : undefined;
-  if (lead && !sentTo(next.leads, lead.who, lead.about)) {
-    next.leads = [...(next.leads ?? []), lead];
-    const about = parseFocus(lead.about);
-    say(next, `A lead: ${personById(lead.who)?.name ?? lead.who}${lead.where ? ` at ${VILLAGES[lead.where]?.name ?? lead.where}` : ''}, about ${about ? focusInline(about) : lead.about}. ${person.name} sent you; it's in your quest log.`, 'milestone');
-  }
+  next.hoursToday += hours;
+  exerciseStats(next, { cha: hours });
+}
+
+/** What hearing an answer does (#1495): remembered as told, trust for asking, its names heard, its insight learned. */
+function heardAnswer(next: RoadState, pid: string, key: string, answer: Answer): void {
+  next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), key] };
+  next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
+  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(answer.text)])];
+  if (answer.insight) addInsight(next.concepts, answer.insight.concept, answer.insight.amount, CRAFT_WORLD.concepts);
+}
+
+/** An answer that sends you to someone elsewhere (#1497): a lead, in the quest log. */
+function noteLead(next: RoadState, person: Person, key: string, answer: Answer): void {
+  const lead = leadOf(answer, key, person.id);
+  if (!lead || sentTo(next.leads, lead.who, lead.about)) return;
+  next.leads = [...(next.leads ?? []), lead];
+  const about = parseFocus(lead.about);
+  say(next, `A lead: ${personById(lead.who)?.name ?? lead.who}${lead.where ? ` at ${VILLAGES[lead.where]?.name ?? lead.where}` : ''}, about ${about ? focusInline(about) : lead.about}. ${person.name} sent you; it's in your quest log.`, 'milestone');
+}
+
+/**
+ * A free question (#1575): once per person per stay, asked in your own words. The words never get
+ * here: they were matched first (free-questions.ts `matchQuestion`), and `topic` is the focus key
+ * they matched, or empty. The owner's call is that a free question may pass the gates, so a topic
+ * they know is answered whatever your trust and focus. One they can't place, they deflect. Either
+ * way it's an hour's talk, like an ask, and it uses up the question.
+ *
+ * Asked about something they've already told you, they tell you again, and nothing more comes of it.
+ */
+function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
+  const person = peopleHere(next).find(p => p.id === pid);
+  if (!person) { say(next, `Question: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
+  if ((next.questioned ?? []).includes(pid)) { say(next, `Question: skipped — you've asked ${person.name} your question this stay.`, 'skip'); return next; }
+  next.questioned = [...(next.questioned ?? []), pid];
+  spendTalk(next, ASK_HOURS);
+  const answer = topic ? answerFor(pid, topic) : undefined;
+  if (!answer) { say(next, deflectionOf(pid, person.name), 'action'); return next; }
+  const again = (next.asked?.[pid] ?? []).includes(topic);
+  if (!again) heardAnswer(next, pid, topic, answer);
+  const about = parseFocus(topic);
+  say(next, `You ask ${person.name} about ${about ? focusInline(about) : topic}. ${person.name}: "${answer.text}"`, 'action');
+  if (!again) noteLead(next, person, topic, answer);
   return next;
 }
 
@@ -875,6 +919,8 @@ export function endRoadDay(s: RoadState): RoadState {
     next.appraised = [];
     say(next, `The caravan rolls out at dawn, leaving ${leg.name} behind.`, 'milestone');
   }
+  // A new stay, a new question for everyone (#1575): the village's people, or on the wagon the caravan's own.
+  if (next.questioned?.length) next.questioned = [];
   if (next.leg === ROUTE.length - 1) {
     next.legDay = leg.days;
     next.outcome = { kind: 'arrived', vitals: next.vitals };
