@@ -788,6 +788,8 @@ export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
       return `The house of ${house} lost its last seat in ${here}.`;
     case "FEUD":
       return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} fought over ${titled(ev.titleId)}; ${ev.data["attacker_won"] ? `${name(w, ev.actorId)} won` : `${name(w, ev.targetId)} held`}.`;
+    case "FEUD_FLARES":
+      return `The old feud flared again in ${here}: ${who(w, ev.actorId)} laid claim to ${titled(ev.titleId)}, held by ${who(w, ev.targetId)}.`;
     case "BORDER_WAR":
       return `${who(w, ev.actorId)} came from outside ${here} to fight for ${titled(ev.titleId)}, and ${ev.data["attacker_won"] ? "took it" : "was turned back"}.`;
     case "ALLIANCE":
@@ -834,8 +836,14 @@ export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
     }
     case "BANDITRY":
       return ev.actorId ? `${who(w, ev.actorId)} led outlaws on the roads of ${at}.` : `Bandits troubled the roads around ${at}.`;
-    case "HARD_WINTER":
-      return `A hard winter gripped ${here}.`;
+    case "HARD_WINTER": {
+      // Since #1608 a hard winter costs lives (more in a poor region). Populations
+      // are abstract, so it's told by its share of the people, not a head count.
+      const share = Number(ev.data["share"] ?? 0);
+      return share >= 0.018 ? `A hard winter gripped ${here}, and many died of the cold and hunger.`
+        : share >= 0.012 ? `A hard winter gripped ${here}, and the old and the weak died of the cold.`
+        : `A hard winter gripped ${here}.`;
+    }
     case "FAIR":
       return `A great fair was held at ${at}.`;
     case "FESTIVAL":

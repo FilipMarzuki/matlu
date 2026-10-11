@@ -32,14 +32,55 @@ events, not only who holds a province).
   festival"). A few belong to the region itself (a hard winter, banditry, a fair, the venture's
   luck, people arriving from a troubled neighbour). Those draw on the world's **separate regional
   random stream** (`World.regionRng`, seeded from the world seed through a mix).
-- **No feedback, no hash moves.** The level writes only `World.regions`, `World.regionOf` and its
-  own log, `World.regionalEvents`. It never writes `World.events` and never draws from `World.rng`.
-  The two engine changes it needed are writes of values the engine already computed (each
-  province's harvest roll, `lastHarvest`, and which provinces a plague reached, `plaguedYear`).
-  So **every golden hash in `testkit.ts` and the Reach's pinned event log
-  (`src/artificer/world/history.test.ts`) are unchanged**. Letting the region push back into the
-  simulation (a levy thinning a province, a hard winter killing) would move them; that's a later
-  choice.
+- **It pushes back (#1608).** As #1598 shipped it, the level only read the engine, and no hash
+  moved. Since #1608 it ends each year by writing a few consequences back into the engine's own
+  state (below: **Pushing back**). It still never writes `World.events` and never draws from
+  `World.rng`, but the provinces and people it changes are what the engine's next year reads, so
+  the golden hashes and the Reach's pinned event log were rebaselined.
+
+## Pushing back (#1608)
+
+Owner, 2026-10-11: regions should affect the simulation. `regions.ts` `pushBack` runs for each
+region at the end of `runRegions`, after the year is read and the roads updated, and changes the
+engine's state. The engine's **next** year reads it: `World.power` (wars, marriages), scarcity
+(hunger, expansion, famine), opinions and claims (goals, plots, wars). Running last means this
+year's engine rolls are exactly as they were; only what follows feels the region. Every knob is in
+`FEEDBACK` (`regions.ts`), in one place to tune.
+
+| Feedback | What it changes | Constants |
+|---|---|---|
+| **Levy** | each province whose lord fought this year loses `levyToll × levy` of its people (3% at a full levy); every province's wealth target drops `levyWork × levy` (fields untended) | `levyToll` 0.03, `levyWork` 0.15 |
+| **Hard winter** | every surface province loses `winterToll × hardship` of its people and `winterStores × hardship` of its wealth; the winter's event records the toll | `winterToll` 0.015, `winterStores` 0.08 |
+| **Famine** | on top of the engine's own toll, each famine province loses `famineToll × hardship` of its people and `famineStores × hardship` of its wealth | `famineToll` 0.03, `famineStores` 0.15 |
+| **Banditry** | the province bandits worked loses wealth; the engine's trade routes touching the region lose traffic (`TradeRoute.wealth`); the region's roads already lose trade (#1598), which feeds wealth | `banditWealth` 0.08, `banditRoute` 0.1 |
+| **Trade and prosperity** | each province's **wealth** (`Province.wealth`, 0–1, 0.5 getting by) eases 12% of the way a year toward the region's prosperity, plus its roads' trade (doubled at the market town), the venture's health (its province), and the busiest engine trade route through it, and is drawn 2% of the way back toward 0.5 (getting by) a year. The slow pull lets a hard winter or bandits be felt for years; the drift keeps prosperous regions from sitting at 0.7–0.8 everywhere. Wealth reaches its holder: `World.power` counts a province's people ×(1 + 0.4 × (wealth − 0.5)), so ±20%; in magic worlds the house treasury's income from the province scales ×(0.5 + wealth) | `wealthPull` 0.12, `wealthDrift` 0.02, `roadWealth` 0.3, `ventureWealth` 0.2, `routeWealth` 0.15, `WEALTH_POWER` 0.4 (`world.ts`) |
+| **Unsettled politics** | `Region.unsettled` (0–1) rises with a lord's death (0.1, a great lord 0.2), an empty seat (0.2), a seized seat (0.3) and keeps 60% a year. While it's up its lords of different houses lose `6 × unsettled` opinion of each other a year, bandits get easier (+0.1 × unsettled a year) and prosperity's target drops 0.1 × unsettled | `unsettle*`, `unsettleKeep` 0.6, `unsettledOpinion` 6, `unsettledBandits`, `unsettledProsperity` |
+| **A feud grows into war** | a feud is live 25 years after its lords last fought. Each year, if both houses still have a lord seated in the region and they aren't under a truce (often the sons, not the men who fought), it flares with chance `0.6 × unsettled` (from `World.regionRng`): the more vengeful lord gets a weak claim on the other's seat (`FEUD_FLARES`, significance 4), and both lose 15 opinion. The engine's goals turn the claim into a `SEIZE_TITLE` goal, and a war if the lord dares | `feudFlare` 0.6, `feudMemory` 25, `feudFlareOpinion` 15 |
+
+**Hardship** is `0.5 + (1 − prosperity)` with the region's prosperity going into the year: 1 in a
+region getting by, 1.5 in a destitute one, 0.5 in a rich one. A poor region has nothing to fall
+back on, so the same winter or famine kills more.
+
+Over 16 Reach seeds it's proportionate: about 9% fewer people at the end of 150 years, 10% fewer
+wars (poorer lords, thinner levies) and fewer famines (less crowded land) than with no feedback
+(measured at #1608's first tuning). `regions-feedback.test.ts` shows each
+effect against a control world built from the same seed.
+
+**Tuning (owner, 2026-10-11).** Wealth sat high in prosperous histories, so the pull toward the
+target was slowed (`wealthPull` 0.25 → 0.12) and a drift back toward 0.5 added (`wealthDrift`
+0.02). Over Reach seeds 1–16, province wealth at the end of the history went from median 0.55
+(10th–90th percentile 0.30–0.73, 95th 0.77) to median 0.51 (0.31–0.69, 5th–95th 0.24–0.71); over
+48 seeds (1–16, 100–115, 200–215) sampled every 10 years from year 40, from median 0.52 (5th–95th
+0.24–0.79) to median 0.49 (0.25–0.73). Feuds were not changed: counted in the regional log, a
+history has about 1.4 flares (1.31 before the wealth change and 1.44 after on seeds 1–16; 1.60
+and 1.54 over 48 seeds), already the owner's target of 1–1.5. Only about 0.4 of them fall within
+living memory (40 years), where a region's lines tell them, which is likely why they looked rarer. About
+3 in 4 flares see the claimant at war within ten years. Wars per history barely moved (45.3 →
+43.4 on seeds 1–16, 46.8 → 47.0 over 48), and raising `feudFlare` to 0.8 (about 2 flares a
+history) didn't change them either.
+
+The new randomness is one roll per live feud per year in an unsettled region, from the regional
+stream. Every other effect is arithmetic on values the year already produced.
 
 ## Region names
 
@@ -116,9 +157,12 @@ Hollowford country.", `renderRegionalEventNamed`).
   shows as a small gold mark (and explains in one line at the top). Nothing goes into
   `World.events` and nothing draws from `World.rng`, so the hashes and the Reach's pinned log
   don't move.
-- **`HISTORY_VERSION`** stays 4: version 4 hasn't shipped (main is on 3), so no kept history of
-  version 4 lacks these lines, the region names or the trades, and every kept history of 3 is
-  told again anyway.
+- **`HISTORY_VERSION`** 6 since #1608 (5 was #1586): the regions push back, so the same seed lives a different
+  history, and the told regions carry `unsettled` and each province's `wealth`.
+- A **hard winter** now says when it cost lives ("…and the old and the weak died of the cold";
+  "…and many died of the cold and hunger" when it took 1.8% or more, which is worth a point more,
+  4). A **flared feud** is 4. Both stay under the chronicle's 5, so they're told in the region's
+  own lines and facts; the war a flare leads to is told like any war.
 
 ## From the engine to facts
 
@@ -130,7 +174,9 @@ Hollowford country.", `renderRegionalEventNamed`).
    are told again.
 2. `src/artificer/world/regional-facts.ts` `regionalFacts(history)` turns that into facts in the
    knowledge model's shape: how things stand now (what it lives on, the venture, the times, bread,
-   who leads, dues, levies, feuds, alliances, roads, what each place grew up around and lives on)
+   who leads, dues, levies, feuds, alliances, roads, what each place grew up around and lives on,
+   the best- and worst-off places when their wealth is 0.12 or more apart, and an uneasy country
+   when it's unsettled 0.25 or more, which is `guarded`)
    and what happened there (each line dated).
    Scope `region:<id>` (`hollowford-country`). Truth and depth by age, as #1592 does for
    provinces: within a generation `true` and depth 1, within living memory (40 years) depth 2,
@@ -149,19 +195,22 @@ When both land, keep one `GENERATION` and have `remembered()` include the region
 
 ## Cost
 
-The regional pass adds about 5% to `runHistory`: about 20 ms of about 380 ms a seed in Node
-(`regions.timing.test.ts` prints it). `regionalFacts` takes under a millisecond for about 110
-facts.
+The regional pass adds about 6.5% to `runHistory`: about 22 ms of about 345 ms a seed in Node
+(`regions.timing.test.ts` prints it; pushing back added about 5 ms, from about 17). `regionalFacts`
+takes under a millisecond for about 100 facts.
 
 ## Story-engine checklist (CLAUDE.md)
 
 | Layer | Touched? |
 |---|---|
-| `types.ts` | `Region` (with `label`, `secondary`, `founding`), `Founding`, `RegionalEvent` and its kinds; optional `Province.lake`, `lastHarvest`, `plaguedYear` |
-| `world-spec.ts` | optional `ProvinceSpec.lake` |
-| `seed.ts` | sets `lake`; `formRegions` |
-| simulation | `tick.ts` runs `runRegions` last; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws) |
-| `perception.ts`, `culture-drift.ts`, `catastrophe.ts`, `magic.ts` | no: the level doesn't feed back into the simulation yet |
-| `sifter.ts` | `regionalSignificance` |
-| `render.ts` | `renderRegionalEvent`, `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
-| `testkit.ts` | region invariants in `checkInvariants`; golden hashes unchanged, no rebaseline |
+| `types.ts` | `Region` (with `label`, `secondary`, `founding`, `unsettled`), `Founding`, `RegionalEvent` and its kinds (`FEUD_FLARES` since #1608); optional `Province.lake`, `lastHarvest`, `plaguedYear`, `wealth` |
+| `world-spec.ts` | optional `ProvinceSpec.lake`; nothing for #1608 (wealth starts at 0.5 everywhere, and the knobs are `FEEDBACK`, not per world) |
+| `seed.ts` | sets `lake` and `wealth` (0.5); `formRegions` |
+| simulation | `tick.ts` runs `runRegions` last, which ends with `pushBack`; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws); `world.ts` `power` reads `wealth`. `geography.ts` and `people.ts` unchanged: population and claims are changed directly, and regrowth reads the population as it finds it |
+| `perception.ts` | yes (#1608): a landed lord in an unsettled region gets `unsettled × 0.006` more chance a year of a distortion (`UNSETTLED_ONSET`). Changes the odds of a roll the engine makes anyway, never the number of rolls |
+| `culture-drift.ts` | no: it reads the year's engine events, and the regions' consequences reach it through them (fewer famines, different wars). A regional pressure would add culture variety the owner wants kept low near the start (answer 5) |
+| `catastrophe.ts` | no: catastrophes are world-scale and already feed the regions (`GREAT_FROST` is a hard winter everywhere); deepening their tolls by region would count the same disaster twice |
+| `magic.ts` | yes (#1608): a house's income from a province scales ×(0.5 + wealth) |
+| `sifter.ts` | `regionalSignificance`; `FEUD_FLARES` 4, a killing winter +1 |
+| `render.ts` | `renderRegionalEvent` (a winter's toll, a flared feud), `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
+| `testkit.ts` | region invariants in `checkInvariants` (plus `unsettled`, `wealth` in bounds, the population floor, flared feuds name a title and two lords); golden hashes rebaselined for #1608 |

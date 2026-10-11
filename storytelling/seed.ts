@@ -46,6 +46,7 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
       subsurface: p.subsurface ?? false,
       mineralWealth: p.mineralWealth ?? 0,
       lake: p.lake ?? false,
+      wealth: 0.5, // getting by; the regional level moves it from year one (#1608)
       // classStructure is filled in a second pass below, after cultures are
       // in place (culture is needed to pick between urban_patriciate and
       // agrarian_serfs when the terrain alone is ambiguous).

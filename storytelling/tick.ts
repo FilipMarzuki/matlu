@@ -207,8 +207,13 @@ export function tick(w: World): void {
 
   // --- regional level (#1598) — reads the finished year: its events, its
   // harvests and plagues, who now holds what. Last, so it sees the year whole.
-  // Writes only its own state and log and draws only from w.regionRng, so the
-  // canonical event log (and every golden hash) is unchanged by it.
+  // It draws only from w.regionRng and logs to its own log, then pushes back
+  // (#1608): levies, hard winters, famine and bandits thin provinces and empty
+  // their stores, trade sets their wealth, and unsettled politics chill its
+  // lords and can turn a feud into a claim. Those changes are the engine's
+  // state, so NEXT year's simulation (wars, harvests, goals) reads them, and
+  // the golden hashes include them. Running last keeps this year's engine
+  // rolls exactly as they were; only what follows feels the region.
   runRegions(w, evStart);
 }
 

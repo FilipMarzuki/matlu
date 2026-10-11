@@ -397,7 +397,10 @@ function accrueWealth(w: World): void {
       const holder = w.char(t.holderId);
       if (!holder || holder.dynastyId !== dyn.id) continue;
       const prov = w.province(t.provinceId);
-      if (prov) income += prov.population / 100;
+      // A rich province pays more into the treasury, a poor one less (#1608:
+      // the regional level sets its wealth from trade and prosperity; at 0.5,
+      // getting by, the factor is 1, as before).
+      if (prov) income += (prov.population / 100) * (0.5 + (prov.wealth ?? 0.5));
       income += t.tier === "kingdom" ? 10 : t.tier === "duchy" ? 5 : 3;
       // Class-holder productivity multiplier — a [Master Trader] holding a
       // seat brings dramatically more silver into the treasury than a
