@@ -48,7 +48,9 @@ import { UNPAID_HELP_TRUST, type Boarding, type Fare } from './caravan-meeting';
 import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, rollOutcome, type EncounterTemplate, type PendingEncounter } from './encounters';
 import { streamFor } from './rng';
 import { seedOf } from './talents';
-import { momentOfTruth, readingLeft, SECRET_GATE } from './rapport';
+import { momentOfTruth, readerOf, readingLeft, SECRET_GATE } from './rapport';
+import { liesFor, PROPOSITIONS } from './claims';
+import { claimsHeard, journalOf, readsAsLie, CLAIMED, type HeardClaim, type JournalEntry } from './journal';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -714,11 +716,15 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const own = next.trust[pid] ?? 0;
   // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
   // read from this run's saved switches, never a global.
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), ...standingOf(next) });
+  // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), lies: liesFor(next.features), ...standingOf(next) });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
+  const before = heardSoFar(next);
   if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
-  say(next, r.line, 'action');
+  if (r.kind === 'lied') heardLie(next, pid, key, r.lie.text);
+  say(next, weighClaim(next, pid, r.line, own, before), 'action');
+  flagClash(next, pid, before);
   if (r.kind === 'told') noteLead(next, person, key, r.answer);
   // A secret told on their trust alone (#1578), not because someone sent you or you'd noticed: a moment of truth.
   if (r.kind === 'told' && r.answer.at >= SECRET_GATE && own >= r.answer.at) showsTruth(next, pid);
@@ -749,6 +755,73 @@ function heardAnswer(next: RoadState, pid: string, key: string, answer: Answer):
   next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
   next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(answer.text, next.features)])];
   if (answer.insight) addInsight(next.concepts, answer.insight.concept, answer.insight.amount, CRAFT_WORLD.concepts);
+}
+
+/**
+ * A lie told instead of an answer (#1580): kept as `claimed:<topic>` in what they've answered, so the
+ * journal can read it back and an ask again finds they stick to it. Otherwise as hearing an answer:
+ * trust for asking (they don't know you caught nothing), and its names heard. No insight, no lead.
+ */
+function heardLie(next: RoadState, pid: string, key: string, text: string): void {
+  next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), `${CLAIMED}${key}`] };
+  next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
+  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(text, next.features)])];
+}
+
+/** The villages the caravan has reached, in route order (#1580): being there is checking for yourself. */
+export const villagesVisited = (s: Pick<RoadState, 'leg'>): string[] =>
+  ROUTE.slice(0, s.leg + 1).flatMap(l => (l.kind === 'village' ? [l.id] : []));
+
+/**
+ * The journal of who said what (#1580, journal.ts), read off what's been told and where you've been:
+ * null with `rumours-and-lies` off (and in a run from before it), so nothing below adds a line.
+ */
+export function journalNow(s: RoadState): JournalEntry[] | null {
+  const heard = heardSoFar(s);
+  return heard && journalOf(heard, villagesVisited(s));
+}
+
+/** Every claim heard so far (journal.ts `claimsHeard`), or null with `rumours-and-lies` off. */
+function heardSoFar(s: RoadState): HeardClaim[] | null {
+  return featureOn(s.features, 'rumours-and-lies') ? claimsHeard(s.asked, factsFor(s.features), liesFor(s.features)) : null;
+}
+
+/** The claim `pid` has just made, if it's one the journal keeps: in what's been heard now and not `before`. */
+function newClaim(next: RoadState, pid: string, before: readonly HeardClaim[]): HeardClaim | undefined {
+  return (heardSoFar(next) ?? []).find(c => c.person === pid && !before.some(b => b.person === pid && b.topic === c.topic && b.version === c.version));
+}
+
+/**
+ * The line an answer is said with (#1580): with the journal on, a claim about something people make
+ * claims about is read for a lie (journal.ts `readsAsLie`: weak, better with rapport, Charisma, a
+ * clear head, and a claim already heard that says otherwise), and a doubt, right or wrong, is said
+ * after it. `trust` is the trust they had in you as they said it.
+ */
+function weighClaim(next: RoadState, pid: string, line: string, trust: number, before: readonly HeardClaim[] | null): string {
+  if (!before) return line;
+  const c = newClaim(next, pid, before);
+  if (!c) return line;
+  const evidence = before.some(b => b.proposition === c.proposition && b.version !== c.version);
+  if (!readsAsLie(readerOf(next), pid, c.topic, c.truth === 'lie', trust, evidence)) return line;
+  return `${line} Something in how ${personById(pid)?.name ?? TRAVELLERS.find(t => t.id === pid)?.name ?? pid} says it doesn't sit right with you.`;
+}
+
+/**
+ * A clash flagged (#1580): the claim `pid` just made doesn't agree with one heard before about the
+ * same thing. Said once, as it's heard; the journal keeps both. If it was `pid` themself who told
+ * you otherwise, they've changed their story, and that's what's said.
+ */
+function flagClash(next: RoadState, pid: string, before: readonly HeardClaim[] | null): void {
+  if (!before) return;
+  const c = newClaim(next, pid, before);
+  if (!c) return;
+  const clash = before.filter(b => b.proposition === c.proposition && b.version !== c.version);
+  if (!clash.length) return;
+  const name = (id: string): string => personById(id)?.name ?? TRAVELLERS.find(t => t.id === id)?.name ?? id;
+  if (clash.some(b => b.person === pid)) { say(next, `That isn't what ${name(pid)} told you before. Your journal has both.`, 'milestone'); return; }
+  const names = [...new Set(clash.map(b => name(b.person)))];
+  const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+  say(next, `That doesn't square with what ${who} told you about ${PROPOSITIONS[c.proposition]?.label.replace(/^The /, 'the ') ?? 'it'}. Your journal has both.`, 'milestone');
 }
 
 /** An answer that sends you to someone elsewhere (#1497): a lead, in the quest log. */
@@ -807,9 +880,13 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
-  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next), ...standingOf(next) });
+  // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
+  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
+  const before = heardSoFar(next);
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
-  say(next, r.line, 'action');
+  if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);
+  say(next, weighClaim(next, pid, r.line, own, before), 'action');
+  flagClash(next, pid, before);
   if (r.kind === 'told' && !r.again) {
     noteLead(next, person, topic, r.answer);
     // As for an ask: a secret told on their trust alone is a moment of truth (#1578).
@@ -1081,6 +1158,8 @@ export function endRoadDay(s: RoadState): RoadState {
     say(next, MISTHEIM_ARRIVAL, 'outcome');
     return next;
   }
+  // The journal as it stood on the road (#1580), to see what arriving settles.
+  const journal = journalNow(next);
   next.leg += 1;
   next.legDay = 1;
   const now = legOf(next);
@@ -1093,6 +1172,8 @@ export function endRoadDay(s: RoadState): RoadState {
     }
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+    // Checking for yourself (#1580): something you were told about here, you can now see.
+    if (journal) for (const e of journalNow(next) ?? []) if (e.seen && journal.find(j => j.proposition === e.proposition)?.status !== 'checked') say(next, e.seen, 'milestone');
     // What the village lives on (#1599): how it looks and sounds, its trade, and its market.
     if (featureOn(next.features, 'village-economies')) {
       const lines = arrivalLines(now.id);

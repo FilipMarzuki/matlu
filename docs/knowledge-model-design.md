@@ -257,6 +257,32 @@ friend they've helped (a quest done for them, or a deed for someone elsewhere) a
 switch. Secrets, lies with a reason, and road people drawn from the engine's characters (#1586)
 are still to come.
 
+**Slice G in the game (#1580):** rumours, lies with a reason, and the journal of who said what,
+behind the `rumours-and-lies` rule switch. All content is in `src/artificer/content/claims.json`,
+every entry a placeholder for the owner:
+- **Lies** (`claims.ts`): three, one per village, each with a **motive** the data must hold up
+  (`motiveProblem`): Tobin denies the Compact (he's of it, and it's secret) until trust 50; Hedda
+  says salt is scarce (she sells it) until 50; Sabine says Orrin was never near a hold (her friend,
+  `orrin-sabine`) until 25. Anyone bound to tell never lies. A lie replaces "not yet" in an ask or a
+  free question and reads like any answer; the road keeps it as `claimed:<topic>` in `asked`, so
+  nothing new is saved, and asked again once trusted, they tell the truth and the journal notes they
+  told you otherwise.
+- **Rumours**: two, each seen by someone (`path[0]`) and passed on. Each hop is a person-scope fact
+  with `claimSource` (saw / told / common, which is its hedge) and loses confidence (×0.7); the number
+  always grows and the place can move, by a rule seeded per rumour and hop with its own generator
+  (`driftOf`); a weak tie (a traveller or trader) doubles the drift. With Maren's false view of
+  Tobin (#1588), someone in every village is wrong about something.
+- **The journal** (`journal.ts`), read off `asked`, the run's facts and lies, and the villages
+  reached: claims filed under a proposition, **corroborated** by independent origins (a rumour's
+  hops share one; a village's common talk is one), **contradicted** when two versions clash (flagged
+  as it's heard), **checked** by being in the village a claim names. Shown in the quest log and to
+  the AI (`observeRoad`, so the play API and MCP too).
+- **Reading a lie** (`readsAsLie`): 54% for a stranger (Bond and DePaulo 2006), better with trust,
+  evidence, Charisma and a clear head (rapport.ts `readError`), at most 95%; seeded per Warden,
+  person and topic. Wrong both ways: a doubt can fall on an honest answer.
+Not yet: costs of acting on a false claim (a wasted trip, a bad price), rapport moved by a lie found
+out, confronting a liar, and the Warden's own lies (#1499).
+
 ## Questions for the owner
 
 1. **Truth vs rumour:** how often should people be confidently wrong, and how often lie? (The

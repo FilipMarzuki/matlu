@@ -33,7 +33,8 @@ import { ASK_HOURS, tellsFor } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
-import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
+import { respondedOn, type JournalEntry } from '../artificer/journal';
 import { peopleOf, personById, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { encounterById, optionsFor, stepOf, type EncounterOption } from '../artificer/encounters';
@@ -450,6 +451,15 @@ function quirkLine(s: Region1State): string | null {
   return `QUIRKS: ${[...known, ...fears].join(' · ') || 'none known'}${hidden ? ` · ${hidden} not yet known (how you react when it's too much)` : ''}`;
 }
 
+/** How a journal entry reads to the AI (#1580): its status, then each account with its hedge, and whether it was so once checked. */
+const JOURNAL_STATUS: Readonly<Record<JournalEntry['status'], string>> = {
+  heard: 'one source', corroborated: 'CORROBORATED by independent sources', contradicted: 'CONTRADICTED: the accounts clash', checked: 'CHECKED for yourself',
+};
+function journalLine(e: JournalEntry): string {
+  const said = e.claims.map(c => `${personById(c.person)?.name ?? TRAVELLERS.find(t => t.id === c.person)?.name ?? c.person} (${c.hedge}): "${c.text}"${c.right === undefined ? '' : c.right ? ' ✓ so' : ' ✗ not so'}`);
+  return `- ${e.label} — ${JOURNAL_STATUS[e.status]}${e.seen ? `: ${e.seen}` : ''} · ${said.join(' · ')}`;
+}
+
 /** Render a road day's observation (#1251). `notes` carries harness feedback, as in Region 1. */
 export function observeRoad(r: RoadState, notes: readonly string[] = []): string {
   const lines: string[] = [];
@@ -481,12 +491,19 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     }
   }
   // Leads (#1497): who answers have sent you to, and whether you've asked them yet.
-  if (r.leads?.length) lines.push(`LEADS: ${r.leads.map(l => `${l.who} (${personById(l.who)?.name}, ${l.where ?? 'on the road'}) about ${l.about}, from ${l.from}${(r.asked?.[l.who] ?? []).includes(l.about) ? ' — asked' : ''}`).join(' · ')}`);
+  if (r.leads?.length) lines.push(`LEADS: ${r.leads.map(l => `${l.who} (${personById(l.who)?.name}, ${l.where ?? 'on the road'}) about ${l.about}, from ${l.from}${respondedOn(r.asked?.[l.who], l.about) ? ' — asked' : ''}`).join(' · ')}`);
 
-  // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered.
+  // The journal of who said what (#1580): the same claims and hedges a person sees on the page.
+  const journal = journalNow(r);
+  if (journal?.length) {
+    lines.push('WHO SAID WHAT (your journal: each account, and how sure they sounded; accounts can be wrong, or lies):');
+    for (const e of journal) lines.push(journalLine(e));
+  }
+  // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered
+  // (a lie told instead, #1580, is an answer too, as far as anyone asking can tell).
   if (r.focus && r.focus.kind !== 'goal') {
     const key = focusKey(r.focus);
-    const asked = peopleHere(r).map(p => `ask:${p.id}${(r.asked?.[p.id] ?? []).includes(key) ? ' (answered)' : ''}`);
+    const asked = peopleHere(r).map(p => `ask:${p.id}${respondedOn(r.asked?.[p.id], key) ? ' (answered)' : ''}`);
     lines.push(`ASK ABOUT YOUR FOCUS (${focusLabel(r.focus)}), ${ASK_HOURS}h each: ${asked.join(', ')}`);
   }
   // What you did in the Reach (#1499): who here it means something to.

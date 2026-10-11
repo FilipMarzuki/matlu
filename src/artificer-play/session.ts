@@ -29,6 +29,7 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
+import { respondedOn } from '../artificer/journal';
 import { GAME_VERSION } from './version';
 
 /** The session format's version (version.ts): a stored game from another version doesn't load. */
@@ -175,7 +176,8 @@ export function apply(g: Game, move: Move): ApplyResult {
     next = roadAct(before, played.do as RoadActionId);
     // Answered means told: the topic is among what they've told you now (again counts). A match
     // can still go unanswered with the knowledge model: not yet, or a referral.
-    const answered = topic !== null && (next.road?.asked?.[person] ?? []).includes(topic);
+    // A lie told instead (#1580, `claimed:<topic>`) is an answer too: they responded.
+    const answered = topic !== null && respondedOn(next.road?.asked?.[person], topic);
     asked = { person, text, topic, answered, trust: Math.round(r.trust[person] ?? 0) };
   } else if ('set' in move) {
     const r = applySet(before, move.set);

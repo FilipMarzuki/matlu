@@ -10,7 +10,9 @@
  * Written for the lore pass (#1253) from WORLD.md, WORLD_LORE.md and
  * docs/peoples-and-races.md: every person is one of the Mistheim Peoples living
  * in a real culture, and what they tell you is true of the world. The places
- * and people are new; nothing they say should contradict canon.
+ * and people are new; nothing they say should contradict canon. Since #1580
+ * that holds for what's true: with rumours and lies on, people can be wrong or
+ * lie (claims.ts), and the owner's call is that those may contradict canon.
  * Pure data plus pure helpers; road.ts holds the state.
  */
 
