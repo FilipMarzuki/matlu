@@ -78,7 +78,7 @@ The 12 stale IDs are folded into the closest canonical People rather than promot
 | thicket-dwellers | `{ "skogsvattar": 1.0 }` | `{ "Lövfolk": 1.0 }` | unchanged |
 | **nestborne** | `{ "chitinvavare": 1.0 }` | **retired** (insectoid trait set has no canonical analog) | retired |
 
-The #1623 column puts the human Peoples back where `human` stood before #709, keeping a share for the Markfolk, who have lived in those cultures in Artificer's villages since. The Reach's own copy of these weights (`src/artificer/world/peoples.ts`, `PEOPLES_OF`) is left as it was, because changing it changes every generated Reach (an open question for the owner).
+The #1623 column puts the human Peoples back where `human` stood before #709, keeping a share for the Markfolk, who have lived in those cultures in Artificer's villages since. The Reach's own copy of these weights (`src/artificer/world/peoples.ts`, `PEOPLES_OF`) follows this column since #1631 (owner, 2026-10-11), and a Reach culture with no humans (a Pandor waterstead, a Bergfolk hall) can still seat a human house now and then (`ODD_PATCHES`, the odd patches of extra humans above). The houses' Peoples change; the engine gives Peoples no biology and the told history doesn't name them, so the history itself stays the same.
 
 Weights are first-pass and intended to be tuned later when settlement generation has visible output to balance against.
 

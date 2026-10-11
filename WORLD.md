@@ -2416,6 +2416,78 @@ they have made progress.
 
 ---
 
+#### Riksfolk
+
+*Added 2026-10-11 (#1631), from the Riksfolk's section above.*
+
+**Appearance:** Humans: the smallest-boned and shortest-lived of the speaking Peoples, and
+the most varied. Two Riksfolk siblings can look like they came from opposite ends of the
+continent, and a March village can hold every skin, hair and build the human Peoples have.
+Nobody can say why humans vary so much more than anyone else. Hands are rough and backs
+bent early: most Riksfolk work the land from childhood and are old at sixty.
+
+**Clothing:** Wool from the hill flocks and linen from the lowland flax, undyed or dyed
+with what grows by the ditches: weld yellow, woad blue, walnut brown. Working clothes are
+a long belted tunic over breeches, with a hooded cape against the wet. Boots are the
+expensive thing, oiled and resoled for a lifetime, because the Realm's ground is drained
+fen and nobody works it barefoot. A free farmer wears a charter token on a cord at the
+neck, a small stamped lead disc with the number of their charter in the roll. [Hedge-Wardens]
+wear green; [Charter-Clerks] go about with ink on their fingers and a wax tablet at the belt.
+The Marshal's soldiers wear grey, with Bergfolk iron and nothing on it to say whose
+soldiers they were before.
+
+**Architecture:** Timber frame, wattle and daub, and thatch, on a footing of field stone.
+Houses are long, with the byre at one end, set back from a lane along a ditch. What marks a
+Riksfolk landscape is not the buildings but the lines: straight ditches, straight hedges,
+straight fences, every field a shape someone wrote down. Windmills drain the March and
+grind its grain; sluice-houses stand where the ditches meet the river. A market town has a
+charter hall, timber on a stone ground floor, where the roll is kept, and a boundary stone
+in its square that every road is measured from.
+
+**Objects:** Charter rolls: long parchment scrolls, every holding in a parish written down,
+witnessed and sealed, kept in iron-bound chests and read aloud once a year. Boundary
+stones cut with the Realm's charter-mark, the crown over a straight line. Surveyors' chains
+and sighting-staffs. Iron hinges and latches, bought from the Bergfolk and fitted to every
+door, gate and chest: a latched door is the first thing a March farmer builds. The Stone
+Line's stones carry the charter-mark on one face and a boar clan's tusk-mark on the other.
+
+---
+
+#### Strandfolk
+
+*Added 2026-10-11 (#1631), from the Strandfolk's section above.*
+
+**Appearance:** Humans, as varied as the Riksfolk and weathered harder. Skin goes brown and
+lined early from wind and salt, and hair bleaches at the ends. Hands are scarred by line and
+net. Many harbour towns have families nobody can trace back more than a few generations,
+who simply turned up one season and stayed; the Hamnlag has a word for it, and doesn't use
+it to their faces.
+
+**Clothing:** Built to be wet in. Thick knitted ganseys in undyed grey or dark blue, each
+harbour town knitting its own pattern into the yoke, so a body the sea gives back can be
+sent home. Oilskin smocks and sou'westers, linseed-oiled and yellow-brown with age, over
+canvas trousers. Sea boots on deck, bare feet in harbour. A shipmaster wears a brass
+Hamnlag weight on a chain, the town's mark on one side and the league's on the other; a
+[Pilot] a knotted cord that records every passage they've learned.
+
+**Architecture:** Tarred timber on stone quays. Harbour towns climb the shore in narrow
+lanes from the waterfront, every house built to be seen from the sea, with a coloured door
+or gable so a crew can find home in bad light. Boatsheds and net-lofts stand along the
+water, and every harbour has its storm-lantern tower, lit whenever the weather turns,
+because storm-right means a harbour must be findable. They would build their harbour walls
+in stone if they could afford it; most are timber cribs filled with rubble, rebuilt after
+every great storm.
+
+**Objects:** Clinker-built boats, overlapping planks riveted together, the Strandfolk's real
+art: a [Shipwright] can tell which yard built a hull by its rivets. Sets of Hamnlag weights
+and measures, stamped and checked every year, so that one barrel weighs like another in
+every harbour. Contracts on thin wooden boards, cut with the shipmaster's mark and witnessed
+by a Deepwalker [Keeper]'s seal. Net-needles of bone and horn. Charts copied from the
+Deepwalkers' memory-charts and from each other, ending, every one, where the coast turns
+west beyond the Realm.
+
+---
+
 ### Alliances and political arrangements
 
 **The Compact of Knowing** — Pandor, Lövfolk, Deepwalkers, and Vitstad. A knowledge-

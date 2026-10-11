@@ -81,7 +81,14 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
  * `racePreferences`, in its order (docs/peoples-and-races.md, the #1623 column). Since #1631 the
  * Reach takes the human Peoples back where the doc puts them: fieldborn, ridgefolk and wallborn
  * hold Riksfolk beside the Markfolk orcs. The Reach is seeded, so a weight changed here changes
- * every generated Reach and its houses: history.test.ts's pin and HISTORY_VERSION move with it.
+ * which People every generated Reach's houses are.
+ *
+ * It changes nothing else, which is why #1631 moved no pin: each house's People is one draw from
+ * the stream whatever the list (`weighted` in history.ts), so the stream after it is the same;
+ * REACH_PEOPLES give the engine no biology, so a Riksfolk lord lives the same life a Markfolk one
+ * would; and the told history (history-format.ts) names houses, never their People. The event log
+ * (history.test.ts's pin), the told history and HISTORY_VERSION all stay as they were. Give a
+ * People traits in REACH_PEOPLES, or tell a house's People, and they move: rebaseline and bump.
  */
 export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number][]>> = {
   fieldborn: [['Markfolk', 0.6], ['Riksfolk', 0.4]],
