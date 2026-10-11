@@ -18,14 +18,14 @@ import { sift } from '../../../storytelling/sifter';
 import { extractArcs } from '../../../storytelling/arcs';
 import { renderEvent, renderLayeredChronicle } from '../../../storytelling/render';
 import type { World } from '../../../storytelling/world';
-import type { WorldEvent } from '../../../storytelling/types';
+import type { RegionalEvent, WorldEvent } from '../../../storytelling/types';
 import type { CharacterSpec, DynastySpec, TitleSpec, WorldSpec } from '../../../storytelling/world-spec';
 import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
 import { provincesOf, type Province, type Provinces } from './provinces';
 import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
 import { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
-import { renderRegionalEvent } from '../../../storytelling/render';
+import { renderRegionalEvent, renderRegionalEventNamed } from '../../../storytelling/render';
 import { regionLabel } from '../../../storytelling/regions';
 import { hasAlliance } from '../../../storytelling/diplomacy';
 
@@ -156,7 +156,11 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
   const { provinces, world } = simulateReach(seed, years);
   const { chronicle } = sift(world, TELL_THRESHOLD);
   const arcs = extractArcs(world, chronicle);
-  const text = renderLayeredChronicle(world, chronicle, arcs, { living: LIVING_MEMORY, chronicle: years });
+  // The big regional events join the told chronicle here, at the telling layer: they're read from
+  // the regional log after the history is lived, so nothing goes into World.events or draws from
+  // World.rng, and the event log (and every hash) stays as it was.
+  const extra = regionalChronicle(world, new Set(chronicle.map(e => e.id)));
+  const text = renderLayeredChronicle(world, chronicle, arcs, { living: LIVING_MEMORY, chronicle: years, extra });
 
   // Which province an event happened in: its own, or the seat of the title it's about.
   const where = (ev: WorldEvent) => ev.provinceId ?? world.title(ev.titleId)?.provinceId ?? null;
@@ -191,6 +195,38 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
     logged: world.events.length,
     told: chronicle.length,
   };
+}
+
+/**
+ * How significant a regional event must be to join the chronicle (the sifter's scale,
+ * sifter.ts regionalSignificance). Within living memory 5: famine and plague (6–7), a house
+ * losing its last seat in a region (5), a seat seized or left empty, a feud, a great lord's death
+ * (5). Not a fair or festival (2), a hard winter, bandits or a bad harvest (3), a failing mine
+ * (3–4). Older than living memory 6: only famine, plague and seizures are still told.
+ */
+export const REGION_CHRONICLE_THRESHOLD = 5;
+export const REGION_CHRONICLE_LEGEND_THRESHOLD = 6;
+
+/**
+ * The regional events the chronicle tells (#1598), oldest first, each naming its region. One
+ * that only retells an event the chronicle already tells (a seizure, a lord's death) is left out,
+ * unless it's a famine or plague across more than one of the region's lands: that's news the
+ * province lines don't give.
+ */
+export function regionalChronicleEvents(world: World, told: ReadonlySet<number>): RegionalEvent[] {
+  const present = world.year;
+  return world.regionalEvents
+    .filter(e => e.significance >= (present - e.year <= LIVING_MEMORY ? REGION_CHRONICLE_THRESHOLD : REGION_CHRONICLE_LEGEND_THRESHOLD))
+    .filter(e => {
+      if (e.causeEventId === null || !told.has(e.causeEventId)) return true;
+      return (e.kind === 'FAMINE' || e.kind === 'PLAGUE') && Number(e.data['provinces'] ?? 1) > 1;
+    })
+    .sort((a, b) => a.year - b.year || a.id - b.id);
+}
+
+/** Those events as the chronicle's extra lines (render.ts renderLayeredChronicle `extra`). */
+export function regionalChronicle(world: World, told: ReadonlySet<number>): { year: number; text: string }[] {
+  return regionalChronicleEvents(world, told).map(e => ({ year: e.year, text: renderRegionalEventNamed(world, e) }));
 }
 
 /** Regional events told per region: the most notable of living memory, and of the years before. */

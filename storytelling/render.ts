@@ -589,7 +589,16 @@ export interface LayeredOpts {
   chronicle?: number; // chronicle window in years (default 160)
   arcDecay?: number; // remembered-significance lost per year of age (default 0.2)
   focus?: FocusContext; // when set, prepend a focus banner to the output
+  // Lines told from outside the sifted event log (the Artificer's big regional
+  // events, #1598), already written. Each goes in year order: in living memory
+  // after that year's events, in the chronicle among the threads by start year.
+  // Marked "◇ " so a reader (and the HISTORY tab) can tell them apart. Older
+  // than the chronicle window: left out. Rendering only, no RNG.
+  extra?: { year: number; text: string }[];
 }
+
+/** The marker an `extra` line carries in the layered chronicle. */
+export const EXTRA_MARK = "◇";
 
 export function renderLayeredChronicle(
   w: World,
@@ -671,24 +680,49 @@ export function renderLayeredChronicle(
       return age > W1 && age <= W2 && remembered(a) >= 20;
     })
     .sort((x, y) => x.startYear - y.startYear || y.significance - x.significance);
-  if (chronicled.length) {
+  // Extra lines (stable sort keeps the caller's order within a year).
+  const extra = [...(opts.extra ?? [])].sort((a, b) => a.year - b.year);
+  const extraOld = extra.filter((x) => now - x.year > W1 && now - x.year <= W2);
+  const extraLiving = extra.filter((x) => now - x.year <= W1);
+  if (chronicled.length || extraOld.length) {
     if (out.length) out.push("");
     out.push("─".repeat(64), "THE CHRONICLE", "─".repeat(64));
-    for (const a of chronicled) out.push(`  ${a.title}`);
+    // Merge by year: a thread before an extra line of its start year.
+    let i = 0;
+    for (const a of chronicled) {
+      while (i < extraOld.length && extraOld[i].year < a.startYear) {
+        out.push(`  ${EXTRA_MARK} ${extraOld[i].text.replace(/\.$/, "")} (${extraOld[i].year}).`);
+        i++;
+      }
+      out.push(`  ${a.title}`);
+    }
+    for (; i < extraOld.length; i++) out.push(`  ${EXTRA_MARK} ${extraOld[i].text.replace(/\.$/, "")} (${extraOld[i].year}).`);
   }
 
   // ── LIVING MEMORY — individual events within the recent window ───────────
   const living = events.filter((e) => now - e.year <= W1);
-  if (living.length) {
+  if (living.length || extraLiving.length) {
     if (out.length) out.push("");
-    out.push("─".repeat(64), `LIVING MEMORY (${living[0].year}–${now})`, "─".repeat(64));
-    let lastYear = -Infinity;
+    const first = Math.min(living[0]?.year ?? Infinity, extraLiving[0]?.year ?? Infinity);
+    out.push("─".repeat(64), `LIVING MEMORY (${first}–${now})`, "─".repeat(64));
+    // Merge by year: each year's own events first, then its extra lines.
+    const lines: { year: number; text: string }[] = [];
+    let i = 0;
     for (const ev of living) {
-      if (ev.year !== lastYear) {
-        out.push("");
-        lastYear = ev.year;
+      while (i < extraLiving.length && extraLiving[i].year < ev.year) {
+        lines.push({ year: extraLiving[i].year, text: `${EXTRA_MARK} ${extraLiving[i].text}` });
+        i++;
       }
-      out.push(`${String(ev.year).padStart(4, " ")}  ${renderEvent(w, ev)}`);
+      lines.push({ year: ev.year, text: renderEvent(w, ev) });
+    }
+    for (; i < extraLiving.length; i++) lines.push({ year: extraLiving[i].year, text: `${EXTRA_MARK} ${extraLiving[i].text}` });
+    let lastYear = -Infinity;
+    for (const l of lines) {
+      if (l.year !== lastYear) {
+        out.push("");
+        lastYear = l.year;
+      }
+      out.push(`${String(l.year).padStart(4, " ")}  ${l.text}`);
     }
   }
 
@@ -708,6 +742,19 @@ const REGION_TRADE: Record<string, string> = {
 
 export function regionalTrade(livelihood: string): string {
   return REGION_TRADE[livelihood] ?? livelihood;
+}
+
+/**
+ * renderRegionalEvent, always naming the region: told on its own (a chronicle line), "Famine
+ * struck Ravenford." needs the country it was in: "Famine struck Ravenford, in the Hollowford
+ * country."
+ */
+export function renderRegionalEventNamed(w: World, ev: RegionalEvent): string {
+  const text = renderRegionalEvent(w, ev);
+  const region = w.regions.get(ev.regionId);
+  if (!region) return text;
+  const label = `the ${region.name} country`;
+  return text.toLowerCase().includes(label.toLowerCase()) ? text : `${text.replace(/\.$/, "")}, in ${label}.`;
 }
 
 export function renderRegionalEvent(w: World, ev: RegionalEvent): string {

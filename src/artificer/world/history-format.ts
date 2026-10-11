@@ -7,7 +7,7 @@
  */
 
 /** Bump when a change makes the same seed tell a different history, so kept histories are told again. */
-// 4: histories carry their regions (#1598).
+// 4: histories carry their regions, and the chronicle their big regional events (#1598).
 export const HISTORY_VERSION = 4;
 
 /**

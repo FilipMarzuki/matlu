@@ -736,6 +736,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .chronicle { max-width: 72ch; }
 .chronhead { margin-top: 14px; }
 .chron { margin: 0 0 5px; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.chron.regional { color: var(--dim); overflow-wrap: anywhere; }
+.regmark { color: var(--gold); }
 .provinfo .dim { color: var(--faint); }
 .lordships .faint { color: var(--faint); }
 

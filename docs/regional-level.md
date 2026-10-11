@@ -50,8 +50,32 @@ lake and how much of each is bare rock (`reachSpec`: `lake`, `mineralWealth`), s
 mining show up where they should.
 
 Each regional event gets a significance from the sifter (`sifter.ts` `regionalSignificance`: a fair
-is 2, a famine 6) and a sentence from the renderer (`render.ts` `renderRegionalEvent`). Regional
-events aren't in the chronicle (`renderLayeredChronicle`) yet.
+is 2, a famine 6) and a sentence from the renderer (`render.ts` `renderRegionalEvent`).
+
+## Big regional events in the chronicle
+
+The owner's call (2026-10-11): famine, plague, a house falling belong in the history. So the told
+chronicle (`ReachHistory.chronicle`, what the HISTORY tab shows) carries the big regional events
+in year order among the province events, each naming its region ("Famine struck Ravenford, in the
+Hollowford country.", `renderRegionalEventNamed`).
+
+- **Which.** `history.ts` `regionalChronicleEvents`: significance 5 and up within living memory
+  (famine and plague 6–7, a house losing its last seat in a region 5, a seat seized or left empty,
+  a feud, a great lord's death 5); older than living memory 6 and up (famine, plague, seizures).
+  Not a fair or festival (2), a hard winter, bandits or a poor harvest (3), a failing venture
+  (3–4). 5 is the province chronicle's own cutoff (`TELL_THRESHOLD`), so the two agree on what's
+  worth telling. An event that only retells a province event the chronicle already tells (a
+  seizure, a lord's death) is left out, unless it's a famine or plague across more than one of
+  the region's lands, which the province lines don't say. A seed tells about 15–20 of them.
+- **Where.** At the telling layer: `runHistory` reads `World.regionalEvents` after the history is
+  lived and hands the lines to `renderLayeredChronicle` as `extra` (rendering only). In living
+  memory each goes under its year, after that year's province events; in the older chronicle
+  among the threads by year, with the year in brackets. Each is marked `◇`, which the HISTORY tab
+  shows as a small gold mark (and explains in one line at the top). Nothing goes into
+  `World.events` and nothing draws from `World.rng`, so the hashes and the Reach's pinned log
+  don't move.
+- **`HISTORY_VERSION`** stays 4: the chronicle's shape (one text) didn't change, and version 4
+  hasn't shipped (main is on 3), so no kept history of 4 lacks these lines.
 
 ## From the engine to facts
 

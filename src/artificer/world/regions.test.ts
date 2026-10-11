@@ -13,7 +13,10 @@ import { seedOf } from '../rng';
 import { loadWorld } from '../../../storytelling/seed';
 import { generateReach } from './reach';
 import { provincesOf } from './provinces';
-import { reachSpec, runHistory } from './history';
+import { reachSpec, runHistory, simulateReach, regionalChronicleEvents, REGION_CHRONICLE_THRESHOLD, HISTORY_YEARS } from './history';
+import { sift } from '../../../storytelling/sifter';
+import { extractArcs } from '../../../storytelling/arcs';
+import { EXTRA_MARK, renderLayeredChronicle, renderRegionalEventNamed } from '../../../storytelling/render';
 import { GENERATION, factsOfRegion, lineFact, regionalFacts, regionOfProvince } from './regional-facts';
 import { LIVING_MEMORY } from './history-format';
 
@@ -115,6 +118,61 @@ describe('Regional history and facts (#1598)', () => {
     for (const f of regionalFacts(h)) {
       if (h.year - f.year > LIVING_MEMORY) expect([f.truth, f.depth]).toEqual(['rumour', 3]);
       else expect(f.truth).toBe('true');
+    }
+  });
+});
+
+describe('Big regional events in the told chronicle (#1598)', () => {
+  // The owner's call: famine, plague, a house losing its seats belong in the history the HISTORY
+  // tab shows, in year order among the province events. Told at the telling layer only.
+  const runs = SEEDS.slice(0, 3).map(seed => {
+    const { world } = simulateReach(seed);
+    const { chronicle } = sift(world, 5);
+    return { seed, world, chronicle, text: runHistory(seed).chronicle };
+  });
+
+  it('tells the big ones, naming the region, in year order', () => {
+    for (const { seed, world, chronicle, text } of runs) {
+      const big = regionalChronicleEvents(world, new Set(chronicle.map(e => e.id)));
+      expect(big.length, `seed ${seed}`).toBeGreaterThan(0);
+      const lines = text.split('\n');
+      const marked = lines.filter(l => l.includes(EXTRA_MARK));
+      expect(marked.length, `seed ${seed}`).toBe(big.filter(e => world.year - e.year <= HISTORY_YEARS).length);
+      let last = -1;
+      for (const e of big) {
+        const sentence = renderRegionalEventNamed(world, e).replace(/\.$/, '');
+        expect(sentence).toContain(`the ${world.regions.get(e.regionId)!.name} country`);
+        const at = lines.findIndex((l, i) => i > last && l.includes(EXTRA_MARK) && l.includes(sentence));
+        expect(at, `${e.year} ${e.kind} (seed ${seed})`).toBeGreaterThan(last);
+        last = at;
+        expect(e.significance).toBeGreaterThanOrEqual(REGION_CHRONICLE_THRESHOLD);
+      }
+      // In living memory each sits under its own year, after that year's province events.
+      let year = 0;
+      for (const l of lines) {
+        const m = l.match(/^\s*(\d+)\s{2}/);
+        if (!m) continue;
+        expect(Number(m[1]), `living memory in year order (seed ${seed})`).toBeGreaterThanOrEqual(year);
+        year = Number(m[1]);
+      }
+    }
+  });
+
+  it('leaves the small ones out: fairs, festivals, hard winters, bandits', () => {
+    for (const { world, text } of runs) {
+      const marked = text.split('\n').filter(l => l.includes(EXTRA_MARK)).join('\n');
+      expect(marked).not.toMatch(/fair was held|festival was held|hard winter|Bandits troubled|bumper harvest/);
+      const big = new Set(regionalChronicleEvents(world, new Set()).map(e => e.id));
+      for (const e of world.regionalEvents) if (e.significance < REGION_CHRONICLE_THRESHOLD) expect(big.has(e.id)).toBe(false);
+    }
+  });
+
+  it('only adds lines: the province chronicle reads as before', () => {
+    for (const { world, chronicle, text } of runs) {
+      const arcs = extractArcs(world, chronicle);
+      const before = renderLayeredChronicle(world, chronicle, arcs, { living: LIVING_MEMORY, chronicle: HISTORY_YEARS });
+      const strip = (t: string) => t.split('\n').filter(l => !l.includes(EXTRA_MARK) && !l.startsWith('LIVING MEMORY') && l.trim()).join('\n');
+      expect(strip(text)).toBe(strip(before));
     }
   });
 });
