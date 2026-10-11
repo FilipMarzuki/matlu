@@ -8,7 +8,7 @@
  */
 
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
-import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, type RoadState } from '../artificer/road';
 import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
@@ -281,7 +281,8 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
     // Their people's ways, told to a free question (#1611): kept as a lore key, said again as
     // they'd say it now (the words depend on trust, and the save keeps only the key).
     if (parseLoreKey(k)) {
-      const lore = answerQuestion(p, k, r.trust[p.id] ?? 0, []);
+      // In the same place as when they said it (#1619), so it reads the same.
+      const lore = answerQuestion(p, k, r.trust[p.id] ?? 0, [], { place: questionPlace(r) });
       const label = questionAbout(k);
       return lore.kind === 'told' ? `<p class="mood told"><b>${esc(label[0].toUpperCase() + label.slice(1))}</b> — “${esc(lore.answer.text)}”</p>` : '';
     }

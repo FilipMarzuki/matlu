@@ -57,6 +57,12 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'People know what their village, the road, and their trade know: ask about a village, the road, a trade or who does what, not only what one person has to say.',
   },
   {
+    // A rules feature: it moves the trust at which people voice their views (culture-lore.ts
+    // `effectiveCandour`), so a run from before it (absent: false) keeps today's voicing on replay.
+    id: 'candour-by-place', name: 'Candour shaped by place', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1619,
+    note: 'Where people are changes how openly they speak their minds: blunter in a hard place or harsh weather, more careful under a strict lord or in uneasy times.',
+  },
+  {
     // A rules feature: it changes prices, what's offered and the quests (economy.ts), so a run
     // from before it (absent: false) keeps today's market and jobs on replay.
     id: 'village-economies', name: 'Village economies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1599,

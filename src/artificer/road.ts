@@ -29,6 +29,8 @@ import { factsFor } from './facts';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
 import { arrivalLines, localMarket } from './economy';
+import { villagePlace } from './place-candour';
+import type { Place } from './culture-lore';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, FRIEND_TRUST, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -335,6 +337,14 @@ export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` 
 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
+
+/**
+ * Where the people you're talking to are (#1619), for how openly they voice their views: the
+ * village's place (place-candour.ts) and the road's season. Only with the `candour-by-place` rule
+ * switch on; off, and in every run from before it, undefined, so they speak as their culture does.
+ */
+export const questionPlace = (s: RoadState): Place | undefined =>
+  (featureOn(s.features, 'candour-by-place') ? villagePlace(villageOf(s), ROAD_SEASON) : undefined);
 
 /** Who you can talk to now: the village's people, or on the wagon your fellow travellers (#1253). */
 export const peopleHere = (s: RoadState): readonly Person[] => (villageOf(s) ? peopleOf(villageOf(s)) : TRAVELLERS);
@@ -758,7 +768,8 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
-  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features) });
+  // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
+  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next) });
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told' && !r.again) {
