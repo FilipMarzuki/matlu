@@ -1277,11 +1277,6 @@ Representative Classes: [Watermaster], [Farmer], [Herd-caller], [Riverkeeper],
   history. The Viddfolk need the steppe for their route-claims; the Merkförbund wants
   to extend farming into it. No war, but the negotiation has been ongoing for sixty
   years and no one expects it to conclude.
-- *Wildkin:* The western neighbour, and the oldest sore. The Merkförbund's West March
-  grew onto land the Wildkin packs once roamed, and the two have shared a border at the
-  river Alå since the Stone Line was set. Trade, a few marriages, a treaty that holds, and
-  harsher talk every year. See *The West March and the Wildkin border* below. *(Added
-  2026-10-11, #1620.)*
 
 **The Dry's effect:** Myst-touched river water has been making crops more fertile
 for three centuries. The effect is so integrated into Markfolk farming practice that
@@ -1289,105 +1284,47 @@ most farmers cannot identify where their methods end and the Myst begins. The yi
 are still strong. The trend is not visible yet. The [Watermasters] who monitor river
 Myst flow have noticed. They have not yet told the council.
 
-#### The West March and the Wildkin border
+#### The eastern charters
 
-*Added 2026-10-11 (#1620). The human kingdoms that Core Warden's setting bible
-(`macro-world/setting-corewarden.md`) has pressing the Wildkin's eastern border are the
-Markfolk: the Merkförbund's western cities, called the West March. (#709 folded the old
-`human` race into the Markfolk.) The bible stays canon for the Wildkin; this is the same
-history seen from the fields.*
+*Added 2026-10-11 (#1620). Where the Merkförbund grows, and how. The Markfolk don't border
+the Wildkin: the human kingdoms that Core Warden's setting bible
+(`macro-world/setting-corewarden.md`) has pressing the Wildkin's eastern border are a human
+People of their own (#1623).*
 
-**Where the border is:** The Wildkin's kingdom lies west of the Merkförbund, a strip of
-forest, meadow and wetland between the mountains and the sea. Its only open side faces
-east, onto the river lowlands. The border runs along the river Alå, through a wide gap of
-wet meadow and alder wood that the Markfolk call the West March (Västmarken) and the
-Wildkin call the Old Runs, because their packs used to run there.
-
-**How the March grew:** Slowly, and mostly without anyone deciding it. The Merkförbund's
-easy direction was always east, onto the steppe. The west was wet: fen, flood meadow and
-alder carr, good for game and bad for barley. About three hundred years ago the river works
-the Steinfolk built reached the western tributaries, and the [Watermasters] found they
-could drain the wet meadows. Drained fen is the best soil on the plains. In much of the
-Merkförbund a farm goes whole to the eldest child, so younger sons and daughters took a
-charter and went west. Each generation the fields reached a little further. Nobody marched
-anywhere. They dug a ditch, built a fence, and wrote the yield in a seed book.
+**Which way the fields go:** East. The delta's other edges are hard country: salt marsh
+toward the sea, wet fen and the foothills' stony ground to the north. East is dry, flat and
+open: the grassy edge of the steppe, where the soil is thin but deep and nothing has ever
+been ploughed. About three hundred years ago the river works the Steinfolk built reached
+the eastern tributaries, and the [Watermasters] found they could carry water out onto the
+steppe's edge. In much of the Merkförbund a farm goes whole to the eldest child, so younger
+sons and daughters took a charter and went east. Each generation the fields reached a little
+further. Nobody marched anywhere. They dug a ditch, built a fence, and wrote the yield in a
+seed book.
 
 **The charters:** Merkförbund law gives land to whoever fences it, farms it and writes it
 down. The council grants a charter for "open land": land with no fence, no furrow and no
-record. The Wildkin's roaming grounds had none of the three. Their dens moved with the game
-and the seasons, and their boundaries lived in the memory of the boar clans, not on paper.
-So by Markfolk law, the western meadows were open land, and every charter was lawful.
+record. The steppe's edge had none of the three. The Viddfolk's route-claims live in route
+songs, not on paper, and a route-claim is a road, not a field. So by Markfolk law the
+steppe's edge is open land, and every charter is lawful. By the Vidde Accords, which the
+Merkförbund also signed, a route-claim is Viddfolk jurisdiction wherever it runs. Both are
+law. That is the sixty-year negotiation in one sentence.
 
-**Fences in daylight:** Markfolk law is strict about fences: a fence moves in daylight,
-with neighbours watching, or not at all. The West March kept that rule. Every fence that
-crept west was moved openly, by charter, with witnesses. This is the thing the Markfolk
-remember most, and the thing the Wildkin find hardest to forgive: it was all done fairly,
-by rules the Wildkin had never agreed to.
+**Why they believe it is right:** The charter farmers are not villains in their own story.
+They believe land that isn't farmed is land going to waste. They believe the Viddfolk are
+passing through, not living there, which is true and also beside the point. And they
+believe they bring order: ditches, roads, market days, a seed book with every yield in it.
 
-**Why they believed it was right:** The settlers were not villains in their own story.
-They believed land that isn't farmed is land going to waste (the same thing they say about
-the eastern steppe). They believed the packs were passing through, not living there. They
-believed they were bringing order: ditches, roads, market days, latched doors. And some
-pointed to the old ruins in the Wildkin's lands, which are older than the beastkin kingdom
-and look built by human hands, and said their own ancestors had been there first. Nobody
-knows who built those ruins. Nothing ties them to the Markfolk.
+**Route gates:** Where a charter fence crosses a route-claim, the fence has a gate, and on
+the days the route is run the gate stands open. Leaving a route gate shut on a route day is
+one of the few things a charter farmer can be fined for by both the council and the
+Viddfolk. Most charter farmers know the route days better than their own children's
+birthdays.
 
-**What the Wildkin remember:** The same years, from the other side of the fence. The
-meadows their packs followed the game across were ditched and fenced, one season at a time.
-Roaming became harder, then impractical, then impossible, and the Great Clans had to decide
-who lived where. The fences brought trade too, and iron hinges, latched doors and market
-squares came west with them. The Wildkin call the Markfolk "fence-folk", not always kindly.
-
-**The Alder War and the Stone Line:** It wasn't all slow. There were border fights in
-every generation and a few real wars, the worst of them the Alder War, about a hundred and
-forty years ago, when the March tried to charter land on the Wildkin's side of the Alå.
-Both sides lost people and neither won. It ended with the Stone Line: a row of boundary
-stones along the Alå, set by Markfolk [Riverkeepers] and the Stoneback boar clans together.
-Each stone has a Markfolk owner's mark pressed into one side and a boar clan's tusk-mark cut
-into the other. The treaty says the Line doesn't move. It hasn't. Since then the March has
-grown no further west, so March farmers today never moved a fence onto Wildkin land
-themselves. They live on fields their great-great-grandparents fenced.
-
-**How the Merkförbund treats beastkin:** Better than goblins, worse than neighbours.
-Beastkin are not outlawed, as goblins are. They can cross at the Line's fords, trade in the
-March market squares and work for wages. But a charter can only go to a member of the
-Merkförbund, and a beastkin can become one only by marrying in or keeping a farm for a
-generation, so very few hold land. Fox traders know every March market. Wolf herders are
-prized by March [Herd-callers], though nobody says so in the meeting hall. Border towns
-like Alåbro have a few beastkin households that have been there longer than some
-Markfolk ones.
-
-**The Clan Question, seen from the March:** The Merkförbund's council meets in a different
-city every year, and any of the forty-three can host it. So the Markfolk find a council of
-four founding seats, fixed for centuries, very strange. The dry version, told in March
-taverns: "Four seats and none for the rabbits, and they call *us* disorganised." Some young
-Longburrow rabbits hold up the Merkförbund's rotating council as a model, which the Great
-Clans hear as human influence creeping in again. A few March councillors think the lesser
-lines would side with the Merkförbund if it came to it. They have not asked the lesser
-lines, who would mostly say no.
-
-**Points of contact:** The border is not only a quarrel.
-
-- *Trade:* March grain, clay pots and iron hinges go west over the Alå fords; furs, honey,
-  smoked fish and alder charcoal come east. Redtail fox traders and March grain-factors
-  have done business for generations, and like each other more than either council knows.
-- *Marriages:* A few, mostly in the border towns. Those households are at home on both
-  banks and fully welcome on neither, though that is slowly changing.
-- *Refugees:* In the Drowned Year, about sixty years ago, the Alå flooded the low March,
-  and Greymane packs took March families into the dry forest until the water went down.
-  The March remembers it, mostly. In the other direction, lesser-line Wildkin, cats and
-  rabbits above all, come east for wages in March towns.
-- *The Line itself:* Every spring a Stoneback elder and a March [Riverkeeper] walk the Stone
-  Line together and check every stone. It is the oldest working arrangement on the border,
-  and it is done in near silence.
-
-**The border now:** Getting worse. March councillors talk about a standing border guard and
-a single March-warden to command it, which the rest of the Merkförbund, a confederation of
-farmers who argue about irrigation, finds alarming. Beastkin border clans are getting more
-defensive in turn. Incidents along the Line are rising: a cut fence, a missing flock, a den
-found ditched. Neither side knows the corruption is leaning on both of them. And in the
-north, Markfolk families on the foothills are losing their own high fields to the grey, one
-fence at a time. A few of them have started to notice how that sounds.
+**The edge now:** The charter farms are the Merkförbund's margins, and the margins are
+where the yields are starting to drop. They are also where the goblin [Salvagers] work,
+where the fields are newest and the ruins least mapped. The [Watermasters] who carried the
+water east are the first to see it coming back thinner. The younger children who took the
+charters are the first who will have nowhere further to go.
 
 ---
 
@@ -2260,12 +2197,6 @@ would admit to it in a diplomatic context. It is the most functional piece of pa
 continental intelligence sharing in Mistheim, operating entirely below the level of
 official recognition.
 
-**The Stone Line** — Not an alliance: a border treaty between the Merkförbund and the
-Wildkin's Great Clans, set after the Alder War about a hundred and forty years ago. A row of
-marked boundary stones along the river Alå that neither side may move, walked and checked
-together every spring. It has held. See *The West March and the Wildkin border*. *(Added
-2026-10-11, #1620.)*
-
 ---
 
 ### Resource geography
@@ -2276,7 +2207,6 @@ together every spring. It has held. See *The West March and the Wildkin border*.
 | Eastern ancient forest | Myst-hardwood, medicinal herbs, living archives | Lövfolk | Logging rights with Bergfolk; Fae courts in the deep groves |
 | Central highlands | Bamboo, mineral springs, highland ruins | Pandor | Goblin [Delvers] have mapped ruins extensively |
 | Southern plains and delta | Farmland, river systems, clay | Markfolk | Eastern steppe border with Viddfolk |
-| West March and the Old Runs | Drained fen (the best soil on the plains), alder wood, game, the Alå fords | Markfolk to the Stone Line, Wildkin beyond it | The Wildkin border at the river Alå (added 2026-10-11, #1620) |
 | Open steppe | Grazing, Myst wind-eddies, scattered ruins | Viddfolk (route-claims) | Eastern expansion pressure from Markfolk |
 | Coastlines and harbours | Fish, salt, sea-access, coastal salvage | Deepwalkers | Deep-channel authority with Merfolk |
 | Deep ocean | Pressure-crystal, Myst-kelp, sunken ruins | Merfolk (Djupvolk) | Deepwalker access rights to specific sites |

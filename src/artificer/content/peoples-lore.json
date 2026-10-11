@@ -182,7 +182,8 @@
         ],
         "Viddfolk": [
           {"text":"Sixty years of talks over grazing on the eastern steppe. No war, and nobody expects an end.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
-          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"strength":"firm","actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}}
+          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"strength":"firm","actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}},
+          {"text":"Where a charter fence crosses a route, the gate stands open on route days. Shut it and the council and the Viddfolk both fine you.","truth":"true","source":"WORLD.md § The eastern charters › Route gates"}
         ],
         "Steinfolk": [
           {"text":"They built the river works and we run them. Both of us know who needs whom.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
@@ -218,13 +219,7 @@
           {"text":"One sits at the Threefold Crossroads. Ask it a question and you'll get a true answer, and probably no help.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
         ],
         "Wildkin": [
-          {"text":"Beastkin are wild things. They couldn't keep a field.","truth":"false","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization","invented":true,"strength":"held","actually":{"text":"The Wildkin are an old, stable kingdom of forests, meadows and market squares.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization"}},
-          {"text":"The West March was fenced by charter, in daylight, with witnesses. By our law every field of it is fair.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight"},
-          {"text":"The western meadows were empty when our people came. Nobody lived on land with no fence.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › Why they believed it was right","strength":"firm","actually":{"text":"Wildkin packs roamed and hunted those meadows for generations. Their dens moved with the game, so the land was used, just never fenced.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely"}},
-          {"text":"The old ruins over the Alå were built by our ancestors. We were there first.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › Why they believed it was right","strength":"held","actually":{"text":"The ruins are older than the beastkin kingdom and look built by human hands, but nobody knows who built them. Nothing ties them to the Markfolk.","source":"macro-world/setting-corewarden.md § Below — The Underworld › Human ruins"}},
-          {"text":"The Highfang wants the March back, and is only waiting for a weak year.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true,"strength":"held","actually":{"text":"The Wildkin have never been conquerors. Their council is debating, not plotting, and the corruption is pushing both sides.","source":"macro-world/setting-corewarden.md § East — The Human Lands › The beastkin are not conquerors"}},
-          {"text":"The Stone Line has held for a hundred and forty years. The boar clans set the stones with us, and their word on a boundary is good.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Alder War and the Stone Line"},
-          {"text":"Four seats on their council and none for the rabbits. And they call us disorganised.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Clan Question, seen from the March"}
+          {"text":"Beastkin are wild things. They couldn't keep a field.","truth":"false","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization","invented":true,"strength":"held","actually":{"text":"The Wildkin are an old, stable kingdom of forests, meadows and market squares.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization"}}
         ]
       },
       "sayings": [
@@ -261,7 +256,8 @@
           {"text":"Elf councils still write as if the world were four hundred years younger. We carry the letters anyway.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them","invented":true}
         ],
         "Markfolk": [
-          {"text":"Sixty years of talks over the eastern steppe. The Merkförbund wants to plough our route-claims.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
+          {"text":"Sixty years of talks over the eastern steppe. The Merkförbund wants to plough our route-claims.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
+          {"text":"Merkförbund law calls our routes open land, because they have no fence. The Accords they signed say a route is ours wherever it runs.","truth":"true","source":"WORLD.md § The eastern charters › The charters"}
         ],
         "Steinfolk": [
           {"text":"Steinfolk bridges carry our routes over the rivers. Every one of them is in a song.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make","invented":true}
@@ -1141,12 +1137,7 @@
           {"text":"Forest folk far to the east, we hear. Our bears guard groves too. They might get on.","truth":"true","source":"macro-world/race-affinities.json › Ironhide","invented":true}
         ],
         "Markfolk": [
-          {"text":"The fence-folk came from the east one fence at a time. Our packs ran those meadows once; now we only remember them.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › What the Wildkin remember"},
-          {"text":"Iron hinges, latched doors, market squares: they came west with the Markfolk. The old wolves still grumble.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Human influence crept in"},
-          {"text":"The Markfolk came west to drive us into the sea.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › What the Wildkin remember","invented":true,"strength":"held","actually":{"text":"They came for farmland, one charter at a time. The Merkförbund always looked east first, and most March farmers never wanted a war.","source":"WORLD.md § The West March and the Wildkin border › How the March grew"}},
-          {"text":"A Markfolk signs a treaty with one hand and moves a fence with the other.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The Alder War and the Stone Line","invented":true,"strength":"held","actually":{"text":"Not one stone of the Stone Line has moved in a hundred and forty years. The new trouble is harsher talk and border incidents, on both sides.","source":"WORLD.md § The West March and the Wildkin border › The border now"}},
-          {"text":"The Markfolk don't care for the land. They just dig it up.","truth":"false","source":"WORLD.md § The West March and the Wildkin border › How the March grew","invented":true,"strength":"loose","actually":{"text":"A Markfolk farmer knows their land's yields six generations back, and a [Watermaster] feels where a river wants to go.","source":"WORLD.md § Markfolk › Objects"}},
-          {"text":"Their council moves to a new city every year. Longburrow's young ones like that idea far too much, the old bears say.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The Clan Question, seen from the March"}
+          {"text":"Southern farmers, we hear. If they are like our boar clans, they argue about every boundary.","truth":"true","source":"macro-world/race-affinities.json › Stoneback","invented":true}
         ],
         "Viddfolk": [
           {"text":"Our packs roamed once. The Viddfolk still do. We envy them a little.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely","invented":true}

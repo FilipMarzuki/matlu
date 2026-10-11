@@ -104,9 +104,7 @@
           {"text":"The thing at the Threefold Crossroads answers any question. True answers, and no use at all.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left › Threefold Crossroads"}
         ],
         "Wildkin": [
-          {"text":"Beastkin turn into wolves when the moon is full.","truth":"false","source":"macro-world/race-affinities.json › Not shapeshifters","invented":true,"strength":"loose","actually":{"text":"Wildkin aren't shapeshifters. They're always partly animal and partly person.","source":"macro-world/race-affinities.json › Not shapeshifters"}},
-          {"text":"Our cousins in the West March moved their fences onto beastkin land the lawful way: in daylight, with everyone watching.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › Fences in daylight","invented":true},
-          {"text":"We lose our high fields one fence at a time now. The beastkin lost theirs the same way, to our cousins.","truth":"true","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true}
+          {"text":"Beastkin turn into wolves when the moon is full.","truth":"false","source":"macro-world/race-affinities.json › Not shapeshifters","invented":true,"strength":"loose","actually":{"text":"Wildkin aren't shapeshifters. They're always partly animal and partly person.","source":"macro-world/race-affinities.json › Not shapeshifters"}}
         ]
       },
       "sayings": [
@@ -554,8 +552,7 @@
           {"text":"Something passed the Gate once without being counted. The old keepers say it was a Remnant.","truth":"rumour","source":"WORLD.md § The Remnants — what the dead gods left › never been directly observed","invented":true,"strength":"loose","actually":{"text":"One Remnant has never been seen at all. It is known only by the silence it leaves behind.","source":"WORLD.md § The Remnants — what the dead gods left › quality of silence"}}
         ],
         "Wildkin": [
-          {"text":"The beastkin never come through the Gate. Their kingdom keeps to itself, and so do we.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true},
-          {"text":"Wagons say the West March and the beastkin will come to blows within the year.","truth":"rumour","source":"WORLD.md § The West March and the Wildkin border › The border now","invented":true,"strength":"loose","actually":{"text":"Border incidents are rising and the talk is harsher, but there has been no war since the Stone Line, and neither council wants one.","source":"WORLD.md § The West March and the Wildkin border › The border now"}}
+          {"text":"The beastkin never come through the Gate. Their kingdom keeps to itself, and so do we.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true}
         ]
       },
       "sayings": [

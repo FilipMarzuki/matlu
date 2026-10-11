@@ -10,7 +10,7 @@ There is **one race vocabulary** in Matlu: the **16 Mistheim Peoples**, the 15 n
 |---|---|---|
 | 1 | Bergfolk | Mountain hold-culture, runesmiths |
 | 2 | Lövfolk | Long-lived elven Rasa healers |
-| 3 | Markfolk | Farmers, dry-comedy, Dignity-mode. Their West March presses the Wildkin's eastern border: the setting bible's "human kingdoms" (#1620) |
+| 3 | Markfolk | Farmers, dry-comedy, Dignity-mode |
 | 4 | Viddfolk | Route-singers, high plains |
 | 5 | Steinfolk | Stone-folk |
 | 6 | Pandor | Panda-scholar archivists |
