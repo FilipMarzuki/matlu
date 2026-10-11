@@ -28,7 +28,7 @@ const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}
  * questions asked this stay (#1575), with what was said back. The words live only here, never in
  * the game's state or save: the game keeps only the topic they matched.
  */
-export interface RoadUi { person: string | null; asked?: Record<string, { question: string; reply: string }> }
+export interface RoadUi { person: string | null; asked?: Record<string, { question: string; topic: string | null; reply: string }> }
 
 const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹', caravaneer: '🛞', tinker: '🔧' };
 /** Store goods by their screen names. */
@@ -249,7 +249,7 @@ function healPanel(r: RoadState, p: Person): string {
  * A conversation (#1495): Chat (the lore line, as trust allows) and, with a focus on a topic, a
  * skill or a concept, Ask about it. What they've told you when asked stays on their sheet.
  */
-function conversation(r: RoadState, p: Person, told: number): string {
+function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string {
   const f = r.focus && r.focus.kind !== 'goal' ? r.focus : null;
   const answered = r.asked?.[p.id] ?? [];
   const ask = f ? act(r, `ask:${p.id}`, `❓ ASK ABOUT ${esc(focusLabel(f).toUpperCase())}`, ASK_HOURS, answered.includes(focusKey(f)) ? { why: `${p.name} has told you what they know about ${focusInline(f)}` } : {}) : '';
@@ -267,6 +267,7 @@ function conversation(r: RoadState, p: Person, told: number): string {
   return `<div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>
     <div class="runbar">${act(r, `talk:${p.id}`, '💬 CHAT', TALK_HOURS)}${ask}${tells}</div>
     ${f ? '' : '<p class="mood">Set a focus on a topic, a skill or a concept, and you\'ll have something to ask them about.</p>'}
+    ${freeQuestion(r, p, ui)}
     ${(r.noticed?.[p.id] ?? []).map(t => SIGNS[p.id]?.[t]).filter(Boolean).map(sign => `<p class="mood told">👁 ${esc(sign!)}</p>`).join('')}
     ${(r.leads ?? []).filter(l => l.who === p.id).map(l => `<p class="mood told">🧭 ${esc(personById(l.from)?.name ?? l.from)} sent you to ask about ${esc(aboutText(l.about))}.</p>`).join('')}
     ${answers ? `<p class="fgroup">WHAT THEY'VE TOLD YOU</p>${answers}` : ''}</div>`;
@@ -278,19 +279,23 @@ function conversation(r: RoadState, p: Person, told: number): string {
  * this draws the box, or, once asked, what you asked and what they said.
  */
 function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
+  const head = '<p class="fgroup">ASK ANYTHING — ONE QUESTION THIS STAY</p>';
   if ((r.questioned ?? []).includes(p.id)) {
     const mine = ui.asked?.[p.id];
-    return `<div class="sheetpart"><p class="fgroup">YOUR QUESTION</p>${mine
-      ? `<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p><p class="say">${esc(mine.reply)}</p>`
-      : `<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`}</div>`;
+    if (!mine) return `${head}<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`;
+    // An answer joins what they've told you, just below; only a deflection is shown here.
+    const about = mine.topic ? parseFocus(mine.topic) : null;
+    return `${head}<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p>${about
+      ? `<p class="mood">${esc(p.name)} told you about ${esc(focusInline(about))}: it's with what they've told you.</p>`
+      : `<p class="say">${esc(mine.reply)}</p>`}`;
   }
   const why = hoursLeft(r) <= 0 ? 'The day is spent — end it' : null;
-  return `<div class="sheetpart"><p class="fgroup">ASK ANYTHING — ONE QUESTION THIS STAY</p>
+  return `${head}
     <form class="freeq" data-question="${esc(p.id)}">
       <input name="q" class="qin" maxlength="${QUESTION_CHARS}" autocomplete="off" placeholder="Ask ${esc(p.name)} anything…" aria-label="Ask ${esc(p.name)} anything" ${why ? 'disabled' : ''}>
-      <button class="btn" type="submit" ${why ? `disabled title="${esc(why)}"` : ''}>✍ ASK <span class="h">${ASK_HOURS}h</span></button>
+      <button class="btn" type="submit" ${why ? `disabled title="${esc(why)}"` : ''}>✏️ ASK <span class="h">${ASK_HOURS}h</span></button>
     </form>
-    <p class="mood qnote">${esc(QUESTION_NOTICE)}</p></div>`;
+    <p class="mood qnote">${esc(QUESTION_NOTICE)}</p>`;
 }
 
 /** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */
@@ -299,8 +304,7 @@ function personSheet(r: RoadState, p: Person, ui: RoadUi): string {
   const isTrader = tradeTerms(r)?.trader === p.id;
   return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
-    ${conversation(r, p, told)}
-    ${freeQuestion(r, p, ui)}
+    ${conversation(r, p, told, ui)}
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
 }
 

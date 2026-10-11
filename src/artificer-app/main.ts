@@ -1454,7 +1454,7 @@ root.addEventListener('submit', e => {
   if (!next.road?.questioned?.includes(pid)) { update(next); return; }
   // What they said, for their sheet: the journal's line without its "You ask Orrin about iron." lead-in.
   const said = next.road.log.slice(r.log.length).find(l => l.kind === 'action')?.text.replace(/^You ask [^.]+\. /, '') ?? '';
-  roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), reply: said } };
+  roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), topic, reply: said } };
   update(next);
   // Same origin: the Artificer's site serves the play API (src/artificer-play/). The server cleans
   // the question again before it keeps it, so it's sent as typed.
