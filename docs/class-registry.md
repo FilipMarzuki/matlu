@@ -55,3 +55,15 @@ The registry records how the two lists line up in `storyEngine`:
 - `warden`, `stormcaller` and `necromancer` map to `null`. These are the engine's rare rite-classes, and canon has no matching Class. [Grove-Warden], [Hedge-Warden] and [Lich] are different Classes.
 
 The engine doesn't read this mapping. The test only makes sure that every `CharClass` appears in it, so a new engine class has to be mapped or marked engine-only.
+
+## What the tests hold (#1637's acceptance criteria)
+
+`src/artificer/classes.test.ts`:
+
+| Criterion | Test |
+|---|---|
+| Every Class in WORLD.md is in the registry, with its source and holders | "reads the bracketed Classes out of WORLD.md prose, line wraps and all"; "has every [Class] WORLD.md names"; "gives every entry a kind, holders that exist, and well-formed dates and links" |
+| A test fails when WORLD.md names a Class the registry lacks | "fails for a Class WORLD.md names that the registry lacks" (a made-up `[Tollwright]`) |
+| Every entry's source is real | "cites a WORLD.md heading that exists, or a file that exists"; "dates an entry WORLD.md does not name as invented" |
+| No clashes | "keeps ids and names unique, so a new Class cannot clash with an old one" |
+| Story-engine classes can't drift from the registry | "maps every story-engine class to a registry entry or marks it engine-only" |
