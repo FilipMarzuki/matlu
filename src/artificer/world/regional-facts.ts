@@ -56,9 +56,20 @@ export const GENERATION = LIVING_MEMORY / 2;
 const WEALTH_SPREAD = 0.12;
 /** ...and the richest is "wanting for little" at this or more, the poorest "on hard times" at this or less. */
 const RICH = 0.68;
-const POOR = 0.32;
+export const POOR = 0.32;
 /** A region is told as uneasy at this unsettlement or more (#1608): about a seized seat in the last year or two. */
-const UNSETTLED = 0.25;
+export const UNSETTLED = 0.25;
+/**
+ * Where a region's facts turn: times are hard at this prosperity or less (good at `GOOD_TIMES` or
+ * more), bread dear at this price or more, its lords tax heavily at this tax or more and ask
+ * little at `LIGHT_DUES` or less. Exported so how people speak there (place-candour.ts, #1619)
+ * turns where the facts they'd tell you do.
+ */
+export const HARD_TIMES = 0.35;
+const GOOD_TIMES = 0.65;
+export const DEAR_BREAD = 1.4;
+export const HEAVY_DUES = 0.45;
+export const LIGHT_DUES = 0.25;
 
 /** Lines whose subject people are careful about. */
 const GUARDED = new Set(['FEUD', 'SEAT_SEIZED']);
@@ -132,9 +143,9 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   }[r.venture.state];
   facts.push(now('venture', 'economy', ventureText, 1, { about: [place(r.venture.province)] }));
   facts.push(now('times', 'economy',
-    r.prosperity >= 0.65 ? `Times are good in ${r.name}.` : r.prosperity <= 0.35 ? `Times are hard in ${r.name}.` : `${Name} gets by, neither rich nor poor.`, 1));
+    r.prosperity >= GOOD_TIMES ? `Times are good in ${r.name}.` : r.prosperity <= HARD_TIMES ? `Times are hard in ${r.name}.` : `${Name} gets by, neither rich nor poor.`, 1));
   facts.push(now('bread', 'economy',
-    r.price >= 1.4 ? `Bread is dear in ${r.name}: ${r.price.toFixed(1)} times its usual price.` : r.price <= 0.8 ? `Bread is cheap in ${r.name} this year.` : `Bread costs what it usually does in ${r.name}.`, 1));
+    r.price >= DEAR_BREAD ? `Bread is dear in ${r.name}: ${r.price.toFixed(1)} times its usual price.` : r.price <= 0.8 ? `Bread is cheap in ${r.name} this year.` : `Bread costs what it usually does in ${r.name}.`, 1));
   for (const road of r.roads) {
     if (road.trade >= 0.55) facts.push(now(`road:${road.to}`, 'economy', `Trade is brisk on the road to ${road.name}.`, 2, { about: [`region:${road.to}`] }));
     else if (road.trade <= 0.28) facts.push(now(`road:${road.to}`, 'economy', `Little trade goes on the road to ${road.name} these days.`, 3, { about: [`region:${road.to}`] }));
@@ -145,7 +156,7 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   // Everyone knows who holds the market town; most know the other seats' lords.
   r.lords.forEach(lord => facts.push(now(`lord:${slug(lord.province)}`, 'politics', lord.text, lord.province === r.centre.name ? 1 : 2, { about: [place(lord.province)] })));
   facts.push(now('dues', 'politics',
-    r.tax >= 0.45 ? `The lords of ${r.name} tax heavily.` : r.tax <= 0.25 ? `The lords of ${r.name} ask little in dues.` : `The lords' dues in ${r.name} are what they've always been.`, 1));
+    r.tax >= HEAVY_DUES ? `The lords of ${r.name} tax heavily.` : r.tax <= LIGHT_DUES ? `The lords of ${r.name} ask little in dues.` : `The lords' dues in ${r.name} are what they've always been.`, 1));
   // Unsettled (#1608): lords dying and seats changing hands lately make people wary of what's next.
   if ((r.unsettled ?? 0) >= UNSETTLED) facts.push(now('unsettled', 'politics', `The lords of ${r.name} are uneasy: lords have died and seats have changed hands lately.`, 1, { sensitivity: 'guarded' }));
   if (r.levy >= 0.2) facts.push(now('levy', 'politics', `Many of ${r.name}'s men are away, called up for their lords' wars.`, 1));
