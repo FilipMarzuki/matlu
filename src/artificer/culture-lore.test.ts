@@ -3,17 +3,23 @@
  * does and believes about the others, as claims the knowledge model (#1577) can be given, each
  * checkable against canon.
  *
- * Coverage rule: all 15 Peoples, and every culture the caravan road uses (each villager's and
- * traveller's `culture`, and each village's `cultures`). Every People holds a view of every other
- * People; every road culture a view of every other road culture.
+ * Coverage rule: all 16 Peoples (the 15 of WORLD.md and the Wildkin, #1606), and every culture the
+ * caravan road uses (each villager's and traveller's `culture`, and each village's `cultures`).
+ * Every People holds a view of every other People; every road culture a view of every other road
+ * culture and of every People.
+ *
+ * The owner's answers of 2026-10-11 are pinned here too: how openly a view is voiced depends on the
+ * culture's candour, the belief's strength and the trust; a culture's custom wins over the People's;
+ * cultures hold views of Peoples, and an outsider answers from their culture's view first.
  */
 
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CUSTOM_KINDS, PEOPLES, allCultureLore, allPeopleLore, allScopedClaims, cultureLore, matchLore, parseLoreQuestion,
-  peopleLore, scopedClaims, voiceOf, type GroupLore, type LoreClaim, type Saying,
+  CANDOURS, CUSTOM_KINDS, PEOPLES, STRENGTHS, allCultureLore, allPeopleLore, allScopedClaims, cultureLore, matchLore,
+  parseLoreQuestion, peopleLore, scopedClaims, voiceOf, voicedAt, voicingGates, type CultureLore, type GroupLore,
+  type LoreClaim, type Saying, type ScopedClaim,
 } from './culture-lore';
 import { TRAVELLERS, VILLAGES, personById, type Person } from './villages';
 import { REACH_CULTURES } from './world/peoples';
@@ -22,10 +28,16 @@ const root = join(__dirname, '..', '..');
 const read = (file: string): string => readFileSync(join(root, file), 'utf8');
 
 /** The Peoples table in docs/peoples-and-races.md, ids as code uses them ("Merfolk (Djupvolk)" → Merfolk). */
-const CANON_PEOPLES = read('docs/peoples-and-races.md').split('\n')
+const DOC_PEOPLES = read('docs/peoples-and-races.md').split('\n')
   .map(l => /^\| (\d+) \| ([^|]+?) \|/.exec(l))
   .filter((m): m is RegExpExecArray => m !== null)
   .map(m => m[2].replace(/\s*\(.*\)$/, '').trim());
+/**
+ * The canon Peoples: the doc's table, plus the Wildkin if it doesn't list them yet. The owner made
+ * them the 16th People on 2026-10-11 (#1606); #1604 adds them to the doc's table as #16. Until it
+ * merges, this branch's copy has 15, so the test takes either.
+ */
+const CANON_PEOPLES = DOC_PEOPLES.includes('Wildkin') ? DOC_PEOPLES : [...DOC_PEOPLES, 'Wildkin'];
 
 /** Every culture on the road: each person's (villagers and travellers) and each village's. */
 const ROAD_CULTURES = [...new Set([
@@ -65,8 +77,11 @@ function claimsOf(g: GroupLore): { at: string; c: LoreClaim }[] {
     ...g.taboos.map((c, i) => ({ at: `${g.id} taboos[${i}]`, c })),
     ...CUSTOM_KINDS.map(k => ({ at: `${g.id} customs.${k}`, c: g.customs[k] })),
     ...Object.entries(g.views).flatMap(([of, cs]) => cs.map((c, i) => ({ at: `${g.id} views.${of}[${i}]`, c }))),
+    ...Object.entries((g as Partial<CultureLore>).peopleViews ?? {}).flatMap(([of, cs]) => cs.map((c, i) => ({ at: `${g.id} peopleViews.${of}[${i}]`, c }))),
   ];
 }
+/** Every view, with who holds it (for the strength check). */
+const viewsIn = (g: GroupLore): LoreClaim[] => [...Object.values(g.views), ...Object.values((g as Partial<CultureLore>).peopleViews ?? {})].flat();
 const sayingsOf = (g: GroupLore): { at: string; s: Saying }[] =>
   [{ at: `${g.id} voice`, s: g.voice }, ...g.sayings.map((s, i) => ({ at: `${g.id} sayings[${i}]`, s }))];
 
@@ -77,10 +92,13 @@ const ALL_SAYINGS = GROUPS.flatMap(sayingsOf);
 const orrin = personById('hf-orrin')!;
 const maren = personById('hf-maren')!;
 const yrsa = personById('sm-yrsa')!;
+const veit = personById('kg-veit')!;
+const runa = personById('kg-runa')!;
 
 describe('World lore covers every People and road culture (#1590)', () => {
-  it('has lore for exactly the 15 Peoples, under the canon ids code uses', () => {
-    expect(CANON_PEOPLES).toHaveLength(15);
+  it('has lore for exactly the 16 Peoples, the Wildkin among them, under the canon ids code uses', () => {
+    expect(DOC_PEOPLES.length).toBeGreaterThanOrEqual(15);
+    expect(CANON_PEOPLES).toHaveLength(16);
     expect([...PEOPLES]).toEqual(CANON_PEOPLES);
     expect(allPeopleLore().map(p => p.id)).toEqual(CANON_PEOPLES);
     for (const p of allPeopleLore()) expect(p.name).toBe(p.id);
@@ -108,7 +126,7 @@ describe('World lore covers every People and road culture (#1590)', () => {
     }
   });
 
-  it('gives each People a view of every other People, and each culture a view of every other road culture', () => {
+  it('gives each People a view of every other People, and each culture a view of every other road culture and every People', () => {
     for (const p of allPeopleLore()) {
       expect(Object.keys(p.views).sort(), p.id).toEqual(PEOPLES.filter(x => x !== p.id).sort());
       for (const [of, cs] of Object.entries(p.views)) expect(cs.length, `${p.id} of ${of}`).toBeGreaterThan(0);
@@ -116,6 +134,21 @@ describe('World lore covers every People and road culture (#1590)', () => {
     for (const c of allCultureLore()) {
       expect(Object.keys(c.views).sort(), c.id).toEqual(ROAD_CULTURES.filter(x => x !== c.id));
       for (const [of, cs] of Object.entries(c.views)) expect(cs.length, `${c.id} of ${of}`).toBeGreaterThan(0);
+      // Item 4 (owner, 2026-10-11): cultures hold views of Peoples too, all 16.
+      expect(Object.keys(c.peopleViews), c.id).toEqual([...PEOPLES]);
+      for (const [of, cs] of Object.entries(c.peopleViews)) expect(cs.length, `${c.id} of ${of}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every culture a candour, and every wrong or half-true view a strength', () => {
+    for (const c of allCultureLore()) expect(CANDOURS, c.id).toContain(c.candour);
+    // Some of each, so the rule has something to tell apart.
+    for (const k of CANDOURS) expect(allCultureLore().some(c => c.candour === k), k).toBe(true);
+    for (const g of GROUPS) {
+      for (const v of viewsIn(g)) {
+        if (v.truth === 'true') expect(v.strength, `${g.id}: ${v.text}`).toBeUndefined();
+        else expect(STRENGTHS, `${g.id}: ${v.text}`).toContain(v.strength);
+      }
     }
   });
 
@@ -186,6 +219,7 @@ describe('Lore as scoped claims for the knowledge model (#1590, feeds #1577 slic
     const ridge = scopedClaims({ kind: 'culture', id: 'ridgefolk' });
     expect(ridge.every(c => c.scope.kind === 'culture' && c.scope.id === 'ridgefolk')).toBe(true);
     expect(ridge.find(c => c.topic === 'mourning')?.about).toEqual(['culture:ridgefolk', 'lore:mourning']);
+    expect(ridge.find(c => c.id === 'culture:ridgefolk/view:Goblins/0')).toMatchObject({ of: { kind: 'people', id: 'Goblins' }, about: ['group:Goblins', 'lore:view'] });
     const all = allScopedClaims();
     expect(all).toHaveLength(ALL_CLAIMS.length);
     expect(new Set(all.map(c => c.id)).size).toBe(all.length);
@@ -215,22 +249,34 @@ describe('Matching a question to lore (#1590)', () => {
     expect(matchLore('What do ridgefolk do when someone dies?')!.claims.map(c => c.id)).toEqual(['culture:ridgefolk/mourning/0']);
   });
 
-  it('answers a question about themself from their culture first, then their People', () => {
+  it('answers a question about themself from their culture first, then their People (item 3: the culture’s custom wins)', () => {
     const m = matchLore('What do you do when someone dies?', orrin)!;
     expect(m.claims.map(c => c.id)).toEqual(['culture:ridgefolk/mourning/0', 'people:Bergfolk/mourning/0']);
     // "Your people" asks after the People first.
     expect(matchLore('How do your people mourn?', orrin)!.claims[0].id).toBe('people:Bergfolk/mourning/0');
+    // Veit is Steinfolk in a wallborn town: the wall's custom comes before the Femhörn's stone.
+    expect(matchLore('How do you greet a stranger?', veit)!.claims.map(c => c.id)).toEqual(['culture:wallborn/greeting/0', 'people:Steinfolk/greeting/0']);
   });
 
-  it('answers what they think of another People with their People’s view, prejudice included', () => {
+  it('answers what they think of another People from their culture’s view; "your people" from their People’s, prejudice included', () => {
     const m = matchLore('What do you think of goblins?', orrin)!;
     expect(m.query).toMatchObject({ subject: null, of: { kind: 'people', id: 'Goblins' }, topic: 'view' });
-    expect(m.claims[0]).toMatchObject({ scope: { id: 'Bergfolk' }, of: { id: 'Goblins' }, truth: 'false' });
+    expect(m.claims.map(c => c.id)).toEqual(['culture:ridgefolk/view:Goblins/0']);
+    const people = matchLore('What do your people think of goblins?', orrin)!;
+    expect(people.claims[0]).toMatchObject({ scope: { id: 'Bergfolk' }, of: { id: 'Goblins' }, truth: 'false' });
   });
 
-  it('has an outsider answer with what their own People thinks, and never speak for another group', () => {
+  it('falls back to their People’s view when their culture has none (item 4, owner 2026-10-11)', () => {
+    // A Bergfolk of a culture with no lore (ikibeki isn't on the road): the Bergfolk's view.
+    const offRoad = { people: 'Bergfolk', culture: 'ikibeki' };
+    expect(matchLore('What do you think of goblins?', offRoad)!.claims.every(c => c.scope.id === 'Bergfolk' && c.of?.id === 'Goblins')).toBe(true);
+    // Never both: a culture with a view speaks alone.
+    expect(matchLore('What do you think of goblins?', orrin)!.claims.every(c => c.scope.id === 'ridgefolk')).toBe(true);
+  });
+
+  it('has an outsider answer with what their culture thinks, and never speak for another group', () => {
     const m = matchLore('What do the Bergfolk believe?', maren)!;
-    expect(m.claims.every(c => c.scope.id === 'Markfolk' && c.topic === 'view' && c.of?.id === 'Bergfolk')).toBe(true);
+    expect(m.claims.map(c => c.id)).toEqual(['culture:fieldborn/view:Bergfolk/0']);
     expect(matchLore('What do the goblins think of the Bergfolk?', orrin)).toBeNull();
     expect(matchLore('What do the goblins think of the Bergfolk?')!.claims[0].scope.id).toBe('Goblins');
   });
@@ -257,5 +303,92 @@ describe('Matching a question to lore (#1590)', () => {
     expect(matchLore(q)).toEqual(matchLore(q));
     const asker: Person = TRAVELLERS.find(p => p.id === 'cv-pim')!;
     expect(matchLore('What do you think of the Pandor?', asker)).toEqual(matchLore('What do you think of the Pandor?', asker));
+  });
+});
+
+describe('How openly a view is voiced: candour, strength and trust (#1590, owner 2026-10-11)', () => {
+  /** A made-up wrong view, to read the rule off without the data. */
+  const wrong = (strength: ScopedClaim['strength'], sensitivity: ScopedClaim['sensitivity'] = 'public') =>
+    ({ topic: 'view' as const, truth: 'false' as const, sensitivity, strength });
+
+  it('says a wrong view from 75 − 25 × openness, plainly from 25 more, on the knowledge model’s trust levels', () => {
+    // openness = candour (blunt 2, plain 1, guarded 0) + strength (firm 2, held 1, loose 0).
+    expect(voicingGates(wrong('firm'), 'blunt')).toEqual({ said: 0, plain: 0 });       // 4
+    expect(voicingGates(wrong('held'), 'blunt')).toEqual({ said: 0, plain: 25 });      // 3
+    expect(voicingGates(wrong('firm'), 'plain')).toEqual({ said: 0, plain: 25 });      // 3
+    expect(voicingGates(wrong('held'), 'plain')).toEqual({ said: 25, plain: 50 });     // 2
+    expect(voicingGates(wrong('held'), 'guarded')).toEqual({ said: 50, plain: 75 });   // 1
+    expect(voicingGates(wrong('loose'), 'guarded')).toEqual({ said: 75, plain: 75 });  // 0
+    // A claim's own sensitivity is a floor.
+    expect(voicingGates(wrong('firm', 'private'), 'blunt')).toEqual({ said: 50, plain: 50 });
+  });
+
+  it('names how it comes out: held back, hedged, plain, or only to a close friend', () => {
+    expect([0, 25, 50, 75].map(t => voicedAt(wrong('held'), 'guarded', t))).toEqual(['held-back', 'held-back', 'hedged', 'plain']);
+    expect([0, 25, 50, 75].map(t => voicedAt(wrong('loose'), 'guarded', t))).toEqual(['held-back', 'held-back', 'held-back', 'close']);
+    expect([0, 25, 50, 75].map(t => voicedAt(wrong('firm'), 'blunt', t))).toEqual(['plain', 'plain', 'plain', 'plain']);
+  });
+
+  it('leaves true views and every other claim to their sensitivity alone', () => {
+    const custom = { topic: 'mourning' as const, truth: 'true' as const, sensitivity: 'guarded' as const };
+    for (const c of CANDOURS) expect([0, 25].map(t => voicedAt(custom, c, t))).toEqual(['held-back', 'plain']);
+    const trueView = { topic: 'view' as const, truth: 'true' as const, sensitivity: 'public' as const };
+    expect(voicedAt(trueView, 'guarded', 0)).toBe('plain');
+    // A secret is said to close friends only.
+    expect(voicedAt({ ...trueView, sensitivity: 'secret' }, 'blunt', 75)).toBe('close');
+  });
+
+  it('has a blunt culture say a firm prejudice plainly to a stranger, and a guarded one keep it back', () => {
+    // Runa (mountainhold, blunt) firmly believes goblins steal; she says so at trust 0.
+    const blunt = matchLore('What do you think of goblins?', runa, 0)!;
+    expect(blunt.claims.map(c => c.id)).toEqual(['culture:mountainhold/view:Goblins/0']);
+    expect(blunt).toMatchObject({ voicing: { 'culture:mountainhold/view:Goblins/0': 'plain' }, holdingBack: false });
+    // Veit (wallborn, guarded) holds his wrong view of goblins back until 50, hedges it, and says it plainly at 75.
+    const q = 'What do you think of goblins?';
+    expect(matchLore(q, veit, 0)).toMatchObject({ claims: [], holdingBack: true, opensAt: 50 });
+    expect(matchLore(q, veit, 50)!.voicing).toEqual({ 'culture:wallborn/view:Goblins/0': 'hedged' });
+    expect(matchLore(q, veit, 75)!.voicing).toEqual({ 'culture:wallborn/view:Goblins/0': 'plain' });
+    // Isa (grovekin, guarded) half believes beastkin change shape: only a close friend hears it.
+    expect(matchLore('What do you think of the beastkin?', personById('hf-isa')!, 50)).toMatchObject({ claims: [], opensAt: 75 });
+    expect(matchLore('What do you think of the beastkin?', personById('hf-isa')!, 75)!.voicing).toEqual({ 'culture:grovekin/view:Wildkin/0': 'close' });
+  });
+
+  it('holds back guarded claims below their trust, and says what it would at 25', () => {
+    const at0 = matchLore('What shames the Bergfolk?', undefined, 0)!;
+    expect(at0.claims).toHaveLength(2);
+    expect(at0).toMatchObject({ holdingBack: true, opensAt: 25 });
+    const at25 = matchLore('What shames the Bergfolk?', undefined, 25)!;
+    expect(at25.claims).toHaveLength(3);
+    expect(at25.holdingBack).toBe(false);
+  });
+
+  it('keeps its old answer when no trust is given', () => {
+    const m = matchLore('What do you think of goblins?', veit)!;
+    expect(m.claims.map(c => c.id)).toEqual(['culture:wallborn/view:Goblins/0']);
+    expect(m.voicing).toBeUndefined();
+    expect(m.holdingBack).toBeUndefined();
+  });
+});
+
+describe('The Wildkin, the 16th People (#1606)', () => {
+  const wildkin = peopleLore('Wildkin')!;
+  const canon = /^macro-world\/(?:setting-corewarden\.md|race-affinities\.json)/;
+
+  it('rests on Core Warden’s setting bible and the Wildkin race lore it points to', () => {
+    const own = [...wildkin.values, ...wildkin.taboos, ...CUSTOM_KINDS.map(k => wildkin.customs[k]), wildkin.voice, ...wildkin.sayings];
+    expect(own.filter(c => !canon.test(c.source)).map(c => c.text)).toEqual([]);
+    expect(own.filter(c => c.source.startsWith('macro-world/setting-corewarden.md')).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('holds a view of every other People, and every People and road culture holds one of them', () => {
+    expect(Object.keys(wildkin.views)).toEqual(PEOPLES.filter(p => p !== 'Wildkin'));
+    for (const p of allPeopleLore()) if (p.id !== 'Wildkin') expect(p.views.Wildkin?.length, p.id).toBeGreaterThan(0);
+    for (const c of allCultureLore()) expect(c.peopleViews.Wildkin?.length, c.id).toBeGreaterThan(0);
+  });
+
+  it('is found by the matcher under its own names', () => {
+    expect(matchLore('What do the beastkin value?')!.claims.map(c => c.id)).toEqual(['people:Wildkin/values/0', 'people:Wildkin/values/1', 'people:Wildkin/values/2']);
+    expect(matchLore('How do the Wildkin mourn?')!.claims[0].text).toMatch(/dead stay dead/);
+    expect(matchLore('What do the Pandor think of the beastkin?')!.claims[0].id).toBe('people:Pandor/view:Wildkin/0');
   });
 });

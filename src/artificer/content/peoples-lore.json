@@ -1,5 +1,5 @@
 {
-  "_doc": "What each of the 15 Mistheim Peoples values, shames, does and believes about the others (#1590). Written for the knowledge model (#1577 slice C) and for claims, rumours and lies (#1580); read through src/artificer/culture-lore.ts. Every claim names its source (file § heading › label); invented: true marks what canon doesn't say, built on that source. A claim with truth rumour or false says what is actually so. docs/culture-lore.md explains it.",
+  "_doc": "What each of the 16 Mistheim Peoples (the Wildkin added 2026-10-11, #1606) values, shames, does and believes about the others (#1590). Written for the knowledge model (#1577 slice C) and for claims, rumours and lies (#1580); read through src/artificer/culture-lore.ts. Every claim names its source (file § heading › label); invented: true marks what canon doesn't say, built on that source. A claim with truth rumour or false says what is actually so. docs/culture-lore.md explains it.",
   "peoples": [
     {
       "id": "Bergfolk",
@@ -25,21 +25,21 @@
       "views": {
         "Lövfolk": [
           {"text":"The elves want the eastern hardwood left standing. We need it for charcoal. Neither side has moved in centuries.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"},
-          {"text":"Our mana-granite does the forest no harm.","truth":"false","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations","invented":true,"actually":{"text":"Bergfolk mana-granite channels are disrupting the Myst at the forest's western edge. Nobody has admitted it officially.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}},
-          {"text":"Elf healing is feeling, not real magic.","truth":"false","source":"WORLD.md § Who uses it and how › The Bergfolk","actually":{"text":"Lövfolk Rasa is quiet and very effective: their healers have wanted patients to heal for centuries.","source":"WORLD.md § Who uses Rasa › The Lövfolk"}}
+          {"text":"Our mana-granite does the forest no harm.","truth":"false","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations","invented":true,"strength":"firm","actually":{"text":"Bergfolk mana-granite channels are disrupting the Myst at the forest's western edge. Nobody has admitted it officially.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}},
+          {"text":"Elf healing is feeling, not real magic.","truth":"false","source":"WORLD.md § Who uses it and how › The Bergfolk","strength":"held","actually":{"text":"Lövfolk Rasa is quiet and very effective: their healers have wanted patients to heal for centuries.","source":"WORLD.md § Who uses Rasa › The Lövfolk"}}
         ],
         "Markfolk": [
           {"text":"We trade them ore for food. The quarrel over the southern foothills never quite ends.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}
         ],
         "Viddfolk": [
           {"text":"We trust a Viddfolk herald with a hold's contracts. They never take sides.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make"},
-          {"text":"A Viddfolk herald still runs a main route in three days.","truth":"false","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect","invented":true,"actually":{"text":"The ley-lines are thinning. Heralds now take four or five days, and the Viddfolk keep it to themselves.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect"}}
+          {"text":"A Viddfolk herald still runs a main route in three days.","truth":"false","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect","invented":true,"strength":"loose","actually":{"text":"The ley-lines are thinning. Heralds now take four or five days, and the Viddfolk keep it to themselves.","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › The Dry's effect"}}
         ],
         "Steinfolk": [
           {"text":"The nearest thing we have to true friends. They build; we give them what to build with.","truth":"true","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}
         ],
         "Pandor": [
-          {"text":"Pandor scholars make nothing you can hold in your hands.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","actually":{"text":"The Pandor make the continent's best maps, its records, and the mist-ferment poured at every serious negotiation.","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make"}}
+          {"text":"Pandor scholars make nothing you can hold in your hands.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What shapes them","strength":"firm","actually":{"text":"The Pandor make the continent's best maps, its records, and the mist-ferment poured at every serious negotiation.","source":"WORLD.md § The Pandor — panda scholars of the highland mist › What they make"}}
         ],
         "Deepwalkers": [
           {"text":"Deepwalker salt keeps a hold's meat through the winter. We buy it by the barrel.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
@@ -48,7 +48,7 @@
           {"text":"Merfolk pressure-crystal makes the finest enchanting. They sell it slowly, and only when they choose.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What they make","invented":true}
         ],
         "Goblins": [
-          {"text":"There are no goblins in our holds.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations","actually":{"text":"Goblin salvage bands live in the empty upper levels of three old holds. They're so useful nobody in charge has looked.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}}
+          {"text":"There are no goblins in our holds.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations","strength":"firm","actually":{"text":"Goblin salvage bands live in the empty upper levels of three old holds. They're so useful nobody in charge has looked.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › Relations"}}
         ],
         "Fae": [
           {"text":"A fae bargain binds tighter than any rune. We don't make them.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › What they make","invented":true}
@@ -57,16 +57,19 @@
           {"text":"Don't wake a sleeping giant, and don't take from its land without asking.","truth":"true","source":"WORLD.md § The Giants — the Seven"}
         ],
         "Dragons": [
-          {"text":"Iskuldr keeps our tribute tools and never uses them. That means he approves.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","actually":{"text":"Iskuldr keeps every tool and has used none. The Bergfolk read that as approval; nobody knows what he thinks.","source":"WORLD.md § The Dragons — the territorial powers"}}
+          {"text":"Iskuldr keeps our tribute tools and never uses them. That means he approves.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","strength":"held","actually":{"text":"Iskuldr keeps every tool and has used none. The Bergfolk read that as approval; nobody knows what he thinks.","source":"WORLD.md § The Dragons — the territorial powers"}}
         ],
         "Everstill": [
           {"text":"Vitstad's liches have been levelling their craft for two hundred years. We'd rather not talk about it.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City › Relations","sensitivity":"guarded"}
         ],
         "Constructs": [
-          {"text":"A construct is a made thing, not a person.","truth":"rumour","source":"WORLD.md § The Constructs — the Unmade and Remade","actually":{"text":"Under the Compact of Knowing constructs are persons. The old ones have Classes; the newer Bergfolk-made ones don't, yet.","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
+          {"text":"A construct is a made thing, not a person.","truth":"rumour","source":"WORLD.md § The Constructs — the Unmade and Remade","strength":"firm","actually":{"text":"Under the Compact of Knowing constructs are persons. The old ones have Classes; the newer Bergfolk-made ones don't, yet.","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
         ],
         "Remnants": [
           {"text":"Ask a Remnant a question and you get a true answer you can't use. We'd rather ask a stone.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin at the pass-towns trade fair. Why we're coming out of the mountains is hold business.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › Dvergr","invented":true,"sensitivity":"guarded"}
         ]
       },
       "sayings": [
@@ -101,7 +104,7 @@
           {"text":"Their mana-granite is thinning the Myst at our western edge. No one has said so out loud.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations","sensitivity":"guarded"}
         ],
         "Markfolk": [
-          {"text":"Farming is humble work. It takes no great skill.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make","actually":{"text":"Markfolk [Watermasters] reach levels other nations find embarrassing. A Level 35 Watermaster outranks many a [Knight].","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make"}}
+          {"text":"Farming is humble work. It takes no great skill.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make","strength":"firm","actually":{"text":"Markfolk [Watermasters] reach levels other nations find embarrassing. A Level 35 Watermaster outranks many a [Knight].","source":"WORLD.md § The Markfolk — orcs of the southern plains › What they make"}}
         ],
         "Viddfolk": [
           {"text":"Viddfolk heralds carry our councils' letters, and we trust them to forget nothing.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What shapes them","invented":true}
@@ -119,7 +122,7 @@
           {"text":"The Merfolk's wares keep their full strength while our enchantments weaken. They say nothing about it.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › The Dry's effect","invented":true,"sensitivity":"guarded"}
         ],
         "Goblins": [
-          {"text":"Goblins are pests, not people.","truth":"false","source":"WORLD.md § The two traditions together › Goblins","invented":true,"actually":{"text":"Goblins have Classes and Skills like anyone. They are people; the world doesn't agree, and the world is wrong.","source":"WORLD.md § Safe to use freely › Goblins"}}
+          {"text":"Goblins are pests, not people.","truth":"false","source":"WORLD.md § The two traditions together › Goblins","invented":true,"strength":"held","actually":{"text":"Goblins have Classes and Skills like anyone. They are people; the world doesn't agree, and the world is wrong.","source":"WORLD.md § Safe to use freely › Goblins"}}
         ],
         "Fae": [
           {"text":"The fae were under our groves before the trees were saplings. Neither of us can make the other leave.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › Relations"}
@@ -128,16 +131,19 @@
           {"text":"Giants live too slowly even for us. We can wait a long time; they wait longer.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
         ],
         "Dragons": [
-          {"text":"Grimmvald's patronage takes our young ones and gives back strangers.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","actually":{"text":"Several young Lövfolk have taken Grimmvald's patronage. They come back changed and say little; what it means is unclear.","source":"WORLD.md § The Dragons — the territorial powers"}}
+          {"text":"Grimmvald's patronage takes our young ones and gives back strangers.","truth":"rumour","source":"WORLD.md § The Dragons — the territorial powers","strength":"loose","actually":{"text":"Several young Lövfolk have taken Grimmvald's patronage. They come back changed and say little; what it means is unclear.","source":"WORLD.md § The Dragons — the territorial powers"}}
         ],
         "Everstill": [
           {"text":"The Pale City keeps its records nearly as long as our trees do. We share them under the Compact.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Compact of Knowing","invented":true}
         ],
         "Constructs": [
-          {"text":"A construct cannot change. It stays as it was made.","truth":"false","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true,"actually":{"text":"Older constructs have developed Classes; several became [Scholars] or [Keepers].","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
+          {"text":"A construct cannot change. It stays as it was made.","truth":"false","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true,"strength":"held","actually":{"text":"Older constructs have developed Classes; several became [Scholars] or [Keepers].","source":"WORLD.md § The Constructs — the Unmade and Remade"}}
         ],
         "Remnants": [
           {"text":"The Remnants are what the dead gods left. We don't say the gods' names, and we don't ask.","truth":"true","source":"WORLD.md § The weight of the past","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin's Great Clans won't add new council seats. We know that problem well.","truth":"true","source":"macro-world/race-affinities.json › THE CLAN QUESTION","invented":true}
         ]
       },
       "sayings": [
@@ -172,11 +178,11 @@
           {"text":"Ore for food, and a foothills quarrel that flares and cools every twenty years or so.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
         ],
         "Lövfolk": [
-          {"text":"The elves think they're better than everyone.","truth":"rumour","source":"WORLD.md § Safe to use freely › Elves","invented":true,"actually":{"text":"Lövfolk opinions set hard after three hundred years; their councils have held the same seats for four centuries. Their young often leave.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them"}}
+          {"text":"The elves think they're better than everyone.","truth":"rumour","source":"WORLD.md § Safe to use freely › Elves","invented":true,"strength":"held","actually":{"text":"Lövfolk opinions set hard after three hundred years; their councils have held the same seats for four centuries. Their young often leave.","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What shapes them"}}
         ],
         "Viddfolk": [
           {"text":"Sixty years of talks over grazing on the eastern steppe. No war, and nobody expects an end.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"},
-          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}}
+          {"text":"The eastern steppe is empty land going to waste.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations","invented":true,"strength":"firm","actually":{"text":"It's Viddfolk route-claim and grazing, recognised by every nation under the Vidde Accords.","source":"WORLD.md § Resource geography"}}
         ],
         "Steinfolk": [
           {"text":"They built the river works and we run them. Both of us know who needs whom.","truth":"true","source":"WORLD.md § The Markfolk — orcs of the southern plains › Relations"}
@@ -188,28 +194,31 @@
           {"text":"Harbour neighbours: our grain goes down the river and their salt comes up it.","truth":"true","source":"WORLD.md § Resource geography","invented":true}
         ],
         "Merfolk": [
-          {"text":"The Merfolk never answer because they look down on us.","truth":"false","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true,"actually":{"text":"Merfolk answer patience, not urgency. They plan across decades; a question asked this week may be answered in years.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}}
+          {"text":"The Merfolk never answer because they look down on us.","truth":"false","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them","invented":true,"strength":"loose","actually":{"text":"Merfolk answer patience, not urgency. They plan across decades; a question asked this week may be answered in years.","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}}
         ],
         "Goblins": [
-          {"text":"No goblins live in the Merkförbund. It's against the law.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them","actually":{"text":"It is the law, but farms on the eastern edge quietly hire goblin [Salvagers], and nobody asks.","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"}}
+          {"text":"No goblins live in the Merkförbund. It's against the law.","truth":"false","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them","strength":"firm","actually":{"text":"It is the law, but farms on the eastern edge quietly hire goblin [Salvagers], and nobody asks.","source":"WORLD.md § The Markfolk — orcs of the southern plains › What shapes them"}}
         ],
         "Fae": [
-          {"text":"A fae deal is a trick. Never make one at the field's edge.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"actually":{"text":"Fae deals are always technically fair. The trouble is what \"fair\" means to someone a thousand years old.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"}}
+          {"text":"A fae deal is a trick. Never make one at the field's edge.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"strength":"held","actually":{"text":"Fae deals are always technically fair. The trouble is what \"fair\" means to someone a thousand years old.","source":"WORLD.md § The Fae — the Hollow Courts › What they make"}}
         ],
         "Giants": [
           {"text":"Aldriksson's valley drains in ways no surveyor can explain. Our Watermasters would love to ask him how.","truth":"true","source":"WORLD.md § The Giants — the Seven","invented":true}
         ],
         "Dragons": [
-          {"text":"Dragons are wicked, and hoard gold to spite us.","truth":"false","source":"WORLD.md § Safe to use freely › Dragons","invented":true,"actually":{"text":"Dragons aren't evil. Their goals just don't fit our ideas of right and wrong.","source":"WORLD.md § Safe to use freely › Dragons"}}
+          {"text":"Dragons are wicked, and hoard gold to spite us.","truth":"false","source":"WORLD.md § Safe to use freely › Dragons","invented":true,"strength":"held","actually":{"text":"Dragons aren't evil. Their goals just don't fit our ideas of right and wrong.","source":"WORLD.md § Safe to use freely › Dragons"}}
         ],
         "Everstill": [
-          {"text":"The Pale City's dead are the corruption's work.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true,"actually":{"text":"The Everstill died and didn't stay dead without any help from the corruption: their Classes carried on.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}}
+          {"text":"The Pale City's dead are the corruption's work.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live","invented":true,"strength":"loose","actually":{"text":"The Everstill died and didn't stay dead without any help from the corruption: their Classes carried on.","source":"WORLD.md § The Everstill — undead of the Pale City › Where they live"}}
         ],
         "Constructs": [
           {"text":"Constructs guard the road junctions and ruins that nobody else wants to.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade"}
         ],
         "Remnants": [
           {"text":"One sits at the Threefold Crossroads. Ask it a question and you'll get a true answer, and probably no help.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+        ],
+        "Wildkin": [
+          {"text":"Beastkin are wild things. They couldn't keep a field.","truth":"false","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization","invented":true,"strength":"held","actually":{"text":"The Wildkin are an old, stable kingdom of forests, meadows and market squares.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › An old, stable civilization"}}
         ]
       },
       "sayings": [
@@ -274,13 +283,16 @@
         ],
         "Everstill": [
           {"text":"The Everstill forget nothing either. They just never go anywhere.","truth":"true","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true},
-          {"text":"Nothing can touch the Everstill. They'll be here forever.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true,"actually":{"text":"Some of the Everstill whose lives are tied to one Myst-anchored place have found the anchor weakening. Their state may not be permanent.","source":"WORLD.md § The Everstill — undead of the Pale City › The Dry's effect"}}
+          {"text":"Nothing can touch the Everstill. They'll be here forever.","truth":"false","source":"WORLD.md § The Everstill — undead of the Pale City","invented":true,"strength":"loose","actually":{"text":"Some of the Everstill whose lives are tied to one Myst-anchored place have found the anchor weakening. Their state may not be permanent.","source":"WORLD.md § The Everstill — undead of the Pale City › The Dry's effect"}}
         ],
         "Constructs": [
           {"text":"A construct at a road junction never leaves its post. We like that in a neighbour.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
         ],
         "Remnants": [
           {"text":"The Remnant who carries the Pandor's messages is never late. We respect that.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin kingdom is small and walled by mountain and sea. Our songs give it a short verse.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › never been large","invented":true}
         ]
       },
       "sayings": [
@@ -338,7 +350,7 @@
           {"text":"Fae rooms don't measure true. A wall should be as long inside as out.","truth":"true","source":"WORLD.md § Fae › Architecture","invented":true}
         ],
         "Giants": [
-          {"text":"Bergamora's eastern face was built, not grown.","truth":"rumour","source":"WORLD.md § The Giants — the Seven","invented":true,"actually":{"text":"The formations on Bergamora's eastern face look deliberate. Nobody knows whether they are.","source":"WORLD.md § The Giants — the Seven"}}
+          {"text":"Bergamora's eastern face was built, not grown.","truth":"rumour","source":"WORLD.md § The Giants — the Seven","invented":true,"strength":"loose","actually":{"text":"The formations on Bergamora's eastern face look deliberate. Nobody knows whether they are.","source":"WORLD.md § The Giants — the Seven"}}
         ],
         "Dragons": [
           {"text":"No fighting on dragon ground. That's the Old Accords, and it's good sense.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords"}
@@ -351,6 +363,9 @@
         ],
         "Remnants": [
           {"text":"Remnants cause no trouble and need no upkeep. We have no other opinion.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin have never called us. Their mountains and their sea do the work of a wall.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › have always been its walls","invented":true}
         ]
       },
       "sayings": [
@@ -395,7 +410,7 @@
         ],
         "Steinfolk": [
           {"text":"Every Steinfolk foundation stone is a record. We copy them.","truth":"true","source":"WORLD.md § Steinfolk › Objects","invented":true},
-          {"text":"The stronghold at the centre of the continent must guard an old ruin.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live","invented":true,"actually":{"text":"The Steinfolk have never said why they built at the centre, and nobody has pressed them.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
+          {"text":"The stronghold at the centre of the continent must guard an old ruin.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live","invented":true,"strength":"loose","actually":{"text":"The Steinfolk have never said why they built at the centre, and nobody has pressed them.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
         ],
         "Deepwalkers": [
           {"text":"Our strongest allies. Their [Keepers] and our [Archivists] share the Compact's legal framework.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}
@@ -423,6 +438,9 @@
         ],
         "Remnants": [
           {"text":"A Pandor scholar named them, needing something to write in the margin. One has carried our messages for two hundred years.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left"}
+        ],
+        "Wildkin": [
+          {"text":"Our records on the beastkin are thin. They never had a reason to look outward.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Isolationist by geography","invented":true}
         ]
       },
       "sayings": [
@@ -453,7 +471,7 @@
       },
       "views": {
         "Bergfolk": [
-          {"text":"The Bergfolk are born with a gift for metal.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make","invented":true,"actually":{"text":"They aren't born gifted. Their holds have refined the craft for eight hundred years, and the knowledge has piled up.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make"}}
+          {"text":"The Bergfolk are born with a gift for metal.","truth":"false","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make","invented":true,"strength":"loose","actually":{"text":"They aren't born gifted. Their holds have refined the craft for eight hundred years, and the knowledge has piled up.","source":"WORLD.md § The Bergfolk — dwarves of the northern holds › What they make"}}
         ],
         "Lövfolk": [
           {"text":"Elves keep memory in trees and we keep it in our heads. Both work. Ours walks.","truth":"true","source":"WORLD.md § The Lövfolk — elves of the eastern canopy › What they make","invented":true}
@@ -465,13 +483,13 @@
           {"text":"A herald and a [Keeper] together make a contract nobody can wriggle out of.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › What they make","invented":true}
         ],
         "Steinfolk": [
-          {"text":"The Steinfolk will always come when the sea-wall breaks.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true,"actually":{"text":"They always have. But they've never bargained for it, and they remember who was rude to them, as data.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}}
+          {"text":"The Steinfolk will always come when the sea-wall breaks.","truth":"rumour","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What shapes them","invented":true,"strength":"held","actually":{"text":"They always have. But they've never bargained for it, and they remember who was rude to them, as data.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Relations"}}
         ],
         "Pandor": [
           {"text":"Our closest allies, and as frightened of the Dry as we are, for the same reasons.","truth":"true","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}
         ],
         "Merfolk": [
-          {"text":"The deep channels are ours by right of memory.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","actually":{"text":"Deepwalkers and Merfolk both claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
+          {"text":"The deep channels are ours by right of memory.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","strength":"firm","actually":{"text":"Deepwalkers and Merfolk both claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
         ],
         "Goblins": [
           {"text":"Goblins pay in news, and the Compact has never once paid us in a lie.","truth":"true","source":"src/artificer/asks.ts › sm-hedda"}
@@ -492,7 +510,10 @@
           {"text":"A construct remembers an order. That's half of a [Keeper]'s gift, and none of the feeling.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
         ],
         "Remnants": [
-          {"text":"The Remnants are dead gods walking.","truth":"rumour","source":"WORLD.md § The Remnants — what the dead gods left","invented":true,"actually":{"text":"Their name means \"what the dead gods left\". Nobody knows what they are, and they don't explain.","source":"WORLD.md § The Remnants — what the dead gods left"}}
+          {"text":"The Remnants are dead gods walking.","truth":"rumour","source":"WORLD.md § The Remnants — what the dead gods left","invented":true,"strength":"loose","actually":{"text":"Their name means \"what the dead gods left\". Nobody knows what they are, and they don't explain.","source":"WORLD.md § The Remnants — what the dead gods left"}}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin are afraid of the sea.","truth":"rumour","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true,"strength":"loose","actually":{"text":"The Wildkin fish from the shore and gather shellfish. They just build no boats.","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › fish from shore"}}
         ]
       },
       "sayings": [
@@ -535,13 +556,13 @@
           {"text":"The steppe runners carry messages faster than wind. Nothing worth saying needs that much hurry.","truth":"true","source":"WORLD.md § The Viddfolk — centaurs of the open steppe › What they make","invented":true}
         ],
         "Steinfolk": [
-          {"text":"The Steinfolk live in stone mazes.","truth":"false","source":"WORLD.md § Safe to use freely › Minotaurs","invented":true,"actually":{"text":"Labyrinth stories offend most Steinfolk. Their strongholds stand where a river, a pass or a harbour needed fixing.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
+          {"text":"The Steinfolk live in stone mazes.","truth":"false","source":"WORLD.md § Safe to use freely › Minotaurs","invented":true,"strength":"held","actually":{"text":"Labyrinth stories offend most Steinfolk. Their strongholds stand where a river, a pass or a harbour needed fixing.","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › Where they live"}}
         ],
         "Pandor": [
           {"text":"The Pandor asked for an exchange of knowledge thirty years ago. We are still considering it.","truth":"true","source":"WORLD.md § The Merfolk — peoples of the deep places › What shapes them"}
         ],
         "Deepwalkers": [
-          {"text":"The deep places are ours. The Deepwalkers only visit.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","actually":{"text":"Both peoples claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
+          {"text":"The deep places are ours. The Deepwalkers only visit.","truth":"rumour","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations","strength":"firm","actually":{"text":"Both peoples claim the same deep places, and neither fully accepts the other's claim.","source":"WORLD.md § The Deepwalkers — coastal peoples of the long memory › Relations"}}
         ],
         "Goblins": [
           {"text":"Goblins live in the sea-caves under the stilt-towns. Better neighbours than the stilt-towns know.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › Where they live","invented":true}
@@ -563,6 +584,9 @@
         ],
         "Remnants": [
           {"text":"The Remnants don't explain themselves. Neither do we. It saves time.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"A shore people who never come out to us. We like them already.","truth":"true","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true}
         ]
       },
       "sayings": [
@@ -608,7 +632,7 @@
           {"text":"Steinfolk fix things properly and charge properly. We fix things today and charge less.","truth":"true","source":"WORLD.md § The Goblins — the Compact and its shadow › What they make","invented":true}
         ],
         "Pandor": [
-          {"text":"Sell a secret to a Pandor and the whole world has it by spring.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"actually":{"text":"The Compact of Knowing makes the Pandor tell anyone who asks, but very few ask, and they keep sealed records too.","source":"src/artificer/villages.ts › sm-anselm"}}
+          {"text":"Sell a secret to a Pandor and the whole world has it by spring.","truth":"rumour","source":"src/artificer/asks.ts › sm-anselm","invented":true,"strength":"held","actually":{"text":"The Compact of Knowing makes the Pandor tell anyone who asks, but very few ask, and they keep sealed records too.","source":"src/artificer/villages.ts › sm-anselm"}}
         ],
         "Deepwalkers": [
           {"text":"Deepwalker merchants buy our news and pay fair. We live under their stilt-towns, quietly.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Goblin Compact's shadow network","invented":true}
@@ -620,7 +644,7 @@
           {"text":"The fae watch the ruins we open. They never say why.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › The Dry's effect","invented":true}
         ],
         "Giants": [
-          {"text":"Aldriksson must be a very high-level [Sage].","truth":"false","source":"WORLD.md § The Giants — the Seven","invented":true,"actually":{"text":"Giants have no Classes. The system decided it would be inappropriate.","source":"WORLD.md § The Giants — the Seven"}}
+          {"text":"Aldriksson must be a very high-level [Sage].","truth":"false","source":"WORLD.md § The Giants — the Seven","invented":true,"strength":"loose","actually":{"text":"Giants have no Classes. The system decided it would be inappropriate.","source":"WORLD.md § The Giants — the Seven"}}
         ],
         "Dragons": [
           {"text":"Never salvage on dragon ground. Some ruins are worth the risk. Those aren't.","truth":"true","source":"WORLD.md § Alliances and political arrangements › The Old Accords","invented":true}
@@ -633,6 +657,9 @@
         ],
         "Remnants": [
           {"text":"The Remnant at the crossroads told our [Delver] the ruin was under the ground. True. Thanks.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"Beastkin markets are full of fox traders. Tough bargainers, and fair.","truth":"true","source":"macro-world/race-affinities.json › Redtail","invented":true}
         ]
       },
       "sayings": [
@@ -703,6 +730,9 @@
         ],
         "Remnants": [
           {"text":"We know more about the third Remnant than we say.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","sensitivity":"secret"}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin meadows have fine edges. We were in them long before the clans.","truth":"true","source":"WORLD.md § The Fae — the Hollow Courts › longer than the peoples","invented":true}
         ]
       },
       "sayings": [
@@ -773,6 +803,9 @@
         ],
         "Remnants": [
           {"text":"The Remnants and the Seven leave each other alone. That has always worked.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"Aldriksson says the beastkin are new. Everyone is new, to Aldriksson.","truth":"true","source":"WORLD.md § The Giants — the Seven › Aldriksson","invented":true}
         ]
       },
       "sayings": [
@@ -843,6 +876,9 @@
         ],
         "Remnants": [
           {"text":"The Remnants hold no ground and want none. Dragons don't understand them.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"A small kingdom, walled by sea and mountain. None of us has claimed it. Yet.","truth":"true","source":"WORLD.md § The Dragons — the territorial powers › Five major dragon territories","invented":true}
         ]
       },
       "sayings": [
@@ -913,6 +949,9 @@
         ],
         "Remnants": [
           {"text":"Nothing in the archive explains the Remnants. We are still looking.","truth":"true","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The beastkin say their dead stay dead. Vitstad would like a word about that.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › their dead stay dead","invented":true}
         ]
       },
       "sayings": [
@@ -983,6 +1022,9 @@
         ],
         "Remnants": [
           {"text":"Our oldest doesn't know who made it. If the Remnants know, they don't say.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"A beastkin child takes after one parent's line, never both, and nobody knows why. We find that interesting.","truth":"true","source":"macro-world/race-affinities.json › never a blend","invented":true}
         ]
       },
       "sayings": [
@@ -1053,12 +1095,91 @@
         ],
         "Constructs": [
           {"text":"The constructs were made. So was much else.","truth":"true","source":"WORLD.md § The system","invented":true}
+        ],
+        "Wildkin": [
+          {"text":"The Wildkin were not always walled in.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely","invented":true}
         ]
       },
       "sayings": [
         {"text":"You are standing where you are.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
         {"text":"The way ahead is in front of you.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true},
         {"text":"Every road ends somewhere.","source":"WORLD.md § The Remnants — what the dead gods left","invented":true}
+      ]
+    },
+    {
+      "id": "Wildkin",
+      "name": "Wildkin",
+      "names": ["Wildkin","beastkin","beast-kin","beastfolk","Highfang","Great Clans"],
+      "voice": {"text":"Warm in the den, wary at the border. They name their clan before themselves.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › Great Clans","invented":true},
+      "values": [
+        {"text":"The clan comes first: the pack, the hold, the warren, the eyrie.","truth":"true","source":"macro-world/race-affinities.json › CLAN STRUCTURE"},
+        {"text":"A quiet, steady kingdom. The mountains and the sea have always been our walls.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › have always been its walls"},
+        {"text":"Founding blood, founding right: the Great Clans speak first at the council.","truth":"true","source":"macro-world/race-affinities.json › founding blood, founding right"}
+      ],
+      "taboos": [
+        {"text":"Going far from shore. The sea is a wall, not a road.","truth":"true","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true},
+        {"text":"Calling a hawk who settled in a valley \"grounded\". It stings.","truth":"true","source":"macro-world/race-affinities.json › THE ROLE SHADOW"},
+        {"text":"Telling a bear she should trade instead of guard.","truth":"true","source":"macro-world/race-affinities.json › THE ROLE SHADOW","invented":true}
+      ],
+      "customs": {
+        "greeting": {"text":"You say your clan and your line: Greymane of the wolves, Longburrow of the rabbits.","truth":"true","source":"macro-world/race-affinities.json › Greymane","invented":true},
+        "trade": {"text":"Fox traders work the market squares, and know every price in the kingdom.","truth":"true","source":"macro-world/race-affinities.json › Redtail","invented":true},
+        "mourning": {"text":"No prayers, and the dead stay dead. The clan gathers at the oldest den and tells how the one who died ran.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › their dead stay dead","invented":true},
+        "debt": {"text":"A quarrel over land goes to the boar clans. Stoneback's word on a boundary stands.","truth":"true","source":"macro-world/race-affinities.json › Stoneback","invented":true}
+      },
+      "views": {
+        "Bergfolk": [
+          {"text":"Dwarves walk out of tunnels that weren't there last season, and won't say why.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › Dvergr"}
+        ],
+        "Lövfolk": [
+          {"text":"Forest folk far to the east, we hear. Our bears guard groves too. They might get on.","truth":"true","source":"macro-world/race-affinities.json › Ironhide","invented":true}
+        ],
+        "Markfolk": [
+          {"text":"Southern farmers, we hear. If they are like our boar clans, they argue about every boundary.","truth":"true","source":"macro-world/race-affinities.json › Stoneback","invented":true}
+        ],
+        "Viddfolk": [
+          {"text":"Our packs roamed once. The Viddfolk still do. We envy them a little.","truth":"true","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › packs roamed freely","invented":true}
+        ],
+        "Steinfolk": [
+          {"text":"Builders who stay after the work is done. Our boar clans would like them.","truth":"true","source":"WORLD.md § The Steinfolk — minotaurs of the five strongholds › What they make","invented":true}
+        ],
+        "Pandor": [
+          {"text":"Scholars who write everything down. Our snake dens remember instead, and tell only the council.","truth":"true","source":"macro-world/race-affinities.json › Snake dens","invented":true}
+        ],
+        "Deepwalkers": [
+          {"text":"People who live half on the water. We build no boats, so we can't visit.","truth":"true","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › build no boats","invented":true}
+        ],
+        "Merfolk": [
+          {"text":"Nothing lives out past the shore. The sea is just the edge.","truth":"false","source":"macro-world/setting-corewarden.md § The Ocean — Unknown › The ocean is simply the edge","invented":true,"strength":"firm","actually":{"text":"The Merfolk live in the deep channels and sunken ruins, and come up only at certain tides.","source":"WORLD.md § The Merfolk — peoples of the deep places › Underwater"}}
+        ],
+        "Goblins": [
+          {"text":"Small folk who make a home of the edges, we hear. Our cat clans would understand them.","truth":"true","source":"macro-world/race-affinities.json › Cat clans","invented":true}
+        ],
+        "Fae": [
+          {"text":"Something at the meadow's edge at dawn bargains for names. Grandmothers warn the cubs.","truth":"rumour","source":"WORLD.md § The Fae — the Hollow Courts › Where they live","invented":true,"strength":"held","actually":{"text":"The fae live in the edges, like the field's border and the hour before dawn, and their deals are always technically fair.","source":"WORLD.md § The Fae — the Hollow Courts › technically fair"}}
+        ],
+        "Giants": [
+          {"text":"Some mountains might be asleep. Our hawks don't land on the tallest peaks, just in case.","truth":"true","source":"WORLD.md § The Giants — the Seven › not to wake a giant","invented":true}
+        ],
+        "Dragons": [
+          {"text":"Old powers in far lands. If one ever flies over the mountains, the council will still be debating.","truth":"true","source":"WORLD.md § Safe to use freely › Dragons","invented":true}
+        ],
+        "Everstill": [
+          {"text":"The dead should stay dead. Ours always have.","truth":"true","source":"macro-world/setting-corewarden.md § West — The Mountains › their dead stay dead"},
+          {"text":"The walking dead in the high passes come from the Pale City.","truth":"rumour","source":"macro-world/setting-corewarden.md § West — The Mountains › The Undead","invented":true,"strength":"held","actually":{"text":"The undead in the passes come from deeper in the mountains, and nobody knows why. Vitstad's Everstill aren't corruption's work.","source":"WORLD.md § The Everstill — undead of the Pale City › without the involvement"}}
+        ],
+        "Constructs": [
+          {"text":"Made things that think? We have no word for them yet.","truth":"true","source":"WORLD.md § The Constructs — the Unmade and Remade › Guardians","invented":true}
+        ],
+        "Remnants": [
+          {"text":"Our snake dens bring old knowledge to the council. They may know what a Remnant is. They haven't said.","truth":"true","source":"macro-world/race-affinities.json › Snake dens","invented":true}
+        ]
+      },
+      "sayings": [
+        {"text":"The mountains and the sea have always been our walls.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › have always been its walls"},
+        {"text":"We were here before you counted.","source":"macro-world/race-affinities.json › We were here before you counted"},
+        {"text":"The oldest houses look like dens. The newest have iron hinges.","source":"macro-world/setting-corewarden.md § The Beastkin Kingdom (primary setting) › iron hinges"},
+        {"text":"Old blood, old rules.","source":"macro-world/race-affinities.json › old blood, old rules"}
       ]
     }
   ]
