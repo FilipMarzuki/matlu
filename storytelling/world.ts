@@ -57,6 +57,7 @@ import type {
   Treaty,
   WorldEvent,
 } from "./types.js";
+import { newEtherState, type EtherState } from "./ether-state.js";
 import type { CultureSpec, FaithSpec, RaceSpec } from "./world-spec.js";
 
 export class World {
@@ -72,6 +73,13 @@ export class World {
   // event deck each year and fires chain events that mutate province state.
   // Off by default so base golden-master hashes are unaffected.
   catastrophesEnabled = false;
+
+  // When true, the Ether layer (ether.ts) runs each tick: province veils thin,
+  // the Ether converges with Mistheim, and anchored dead may linger as spirits.
+  // Off by default — nothing in the base sim reads or draws for it, so golden
+  // hashes are unaffected. See docs/ETHER_REALM.md.
+  etherEnabled = false;
+  ether: EtherState = newEtherState();
 
   // Pending chain steps from in-progress catastrophe events.
   catastropheQueue: CatastropheQueueItem[] = [];

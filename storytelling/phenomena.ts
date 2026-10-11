@@ -176,4 +176,10 @@ export function markDead(w: World, c: Character, cause: string): void {
   if (mother?.alive) onGrief(mother);
   // Personal wealth + apprentice-inheritance hook. No-op when magic is off.
   transferOnDeath(w, c.id);
+  // Ether layer: note the death now, while we can still see whether they held
+  // a title (succession reassigns it later this tick). No RNG, no event — the
+  // linger-or-move-on decision happens once a year in ether.ts:runEther.
+  if (w.etherEnabled) {
+    w.ether.pendingDeaths.push({ charId: c.id, wasRuler: w.titlesHeldBy(c.id).length > 0 });
+  }
 }

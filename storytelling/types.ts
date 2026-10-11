@@ -166,6 +166,11 @@ export interface Character {
   // canonHash / base-sim JSON stays byte-identical. Populated only by challenges.ts.
   skills?: string[];
 
+  // Optional — set only by ether.ts (the `--ether` layer) when this character's
+  // spirit lingered after death. Undefined for everyone else, so base-sim JSON
+  // stays byte-identical. Most of the dead never get one: they move on.
+  spirit?: SpiritState;
+
   // --- Personal skill premium & craft lineage --------------------------------
   // Wealth captured by personal skill (master craftsman charges premium). Unlike
   // Dynasty.wealth (dynastic), personalWealth dies with the character unless it
@@ -906,6 +911,12 @@ export interface Province {
   // traits are amplified. undefined = pristine or unclassified blight.
   corruptionType?: "necrotic" | "void" | "feral";
 
+  // --- The Ether (spirit realm) overlay — only changes when World.etherEnabled.
+  // 1 = sealed, 0 = open. Deaths and long-held seats wear it thin; peace and
+  // spirits moving on thicken it again. Below ETHER_THIN (ether.ts) the
+  // province is a "thin place" where the dead can linger. See docs/ETHER_REALM.md.
+  veil: number;
+
   // --- Class stratification -------------------------------------------------
   // Who does the work here and how they organise. Set once at seed time from
   // terrain + culture + population; may shift over decades via events like
@@ -1397,7 +1408,12 @@ export type EventType =
   | "CIVIC_CHARTER_GRANTED"     // city elevated to charter/free-status
   | "NOBLE_HOSTAGE_TAKEN"       // burghers seize a lord to extract concessions
   | "SUMPTUARY_LAW_PASSED"      // nobles restrict burgher displays of wealth
-  | "PATRONAGE_EXTENDED";       // patrician family bankrolls a scholar/artist
+  | "PATRONAGE_EXTENDED"        // patrician family bankrolls a scholar/artist
+  // --- The Ether — spirit realm merging into Mistheim (ether.ts, --ether) ---
+  | "ETHER_CONVERGENCE"         // once per world: the Ether begins to merge; veils start to thin
+  | "THIN_PLACE_RECOGNIZED"     // a province's veil falls below the thin-place threshold
+  | "SPIRIT_LINGERS"            // an anchored dead character does not move on
+  | "SPIRIT_MOVES_ON";          // a lingering spirit's anchor resolves; it is gone for good
 
 export interface WorldEvent {
   id: number;
@@ -1418,6 +1434,24 @@ export interface WorldEvent {
 // ArcKind — the shape of a story arc. Declared here (not in arcs.ts) so both
 // arcs.ts and event-spec.ts can reference it without a circular import.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// The Ether — lingering spirits. Most of the dead move on at once and are gone;
+// a spirit lingers only when something anchors it (docs/ETHER_REALM.md §4).
+// ---------------------------------------------------------------------------
+export type SpiritAnchor =
+  | "unavenged_murder" // killed by a scheme; the killer still lives
+  | "grudge"           // died holding a grudge against someone still alive
+  | "last_of_house"    // their death ended the house
+  | "battlefield";     // died violently in a thin place
+
+export interface SpiritState {
+  anchor: SpiritAnchor;
+  anchorTargetId: CharId | null; // the killer / grudge target, if any
+  provinceId: ProvinceId;        // where the spirit lingers
+  sinceYear: number;             // year of death
+  movedOnYear: number | null;    // set once, when the anchor resolves; never cleared
+}
+
 export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity" | "culture";
 
 // ---------------------------------------------------------------------------

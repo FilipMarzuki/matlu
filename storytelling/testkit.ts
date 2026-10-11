@@ -28,6 +28,7 @@ export interface SimConfig {
   magic?: boolean;
   prehistory?: boolean;
   prehistorySpan?: number;
+  ether?: boolean;
 }
 
 const SPECS: Record<string, WorldSpec> = { default: DEFAULT_SPEC, frontier: FRONTIER_SPEC };
@@ -39,6 +40,7 @@ export function runSim(cfg: SimConfig): World {
     w.magicEnabled = true;
     magicInit(w);
   }
+  if (cfg.ether) w.etherEnabled = true;
   if (cfg.prehistory) generatePrehistory(w, cfg.prehistorySpan ?? 800);
   for (let y = 0; y < cfg.years; y++) tick(w);
   return w;
@@ -74,6 +76,18 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     magic: true,
     prehistory: true,
     hash: "ea8ecdf4",
+  },
+  // --ether on. The four cases above must NOT change when the Ether layer does —
+  // it is opt-in and draws no RNG when off. These two pin the Ether itself.
+  { name: "default·ether·s42·200y", world: "default", seed: 42, years: 200, ether: true, hash: "9052554a" },
+  {
+    name: "frontier·magic·ether·s5·200y",
+    world: "frontier",
+    seed: 5,
+    years: 200,
+    magic: true,
+    ether: true,
+    hash: "1e18277b",
   },
 ];
 
@@ -400,6 +414,35 @@ export function checkInvariants(w: World): string[] {
       v.push(`province ${p.id} has invalid classStructure "${p.classStructure}"`);
     if (p.burgherStrength < 0 || p.burgherStrength > 1)
       v.push(`province ${p.id} burgherStrength ${p.burgherStrength} out of [0,1]`);
+  }
+
+  // Ether invariants (docs/ETHER_REALM.md §8). The core rule: a spirit that has
+  // moved on is gone — it is never the actor of a later Ether event.
+  const ETHER_EVENTS = new Set(["ETHER_CONVERGENCE", "THIN_PLACE_RECOGNIZED", "SPIRIT_LINGERS", "SPIRIT_MOVES_ON"]);
+  let convergences = 0;
+  const lingered = new Set<string>();
+  const movedOn = new Set<string>();
+  for (const e of w.events) {
+    if (!ETHER_EVENTS.has(e.type)) continue;
+    if (!w.etherEnabled) { v.push(`ether event ${e.type}#${e.id} with --ether off`); continue; }
+    if (e.type === "ETHER_CONVERGENCE") convergences++;
+    else if (convergences === 0) v.push(`${e.type}#${e.id} before ETHER_CONVERGENCE`);
+    const a = e.actorId;
+    if (!a) continue;
+    if (movedOn.has(a)) v.push(`spirit ${a} acts in ${e.type}#${e.id} after moving on`);
+    if (e.type === "SPIRIT_LINGERS") {
+      if (lingered.has(a)) v.push(`spirit ${a} lingered twice`);
+      if (w.char(a)?.alive) v.push(`living character ${a} has a lingering spirit`);
+      lingered.add(a);
+    }
+    if (e.type === "SPIRIT_MOVES_ON") {
+      if (!lingered.has(a)) v.push(`spirit ${a} moved on without having lingered`);
+      movedOn.add(a);
+    }
+  }
+  if (convergences > 1) v.push(`ETHER_CONVERGENCE fired ${convergences} times`);
+  for (const p of w.provinces.values()) {
+    if (!(p.veil >= 0 && p.veil <= 1)) v.push(`province ${p.id} veil ${p.veil} out of [0,1]`);
   }
 
   return v;

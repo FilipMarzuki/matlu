@@ -21,6 +21,7 @@ npx tsx storytelling/main.ts --years 200 --seed 42
 # or
 npm run story
 # flags: --years N  --seed N  --threshold N (drama cutoff)  --verbose (event tally)
+#        --ether (the spirit realm merges in: thin veils, lingering spirits)
 ```
 
 Same seed ⇒ byte-identical chronicle (seeded RNG, no `Math.random`).
@@ -99,6 +100,8 @@ arrive from many sources in one year (plague, age, murder, war).
 | `render.ts` | Stub templated prose renderer |
 | `persist.ts` | Save a run: `events.ndjson` (canon) + `meta.json` |
 | `magic.ts` | Optional leveling / magic layer (see below) |
+| `ether.ts` | Optional Ether layer (`--ether`): province veils, the convergence, lingering spirits — see `docs/ETHER_REALM.md` |
+| `ether-state.ts` | The Ether's per-world bookkeeping (kept separate to avoid a circular import) |
 | `main.ts` | CLI entry point |
 
 ## Feeding in world data (`WorldSpec` / `--spec`)

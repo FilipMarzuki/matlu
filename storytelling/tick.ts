@@ -15,6 +15,7 @@
 import { runCatastrophes } from "./catastrophe.js";
 import { runChallenges } from "./challenges.js";
 import { runEmergence } from "./emergence.js";
+import { runEther } from "./ether.js";
 import { runFate } from "./fate.js";
 import { runSpecs } from "./event-spec.js";
 import "./specs/index.js"; // side-effect: registers all catalog specs
@@ -197,6 +198,11 @@ export function tick(w: World): void {
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.
   runSieges(w);
+
+  // --- the Ether (--ether) — veils thin, the dead linger or move on. Runs
+  // last so it sees every death this year, whichever pass caused it. No-op
+  // when etherEnabled is false.
+  runEther(w);
 
   // End-of-tick sweep: runChallenges can kill title-holders (challenger
   // slain by a hostile kind), and the last resolvePendingSuccessions call

@@ -22,7 +22,7 @@ describe("golden master — the event log is stable", () => {
 describe("determinism — same config, same history", () => {
   // 15s timeout: reproducibility runs the sim TWICE back-to-back, so a 250y
   // frontier + magic + prehistory run can easily cross the default 5s.
-  test.each([GOLDEN[1], GOLDEN[3]])("$name is reproducible", (c) => {
+  test.each([GOLDEN[1], GOLDEN[3], GOLDEN[5]])("$name is reproducible", (c) => {
     expect(canonHash(runSim(c))).toBe(canonHash(runSim(c)));
   }, 15000);
 });
@@ -30,7 +30,16 @@ describe("determinism — same config, same history", () => {
 describe("invariants — hold across seeds, worlds and flags", () => {
   const cases: SimConfig[] = [];
   for (let seed = 1; seed <= 16; seed++) {
-    cases.push({ name: `default·s${seed}`, world: "default", seed, years: 120, magic: seed % 2 === 0 });
+    // --ether on every third seed, so the Ether invariants are exercised in
+    // both worlds, with and without magic.
+    cases.push({
+      name: `default·s${seed}`,
+      world: "default",
+      seed,
+      years: 120,
+      magic: seed % 2 === 0,
+      ether: seed % 3 === 1,
+    });
     cases.push({
       name: `frontier·s${seed}`,
       world: "frontier",
@@ -38,6 +47,7 @@ describe("invariants — hold across seeds, worlds and flags", () => {
       years: 120,
       magic: seed % 2 === 1,
       prehistory: seed % 3 === 0,
+      ether: seed % 3 === 2,
     });
   }
   test.each(cases)("$name never violates a structural invariant", (c) => {
