@@ -12,7 +12,8 @@
 // kind and house (#1586).
 // 6: regions push back into the simulation (#1608), so the same seed lives a different history;
 //    regions carry how unsettled they are, and their provinces how well off.
-export const HISTORY_VERSION = 6;
+// 7: hard winters and famine carry off named people, and their titles pass the same year (#1617).
+export const HISTORY_VERSION = 7;
 
 /**
  * The last this many years are told event by event ("living memory"); older years as threads.

@@ -52,10 +52,21 @@ year's engine rolls are exactly as they were; only what follows feels the region
 | **Levy** | each province whose lord fought this year loses `levyToll × levy` of its people (3% at a full levy); every province's wealth target drops `levyWork × levy` (fields untended) | `levyToll` 0.03, `levyWork` 0.15 |
 | **Hard winter** | every surface province loses `winterToll × hardship` of its people and `winterStores × hardship` of its wealth; the winter's event records the toll | `winterToll` 0.015, `winterStores` 0.08 |
 | **Famine** | on top of the engine's own toll, each famine province loses `famineToll × hardship` of its people and `famineStores × hardship` of its wealth | `famineToll` 0.03, `famineStores` 0.15 |
+| **Named people (#1617)** | in a hard winter (surface provinces) or a famine (the province it struck), each named resident who is **frail** rolls once (`World.regionRng`) to die, at `frailty × hardship × (winterNamed + famineNamed where each fell)`, capped at `namedCap`. Frailty adds up: **old** (past 70% of the race's lifespan, or 60 without biology) 1, **sick** (plague in the province within 2 years, or an inbreeding coefficient of 0.125+) 0.6, **poor** (holds no seat, and lowborn or of a house holding none) 0.6. The hale never die of it. They die as the engine's people (`markDead`, cause `cold` or `famine`); the winter's or the famine's regional event records `named_dead` and the most notable (a lord first, then the eldest) as its actor | `winterNamed` 0.05, `famineNamed` 0.08, `namedCap` 0.5, `frailOld`, `frailSick`, `frailPoor`, `oldShare`, `oldAge`, `sickYears`, `sicklyBlood` |
 | **Banditry** | the province bandits worked loses wealth; the engine's trade routes touching the region lose traffic (`TradeRoute.wealth`); the region's roads already lose trade (#1598), which feeds wealth | `banditWealth` 0.08, `banditRoute` 0.1 |
 | **Trade and prosperity** | each province's **wealth** (`Province.wealth`, 0–1, 0.5 getting by) eases 12% of the way a year toward the region's prosperity, plus its roads' trade (doubled at the market town), the venture's health (its province), and the busiest engine trade route through it, and is drawn 2% of the way back toward 0.5 (getting by) a year. The slow pull lets a hard winter or bandits be felt for years; the drift keeps prosperous regions from sitting at 0.7–0.8 everywhere. Wealth reaches its holder: `World.power` counts a province's people ×(1 + 0.4 × (wealth − 0.5)), so ±20%; in magic worlds the house treasury's income from the province scales ×(0.5 + wealth) | `wealthPull` 0.12, `wealthDrift` 0.02, `roadWealth` 0.3, `ventureWealth` 0.2, `routeWealth` 0.15, `WEALTH_POWER` 0.4 (`world.ts`) |
 | **Unsettled politics** | `Region.unsettled` (0–1) rises with a lord's death (0.1, a great lord 0.2), an empty seat (0.2), a seized seat (0.3) and keeps 60% a year. While it's up its lords of different houses lose `6 × unsettled` opinion of each other a year, bandits get easier (+0.1 × unsettled a year) and prosperity's target drops 0.1 × unsettled | `unsettle*`, `unsettleKeep` 0.6, `unsettledOpinion` 6, `unsettledBandits`, `unsettledProsperity` |
 | **A feud grows into war** | a feud is live 25 years after its lords last fought. Each year, if both houses still have a lord seated in the region and they aren't under a truce (often the sons, not the men who fought), it flares with chance `0.6 × unsettled` (from `World.regionRng`): the more vengeful lord gets a weak claim on the other's seat (`FEUD_FLARES`, significance 4), and both lose 15 opinion. The engine's goals turn the claim into a `SEIZE_TITLE` goal, and a war if the lord dares | `feudFlare` 0.6, `feudMemory` 25, `feudFlareOpinion` 15 |
+
+**Late deaths and successions (#1617).** The named dead die after the engine's last succession
+sweep, so `tick()` runs one more sweep after the regional pass: a lord the winter took is
+succeeded the same year, and no seat is held by the dead into the next. Those deaths and
+successions come after the regional read, so `World.regionalCursor` marks where the read stopped;
+next year's pass first reads them (politics only: `LORD_DIED`, `SEAT_VACANT`), dated the year they
+happened, for every region before any of the new year's news, and they unsettle the region that
+year. The last year of a run has no next year, so its late successions aren't told regionally
+(the engine's log has them). In the default world over 200 years, about 20 of 358 named deaths
+are to the cold (seed 42).
 
 **Hardship** is `0.5 + (1 − prosperity)` with the region's prosperity going into the year: 1 in a
 region getting by, 1.5 in a destitute one, 0.5 in a rich one. A poor region has nothing to fall
@@ -157,7 +168,7 @@ Hollowford country.", `renderRegionalEventNamed`).
   shows as a small gold mark (and explains in one line at the top). Nothing goes into
   `World.events` and nothing draws from `World.rng`, so the hashes and the Reach's pinned log
   don't move.
-- **`HISTORY_VERSION`** 6 since #1608 (5 was #1586): the regions push back, so the same seed lives a different
+- **`HISTORY_VERSION`** 7 since #1617 (named people die in hard winters and famine); 6 was #1608 (5 was #1586): the regions push back, so the same seed lives a different
   history, and the told regions carry `unsettled` and each province's `wealth`.
 - A **hard winter** now says when it cost lives ("…and the old and the weak died of the cold";
   "…and many died of the cold and hunger" when it took 1.8% or more, which is worth a point more,
@@ -273,11 +284,11 @@ takes under a millisecond for about 100 facts.
 | `types.ts` | `Region` (with `label`, `secondary`, `founding`, `unsettled`), `Founding`, `RegionalEvent` and its kinds (`FEUD_FLARES` since #1608); optional `Province.lake`, `lastHarvest`, `plaguedYear`, `wealth` |
 | `world-spec.ts` | optional `ProvinceSpec.lake`; nothing for #1608 (wealth starts at 0.5 everywhere, and the knobs are `FEEDBACK`, not per world) |
 | `seed.ts` | sets `lake` and `wealth` (0.5); `formRegions` |
-| simulation | `tick.ts` runs `runRegions` last, which ends with `pushBack`; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws); `world.ts` `power` reads `wealth`. `geography.ts` and `people.ts` unchanged: population and claims are changed directly, and regrowth reads the population as it finds it |
+| simulation | `tick.ts` runs `runRegions` last, which ends with `pushBack`, then a succession sweep (#1617); `world.ts` `regionalCursor`; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws); `world.ts` `power` reads `wealth`. `geography.ts` and `people.ts` unchanged: population and claims are changed directly, and regrowth reads the population as it finds it |
 | `perception.ts` | yes (#1608): a landed lord in an unsettled region gets `unsettled × 0.006` more chance a year of a distortion (`UNSETTLED_ONSET`). Changes the odds of a roll the engine makes anyway, never the number of rolls |
 | `culture-drift.ts` | no: it reads the year's engine events, and the regions' consequences reach it through them (fewer famines, different wars). A regional pressure would add culture variety the owner wants kept low near the start (answer 5) |
 | `catastrophe.ts` | no: catastrophes are world-scale and already feed the regions (`GREAT_FROST` is a hard winter everywhere); deepening their tolls by region would count the same disaster twice |
 | `magic.ts` | yes (#1608): a house's income from a province scales ×(0.5 + wealth) |
-| `sifter.ts` | `regionalSignificance`; `FEUD_FLARES` 4, a killing winter +1 |
-| `render.ts` | `renderRegionalEvent` (a winter's toll, a flared feud), `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
-| `testkit.ts` | region invariants in `checkInvariants` (plus `unsettled`, `wealth` in bounds, the population floor, flared feuds name a title and two lords); golden hashes rebaselined for #1608 |
+| `sifter.ts` | `regionalSignificance`; `FEUD_FLARES` 4, a killing winter +1 (one that took 1.8%, or someone named, #1617). Deaths keep `DEATH`'s score |
+| `render.ts` | `renderRegionalEvent` (a winter's toll, a flared feud, the named dead of a winter or famine), a `DEATH` "of cold"; `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
+| `testkit.ts` | region invariants in `checkInvariants` (plus `unsettled`, `wealth` in bounds, the population floor, flared feuds name a title and two lords); golden hashes rebaselined for #1608 and #1617 |

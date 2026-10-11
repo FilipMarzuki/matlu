@@ -194,8 +194,10 @@ export function regionalSignificance(kind: RegionalEventKind, data: Record<strin
   // A killing winter (#1608: winters now cost lives, most in a poor region): one
   // that took nearly 2% of the region's people is remembered for longer. Still
   // under the chronicle's 5, so it's told in the region's own lines, not the
-  // chronicle (the #1605 threshold rule).
-  if (kind === "HARD_WINTER" && Number(data["share"] ?? 0) >= 0.018) s += 1;
+  // chronicle (the #1605 threshold rule). One that carried off someone named
+  // (#1617) is remembered the same way, but it's still one point, not two: the
+  // lord it took is told on his own (LORD_DIED).
+  if (kind === "HARD_WINTER" && (Number(data["share"] ?? 0) >= 0.018 || Number(data["named_dead"] ?? 0) > 0)) s += 1;
   return s;
 }
 
