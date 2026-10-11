@@ -313,7 +313,7 @@ The verdicts count on the head commit only, and the review agent must approve th
 
 1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Go deeper the higher the tier: for `risk:high`, check the matching lens file's list by hand too. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
 2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. Marking ready starts *3c — Risk review*, which scores the PR, starts *DevCycle 3 — Review*, and runs the paid reviews its tier calls for. Fix blocking findings: a second opinion's `request-changes` or a focused review's finding holds the merge until a new commit.
-3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves and the gate passes; *3c* starts it again when the tier's reviews finish. Every merge path runs the gate `node .github/scripts/risk-score.mjs --pr N --gate` (exit 3 = hold): CI passed on the head commit, and the tier's models agree on it.
+3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves and the gate passes; *3c* starts it again when the tier's reviews finish, and a review agent that *3c* started starts it when it finishes (#1582: GitHub fires no `workflow_run` for runs started with `GITHUB_TOKEN`). Every merge path runs the gate `node .github/scripts/risk-score.mjs --pr N --gate` (exit 3 = hold): CI passed on the head commit, and the tier's models agree on it.
 
 Never mark a PR ready and merge it in the same step — that skips the review agents entirely.
 

@@ -3,6 +3,16 @@ name: DevCycle 3 — Review
 # Per-PR review agent. Fires when CI passes on a PR, reviews the diff,
 # and either approves or requests changes. DevCycle 4 — Merge chains
 # off this workflow and only merges approved PRs.
+#
+# Who starts DevCycle 4 afterwards (#1582):
+#   - started by CI passing (workflow_run): DevCycle 4's own workflow_run trigger.
+#   - started by workflow_dispatch (DevCycle 3c does this when a PR is marked
+#     ready after CI already passed): GitHub creates no workflow_run event for a
+#     run started with GITHUB_TOKEN, so nothing would chain off this one. The
+#     last step starts DevCycle 4 itself. That covers a low-risk PR (3c starts
+#     no merge for those) and a review that approves after 3c's paid reviews
+#     finished (3c's own start of DevCycle 4 came too early). DevCycle 4 checks
+#     approval and the gate itself, so an extra start never merges early.
 
 on:
   workflow_run:
@@ -22,6 +32,8 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  # To start DevCycle 4 after a dispatched review (#1582).
+  actions: write
 
 jobs:
   review:
@@ -97,3 +109,15 @@ jobs:
           name: review-result
           path: /tmp/review-result/pr_number
           retention-days: 1
+
+      # A dispatched review's completion triggers nothing (see the top of this file), so start
+      # DevCycle 4 here (#1582). With GITHUB_TOKEN: a workflow_dispatch it sends does start a run.
+      # A failed dispatch mustn't fail the review: the merge can still be started by hand.
+      - name: Start DevCycle 4 — Merge (dispatched review)
+        if: github.event_name == 'workflow_dispatch' && steps.find-pr.outputs.pr_number != '' && steps.check-draft.outputs.is_draft != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run auto-merge.yml --repo ${{ github.repository }} \
+            -f pr_number=${{ steps.find-pr.outputs.pr_number }}
