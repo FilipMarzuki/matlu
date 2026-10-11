@@ -19,6 +19,7 @@
  */
 
 import { answerFor, topicsKnownBy } from './asks';
+import type { Fact } from './knowledge';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, TOPIC_KINDS, isTopicKind, mentionsIn, topicDef } from './topics';
 import { personById } from './villages';
@@ -55,7 +56,7 @@ function skillPattern(id: string): RegExp | null {
 const CONCEPT_NAMES: Readonly<Record<string, string>> = Object.fromEntries(conceptsRegistry.concepts.map(c => [c.id, c.name]));
 
 /** Every way `key` can be named in a question. */
-function patternsOf(key: string): RegExp[] {
+export function patternsOf(key: string): RegExp[] {
   const at = key.indexOf(':');
   const kind = key.slice(0, at), id = key.slice(at + 1);
   const out: RegExp[] = [];
@@ -77,28 +78,39 @@ const NAMEABLE: readonly { key: string; re: RegExp }[] = [
   ...TOPIC_KINDS.flatMap(kind => Object.entries(TOPICS[kind]).filter(([, d]) => d.named).map(([id, d]) => ({ key: `${kind}:${id}`, re: ci(d.named!) }))),
   ...Object.entries(HINTS).map(([key, re]) => ({ key, re })),
 ];
-const topicsIn = (question: string): Set<string> => new Set(NAMEABLE.filter(n => n.re.test(question)).map(n => n.key));
+export const topicsIn = (question: string): Set<string> => new Set(NAMEABLE.filter(n => n.re.test(question)).map(n => n.key));
 
 /** What a name or word in the question is worth: naming the topic beats naming something its answer mentions. */
-const NAMED = 3;
-const MENTIONED = 1;
+export const NAMED = 3;
+export const MENTIONED = 1;
 
 /**
- * The topic `personId` answers `question` with, as a focus key, or null if nothing they know is in
- * it. The best-scoring topic wins; on a tie, one they haven't told you yet (`answered`), then the
- * first as written.
+ * A question as matched against what `personId` might say: cut to length, with the person's own
+ * name taken out. Naming the person you're asking says nothing about what you're asking them
+ * ("Hedda, what's Saltmere like?" isn't about the hides she's owed, though her name points at
+ * them). Empty when nothing's left.
  */
-export function matchQuestion(personId: string, question: string, answered: readonly string[] = []): string | null {
-  // Naming the person you're asking says nothing about what you're asking them ("Hedda, what's
-  // Saltmere like?" isn't about the hides she's owed, though her name points at them), so it goes.
+export function questionFor(personId: string, question: string): string {
   const name = personById(personId)?.name;
   const q = (name ? question.replace(new RegExp(`\\b${escape(name)}\\b`, 'gi'), ' ') : question).slice(0, QUESTION_CHARS * 2);
-  if (!q.trim()) return null;
+  return q.trim() ? q : '';
+}
+
+/** A topic a question matched among what someone knows, how well (`NAMED`, `MENTIONED`), and whether it's new to you. */
+export interface KnownMatch { key: string; score: number; fresh: boolean }
+
+/**
+ * The best of the topics `personId` knows something about that `q` (already `questionFor`) names,
+ * or null. The best-scoring topic wins; on a tie, one they haven't told you yet (`answered`), then
+ * the first as written. `facts` defaults to the game's.
+ */
+export function bestKnownMatch(personId: string, q: string, answered: readonly string[] = [], facts?: readonly Fact[]): KnownMatch | null {
+  if (!q) return null;
   const named = topicsIn(q);
   named.delete(`person:${personId}`);
-  let best: { key: string; score: number; fresh: boolean } | null = null;
-  for (const key of topicsKnownBy(personId)) {
-    const answer = answerFor(personId, key);
+  let best: KnownMatch | null = null;
+  for (const key of topicsKnownBy(personId, facts)) {
+    const answer = answerFor(personId, key, facts);
     if (!answer) continue;
     const direct = named.has(key) || patternsOf(key).some(re => re.test(q)) ? NAMED : 0;
     const through = mentionsIn(answer.text).filter(k => k !== key && named.has(k)).length * MENTIONED;
@@ -106,7 +118,17 @@ export function matchQuestion(personId: string, question: string, answered: read
     const fresh = !answered.includes(key);
     if (score > 0 && (!best || score > best.score || (score === best.score && fresh && !best.fresh))) best = { key, score, fresh };
   }
-  return best?.key ?? null;
+  return best;
+}
+
+/**
+ * The topic `personId` answers `question` with, as a focus key, or null if nothing they know is in
+ * it. The best-scoring topic wins; on a tie, one they haven't told you yet (`answered`), then the
+ * first as written. This is #1575's matching, which a run without `knowledge-questions` plays;
+ * knowledge-questions.ts `matchFreeQuestion` picks between the two by the run's switches.
+ */
+export function matchQuestion(personId: string, question: string, answered: readonly string[] = []): string | null {
+  return bestKnownMatch(personId, questionFor(personId, question), answered)?.key ?? null;
 }
 
 /** Whether `personId` has an answer for `key`: the road checks a matched topic with this. */
