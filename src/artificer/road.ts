@@ -25,6 +25,7 @@ import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingT
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
+import { factsFor } from './facts';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
 import { noticesToday, NOTICE_TRUST } from './notice';
@@ -666,8 +667,9 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
-  // Referrals (#1609) are a switchable rule feature: read from this run's saved switches, never a global.
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals') });
+  // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
+  // read from this run's saved switches, never a global.
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features) });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
@@ -726,7 +728,7 @@ function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   // knowledge model answers an ask (gates, referrals, People's and culture's ways); off (and in
   // every run from before the switch), exactly as #1575 played it, so old runs replay the same.
   if (featureOn(next.features, 'knowledge-questions')) return knowingAnswer(next, person, topic);
-  const answer = topic ? answerFor(pid, topic) : undefined;
+  const answer = topic ? answerFor(pid, topic, factsFor(next.features)) : undefined;
   if (!answer) { say(next, deflectionOf(pid, person.name), 'action'); return next; }
   const again = (next.asked?.[pid] ?? []).includes(topic);
   if (!again) heardAnswer(next, pid, topic, answer);
@@ -748,7 +750,8 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const shown = (next.noticed?.[pid] ?? []).includes(topic) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
-  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals') });
+  // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
+  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features) });
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told' && !r.again) {

@@ -18,7 +18,7 @@
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
 import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { knows, type Fact } from './knowledge';
+import { tells, type Fact } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -89,10 +89,12 @@ export function leadOf(a: Answer, key: string, from: string): Lead | undefined {
  * A saved lead, checked against what people say: kept only if `from` has an answer that sends you
  * to `who` about `about`, and rebuilt from that answer (so `where` comes from the data, not the save).
  * A lead no answer gives is dropped, as a saved focus you can no longer hold is (`readFocus`).
+ * `facts` are the run's (facts.ts `factsFor`): a lead a scope fact gives (#1610) is kept only in a
+ * run that has them.
  */
-export function leadOnLoad(who: string, about: string, from: string): Lead | undefined {
-  for (const key of topicsKnownBy(from)) {
-    const a = answerFor(from, key);
+export function leadOnLoad(who: string, about: string, from: string, facts: readonly Fact[] = FACTS): Lead | undefined {
+  for (const key of topicsKnownBy(from, facts)) {
+    const a = answerFor(from, key, facts);
     const l = a && leadOf(a, key, from);
     if (l && l.who === who && l.about === about) return l;
   }
@@ -109,7 +111,7 @@ export const sentTo = (leads: readonly Lead[] | undefined, who: string, key: str
  * as an Answer, whatever your trust. Asking with infinite trust is how "whatever your trust" is
  * said to the model: every gate opens, so the fact comes back `told` if they know one at all.
  * No one else is passed in, since who'd know instead doesn't matter here. `facts` defaults to
- * the game's; tests (and free questions' tests, #1611) can pass their own.
+ * today's; a run passes its own (facts.ts `factsFor`), with the scope facts if its switch is on.
  */
 export function answerFor(personId: string, key: string, facts: readonly Fact[] = FACTS): Answer | undefined {
   const r = resolve(personId, key, Infinity, { others: [], facts });
@@ -124,8 +126,9 @@ export function topicsKnownBy(personId: string, facts: readonly Fact[] = FACTS):
   const k = knowerOf(personId);
   if (!k) return [];
   // A Set keeps the first time each key is seen, in insertion order, so the result is deduplicated
-  // without losing the order the facts are written in.
-  return [...new Set(facts.filter(f => knows(k, f)).flatMap(f => f.about))];
+  // without losing the order the facts are written in. `tells` leaves out what the village says
+  // about them, asked about themself (knowledge.ts).
+  return [...new Set(facts.flatMap(f => f.about.filter(t => tells(k, f, t))))];
 }
 
 export type AskResult =
@@ -146,9 +149,10 @@ export type AskResult =
  * (facts.ts `resolve`): told, not yet (the gate is the true trust you bring, never a felt word),
  * or doesn't know, and who nearby would.
  */
-export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean } = {}): AskResult {
+export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[] } = {}): AskResult {
   if (answered.includes(key)) return { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
-  const r = resolve(p.id, key, trust);
+  // The facts are the run's (facts.ts `factsFor`, #1610): a caller that doesn't pass them gets today's.
+  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS });
   if (!r || r.kind === 'unknown') {
     const referral = r?.referral ?? null;
     // The referrals switch (#1609) is the run's, so the caller passes it in: a caller that doesn't

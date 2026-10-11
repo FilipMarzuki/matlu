@@ -37,7 +37,7 @@
  */
 
 import { answerFor, type Answer } from './asks';
-import { answerOf, resolve } from './facts';
+import { ALL_FACTS, answerOf, factsFor, hasScopeFacts, resolve } from './facts';
 import type { Fact, ScopeKind } from './knowledge';
 import {
   CUSTOM_KINDS, candourOf, cultureLore, matchLore, peopleLore, scopedClaims, topicKeyOf, voicedAt, voicingGates,
@@ -119,13 +119,16 @@ function loreKeyFor(p: Person, q: string): string | null {
 
 // ── Topics a question names, for referrals ──────────────────────────────────
 
-/** Every topic a question can name, with every way it can be named: topics.ts's, the hints, skills and concepts. */
-const NAMEABLE: readonly { key: string; res: RegExp[] }[] = [
+/**
+ * Every topic a question can name, with every way it can be named: topics.ts's, the hints, skills
+ * and concepts. `base` leaves out the scope facts' hints (#1610), for a run without them.
+ */
+const NAMEABLE: readonly { key: string; res: RegExp[]; base: RegExp[] }[] = [
   ...TOPIC_KINDS.flatMap(kind => Object.keys(TOPICS[kind]).map(id => `${kind}:${id}`)),
   ...Object.keys(HINTS),
   ...SKILL_IDS.map(id => `skill:${id}`),
   ...conceptsRegistry.concepts.map(c => `concept:${c.id}`),
-].filter((k, i, all) => all.indexOf(k) === i).map(key => ({ key, res: patternsOf(key) })).filter(n => n.res.length > 0);
+].filter((k, i, all) => all.indexOf(k) === i).map(key => ({ key, res: patternsOf(key), base: patternsOf(key, false) })).filter(n => n.res.length > 0);
 
 /** Where in `q` a topic is first named, or -1. */
 function firstAt(res: readonly RegExp[], q: string): number {
@@ -138,7 +141,8 @@ function firstAt(res: readonly RegExp[], q: string): number {
  * the question that has someone to send you to. Null if none.
  */
 function referralTopic(personId: string, q: string, facts?: readonly Fact[]): string | null {
-  const named = NAMEABLE.map(n => ({ key: n.key, at: firstAt(n.res, q) }))
+  const scoped = facts !== undefined && hasScopeFacts(facts);
+  const named = NAMEABLE.map(n => ({ key: n.key, at: firstAt(scoped ? n.res : n.base, q) }))
     .filter(n => n.at >= 0 && n.key !== `person:${personId}`)
     // Earliest in the question first; the same place, the order above (stable sort).
     .sort((a, b) => a.at - b.at);
@@ -155,33 +159,38 @@ function referralTopic(personId: string, q: string, facts?: readonly Fact[]): st
  * The topic a free question to `personId` plays as, by the run's switches (`features`, the run's
  * saved rule features): with `knowledge-questions` on, the knowledge model's matching (this file's
  * header); off, #1575's (`matchQuestion`), so a run from before it matches as it always did.
- * `opts.facts` defaults to the game's; tests pass their own.
+ * The facts matched against are the run's too (facts.ts `factsFor`): with `scope-facts` (#1610)
+ * on, what their village, the road and their trade know as well. `opts.facts` overrides them; tests
+ * pass their own.
  */
 export function matchFreeQuestion(personId: string, question: string, answered: readonly string[], features: FeatureSwitches | undefined, opts: { facts?: readonly Fact[] } = {}): string | null {
-  if (!featureOn(features, 'knowledge-questions')) return matchQuestion(personId, question, answered);
+  const facts = opts.facts ?? factsFor(features);
+  if (!featureOn(features, 'knowledge-questions')) return matchQuestion(personId, question, answered, facts);
   const q = questionFor(personId, question);
   if (!q) return null;
   // Most specific first, as the model answers: what they know, named outright, beats their
   // People's ways; their ways beat a topic they'd only mention; knowing nothing, a referral.
-  const known = bestKnownMatch(personId, q, answered, opts.facts);
+  const known = bestKnownMatch(personId, q, answered, facts);
   if (known && known.score >= NAMED) return known.key;
   const p = personById(personId);
   const lore = p ? loreKeyFor(p, q) : null;
   if (lore) return lore;
   if (known) return known.key;
-  return featureOn(features, 'referrals') ? referralTopic(personId, q, opts.facts) : null;
+  return featureOn(features, 'referrals') ? referralTopic(personId, q, facts) : null;
 }
 
 /**
  * Whether `topic` is one a free question to `personId` could have matched with the switch on: a
  * topic they know, a lore key that's theirs, or one someone nearby could be named for. The API
  * keeps a web question's self-reported topic only if it is (or `knowsAbout`, for the old matching).
+ * Every fact counts (`ALL_FACTS`), the scope facts (#1610) too, as for `knowsAbout`: the API
+ * doesn't know which switches the asking game had.
  */
-export function isQuestionTopic(personId: string, topic: string): boolean {
-  if (answerFor(personId, topic)) return true;
+export function isQuestionTopic(personId: string, topic: string, facts: readonly Fact[] = ALL_FACTS): boolean {
+  if (answerFor(personId, topic, facts)) return true;
   const p = personById(personId);
   if (p && loreClaims(p, topic)) return true;
-  const r = resolve(personId, topic, 0);
+  const r = resolve(personId, topic, 0, { facts });
   return r?.kind === 'unknown' && r.referral !== null;
 }
 
