@@ -26,8 +26,8 @@ import { ANSWERS, type Answer } from './answers';
 import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Lie, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
 import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
 import { TIE_FACTS } from './ties';
-import { RUMOUR_FACTS } from './claims';
-import { featureOn, type FeatureSwitches } from './features';
+import { DEFAULT_RUMOUR_FACTS, rumourFactsFor, rumourSetKey } from './claims';
+import { featureOn, ruleFeatures, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import scopeFactsFile from './content/scope-facts.json';
@@ -150,25 +150,31 @@ export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
 /** Whether a set of facts has the scope facts in it (`factsFor` with the switch on, or ALL_FACTS). */
 export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f => f.id.startsWith('scope:'));
 
-/** Every fact any game can hold: today's, the scope facts, the organisations' (#1587), the ties' (#1588) and the rumours' (#1580). */
-export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS, ...RUMOUR_FACTS];
+/**
+ * Every fact a new game can hold: today's, the scope facts, the organisations' (#1587), the ties'
+ * (#1588) and the rumours' (#1580), as they bend by default (#1589). A run with `rumour-drift` off
+ * hears the same rumours told #1580's way: the same fact ids, other words (claims.ts `RUMOUR_FACTS`).
+ */
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS, ...DEFAULT_RUMOUR_FACTS];
 
 /**
  * The switchable sets of facts, in the order they join today's: what everyone knows (#1610), the
  * organisations' (#1587), and what people say of those they're tied to (#1588).
  */
-const SWITCHED_FACTS: readonly { feature: string; facts: readonly Fact[] }[] = [
-  { feature: 'scope-facts', facts: SCOPE_FACTS },
-  { feature: 'organisations', facts: ORG_FACTS },
-  { feature: 'ties', facts: TIE_FACTS },
-  { feature: 'rumours-and-lies', facts: RUMOUR_FACTS },
+const SWITCHED_FACTS: readonly { feature: string; facts: (features: FeatureSwitches | undefined) => readonly Fact[] }[] = [
+  { feature: 'scope-facts', facts: () => SCOPE_FACTS },
+  { feature: 'organisations', facts: () => ORG_FACTS },
+  { feature: 'ties', facts: () => TIE_FACTS },
+  // The rumours depend on more switches than their own (#1589: how they bend, and who someone is).
+  { feature: 'rumours-and-lies', facts: rumourFactsFor },
 ];
 
 // Each combination of switches is built once and kept, so a run's facts are always the same array
 // (and the common cases are the very arrays above: none of the switches, FACTS; all of them,
 // ALL_FACTS). Keyed by which switches are on, as a string of 0s and 1s, in SWITCHED_FACTS' order
-// ('1010': scope facts and ties, no organisations or rumours): sixteen combinations at most.
-const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], ['1111', ALL_FACTS]]);
+// ('1010': scope facts and ties, no organisations or rumours): sixteen combinations at most, and
+// with the rumours on, which of their sets (claims.ts `rumourSetKey`).
+const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], [`1111|${rumourSetKey(ruleFeatures())}`, ALL_FACTS]]);
 
 /**
  * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
@@ -183,13 +189,15 @@ const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], ['1111', AL
  * specific, and so does a tie's, about the person it's a view of: Maren's own opinion of Tobin
  * before what all Hollowford says of him), changes who they'd refer you to, and adds leads.
  * With `rumours-and-lies` on (#1580), each rumour as it reached the people on its path: theirs
- * alone, so the same holds.
+ * alone, so the same holds. With `rumour-drift` on too (#1589), each bent by who told it, and
+ * two more rumours (a debt, and a secret that leaked).
  */
 export function factsFor(features: FeatureSwitches | undefined): readonly Fact[] {
-  const key = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) ? '1' : '0')).join('');
+  const bits = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) ? '1' : '0')).join('');
+  const key = bits.endsWith('1') ? `${bits}|${rumourSetKey(features)}` : bits;
   let facts = FACT_SETS.get(key);
   if (!facts) {
-    facts = [...FACTS, ...SWITCHED_FACTS.filter((_, i) => key[i] === '1').flatMap(s => s.facts)];
+    facts = [...FACTS, ...SWITCHED_FACTS.filter((_, i) => bits[i] === '1').flatMap(s => s.facts(features))];
     FACT_SETS.set(key, facts);
   }
   return facts;

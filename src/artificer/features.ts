@@ -97,6 +97,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'rumours-and-lies', name: 'Rumours and lies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1580,
     note: 'Not everyone tells the truth: rumours grow as they travel, and some people lie for a reason (a secret they keep, a friend they cover for, a sale) until they trust you. Your journal keeps who said what, and flags it when two accounts clash.',
   },
+  {
+    // A rules feature: it changes how a rumour reads at each hop (a name swapped, the teller's
+    // culture bending it, an organisation passing it carefully or loosely) and adds two rumours,
+    // so a run from before it (absent: false) keeps #1580's drift on replay. It bends rumours, so
+    // it does nothing without `rumours-and-lies`.
+    id: 'rumour-drift', name: 'How rumours bend', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1589,
+    note: 'A rumour bends with whoever tells it: a name can swap for someone of the same People, a loss-averse people tell it worse and an honour-bound one stakes their word on it, and a secret kept by an organisation can leak through a member who talks for a living.',
+  },
 ];
 
 /** Switches by feature id. */

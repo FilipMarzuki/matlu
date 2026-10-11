@@ -81,11 +81,11 @@ function sourceOf(f: Fact): Exclude<ClaimSource, 'made-up'> {
 function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null {
   const proposition = propositionOfFact(f.id);
   if (!proposition) return null;
-  const hop = rumourHopOf(f.id);
+  const hop = rumourHopOf(f);
   const source = sourceOf(f);
-  // A rumour's version is what it says (the number and the place): two hops that say the same
-  // thing agree. Anything else true is `so`, and each untrue fact is its own account.
-  const version = f.truth === 'true' ? 'so' : hop ? `${hop.hop.n}|${hop.hop.where}` : `fact:${f.id}`;
+  // A rumour's version is what it says (the number, the place, and who, #1589): two hops that say
+  // the same thing agree. Anything else true is `so`, and each untrue fact is its own account.
+  const version = f.truth === 'true' ? 'so' : hop ? `${hop.hop.n}|${hop.hop.where}${hop.hop.who ? `|${hop.hop.who}` : ''}` : `fact:${f.id}`;
   // A rumour comes from whoever saw it; a person's own word from them; a scope's from the scope.
   const origin = hop ? hop.rumour.path[0] : f.scope.kind === 'person' ? f.scope.id! : `${f.scope.kind}:${f.scope.id ?? ''}`;
   return { person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: hop ? hop.hop.confidence : SOURCE_CONFIDENCE[source], proposition, version, origin, truth: f.truth };

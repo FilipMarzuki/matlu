@@ -26,7 +26,9 @@ import type { Stats } from './stats';
 
 const root = join(__dirname, '..', '..');
 const EVERYONE: readonly Person[] = [...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS];
-const ON = ruleFeatures();
+// #1580's rules as they shipped: with `rumour-drift` on too (#1589, rumour-drift.test.ts) the
+// rumours bend by who tells them, and these pins would move.
+const ON = { ...ruleFeatures(), 'rumour-drift': false };
 const OFF = { ...ON, 'rumours-and-lies': false };
 const FACTS_ON = factsFor(ON);
 const LIES_ON = liesFor(ON);
@@ -294,7 +296,8 @@ describe('The claims data', () => {
 
   it('rumour facts are person-scope, one per hop, and the one who saw it holds the truth', () => {
     expect(RUMOUR_FACTS).toEqual(rumourFacts());
-    for (const r of claimEntries().rumours) {
+    // The rumours that came with this issue; those that came with a later switch are tested with it.
+    for (const r of claimEntries().rumours.filter(x => !x.feature)) {
       const mine = RUMOUR_FACTS.filter(f => f.id.startsWith(`rumour:${r.id}:`));
       expect(mine.map(f => f.scope.id)).toEqual(r.path);
       expect(mine[0].truth).toBe('true');
@@ -318,7 +321,8 @@ describe('The rumours-and-lies switch', () => {
     for (const f of RUMOUR_FACTS) {
       expect(FACTS_ON).toContain(f);
       expect(factsFor(OFF)).not.toContain(f);
-      expect(ALL_FACTS).toContain(f);
+      // A new game holds each of them too, in the words they bend to by default (#1589).
+      expect(ALL_FACTS.some(a => a.id === f.id), f.id).toBe(true);
     }
     expect(factsFor(undefined)).toBe(FACTS);
   });

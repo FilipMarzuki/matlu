@@ -1,5 +1,5 @@
 {
-  "about": "Rumours, mistakes and lies on the road (#1580, knowledge slice G; docs/knowledge-model-design.md §7). Written by hand: every entry is a placeholder for the owner to review. `propositions` are the things people make claims about, each with a neutral `label` (what the journal files it under; never the answer) and the facts (by id, from facts.ts) that speak to it; `check`, if any, is how the Warden can see for themself: being in that village. `lies` are what a person says instead of what they know: the topic, the words, how sure they make it sound (`sounds`: saw, told or common), the `motive` the data grounds it in (an organisation they keep secrets for, a friend they cover for, a grudge, a profit, fear or pride), `why` in words (never shown), and the trust at which they stop (`until`). `rumours` start with someone who saw it (`path[0]`) and pass along `path`, drifting by a seeded rule (claims.ts `driftOf`): the number grows, and the place can move. `truth` is what was really seen; `core` is the words, with {n} and {where} filled in at each hop.",
+  "about": "Rumours, mistakes and lies on the road (#1580, knowledge slice G; docs/knowledge-model-design.md §7). Written by hand: every entry is a placeholder for the owner to review. `propositions` are the things people make claims about, each with a neutral `label` (what the journal files it under; never the answer) and the facts (by id, from facts.ts) that speak to it; `check`, if any, is how the Warden can see for themself: being in that village. `lies` are what a person says instead of what they know: the topic, the words, how sure they make it sound (`sounds`: saw, told or common), the `motive` the data grounds it in (an organisation they keep secrets for, a friend they cover for, a grudge, a profit, fear or pride), `why` in words (never shown), and the trust at which they stop (`until`). `rumours` start with someone who saw it (`path[0]`) and pass along `path`, drifting by a seeded rule (claims.ts `driftOf`): the number grows, and the place can move. `truth` is what was really seen; `core` is the words, with {n} and {where} filled in at each hop. With the `rumour-drift` switch (#1589): `{who}` is a name (truth `who`, a person on the road) that can swap for someone of the same People; `leak` names the organisation whose secret it is (it starts with a member and gets out through one who talks for a living); `feature` is the switch a rumour arrives with. `tellers` are how the road cultures the story engine has no `biasSeed` for (world/peoples.ts has the Reach's) tell a rumour, in the engine's own bias words (storytelling/types.ts `PerceptualBias`).",
   "propositions": [
     {"id": "compact-is-real", "label": "The Compact", "placeholder": true, "source": "src/artificer/answers.ts › Tobin calls them the Compact",
       "facts": ["answer:hf-maren:group:compact", "answer:hf-tobin:group:compact", "answer:sm-hedda:group:compact", "answer:sm-anselm:group:compact", "answer:kg-arvid:group:compact", "answer:kg-veit:group:compact", "answer:cv-pim:group:compact", "scope:hollowford/compact", "scope:kestrel-gate/compact"]},
@@ -41,6 +41,27 @@
       "places": ["the still north end of the mere", "the middle of the mere", "the Pandor wells"],
       "path": ["sm-liv", "cv-runa", "kg-veit"],
       "check": {"visit": "saltmere", "text": "At Saltmere you see it for yourself: a few dead fish at the still north end of the mere, and the Pandor wells as sweet as ever."},
-      "placeholder": true, "source": "src/artificer/villages.ts › drink from the north end of the mere, however clear it looks"}
+      "placeholder": true, "source": "src/artificer/villages.ts › drink from the north end of the mere, however clear it looks"},
+    {"id": "hedda-debt", "label": "Who owes Hedda", "about": ["person:sm-hedda"], "feature": "rumour-drift",
+      "core": "{who} owes Hedda {n} barrels, salt fish she let go on credit at {where}, and she means to have every one of them back.",
+      "truth": {"n": 3, "where": "the Saltmere racks", "who": "cv-bodil"},
+      "places": ["the Saltmere racks", "the spring market at the Gate", "the ford at Hollowford"],
+      "path": ["cv-bodil", "sm-yrsa", "kg-arvid", "cv-runa"],
+      "placeholder": true, "source": "src/artificer/villages.ts › She will tell you. She tells everyone."},
+    {"id": "compact-news", "label": "Who sells news to the Compact", "about": ["group:compact"], "feature": "rumour-drift", "leak": "compact",
+      "core": "{who} sold the Compact word of {n} turned wells up by {where}, and got better money for it than for a season of hides.",
+      "truth": {"n": 2, "where": "the high fields", "who": "hf-tobin"},
+      "places": ["the high fields", "the ford", "the Saltmere road"],
+      "path": ["kg-arvid", "cv-pim", "cv-bodil", "hf-orrin"],
+      "placeholder": true, "source": "src/artificer/villages.ts › The Compact pays better for news than for hides"}
+  ],
+  "tellers": [
+    {"culture": "caravan-folk", "biasSeed": {"mercantile": 0.35, "fatalist": 0.2}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › Practical and tireless"},
+    {"culture": "grovekin", "biasSeed": {"fatalist": 0.3}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › quietly amused by everyone"},
+    {"culture": "harborfolk", "biasSeed": {"loss_aversion": 0.4, "mercantile": 0.25}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › Remembering debts, and getting them paid."},
+    {"culture": "steppe-camp", "biasSeed": {"honor_bound": 0.4, "fatalist": 0.2}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › a route-claim is the oldest promise in Mistheim"},
+    {"culture": "refuge-keepers", "biasSeed": {"fatalist": 0.4, "loss_aversion": 0.2}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › seen too much to be surprised"},
+    {"culture": "ironborne-encampment", "biasSeed": {"honor_bound": 0.35, "sunk_cost": 0.3}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › proud of every hinge"},
+    {"culture": "bazaar-folk", "biasSeed": {"mercantile": 0.5}, "placeholder": true, "source": "src/artificer/content/cultures-lore.json › Everything has a price. Some prices are friendship."}
   ]
 }
