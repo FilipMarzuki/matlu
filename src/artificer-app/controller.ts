@@ -390,7 +390,7 @@ function parseRoad(x: unknown): RoadState | null {
   const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
   // The optional fields below are only ever loaded checked: left out of the spread, so one saved in
   // the wrong shape (a string where a list belongs) loads as absent instead of as itself.
-  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, ...rest } = x;
+  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, readings: _readings, ...rest } = x;
   return {
     ...(rest as unknown as RoadState),
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
@@ -414,6 +414,9 @@ function parseRoad(x: unknown): RoadState | null {
     ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads) } : {}),
     // Deeds carried out of the Reach (#1499); likewise.
     ...(Array.isArray(x.deeds) ? { deeds: strs(x.deeds) } : {}),
+    // What's left of each misreading (#1578), a share from 0 to 1; anything else is dropped, and
+    // a person missing from it reads as all of it — as does a road from before rapport.
+    ...(isObj(x.readings) ? { readings: Object.fromEntries(Object.entries(x.readings).filter((e): e is [string, number] => isNum(e[1]) && e[1] >= 0 && e[1] <= 1)) } : {}),
   };
 }
 

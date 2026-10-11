@@ -7,9 +7,9 @@
  * happens at once and the hours tick on, and "End the day" sleeps and moves the caravan.
  */
 
-import { healerTarget, INJURY_NAME, HEAL_HOURS, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
+import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
-import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, FRIEND_LESSON, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
+import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
 import { techniqueById } from '../artificer/techniques';
@@ -20,6 +20,7 @@ import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { QUESTION_NOTICE } from '../artificer-play/questions';
 import { featureById, featureOn } from '../artificer/features';
+import { feltWord, trueWord, RAPPORT_LADDER } from '../artificer/rapport';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -27,9 +28,10 @@ const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}
 /**
  * What the road screen remembers between redraws: which villager's sheet is open, and the free
  * questions asked this stay (#1575), with what was said back. The words live only here, never in
- * the game's state or save: the game keeps only the topic they matched.
+ * the game's state or save: the game keeps only the topic they matched. `dev` is dev mode (#1579):
+ * cards and sheets then show each person's true trust beside how they seem (#1578).
  */
-export interface RoadUi { person: string | null; asked?: Record<string, { question: string; topic: string | null; reply: string }> }
+export interface RoadUi { person: string | null; asked?: Record<string, { question: string; topic: string | null; reply: string }>; truths?: boolean }
 
 const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹', caravaneer: '🛞', tinker: '🔧' };
 /** Store goods by their screen names. */
@@ -108,7 +110,7 @@ function wagonView(r: RoadState, ui: RoadUi): string {
       <p class="mood">The caravan rolls on towards ${esc(to)}. The barrels water everyone on the road; the nights are mild.</p>
       ${r.owesHelp ? `<p class="owed">🐂 You owe Bodil <b>${r.owesHelp} day${r.owesHelp === 1 ? '' : 's'}' help</b> for your passage — before ${esc(to === 'Hollowford' ? 'Hollowford' : 'the next village')}. Help drive &amp; pitch camp below.</p>` : ''}
       <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK${tradeTerms(r) ? ' OR TRADE' : ''}</p>
-      <div class="people">${travellers.map(p => personCard(r, p, p === open)).join('')}</div>
+      <div class="people">${travellers.map(p => personCard(r, p, p === open, ui)).join('')}</div>
       ${open ? personSheet(r, open, ui) : ''}
       ${handsFree(r, true)}
       <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
@@ -149,9 +151,18 @@ function sentBy(r: RoadState, who: string): string {
 /** A focus key mid-sentence ("iron", "the Compact"), or the key itself if it doesn't parse. */
 const aboutText = (key: string): string => { const f = parseFocus(key); return f ? focusInline(f) : key; };
 
-/** One person's card: name, role, culture, trust, and what they have for you. Tap to open their sheet. */
-function personCard(r: RoadState, p: Person, open: boolean): string {
-  const trust = Math.round(r.trust[p.id] ?? 0);
+/**
+ * How someone seems with you (#1578): a word, never the trust number or a bar, and it can be off
+ * (rapport.ts). `?dev=truths` adds the truth, in the same amber as the skills' true level.
+ */
+function rapportTag(r: RoadState, p: Person, ui: RoadUi): string {
+  const word = feltWord(r, p.id);
+  const truth = ui.truths ? ` <span class="devtruth" title="Dev mode (?dev=truths): the true trust">true: ${trueWord(r, p.id)} (${Math.round(r.trust[p.id] ?? 0)})</span>` : '';
+  return `<span class="rapport rp-${word}" title="How ${esc(p.name)} seems with you (${esc(RAPPORT_LADDER)}). Your read of people can be off.">${word}</span>${truth}`;
+}
+
+/** One person's card: name, role, culture, how they seem with you, and what they have for you. Tap to open their sheet. */
+function personCard(r: RoadState, p: Person, open: boolean, ui: RoadUi): string {
   const lore = (r.told[p.id] ?? 0) < p.lore.length;
   const quest = questsHere(r).find(q => q.giver === p.id) ?? Object.keys(r.quests).map(questById).find(q => q?.giver === p.id && r.quests[q.id] === 'active');
   const trades = !!tradeTerms(r) && tradeTerms(r)!.trader === p.id;
@@ -161,7 +172,7 @@ function personCard(r: RoadState, p: Person, open: boolean): string {
   const icons = [seen.length && `<span title="${esc(seen.join(' '))}">👁</span>`, lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
   return `<button class="pcard ${open ? 'on' : ''}" data-person="${esc(p.id)}" aria-expanded="${open}">
     ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))}</span>
-    <span class="tbar" title="Trust ${trust}/100"><span style="width:${trust}%" class="${trust >= CONTACT_TRUST ? 'friend' : ''}"></span></span><span class="tnum">trust ${trust}${r.contacts.includes(p.id) ? ' · remembers you' : ''}${sent ? ` · the one ${esc(sent)} mentioned` : ''}</span></span>
+    <span class="tnum">${rapportTag(r, p, ui)}${r.contacts.includes(p.id) ? ' · remembers you' : ''}${sent ? ` · the one ${esc(sent)} mentioned` : ''}</span></span>
     <span class="picons">${icons}</span></button>`;
 }
 
@@ -229,7 +240,8 @@ function lessonPanel(r: RoadState, p: Person): string {
     ...t.recipes.map(id => ({ id, label: itemName(id), known: r.known.includes(id), what: 'recipe' })),
     ...(t.concept ? [{ id: t.concept, label: t.concept, known: false, what: 'concept' }] : []),
   ];
-  return `<div class="sheetpart"><p class="fgroup">LESSONS — ${esc(t.skill)} · ${fee ? `${fee} marks each` : 'free between friends'}${fee && (r.trust[p.id] ?? 0) < FRIEND_LESSON ? ` (free at trust ${FRIEND_LESSON})` : ''}</p>
+  // A locked thing never says a number (#1578): "free for a friend", not the trust it takes.
+  return `<div class="sheetpart"><p class="fgroup">LESSONS — ${esc(t.skill)} · ${fee ? `${fee} marks each (free for a friend)` : 'free between friends'}</p>
     <div class="lessons">${things.map(x => (x.known ? `<span class="chip known">✓ ${esc(x.label)}</span>` : act(r, `learn:${p.id}:${x.id}`, `${x.what === 'technique' ? '🎓' : x.what === 'recipe' ? '📐' : '💡'} ${esc(x.label)}`, LESSON_HOURS, { why }))).join('')}</div>
     <div class="runbar">${act(r, `appraise:${p.id}`, '⚖ HOW GOOD AM I, REALLY?', APPRAISE_HOURS, { why: r.appraised.includes(p.id) ? `${p.name} has told you already` : undefined })}</div></div>`;
 }
@@ -237,12 +249,12 @@ function lessonPanel(r: RoadState, p: Person): string {
 /** A healer's care (#1394): what she'd tend, what it costs, and whether she'd set a grave injury. */
 function healPanel(r: RoadState, p: Person): string {
   if (p.role !== 'healer') return '';
-  const trust = r.trust[p.id] ?? 0;
   const fee = healFee(r, p.id);
-  const target = healerTarget(r.injuries, trust);
+  const target = healerTarget(r.injuries, r.trust[p.id] ?? 0);
   const why = !target ? (r.character.harms?.length ? undefined : 'Nothing to tend') : fee > r.marks ? `${fee} marks — you have ${r.marks}` : undefined;
   const label = target ? `🌿 TEND MY ${INJURY_NAME[target.kind].toUpperCase()}` : r.character.harms?.length ? '🌿 ASK ABOUT AN OLD WOUND' : '🌿 TEND AN INJURY';
-  return `<div class="sheetpart"><p class="fgroup">HEALING — ${fee ? `${fee} marks` : 'free between friends'}${fee ? ` (free at trust ${FRIEND_HEAL})` : ''}${trust >= SET_BONE_TRUST ? ' · she will set a grave injury properly' : ` · sets a grave injury properly at trust ${SET_BONE_TRUST}`}</p>
+  // No numbers, and no telling whether she trusts you enough to set a bone (#1578): you find out when she does.
+  return `<div class="sheetpart"><p class="fgroup">HEALING — ${fee ? `${fee} marks (free for a friend)` : 'free between friends'} · sets a grave injury properly for someone she trusts</p>
     <div class="runbar">${act(r, `heal:${p.id}`, label, HEAL_HOURS, { why })}</div></div>`;
 }
 
@@ -306,7 +318,7 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
 function personSheet(r: RoadState, p: Person, ui: RoadUi): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
-  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
+  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · ${rapportTag(r, p, ui)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
     ${conversation(r, p, told, ui)}
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}${healPanel(r, p)}</section>`;
@@ -318,7 +330,7 @@ function villageView(r: RoadState, ui: RoadUi): string {
   const people = peopleOf(id);
   const open = people.find(p => p.id === ui.person) ?? null;
   return `<section class="box"><p class="eyebrow">${esc(VILLAGES[id].name.toUpperCase())} — TAP SOMEONE TO TALK, TRADE OR LEARN</p>
-      <div class="people">${people.map(p => personCard(r, p, p === open)).join('')}</div>
+      <div class="people">${people.map(p => personCard(r, p, p === open, ui)).join('')}</div>
       ${handsFree(r, false)}
       <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div></section>
     ${open ? personSheet(r, open, ui) : ''}`;
@@ -344,7 +356,7 @@ export function questLog(r: RoadState, compact = false): string {
       <span class="due">⏳ ${esc(deadline(q))}</span></li>`;
   };
   const head = `<p class="fgroup" style="margin-top:${compact ? 14 : 0}px">QUEST LOG</p>`;
-  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they trust you (${OFFER_TRUST}+).</p>${leadLog(r)}`;
+  if (!taken.length) return `${head}<p class="mood">No quests yet. People ask for help once they've warmed to you.</p>${leadLog(r)}`;
   return `${head}<ul class="qlog">${open.map(x => row(x.q)).join('') || '<li class="mood">Nothing open.</li>'}</ul>
     ${leadLog(r)}
     ${compact || !closed.length ? '' : `<p class="fgroup" style="margin-top:12px">FINISHED</p><ul class="qlog done">${closed.map(x => `<li><b>${esc(x.q.title)}</b> <span class="qwho">${x.st === 'done' ? '✓ done' : x.st === 'failed' ? '✗ failed' : '✗ left undone'}</span></li>`).join('')}</ul>`}`;

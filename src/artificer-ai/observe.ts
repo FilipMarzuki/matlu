@@ -14,7 +14,7 @@
 import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
-import { HEAL_HOURS, HEAL_FEE, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
+import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
 import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
@@ -42,7 +42,8 @@ import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
-import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
+import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST } from '../artificer/trade';
+import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
 /**
@@ -84,7 +85,7 @@ ACCIDENTS
 Out on the land you can get hurt: about 1% per hour of work and walking, three times that in full dark, more in rain, fog, snow and storms (a storm 2.5x), 1.5x if you set out with Vigor under 20 or Clarity under 30, less with skill — never above 35% for one trip. Crafting is safer (0.5% an hour, double for knapping or a blade; worse in the dark without a fire). Rest and study are safe. Each hour has a fixed fortune, so the same work at the same hour turns out the same; moving risky work to a better hour or better weather is how you avoid it. An accident is a bruise (-2 Condition), a bad cut (-5), or a lost haul; in the worst conditions also a damaged tool (the tool the work uses drops a grade, a crude one breaks) or a sprain (physical work and walking cost 1.3x Vigor while it lasts), and a bad cut can be deep (it bleeds 1 Condition a night). At the bench, a bad slip can hurt your hand (crafting takes 1.3x as long).
 INJURIES are minor (60%), serious (30%) or grave (10%; 1.5x instead of 1.3x) — one step worse if you set out with Vigor under 20. They heal in points (minor 2, serious 6, grave 10): each night you ate, drank and slept warm heals 1, 2 after a light restful day, scaled by Constitution; a hungry, thirsty or cold night heals nothing. Heavy work (wood, quarry, hunt, build, ring 3) on a serious sprain, or crafting with a serious hurt hand, has a 15% chance to make it grave. A grave injury heals into an OLD WOUND that stays with the character for every later run: a stiff knee (walking to the far rings costs 1.1x Vigor), a weak grip (crafts a step worse at the edge of a grade) or a scar (2 Clarity lost on cold nights). Rest a serious injury rather than work through it.
 THE PACK: you set out on a weekend hike with your patrol, so you have what you packed. The knife, water bottle and sleeping bag count as your knife, waterskin and bedroll; the backpack is a sound backpack. Each item's effect is listed on the PACK line; some things run out (dressings, headlamp battery, matches, the thermos, stove fuel, the sweets).
-STATS: six, shown on the STATS line; 10 is ordinary. Each point above 10 (below 10, the reverse): STR — 3% less Vigor on heavy work (wood, quarry, build) and you carry more (see LOAD); AGI — 3% less drain on agile work (hunt, track, scout, survey, lookout) and 3% faster travel; CON — 3% less Condition lost to hunger, thirst and cold, and 3% faster healing; INT — 5% more insight, and every 3 points one step better (or worse) craft grade; WIL — 2% less Clarity drain, 3% less Clarity lost to deprivation, and your work stays reliable to lower Clarity; CHA — trust and prices with people (the road and trading; it does little in the Reach).
+STATS: six, shown on the STATS line; 10 is ordinary. Each point above 10 (below 10, the reverse): STR — 3% less Vigor on heavy work (wood, quarry, build) and you carry more (see LOAD); AGI — 3% less drain on agile work (hunt, track, scout, survey, lookout) and 3% faster travel; CON — 3% less Condition lost to hunger, thirst and cold, and 3% faster healing; INT — 5% more insight, and every 3 points one step better (or worse) craft grade; WIL — 2% less Clarity drain, 3% less Clarity lost to deprivation, and your work stays reliable to lower Clarity; CHA — how soon people warm to you, how truly you read them, and prices (the road and trading; it does little in the Reach).
 GROWING UP: you start as a child (11–14) and each new run of the same character is a year older. Your stats are lower now than they will be: each grows a little every year toward the adult stats chosen at creation, and is full at 18 (the body lags most: STR and CON). Every effect uses your stats as they are now. Under 18, skills learn 1.2x as fast.
 TALENTS: you chose two gifts and were born with one more you don't know about yet — it works on you all the same. When it makes a real difference (a little more brought home, a lot less tiredness, a night you came through better than you should have), the journal may hint at it: a vague line, later a closer one, and in time you'll know it ("You have a gift: …"). Talents grow stronger, unseen, with the work they suit. You also have a quirk or two — how you react when it's too much, perhaps a temperament — that you learn about yourself the first time each shows.
 USE AND WEAR: stats also grow by use. Practising a skill builds the stat it leans on — Woodcraft and Stonework STR; Hunting, Scouting and Handcraft AGI; Fieldcraft and Foraging CON; Memory and First aid INT — 0.5 exercise an hour untrained, up to 1.5 at Journeyman. Study builds INT hour for hour. Hard work adds 0.5 an hour: heavy work (Vigor −4/h or more, or pushing past empty) to STR and CON, demanding mind work (Clarity −4/h or more) to INT and WIL. Work begun with Clarity under 40 (or locked to survival) builds WIL hour for hour; talking and trading on the road CHA; every hour past 10 in a day, and each hungry or thirsty night (4h), CON. Growth comes in recovery: the exercise waits until a proper night (fed, watered, not cold), which banks at most 4h per stat — more than that since the last proper night is wasted, and a poor night banks nothing (it waits for the next good one). So spread hard training over days rather than cramming it. The next point needs 30 x (score − 8)² hours, at least 120 (10→11 or lower: 120h, 14→15: 1,080h), never past 18. The body tapers: for STR, CON and AGI, each point you've gained by use doubles what the next costs — 120h, 240h, 480h, 960h (the first gains come fast, then a plateau) — or the 30 x (score − 8)² above, whichever is more. INT, WIL and CHA don't taper. A point lost to wear or collapse comes back at the cheaper cost of the point before it. Hardship wears CON down: each night at 3+ nights hungry or 2+ thirsty adds 1 wear, and at 3 wear CON drops a point (never below 3). A run that ends in collapse costs a point of CON for good. Nothing of you carries to the next run: each Warden is someone new, and only the tools you end with pass on to them, as heirlooms.
@@ -337,15 +338,15 @@ export const ROAD_RULES = `THE CARAVAN ROAD — you survived the winter. The spr
 
 Each day: choose road actions in order; they run until the day's 16 hours are spent, then you sleep. On the wagon the caravan waters you; in a village you drink your own water. Food comes from your stores every night as before. Nights on the road are never cold.
 
-PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
+PEOPLE: each person has a role, and a regard for you that you never see. You see how they seem with you, coldest to warmest: ${RAPPORT_LADDER}. Your read can be off: Charisma reads people truer, a tired mind (low Clarity) reads them worse, reserved people seem colder than they are, and after a ragged winter everyone seems a little colder. When someone shows where you really stand (a friend's price, a free lesson or healing, a favour asked, a secret told), your read of them moves toward the truth, and the journal says so if it changes. What opens goes by how they really feel, not how they seem. Talking (${TALK_HOURS}h) warms people and, as they warm, they share what they know. Someone who comes to trust you well becomes a contact who remembers you next time.
 TELLING: what you did in the Reach means something to some people. "tell:<person>:<deed>" (${ASK_HOURS}h) tells them, once; they warm to you for it.
 ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know. An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
 LEADS: an answer can send you to someone elsewhere. The lead is listed below; asking that person about its topic needs less trust (someone they know sent you), and you can focus on them before you meet them.
 NOTICING: in a village, each morning, you may notice who is tied to your focus (or to something you've learned about, less often): a sign in the journal, and asking them about it then needs less trust.
-TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
-QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
-HEALERS: "heal:<healer>" (${HEAL_HOURS}h) — Ottilia on the wagon, or a village's healer — tends your worst untreated injury: treated well (+2 healing a night), 2 points healed at once; ${HEAL_FEE} marks, free for a friend (trust ${FRIEND_HEAL}+). At trust ${SET_BONE_TRUST}+ she sets a grave injury properly, so it heals without an old wound. Old wounds can't be undone.
-TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend, trust 40+); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
+TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; a trader who has warmed to you gives a friend's rate. ${TRADE_HOURS}h each.
+QUESTS: people who have warmed to you a little ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
+HEALERS: "heal:<healer>" (${HEAL_HOURS}h) — Ottilia on the wagon, or a village's healer — tends your worst untreated injury: treated well (+2 healing a night), 2 points healed at once; ${HEAL_FEE} marks, free for a friend. One who trusts you well sets a grave injury properly, so it heals without an old wound. Old wounds can't be undone.
+TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
 HANDS AND MIND (anywhere on the road): "craft:<recipe>" makes a known recipe from your stores (${WAGON_CRAFT_HOURS}h, no building), "study:<concept>" studies as in the Reach, "tend" mends worn gear. ON THE WAGON: talk to your fellow travellers (the tinker and herbwife teach a little of their craft as they talk), and "help" drive and pitch camp (${HELP_HOURS}h, hard work, the cook gives you an extra portion). Gathering, felling, building and scouting are not possible from the wagon.
 ALSO: "rest" (a few hours' rest), "wait" (let the day pass).
 
@@ -492,19 +493,21 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
   if (tells.length) lines.push(`TELL WHAT YOU DID, ${ASK_HOURS}h each: ${tells.join(', ')}`);
   if (!village) {
     lines.push('');
-    lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');
-    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}${p.concept ? ` · knows ${p.concept}` : ''}`);
+    // How they seem with you (#1578): the felt word a person on the page sees, never the trust number.
+    lines.push('ON THE WAGON WITH YOU (id · role · how they seem with you) — talk to pass the road; trade, quests and lessons wait for the next village:');
+    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · ${feltWord(r, p.id)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}${p.concept ? ` · knows ${p.concept}` : ''}`);
   }
   // Injuries ride along (#1286, #1392), and a healer can tend them (#1394).
   if (r.injuries?.length) lines.push(`INJURIES: ${r.injuries.map(i => `${i.severity} ${INJURY_NAME[i.kind]}, ${Math.ceil(i.heal)} healing to go${i.treated ? `, treated (${i.treated})` : ', untreated'}${i.mended ? ', set properly' : ''}`).join(' · ')}`);
   if (r.character.harms?.length) lines.push(`OLD WOUNDS: ${r.character.harms.map(h => HARM_NAME[h]).join(', ')}`);
   const healers = peopleHere(r).filter(p => p.role === 'healer');
-  if (healers.length) lines.push(`HEALERS HERE: ${healers.map(p => `${p.id} (${healFee(r, p.id) ? `${healFee(r, p.id)} marks` : 'free — a friend'}${(r.trust[p.id] ?? 0) >= SET_BONE_TRUST ? ', trusts you enough to set a grave injury' : ''})`).join(', ')}`);
+  // The fee is a price, so it's shown; whether she'd set a bone isn't (#1578): you find out when she does.
+  if (healers.length) lines.push(`HEALERS HERE: ${healers.map(p => `${p.id} (${healFee(r, p.id) ? `${healFee(r, p.id)} marks` : 'free — a friend'})`).join(', ')}`);
   const crafts = r.known.filter(id => ROAD_CRAFTS[id]);
   lines.push(`YOU CAN CRAFT ON THE ROAD: ${crafts.join(', ') || 'nothing you know'} (recipes cost stores as in the Reach)`);
   if (village) {
     lines.push('');
-    lines.push('PEOPLE HERE (id · role · trust · what they have for you):');
+    lines.push('PEOPLE HERE (id · role · how they seem with you · what they have for you):');
     for (const p of peopleOf(village)) {
       const told = r.told[p.id] ?? 0;
       const more = told < p.lore.length ? 'has more to tell' : 'has told you all they know';
@@ -512,7 +515,7 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
       const noticed = (r.noticed?.[p.id] ?? []).length ? `you noticed a tie to ${(r.noticed?.[p.id] ?? []).join(', ')}` : '';
       const sent = (r.leads ?? []).filter(l => l.who === p.id).map(l => `${l.from} sent you to ask about ${l.about}`).join(', ');
       const extras = [more, p.teaches && `teaches ${p.teaches.skill}`, quest && `offers quest ${quest.id}`, noticed, sent].filter(Boolean).join(' · ');
-      lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${extras}`);
+      lines.push(`- ${p.id} · ${p.name}, ${p.role} · ${feltWord(r, p.id)} · ${extras}`);
     }
     const offered = questsHere(r);
     if (offered.length) {
@@ -523,7 +526,8 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     const t = tradeTerms(r);
     if (t) {
       lines.push('');
-      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5) · trust ${Math.round(t.trust)}${t.trust >= 50 ? ' (friend’s rate)' : ''}`);
+      // A friend's rate is in the prices, so it's said; the trust behind it isn't (#1578).
+      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${t.trust >= FRIEND_TRUST ? ' · friend’s rate' : ''}`);
       lines.push(`  sells (marks each): ${t.sells.map(g => `${g} ${buyPrice(g as never, 1, t)}`).join(' · ')}`);
       const goods = Object.entries(r.stores).filter(([k, n]) => n > 0 && isGood(k)).map(([k]) => `${k} ${sellPrice(k, 'sound', 1, t)}`);
       const tools = r.tools.filter(x => KIND_OF[x.item]).map(x => `${x.item} (${x.grade}) ${sellPrice(x.item, x.grade, 1, t)}`);

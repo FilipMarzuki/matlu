@@ -6,9 +6,6 @@
     "files": [
       "assets/audio/forest-ambience.ogg"
     ],
-    "fallback": [
-      "assets/audio/forest-ambience.mp3"
-    ],
     "volume": 0.25,
     "loop": true
   },
@@ -472,9 +469,7 @@
     "label": "Bird call (ambient)",
     "description": "Positional ambient call loop for nearby bird/grouse wildlife",
     "category": "creature",
-    "files": [
-      "assets/audio/animal/bird-call.ogg"
-    ],
+    "files": [],
     "volume": 0.25,
     "loop": true
   },
@@ -482,9 +477,7 @@
     "label": "Deer call (ambient)",
     "description": "Positional ambient call loop for nearby deer/stag wildlife",
     "category": "creature",
-    "files": [
-      "assets/audio/animal/deer-call.ogg"
-    ],
+    "files": [],
     "volume": 0.25,
     "loop": true
   },
@@ -492,9 +485,7 @@
     "label": "Hare rustle (ambient)",
     "description": "Positional ambient call loop for nearby hare wildlife",
     "category": "creature",
-    "files": [
-      "assets/audio/animal/hare-rustle.ogg"
-    ],
+    "files": [],
     "volume": 0.25,
     "loop": true
   },
@@ -502,9 +493,7 @@
     "label": "Fox bark (ambient)",
     "description": "Positional ambient call loop for nearby fox/boar/badger wildlife",
     "category": "creature",
-    "files": [
-      "assets/audio/animal/fox-bark.ogg"
-    ],
+    "files": [],
     "volume": 0.25,
     "loop": true
   },
