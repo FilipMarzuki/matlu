@@ -19,7 +19,8 @@
 //     separate regional stream (World.regionRng).
 //   • Then it PUSHES BACK (pushBack, #1608): a levy thins the provinces whose
 //     lords fought, a hard winter and famine cost people and stores (more where
-//     the region is poor), bandits rob the roads, trade and prosperity make a
+//     the region is poor) and can carry off the old, the sick and the poor
+//     among its named people (#1617), bandits rob the roads, trade and prosperity make a
 //     province rich or poor (Province.wealth, which World.power reads, so the
 //     region's fortunes reach its lords), and a lord's death or a seized seat
 //     unsettles its politics, which can turn an old feud into a fresh claim.
@@ -27,11 +28,14 @@
 //     stream, but the provinces and people it changes are the engine's, so
 //     since #1608 the golden hashes include the regional level's consequences.
 
+import { getBiology } from "./biology.js";
 import { hasTruce } from "./diplomacy.js";
 import { carryingCapacity } from "./geography.js";
 import { addClaim } from "./inheritance.js";
+import { markDead } from "./phenomena.js";
 import { regionalSignificance } from "./sifter.js";
 import type {
+  Character,
   CharId,
   EventType,
   Founding,
@@ -422,7 +426,8 @@ const CATEGORY: Record<RegionalEventKind, RegionalCategory> = {
   FAMINE: "event", PLAGUE: "event", BANDITRY: "event", HARD_WINTER: "event", FAIR: "event", FESTIVAL: "event", MIGRATION: "event", UNREST: "event",
 };
 
-type Emit = Partial<Omit<RegionalEvent, "id" | "year" | "regionId" | "kind" | "category" | "significance">>;
+// `year`: when it happened, if not this year (a late engine event read a year on, #1617).
+type Emit = Partial<Omit<RegionalEvent, "id" | "year" | "regionId" | "kind" | "category" | "significance">> & { year?: number };
 
 function emit(w: World, r: Region, kind: RegionalEventKind, f: Emit = {}): RegionalEvent {
   const data = f.data ?? {};
@@ -438,7 +443,7 @@ function emit(w: World, r: Region, kind: RegionalEventKind, f: Emit = {}): Regio
     causeEventId: f.causeEventId ?? null,
     data,
     significance: regionalSignificance(kind, data),
-  });
+  }, f.year ?? w.year);
 }
 
 /** What happened to a region this year, gathered before any region acts (migration reads its neighbours'). */
@@ -466,7 +471,21 @@ export function runRegions(w: World, evStart: number): void {
   if (w.regions.size === 0) return;
   adoptStrays(w);
   const yearEvents = w.events.slice(evStart);
+  // First, last year's late events (#1617): the named people last year's hard
+  // times carried off and the successions after them, logged after last year's
+  // read (World.regionalCursor marks where it stopped). Only the politics
+  // reading meets them (a death, a succession), dated the year they happened,
+  // and every region hears them before any of this year's news, so the
+  // regional log stays in year order. They also count as this year's news for
+  // pushBack: a lord the winter took unsettles his region now.
+  const from = Math.min(w.regionalCursor ?? evStart, evStart);
   const regStart = w.regionalEvents.length;
+  const late = new Map<RegionId, WorldEvent[]>();
+  for (const ev of w.events.slice(from, evStart)) {
+    const rid = regionOfEvent(w, ev);
+    if (rid) late.set(rid, [...(late.get(rid) ?? []), ev]);
+  }
+  for (const r of w.regions.values()) politicsFromEvents(w, r, late.get(r.id) ?? []);
   const frost = yearEvents.find((e) => e.type === "GREAT_FROST");
 
   const summary = new Map<RegionId, YearSummary>();
@@ -496,7 +515,7 @@ export function runRegions(w: World, evStart: number): void {
 
   for (const r of w.regions.values()) {
     const s = summary.get(r.id)!;
-    politicsFromEvents(w, r, s);
+    politicsFromEvents(w, r, s.events);
     weatherAndBandits(w, r, s, frost);
     economy(w, r, s);
     gatherings(w, r, s, summary);
@@ -505,7 +524,10 @@ export function runRegions(w: World, evStart: number): void {
   roads(w, summary);
 
   // Last, the region pushes back into the simulation (#1608), once every
-  // region has read the year and the roads are updated.
+  // region has read the year and the roads are updated. The read stops here:
+  // the deaths pushBack logs, and the successions after them, are next year's
+  // to hear (World.regionalCursor).
+  w.regionalCursor = w.events.length;
   for (const ev of w.regionalEvents.slice(regStart)) summary.get(ev.regionId)?.news.push(ev);
   for (const r of w.regions.values()) {
     const s = summary.get(r.id)!;
@@ -549,7 +571,7 @@ export function regionOfEvent(w: World, ev: WorldEvent): RegionId | null {
   return pid ? w.regionOf.get(pid) ?? null : null;
 }
 
-function politicsFromEvents(w: World, r: Region, s: YearSummary): void {
+function politicsFromEvents(w: World, r: Region, events: readonly WorldEvent[]): void {
   // A lord holding three seats in the region dies once, not three times: the
   // engine logs a succession per title, the region tells it once and counts the
   // seats (`seats`). Same for a vacancy, a seizure or a war by the same people.
@@ -561,19 +583,19 @@ function politicsFromEvents(w: World, r: Region, s: YearSummary): void {
     return true;
   };
   const remember = (ev: WorldEvent, re: RegionalEvent) => told.set(`${ev.type}|${ev.actorId}|${ev.targetId}`, re);
-  for (const ev of s.events) {
+  for (const ev of events) {
     if (["SUCCESSION", "SUCCESSION_CRISIS", "USURP", "LOWBORN_RISE", "WAR"].includes(ev.type) && !once(ev)) continue;
     const before = w.regionalEvents.length;
     switch (ev.type) {
       case "SUCCESSION":
-        emit(w, r, "LORD_DIED", { actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? null, causeEventId: ev.id, data: { tier: w.title(ev.titleId)?.tier ?? "county" } });
+        emit(w, r, "LORD_DIED", { year: ev.year, actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? null, causeEventId: ev.id, data: { tier: w.title(ev.titleId)?.tier ?? "county" } });
         break;
       case "SUCCESSION_CRISIS":
-        emit(w, r, "SEAT_VACANT", { targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? null, causeEventId: ev.id });
+        emit(w, r, "SEAT_VACANT", { year: ev.year, targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? null, causeEventId: ev.id });
         break;
       case "USURP":
       case "LOWBORN_RISE":
-        emit(w, r, "SEAT_SEIZED", { actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? ev.provinceId, causeEventId: ev.id, data: { lowborn: ev.type === "LOWBORN_RISE" } });
+        emit(w, r, "SEAT_SEIZED", { year: ev.year, actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: w.title(ev.titleId)?.provinceId ?? ev.provinceId, causeEventId: ev.id, data: { lowborn: ev.type === "LOWBORN_RISE" } });
         break;
       case "WAR": {
         const attacker = w.char(ev.actorId), defender = w.char(ev.targetId);
@@ -582,14 +604,14 @@ function politicsFromEvents(w: World, r: Region, s: YearSummary): void {
         if (local && attacker && defender) {
           const key = [attacker.dynastyId, defender.dynastyId].sort().join("|");
           r.feuds[key] = w.year;
-          emit(w, r, "FEUD", { actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: ev.provinceId, causeEventId: ev.id, data });
+          emit(w, r, "FEUD", { year: ev.year, actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: ev.provinceId, causeEventId: ev.id, data });
         } else {
-          emit(w, r, "BORDER_WAR", { actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: ev.provinceId, causeEventId: ev.id, data });
+          emit(w, r, "BORDER_WAR", { year: ev.year, actorId: ev.actorId, targetId: ev.targetId, titleId: ev.titleId, provinceId: ev.provinceId, causeEventId: ev.id, data });
         }
         break;
       }
       default:
-        if (UNREST.has(ev.type)) emit(w, r, "UNREST", { provinceId: ev.provinceId, actorId: ev.actorId, causeEventId: ev.id, data: { cause: ev.type } });
+        if (UNREST.has(ev.type)) emit(w, r, "UNREST", { year: ev.year, provinceId: ev.provinceId, actorId: ev.actorId, causeEventId: ev.id, data: { cause: ev.type } });
     }
     if (w.regionalEvents.length > before) remember(ev, w.regionalEvents[w.regionalEvents.length - 1]);
   }
@@ -850,6 +872,27 @@ export const FEEDBACK = {
   famineToll: 0.03,
   /** ...and the stores it eats. */
   famineStores: 0.15,
+  /**
+   * Named people (#1617). A hard winter's chance a year of carrying off a named
+   * resident of frailty 1 (old, say) in a region getting by; scaled by
+   * frailty and hardship, so an old, poor man in a destitute region runs about
+   * three times the risk. The hale (frailty 0) never die of it.
+   */
+  winterNamed: 0.05,
+  /** ...and a famine's, in the province it struck: hunger is the deadlier. */
+  famineNamed: 0.08,
+  /** The most a year's hard times can make of anyone's chance of dying. */
+  namedCap: 0.5,
+  /** Frailty: old (past this share of the race's lifespan, or 60 for a race with no biology, the same lines tick.ts's mortality uses to say "old age"). */
+  frailOld: 1,
+  oldShare: 0.7,
+  oldAge: 60,
+  /** ...sick: plague in their province within this many years, or close-kin blood (an inbreeding coefficient of a half-sibling match or closer). */
+  frailSick: 0.6,
+  sickYears: 2,
+  sicklyBlood: 0.125,
+  /** ...poor: holds no seat, and is lowborn or of a house that holds none (no stores to fall back on). */
+  frailPoor: 0.6,
   /** Bandits: wealth lost where they work. */
   banditWealth: 0.08,
   /** ...and traffic lost on the engine's trade routes (TradeRoute.wealth) that touch the region. */
@@ -892,6 +935,40 @@ export const FEEDBACK = {
  */
 export function hardship(prosperity: number): number {
   return 0.5 + (1 - clamp(prosperity, 0, 1));
+}
+
+/**
+ * How frail a named person is (#1617): 0 for the hale, and a share each for
+ * being old, sick and poor (FEEDBACK.frailOld, frailSick, frailPoor), added up.
+ * Reads only state, never a random stream: tick.ts's naturalDeathAge would be
+ * the natural "old" line, but it draws from World.rng the first time it meets
+ * someone, so the lifespan is read here instead.
+ */
+export function frailty(w: World, c: Character): number {
+  const F = FEEDBACK;
+  let f = 0;
+  const race = w.races.get(w.raceIdOf(c));
+  const old = race?.biology ? getBiology(race).lifespan * F.oldShare : F.oldAge;
+  if (w.age(c) >= old) f += F.frailOld;
+  const plagued = w.province(c.provinceId)?.plaguedYear;
+  const fever = plagued !== undefined && w.year - plagued <= F.sickYears;
+  if (fever || c.psyche.inbreedingCoeff >= F.sicklyBlood) f += F.frailSick;
+  if (w.titlesHeldBy(c.id).length === 0) {
+    const houseSeated = [...w.titles.values()].some((t) => w.char(t.holderId)?.dynastyId === c.dynastyId);
+    if (c.lowborn || !houseSeated) f += F.frailPoor;
+  }
+  return f;
+}
+
+/**
+ * A named person's chance of dying this year of the hard times (#1617): their
+ * frailty times the winter's and the famine's toll (where each fell on them),
+ * times hardship (a poor region has no stores to fall back on). Capped.
+ */
+export function hardTimesRisk(frail: number, bite: number, winter: boolean, famine: boolean): number {
+  const F = FEEDBACK;
+  const toll = (winter ? F.winterNamed : 0) + (famine ? F.famineNamed : 0);
+  return Math.min(F.namedCap, frail * bite * toll);
 }
 
 /** What pushBack needs from the region's year: plain data, so tests can hand it one. */
@@ -978,6 +1055,43 @@ export function pushBack(w: World, r: Region, y: Pressure): void {
     if (!p || w.regionOf.get(id) !== r.id) continue;
     thin(p, F.famineToll * bite);
     p.wealth = (p.wealth ?? 0.5) - F.famineStores * bite;
+  }
+
+  // --- The hard times carry off named people too (#1617): the old, the sick
+  // and the poor among the region's residents, where the winter or the famine
+  // fell on them, with odds scaled by their frailty and the region's hardship.
+  // One roll from the regional stream per frail resident, in the world's
+  // character order, so it's deterministic and the engine's stream is
+  // untouched. They die as the engine's people (markDead logs a DEATH), so a
+  // lord's title passes in the succession sweep tick() runs after this pass.
+  const starving = new Set(y.famine.filter((id) => w.regionOf.get(id) === r.id));
+  if (y.hardWinter || starving.size) {
+    const inRegion = new Set(r.provinceIds);
+    const toll = { cold: { dead: 0, notable: null as Character | null, rank: -1 }, famine: { dead: 0, notable: null as Character | null, rank: -1 } };
+    for (const c of w.living()) {
+      if (!inRegion.has(c.provinceId)) continue;
+      const winter = y.hardWinter && !w.province(c.provinceId)?.subsurface; // underground halls are spared the cold
+      const famine = starving.has(c.provinceId);
+      if (!winter && !famine) continue;
+      const frail = frailty(w, c);
+      if (frail <= 0) continue;
+      if (w.regionRng.next() >= hardTimesRisk(frail, bite, winter, famine)) continue;
+      const cause = famine ? "famine" : "cold";
+      // The one the region remembers: a lord before anyone else, then the eldest.
+      const rank = w.titlesHeldBy(c.id).length * 1000 + w.age(c);
+      const t = toll[cause];
+      t.dead++;
+      if (rank > t.rank) { t.notable = c; t.rank = rank; }
+      markDead(w, c, cause);
+    }
+    const tell = (ev: RegionalEvent | null | undefined, t: typeof toll.cold) => {
+      if (!ev || !t.dead) return;
+      ev.data["named_dead"] = t.dead;
+      ev.actorId = t.notable?.id ?? null;
+      ev.significance = regionalSignificance(ev.kind, ev.data);
+    };
+    tell(y.winterEvent, toll.cold);
+    tell(y.news.find((e) => e.kind === "FAMINE"), toll.famine);
   }
 
   // --- Bandits rob where they work, and the trade on the region's roads.

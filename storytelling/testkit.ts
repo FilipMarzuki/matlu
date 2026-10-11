@@ -66,11 +66,15 @@ export function canonHash(w: World): string {
 // year 1 the regional level moves province populations and wealth, which
 // World.power, scarcity, harvest and plague tolls read, so every config's log
 // diverges in its first few years. Rebaselined again for #1608's wealth
-// tuning (wealthPull 0.12, wealthDrift 0.02).
+// tuning (wealthPull 0.12, wealthDrift 0.02). Rebaselined for #1617: hard
+// winters and famine carry off named people (new DEATH events, from the
+// regional stream) and a succession sweep after the regional pass passes their
+// titles the same year; the guild-founding spec also stopped listing a master
+// already in another guild.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "e1341d20" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "52c9c63f" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "6d53b9e0" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "e46be681" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "3429d6c0" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "1a772eed" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -78,7 +82,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "5c1a81d4",
+    hash: "284e17d7",
   },
 ];
 

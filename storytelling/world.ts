@@ -211,6 +211,14 @@ export class World {
   // second, independent mulberry32: drawing from it never shifts `rng`, so the
   // main simulation reads exactly the numbers it always did.
   regionRng: RNG;
+  // How far into `events` the regional level has read (#1617). It reads the
+  // year at the end of tick(), but a few engine events come after that read:
+  // the named people a hard winter or famine carries off (logged by the
+  // regional pass itself) and the successions the sweep after it runs. The
+  // next year's read starts here, so those late events are heard (a year on,
+  // but dated when they happened) instead of falling between two years' reads.
+  // null until the first regional pass: that one starts at the year's start.
+  regionalCursor: number | null = null;
   private nextRegionalEventId = 1;
 
   private nextEventId = 1;
@@ -222,8 +230,10 @@ export class World {
   }
 
   // Log a regional event (regions.ts). Like `log`, but to the regional log.
-  logRegional(fields: Omit<RegionalEvent, "id" | "year">): RegionalEvent {
-    const ev: RegionalEvent = { id: this.nextRegionalEventId++, year: this.year, ...fields };
+  // `year` defaults to now; a reading of an engine event passes the event's own
+  // year, which differs only for the late events the cursor above carries over.
+  logRegional(fields: Omit<RegionalEvent, "id" | "year">, year: number = this.year): RegionalEvent {
+    const ev: RegionalEvent = { id: this.nextRegionalEventId++, year, ...fields };
     this.regionalEvents.push(ev);
     return ev;
   }

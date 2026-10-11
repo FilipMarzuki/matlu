@@ -40,8 +40,8 @@ import { answerFor, type Answer } from './asks';
 import { ALL_FACTS, answerOf, factsFor, hasScopeFacts, resolve } from './facts';
 import type { Fact, ScopeKind } from './knowledge';
 import {
-  CUSTOM_KINDS, candourOf, cultureLore, matchLore, peopleLore, scopedClaims, topicKeyOf, voicedAt, voicingGates,
-  type LoreScope, type LoreTopic, type ScopedClaim, type Voicing,
+  CUSTOM_KINDS, candourOf, cultureLore, effectiveCandour, matchLore, peopleLore, scopedClaims, topicKeyOf, voicedAt, voicingGates,
+  type LoreScope, type LoreTopic, type Place, type ScopedClaim, type Voicing,
 } from './culture-lore';
 import { NAMED, bestKnownMatch, deflectionOf, matchQuestion, patternsOf, questionFor, HINTS } from './free-questions';
 import { featureOn, type FeatureSwitches } from './features';
@@ -239,9 +239,10 @@ const NOT_YET = (name: string): string => `${name} looks at you a long moment. "
 /**
  * What `p` answers a free question that matched `topic`, given your trust (the true number, with
  * what noticing and leads add, as for an ask) and what they've told you before (`answered`).
- * The gate is decided here, in code, never by whatever voices the answer.
+ * The gate is decided here, in code, never by whatever voices the answer. `opts.place` is where
+ * they are (#1619): it nudges how openly they voice their people's views.
  */
-export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[] } = {}): QuestionAnswer {
+export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; place?: Place } = {}): QuestionAnswer {
   const deflect: QuestionAnswer = { kind: 'deflect', line: deflectionOf(p.id, p.name) };
   if (!topic) return deflect;
   const asked = `You ask ${p.name} about ${questionAbout(topic)}.`;
@@ -250,7 +251,9 @@ export function answerQuestion(p: Person, topic: string, trust: number, answered
   if (topic.includes('/')) {
     const claims = loreClaims(p, topic);
     if (!claims) return deflect;
-    const candour = candourOf(p.culture);
+    // Their culture's candour, nudged by where they are (#1619): `place` comes only with the
+    // `candour-by-place` switch on (road.ts `questionPlace`), so without it this is the culture's own.
+    const candour = effectiveCandour(candourOf(p.culture), opts.place);
     const said = claims.map(c => ({ c, v: voicedAt(c, candour, trust) })).filter((x): x is { c: ScopedClaim; v: Exclude<Voicing, 'held-back'> } => x.v !== 'held-back');
     if (!said.length) return { kind: 'not-yet', line: `${asked} ${NOT_YET(p.name)}` };
     const text = said.slice(0, LORE_CLAIMS_SAID).map(({ c, v }) => sayClaim(c, v)).join(' ');
