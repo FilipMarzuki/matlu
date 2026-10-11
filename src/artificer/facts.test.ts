@@ -124,10 +124,14 @@ describe('Knowledge slice A: the fact model in the game (#1609)', () => {
     // Maren knows nothing of iron; Tobin, in her own village, does (and is the first there who does).
     expect(nearbyOf('hf-maren').map(k => k.id)).toEqual(expect.arrayContaining(['hf-tobin', 'hf-orrin', 'cv-pim']));
     expect(resolve('hf-maren', 'material:iron', 100)).toEqual({ kind: 'unknown', referral: 'hf-tobin' });
-    // The road keeps the referral on the result for later slices; the line a player reads is today's.
+    // The referral is on the result either way; without the referrals switch the line is today's.
     const r = ask(byId('hf-maren'), 'material:iron', 'iron', 100, []);
     expect(r).toMatchObject({ kind: 'unknown', referral: 'hf-tobin' });
     expect(r.line).toBe('Maren thinks, and shakes their head. "I don\'t know much about iron."');
+    // With it on (the run's switch, passed in by the road), she names him.
+    expect(ask(byId('hf-maren'), 'material:iron', 'iron', 100, [], { referrals: true }).line).toBe('Maren thinks, and shakes their head. "I couldn\'t tell you — Tobin would know."');
+    // No one to name: today's line, switch or not.
+    expect(ask(byId('hf-maren'), 'group:dyprike', 'the Dyprike', 100, [], { referrals: true }).line).toBe('Maren thinks, and shakes their head. "I don\'t know much about the Dyprike."');
     // Nobody nearby knows the Dyprike: no one to send you to.
     expect(resolve('hf-maren', 'group:dyprike', 100)).toEqual({ kind: 'unknown', referral: null });
   });

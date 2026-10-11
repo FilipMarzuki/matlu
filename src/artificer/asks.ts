@@ -132,7 +132,8 @@ export type AskResult =
   | { kind: 'not-yet'; line: string }
   /**
    * They don't know. `referral` is who nearby would (the knowledge model's transactive memory,
-   * #1609), or null. Not said yet: the line is today's, and later slices decide how it's voiced.
+   * #1609), or null. With referrals on (`opts.referrals`) the line names them; off, it's the line
+   * from before referrals, word for word.
    */
   | { kind: 'unknown'; line: string; referral: string | null }
   /** Asked and answered before: nothing new, and no time spent. */
@@ -144,10 +145,19 @@ export type AskResult =
  * (facts.ts `resolve`): told, not yet (the gate is the true trust you bring, never a felt word),
  * or doesn't know, and who nearby would.
  */
-export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[]): AskResult {
+export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean } = {}): AskResult {
   if (answered.includes(key)) return { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
   const r = resolve(p.id, key, trust);
-  if (!r || r.kind === 'unknown') return { kind: 'unknown', line: `${p.name} thinks, and shakes their head. "I don't know much about ${about}."`, referral: r?.referral ?? null };
+  if (!r || r.kind === 'unknown') {
+    const referral = r?.referral ?? null;
+    // The referrals switch (#1609) is the run's, so the caller passes it in: a caller that doesn't
+    // (or a run with it off) reads exactly as before referrals.
+    const name = opts.referrals && referral ? PEOPLE[referral]?.name : undefined;
+    const line = name
+      ? `${p.name} thinks, and shakes their head. "I couldn't tell you — ${name} would know."`
+      : `${p.name} thinks, and shakes their head. "I don't know much about ${about}."`;
+    return { kind: 'unknown', line, referral };
+  }
   // No one lies yet (that's slice G, #1580), so the model only says told, not yet or unknown here;
   // a lie would read as not yet until then, which is what the person would be doing: not telling.
   if (r.kind !== 'told') return { kind: 'not-yet', line: `${p.name} looks at you a long moment. "Maybe. Ask me again when I know you better."` };
