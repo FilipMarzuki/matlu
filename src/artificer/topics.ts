@@ -13,7 +13,8 @@
  * Pure. Keys are `kind:id` — the same shape as every focus key (`material:iron`, `group:compact`).
  */
 
-import { VILLAGES, TRAVELLERS, type Person } from './villages';
+import { VILLAGES, TRAVELLERS, asPlayed, type Person } from './villages';
+import { featureOn, type FeatureSwitches } from './features';
 import { QUESTS } from './quests';
 
 export type TopicKind = 'material' | 'place' | 'group' | 'person' | 'quest' | 'role';
@@ -38,8 +39,18 @@ const EVERYONE: readonly Person[] = [...Object.values(VILLAGES).flatMap(v => v.p
 /** The village each person lives in; travellers have none. */
 const HOME: Readonly<Record<string, string>> = Object.fromEntries(Object.values(VILLAGES).flatMap(v => v.people.map(p => [p.id, v.id])));
 
-/** The 15 Mistheim Peoples (villages.ts `People`), as groups. */
-const PEOPLES = ['Bergfolk', 'Lövfolk', 'Markfolk', 'Viddfolk', 'Steinfolk', 'Pandor', 'Deepwalkers', 'Merfolk', 'Goblins', 'Fae', 'Giants', 'Dragons', 'Everstill', 'Constructs', 'Remnants'] as const;
+/** The Peoples someone on the road can be (villages.ts `People`), as groups: the 15, then the two human Peoples (#1631). */
+const PEOPLES = ['Bergfolk', 'Lövfolk', 'Markfolk', 'Viddfolk', 'Steinfolk', 'Pandor', 'Deepwalkers', 'Merfolk', 'Goblins', 'Fae', 'Giants', 'Dragons', 'Everstill', 'Constructs', 'Remnants', 'Riksfolk', 'Strandfolk'] as const;
+
+/**
+ * Topics that only exist in a run with a rule switch on, by key. The human Peoples came with
+ * `humans-on-the-road` (#1631): road lore already names them ("Riksfolk carts come with papers for
+ * everything"), so without the switch, hearing those lines would open topics that a run from
+ * before it never had, and its replay would differ.
+ */
+const SWITCHED: Readonly<Record<string, string>> = { 'group:Riksfolk': 'humans-on-the-road', 'group:Strandfolk': 'humans-on-the-road' };
+/** Whether a topic exists in a run with these switches. */
+const inRun = (key: string, features: FeatureSwitches | undefined): boolean => !SWITCHED[key] || featureOn(features, SWITCHED[key]);
 
 /** A name two people share ("Runa") can't open either one: it isn't clear who was meant. */
 const nameCount = EVERYONE.reduce<Record<string, number>>((n, p) => ({ ...n, [p.name]: (n[p.name] ?? 0) + 1 }), {});
@@ -91,11 +102,11 @@ const isKey = (key: string): boolean => {
   return i > 0 && isTopicKind(kind) && topicDef(kind, key.slice(i + 1)) !== undefined;
 };
 
-/** Every topic named in a line of talk, as keys. */
-export function mentionsIn(text: string): string[] {
+/** Every topic named in a line of talk, as keys: those that exist in a run with `features` (`SWITCHED`). */
+export function mentionsIn(text: string, features?: FeatureSwitches): string[] {
   const found: string[] = [];
   for (const kind of TOPIC_KINDS) {
-    for (const [id, d] of Object.entries(TOPICS[kind])) if (d.named?.test(text)) found.push(`${kind}:${id}`);
+    for (const [id, d] of Object.entries(TOPICS[kind])) if (d.named?.test(text) && inRun(`${kind}:${id}`, features)) found.push(`${kind}:${id}`);
   }
   return found;
 }
@@ -114,6 +125,8 @@ export interface Acquaintance {
   quests?: Readonly<Record<string, unknown>>;
   /** People answers have sent you to, and where (the road, #1497). */
   leads?: readonly { who: string; where?: string }[];
+  /** The run's rule switches (the road): who people are (villages.ts `asPlayed`) and which topics exist. */
+  features?: FeatureSwitches;
 }
 
 /**
@@ -124,8 +137,10 @@ export function topicsOpen(s: Acquaintance): string[] {
   const open = new Set<string>((s.heard ?? []).filter(isKey));
   for (const store of Object.keys(HELD) as (keyof typeof HELD)[]) if ((s.stores[store] ?? 0) > 0) open.add(`material:${HELD[store]}`);
   for (const id of Object.keys(s.trust ?? {})) {
-    const p = EVERYONE.find(x => x.id === id);
-    if (!p) continue;
+    const found = EVERYONE.find(x => x.id === id);
+    if (!found) continue;
+    // Their People as this run plays them: Maren opens the Riksfolk with humans on the road (#1631).
+    const p = asPlayed(found, s.features);
     open.add(`person:${p.id}`).add(`role:${p.role}`).add(`group:${p.people}`);
     if (HOME[p.id]) open.add(`place:${HOME[p.id]}`);
   }

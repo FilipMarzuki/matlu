@@ -48,7 +48,7 @@ import { featureOn, type FeatureSwitches } from './features';
 import { focusInline, parseFocus } from './focus';
 import { TOPICS, TOPIC_KINDS } from './topics';
 import { SKILL_IDS } from './skills';
-import { personById, type Person } from './villages';
+import { asPlayed, personById, type Person } from './villages';
 import conceptsRegistry from './content/concepts.json';
 
 // ── Lore keys ───────────────────────────────────────────────────────────────
@@ -172,7 +172,9 @@ export function matchFreeQuestion(personId: string, question: string, answered: 
   // People's ways; their ways beat a topic they'd only mention; knowing nothing, a referral.
   const known = bestKnownMatch(personId, q, answered, facts);
   if (known && known.score >= NAMED) return known.key;
-  const p = personById(personId);
+  // Their People as the run plays them (#1631): with humans on the road, Maren's is the Riksfolk.
+  const found = personById(personId);
+  const p = found ? asPlayed(found, features) : undefined;
   const lore = p ? loreKeyFor(p, q) : null;
   if (lore) return lore;
   if (known) return known.key;
@@ -188,8 +190,9 @@ export function matchFreeQuestion(personId: string, question: string, answered: 
  */
 export function isQuestionTopic(personId: string, topic: string, facts: readonly Fact[] = ALL_FACTS): boolean {
   if (answerFor(personId, topic, facts)) return true;
+  // Either way they can be played (#1631): as written, or with humans on the road.
   const p = personById(personId);
-  if (p && loreClaims(p, topic)) return true;
+  if (p && (loreClaims(p, topic) || loreClaims(asPlayed(p, { 'humans-on-the-road': true }), topic))) return true;
   const r = resolve(personId, topic, 0, { facts });
   return r?.kind === 'unknown' && r.referral !== null;
 }

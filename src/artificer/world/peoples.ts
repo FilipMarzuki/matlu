@@ -26,7 +26,7 @@ const D = (a: number, g: number, v: number, p: number, l: number, f: number): nu
 
 export const REACH_CULTURES: readonly CultureSpec[] = [
   {
-    // Markfolk farmers of the valley floor: patient, dry, slow to forgive (Maren of Hollowford).
+    // Markfolk and Riksfolk farmers of the valley floor: patient, dry, slow to forgive (Maren of Hollowford).
     id: 'fieldborn', name: 'Fieldborn', law: 'primogeniture',
     driveBias: D(0.4, 0.5, 0.55, 0.45, 0.45, 0.45),
     biasSeed: { loss_aversion: 0.35, sunk_cost: 0.25 },
@@ -35,7 +35,7 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
     surnames: ['Barleyhold', 'Hedlund', 'Kornby', 'Fallowmark', 'Lindgren', 'Oxlade'],
   },
   {
-    // Markfolk and Bergfolk of the wooded heights: gruff, generous, impossible to rush (Orrin).
+    // Bergfolk, Riksfolk and Markfolk of the wooded heights: gruff, generous, impossible to rush (Orrin).
     id: 'ridgefolk', name: 'Ridgefolk', law: 'gavelkind',
     driveBias: D(0.5, 0.45, 0.6, 0.4, 0.5, 0.25),
     biasSeed: { honor_bound: 0.45, fatalist: 0.3 },
@@ -64,7 +64,7 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
     surnames: ['Anvilsong', 'Deepcarve', 'Runehall', 'Stonebeard', 'Fellhammer'],
   },
   {
-    // Markfolk, Bergfolk and Pandor behind the last wall: orderly, watchful, counting everyone
+    // Bergfolk, Riksfolk, Markfolk and Pandor behind the last wall: orderly, watchful, counting everyone
     // who passes (Kestrel Gate, villages.ts). Only seated at the Gate, never by the land.
     id: 'wallborn', name: 'Wallborn', law: 'primogeniture',
     driveBias: D(0.5, 0.55, 0.45, 0.45, 0.4, 0.4),
@@ -77,21 +77,44 @@ export const REACH_CULTURES: readonly CultureSpec[] = [
 ];
 
 /**
- * The Peoples who follow each culture, with weights (docs/peoples-and-races.md as #709 left it).
- * Since #1623 the doc gives fieldborn, ridgefolk and wallborn a human People (the Riksfolk) beside
- * the Markfolk orcs. This copy stays as it was: the Reach is seeded, so changing a weight here
- * changes every generated Reach and its dynasties. Whether the Reach takes the new weights is the
- * owner's call (#1623).
+ * The Peoples who follow each culture, with weights: `macro-world/cultures.json`'s
+ * `racePreferences`, in its order (docs/peoples-and-races.md, the #1623 column). Since #1631 the
+ * Reach takes the human Peoples back where the doc puts them: fieldborn, ridgefolk and wallborn
+ * hold Riksfolk beside the Markfolk orcs. The Reach is seeded, so a weight changed here changes
+ * every generated Reach and its houses: history.test.ts's pin and HISTORY_VERSION move with it.
  */
 export const PEOPLES_OF: Readonly<Record<ReachCulture, readonly [People, number][]>> = {
-  fieldborn: [['Markfolk', 1]],
-  ridgefolk: [['Markfolk', 0.5], ['Bergfolk', 0.5]],
+  fieldborn: [['Markfolk', 0.6], ['Riksfolk', 0.4]],
+  ridgefolk: [['Bergfolk', 0.5], ['Riksfolk', 0.3], ['Markfolk', 0.2]],
   waterstead: [['Pandor', 1]],
   mountainhold: [['Bergfolk', 1]],
-  wallborn: [['Markfolk', 0.5], ['Bergfolk', 0.3], ['Pandor', 0.2]],
+  wallborn: [['Bergfolk', 0.3], ['Riksfolk', 0.3], ['Markfolk', 0.2], ['Pandor', 0.2]],
 };
 
-export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor'] as const).map(id => ({ id, name: id }));
+/** The two human Peoples (docs/peoples-and-races.md #17, #18). */
+export const HUMAN_PEOPLES: readonly People[] = ['Riksfolk', 'Strandfolk'];
+
+/**
+ * Odd patches of humans (owner, 2026-10-11): "throughout history there have been odd patches of
+ * extra humans in unexpected places." A culture whose weights hold no human People (a Pandor
+ * waterstead, a Bergfolk hall) can still seat a human house now and then, with this weight beside
+ * its own: about one house in eleven. Nobody in the world knows why they're there, and the
+ * history never says; it only shows a human house where you wouldn't expect one. Kept apart from
+ * PEOPLES_OF so that stays a plain copy of cultures.json.
+ */
+export const ODD_PATCHES: readonly [People, number][] = [['Riksfolk', 0.05], ['Strandfolk', 0.05]];
+
+/**
+ * The Peoples a house of `culture` can be, with weights: its own (PEOPLES_OF), and the odd patches
+ * where it has no humans. history.ts draws one per house; `weighted` divides by the total, so
+ * the weights needn't sum to 1, and the draw takes one number from the stream whatever the list.
+ */
+export function racesOf(culture: ReachCulture): readonly [People, number][] {
+  const own = PEOPLES_OF[culture];
+  return own.some(([p]) => HUMAN_PEOPLES.includes(p)) ? own : [...own, ...ODD_PATCHES];
+}
+
+export const REACH_PEOPLES: readonly RaceSpec[] = (['Markfolk', 'Bergfolk', 'Pandor', 'Riksfolk', 'Strandfolk'] as const).map(id => ({ id, name: id }));
 
 /** What each culture calls a lordship: a county (one province) and a realm (several). */
 export const TITLE_WORDS: Readonly<Record<ReachCulture, Record<TitleSpec['tier'], string>>> = {

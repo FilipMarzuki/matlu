@@ -68,6 +68,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'village-economies', name: 'Village economies', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1599,
     note: 'Each village lives on its own trade: what it makes is cheap there, what it lacks is dear and sells well, and each has a job that comes from its work.',
   },
+  {
+    // A rules feature: it changes who someone on the road is (villages.ts `asPlayed`: Maren of
+    // Hollowford is Riksfolk, a human), so what they answer for their People and which topics
+    // open. A run from before it (absent: false) keeps Maren a Markfolk orc on replay.
+    id: 'humans-on-the-road', name: 'Humans on the road', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1631,
+    note: 'Humans walk the road: Maren of Hollowford is Riksfolk, one of the two human Peoples, and speaks for them.',
+  },
 ];
 
 /** Switches by feature id. */

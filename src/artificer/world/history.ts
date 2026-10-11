@@ -23,7 +23,7 @@ import type { CharacterSpec, DynastySpec, TitleSpec, WorldSpec } from '../../../
 import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
 import { provincesOf, type Province, type Provinces } from './provinces';
-import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
+import { REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, racesOf, type ReachCulture } from './peoples';
 import { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { remembered, type Remembered } from './remembered';
 import { renderRegionalEvent, renderRegionalEventNamed } from '../../../storytelling/render';
@@ -81,7 +81,7 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
     const pool = cultureOf(p.culture).surnames!.filter(s => !usedSurnames.has(s));
     const name = pool.length ? pool[Math.floor(rnd() * pool.length)] : p.name;
     usedSurnames.add(name);
-    return { id: `d_${t.id}`, name, culture: p.culture, race: weighted(rnd, PEOPLES_OF[p.culture]) };
+    return { id: `d_${t.id}`, name, culture: p.culture, race: weighted(rnd, racesOf(p.culture)) };
   });
 
   // Each house starts as a holder, a spouse and their children. Parents come before children: the

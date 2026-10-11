@@ -21,7 +21,7 @@
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { healerTarget, healerCare, HARM_LORE, HARM_NAME, INJURY_NAME, HEAL_FEE, FRIEND_HEAL, HEAL_HOURS } from './injuries';
-import { peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
+import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, MAX_TRUST, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
@@ -382,7 +382,7 @@ function runRoadActionCore(s: RoadState, id: RoadActionId): RoadState {
     if (!person) { say(next, `Talk: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
     const r = talk(person, next.trust[pid] ?? 0, next.told[pid] ?? 0, next.idleTalks[pid] ?? 0);
     // What they name, you've come across (#1494): a lore line about the Compact opens the Compact as a focus.
-    if (r.told > (next.told[pid] ?? 0)) next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.line)])];
+    if (r.told > (next.told[pid] ?? 0)) next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(r.line, next.features)])];
     // A fellow traveller's talk (#1245) also teaches a little of their trade: insight in their concept per line told.
     if (person.concept && r.told > (next.told[pid] ?? 0)) addInsight(next.concepts, person.concept, TRAVELLER_INSIGHT, CRAFT_WORLD.concepts);
     // A line they'd only tell someone they trust (#1578): a secret is a moment of truth.
@@ -712,7 +712,7 @@ function spendTalk(next: RoadState, hours: number): void {
 function heardAnswer(next: RoadState, pid: string, key: string, answer: Answer): void {
   next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), key] };
   next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + ASK_TRUST);
-  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(answer.text)])];
+  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(answer.text, next.features)])];
   if (answer.insight) addInsight(next.concepts, answer.insight.concept, answer.insight.amount, CRAFT_WORLD.concepts);
 }
 
@@ -771,7 +771,8 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const own = next.trust[pid] ?? 0;
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
-  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next) });
+  // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
+  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next) });
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told' && !r.again) {
@@ -800,7 +801,7 @@ function tellOf(next: RoadState, pid: string, deed: string): RoadState {
   exerciseStats(next, { cha: ASK_HOURS });
   next.asked = { ...(next.asked ?? {}), [pid]: [...(next.asked?.[pid] ?? []), key] };
   next.trust[pid] = Math.min(MAX_TRUST, (next.trust[pid] ?? 0) + TELL_TRUST);
-  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(t.tell.answer.text)])];
+  next.heard = [...new Set([...(next.heard ?? []), ...mentionsIn(t.tell.answer.text, next.features)])];
   if (t.tell.answer.insight) addInsight(next.concepts, t.tell.answer.insight.concept, t.tell.answer.insight.amount, CRAFT_WORLD.concepts);
   say(next, `${person.name}: "${t.tell.answer.text}"`, 'action');
   return next;
