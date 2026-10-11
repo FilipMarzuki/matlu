@@ -31,11 +31,15 @@ const issueOverrideIdx = args.indexOf('--issue');
 const issueOverride = issueOverrideIdx >= 0 ? args[issueOverrideIdx + 1] : null;
 
 // Issues carrying any of these labels have already been assessed — skip them.
+// `in-progress` is being built already, and an `epic` only groups sub-issues
+// (each sub-issue is triaged on its own), so neither needs triage (#1593).
 const TRIAGE_SKIP_LABELS = new Set([
   'ready',
   'needs-refinement',
   'blocked',
   'too-large',
+  'in-progress',
+  'epic',
   'agent:success',
   'agent:partial',
   'agent:failed',
