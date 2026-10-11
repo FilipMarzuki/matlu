@@ -18,6 +18,7 @@ import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focu
 import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
 import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
+import { answerQuestion, parseLoreKey, questionAbout } from '../artificer/knowledge-questions';
 import { QUESTION_NOTICE } from '../artificer-play/questions';
 import { featureById, featureOn } from '../artificer/features';
 import { feltWord, trueWord, RAPPORT_LADDER } from '../artificer/rapport';
@@ -270,6 +271,13 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
     // What you told them about (#1499): `deed:<id>`, answered by their tell.
     const tell = k.startsWith('deed:') ? TELLS[p.id]?.[k.slice(5)] : undefined;
     if (tell) return `<p class="mood told"><b>${esc(tell.label[0].toUpperCase() + tell.label.slice(1))}</b> — “${esc(tell.answer.text)}”</p>`;
+    // Their people's ways, told to a free question (#1611): kept as a lore key, said again as
+    // they'd say it now (the words depend on trust, and the save keeps only the key).
+    if (parseLoreKey(k)) {
+      const lore = answerQuestion(p, k, r.trust[p.id] ?? 0, []);
+      const label = questionAbout(k);
+      return lore.kind === 'told' ? `<p class="mood told"><b>${esc(label[0].toUpperCase() + label.slice(1))}</b> — “${esc(lore.answer.text)}”</p>` : '';
+    }
     const a = answerFor(p.id, k);
     const about = parseFocus(k);
     return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : k)}</b> — “${esc(a.text)}”</p>` : '';
@@ -299,10 +307,11 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
   if ((r.questioned ?? []).includes(p.id)) {
     const mine = ui.asked?.[p.id];
     if (!mine) return `${head}<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`;
-    // An answer joins what they've told you, just below; only a deflection is shown here.
-    const about = mine.topic ? parseFocus(mine.topic) : null;
-    return `${head}<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p>${about
-      ? `<p class="mood">${esc(p.name)} told you about ${esc(focusInline(about))}: it's with what they've told you.</p>`
+    // An answer joins what they've told you, just below; anything else (a deflection, or with the
+    // knowledge model a "not yet" or someone to ask instead, #1611) is shown here.
+    const told = mine.topic !== null && (r.asked?.[p.id] ?? []).includes(mine.topic);
+    return `${head}<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p>${told
+      ? `<p class="mood">${esc(p.name)} told you about ${esc(questionAbout(mine.topic!))}: it's with what they've told you.</p>`
       : `<p class="say">${esc(mine.reply)}</p>`}`;
   }
   const why = hoursLeft(r) <= 0 ? 'The day is spent — end it' : null;

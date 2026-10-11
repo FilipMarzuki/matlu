@@ -15,6 +15,10 @@
  * isn't open as a focus, or the person's trust is below its gate. The road applies it
  * (`question:<person>:<topic>`), so the sim never sees the text: only the topic it matched.
  *
+ * With the `knowledge-questions` switch (#1611), knowledge-questions.ts matches against the
+ * knowledge model's topics and scopes instead, and answers through its resolution (gates hold
+ * there); it builds on the pieces here (`questionFor`, `bestKnownMatch`, `deflectionOf`).
+ *
  * Pure: matching and the deflection lines. Same question, same person, same match, every time.
  */
 

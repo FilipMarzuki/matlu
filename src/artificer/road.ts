@@ -712,6 +712,7 @@ function noteLead(next: RoadState, person: Person, key: string, answer: Answer):
  * way it's an hour's talk, like an ask, and it uses up the question.
  *
  * Asked about something they've already told you, they tell you again, and nothing more comes of it.
+ * With `knowledge-questions` on (#1611), `knowingAnswer` answers instead, and the gates hold.
  */
 function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   // A switchable feature (#1579): off in this run, there's no free question to ask.

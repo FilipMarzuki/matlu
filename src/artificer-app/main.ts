@@ -42,7 +42,8 @@ import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
-import { matchQuestion, QUESTION_CHARS } from '../artificer/free-questions';
+import { QUESTION_CHARS } from '../artificer/free-questions';
+import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
 import { devMode, devTruths, loadChoices, saveChoices } from './feature-choices';
@@ -1508,10 +1509,13 @@ root.addEventListener('submit', e => {
   const raw = (form.elements.namedItem('q') as HTMLInputElement | null)?.value ?? '';
   const clean = cleanQuestion(raw);
   if (!r || !clean || (r.questioned ?? []).includes(pid)) return;
-  const topic = matchQuestion(pid, clean, r.asked?.[pid] ?? []);
+  // Matched by this run's switches (#1611): the knowledge model's topics when knowledge-questions is on.
+  const topic = matchFreeQuestion(pid, clean, r.asked?.[pid] ?? [], r.features);
   const trust = Math.round(r.trust[pid] ?? 0);
   const next = roadAct(state, `question:${pid}${topic ? `:${topic}` : ''}`);
   if (!next.road?.questioned?.includes(pid)) { update(next); return; }
+  // Told, rather than kept back or sent elsewhere: the topic is among what they've told you now.
+  const answered = topic !== null && (next.road.asked?.[pid] ?? []).includes(topic);
   // What they said, for their sheet: the journal's line without its "You ask Orrin about iron." lead-in.
   const said = next.road.log.slice(r.log.length).find(l => l.kind === 'action')?.text.replace(/^You ask [^.]+\. /, '') ?? '';
   roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), topic, reply: said } };
@@ -1520,7 +1524,7 @@ root.addEventListener('submit', e => {
   // the question again before it keeps it, so it's sent as typed.
   void fetch('/api/v1/questions', {
     method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
-    body: JSON.stringify({ person: pid, question: raw, topic, trust }),
+    body: JSON.stringify({ person: pid, question: raw, topic, answered, trust }),
   }).catch(() => undefined);
 });
 
