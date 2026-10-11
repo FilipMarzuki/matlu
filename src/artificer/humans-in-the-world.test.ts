@@ -73,7 +73,7 @@ describe('1. Given the Reach generator, when it seats its houses, then humans li
     beforeAll(() => {
       houses = Array.from({ length: 40 }, (_, i) => {
         const reach = generateReach(seedOf(`w-humans-${i}`));
-        return reachSpec(reach, provincesOf(reach)).dynasties.map(d => ({ culture: d.culture, race: d.race }));
+        return reachSpec(reach, provincesOf(reach)).dynasties.map(d => ({ culture: d.culture ?? '', race: d.race ?? '' }));
       }).flat();
     }, 120_000);
 
