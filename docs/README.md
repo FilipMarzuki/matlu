@@ -5,3 +5,4 @@
 - [MACRO_WORLDGEN.md](./MACRO_WORLDGEN.md) — Two-layer macro/local world generation pipeline (Azgaar + Phaser)
 - [matlu-palette.hex](./matlu-palette.hex) — Master colour palette (import into Aseprite)
 - [matlu-palette.png](./matlu-palette.png) — Visual palette swatch
+- [class-registry.md](./class-registry.md) — The Class registry: how Mistheim's [Classes] are listed and added
