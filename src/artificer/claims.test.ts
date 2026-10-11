@@ -15,7 +15,7 @@ import { ALL_FACTS, FACTS, factsFor, resolve } from './facts';
 import { featureById, featureOn, ruleFeatures } from './features';
 import { ask } from './asks';
 import { claimEntries, driftOf, liesFor, motiveProblem, rumourFacts, RUMOUR_FACTS, PROPOSITIONS, carriesFar, TOLD_ON, type RumourEntry } from './claims';
-import { claimsHeard, journalOf, lieReadChance, readsAsLie, LIE_EDGE } from './journal';
+import { claimsHeard, journalOf, lieReadChance, readsAsLie, respondedOn, LIE_EDGE } from './journal';
 import { VILLAGES, TRAVELLERS, personById, type Person } from './villages';
 import { createRegion1, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -236,6 +236,16 @@ describe('#1580 acceptance', () => {
       const r = runRoadAction({ ...atFord, trust: { ...atFord.trust, 'hf-tobin': 20 } }, 'question:hf-tobin:group:compact');
       expect(r.log.at(-1)!.text).toContain(LIES_ON['hf-tobin'][0].text);
       expect(r.asked?.['hf-tobin']).toEqual(['claimed:group:compact']);
+      // He responded: the play API and the web game record the question as answered (review of #1649).
+      expect(respondedOn(r.asked?.['hf-tobin'], 'group:compact')).toBe(true);
+    });
+
+    it('Given what a person has answered, When a reader asks whether they responded on a topic, Then a lie told instead counts, and nothing else does', () => {
+      expect(respondedOn(['group:compact'], 'group:compact')).toBe(true);
+      expect(respondedOn(['claimed:group:compact'], 'group:compact')).toBe(true);
+      expect(respondedOn(['claimed:group:compact'], 'place:north-road')).toBe(false);
+      expect(respondedOn([], 'group:compact')).toBe(false);
+      expect(respondedOn(undefined, 'group:compact')).toBe(false);
     });
 
     it('Given the switch off, When Tobin is asked below his trust, Then he says "not yet", as before', () => {

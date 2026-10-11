@@ -63,6 +63,7 @@ import { meetingModal } from './caravan-view';
 import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
+import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { inject } from '@vercel/analytics';
 
@@ -1597,7 +1598,8 @@ root.addEventListener('submit', e => {
   const next = roadAct(state, played as Parameters<typeof roadAct>[1]);
   if (!next.road?.questioned?.includes(pid)) { play(next, { do: played }); return; }
   // Told, rather than kept back or sent elsewhere: the topic is among what they've told you now.
-  const answered = topic !== null && (next.road.asked?.[pid] ?? []).includes(topic);
+  // A lie told instead (#1580, `claimed:<topic>`) is an answer too: they responded.
+  const answered = topic !== null && respondedOn(next.road.asked?.[pid], topic);
   // What they said, for their sheet: the journal's line without its "You ask Orrin about iron." lead-in.
   const said = next.road.log.slice(r.log.length).find(l => l.kind === 'action')?.text.replace(/^You ask [^.]+\. /, '') ?? '';
   roadUi.asked = { ...roadUi.asked, [pid]: { question: [...raw.trim()].slice(0, QUESTION_CHARS).join(''), topic, reply: said } };

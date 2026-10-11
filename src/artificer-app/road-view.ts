@@ -9,7 +9,7 @@
 
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, journalNow, type RoadState } from '../artificer/road';
-import { CLAIMED, type JournalEntry } from '../artificer/journal';
+import { CLAIMED, respondedOn, type JournalEntry } from '../artificer/journal';
 import { liesFor } from '../artificer/claims';
 import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
@@ -326,7 +326,7 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi): string {
     if (!mine) return `${head}<p class="mood">You've asked ${esc(p.name)} your question this stay.</p>`;
     // An answer joins what they've told you, just below; anything else (a deflection, or with the
     // knowledge model a "not yet" or someone to ask instead, #1611) is shown here.
-    const told = mine.topic !== null && (r.asked?.[p.id] ?? []).includes(mine.topic);
+    const told = mine.topic !== null && respondedOn(r.asked?.[p.id], mine.topic);
     return `${head}<p class="mood told"><b>You asked</b> — “${esc(mine.question)}”</p>${told
       ? `<p class="mood">${esc(p.name)} told you about ${esc(questionAbout(mine.topic!))}: it's with what they've told you.</p>`
       : `<p class="say">${esc(mine.reply)}</p>`}`;
@@ -392,7 +392,7 @@ export function questLog(r: RoadState, compact = false): string {
 function leadLog(r: RoadState): string {
   if (!r.leads?.length) return '';
   const row = (l: NonNullable<RoadState['leads']>[number]): string => {
-    const asked = (r.asked?.[l.who] ?? []).includes(l.about);
+    const asked = respondedOn(r.asked?.[l.who], l.about);
     return `<li><b>${esc(personById(l.who)?.name ?? l.who)}</b> <span class="qwho">${l.where ? `at ${esc(VILLAGES[l.where]?.name ?? l.where)}` : 'on the road'}</span>
       <span class="need">about ${esc(aboutText(l.about))} — ${esc(personById(l.from)?.name ?? l.from)} sent you${asked ? ' — <span class="ok">✓ asked</span>' : ''}</span></li>`;
   };

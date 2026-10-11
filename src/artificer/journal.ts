@@ -34,6 +34,14 @@ import { generator, seedOf } from './rng';
 /** The prefix in `asked` that marks a lie told instead of an answer: `claimed:<topic>`. */
 export const CLAIMED = 'claimed:';
 
+/**
+ * Whether a person responded on a topic: told you (`topic` in what they've answered) or lied to you
+ * instead (`claimed:<topic>`). A lie reads like any answer, so every reader that asks "did they
+ * answer?" of `asked` goes through here rather than a bare `includes(topic)`, which misses lies.
+ */
+export const respondedOn = (asked: readonly string[] | undefined, topic: string): boolean =>
+  !!asked && (asked.includes(topic) || asked.includes(`${CLAIMED}${topic}`));
+
 /** How sure each source sounds, as a confidence the journal weighs claims by. */
 export const SOURCE_CONFIDENCE: Readonly<Record<Exclude<ClaimSource, 'made-up'>, number>> = { saw: SAW_CONFIDENCE, told: 0.6, common: 0.5 };
 
