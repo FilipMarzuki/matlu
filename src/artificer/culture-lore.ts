@@ -14,7 +14,8 @@
  *
  * Free questions read it (#1611, knowledge-questions.ts, behind the `knowledge-questions` switch):
  * a question about a People's or culture's ways is matched with `matchLore` and said as `voicedAt`
- * voices it. Nothing else does: no save or RNG change comes with it.
+ * voices it, with the candour nudged by where they are (#1619, behind `candour-by-place`).
+ * Nothing else does: no save or RNG change comes with it.
  * Pure and deterministic: the same question, asked of the same person at the same trust, always
  * matches the same claims.
  */
@@ -257,6 +258,63 @@ export function voicedAt(claim: Voiceable, candour: Candour, trust: number): Voi
 /** A culture's candour; `plain` for a culture without lore (one not on the road). */
 export const candourOf = (cultureId: string): Candour => cultureLore(cultureId)?.candour ?? 'plain';
 
+// ---- Place: where they are now nudges how openly they speak (#1619) ----------------------------
+//
+// The culture's candour is how its people speak in ordinary times. Where they are now nudges it
+// (owner, 2026-10-11): "hard region weather gets more blunt, simple. Can also depend on local lord
+// or similar things." The rule, as a shift on the candour scale (guarded, plain, blunt):
+//
+//   +1  a hard place (poor, hard-pressed) or harsh weather (winter, a storm, snow): no time for niceties
+//   −1  a feared or strict lord: people keep their heads down        +1  a lax or well-liked one
+//   −1  an uneasy region (lords dead, seats changed hands): careful with strangers
+//
+// added up and kept to one step either way, then kept on the scale (a blunt people can't get
+// blunter). One step at most, so a guarded culture never sounds blunt: cultures still sound like
+// themselves. A hard place under a feared lord cancels out.
+
+/** How a place's lord (or whoever holds it: a gate's wardens, a hold's council) comes across. */
+export const LORD_TEMPERS = ['feared', 'strict', 'lax', 'liked'] as const;
+export type LordTemper = (typeof LORD_TEMPERS)[number];
+
+/**
+ * Where someone is, as far as how they speak goes. Every field is optional: an empty place is
+ * ordinary times, and changes nothing. place-candour.ts reads one off a region or a road village.
+ */
+export interface Place {
+  /** Poor, cold or hard-pressed: times hard, bread dear, the harvest failed, the place on hard times. */
+  hard?: boolean;
+  /** The season: winter is harsh (winter.ts's seasons, or the road's). */
+  season?: string;
+  /** The weather today: a storm or snow is harsh (world.ts `WeatherId`). */
+  weather?: string;
+  lord?: LordTemper;
+  /** Unsettled lately (#1608): lords dead, seats seized or changed hands. */
+  uneasy?: boolean;
+}
+
+/** Seasons and weather harsh enough to make people blunt. */
+export const HARSH_SEASONS: readonly string[] = ['winter'];
+export const HARSH_WEATHER: readonly string[] = ['storm', 'snow'];
+
+const LORD_SHIFT: Readonly<Record<LordTemper, number>> = { feared: -1, strict: -1, lax: 1, liked: 1 };
+
+/** How far a place moves candour: −1 (one step more guarded), 0, or +1 (one step blunter). */
+export function placeShift(place?: Place): -1 | 0 | 1 {
+  if (!place) return 0;
+  const harsh = place.hard === true
+    || (place.season !== undefined && HARSH_SEASONS.includes(place.season))
+    || (place.weather !== undefined && HARSH_WEATHER.includes(place.weather));
+  const sum = (harsh ? 1 : 0) + (place.lord ? LORD_SHIFT[place.lord] : 0) + (place.uneasy ? -1 : 0);
+  return Math.max(-1, Math.min(1, sum)) as -1 | 0 | 1;
+}
+
+/** A culture's candour where they are now: one step at most from its own (see above). No place, its own. */
+export function effectiveCandour(candour: Candour, place?: Place): Candour {
+  const open = CANDOUR_OPENNESS[candour] + placeShift(place);
+  // CANDOUR_OPENNESS runs guarded 0, plain 1, blunt 2: read it back, kept on the scale.
+  return (['guarded', 'plain', 'blunt'] as const)[Math.max(0, Math.min(2, open))];
+}
+
 // ---- Matching a question -----------------------------------------------------------------------
 // In the style of free-questions.ts: no AI, just names and a few words that point at a topic.
 
@@ -370,9 +428,10 @@ const firstViews = (holders: readonly LoreScope[], of: LoreScope): ScopedClaim[]
  * Given a `trust`, only what they'd say at it is returned (see `voicedAt`, with the knower's
  * culture's candour; with nobody in particular, the claim's own culture's, else `plain`), with how
  * each is said, and whether they're holding something back. Without one, everything that answers.
+ * Given a `place` too, the candour is the one they speak with there (`effectiveCandour`, #1619).
  * No group (and no "you" with a topic word), or nothing written: null.
  */
-export function matchLore(question: string, knower?: LoreKnower, trust?: number): LoreMatch | null {
+export function matchLore(question: string, knower?: LoreKnower, trust?: number, place?: Place): LoreMatch | null {
   const query = parseLoreQuestion(question);
   // A view with nobody it's about ("What do the Bergfolk think?") is their beliefs: their values.
   const topic: LoreTopic = query.topic === 'view' && !query.of ? 'values' : query.topic ?? (query.of ? 'view' : 'values');
@@ -407,7 +466,9 @@ export function matchLore(question: string, knower?: LoreKnower, trust?: number)
   const said: ScopedClaim[] = [];
   const held: number[] = [];
   for (const c of unique) {
-    const candour = knower ? candourOf(knower.culture) : c.scope.kind === 'culture' ? candourOf(c.scope.id) : 'plain';
+    const own = knower ? candourOf(knower.culture) : c.scope.kind === 'culture' ? candourOf(c.scope.id) : 'plain';
+    // Where they are now nudges it (#1619): the caller passes a place only with its switch on.
+    const candour = effectiveCandour(own, place);
     const v = voicedAt(c, candour, trust);
     if (v === 'held-back') held.push(voicingGates(c, candour).said);
     else { voicing[c.id] = v; said.push(c); }

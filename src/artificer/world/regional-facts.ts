@@ -23,6 +23,7 @@
  * Pure and deterministic: plain data in, plain data out, no randomness, no engine.
  */
 
+import { economyLine, economyOfProvince, ventureFits, TRADE_WORDS } from '../economy';
 import { LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 
 /** A regional fact: the knowledge model's `Fact` shape (design §1), with when and what kind. */
@@ -56,9 +57,20 @@ export const GENERATION = LIVING_MEMORY / 2;
 const WEALTH_SPREAD = 0.12;
 /** ...and the richest is "wanting for little" at this or more, the poorest "on hard times" at this or less. */
 const RICH = 0.68;
-const POOR = 0.32;
+export const POOR = 0.32;
 /** A region is told as uneasy at this unsettlement or more (#1608): about a seized seat in the last year or two. */
-const UNSETTLED = 0.25;
+export const UNSETTLED = 0.25;
+/**
+ * Where a region's facts turn: times are hard at this prosperity or less (good at `GOOD_TIMES` or
+ * more), bread dear at this price or more, its lords tax heavily at this tax or more and ask
+ * little at `LIGHT_DUES` or less. Exported so how people speak there (place-candour.ts, #1619)
+ * turns where the facts they'd tell you do.
+ */
+export const HARD_TIMES = 0.35;
+const GOOD_TIMES = 0.65;
+export const DEAR_BREAD = 1.4;
+export const HEAVY_DUES = 0.45;
+export const LIGHT_DUES = 0.25;
 
 /** Lines whose subject people are careful about. */
 const GUARDED = new Set(['FEUD', 'SEAT_SEIZED']);
@@ -76,24 +88,26 @@ export function regionOfProvince(history: ReachHistory, province: string): Regio
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
-const TRADE: Record<string, string> = {
-  farming: 'its fields', lumber: 'timber', mining: 'ore', fishing: 'fish', herding: 'its flocks', peat: 'peat and reed', trading: 'its market',
-};
-
-const FOUNDED: Record<string, string> = {
-  crossing: 'the ford', farming: 'its fields', lumber: 'the woods', mining: 'a seam of ore', fishing: 'the fishing',
-  herding: 'its pastures', peat: 'the peat cuttings',
-};
-
-/** "Hollowford grew up around the ford; today it lives on its market, and on timber besides." */
+/**
+ * What a place grew up around and lives on today, from its economy (economy.ts, #1599): a road
+ * village's as written ("Saltmere grew up around the fishing, when the mere was still sweet
+ * water; today it lives on salt…"), any other place's as the engine gave it ("Ravenford grew up
+ * around the ford; today it lives on its market, and on timber besides"). The engine scores the
+ * land at a road village's seat like any other, so without this it could tell Saltmere as a
+ * lumber town.
+ */
 export function placeTrade(p: RegionHistory['provinces'][number]): string {
-  const founded = FOUNDED[p.founding] ?? p.founding;
-  const today = TRADE[p.livelihood] ?? p.livelihood;
-  const also = (p.secondary ?? []).map(t => TRADE[t] ?? t);
-  const besides = also.length ? `, and on ${also.join(' and ')} besides` : '';
-  return p.founding === p.livelihood
-    ? `${p.name} grew up around ${founded}, and still lives on ${today}${besides}.`
-    : `${p.name} grew up around ${founded}; today it lives on ${today}${besides}.`;
+  return economyLine(p.name, economyOfProvince(p));
+}
+
+/**
+ * The region's venture as people at `place` tell it. At a road village that doesn't live on the
+ * venture's trade (a lumber camp at Saltmere, which lives on salt), it's out in the province's
+ * land beyond the village, not in it: the engine put it there because that land suits it.
+ */
+export function ventureWhere(r: RegionHistory): string {
+  const p = r.provinces.find(x => x.name === r.venture.province);
+  return p && !ventureFits(economyOfProvince(p), r.venture.kind) ? `out beyond ${r.venture.province}` : `at ${r.venture.province}`;
 }
 
 /** One region's facts: how things stand now, then what happened there, oldest first. */
@@ -109,7 +123,7 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   const facts: RegionalFact[] = [];
 
   // --- economy, as it stands ---
-  facts.push(now('trade', 'economy', `${Name} lives on ${TRADE[r.primary] ?? r.primary}; its market is at ${r.centre.name}.`, 1, { about: [place(r.centre.name)] }));
+  facts.push(now('trade', 'economy', `${Name} lives on ${TRADE_WORDS[r.primary] ?? r.primary}; its market is at ${r.centre.name}.`, 1, { about: [place(r.centre.name)] }));
   // Each place: what it grew up around, and what it lives on today ("Hollowford grew up around
   // the ford; today it lives on its market, and on timber besides").
   for (const p of r.provinces) {
@@ -124,17 +138,18 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
     facts.push(now(`wealth:${slug(richest.name)}`, 'economy', `${richest.name} is the best-off place in ${r.name}: its stores are full${(richest.wealth ?? 0.5) >= RICH ? ' and its people want for little' : ''}.`, 2, { about: [place(richest.name)] }));
     facts.push(now(`wealth:${slug(poorest.name)}`, 'economy', `${poorest.name} is the worst-off place in ${r.name}${(poorest.wealth ?? 0.5) <= POOR ? ': it has fallen on hard times' : ''}.`, 2, { about: [place(poorest.name)] }));
   }
+  const where = ventureWhere(r);
   const ventureText = {
-    thriving: `The ${r.venture.kind} at ${r.venture.province} is thriving.`,
-    steady: `The ${r.venture.kind} at ${r.venture.province} gets by.`,
-    failing: `The ${r.venture.kind} at ${r.venture.province} is failing.`,
-    closed: `The ${r.venture.kind} at ${r.venture.province} has closed.`,
+    thriving: `The ${r.venture.kind} ${where} is thriving.`,
+    steady: `The ${r.venture.kind} ${where} gets by.`,
+    failing: `The ${r.venture.kind} ${where} is failing.`,
+    closed: `The ${r.venture.kind} ${where} has closed.`,
   }[r.venture.state];
   facts.push(now('venture', 'economy', ventureText, 1, { about: [place(r.venture.province)] }));
   facts.push(now('times', 'economy',
-    r.prosperity >= 0.65 ? `Times are good in ${r.name}.` : r.prosperity <= 0.35 ? `Times are hard in ${r.name}.` : `${Name} gets by, neither rich nor poor.`, 1));
+    r.prosperity >= GOOD_TIMES ? `Times are good in ${r.name}.` : r.prosperity <= HARD_TIMES ? `Times are hard in ${r.name}.` : `${Name} gets by, neither rich nor poor.`, 1));
   facts.push(now('bread', 'economy',
-    r.price >= 1.4 ? `Bread is dear in ${r.name}: ${r.price.toFixed(1)} times its usual price.` : r.price <= 0.8 ? `Bread is cheap in ${r.name} this year.` : `Bread costs what it usually does in ${r.name}.`, 1));
+    r.price >= DEAR_BREAD ? `Bread is dear in ${r.name}: ${r.price.toFixed(1)} times its usual price.` : r.price <= 0.8 ? `Bread is cheap in ${r.name} this year.` : `Bread costs what it usually does in ${r.name}.`, 1));
   for (const road of r.roads) {
     if (road.trade >= 0.55) facts.push(now(`road:${road.to}`, 'economy', `Trade is brisk on the road to ${road.name}.`, 2, { about: [`region:${road.to}`] }));
     else if (road.trade <= 0.28) facts.push(now(`road:${road.to}`, 'economy', `Little trade goes on the road to ${road.name} these days.`, 3, { about: [`region:${road.to}`] }));
@@ -145,7 +160,7 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   // Everyone knows who holds the market town; most know the other seats' lords.
   r.lords.forEach(lord => facts.push(now(`lord:${slug(lord.province)}`, 'politics', lord.text, lord.province === r.centre.name ? 1 : 2, { about: [place(lord.province)] })));
   facts.push(now('dues', 'politics',
-    r.tax >= 0.45 ? `The lords of ${r.name} tax heavily.` : r.tax <= 0.25 ? `The lords of ${r.name} ask little in dues.` : `The lords' dues in ${r.name} are what they've always been.`, 1));
+    r.tax >= HEAVY_DUES ? `The lords of ${r.name} tax heavily.` : r.tax <= LIGHT_DUES ? `The lords of ${r.name} ask little in dues.` : `The lords' dues in ${r.name} are what they've always been.`, 1));
   // Unsettled (#1608): lords dying and seats changing hands lately make people wary of what's next.
   if ((r.unsettled ?? 0) >= UNSETTLED) facts.push(now('unsettled', 'politics', `The lords of ${r.name} are uneasy: lords have died and seats have changed hands lately.`, 1, { sensitivity: 'guarded' }));
   if (r.levy >= 0.2) facts.push(now('levy', 'politics', `Many of ${r.name}'s men are away, called up for their lords' wars.`, 1));
@@ -170,10 +185,14 @@ export function lineFact(r: RegionHistory, line: RegionLine, present: number, k 
   const living = ago <= LIVING_MEMORY;
   const depth: 1 | 2 | 3 = !living ? 3 : ago <= GENERATION && line.significance > 2 ? 1 : 2;
   const when = ago === 0 ? 'This year' : ago === 1 ? 'A year ago' : `${ago} years ago`;
+  // The engine's venture news names the venture "at" its province ("The lumber camp at Saltmere
+  // was thriving."); at a road village that doesn't live on it, it's out beyond (`ventureWhere`).
+  const beyond = line.kind.startsWith('VENTURE_') && line.province === r.venture.province && ventureWhere(r).startsWith('out beyond');
+  const told = beyond ? line.text.replace(` at ${line.province}`, ` out beyond ${line.province}`) : line.text;
   return {
     id: `region:${r.id}:${line.year}:${k}`,
     about: [`region:${r.id}`, ...(line.province ? [`place:${slug(line.province)}`] : [])],
-    text: `${when}, in year ${line.year}: ${line.text}`,
+    text: `${when}, in year ${line.year}: ${told}`,
     scope: { kind: 'region', id: r.id },
     sensitivity: GUARDED.has(line.kind) ? 'guarded' : 'public',
     truth: living ? 'true' : 'rumour',

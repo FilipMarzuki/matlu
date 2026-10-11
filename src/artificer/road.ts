@@ -28,6 +28,9 @@ import { deflectionOf } from './free-questions';
 import { factsFor } from './facts';
 import { answerQuestion } from './knowledge-questions';
 import { featureOn } from './features';
+import { arrivalLines, localMarket } from './economy';
+import { villagePlace } from './place-candour';
+import type { Place } from './culture-lore';
 import { noticesToday, NOTICE_TRUST } from './notice';
 import { mentionsIn } from './topics';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, FRIEND_TRUST, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
@@ -335,6 +338,14 @@ export type RoadActionId = 'rest' | 'wait' | 'tend' | 'help' | `talk:${string}` 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
 
+/**
+ * Where the people you're talking to are (#1619), for how openly they voice their views: the
+ * village's place (place-candour.ts) and the road's season. Only with the `candour-by-place` rule
+ * switch on; off, and in every run from before it, undefined, so they speak as their culture does.
+ */
+export const questionPlace = (s: RoadState): Place | undefined =>
+  (featureOn(s.features, 'candour-by-place') ? villagePlace(villageOf(s), ROAD_SEASON) : undefined);
+
 /** Who you can talk to now: the village's people, or on the wagon your fellow travellers (#1253). */
 export const peopleHere = (s: RoadState): readonly Person[] => (villageOf(s) ? peopleOf(villageOf(s)) : TRAVELLERS);
 
@@ -432,7 +443,13 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const trader = traderAmong(peopleHere(s));
   if (!trader) return null;
   const stock = TRADER_STOCK[trader.id];
-  return { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+  const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+  // Village economies (#1599): the village's own market sets what's cheap and dear, and its
+  // trader always stocks what the village makes. Off (and in runs from before the switch), the
+  // terms are exactly as they were.
+  const local = featureOn(s.features, 'village-economies') ? localMarket(villageOf(s)) : null;
+  if (!local) return base;
+  return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local };
 }
 
 /** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */
@@ -492,7 +509,7 @@ function trade(next: RoadState, id: string): RoadState {
 // ── Quests (#1248) ──────────────────────────────────────────────────────────
 
 /** The quests on offer where you are. */
-export const questsHere = (s: RoadState): QuestTemplate[] => availableQuests(villageOf(s), s.trust, s.quests);
+export const questsHere = (s: RoadState): QuestTemplate[] => availableQuests(villageOf(s), s.trust, s.quests, s.features);
 
 const nameOf = (pid: string): string => personById(pid)?.name ?? pid;
 const bump = (s: RoadState, pid: string, by: number): void => { s.trust[pid] = Math.max(0, Math.min(100, (s.trust[pid] ?? 0) + by)); };
@@ -751,7 +768,8 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
-  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features) });
+  // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
+  const r = answerQuestion(person, topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next) });
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   say(next, r.line, 'action');
   if (r.kind === 'told' && !r.again) {
@@ -1030,6 +1048,11 @@ export function endRoadDay(s: RoadState): RoadState {
     }
     openVillage(next, now.id);
     say(next, `The caravan reaches ${now.name}. It stays ${now.days} days.`, 'milestone');
+    // What the village lives on (#1599): how it looks and sounds, its trade, and its market.
+    if (featureOn(next.features, 'village-economies')) {
+      const lines = arrivalLines(now.id);
+      if (lines) say(next, lines.join(' '), 'action');
+    }
     const met = { trust: { ...next.trust }, readings: next.readings };
     arriveWithDeliveries(next, now.id);
     // A delivery's thanks can make a friend of the giver (#1578).

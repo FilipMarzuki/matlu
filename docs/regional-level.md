@@ -52,10 +52,21 @@ year's engine rolls are exactly as they were; only what follows feels the region
 | **Levy** | each province whose lord fought this year loses `levyToll × levy` of its people (3% at a full levy); every province's wealth target drops `levyWork × levy` (fields untended) | `levyToll` 0.03, `levyWork` 0.15 |
 | **Hard winter** | every surface province loses `winterToll × hardship` of its people and `winterStores × hardship` of its wealth; the winter's event records the toll | `winterToll` 0.015, `winterStores` 0.08 |
 | **Famine** | on top of the engine's own toll, each famine province loses `famineToll × hardship` of its people and `famineStores × hardship` of its wealth | `famineToll` 0.03, `famineStores` 0.15 |
+| **Named people (#1617)** | in a hard winter (surface provinces) or a famine (the province it struck), each named resident who is **frail** rolls once (`World.regionRng`) to die, at `frailty × hardship × (winterNamed + famineNamed where each fell)`, capped at `namedCap`. Frailty adds up: **old** (past 70% of the race's lifespan, or 60 without biology) 1, **sick** (plague in the province within 2 years, or an inbreeding coefficient of 0.125+) 0.6, **poor** (holds no seat, and lowborn or of a house holding none) 0.6. The hale never die of it. They die as the engine's people (`markDead`, cause `cold` or `famine`); the winter's or the famine's regional event records `named_dead` and the most notable (a lord first, then the eldest) as its actor | `winterNamed` 0.05, `famineNamed` 0.08, `namedCap` 0.5, `frailOld`, `frailSick`, `frailPoor`, `oldShare`, `oldAge`, `sickYears`, `sicklyBlood` |
 | **Banditry** | the province bandits worked loses wealth; the engine's trade routes touching the region lose traffic (`TradeRoute.wealth`); the region's roads already lose trade (#1598), which feeds wealth | `banditWealth` 0.08, `banditRoute` 0.1 |
 | **Trade and prosperity** | each province's **wealth** (`Province.wealth`, 0–1, 0.5 getting by) eases 12% of the way a year toward the region's prosperity, plus its roads' trade (doubled at the market town), the venture's health (its province), and the busiest engine trade route through it, and is drawn 2% of the way back toward 0.5 (getting by) a year. The slow pull lets a hard winter or bandits be felt for years; the drift keeps prosperous regions from sitting at 0.7–0.8 everywhere. Wealth reaches its holder: `World.power` counts a province's people ×(1 + 0.4 × (wealth − 0.5)), so ±20%; in magic worlds the house treasury's income from the province scales ×(0.5 + wealth) | `wealthPull` 0.12, `wealthDrift` 0.02, `roadWealth` 0.3, `ventureWealth` 0.2, `routeWealth` 0.15, `WEALTH_POWER` 0.4 (`world.ts`) |
 | **Unsettled politics** | `Region.unsettled` (0–1) rises with a lord's death (0.1, a great lord 0.2), an empty seat (0.2), a seized seat (0.3) and keeps 60% a year. While it's up its lords of different houses lose `6 × unsettled` opinion of each other a year, bandits get easier (+0.1 × unsettled a year) and prosperity's target drops 0.1 × unsettled | `unsettle*`, `unsettleKeep` 0.6, `unsettledOpinion` 6, `unsettledBandits`, `unsettledProsperity` |
 | **A feud grows into war** | a feud is live 25 years after its lords last fought. Each year, if both houses still have a lord seated in the region and they aren't under a truce (often the sons, not the men who fought), it flares with chance `0.6 × unsettled` (from `World.regionRng`): the more vengeful lord gets a weak claim on the other's seat (`FEUD_FLARES`, significance 4), and both lose 15 opinion. The engine's goals turn the claim into a `SEIZE_TITLE` goal, and a war if the lord dares | `feudFlare` 0.6, `feudMemory` 25, `feudFlareOpinion` 15 |
+
+**Late deaths and successions (#1617).** The named dead die after the engine's last succession
+sweep, so `tick()` runs one more sweep after the regional pass: a lord the winter took is
+succeeded the same year, and no seat is held by the dead into the next. Those deaths and
+successions come after the regional read, so `World.regionalCursor` marks where the read stopped;
+next year's pass first reads them (politics only: `LORD_DIED`, `SEAT_VACANT`), dated the year they
+happened, for every region before any of the new year's news, and they unsettle the region that
+year. The last year of a run has no next year, so its late successions aren't told regionally
+(the engine's log has them). In the default world over 200 years, about 20 of 358 named deaths
+are to the cold (seed 42).
 
 **Hardship** is `0.5 + (1 − prosperity)` with the region's prosperity going into the year: 1 in a
 region getting by, 1.5 in a destitute one, 0.5 in a rich one. A poor region has nothing to fall
@@ -157,7 +168,7 @@ Hollowford country.", `renderRegionalEventNamed`).
   shows as a small gold mark (and explains in one line at the top). Nothing goes into
   `World.events` and nothing draws from `World.rng`, so the hashes and the Reach's pinned log
   don't move.
-- **`HISTORY_VERSION`** 6 since #1608 (5 was #1586): the regions push back, so the same seed lives a different
+- **`HISTORY_VERSION`** 7 since #1617 (named people die in hard winters and famine); 6 was #1608 (5 was #1586): the regions push back, so the same seed lives a different
   history, and the told regions carry `unsettled` and each province's `wealth`.
 - A **hard winter** now says when it cost lives ("…and the old and the weak died of the cold";
   "…and many died of the cold and hunger" when it took 1.8% or more, which is worth a point more,
@@ -183,15 +194,82 @@ Hollowford country.", `renderRegionalEventNamed`).
    older a `rumour` at depth 3. Small news (significance 2 or less) is depth 2 even when recent.
    Lords' quarrels and seized seats are `guarded`; the rest `public`.
 
-Nothing in play reads these yet, and the road's villages aren't given their region yet. Wiring
-them in place of #1592's hand-made "north road" is later work.
+Nothing in play reads these yet. Each road village's list joins them with its own remembered
+facts (#1618, below); wiring that into play is slice F.
+
+## Local history: there is always recent history (#1613)
+
+Owner, 2026-10-11: "There is always recent history. We need to create some structure where
+recent history is filled with local politics and events." The told history keeps a province's
+few most significant events, which tend to be old and lordly, so `src/artificer/world/local-history.ts`
+gives every road village its own last 20 years (`LOCAL_YEARS`, a generation), read off a told
+history and attached as `VillageMemory.local` (`remembered.ts`).
+
+- **Slots.** Politics: `leader` (who speaks for the village and how they came to), `dispute`
+  (two families over land, water or a debt), `council` (a decision), `marriage`, `scandal`.
+  Events: `trade` (a good or bad year for what it lives on), `mishap` (fire, flood, hard winter,
+  sickness), `building`, `comings` (someone left or arrived), `death`. `leader`, `dispute`,
+  `trade` and `mishap` are always told, so every village has politics and events in every seed;
+  the others by chance.
+- **Crafted plus generated.** `CRAFTED_LOCAL` holds hand-written entries per road village, dated
+  in years before the present (Maren chosen after old Sune drowned, Bodil's three barrels, the ash
+  off the pass, the drunk toll-keeper). A written slot is told as written; only empty slots are
+  generated. Each slot draws from its own stream (`seed|local|<village>|<slot>`), so writing one
+  never rerolls the others.
+- **From the engine's state.** The village's country (its generated region) decides much of it:
+  heavy dues send someone to the steward, a levy draws lots, a seized seat puts in the new lord's
+  headman, the country's famine, plague or hard winter of the last 20 years is the village's
+  hard year (dated the same), its venture or told harvest is its trade news, else its wealth.
+  Names come from the village's culture, never a road person's name or a lords' house.
+- **Off the engine.** It runs on the told history with its own seeded generator (`rng.ts`), not
+  `World.rng` or `World.regionRng`: no engine change, no golden hash or pinned log moves, and
+  `HISTORY_VERSION` stays 6 (a kept history tells the same villages).
+- **As facts.** `local:<village>:<slot>`, scope the village, `true` (all within living memory).
+  Sensitivity by how public it was and the teller's stake (`localSensitivity`): `public` (a fire)
+  is public to all; `open` (a quarrel at the moot) public, guarded to those in it; `house` (a
+  family's trouble) guarded, private with a stake; `family` (a scandal) private, secret with a
+  stake. A road person who's a party gets their own more guarded person-scope telling
+  (`local:<village>:<slot>:<person>`), which the knowledge model answers from first; something
+  touching the ruling house (pleading with the steward) is one step more guarded for the whole
+  village. Depth follows publicity: 1 for public and open, 2 a family's trouble, 3 a scandal.
+
+Nothing in play reads these yet. When #1618's `VillageMemory.known` lands, the local facts
+belong in it too.
 
 ## Merging with PR #1592
 
-#1592 (not merged when this was written) adds `remembered()` and `RememberedFact`. `RegionalFact`
-has the same fields, with `guarded` sensitivity added and `year` and `kind` extra, so #1592's facts
-are assignable to it. Both branches move `LIVING_MEMORY` into `history-format.ts` the same way.
-When both land, keep one `GENERATION` and have `remembered()` include the regional facts.
+#1592 added `remembered()` and `RememberedFact`, and there's one `GENERATION` (regional-facts.ts).
+Since #1618 `remembered()` also gives each road village **one list of what it knows**
+(`VillageMemory.known`, built by `remembered.ts` `placeKnowledge`): its own facts (`facts`, as
+before: who holds it, for the village and for the north road, and its told events), then its
+country's regional facts (`factsOfRegion`). Over seeds 1, 3, 4, 8 and two play seeds that's 5 own
+facts and 27–36 of its country's, 30–40 in one list.
+
+- **Which region's facts: the country.** `VillageMemory.country` is the generated region its
+  province lies in (`generated(province.id)`, by default the history's own), asked for directly.
+  The crafted north road still wins `region` (regions.ts `regionFor`), which stays the road's
+  scope, the caravan's; but a village's country is where its harvest, market, lords and news are,
+  so its facts attach by the generated region even when the crafted one wins. Regional facts keep
+  their scope (`region:<country id>`). Nothing places anyone in a country yet: slice F has to give
+  a village's people their country as a region (today every `Knower.region` is `north-road`).
+- **One fact for one happening.** Two facts telling the same thing become one, at the village
+  fact's place in the list: the village's holder fact and its country's `lord:` fact for that seat;
+  and a village event and its country's telling of it (`sameEvent`: the same year, the regional
+  kind read from the event's kind by `SAME_EVENT_KINDS`, e.g. `SEAT_SEIZED` from `USURP` or
+  `LOWBORN_RISE`, `LORD_DIED` from `SUCCESSION`, `MIGRATION` from the lost companies, and the same
+  province, or a famine or plague told region-wide). Told lines carry no engine event id, so
+  that's what's matched; adding one would mean telling every kept history again.
+- **How they merge** (`mergeFacts`): the village fact's id and scope (the more specific scope,
+  which the knowledge model answers from first, and everyone in a village lives in its country),
+  the richer (longer) text, the stricter sensitivity, the shallower depth, both facts' topics, and
+  `absorbs` naming the regional fact taken in. Truth agrees by construction (the same year against
+  the same `LIVING_MEMORY`). The north-road holder fact stays: it's the caravan's, who live in no
+  country.
+- **Ids.** A regional fact left as itself is exactly `factsOfRegion`'s, so an id means the same
+  fact in every village's list (two road villages often share a country). A merged fact has the
+  village's id, which only that village's list has.
+
+Not wired into play: that's slice F.
 
 ## Cost
 
@@ -206,11 +284,11 @@ takes under a millisecond for about 100 facts.
 | `types.ts` | `Region` (with `label`, `secondary`, `founding`, `unsettled`), `Founding`, `RegionalEvent` and its kinds (`FEUD_FLARES` since #1608); optional `Province.lake`, `lastHarvest`, `plaguedYear`, `wealth` |
 | `world-spec.ts` | optional `ProvinceSpec.lake`; nothing for #1608 (wealth starts at 0.5 everywhere, and the knobs are `FEEDBACK`, not per world) |
 | `seed.ts` | sets `lake` and `wealth` (0.5); `formRegions` |
-| simulation | `tick.ts` runs `runRegions` last, which ends with `pushBack`; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws); `world.ts` `power` reads `wealth`. `geography.ts` and `people.ts` unchanged: population and claims are changed directly, and regrowth reads the population as it finds it |
+| simulation | `tick.ts` runs `runRegions` last, which ends with `pushBack`, then a succession sweep (#1617); `world.ts` `regionalCursor`; `phenomena.ts` records the harvest roll and plague's reach (writes, not draws); `world.ts` `power` reads `wealth`. `geography.ts` and `people.ts` unchanged: population and claims are changed directly, and regrowth reads the population as it finds it |
 | `perception.ts` | yes (#1608): a landed lord in an unsettled region gets `unsettled × 0.006` more chance a year of a distortion (`UNSETTLED_ONSET`). Changes the odds of a roll the engine makes anyway, never the number of rolls |
 | `culture-drift.ts` | no: it reads the year's engine events, and the regions' consequences reach it through them (fewer famines, different wars). A regional pressure would add culture variety the owner wants kept low near the start (answer 5) |
 | `catastrophe.ts` | no: catastrophes are world-scale and already feed the regions (`GREAT_FROST` is a hard winter everywhere); deepening their tolls by region would count the same disaster twice |
 | `magic.ts` | yes (#1608): a house's income from a province scales ×(0.5 + wealth) |
-| `sifter.ts` | `regionalSignificance`; `FEUD_FLARES` 4, a killing winter +1 |
-| `render.ts` | `renderRegionalEvent` (a winter's toll, a flared feud), `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
-| `testkit.ts` | region invariants in `checkInvariants` (plus `unsettled`, `wealth` in bounds, the population floor, flared feuds name a title and two lords); golden hashes rebaselined for #1608 |
+| `sifter.ts` | `regionalSignificance`; `FEUD_FLARES` 4, a killing winter +1 (one that took 1.8%, or someone named, #1617). Deaths keep `DEATH`'s score |
+| `render.ts` | `renderRegionalEvent` (a winter's toll, a flared feud, the named dead of a winter or famine), a `DEATH` "of cold"; `renderRegionalEventNamed`; `renderLayeredChronicle` `extra` lines (the big regional events) |
+| `testkit.ts` | region invariants in `checkInvariants` (plus `unsettled`, `wealth` in bounds, the population floor, flared feuds name a title and two lords); golden hashes rebaselined for #1608 and #1617 |
