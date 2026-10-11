@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, startGame, view, serialize, gameFrom, GAME_VERSION } from './session';
 import { handle, memoryStore, type ApiRequest } from './api';
 import { hollowfordGame } from './fixtures';
-import { loadChoices, saveChoices, devMode, DEV_BY_DEFAULT } from '../artificer-app/feature-choices';
+import { loadChoices, saveChoices, devMode, devTruths, DEV_BY_DEFAULT } from '../artificer-app/feature-choices';
 
 let n = 0;
 const deps = { now: () => Date.parse('2026-10-11T12:00:00Z'), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, newSeed: () => 's1' };
@@ -113,5 +113,17 @@ describe('The player’s switches and dev mode, in the browser (#1579)', () => {
     // Without storage, the address alone, else the default.
     expect(devMode('', null)).toBe(true);
     expect(devMode('?dev=off', null)).toBe(false);
+  });
+
+  it('shows the hidden truths only with ?dev=truths, never in plain dev mode (#1578)', () => {
+    const s = fakeStore();
+    expect(devTruths('', s)).toBe(false);
+    expect(devMode('?dev=truths', s)).toBe(true);
+    expect(devTruths('?dev=truths', s)).toBe(true);
+    expect(devTruths('', s)).toBe(true); // remembered
+    expect(devTruths('?dev', s)).toBe(false); // plain dev mode turns them off again
+    expect(devTruths('', s)).toBe(false);
+    expect(devTruths('?dev=truths', null)).toBe(true);
+    expect(devTruths('', null)).toBe(false);
   });
 });

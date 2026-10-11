@@ -205,10 +205,12 @@ describe('Rapport, not a number (#1578)', () => {
     noNumbers(questLog(r));
   });
 
-  // 10. Given dev mode, the cards and sheets show the truth beside the felt word; nowhere else changes.
-  it('shows the true trust beside the word in dev mode', () => {
+  // 10. Given ?dev=truths, the cards and sheets show the truth beside the felt word; nowhere else
+  // changes. Plain dev mode (on for everyone during the experiment) never shows it.
+  it('shows the true trust beside the word only with ?dev=truths', () => {
     const r = { ...inHollowford(), trust: { ...inHollowford().trust, 'hf-maren': 33 } };
-    const html = roadView(r, { person: 'hf-maren', dev: true });
+    expect(roadView(r, { person: 'hf-maren' })).not.toContain('devtruth');
+    const html = roadView(r, { person: 'hf-maren', truths: true });
     expect(html).toContain('devtruth');
     expect(html).toContain('true: cordial (33)');
     expect(html).toContain(`>${feltWord(r, 'hf-maren')}</span>`);

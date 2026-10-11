@@ -31,7 +31,7 @@ const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}
  * the game's state or save: the game keeps only the topic they matched. `dev` is dev mode (#1579):
  * cards and sheets then show each person's true trust beside how they seem (#1578).
  */
-export interface RoadUi { person: string | null; asked?: Record<string, { question: string; topic: string | null; reply: string }>; dev?: boolean }
+export interface RoadUi { person: string | null; asked?: Record<string, { question: string; topic: string | null; reply: string }>; truths?: boolean }
 
 const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹', caravaneer: '🛞', tinker: '🔧' };
 /** Store goods by their screen names. */
@@ -153,11 +153,11 @@ const aboutText = (key: string): string => { const f = parseFocus(key); return f
 
 /**
  * How someone seems with you (#1578): a word, never the trust number or a bar, and it can be off
- * (rapport.ts). Dev mode adds the truth, in the same amber as the skills' true level.
+ * (rapport.ts). `?dev=truths` adds the truth, in the same amber as the skills' true level.
  */
 function rapportTag(r: RoadState, p: Person, ui: RoadUi): string {
   const word = feltWord(r, p.id);
-  const truth = ui.dev ? ` <span class="devtruth" title="Dev mode: the true trust">true: ${trueWord(r, p.id)} (${Math.round(r.trust[p.id] ?? 0)})</span>` : '';
+  const truth = ui.truths ? ` <span class="devtruth" title="Dev mode (?dev=truths): the true trust">true: ${trueWord(r, p.id)} (${Math.round(r.trust[p.id] ?? 0)})</span>` : '';
   return `<span class="rapport rp-${word}" title="How ${esc(p.name)} seems with you (${esc(RAPPORT_LADDER)}). Your read of people can be off.">${word}</span>${truth}`;
 }
 
