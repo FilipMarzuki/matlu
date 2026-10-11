@@ -1829,7 +1829,7 @@ recently been. The Fae appear to know more than they are saying about the third 
 
 *Added 2026-10-11 (#1606). The owner made the Wildkin, the beastkin of Core Warden's setting
 bible (`macro-world/setting-corewarden.md`), the 16th People, and their kingdom between the
-mountains and the sea **the core area** of Mistheim. The bible is canon for them; the clan
+mountains and the sea **the core area** of the game. The bible is canon for them; the clan
 lines and the Clan Question come from the Wildkin race lore it points to
 (`macro-world/race-affinities.json`). The West March is told from the fields under the
 Riksfolk (*The West March and the Wildkin border*); this is the same border from the dens.
@@ -1843,9 +1843,9 @@ Its only open side faces east, onto the river Alå and the Realm's West March be
 climate is temperate: wet springs, mild summers. The kingdom has never been large. It has
 never needed to be. The mountains and the sea have always been its walls.
 
-**The core area:** This is where Mistheim begins. The kingdom is small enough to be one
-game map, mountains to sea and the Alå to the wild western shore, and it is the part of the
-continent Core Warden is played in. It is not the middle of Mistheim (that is the Pandor's
+**The core area:** The core area of the game, for now: Core Warden is mostly played out in
+Wildkin lands *(owner, 2026-10-11)*. The kingdom is small enough to be one game map, mountains
+to sea and the Alå to the wild western shore. It is not the middle of Mistheim (that is the Pandor's
 central highlands) but its far western corner, and the rest of this section opens outward
 from it: the Realm and, beyond the fen country, the Markfolk delta to the east; the Bergfolk
 spine to the north; the unsailed sea to the south. In the world, nobody calls it the core.
