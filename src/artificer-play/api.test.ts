@@ -280,3 +280,35 @@ describe('Run records from the play API (#1558)', () => {
     expect(errors).toHaveLength(1);
   });
 });
+
+describe('Achievements from the play API (#1559)', () => {
+  it('the move that ends a game says which achievements it earned, against the records before it', async () => {
+    const store = memoryStore();
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) ids.push(((await handle(post('/api/v1/games', { model: 'm' }), store, deps)).body as { id: string }).id);
+    const ends = [];
+    for (const id of ids) ends.push(await playToTheEnd(store, id));
+    const list = ends[2].body.achievements as { id: string; status: string; detail: string }[];
+    expect(list.length).toBeGreaterThanOrEqual(5);
+    // Two runs before it: too few to call anything a percentile.
+    expect(list.find(a => a.id === 'top-tenth')!.status).toBe('open');
+    expect(list.find(a => a.id === 'top-tenth')!.detail).toMatch(/2 so far/);
+    expect(list.find(a => a.id === 'reached-mistheim')!.status).toBe('missed');
+  });
+
+  it("still ends the game, without achievements, when the records can't be read", async () => {
+    const store = memoryStore();
+    store.recentRuns = async () => { throw new Error('database down'); };
+    const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };
+    const realError = console.error;
+    console.error = () => {};
+    try {
+      const end = await playToTheEnd(store, id);
+      expect(end.status).toBe(200);
+      expect(end.body).not.toHaveProperty('achievements');
+      expect(end.body.record).toBe(`/records/?game=${id}`);
+    } finally {
+      console.error = realError;
+    }
+  });
+});

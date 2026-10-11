@@ -751,3 +751,15 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .settlekey .keyitem b { font-family: "Courier New", ui-monospace, monospace; color: var(--teal); margin-right: 3px; }
 .settlekey .keyitem.on { border-color: var(--gold); }
 .settlekey .keyitem.on b { color: var(--gold); }
+
+/* Achievements (#1559): how a finished run compares, on the Records page and the game's end screen.
+   Shared here because both pages load style.css. Earned ones are lit gold and starred (the star is
+   text, so the status isn't told by colour alone). */
+.achlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+.achlist li { display: grid; gap: 2px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--sub2); }
+.achlist li b { font-size: 13.5px; font-weight: 600; color: var(--dim); }
+.achlist li span { font-size: 12px; color: var(--faint); line-height: 1.35; }
+.achlist li.earned { border-color: var(--gold); background: rgba(255,224,102,.06); }
+.achlist li.earned b { color: var(--gold); }
+.achlist li.earned span { color: var(--dim); }
+.ach-head { margin-top: 16px; }

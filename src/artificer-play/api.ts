@@ -5,6 +5,7 @@
  *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features? } → 201 view
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
+ *                                    (the move that ends a run also gets its record's link and achievements, #1559)
  *   GET  /api/v1/games/:id/run       a finished game's record (#1558) → 200 | 404
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
@@ -27,6 +28,7 @@ import { RULES, ROAD_RULES } from '../artificer-ai/observe';
 import { startGame, view, apply, serialize, deserialize, GAME_VERSION, type Game, type Move, type Phase, type View } from './session';
 import { measure, runOf, type GameMeasures } from './record-of';
 import { compareRuns, type AiRun, type PlayerKind, type Run, type RunSummary, type StoredRun, type Surface } from './records';
+import { achievementsOf, type Achievement } from './achievements';
 import { cleanQuestion, type Question } from './questions';
 import { knowsAbout } from '../artificer/free-questions';
 import { personById } from '../artificer/villages';
@@ -281,10 +283,12 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
         console.error('question not kept', e);
       }
     }
-    // An ended game refuses moves, so this is the move that ended it: write its record, once.
+    // An ended game refuses moves, so this is the move that ended it: write its record, once, and
+    // say how it compares (#1559).
     if (r.view.phase !== 'ended') return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed } };
     await saveRun(store, updated, r.game);
-    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed, record: `/records/?game=${id}` } };
+    const achievements = await achievementsFor(store, id);
+    return { status: 200, body: { ...gameBody(id, r.view), changed: r.changed, record: `/records/?game=${id}`, ...(achievements ? { achievements } : {}) } };
   }
 
   return fail(405, `${req.method} isn't allowed here.`);
@@ -302,6 +306,22 @@ async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<voi
     await store.insertRun(sourceOf(g.id), run);
   } catch (e) {
     console.error('run record not saved', g.id, e);
+  }
+}
+
+/**
+ * A finished game's achievements (#1559): its record against this version's recent ones, the same
+ * list the Records page compares with. Null when there's no record to compare (it wasn't written)
+ * or the records can't be read now: achievements are a bonus, never a reason to fail the move.
+ */
+async function achievementsFor(store: GameStore, gameId: string): Promise<Achievement[] | null> {
+  try {
+    const mine = await store.runBySource(sourceOf(gameId));
+    if (!mine) return null;
+    return achievementsOf(mine, await store.recentRuns(RUNS.recent, mine.gameVersion));
+  } catch (e) {
+    console.error('achievements not worked out', gameId, e);
+    return null;
   }
 }
 

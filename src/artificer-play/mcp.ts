@@ -26,6 +26,7 @@ import * as z from 'zod/v4';
 import { handle, type ApiDeps, type ApiResponse, type GameStore } from './api';
 import { GAME_VERSION, type Move, type MoveOption } from './session';
 import { experimentalOn } from '../artificer/features';
+import { achievementLines, type Achievement } from './achievements';
 
 export interface McpOptions {
   /** The player's address (as the HTTP API takes it), for the per-address limits. */
@@ -155,7 +156,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean> }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[] }
 
 /** Which experimental features this game plays with (#1579), as a line under its id; empty if none. */
 function featuresLine(features: Record<string, boolean> | undefined): string {
@@ -186,9 +187,12 @@ function afterMove(r: ApiResponse, base: string): CallToolResult {
   const changed = b.changed?.length ? b.changed.join('\n') : '(nothing new)';
   const head = `${changed}\n\n${b.status}`;
   if (b.phase === 'day') return text(`${head}\n(look shows the full view and the moves open now.)`);
-  // A finished run has a record (#1558): a full link, for the player's AI to pass on to them.
+  // A finished run has a record (#1558): a full link, for the player's AI to pass on to them, and
+  // the achievements it earned against everyone's records (#1559).
+  const earned = b.achievements ? achievementLines(b.achievements) : [];
+  const achieved = b.achievements ? `\n\n${earned.length ? `Achievements earned:\n${earned.map(l => `- ${l}`).join('\n')}` : 'No achievements this run.'}` : '';
   const record = b.record ? `\n\nHow this run compares with everyone's: ${new URL(b.record, base).href}` : '';
-  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}${record}`);
+  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}${achieved}${record}`);
 }
 
 function movesBlock(moves: MoveOption[]): string {

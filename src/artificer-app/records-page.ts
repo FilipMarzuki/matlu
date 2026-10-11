@@ -14,6 +14,7 @@ import './records.css';
 import { inject } from '@vercel/analytics';
 import { percentBeaten, tierOf, outcomeLine, groupOf, type RunSummary, type StoredRun } from '../artificer-play/records';
 import { experimentalOn } from '../artificer/features';
+import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -302,7 +303,20 @@ function renderYours(mine: StoredRun | null, status: number, error: string | nul
     `skills ${mine.skillLevels}`,
     `${mine.moves} moves`,
   ].filter(Boolean).join(' · '));
-  box.append(tiles, facts);
+  // Achievements (#1559): percentiles over the same recent runs the tiles use.
+  box.append(tiles, facts, el('p', 'eyebrow ach-head', 'ACHIEVEMENTS'), achievementList(achievementsOf(mine, others)));
+}
+
+/** Every achievement, earned ones lit: a star and the name, and how this run stands under it. */
+function achievementList(list: Achievement[]): HTMLElement {
+  const ul = el('ul', 'achlist');
+  for (const a of list) {
+    const li = el('li', a.status);
+    li.title = a.rule;
+    li.append(el('b', '', `${a.status === 'earned' ? '★' : '☆'} ${a.name}`), el('span', '', a.detail));
+    ul.append(li);
+  }
+  return ul;
 }
 
 // ── Start ───────────────────────────────────────────────────────────────────

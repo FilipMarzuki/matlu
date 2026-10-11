@@ -14,6 +14,7 @@ import './console.css';
 import { inject } from '@vercel/analytics';
 import { parseCommand, completions, commonPrefix, HELP, type MoveOption } from './console-commands';
 import { loadChoices } from './feature-choices';
+import { achievementLines, type Achievement } from '../artificer-play/achievements';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -26,8 +27,9 @@ interface GameBody {
   text: string;
   moves: MoveOption[];
   changed?: string[];
-  /** On the move that ends a run: where its record is (#1558). */
+  /** On the move that ends a run: where its record is (#1558), and how it compares (#1559). */
   record?: string;
+  achievements?: Achievement[];
 }
 
 const GAME_KEY = 'artificer.console.game';
@@ -131,6 +133,11 @@ function show(g: GameBody, full: boolean): void {
   statusEl.textContent = g.status;
   setMoves(g.moves);
   if (g.phase !== 'ended') return;
+  // Achievements (#1559): the earned ones, worked out by the API against everyone's records.
+  if (g.achievements) {
+    const earned = achievementLines(g.achievements);
+    print(earned.length ? `Achievements:\n${earned.map(l => `  ★ ${l}`).join('\n')}` : 'No achievements this run. The Records page says what each one takes.', 'note');
+  }
   if (g.record) printLink('See how this run compares with everyone\'s: the Records page', g.record);
   print('The run is over. Type "new" for another, or tap NEW GAME.', 'note');
 }
