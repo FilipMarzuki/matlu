@@ -9,7 +9,8 @@
  * happened there and when. Recent events are remembered as they were; older ones have drifted
  * into legend.
  *
- * Nothing in play reads these yet: the knowledge model answering from them is its own slice.
+ * Play reads them with the `history-in-play` rule switch (#1656, history-in-play.ts): road people
+ * answer from them, each telling an old event their own People's way.
  *
  * **One list of what a place knows (#1618).** Each village also gets its country (the generated
  * region its province lies in, #1598) and `known`: its own facts and its country's regional facts
@@ -34,7 +35,7 @@
  *   villages are on the north road), generated where we don't. A village's people know their own
  *   lord (village scope, depth 1); most of its region know who holds each place in it (depth 2).
  * - **Server games** compute this lazily, the first time a road question needs a regional fact,
- *   and keep it per seed (history.ts `rememberedCache`). Not wired into play yet.
+ *   and keep it per seed (history-in-play.ts keeps the told history per seed, #1656).
  * - **Sensitivity is not a blanket rule.** It comes from how public the event was (`publicityOf`:
  *   a war, a plague, a crowning are public; a kinslaying, a scandal, a house's secret are not)
  *   and the teller's stake in it (`hasStake`: a fact about a house is one step more guarded told

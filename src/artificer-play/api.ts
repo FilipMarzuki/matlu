@@ -47,6 +47,14 @@ import { knowsAbout } from '../artificer/free-questions';
 import { isQuestionTopic } from '../artificer/knowledge-questions';
 import { personById } from '../artificer/villages';
 import { FEATURES, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { tellHistoriesWith } from '../artificer/history-in-play';
+import { runHistory } from '../artificer/world/history';
+
+// The road's people answer from their villages' history (#1656, `history-in-play`), and a server
+// game has no page worker to tell it: so it's told here, the first time a road question needs it
+// (a quarter to half a second), and kept per seed (history-in-play.ts). Server-only: the engine
+// never reaches a page's bundle this way.
+tellHistoriesWith(runHistory);
 
 /** A stored game. `session` is the serialized session, seed included: it never goes out. */
 export interface GameRecord {

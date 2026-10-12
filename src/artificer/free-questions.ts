@@ -28,6 +28,7 @@ import type { Fact } from './knowledge';
 import { SKILLS, type SkillId } from './skills';
 import { TOPICS, TOPIC_KINDS, isTopicKind, mentionsIn, topicDef } from './topics';
 import { personById } from './villages';
+import { isPastKey, pastBonus, pastPatterns } from './past-topics';
 import conceptsRegistry from './content/concepts.json';
 
 /** Long enough for a real question, short enough not to be a letter. */
@@ -87,6 +88,9 @@ const CONCEPT_NAMES: Readonly<Record<string, string>> = Object.fromEntries(conce
 
 /** Every way `key` can be named in a question; without `scoped` (a run without the scope facts, #1610), not by their hints. */
 export function patternsOf(key: string, scoped = true): RegExp[] {
+  // A place's history (#1656, past-topics.ts): only its facts carry these keys, so they only
+  // match in a run with `history-in-play` on.
+  if (isPastKey(key)) return pastPatterns(key);
   const at = key.indexOf(':');
   const kind = key.slice(0, at), id = key.slice(at + 1);
   const out: RegExp[] = [];
@@ -147,7 +151,8 @@ export function bestKnownMatch(personId: string, q: string, answered: readonly s
   for (const key of topicsKnownBy(personId, facts)) {
     const answer = answerFor(personId, key, facts);
     if (!answer) continue;
-    const direct = named.has(key) || patternsOf(key, scoped).some(re => re.test(q)) ? NAMED : 0;
+    // A history topic that names the event itself outranks "what happened here" (#1656, `pastBonus`).
+    const direct = named.has(key) || patternsOf(key, scoped).some(re => re.test(q)) ? NAMED + pastBonus(key) : 0;
     const through = mentionsIn(answer.text).filter(k => k !== key && named.has(k)).length * MENTIONED;
     const score = direct + through;
     const fresh = !answered.includes(key);

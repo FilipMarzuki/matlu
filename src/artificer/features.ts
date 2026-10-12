@@ -108,10 +108,18 @@ export const FEATURES: readonly FeatureDef[] = [
   {
     // A rules feature: it changes what a place's people tell of their old history (world/old-history.ts:
     // a count grown, a place blurred, a name swapped within its house, one telling per People), so
-    // a run from before it (absent: false) keeps the history as it was told on replay. Nothing in
-    // play reads the remembered or regional facts yet; the switch is there for when it does.
+    // a run from before it (absent: false) keeps the history as it was told on replay. Play reads
+    // the remembered and regional facts with `history-in-play` (#1656).
     id: 'old-history-drift', name: 'Old history bends with age', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1650,
     note: 'Old stories bend as they pass from one generation of tellers to the next: short-lived Peoples tell an old plague bigger and in the wrong place, long-lived ones may still have someone who saw it, and a loss-averse village remembers it worse.',
+  },
+  {
+    // A rules feature: it changes what people can tell you (their village's and country's history,
+    // history-in-play.ts), who they'd refer you to and what the journal holds, so a run from before
+    // it (absent: false) keeps today's answers on replay. With `old-history-drift` on too, each
+    // person tells an old event their own People's way.
+    id: 'history-in-play', name: 'People tell their history', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1656,
+    note: 'Ask the people of a road village about their past (who holds the place, the old plague, the famine, the wars, what happened here) and they answer from what their village and its country remember: the long-lived may have seen it, the short-lived tell it as it reached them.',
   },
 ];
 

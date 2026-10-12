@@ -29,6 +29,7 @@ import { FACTS, resolve } from './facts';
 import { SOURCE_HEDGE, type ClaimSource, type Fact, type Lie, type Truth } from './knowledge';
 import { PROPOSITIONS, lieById, propositionOfFact, rumourHopOf, SAW_CONFIDENCE } from './claims';
 import { readError, type Reader } from './rapport';
+import { pastEventOf } from './history-in-play';
 import { generator, seedOf } from './rng';
 
 /** The prefix in `asked` that marks a lie told instead of an answer: `claimed:<topic>`. */
@@ -67,6 +68,11 @@ export interface HeardClaim {
   truth: Truth | 'lie';
   /** Once checked for yourself: whether it was so. */
   right?: boolean;
+  /**
+   * How the journal names what it's about, for a claim about a dated event of a place's history
+   * (#1656, history-in-play.ts), whose propositions are a history's own and not in PROPOSITIONS.
+   */
+  label?: string;
 }
 
 /** Where a fact sits says where its holder got it: their own, their organisation's or trade's word, or what everyone says. */
@@ -79,6 +85,9 @@ function sourceOf(f: Fact): Exclude<ClaimSource, 'made-up'> {
 
 /** A told fact as a heard claim, or null for one nobody makes claims about. */
 function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null {
+  // A place's history (#1656): each dated event is a claim about what happened, under its happening.
+  const past = pastEventOf(f);
+  if (past) return claimOfPast(person, topic, f, past.proposition, past.label);
   const proposition = propositionOfFact(f.id);
   if (!proposition) return null;
   const hop = rumourHopOf(f);
@@ -89,6 +98,25 @@ function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null 
   // A rumour comes from whoever saw it; a person's own word from them; a scope's from the scope.
   const origin = hop ? hop.rumour.path[0] : f.scope.kind === 'person' ? f.scope.id! : `${f.scope.kind}:${f.scope.id ?? ''}`;
   return { person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: hop ? hop.hop.confidence : SOURCE_CONFIDENCE[source], proposition, version, origin, truth: f.truth };
+}
+
+/**
+ * A history fact as a heard claim (#1656): an eyewitness telling is `so`; a legend's version is
+ * what it says, so two tellings in the same words agree wherever they're told, and differing ones
+ * contradict. Its origin is the place and the People and culture whose telling it is: two
+ * neighbours repeating their village's account are one source (common talk, as for any scope
+ * fact), and the old Lövfolk healer's account is not the human elder's.
+ */
+function claimOfPast(person: string, topic: string, f: Fact, proposition: string, label: string): HeardClaim {
+  const source = sourceOf(f);
+  const held = (f as { heldBy?: readonly { people: string; culture: string }[] }).heldBy?.[0];
+  // The village it's told in: its scope, or for a country's news, the village named after its `@`.
+  const place = f.id.includes('@') ? f.id.slice(f.id.lastIndexOf('@') + 1) : f.scope.id ?? '';
+  const origin = `past:${place}${held ? `|${held.people}/${held.culture}` : ''}`;
+  return {
+    person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: SOURCE_CONFIDENCE[source],
+    proposition, version: f.truth === 'true' ? 'so' : `told:${f.text}`, origin, truth: f.truth, label,
+  };
 }
 
 /** A lie told as a heard claim, or null for one that's no claim about anything. */
@@ -167,8 +195,10 @@ export function journalOf(heard: readonly HeardClaim[], visited: readonly string
     by.get(c.proposition)!.push(c);
   }
   return order.map(id => {
-    const p = PROPOSITIONS[id];
     const claims = by.get(id)!;
+    // A history's happenings (#1656) aren't written propositions: they carry their own name, and
+    // there's nowhere to go and check a plague a hundred years gone.
+    const p = PROPOSITIONS[id] ?? { label: claims[0].label ?? id, check: undefined };
     const versions = new Map<string, HeardClaim[]>();
     for (const c of claims) versions.set(c.version, [...(versions.get(c.version) ?? []), c]);
     const firmness = Math.max(...[...versions.values()].map(firmnessOf));

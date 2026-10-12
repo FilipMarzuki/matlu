@@ -11,7 +11,8 @@
  * - **what happened there**: its told regional events (history.ts `regionsOf`), each dated,
  *   true within living memory and drifting into rumour beyond it.
  *
- * Nothing in play reads these yet. Which region a place belongs to is regions.ts's rule (#1586):
+ * Play reads them through each road village's one list (remembered.ts `placeKnowledge`) with the
+ * `history-in-play` switch (#1656, history-in-play.ts). Which region a place belongs to is regions.ts's rule (#1586):
  * a crafted region (the road villages' north road) wins, and these generated ones fill the rest.
  *
  * With remembered.ts (#1586): both make the knowledge model's `Fact` shape (knowledge.ts), so a

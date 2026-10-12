@@ -44,6 +44,7 @@ import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
+import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
@@ -309,7 +310,9 @@ function chronicleFor(characterId: string): ReachHistory | null {
   if (chronicleSeed === seed) return chronicle;
   chronicleSeed = seed;
   chronicle = (() => { try { return keptHistory(localStorage.getItem(CHRONICLE_KEY), seed); } catch { return null; } })();
-  if (!chronicle) tellHistory(seed);
+  // The road's people answer from it (#1656, history-in-play.ts), so the sim gets it as soon as the page has it.
+  if (chronicle) keepHistory(chronicle);
+  else tellHistory(seed);
   return chronicle;
 }
 
@@ -317,6 +320,7 @@ function tellHistory(seed: number): void {
   const told = (h: ReachHistory) => {
     if (h.seed !== chronicleSeed) return; // a new run started meanwhile
     chronicle = h;
+    keepHistory(h);
     try { localStorage.setItem(CHRONICLE_KEY, JSON.stringify(h)); } catch { /* kept for this visit only */ }
     if (tab === 'map' || tab === 'history') render(state);
   };
@@ -1030,9 +1034,10 @@ function resolvePanel(a: AppState): string {
 }
 
 function render(a: AppState): void {
-  if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
-  // Start telling this run's history in the background if it isn't told yet (#1540).
+  // Start telling this run's history in the background if it isn't told yet (#1540). On the road
+  // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
+  if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
@@ -1592,7 +1597,8 @@ root.addEventListener('submit', e => {
   const clean = cleanQuestion(raw);
   if (!r || !clean || (r.questioned ?? []).includes(pid)) return;
   // Matched by this run's switches (#1611): the knowledge model's topics when knowledge-questions is on.
-  const topic = matchFreeQuestion(pid, clean, r.asked?.[pid] ?? [], r.features);
+  // Against the run's facts (#1656, `playFacts`): with history-in-play on, its villages' history too.
+  const topic = matchFreeQuestion(pid, clean, r.asked?.[pid] ?? [], r.features, { facts: playFacts(r) });
   const trust = Math.round(r.trust[pid] ?? 0);
   const played = `question:${pid}${topic ? `:${topic}` : ''}`;
   const next = roadAct(state, played as Parameters<typeof roadAct>[1]);

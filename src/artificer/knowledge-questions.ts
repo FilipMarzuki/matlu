@@ -50,6 +50,7 @@ import { focusInline, parseFocus } from './focus';
 import { TOPICS, TOPIC_KINDS } from './topics';
 import { SKILL_IDS } from './skills';
 import { asPlayed, personById, type Person } from './villages';
+import { isPastKey, pastAbout, pastPatterns } from './past-topics';
 import conceptsRegistry from './content/concepts.json';
 
 // ── Lore keys ───────────────────────────────────────────────────────────────
@@ -153,7 +154,10 @@ function firstAt(res: readonly RegExp[], q: string): number {
  */
 function referralTopic(personId: string, q: string, facts?: readonly Fact[]): string | null {
   const scoped = facts !== undefined && hasScopeFacts(facts);
-  const named = NAMEABLE.map(n => ({ key: n.key, at: firstAt(scoped ? n.res : n.base, q) }))
+  // A place's history (#1656): its topics are a seed's own (its houses and places), so they're
+  // read off the facts, after the fixed ones. A run without `history-in-play` has none.
+  const past = [...new Set((facts ?? []).flatMap(f => f.about.filter(isPastKey)))].map(key => ({ key, res: pastPatterns(key) }));
+  const named = [...NAMEABLE.map(n => ({ key: n.key, res: scoped ? n.res : n.base })), ...past].map(n => ({ key: n.key, at: firstAt(n.res, q) }))
     .filter(n => n.at >= 0 && n.key !== `person:${personId}`)
     // Earliest in the question first; the same place, the order above (stable sort).
     .sort((a, b) => a.at - b.at);
@@ -203,6 +207,9 @@ export function isQuestionTopic(personId: string, topic: string, facts: readonly
   if (answerFor(personId, topic, facts)) return true;
   // Either way they can be played (#1631): as written, or with humans on the road.
   const p = personById(personId);
+  // A place's history (#1656): its facts are a seed's, which the API doesn't have for a web
+  // question, so any history topic a question could name counts, asked of a village's people.
+  if (p && isPastKey(topic) && pastPatterns(topic).length) return true;
   if (p && (loreClaims(p, topic) || loreClaims(asPlayed(p, { 'humans-on-the-road': true }), topic))) return true;
   const r = resolve(personId, topic, 0, { facts });
   return r?.kind === 'unknown' && r.referral !== null;
@@ -234,7 +241,7 @@ export function questionAbout(topic: string): string {
   const lore = parseLoreKey(topic);
   if (lore) return lore.ofs ? `${LORE_ABOUT.view} ${lore.ofs.map(groupName).join(' and ')}` : LORE_ABOUT[lore.topic];
   const f = parseFocus(topic);
-  return f ? focusInline(f) : topic;
+  return f ? focusInline(f) : pastAbout(topic) ?? topic;
 }
 
 /**

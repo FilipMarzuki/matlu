@@ -340,7 +340,8 @@ export function pickLines<E extends Pick<WorldEvent, 'id' | 'year' | 'significan
  * the villages remember lazily, the first time a road question needs a regional fact, and keep it
  * per seed: this is that keeping, a small LRU of the last `size` seeds (most games are played by
  * the seed that started them, and a handful of live games per instance is the common case).
- * Not wired into play yet: no caller needs regional facts so far. `tell` is for tests.
+ * Play keeps the told history itself (history-in-play.ts, #1656), since its facts depend on the
+ * run's switches as well as the seed; this stays for callers that want what the villages remember. `tell` is for tests.
  */
 export function rememberedCache(size = 4, tell: (seed: number) => Remembered = rememberedOf): (seed: number) => Remembered {
   const kept = new Map<number, Remembered>(); // insertion order = least recently used first

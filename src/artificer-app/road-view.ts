@@ -19,7 +19,8 @@ import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
 import { focusKey, focusLabel, focusInline, parseFocus } from '../artificer/focus';
 import { answerFor, tellsFor, TELLS, ASK_HOURS } from '../artificer/asks';
-import { factsFor } from '../artificer/facts';
+import { playFacts } from '../artificer/history-in-play';
+import { pastAbout } from '../artificer/past-topics';
 import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { answerQuestion, parseLoreKey, questionAbout } from '../artificer/knowledge-questions';
@@ -295,9 +296,11 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
       const label = questionAbout(k);
       return lore.kind === 'told' ? `<p class="mood told"><b>${esc(label[0].toUpperCase() + label.slice(1))}</b> — “${esc(lore.answer.text)}”</p>` : '';
     }
-    const a = answerFor(p.id, k, factsFor(r.features));
+    // The run's facts (#1656): with history-in-play on, what they told you of their village's past too.
+    const a = answerFor(p.id, k, playFacts(r));
     const about = parseFocus(k);
-    return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : k)}</b> — “${esc(a.text)}”</p>` : '';
+    const past = pastAbout(k);
+    return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : past ? past[0].toUpperCase() + past.slice(1) : k)}</b> — “${esc(a.text)}”</p>` : '';
   }).join('');
   // What you did in the Reach that means something to them (#1499): one button per deed, greyed once told.
   const tells = tellsFor(p.id, r.deeds).map(t => act(r, `tell:${p.id}:${t.deed}`, `🗣 TELL OF ${esc(t.tell.label.toUpperCase())}`, ASK_HOURS,

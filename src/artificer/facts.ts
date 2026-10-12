@@ -131,10 +131,11 @@ export const scopeFactEntries = (): readonly ScopeFactEntry[] => SCOPE_ENTRIES;
  * facts as the model reads them. Public unless the file says, as the owner put it (by publicity
  * and stake): trade, places and the road are public; a neighbour's past is guarded.
  *
- * The road's generated regional facts (world/regional-facts.ts, world/remembered.ts) join here in
- * slice F, once the history runs in the sim: they're already `Fact`-shaped, scoped to the same
- * `region:north-road` (world/regions.ts CRAFTED_REGIONS) and the villages, so they append to this
- * list (or to `factsFor`'s) and every reader picks them up.
+ * The road's generated history (world/regional-facts.ts, world/remembered.ts) joins in slice F
+ * (#1656), after these, through history-in-play.ts `playFacts`: a seed's own facts, so not here,
+ * where every list is the same for every run. They're already `Fact`-shaped, scoped to the
+ * villages and to `region:north-road` (world/regions.ts CRAFTED_REGIONS), so they append to
+ * `factsFor`'s list and every reader that's handed the run's facts picks them up.
  */
 export const SCOPE_FACTS: readonly Fact[] = SCOPE_ENTRIES.map(e => ({
   id: `scope:${e.id}`,
