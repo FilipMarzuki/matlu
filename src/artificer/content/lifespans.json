@@ -1,0 +1,24 @@
+{
+  "about": "How long each Mistheim People lives, as a number the Artificer can use (#1650): how long its living memory lasts, and how many retellings an old story has been through. Derived from canon, never invented: each entry cites the file and field it reads (`source`) and the words in it (`quote`, checked by old-history.test.ts). `years` is the middle of the range canon gives, or canon's own figure. `unbounded` marks a People canon says has no natural end (its eyewitnesses never die out, so its old stories never drift). `default` marks a People canon gives no figure for: it takes the story engine's human baseline (`storytelling/biology.ts` NEUTRAL_BIOLOGY, 75 years), listed here so nobody mistakes it for canon. The Supabase `ancestries.lifespan` column is the master (docs/canon.md); its repo copies are the Races page bodies in `scripts/races-<people>-content.mjs` and, for the two human Peoples, the migration that writes them.",
+  "baseline": { "years": 75, "source": "storytelling/biology.ts › NEUTRAL_BIOLOGY.lifespan", "quote": "lifespan: 75" },
+  "peoples": [
+    { "people": "Bergfolk", "years": 240, "source": "scripts/races-bergfolk-content.mjs › lifespan", "quote": "200–280 years" },
+    { "people": "Lövfolk", "years": 500, "source": "scripts/races-lovfolk-content.mjs › lifespan", "quote": "Total lifespan commonly 400–600 years" },
+    { "people": "Markfolk", "years": 100, "source": "scripts/races-markfolk-content.mjs › lifespan", "quote": "80–120 years" },
+    { "people": "Viddfolk", "years": 85, "source": "scripts/races-viddfolk-content.mjs › lifespan", "quote": "typically remain active into their 70s; withdrawal from route-running usually precedes death by a decade", "note": "No range given: active into their 70s, and dying about a decade after they stop running routes, read as 85. The same text says 'somewhat longer than the Markfolk baseline', written when the Markfolk were human; against the orc Markfolk's 80–120 that no longer holds. For the owner." },
+    { "people": "Steinfolk", "years": 175, "source": "scripts/races-steinfolk-content.mjs › lifespan", "quote": "150–200 years" },
+    { "people": "Pandor", "years": 75, "source": "scripts/races-pandor-content.mjs › lifespan", "quote": "Typical span into the 70s" },
+    { "people": "Deepwalkers", "years": 65, "source": "scripts/races-deepwalkers-content.mjs › lifespan", "quote": "Typical span 55–75 years" },
+    { "people": "Merfolk", "years": 75, "default": true, "source": "scripts/races-merfolk-content.mjs › lifespan", "quote": "exact years are lore elsewhere", "note": "Canon says longer than a human's but gives no figure, so the baseline stands in. For the owner." },
+    { "people": "Goblins", "years": 75, "source": "scripts/races-goblins-content.mjs › lifespan", "quote": "Calendar span broadly human-adjacent", "note": "Human-adjacent, read as the human baseline." },
+    { "people": "Fae", "years": null, "unbounded": true, "source": "scripts/races-fae-content.mjs › lifespan", "quote": "Effectively unbounded in lore" },
+    { "people": "Giants", "years": null, "unbounded": true, "source": "scripts/races-giants-content.mjs › lifespan", "quote": "Older than continuous written history in Mistheim" },
+    { "people": "Dragons", "years": null, "unbounded": true, "source": "scripts/races-dragons-content.mjs › lifespan", "quote": "individuals can outlive many kingdoms" },
+    { "people": "Everstill", "years": null, "unbounded": true, "source": "scripts/races-everstill-content.mjs › lifespan", "quote": "Open-ended post-death duration is normal" },
+    { "people": "Constructs", "years": null, "unbounded": true, "source": "scripts/races-constructs-content.mjs › lifespan", "quote": "Open-ended in principle" },
+    { "people": "Remnants", "years": null, "unbounded": true, "source": "scripts/races-remnants-content.mjs › lifespan", "quote": "No Remnant has been observed to age" },
+    { "people": "Wildkin", "years": 75, "default": true, "source": "storytelling/biology.ts › NEUTRAL_BIOLOGY.lifespan", "quote": "lifespan: 75", "note": "No lifespan in canon (WORLD.md's Wildkin section, the setting bible, race-affinities.json), so the baseline stands in. For the owner." },
+    { "people": "Riksfolk", "years": 75, "source": "supabase/migrations/20261011180000_human_peoples_bodies.sql › riksfolk lifespan", "quote": "About 70–80 years when lucky" },
+    { "people": "Strandfolk", "years": 70, "source": "supabase/migrations/20261011180000_human_peoples_bodies.sql › strandfolk lifespan", "quote": "About 65–75 years" }
+  ]
+}

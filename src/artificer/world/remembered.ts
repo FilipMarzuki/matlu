@@ -16,8 +16,9 @@
  * (regional-facts.ts) as one list, with a seizure, a lord's death or who holds the seat that both
  * tell merged into one fact (`placeKnowledge`). `facts` stays as it was for existing callers.
  *
- * Pure and deterministic: the same told history gives the same facts, with no randomness of its
- * own. It reads a told history as plain data (history-format.ts) and never runs the engine, so the
+ * Pure and deterministic: the same told history gives the same facts. The only dice are old
+ * history's (#1650, world/old-history.ts), seeded by the event and who tells it, never a sim
+ * stream. It reads a told history as plain data (history-format.ts) and never runs the engine, so the
  * page can call it with the history it keeps, and only a caller with no history to hand pays for
  * telling one (history.ts `rememberedOf`, kept per seed by `rememberedCache`).
  *
@@ -42,12 +43,14 @@
  */
 
 import type { Fact, Sensitivity } from '../knowledge';
+import { featureOn, type FeatureSwitches } from '../features';
 import { LIVING_MEMORY, type HistoryLine, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { generateReach } from './reach';
 import { countryOf, localHistory, type LocalHistory } from './local-history';
 import { provincesOf, type AnchorId, type Provinces } from './provinces';
 import { NORTH_ROAD, generatedRegions, regionOf, roadRegions, type GeneratedRegions, type VillageRegion } from './regions';
 import { GENERATION, factsOfRegion, type RegionalFact } from './regional-facts';
+import { oldTellings, regionHolders, tellingId, villageHolders, type HeldBy, type Holder } from './old-history';
 
 export { GENERATION };
 
@@ -68,6 +71,12 @@ export interface RememberedFact extends Fact {
   truth: 'true' | 'rumour';
   /** 1 everyone in the scope knows it, 2 most do, 3 only the best-placed (an elder, for a village). */
   depth: 1 | 2 | 3;
+  /**
+   * Who in the village tells it this way (#1650), on an old event with `old-history-drift` on:
+   * their People and culture, their share of the village, and how often it's been retold among
+   * them (0: one of them saw it). Absent on everything else.
+   */
+  heldBy?: readonly HeldBy[];
 }
 
 /**
@@ -172,8 +181,14 @@ export interface Remembered {
  * from the seed if not given: a few milliseconds, no engine), and say where each village sits.
  * `generated` gives a province's generated region (regions.ts), for any village without a crafted
  * one: by default the history's own regions (#1598).
+ *
+ * `features` are the run's rule switches. With `old-history-drift` on (#1650), a village tells
+ * its old events the way its own people do (world/old-history.ts `villageHolders`: by People, as
+ * the run plays them, and culture), one fact per telling, and its country's old news the way the
+ * country's people do. Without (and in every run from before the switch), as the history tells it.
  */
-export function remembered(history: ReachHistory, provinces: Provinces = provincesOf(generateReach(history.seed)), generated: GeneratedRegions = generatedRegions(history)): Remembered {
+export function remembered(history: ReachHistory, provinces: Provinces = provincesOf(generateReach(history.seed)), generated: GeneratedRegions = generatedRegions(history), features?: FeatureSwitches): Remembered {
+  const drift = featureOn(features, 'old-history-drift');
   return {
     seed: history.seed,
     year: history.year,
@@ -182,11 +197,15 @@ export function remembered(history: ReachHistory, provinces: Provinces = provinc
       // The province ids (`p3`) only mean something within one Reach: a history and provinces
       // from different seeds would pair the wrong places, so refuse rather than misread.
       if (!p || p.name !== where.province.name) throw new Error(`This history (seed ${history.seed}) has no province ${where.province.name} (${where.province.id}): the provinces are another seed's.`);
-      const facts = [...holderFacts(where, p), ...p.lines.map((line, k) => eventFact(where.village, line, history.year, k, p.house))];
       // The country: the generated region, asked for directly, so the crafted north road winning
       // the village's `region` doesn't hide the country it actually lies in.
       const countryId = generated(where.province.id);
       const country = countryId ? history.regions.find(r => r.id === countryId) ?? null : null;
+      // An old event's places blur among its country's lands (#1650); with no country, among none.
+      const tellers = drift ? { holders: villageHolders(where.village, features), places: country?.provinces.map(q => q.name) ?? [] } : null;
+      const facts = [...holderFacts(where, p), ...p.lines.flatMap((line, k) => (tellers
+        ? eventTellings(where.village, line, history.year, k, p.house, tellers.holders, tellers.places)
+        : [eventFact(where.village, line, history.year, k, p.house)]))];
       return {
         ...where,
         title: p.title,
@@ -195,7 +214,7 @@ export function remembered(history: ReachHistory, provinces: Provinces = provinc
         events: p.lines.map(line => recall(line, history.year)),
         facts,
         country: country?.id ?? null,
-        known: placeKnowledge(where.village, p, facts, country, history.year),
+        known: placeKnowledge(where.village, p, facts, country, history.year, drift && country ? regionHolders(history, country.id) : undefined),
       };
     }),
   };
@@ -235,6 +254,30 @@ export function eventFact(village: AnchorId, line: HistoryLine, present: number,
     truth: e.living ? 'true' : 'rumour',
     depth: !e.living ? 3 : e.ago <= GENERATION ? 1 : 2,
   };
+}
+
+/**
+ * One of a province's events as its village's `holders` tell it (#1650, world/old-history.ts
+ * `oldTellings`): within LIVING_MEMORY and seen by all of them, the one fact `eventFact` gives;
+ * older, or past some People's living memory, one fact per telling. The most widely held keeps
+ * the event's own id, each other one is told under `tellingId`; every one names who tells it
+ * (`heldBy`). An eyewitness telling is `true` (depth 1 within its witnesses' first generation, else
+ * 2); a retold one a `rumour` at depth 3. Sensitivity is the event's, whoever tells it. Only the
+ * event's words bend: "N years ago, in year Y:" goes on after, so the year never moves.
+ */
+export function eventTellings(village: AnchorId, line: HistoryLine, present: number, k: number, lord: string | null, holders: readonly Holder[], places: readonly string[]): RememberedFact[] {
+  const base = eventFact(village, line, present, k, lord);
+  const ago = present - line.year;
+  const told = oldTellings(base.id, line.text, ago, holders, places);
+  if (!told) return [base];
+  return told.map((t, i) => ({
+    ...base,
+    id: i === 0 ? base.id : tellingId(base.id, t),
+    text: `${ago === 0 ? 'This year' : ago === 1 ? 'A year ago' : `${ago} years ago`}, in year ${line.year}: ${t.text}`,
+    truth: t.truth,
+    depth: t.truth === 'rumour' ? 3 : t.recent ? 1 : 2,
+    heldBy: t.heldBy,
+  }));
 }
 
 /**
@@ -333,15 +376,19 @@ export function sameEvent(line: HistoryLine, province: string, regional: RegionL
  * `SPECIFICITY`). Depth only gets shallower: the country tells a seizure to most (depth 2), the
  * village to everyone (1), so everyone in the village knows it.
  */
-export function mergeFacts(own: RememberedFact, regional: RegionalFact): PlaceFact {
+export function mergeFacts(own: RememberedFact, regional: RegionalFact, absorbs: readonly string[] = [regional.id]): PlaceFact {
+  // An old event told by who remembers it (#1650, `heldBy` on either): the village's own telling
+  // stands, words and truth, since it's the village's memory the list is of, and the country's
+  // tellings are absorbed all the same, so the list doesn't hold the event twice.
+  const ownTelling = !!own.heldBy || !!regional.heldBy;
   return {
     ...own,
     about: [...own.about, ...regional.about.filter(a => !own.about.includes(a))],
-    text: regional.text.length > own.text.length ? regional.text : own.text,
+    text: ownTelling || regional.text.length <= own.text.length ? own.text : regional.text,
     sensitivity: STEPS[Math.max(STEPS.indexOf(own.sensitivity), STEPS.indexOf(regional.sensitivity))],
-    truth: own.truth === regional.truth ? own.truth : 'rumour',
+    truth: ownTelling || own.truth === regional.truth ? own.truth : 'rumour',
     depth: Math.min(own.depth, regional.depth) as 1 | 2 | 3,
-    absorbs: [regional.id],
+    absorbs,
   };
 }
 
@@ -358,11 +405,11 @@ export function mergeFacts(own: RememberedFact, regional: RegionalFact): PlaceFa
  * Every regional fact left keeps its own id, scope and fields, so a country's facts are the same
  * in every village's list that has them: an id means one thing in every list. A merged fact keeps
  * the village fact's id (`history:<village>:…`), which only that village's list has.
- * Pure: no randomness, nothing read but the arguments.
+ * Pure: nothing read but the arguments (an old event's tellings are already in them, #1650).
  */
-export function placeKnowledge(village: AnchorId, p: ProvinceHistory, facts: readonly RememberedFact[], country: RegionHistory | null, present: number): PlaceFact[] {
+export function placeKnowledge(village: AnchorId, p: ProvinceHistory, facts: readonly RememberedFact[], country: RegionHistory | null, present: number, countryHolders?: readonly Holder[]): PlaceFact[] {
   if (!country) return [...facts];
-  const regional = factsOfRegion(country, present);
+  const regional = factsOfRegion(country, present, countryHolders);
   const byId = new Map(regional.map(f => [f.id, f]));
   const lineId = (i: number) => `region:${country.id}:${country.lines[i].year}:${i}`;
   const absorbed = new Set<string>();
@@ -379,8 +426,11 @@ export function placeKnowledge(village: AnchorId, p: ProvinceHistory, facts: rea
       if (j >= 0) match = byId.get(lineId(j));
     }
     if (!match) return f;
-    absorbed.add(match.id);
-    return mergeFacts(f, match);
+    // With old history bending (#1650), the country may tell the same event several ways: when the
+    // village tells it its own way, every one of the country's tellings goes into the one fact.
+    const others = f.heldBy || match.heldBy ? regional.filter(r => r.id.startsWith(`${match!.id}:told-by:`)).map(r => r.id) : [];
+    for (const id of [match.id, ...others]) absorbed.add(id);
+    return mergeFacts(f, match, [match.id, ...others]);
   });
   return [...own, ...regional.filter(f => !absorbed.has(f.id))];
 }

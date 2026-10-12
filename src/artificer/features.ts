@@ -105,6 +105,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'rumour-drift', name: 'How rumours bend', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1589,
     note: 'A rumour bends with whoever tells it: a name can swap for someone of the same People, a loss-averse people tell it worse and an honour-bound one stakes their word on it, and a secret kept by an organisation can leak through a member who talks for a living.',
   },
+  {
+    // A rules feature: it changes what a place's people tell of their old history (world/old-history.ts:
+    // a count grown, a place blurred, a name swapped within its house, one telling per People), so
+    // a run from before it (absent: false) keeps the history as it was told on replay. Nothing in
+    // play reads the remembered or regional facts yet; the switch is there for when it does.
+    id: 'old-history-drift', name: 'Old history bends with age', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1650,
+    note: 'Old stories bend as they pass from one generation of tellers to the next: short-lived Peoples tell an old plague bigger and in the wrong place, long-lived ones may still have someone who saw it, and a loss-averse village remembers it worse.',
+  },
 ];
 
 /** Switches by feature id. */
