@@ -29,7 +29,7 @@ import { FACTS, resolve } from './facts';
 import { SOURCE_HEDGE, type ClaimSource, type Fact, type Lie, type Truth } from './knowledge';
 import { PROPOSITIONS, lieById, propositionOfFact, rumourHopOf, SAW_CONFIDENCE } from './claims';
 import { readError, type Reader } from './rapport';
-import { pastEventOf } from './history-in-play';
+import { pastEventOf, type PastEvent } from './history-in-play';
 import { generator, seedOf } from './rng';
 
 /** The prefix in `asked` that marks a lie told instead of an answer: `claimed:<topic>`. */
@@ -87,7 +87,7 @@ function sourceOf(f: Fact): Exclude<ClaimSource, 'made-up'> {
 function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null {
   // A place's history (#1656): each dated event is a claim about what happened, under its happening.
   const past = pastEventOf(f);
-  if (past) return claimOfPast(person, topic, f, past.proposition, past.label);
+  if (past) return claimOfPast(person, topic, f, past);
   const proposition = propositionOfFact(f.id);
   if (!proposition) return null;
   const hop = rumourHopOf(f);
@@ -106,13 +106,18 @@ function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null 
  * contradict. Its origin is the place and the People and culture whose telling it is: two
  * neighbours repeating their village's account are one source (common talk, as for any scope
  * fact), and the old Lövfolk healer's account is not the human elder's.
+ *
+ * With `history-retold` (#1658), a teller who saw it (`PastEvent.witnesses`: their People and
+ * culture haven't retold it yet) says so, "I saw it myself", and is a source of their own, as
+ * anyone's own word is: two who saw it are two witnesses, not one village's talk.
  */
-function claimOfPast(person: string, topic: string, f: Fact, proposition: string, label: string): HeardClaim {
-  const source = sourceOf(f);
+function claimOfPast(person: string, topic: string, f: Fact, { proposition, label, witnesses }: PastEvent): HeardClaim {
+  const saw = !!witnesses?.includes(person);
+  const source = saw ? 'saw' : sourceOf(f);
   const held = (f as { heldBy?: readonly { people: string; culture: string }[] }).heldBy?.[0];
   // The village it's told in: its scope, or for a country's news, the village named after its `@`.
   const place = f.id.includes('@') ? f.id.slice(f.id.lastIndexOf('@') + 1) : f.scope.id ?? '';
-  const origin = `past:${place}${held ? `|${held.people}/${held.culture}` : ''}`;
+  const origin = saw ? person : `past:${place}${held ? `|${held.people}/${held.culture}` : ''}`;
   return {
     person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: SOURCE_CONFIDENCE[source],
     proposition, version: f.truth === 'true' ? 'so' : `told:${f.text}`, origin, truth: f.truth, label,
