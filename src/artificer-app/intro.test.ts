@@ -10,7 +10,14 @@ describe('Arrival intro', () => {
   it('designates a fresh Warden as an Apprentice Artificer and closes on the motto', () => {
     const beats = introBeats(createRegion1());
     const all = beats.flatMap(b => b.lines).join('\n');
-    expect(beats[0]).toMatchObject({ kind: 'narration', portal: true });
+    // The weekend comes first (#1666): the hike page, then packing, then the portal.
+    expect(beats[0].kind).toBe('narration');
+    expect(beats[0].portal).toBeUndefined();
+    expect(beats[0].lines.join(' ')).toMatch(/patrol.*weekend hike/);
+    expect(beats[1].kind).toBe('pack');
+    expect(beats[1].lines).toEqual(['What will you pack?']);
+    expect(beats.filter(b => b.kind === 'pack')).toHaveLength(1);
+    expect(beats[2]).toMatchObject({ kind: 'narration', portal: true });
     expect(all).toMatch(/Crafting knowledge exceeds threshold/);
     expect(all).toMatch(/CLASS DESIGNATED: ARTIFICER/);
     expect(all).toMatch(/RANK: APPRENTICE/);
@@ -21,6 +28,13 @@ describe('Arrival intro', () => {
     expect(beats[create - 1].lines[0]).toBe('CLASS DESIGNATED: ARTIFICER');
     expect(fillName(beats[create + 1].lines[0], 'Vega')).toBe('Registered: Vega.');
     expect(fillName(beats[create + 1].lines[0], '  ')).toBe('Registered: Artificer.');
+  });
+
+  // Packing is no longer a flashback (#1666): present tense, and nothing about "before any of this".
+  it('packs in the present tense', () => {
+    const pack = introBeats(createRegion1()).find(b => b.kind === 'pack')!;
+    expect(pack.lines.join(' ')).not.toMatch(/before any of this/i);
+    expect(pack.lines.join(' ')).not.toMatch(/What did you pack/);
   });
 
   it('ranks a Warden by concept mastery', () => {

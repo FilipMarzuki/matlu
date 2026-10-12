@@ -1,6 +1,7 @@
 /**
- * The arrival intro (#1228): pulled through a portal, a voice designates your
- * class and rank, then "Survive. Thrive. Master your new reality."
+ * The arrival intro (#1228): packing for a weekend hike (#1666), then pulled
+ * through a portal, a voice designates your class and rank, then
+ * "Survive. Thrive. Master your new reality."
  *
  * Pure on purpose — it only decides *what* the intro says, from the sim state,
  * so it can be unit-tested; main.ts decides how it looks and when it plays.
@@ -36,6 +37,9 @@ export function introBeats(s: Region1State): Beat[] {
   const left = s.tools.filter(t => t.heirloom);
 
   return [
+    // First the weekend (#1666): the hike, and packing for it — then the portal.
+    { kind: 'narration', lines: ['Friday afternoon. Your patrol is heading out for a weekend hike in the forest.', 'Two nights in tents, back on Sunday.', "You've been looking forward to it all week."] },
+    { kind: 'pack', lines: ['What will you pack?'] },
     { kind: 'narration', portal: true, lines: ['A seam opens in the air.', 'Light folds inward — and you fall through it.'] },
     { kind: 'narration', lines: ['Cold stone under your hands.', 'Wind with no smell. A sky the colour of an old bruise.'] },
     { kind: 'voice', lines: ['⟨ ARRIVAL DETECTED ⟩', 'Scanning…', 'Crafting knowledge exceeds threshold.'] },
@@ -43,8 +47,6 @@ export function introBeats(s: Region1State): Beat[] {
     { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
     { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
     ...(left.length ? [{ kind: 'voice' as const, lines: ['Someone was here before you.', `They left: ${heirloomList(left)}.`] }] : []),
-    // Before any of this (#1401): the weekend hike, and what you packed for it.
-    { kind: 'pack', lines: ['Friday afternoon, before any of this. Your patrol was heading out for a weekend hike in the forest — two nights, back on Sunday.', 'What did you pack?'] },
     CLOSING,
   ];
 }
