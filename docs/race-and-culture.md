@@ -8,7 +8,7 @@ Matlu world and how they relate to each other and to Characters and Settlements 
 | Entity | Canonical home | ID format | Notes |
 |--------|---------------|-----------|-------|
 | **Race (People)** | `WORLD.md`, scored in `AXES.md` | TitleCase — e.g. `Markfolk` | 15 Mistheim Peoples; race-agnostic from culture's perspective |
-| **Culture** | `macro-world/cultures.json` | kebab-case — e.g. `coastborn` | Settlement style (geometry, feel); many Peoples can share one culture |
+| **Culture** | `macro-world/cultures.json` (master; Supabase `cultures` is generated from it, #1642) | kebab-case — e.g. `coastborn` | Settlement style (geometry, feel); many Peoples can share one culture |
 | **Faction** | Notion Factions DB | Notion UUID | Organisations across all three worlds; scored on the same cultural axes |
 | **Character** | Notion Characters DB | Notion UUID | Named NPCs, antagonists, allies |
 
@@ -95,5 +95,6 @@ A Faction has zero or many member Characters. A Character belongs to exactly one
 | Race cultural-axes scores | `AXES.md` |
 | Culture definitions (code) | `macro-world/cultures.json` |
 | Culture traits registry | `macro-world/culture-traits.json` |
+| The same in Supabase (`cultures`, `culture_traits`, `culture_ancestry_preferences`, `culture_trait_assignments`) | Generated from the two files above: change the JSON by PR, run `npm run macro:sync` to write the migration, applied after merge (`docs/canon.md`, #1642). Never edit the tables directly. |
 | Race → Culture mapping (historical) | `docs/peoples-and-races.md` |
 | Faction + Character entries | Notion (`LORE.md` has DB IDs) |

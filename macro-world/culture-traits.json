@@ -1,5 +1,5 @@
 {
-  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
+  "_doc": "Master canon (#1642): edit this file by PR. Supabase is generated from it: run npm run macro:sync to write the migration.",
   "builds-underground": "Some structures are subterranean pits, dugouts, or tunnel entrances",
   "no-central-plaza": "Culture doesn't gather centrally; distributed or multi-node layout",
   "water-integrated": "Canals, stilts, floating platforms, or amphibious access between buildings",
