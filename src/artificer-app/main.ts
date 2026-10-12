@@ -1307,7 +1307,17 @@ function commitCharacter(): void {
   const from = kept?.log.start.heirloomsFrom ?? null;
   state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
   startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
+  // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
+  // pack again: the same makeWarden → startLog → repack the run had when packing came last.
+  applyPack();
   render(state);
+}
+
+/** The pack chosen is the one the run starts with (#1401); the log's start says what was packed (#1559). */
+function applyPack(): void {
+  state = { ...state, sim: repack(state.sim, draftPack) };
+  const k = logFor(state);
+  if (k && !k.log.moves.length) { kept = { ...k, log: { ...k.log, start: { ...k.log.start, pack: [...draftPack] } } }; saveKept(); }
 }
 
 function endIntro(): void {
@@ -1324,13 +1334,8 @@ function advanceIntro(): void {
   if (!intro) return;
   if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
-  if (intro.beats[intro.i].kind === 'pack') {
-    state = { ...state, sim: repack(state.sim, draftPack) };
-    // The pack is part of where the run starts (#1559), so the log's start says what was packed.
-    const k = logFor(state);
-    if (k && !k.log.moves.length) { kept = { ...k, log: { ...k.log, start: { ...k.log.start, pack: [...draftPack] } } }; saveKept(); }
-    render(state);
-  }
+  // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }

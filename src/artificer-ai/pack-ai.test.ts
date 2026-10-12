@@ -85,11 +85,12 @@ describe('Packing for the hike (#1401)', () => {
     }
   }, 30_000);
 
-  it('packs in the intro after creation, and each Warden packs afresh', () => {
+  it('packs in the intro before creation, and each Warden packs afresh', () => {
     const fresh = introBeats(createRegion1());
     const at = fresh.findIndex(b => b.kind === 'pack');
-    expect(at).toBeGreaterThan(fresh.findIndex(b => b.kind === 'create'));
-    expect(fresh[at].lines.join(' ')).toMatch(/Friday afternoon, before any of this.*What did you pack\?/);
+    // Packing for the hike comes first now, before the portal and creation (#1666).
+    expect(at).toBeLessThan(fresh.findIndex(b => b.kind === 'create'));
+    expect(fresh[at].lines.join(' ')).toMatch(/What will you pack\?/);
     // The knowledge legacy remembers the pack; but the game's next run is a new Warden (#1455), who packs the suggested kit again.
     const g = newGame().sim;
     const light = repack(g, ['tarp', 'kasa']);
