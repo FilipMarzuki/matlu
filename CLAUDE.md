@@ -194,6 +194,8 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 
 Master canon lives where agents can read it and change it through a reviewed path: **repo files by PR**, **Supabase tables by a migration file** in `supabase/migrations/` (merged by PR, then applied). Notion and other stores are **mirrors** synced from the repo, unless [`docs/canon.md`](docs/canon.md) lists them as agent-writable with a documented path. Don't change canon in a mirror; change the master and re-sync. [`docs/canon.md`](docs/canon.md) lists every canon source, whether it's master or mirror, how an agent reads and writes it and with which credentials, and the known gaps (#1638). A new canon source gets a row there in the PR that adds it.
 
+The macro-world JSON (`macro-world/cultures.json`, `race-affinities.json`, `culture-traits.json`, `fashion.json`, `population-archetypes.json`, `public/macro-world/architecture.json`) is master; its Supabase tables are generated from it (#1642). Change the JSON, run `npm run macro:sync` and commit the migration it writes in the same PR; never hand-edit those tables. `npm run macro:export` is now a read-only drift check, and merged migrations are applied by the post-merge step in `supabase/README.md`.
+
 ## Story engine — update checklist
 
 When adding new world elements to `storytelling/` (new Province fields, new races/biology traits, new event types, new catastrophe templates), update ALL of the following layers that the new element touches:

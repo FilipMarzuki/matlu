@@ -1,5 +1,5 @@
 {
-  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
+  "_doc": "Master canon (#1642): edit this file by PR. Supabase is generated from it: run npm run macro:sync to write the migration.",
   "_biomes": [
     "marine",
     "hot_desert",
@@ -577,7 +577,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -608,7 +608,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -639,7 +639,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -670,7 +670,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -701,7 +701,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -781,7 +781,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
@@ -1153,7 +1153,7 @@
       },
       "featureBonus": {},
       "clustering": null,
-      "populationWeight": 0,
+      "populationWeight": null,
       "mixingBehavior": null,
       "namingBase": null
     },
