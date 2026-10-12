@@ -48,7 +48,9 @@ const labels = [];
 for (const [n, [id, b]] of items.entries()) {
   const x = (n % COLS) * CELL_W;
   const y = HEADER + Math.floor(n / COLS) * CELL_H;
-  const file = join(ROOT, 'public', b.icon);
+  // b.icon is a site URL ("/assets/..."); strip the leading slash so the path is plainly under public/.
+  // (path.join wouldn't restart at it anyway, unlike path.resolve, but this reads unambiguously.)
+  const file = join(ROOT, 'public', b.icon.replace(/^\/+/, ''));
   const big = await sharp(file).resize(BIG, BIG, { kernel: 'nearest' }).png().toBuffer();
   composites.push({ input: big, left: x + PAD, top: y + PAD });
   composites.push({ input: file, left: x + PAD * 2 + BIG, top: y + PAD + BIG - ICON });
