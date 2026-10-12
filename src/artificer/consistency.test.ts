@@ -21,7 +21,8 @@ import { describe, it, expect } from 'vitest';
 import { featureById, featureOn, ruleFeatures } from './features';
 import { type HelpDeed } from './help';
 import { HELP_FEATURE } from './ties';
-import { buyPrice } from './trade';
+import { buyPrice, friendly, FRIEND_TRUST } from './trade';
+import { observeRoad } from '../artificer-ai/observe';
 import { createRegion1, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { createRoad, endRoadDay, runRoadAction, tradeTerms, villageOf, type RoadState } from './road';
@@ -84,6 +85,15 @@ describe('#1663 acceptance', () => {
     expect(on.trust).toBe(off.trust);
     expect(on.hedge).toBeUndefined();
     expect(buyPrice('rawFood', 10, on)).toBeLessThan(buyPrice('rawFood', 10, off));
+  });
+
+  it('names the regular\'s rate wherever prices show it: the AI\'s view says "friend\'s rate" when a record earns it below friend trust', () => {
+    const steady = threeFairSales(ON);
+    const t = tradeTerms(steady)!;
+    expect(t.trust).toBeLessThan(FRIEND_TRUST);
+    expect(friendly(t)).toBe(true);
+    expect(observeRoad(steady)).toMatch(/friend’s rate/);
+    expect(observeRoad(threeFairSales(OFF))).not.toMatch(/friend’s rate/);
   });
 
   it('Erratic record: Given a player who alternated fair and cheating, Then terms and candour are worse than for a steadily neutral player', () => {

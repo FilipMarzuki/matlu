@@ -13,7 +13,7 @@ import { CLAIMED, HEARSAY, respondedOn, type JournalEntry } from '../artificer/j
 import { liesFor } from '../artificer/claims';
 import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
-import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
+import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, friendly, WANTED } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
 import { techniqueById } from '../artificer/techniques';
 import { DAY_HOURS, STUDY_CONCEPTS } from '../artificer/region1';
@@ -221,7 +221,7 @@ const rewardText = (q: QuestTemplate): string =>
 function tradePanel(r: RoadState): string {
   const t = tradeTerms(r);
   if (!t) return '';
-  const friend = t.trust >= FRIEND_TRUST;
+  const friend = friendly(t);
   const wanted = (item: string): boolean => t.wants.includes(KIND_OF[item]);
   // The village's own market (#1599): a tag on what's cheap or dear here.
   const here = (item: string): string => {
