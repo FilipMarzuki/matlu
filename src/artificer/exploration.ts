@@ -128,11 +128,13 @@ export const hasFind = (e: Exploration, ring: Ring, d: Domain): boolean => e.fin
  * little overview into the rest of the ring, and draws down its supply.
  * Returns the new state and any find made on this trip.
  */
-export function work(e: Exploration, ring: Ring, d: Domain): { exploration: Exploration; found: Domain | null } {
+export function work(e: Exploration, ring: Ring, d: Domain, amount = 1): { exploration: Exploration; found: Domain | null } {
   const next = clone(e);
   next.worked[ring][d] += 1;
-  next.supply[ring][d] = Math.max(0, round3(next.supply[ring][d] - SUPPLY_DRAW[d]));
-  next.known[ring][d] = Math.min(3, next.known[ring][d] + WORK_INSIGHT);
+  // `amount` (#1668): a session of chosen length counts as that many usual trips' worth of work —
+  // it draws the supply and teaches the ground in proportion. A usual trip is 1, exactly as before.
+  next.supply[ring][d] = Math.max(0, round3(next.supply[ring][d] - (amount === 1 ? SUPPLY_DRAW[d] : SUPPLY_DRAW[d] * amount)));
+  next.known[ring][d] = Math.min(3, next.known[ring][d] + (amount === 1 ? WORK_INSIGHT : WORK_INSIGHT * amount));
   for (const o of domainsOf(ring)) {
     if (o !== d) next.known[ring][o] = Math.max(next.known[ring][o], Math.min(1, next.known[ring][o] + SPILL_INSIGHT));
   }

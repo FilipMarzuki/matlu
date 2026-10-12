@@ -101,7 +101,9 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
       'Make one move. move is an action id from the moves list, such as "scout", "water" or "gather@2" (ring 2),',
       'or "end_day" to sleep, or any move exactly as the moves list shows it (a JSON object). Free settings take',
       'no hours: {"set": {"eating": "full" | "half" | "none"}}, {"set": {"focus": "goal:larder" | "none"}},',
-      '{"set": {"site": "cave"}}. Answers with what changed and a status line; in an encounter or on the road it',
+      '{"set": {"site": "cave"}}. Gathering can take a length when the game has the action-length feature:',
+      '{"do": {"q": "wood@2", "hours": 3}} (walks included) or {"do": {"q": "wood", "until": 10}}.',
+      'Answers with what changed and a status line; in an encounter or on the road it',
       'also shows the options. A refused move changes nothing and says why.',
     ].join(' '),
     inputSchema: z.object({
@@ -115,7 +117,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     description: 'Queue a whole day of actions in order, run them, and sleep. Only once the Warden has learned to plan (the view says when); until then, use act one move at a time.',
     inputSchema: z.object({
       game_id: gameId,
-      actions: z.array(z.string()).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"].'),
+      actions: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"]. With the action-length feature, a gathering action can take a length: {"q": "wood@2", "hours": 3} or {"q": "wood", "until": 10}.'),
     }),
   }, async ({ game_id, actions }) => after(await call('POST', movesPath(game_id), { move: { plan: actions } })));
 

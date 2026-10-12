@@ -145,6 +145,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'caught-lies', name: 'What a caught lie costs', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1660,
     note: 'Heard otherwise and asked again, a liar answers for it as their reason was: one who covered for a friend or kept their people\'s business comes clean and says why; one who lied for gain trusts you less, guards their secrets more, and their friends hear of it.',
   },
+  {
+    // A rules feature: it changes what a queued gathering action can be (a chosen length, played as
+    // trips, with patches that thin and recover: action-length.ts), so a run from before it
+    // (absent: false) keeps every action at its usual length on replay. Even on, an action with no
+    // length chosen plays exactly as before.
+    id: 'action-length', name: 'Choose how long', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1668,
+    note: 'Gathering food, wood, stone, water or fish can take as long as you choose (1–4 hours, the rest of the day, or until you have enough), played as trips out and back: carrying and the walk decide how many fit, and deadfall, berries and a fishing spot thin as you work them and come back over the days.',
+  },
 ];
 
 /** Switches by feature id. */

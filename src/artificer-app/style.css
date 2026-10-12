@@ -704,6 +704,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc-memory.full { color: var(--warn); }
 .enc-memory .pinbtn { margin: 0 0 0 6px; }
 .queue li .why.pinnote { color: var(--amber); }
+.queue li .why.plan { color: var(--teal); }
 
 /* The Reach map (#1539): one character per square, coloured by the land. */
 .mapwrap { overflow-x: auto; margin: 4px 0 8px; }
