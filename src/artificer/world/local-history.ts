@@ -61,7 +61,8 @@
  * lord's house. Reach follows publicity: everyone knows a fire (depth 1), most a family's
  * trouble (2), only the best-placed, an elder, a scandal (3).
  *
- * Nothing in play reads these yet, like the rest of remembered.ts. Pure and deterministic.
+ * Play reads them with `history-in-play` (#1656, history-in-play.ts), as "what happened here".
+ * Pure and deterministic.
  */
 
 import type { Fact, Sensitivity } from '../knowledge';

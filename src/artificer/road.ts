@@ -25,11 +25,11 @@ import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, MISTHEIM_ARRIVAL,
 import { survivalLock, workEffects, focusInline, focusKey, parseFocus, type Focus } from './focus';
 import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TRUST, TELL_TRUST, type Answer, type Lead } from './asks';
 import { deflectionOf } from './free-questions';
-import { factsFor } from './facts';
+import { playFacts } from './history-in-play';
 import { honouringOrgs, membersOf, standingFrom } from './orgs';
 import { helpedBy, tieWord } from './ties';
 import type { Standing } from './knowledge';
-import { answerQuestion } from './knowledge-questions';
+import { answerQuestion, questionAbout } from './knowledge-questions';
 import { featureOn } from './features';
 import { arrivalLines, localMarket } from './economy';
 import { villagePlace } from './place-candour';
@@ -715,9 +715,10 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
   // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
-  // read from this run's saved switches, never a global.
+  // read from this run's saved switches, never a global. So is its villages' history (#1656,
+  // `playFacts`): the run's facts are `factsFor`'s, with the history after them if its switch is on.
   // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), lies: liesFor(next.features), ...standingOf(next) });
+  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next) });
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   const before = heardSoFar(next);
@@ -783,7 +784,10 @@ export function journalNow(s: RoadState): JournalEntry[] | null {
 
 /** Every claim heard so far (journal.ts `claimsHeard`), or null with `rumours-and-lies` off. */
 function heardSoFar(s: RoadState): HeardClaim[] | null {
-  return featureOn(s.features, 'rumours-and-lies') ? claimsHeard(s.asked, factsFor(s.features), liesFor(s.features)) : null;
+  if (!featureOn(s.features, 'rumours-and-lies')) return null;
+  // Nothing told yet, nothing heard: the same empty list whatever the facts, so a run that hasn't
+  // asked anyone never needs its history told (#1656) just to say so.
+  return Object.keys(s.asked ?? {}).length ? claimsHeard(s.asked, playFacts(s), liesFor(s.features)) : [];
 }
 
 /** The claim `pid` has just made, if it's one the journal keeps: in what's been heard now and not `before`. */
@@ -821,7 +825,7 @@ function flagClash(next: RoadState, pid: string, before: readonly HeardClaim[] |
   if (clash.some(b => b.person === pid)) { say(next, `That isn't what ${name(pid)} told you before. Your journal has both.`, 'milestone'); return; }
   const names = [...new Set(clash.map(b => name(b.person)))];
   const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
-  say(next, `That doesn't square with what ${who} told you about ${PROPOSITIONS[c.proposition]?.label.replace(/^The /, 'the ') ?? 'it'}. Your journal has both.`, 'milestone');
+  say(next, `That doesn't square with what ${who} told you about ${(PROPOSITIONS[c.proposition]?.label ?? c.label)?.replace(/^The /, 'the ') ?? 'it'}. Your journal has both.`, 'milestone');
 }
 
 /** An answer that sends you to someone elsewhere (#1497): a lead, in the quest log. */
@@ -855,12 +859,12 @@ function freeQuestion(next: RoadState, pid: string, topic: string): RoadState {
   // knowledge model answers an ask (gates, referrals, People's and culture's ways); off (and in
   // every run from before the switch), exactly as #1575 played it, so old runs replay the same.
   if (featureOn(next.features, 'knowledge-questions')) return knowingAnswer(next, person, topic);
-  const answer = topic ? answerFor(pid, topic, factsFor(next.features)) : undefined;
+  const answer = topic ? answerFor(pid, topic, playFacts(next)) : undefined;
   if (!answer) { say(next, deflectionOf(pid, person.name), 'action'); return next; }
   const again = (next.asked?.[pid] ?? []).includes(topic);
   if (!again) heardAnswer(next, pid, topic, answer);
-  const about = parseFocus(topic);
-  say(next, `You ask ${person.name} about ${about ? focusInline(about) : topic}. ${person.name}: "${answer.text}"`, 'action');
+  // How the topic reads (`questionAbout`): a focus as it always did, a history topic (#1656) in words.
+  say(next, `You ask ${person.name} about ${questionAbout(topic)}. ${person.name}: "${answer.text}"`, 'action');
   if (!again) noteLead(next, person, topic, answer);
   return next;
 }
@@ -881,7 +885,7 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
   // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
-  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: factsFor(next.features), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
+  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
   const before = heardSoFar(next);
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);

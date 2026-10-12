@@ -27,6 +27,7 @@ import { ROAD_DAYS, peopleHere, type RoadActionId, type RoadState } from '../art
 import { observe, observeEncounter, observeMeeting, observeRoad } from '../artificer-ai/observe';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
+import { playFacts } from '../artificer/history-in-play';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
 import { respondedOn } from '../artificer/journal';
@@ -171,7 +172,8 @@ export function apply(g: Game, move: Move): ApplyResult {
     if (!text) return refuse(`Ask a question, in up to ${QUESTION_CHARS} characters.`);
     // Matched by the run's own switches (#1611): with knowledge-questions on, the knowledge model's
     // topics; off, #1575's matching. Either way only the topic is played, never the words.
-    const topic = matchFreeQuestion(person, text, r.asked?.[person] ?? [], r.features);
+    // The facts are the run's (#1656, `playFacts`): with history-in-play on, its villages' history too.
+    const topic = matchFreeQuestion(person, text, r.asked?.[person] ?? [], r.features, { facts: playFacts(r) });
     played = { do: `question:${person}${topic ? `:${topic}` : ''}` };
     next = roadAct(before, played.do as RoadActionId);
     // Answered means told: the topic is among what they've told you now (again counts). A match

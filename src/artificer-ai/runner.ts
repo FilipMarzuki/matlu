@@ -28,6 +28,13 @@ import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
 import { todayHours } from '../artificer-app/controller';
+import { tellHistoriesWith } from '../artificer/history-in-play';
+import { runHistory } from '../artificer/world/history';
+
+// The road's people answer from their villages' history (#1656), as on the page and through the
+// API: an AI game is played here, with no page worker, so its history is told on first need and
+// kept per seed (history-in-play.ts).
+tellHistoriesWith(runHistory);
 
 /** Token usage a model player reports per call (all optional; summed per run). */
 export interface Usage {

@@ -56,6 +56,13 @@ export interface Fact {
    * scope. (Not `source`: content entries use that for the canon a fact rests on.)
    */
   claimSource?: Exclude<ClaimSource, 'made-up'>;
+  /**
+   * Who in its scope tells it, by person id, when not everyone there does (#1656): an old event a
+   * mixed village tells one way among its long-lived and another among its short-lived
+   * (history-in-play.ts), each telling held by the people whose People and culture tell it so.
+   * Absent, everyone in the scope can know it, as deep as they reach.
+   */
+  tellers?: readonly string[];
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */
@@ -138,9 +145,10 @@ export function inScope(k: Knower, s: Scope): boolean {
   }
 }
 
-/** Whether `k` knows `f`: in its scope, and reaching deep enough. An organisation's depth is a member's rank. */
+/** Whether `k` knows `f`: in its scope (and among its `tellers`, if it names them), and reaching deep enough. An organisation's depth is a member's rank. */
 export function knows(k: Knower, f: Fact): boolean {
-  if (!inScope(k, f.scope)) return false;
+  // `tellers` narrows a scope, never widens it: someone it names still has to be in the scope.
+  if (!inScope(k, f.scope) || (f.tellers && !f.tellers.includes(k.id))) return false;
   const reach = f.scope.kind === 'org' ? k.orgs[f.scope.id!] ?? 0 : f.scope.kind === 'person' ? 3 : k.reach?.[f.scope.kind] ?? 1;
   return reach >= (f.depth ?? 1);
 }
