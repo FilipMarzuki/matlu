@@ -136,9 +136,11 @@ export function tierReviews(reviews, headSha) {
     if (r.commit_id !== headSha || r.user?.login !== REVIEW_BOT) continue;
     if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') { out.agent = r.state === 'APPROVED' ? 'approved' : 'changes-requested'; continue; }
     const body = r.body ?? '';
-    const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear) -->/.exec(body);
+    // ` key=<hash>` names the diff, model and instructions the review read (#1654), so a carried-over
+    // verdict, re-posted on the head commit, reads exactly like a fresh one here.
+    const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: key=[0-9a-f]+)? -->/.exec(body);
     if (so) { if (!out.second || rank[so[1]] > rank[out.second]) out.second = so[1]; continue; }
-    const fo = /^## Focused review — ([a-z][a-z0-9-]*)[^\n]*\n<!-- focused lens=\1 findings=(\d+|\?) -->/.exec(body);
+    const fo = /^## Focused review — ([a-z][a-z0-9-]*)[^\n]*\n<!-- focused lens=\1 findings=(\d+|\?)(?: key=[0-9a-f]+)? -->/.exec(body);
     if (!fo) continue;
     const n = fo[2] === '?' ? null : Number(fo[2]);
     const had = out.focused[fo[1]];

@@ -13,8 +13,13 @@
 // general rules. The risk workflow runs one per lens on high-risk PRs; any
 // finding holds the merge.
 //
+// Paying for fewer reviews (#1654, review-cost.mjs): the request caps its output, the body's
+// footer and the run log say what it cost, and when this head's PR diff is byte-identical to the
+// one an earlier passing review of the same kind read (merging main, say), with the same model and
+// instructions, that verdict is re-posted on this head instead of paying again. --fresh always pays.
+//
 // Usage:
-//   node .github/scripts/run-second-review.js --pr 123 [--dry-run] [--model <id>] [--focus <lens>]
+//   node .github/scripts/run-second-review.js --pr 123 [--dry-run] [--model <id>] [--focus <lens>] [--fresh]
 // Env:
 //   GITHUB_TOKEN, GITHUB_REPOSITORY (owner/repo)    required
 //   OPENROUTER_API_KEY                               the reviewer (one of the two keys, unless --dry-run)
@@ -28,6 +33,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { skipReason, contextSection, noRoom, admit } from './review-context.mjs';
 import { reviewWithFallback, claudeReview, reviewBody, FALLBACK_MODEL } from './review-fallback.mjs';
+import { openRouterBody, openRouterUsage, usageLine, reviewKey, carryOver } from './review-cost.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,8 +52,9 @@ const prNumber = Number(flag('pr'));
 const dryRun = flag('dry-run') === 'true';
 const model = flag('model') || process.env.SECOND_REVIEW_MODEL || DEFAULT_MODEL;
 const focus = flag('focus');
+const fresh = flag('fresh') === 'true';
 
-if (!prNumber) { console.error('Usage: run-second-review.js --pr <number> [--dry-run] [--model <id>] [--focus <lens>]'); process.exit(2); }
+if (!prNumber) { console.error('Usage: run-second-review.js --pr <number> [--dry-run] [--model <id>] [--focus <lens>] [--fresh]'); process.exit(2); }
 // The lens names a file, so keep it to a plain name (no paths).
 if (focus && !/^[a-z][a-z0-9-]*$/.test(focus)) { console.error(`Bad --focus: ${focus}`); process.exit(2); }
 
@@ -116,7 +123,11 @@ async function changedFiles(pr) {
 }
 
 // ── Prompt ──────────────────────────────────────────────────────────────────
-function buildPrompt(pr, diff, files = []) {
+/**
+ * The fixed instructions the prompt opens with, as filled in for this PR. They're part of the
+ * carry-over key (#1654): a verdict read under other rules doesn't stand for these.
+ */
+function instructions(pr) {
   const root = path.resolve(__dirname, '..', '..');
   const read = (...p) => fs.readFileSync(path.join(root, '.agents', ...p), 'utf8');
   // A focused review gets its lens and the findings shape; the second opinion
@@ -125,18 +136,20 @@ function buildPrompt(pr, diff, files = []) {
     ? read('review-lenses', `${focus}.md`)
     : read('review.md').replace(/\{\{pr_number\}\}/g, String(pr.number));
   const override = focus ? read('review-lenses', '_shape.md') : read('review-second-opinion.md');
+  return [rules, '\n---\n', override, '\n---\n'].join('\n');
+}
 
+function buildPrompt(pr, diff, files = [], instr = instructions(pr)) {
   let diffText = diff;
   if (Buffer.byteLength(diffText, 'utf8') > DIFF_CAP_BYTES) {
     diffText = Buffer.from(diffText, 'utf8').subarray(0, DIFF_CAP_BYTES).toString('utf8')
       + `\n\n[diff truncated at ${DIFF_CAP_BYTES} bytes]`;
   }
 
+  // The fixed instructions first, the PR's own text after them: a provider's prompt cache can
+  // only reuse a shared prefix (#1654).
   return [
-    rules,
-    '\n---\n',
-    override,
-    '\n---\n',
+    instr,
     `# PR #${pr.number}: ${pr.title}`,
     `Author: ${pr.user?.login ?? 'unknown'} · Base: ${pr.base?.ref} · Head: ${pr.head?.ref}`,
     '',
@@ -165,30 +178,71 @@ async function review(prompt) {
       'HTTP-Referer': `https://github.com/${repo}`,
       'X-Title': `${repo} ${focus ? `focused review (${focus})` : 'second-opinion review'}`,
     },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: prompt },
-      ],
-    }),
+    // Capped output and usage in the answer (#1654); see openRouterBody.
+    body: JSON.stringify(openRouterBody({ model, system: SYSTEM, prompt })),
   });
   if (!res.ok) throw new Error(`OpenRouter → ${res.status}: ${await res.text()}`);
   const data = await res.json();
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error(`OpenRouter returned no content: ${JSON.stringify(data).slice(0, 500)}`);
-  return { text, usedModel: data.model || model };
+  // finish_reason "length" with no text: the thinking used up the cap. Failing here sends it to the fallback.
+  if (!text) throw new Error(`OpenRouter returned no content (finish_reason ${data.choices?.[0]?.finish_reason ?? '?'}): ${JSON.stringify(data).slice(0, 500)}`);
+  return { text, usedModel: data.model || model, usage: openRouterUsage(data.usage) };
+}
+
+/** Every review on the PR, for the carry-over check (#1654). */
+async function prReviews() {
+  const reviews = [];
+  for (let page = 1; page <= 10; page++) {
+    const batch = await gh(`/pulls/${prNumber}/reviews?per_page=100&page=${page}`);
+    reviews.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return reviews;
+}
+
+/** Label the PR weak-review (#1509). A failed label doesn't undo the review. */
+async function labelWeak() {
+  try { await gh(`/issues/${prNumber}/labels`, { method: 'POST', body: { labels: ['weak-review'] } }); }
+  catch (err) { console.log(`Couldn't label #${prNumber} weak-review: ${String(err.message).slice(0, 200)}`); }
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
 (async () => {
   const pr = await gh(`/pulls/${prNumber}`);
   const diff = await gh(`/pulls/${prNumber}`, { accept: 'application/vnd.github.diff' });
-  const prompt = buildPrompt(pr, diff, await changedFiles(pr));
+  const kind = focus ? `focused (${focus})` : 'second-opinion';
+  // The carry-over key (#1654): the whole diff the prompt is cut from, the model asked and the
+  // instructions. A review is keyed on the model that wrote it: the fallback's for a weak one.
+  const instr = instructions(pr);
+  const keyFor = (m) => reviewKey({ diff, model: m, instructions: `${SYSTEM}\n${instr}` });
+  const primaryKey = keyFor(model);
+  const fallbackKey = keyFor(fallbackModel);
+
+  // An earlier passing review of this kind read this exact diff with the same model and rules:
+  // re-post its verdict on this head, pinned to it, so the gate counts it, with no paid call. A weak
+  // one stays weak.
+  const carry = fresh ? null : carryOver({ reviews: await prReviews(), focus, keys: [primaryKey, fallbackKey], headSha: pr.head.sha });
+  if (carry?.onHead) {
+    console.log(`The ${kind} review on this head (${pr.head.sha.slice(0, 7)}) already passed under key ${carry.parsed.key} — nothing to do (--fresh pays for a new one).`);
+    return;
+  }
+  if (carry) {
+    const { parsed, review: earlier } = carry;
+    const body = reviewBody({
+      focus, usedModel: parsed.usedModel, verdict: parsed.verdict, findings: parsed.findings === null ? '?' : String(parsed.findings),
+      weak: parsed.weak, key: parsed.key, carried: { from: carry.from, url: earlier.html_url ?? pr.html_url },
+    });
+    if (dryRun) { console.log(`--- dry run: would carry over the ${kind} review of ${carry.from.slice(0, 7)} (key ${parsed.key}) ---\n\n${body}`); return; }
+    await gh(`/pulls/${prNumber}/reviews`, { method: 'POST', body: { event: 'COMMENT', body, commit_id: pr.head.sha } });
+    console.log(`Carried over the ${kind} review on #${prNumber} from ${carry.from.slice(0, 7)} to ${pr.head.sha.slice(0, 7)} (key ${parsed.key}, ${parsed.verdict}${parsed.weak ? ', weak' : ''}) — no paid call.`);
+    if (parsed.weak) await labelWeak();
+    return;
+  }
+
+  const prompt = buildPrompt(pr, diff, await changedFiles(pr), instr);
 
   if (dryRun) {
-    console.log(`--- dry run: model=${model}, prompt ${prompt.length} chars ---\n`);
+    console.log(`--- dry run: model=${model}, prompt ${prompt.length} chars, key ${primaryKey} (fallback ${fallbackKey}), fresh review (nothing to carry over) ---\n`);
     console.log(prompt);
     return;
   }
@@ -201,24 +255,24 @@ async function review(prompt) {
     hasClaude: !!anthropicKey,
   });
   if (!got) { console.log('No reviewer key — skipping the review.'); return; }
-  const { text, usedModel, weak } = got;
+  const { text, usedModel, weak, usage } = got;
+  // What it cost (#1654), in the log here and the body's footer.
+  console.log(`${kind} review by ${usedModel}: ${usageLine(usage)}`);
   const findings = /FINDINGS:\s*(\d+)/i.exec(text)?.[1] ?? '?';
   const verdict = focus
     ? `${findings} finding(s)`
     : /VERDICT:\s*(approve|request-changes)/i.exec(text)?.[1]?.toLowerCase() ?? 'unclear';
 
   // The merge gate reads line 1 and the marker on line 2 (#1481); a weak review says so below them.
-  const body = reviewBody({ focus, usedModel, verdict, findings, text, weak });
+  // The marker carries its key, so a later head with the same key can carry it over (#1654).
+  const body = reviewBody({ focus, usedModel, verdict, findings, text, weak, key: weak ? fallbackKey : primaryKey, usage });
 
   // COMMENT, never APPROVE / REQUEST_CHANGES: GitHub's review state stays the
   // review agent's; the merge gate (risk-score.mjs, #1481) reads this body's marker.
   // Pinned to the commit whose diff the model read (#1481): posted unpinned, GitHub stamps the
   // review on whatever the head is by now, and the gate would count it for a newer commit.
   await gh(`/pulls/${prNumber}/reviews`, { method: 'POST', body: { event: 'COMMENT', body, commit_id: pr.head.sha } });
-  console.log(`Posted ${focus ? `focused (${focus})` : 'second-opinion'} review on #${prNumber} (${usedModel}, ${verdict}${weak ? ', weak' : ''}).`);
-  // Count weak reviews (#1509): the label finds them later. A failed label doesn't undo the review.
-  if (weak) {
-    try { await gh(`/issues/${prNumber}/labels`, { method: 'POST', body: { labels: ['weak-review'] } }); }
-    catch (err) { console.log(`Couldn't label #${prNumber} weak-review: ${String(err.message).slice(0, 200)}`); }
-  }
+  console.log(`Posted ${kind} review on #${prNumber} (${usedModel}, ${verdict}${weak ? ', weak' : ''}).`);
+  // Count weak reviews (#1509): the label finds them later.
+  if (weak) await labelWeak();
 })().catch((err) => { console.error(err); process.exit(1); });
