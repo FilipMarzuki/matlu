@@ -44,7 +44,7 @@ import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
-import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST } from '../artificer/trade';
+import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, friendly } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
@@ -548,7 +548,7 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     if (t) {
       lines.push('');
       // A friend's rate is in the prices, so it's said; the trust behind it isn't (#1578).
-      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${t.trust >= FRIEND_TRUST ? ' · friend’s rate' : ''}`);
+      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${friendly(t) ? ' · friend’s rate' : ''}`);
       // The village's own market (#1599): the same line the trade panel shows.
       if (t.local) lines.push(`  market: ${marketLine(t.local)}`);
       lines.push(`  sells (marks each): ${t.sells.map(g => `${g} ${buyPrice(g as never, 1, t)}`).join(' · ')}`);
