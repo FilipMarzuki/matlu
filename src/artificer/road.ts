@@ -51,6 +51,7 @@ import { seedOf } from './talents';
 import { momentOfTruth, readerOf, readingLeft, SECRET_GATE } from './rapport';
 import { liesFor, PROPOSITIONS } from './claims';
 import { claimsHeard, journalOf, readsAsLie, CLAIMED, type HeardClaim, type JournalEntry } from './journal';
+import { caughtOut, caughtWord, friendsWhoHear, guardOf, lieAbout, CAUGHT, CAUGHT_TRUST } from './caught-lies';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -367,7 +368,8 @@ function openVillage(s: RoadState, id: string): void {
   for (const p of peopleOf(id)) {
     if (s.trust[p.id] !== undefined) continue;
     // Word from a friend you helped (#1588) comes on top of the village's own word, within the scale.
-    const met = Math.min(MAX_TRUST, start + ties(p.id));
+    // Word that you caught a friend of theirs in a greedy lie (#1660) comes off it.
+    const met = Math.max(0, Math.min(MAX_TRUST, start + ties(p.id) - caughtWord(s.asked, s.features, p.id)));
     s.trust[p.id] = s.contacts.includes(p.id) ? Math.max(met, CONTACT_TRUST) : met;
   }
 }
@@ -714,11 +716,15 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const shown = (next.noticed?.[pid] ?? []).includes(key) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
+  // Someone caught in a greedy lie (#1660) guards what else they know: their gates read higher.
+  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid));
   // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
   // read from this run's saved switches, never a global. So is its villages' history (#1656,
   // `playFacts`): the run's facts are `factsFor`'s, with the history after them if its switch is on.
   // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
-  const r = ask(person, key, focusInline(f), own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next) });
+  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next) });
+  // Asked again after a lie, with what you've heard otherwise in hand, they answer for it (#1660).
+  if (r.kind === 'again' && confront(next, person, key, focusInline(f))) return next;
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   const before = heardSoFar(next);
@@ -730,6 +736,48 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // A secret told on their trust alone (#1578), not because someone sent you or you'd noticed: a moment of truth.
   if (r.kind === 'told' && r.answer.at >= SECRET_GATE && own >= r.answer.at) showsTruth(next, pid);
   return next;
+}
+
+/**
+ * A liar asked again, once the Warden holds evidence against the lie (#1660, caught-lies.ts): heard
+ * otherwise from someone else, or been to look. An hour's talk. What it costs is the lie's reason:
+ * covering for someone or keeping a group's business, they come clean (the truth they'd kept,
+ * whatever the gate, and why); lying for gain, their trust drops, and their friends hear of it.
+ * Kept as `caught:<topic>` in what they've answered, after the lie (and before the truth, coming
+ * clean). False, and nothing changed, with the switch off, without evidence, or once caught: they
+ * stick to their story, as before.
+ */
+function confront(next: RoadState, person: Person, key: string, about: string): boolean {
+  if (!featureOn(next.features, 'caught-lies')) return false;
+  const pid = person.id;
+  const asked = next.asked?.[pid] ?? [];
+  if (!asked.includes(`${CLAIMED}${key}`) || asked.includes(`${CAUGHT}${key}`)) return false;
+  const lie = lieAbout(next.features, pid, key);
+  const heard = heardSoFar(next);
+  if (!lie || !heard || !caughtOut(lie, heard, villagesVisited(next))) return false;
+  spendTalk(next, ASK_HOURS);
+  next.asked = { ...(next.asked ?? {}), [pid]: [...asked, `${CAUGHT}${key}`] };
+  const opening = `You tell ${person.name} what you've heard. ${person.name}: "${lie.caught}"`;
+  if (lie.reason !== 'greedy') {
+    // The truth, whatever the gate: asked with no lies and every gate open.
+    const r = ask(person, key, about, Infinity, next.asked[pid], { facts: playFacts(next), ...standingOf(next) });
+    if (r.kind !== 'told') { say(next, opening, 'action'); return true; }
+    heardAnswer(next, pid, key, r.answer);
+    say(next, `${opening} Then: "${r.answer.text}"`, 'action');
+    noteLead(next, person, key, r.answer);
+    return true;
+  }
+  bump(next, pid, -CAUGHT_TRUST);
+  say(next, opening, 'action');
+  say(next, `${person.name} will keep more from you now.`, 'milestone');
+  // Their friends hear of it along their ties (#1588): those met cool now, the rest when you meet them (`caughtWord`).
+  if (!featureOn(next.features, 'ties')) return true;
+  const name = (id: string): string | undefined => personById(id)?.name ?? TRAVELLERS.find(t => t.id === id)?.name;
+  const friends = friendsWhoHear(pid).filter(f => name(f.person));
+  for (const f of friends) if (next.trust[f.person] !== undefined) bump(next, f.person, -f.cools);
+  const names = friends.map(f => name(f.person)!);
+  if (names.length) say(next, `Word of it will reach ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}, who think well of ${person.name}.`, 'milestone');
+  return true;
 }
 
 /**
@@ -881,11 +929,13 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const shown = (next.noticed?.[pid] ?? []).includes(topic) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
+  // As for an ask: someone caught in a greedy lie (#1660) guards what else they know.
+  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid));
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
   // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
-  const r = answerQuestion(asPlayed(person, next.features), topic, own + shown + sent, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
+  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
   const before = heardSoFar(next);
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
   if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);

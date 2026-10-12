@@ -121,6 +121,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'history-in-play', name: 'People tell their history', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1656,
     note: 'Ask the people of a road village about their past (who holds the place, the old plague, the famine, the wars, what happened here) and they answer from what their village and its country remember: the long-lived may have seen it, the short-lived tell it as it reached them.',
   },
+  {
+    // A rules feature: it changes what asking a liar again does once you've heard otherwise (they
+    // come clean, or trust drops and their friends hear of it), so a run from before it (absent:
+    // false) keeps a caught liar sticking to their story on replay. It acts on lies, so it does
+    // nothing without `rumours-and-lies`.
+    id: 'caught-lies', name: 'What a caught lie costs', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1660,
+    note: 'Heard otherwise and asked again, a liar answers for it as their reason was: one who covered for a friend or kept their people\'s business comes clean and says why; one who lied for gain trusts you less, guards their secrets more, and their friends hear of it.',
+  },
 ];
 
 /** Switches by feature id. */

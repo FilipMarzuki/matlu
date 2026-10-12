@@ -33,6 +33,7 @@ import { ASK_HOURS, tellsFor } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
+import { featureOn } from '../artificer/features';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
 import { peopleOf, personById, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
@@ -497,6 +498,8 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
   const journal = journalNow(r);
   if (journal?.length) {
     lines.push('WHO SAID WHAT (your journal: each account, and how sure they sounded; accounts can be wrong, or lies):');
+    // What a caught lie costs (#1660): asking the one you doubt again is how you show them you know.
+    if (featureOn(r.features, 'caught-lies')) lines.push('(Two accounts clash, or you saw for yourself? Ask the one you doubt about it again, with that focus: you show them you know, and how they take it depends on why they lied.)');
     for (const e of journal) lines.push(journalLine(e));
   }
   // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered
