@@ -13,7 +13,7 @@
 import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, sessionNote, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
-import type { HelpDeed } from '../artificer/help';
+import { DEED_KINDS, type HelpDeed } from '../artificer/help';
 import { leadOnLoad, type Lead } from '../artificer/asks';
 import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -402,9 +402,9 @@ export function serialize(a: AppState): string {
  * Parse a saved road (#1250), filling in fields a later Region 1.5 issue added. Null when
  * it isn't one — the same shape checks as the Reach: what the sim reads, then trust the rest.
  */
-/** A help deed as saved (#1659): a day, who, and a kind the road records. */
+/** A help deed as saved (#1659): a day, who, and a kind the road records (#1663: any of `DEED_KINDS`). */
 const isHelpDeed = (h: unknown): h is HelpDeed =>
-  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (h.kind === 'sold' || h.kind === 'bought' || h.kind === 'task') && (h.quest === undefined || typeof h.quest === 'string');
+  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (DEED_KINDS as readonly unknown[]).includes(h.kind) && (h.quest === undefined || typeof h.quest === 'string');
 
 function parseRoad(x: unknown): RoadState | null {
   if (!isObj(x)) return null;

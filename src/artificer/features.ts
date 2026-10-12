@@ -161,6 +161,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'reach-and-secrets', name: 'Who knows a rumour, and who keeps a secret', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1661,
     note: 'A rumour that has travelled the road is known by more of its people, and arrives more bent; one close to its source is known by fewer, and told truer. A member of a secretive organisation keeps its business from outsiders until they trust you enough, though what leaked through gossip is anyone\'s to tell.',
   },
+  {
+    // A rules feature: it changes prices (an erratic record is hedged, a trusted one gets the
+    // regular's rate), how open people are (consistency.ts `recordGate`) and what they say, so a
+    // run from before it (absent: false) keeps today's terms and answers on replay. Its record is
+    // the deed list `grudges-and-help` keeps, so it does nothing without that switch.
+    id: 'consistency', name: 'What people come to expect of you', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1663,
+    note: 'People learn your track record (fair dealing, kept word, the side you take) and word of it travels with friends, kin and the caravan. A steady record, even a hard one, gets expected terms; an erratic one gets hedged prices and wary answers. Only a record of dealing well earns the regular\'s rate and confidences.',
+  },
 ];
 
 /** Switches by feature id. */
