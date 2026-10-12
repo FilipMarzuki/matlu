@@ -17,8 +17,8 @@
 
 import { VILLAGES, TRAVELLERS, type Person } from './villages';
 import type { Answer } from './answers';
-import { answerOf, knowerOf, resolve, FACTS } from './facts';
-import { tells, type Fact, type Lie, type Standing, type Truth } from './knowledge';
+import { answerOf, keptLine, knowerOf, passedOn, resolve, FACTS } from './facts';
+import { tells, type Fact, type Keeping, type Lie, type Standing, type Truth } from './knowledge';
 
 // The answers themselves moved to answers.ts (#1609); re-exported so existing imports still work.
 export { ANSWERS, type Answer } from './answers';
@@ -113,8 +113,8 @@ export const sentTo = (leads: readonly Lead[] | undefined, who: string, key: str
  * No one else is passed in, since who'd know instead doesn't matter here. `facts` defaults to
  * today's; a run passes its own (facts.ts `factsFor`), with the scope facts if its switch is on.
  */
-export function answerFor(personId: string, key: string, facts: readonly Fact[] = FACTS): Answer | undefined {
-  const r = resolve(personId, key, Infinity, { others: [], facts });
+export function answerFor(personId: string, key: string, facts: readonly Fact[] = FACTS, skipHearsay = false): Answer | undefined {
+  const r = resolve(personId, key, Infinity, { others: [], facts, skipHearsay });
   return r?.kind === 'told' ? answerOf(r.fact) : undefined;
 }
 
@@ -136,7 +136,7 @@ export type AskResult =
    * `truth` is the told fact's (#1588): what the world says of the claim, never shown to the
    * player. Someone can say a `false` thing with full confidence (Maren on Tobin); the game knows.
    */
-  | { kind: 'told'; line: string; answer: Answer; truth: Truth }
+  | { kind: 'told'; line: string; answer: Answer; truth: Truth; hearsay?: boolean }
   | { kind: 'not-yet'; line: string }
   /**
    * They don't know. `referral` is who nearby would (the knowledge model's transactive memory,
@@ -158,13 +158,18 @@ export type AskResult =
  * (facts.ts `resolve`): told, not yet (the gate is the true trust you bring, never a felt word),
  * or doesn't know, and who nearby would.
  */
-export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>> } = {}): AskResult {
+export function ask(p: Person, key: string, about: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>>; keeping?: Keeping } = {}): AskResult {
   const again: AskResult = { kind: 'again', line: `${p.name} has already told you what they know about ${about}.` };
   if (answered.includes(key)) return again;
   // The facts are the run's (facts.ts `factsFor`, #1610): a caller that doesn't pass them gets today's.
   // So is the Warden's standing with organisations (#1587): none unless the run's switch passes it,
-  // and so are the run's lies (#1580, claims.ts `liesFor`).
-  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS, ...(opts.standing ? { standing: opts.standing } : {}), ...(opts.lies ? { lies: opts.lies } : {}) });
+  // and so are the run's lies (#1580, claims.ts `liesFor`), and insiders keeping their
+  // organisations' business (#1661, `keeping`).
+  // News first, then lore (#1661): once they've passed on a rumour that reached them, asked again
+  // they answer from what they know; if that's nothing, they've told you all they know.
+  const passed = passedOn(answered, key);
+  const r = resolve(p.id, key, trust, { facts: opts.facts ?? FACTS, ...(opts.standing ? { standing: opts.standing } : {}), ...(opts.lies ? { lies: opts.lies } : {}), ...(opts.keeping ? { keeping: opts.keeping } : {}), skipHearsay: passed });
+  if (passed && (!r || r.kind === 'unknown')) return again;
   if (r?.kind === 'lied') {
     // Told the lie before (`claimed:<topic>`) and still not trusting you enough to stop: they stick
     // to it, as anyone asked twice would. Trusted enough, the lie is skipped and the truth comes out.
@@ -181,7 +186,10 @@ export function ask(p: Person, key: string, about: string, trust: number, answer
       : `${p.name} thinks, and shakes their head. "I don't know much about ${about}."`;
     return { kind: 'unknown', line, referral };
   }
+  // An insider keeping their organisation's business says so (#1661): only with `keeping` passed.
+  if (r.kind === 'not-yet' && r.keptFor) return { kind: 'not-yet', line: keptLine(p.name, r.keptFor) };
   if (r.kind !== 'told') return { kind: 'not-yet', line: `${p.name} looks at you a long moment. "Maybe. Ask me again when I know you better."` };
   const a = answerOf(r.fact);
-  return { kind: 'told', line: `${p.name}: "${a.text}"`, answer: a, truth: r.fact.truth };
+  // `hearsay` (#1661): news they heard in passing, which the road keeps as `hearsay:<topic>`.
+  return { kind: 'told', line: `${p.name}: "${a.text}"`, answer: a, truth: r.fact.truth, ...(r.fact.hearsay ? { hearsay: true } : {}) };
 }

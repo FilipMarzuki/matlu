@@ -38,8 +38,8 @@
  */
 
 import { answerFor, type Answer } from './asks';
-import { ALL_FACTS, answerOf, factsFor, hasScopeFacts, resolve } from './facts';
-import type { Fact, Lie, ScopeKind, Standing } from './knowledge';
+import { ALL_FACTS, answerOf, factsFor, hasScopeFacts, keptLine, passedOn, resolve } from './facts';
+import type { Fact, Keeping, Lie, ScopeKind, Standing } from './knowledge';
 import {
   CUSTOM_KINDS, candourOf, cultureLore, effectiveCandour, matchLore, peopleLore, scopedClaims, topicKeyOf, voicedAt, voicingGates,
   type LoreScope, type LoreTopic, type Place, type ScopedClaim, type Voicing,
@@ -219,7 +219,7 @@ export function isQuestionTopic(personId: string, topic: string, facts: readonly
 
 export type QuestionAnswer =
   /** Told: the words, as an Answer (its gate, insight and lead), the scope they came from, and whether you'd heard them before. */
-  | { kind: 'told'; line: string; answer: Answer; scope: ScopeKind; again: boolean }
+  | { kind: 'told'; line: string; answer: Answer; scope: ScopeKind; again: boolean; hearsay?: boolean }
   /** They know, and you haven't earned it yet. */
   | { kind: 'not-yet'; line: string }
   /** They said something else instead (#1580): a lie, read like an answer; `again` if they'd told you it before. */
@@ -265,7 +265,7 @@ const NOT_YET = (name: string): string => `${name} looks at you a long moment. "
  * The gate is decided here, in code, never by whatever voices the answer. `opts.place` is where
  * they are (#1619): it nudges how openly they voice their people's views.
  */
-export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; place?: Place; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>> } = {}): QuestionAnswer {
+export function answerQuestion(p: Person, topic: string, trust: number, answered: readonly string[], opts: { referrals?: boolean; facts?: readonly Fact[]; place?: Place; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>>; keeping?: Keeping } = {}): QuestionAnswer {
   const deflect: QuestionAnswer = { kind: 'deflect', line: deflectionOf(p.id, p.name) };
   if (!topic) return deflect;
   const asked = `You ask ${p.name} about ${questionAbout(topic)}.`;
@@ -287,15 +287,22 @@ export function answerQuestion(p: Person, topic: string, trust: number, answered
   }
 
   // Standing with an organisation (#1587) counts toward its facts, as for an ask; only passed with its switch on.
-  // So do the run's lies (#1580): only passed with their switch on.
-  const r = resolve(p.id, topic, trust, { ...(opts.facts ? { facts: opts.facts } : {}), ...(opts.standing ? { standing: opts.standing } : {}), ...(opts.lies ? { lies: opts.lies } : {}) });
+  // So do the run's lies (#1580): only passed with their switch on. So does keeping (#1661).
+  // News first, then lore (#1661): once they've passed on a rumour that reached them, they answer
+  // from what they know; knowing nothing else, they tell you the news again, nothing new.
+  const passed = passedOn(answered, topic);
+  const resolved = (skipHearsay: boolean) => resolve(p.id, topic, trust, { ...(opts.facts ? { facts: opts.facts } : {}), ...(opts.standing ? { standing: opts.standing } : {}), ...(opts.lies ? { lies: opts.lies } : {}), ...(opts.keeping ? { keeping: opts.keeping } : {}), skipHearsay });
+  let r = resolved(passed);
+  let heard = again;
+  if (passed && (!r || r.kind === 'unknown')) { r = resolved(false); heard = true; }
   if (!r) return deflect;
   if (r.kind === 'lied') return { kind: 'lied', line: `${asked} ${p.name}: "${r.text}"`, lie: r.lie, again: answered.includes(`claimed:${topic}`) };
   if (r.kind === 'told') {
     const answer = answerOf(r.fact);
-    return { kind: 'told', line: `${asked} ${p.name}: "${answer.text}"`, answer, scope: r.fact.scope.kind, again };
+    return { kind: 'told', line: `${asked} ${p.name}: "${answer.text}"`, answer, scope: r.fact.scope.kind, again: heard, ...(r.fact.hearsay ? { hearsay: true } : {}) };
   }
-  if (r.kind === 'not-yet') return { kind: 'not-yet', line: `${asked} ${NOT_YET(p.name)}` };
+  // An insider keeping their organisation's business says so (#1661): only with `keeping` passed.
+  if (r.kind === 'not-yet') return { kind: 'not-yet', line: `${asked} ${r.keptFor ? keptLine(p.name, r.keptFor) : NOT_YET(p.name)}` };
   const who = opts.referrals && r.referral ? personById(r.referral) : undefined;
   if (!who) return deflect;
   return { kind: 'referral', line: `${asked} ${p.name} thinks, and shakes their head. "I couldn't tell you — ${who.name} would know."`, who: who.id };

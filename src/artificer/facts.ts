@@ -23,7 +23,7 @@
  */
 
 import { ANSWERS, type Answer } from './answers';
-import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Lie, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
+import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Keeping, type Knower, type KnowledgeAnswer, type Lie, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
 import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
 import { HELP_FEATURE, HELP_TIE_FACTS, TIE_FACTS } from './ties';
 import { DEFAULT_RUMOUR_FACTS, rumourFactsFor, rumourSetKey } from './claims';
@@ -263,16 +263,39 @@ export function nearbyOf(personId: string): Knower[] {
  * no one on the road. `facts` and `others` default to the game's; tests and later slices can pass
  * their own. `standing` is the Warden's with each organisation (#1587, orgs.ts `standingFrom`):
  * it counts toward an organisation's own facts with any of its members; none if not passed.
- * `lies` are the run's (#1580, claims.ts `liesFor`), by person; none if not passed.
+ * `lies` are the run's (#1580, claims.ts `liesFor`), by person; none if not passed. `keeping` (#1661)
+ * has insiders keep their organisations' business (knowledge.ts `Keeping`); nobody does if not passed.
  */
-export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>> } = {}): KnowledgeAnswer | undefined {
+export function resolve(personId: string, topic: string, trust: number, opts: { facts?: readonly Fact[]; others?: readonly Knower[]; standing?: Standing; lies?: Readonly<Record<string, readonly Lie[]>>; keeping?: Keeping; skipHearsay?: boolean } = {}): KnowledgeAnswer | undefined {
   const known = KNOWERS[personId];
   if (!known) return undefined;
   // The run's lies (#1580, claims.ts `liesFor`), by person: none unless its switch passes them, so a
   // person who'd rather not say says "not yet", as before. The model reads lies off the Knower.
   const lies = opts.lies?.[personId];
   const k = lies?.length ? { ...known, lies } : known;
-  return answer(k, topic, trust, opts.facts ?? FACTS, ORGS, opts.others ?? nearbyOf(personId), opts.standing ?? {});
+  // News passed on already (#1661, `skipHearsay`): they answer from what they know, as if they'd never heard it.
+  const facts = opts.facts ?? FACTS;
+  return answer(k, topic, trust, opts.skipHearsay ? facts.filter(f => !f.hearsay) : facts, ORGS, opts.others ?? nearbyOf(personId), opts.standing ?? {}, opts.keeping);
+}
+
+/**
+ * The prefix in `asked` that marks news passed on (#1661): `hearsay:<topic>`, kept instead of the
+ * topic when someone answered with a rumour that reached them in passing (knowledge.ts `hearsay`).
+ * News comes first, then lore (the owner's answer): asked about it again, they answer from what
+ * they know (`resolve`'s `skipHearsay`), and that answer is kept as the topic, as any other is.
+ */
+export const HEARSAY = 'hearsay:';
+
+/** Whether `answered` holds news passed on about `topic` (#1661): their next answer on it skips the hearsay. */
+export const passedOn = (answered: readonly string[] | undefined, topic: string): boolean => !!answered?.includes(`${HEARSAY}${topic}`);
+
+/**
+ * What an insider says instead of their organisation's business (#1661, a "not yet" with `keptFor`):
+ * the organisation named, and the Warden reminded they're not of it. A placeholder for the owner.
+ */
+export function keptLine(name: string, orgId: string): string {
+  const org = (ORGS[orgId]?.name ?? orgId).replace(/^The /, 'the ');
+  return `${name} looks away. "That's ${org}'s business, and not for outsiders."`;
 }
 
 /** A fact as the road's Answer: its words, the trust it takes, and any insight or lead. */
@@ -299,8 +322,10 @@ export interface ClaimTold { person: string; topic: string; fact: string; truth:
  */
 export function claimsTold(asked: Readonly<Record<string, readonly string[]>> | undefined, facts: readonly Fact[] = FACTS): ClaimTold[] {
   const out: ClaimTold[] = [];
-  for (const [person, topics] of Object.entries(asked ?? {})) for (const topic of topics) {
-    const r = resolve(person, topic, Infinity, { facts, others: [] });
+  for (const [person, topics] of Object.entries(asked ?? {})) for (const key of topics) {
+    // News passed on (#1661) is its topic answered with the hearsay; the topic after it, without.
+    const topic = key.startsWith(HEARSAY) ? key.slice(HEARSAY.length) : key;
+    const r = resolve(person, topic, Infinity, { facts, others: [], skipHearsay: topic === key && passedOn(topics, topic) });
     if (r?.kind === 'told' && r.fact.truth !== 'true') out.push({ person, topic, fact: r.fact.id, truth: r.fact.truth });
   }
   return out;

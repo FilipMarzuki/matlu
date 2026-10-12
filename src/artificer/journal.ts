@@ -25,7 +25,10 @@
  * Pure and deterministic.
  */
 
-import { FACTS, resolve } from './facts';
+import { FACTS, HEARSAY, passedOn, resolve } from './facts';
+
+// News passed on (#1661, `hearsay:<topic>`): kept in `asked` as a lie is, so readers find both here.
+export { HEARSAY } from './facts';
 import { SOURCE_HEDGE, type ClaimSource, type Fact, type Lie, type Truth } from './knowledge';
 import { PROPOSITIONS, lieById, propositionOfFact, rumourHopOf, SAW_CONFIDENCE } from './claims';
 import { readError, type Reader } from './rapport';
@@ -36,12 +39,13 @@ import { generator, seedOf } from './rng';
 export const CLAIMED = 'claimed:';
 
 /**
- * Whether a person responded on a topic: told you (`topic` in what they've answered) or lied to you
- * instead (`claimed:<topic>`). A lie reads like any answer, so every reader that asks "did they
- * answer?" of `asked` goes through here rather than a bare `includes(topic)`, which misses lies.
+ * Whether a person responded on a topic: told you (`topic` in what they've answered), lied to you
+ * instead (`claimed:<topic>`), or passed on news about it (`hearsay:<topic>`, #1661). A lie reads
+ * like any answer, so every reader that asks "did they answer?" of `asked` goes through here rather
+ * than a bare `includes(topic)`, which misses lies and news.
  */
 export const respondedOn = (asked: readonly string[] | undefined, topic: string): boolean =>
-  !!asked && (asked.includes(topic) || asked.includes(`${CLAIMED}${topic}`));
+  !!asked && (asked.includes(topic) || asked.includes(`${CLAIMED}${topic}`) || asked.includes(`${HEARSAY}${topic}`));
 
 /** How sure each source sounds, as a confidence the journal weighs claims by. */
 export const SOURCE_CONFIDENCE: Readonly<Record<Exclude<ClaimSource, 'made-up'>, number>> = { saw: SAW_CONFIDENCE, told: 0.6, common: 0.5 };
@@ -148,8 +152,10 @@ export function claimsHeard(asked: Readonly<Record<string, readonly string[]>> |
       if (c) out.push(c);
       continue;
     }
-    const r = resolve(person, key, Infinity, { facts, others: [] });
-    const c = r?.kind === 'told' ? claimOfFact(person, key, r.fact) : null;
+    // News passed on (#1661) is its topic answered with the hearsay; the topic after it, without.
+    const topic = key.startsWith(HEARSAY) ? key.slice(HEARSAY.length) : key;
+    const r = resolve(person, topic, Infinity, { facts, others: [], skipHearsay: topic === key && passedOn(topics, topic) });
+    const c = r?.kind === 'told' ? claimOfFact(person, topic, r.fact) : null;
     if (c) out.push(c);
   }
   return out;

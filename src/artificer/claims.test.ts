@@ -251,7 +251,8 @@ describe('#1580 acceptance', () => {
     });
 
     it('Given the switch off, When Tobin is asked below his trust, Then he says "not yet", as before', () => {
-      const r = askOnRoad(offFord, 'hf-tobin', 'group:compact', 20);
+      // With #1661's keeping off too: on, he keeps the Compact's business and says so (reach-and-secrets.test.ts).
+      const r = askOnRoad({ ...offFord, features: { ...offFord.features, 'reach-and-secrets': false } }, 'hf-tobin', 'group:compact', 20);
       expect(r.log.at(-1)!.text).toMatch(/Ask me again when I know you better/);
       expect(r.asked?.['hf-tobin'] ?? []).toEqual([]);
     });
