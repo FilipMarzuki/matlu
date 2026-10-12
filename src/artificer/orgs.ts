@@ -9,7 +9,7 @@
  *
  * Any kind of organisation fits (the owner's call, #1587): guilds, treaties, goblin bands, cults,
  * secret societies, hunting parties. Its `kind` is plain words the game never branches on: the
- * model reads only its secrecy and ranks (knowledge.ts), so a new kind is new data, not new code.
+ * model reads only its secrecy, ranks and topic (knowledge.ts), so a new kind is new data, not new code.
  * To start, only guilds have ranks, and the Warden can't join one.
  *
  * Here: the registry and its facts (content/organisations.json, every entry a placeholder for the
@@ -28,8 +28,8 @@ import orgsFile from './content/organisations.json';
 export interface RoadOrg extends Org {
   kind: string;
   reliability: Reliability;
-  /** The focus key it's talked about by (`group:compact`), if it has one: what its members' signs are signs of. */
-  topic?: string;
+  // `topic` (the focus key it's talked about by, `group:compact`) is the model's (knowledge.ts `Org`,
+  // #1661): what its members' signs are signs of, and what an insider keeps as its business.
   /** Deeds it remembers (`herald-owes-you`): told to any one member, the whole organisation knows. */
   honours?: readonly string[];
   /** Written by hand for the road, for the owner to review. */

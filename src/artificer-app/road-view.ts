@@ -9,7 +9,7 @@
 
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, journalNow, type RoadState } from '../artificer/road';
-import { CLAIMED, respondedOn, type JournalEntry } from '../artificer/journal';
+import { CLAIMED, HEARSAY, respondedOn, type JournalEntry } from '../artificer/journal';
 import { liesFor } from '../artificer/claims';
 import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
@@ -297,10 +297,12 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
       return lore.kind === 'told' ? `<p class="mood told"><b>${esc(label[0].toUpperCase() + label.slice(1))}</b> — “${esc(lore.answer.text)}”</p>` : '';
     }
     // The run's facts (#1656): with history-in-play on, what they told you of their village's past too.
-    const a = answerFor(p.id, k, playFacts(r));
-    const about = parseFocus(k);
-    const past = pastAbout(k);
-    return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : past ? past[0].toUpperCase() + past.slice(1) : k)}</b> — “${esc(a.text)}”</p>` : '';
+    // News passed on (#1661, `hearsay:<topic>`) is the topic told with it; the topic after it, without.
+    const topic = k.startsWith(HEARSAY) ? k.slice(HEARSAY.length) : k;
+    const a = answerFor(p.id, topic, playFacts(r), topic === k && answered.includes(`${HEARSAY}${topic}`));
+    const about = parseFocus(topic);
+    const past = pastAbout(topic);
+    return a ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : past ? past[0].toUpperCase() + past.slice(1) : topic)}</b> — “${esc(a.text)}”</p>` : '';
   }).join('');
   // What you did in the Reach that means something to them (#1499): one button per deed, greyed once told.
   const tells = tellsFor(p.id, r.deeds).map(t => act(r, `tell:${p.id}:${t.deed}`, `🗣 TELL OF ${esc(t.tell.label.toUpperCase())}`, ASK_HOURS,

@@ -242,17 +242,17 @@ function firstDrift(r: RumourEntry): RumourHop[] {
       if (moves && others.length) where = others[Math.floor(pick * others.length)];
     }
     const source = sourceAt(hop);
-    const text = told(r, hop, source, n, where, r.truth.who);
+    const text = told(r, source, n, where, r.truth.who, r.path[hop - 1]);
     const truth: Truth = n === r.truth.n && where === r.truth.where ? 'true' : 'rumour';
     out.push({ holder, hop, n, where, text, truth, source, confidence: SAW_CONFIDENCE * TOLD_ON ** hop, sensitivity: 'public' });
   });
   return out;
 }
 
-/** A hop's words: the core with its blanks filled, hedged by where the holder got it. */
-function told(r: RumourEntry, hop: number, source: Exclude<ClaimSource, 'made-up'>, n: number, where: string, who: string | undefined): string {
+/** A hop's words: the core with its blanks filled, hedged by where the holder got it (`from`: who told them). */
+function told(r: RumourEntry, source: Exclude<ClaimSource, 'made-up'>, n: number, where: string, who: string | undefined, from: string | undefined): string {
   const core = r.core.replace('{n}', spoken(n)).replace('{where}', where).replace('{who}', who ? named(who) : '');
-  return source === 'saw' ? `I saw it myself: ${core}` : source === 'told' ? `I heard it from ${named(r.path[hop - 1])}: ${core}` : `Everyone's saying it: ${core}`;
+  return source === 'saw' ? `I saw it myself: ${core}` : source === 'told' ? `I heard it from ${named(from ?? '')}: ${core}` : `Everyone's saying it: ${core}`;
 }
 
 // ── How rumours bend (#1589) ────────────────────────────────────────────────
@@ -434,36 +434,61 @@ function swapsFor(trueWho: string, current: string, tellers: readonly string[], 
  * The number never falls, so it never shrinks below the truth.
  */
 function bentDrift(r: RumourEntry, features: FeatureSwitches | undefined): RumourHop[] {
-  const out: RumourHop[] = [];
-  const org = r.leak ? ROAD_ORGS[r.leak] : undefined;
-  let n = r.truth.n, where = r.truth.where, who = r.truth.who, confidence = SAW_CONFIDENCE, outside = false;
+  return bentPath(r, features).map(b => b.hop);
+}
+
+/** How a rumour stands with one holder as it bends: what it says, how sure, and whether it's out of its organisation yet. */
+interface Bent { n: number; where: string; who?: string; confidence: number; outside: boolean }
+
+/** A holder's hop, with how it stands and the chain it came down (the one who saw it first, the holder last). */
+interface BentHop { hop: RumourHop; state: Bent; chain: readonly string[] }
+
+/** `bentDrift`, with each hop's state and chain: what a telling on from any of them starts from (#1661, `reachedDrift`). */
+function bentPath(r: RumourEntry, features: FeatureSwitches | undefined): BentHop[] {
+  const out: BentHop[] = [];
+  let state: Bent = { n: r.truth.n, where: r.truth.where, ...(r.truth.who ? { who: r.truth.who } : {}), confidence: SAW_CONFIDENCE, outside: false };
   r.path.forEach((holder, hop) => {
     let frame: string | undefined;
-    if (hop > 0) {
-      const rand = generator(seedOf(`rumour-drift|${r.id}|${r.path.slice(0, hop).join('>')}`));
-      const telling = tellingOf(PEOPLE[holder]?.culture ?? '');
-      const drift = (carriesFar(holder) ? 2 : 1) * orgDrift(r.path[hop - 1], holder);
-      const grow = rand(), moves = rand(), pick = rand(), swaps = rand(), whom = rand();
-      if (drift > 0) {
-        n += Math.max(1, Math.round(n * grow * DRIFT_GROWTH * drift * telling.growth));
-        const others = r.places.filter(p => p !== where);
-        if (moves < PLACE_SHIFT * drift * telling.shift && others.length) where = others[Math.floor(pick * others.length)];
-        const pool = who && r.truth.who ? swapsFor(r.truth.who, who, r.path.slice(0, hop + 1), features) : [];
-        if (swaps < NAME_SWAP * drift && pool.length) who = pool[Math.floor(whom * pool.length)];
-      }
-      confidence *= telling.toldOn;
-      if (org && !outside && !isMember(holder, org.id)) { confidence *= LEAK_DOUBT; outside = true; }
-      frame = telling.frame;
-    }
-    const source = sourceAt(hop);
-    const words = told(r, hop, source, n, where, who);
-    const truth: Truth = n === r.truth.n && where === r.truth.where && who === r.truth.who ? 'true' : 'rumour';
-    // A secret is the organisation's to keep while it's among members (gated as the organisation
-    // keeps its business, knowledge.ts SECRECY_FLOOR); once out, people are still careful with it.
-    const sensitivity: Sensitivity = !org ? 'public' : outside ? 'guarded' : org.secrecy === 'secret' ? 'secret' : 'guarded';
-    out.push({ holder, hop, n, where, text: frame ? `${words} ${frame}` : words, truth, source, confidence, ...(who ? { who } : {}), sensitivity });
+    if (hop > 0) ({ frame, ...state } = bendOnce(r, state, r.path.slice(0, hop), holder, features));
+    out.push({ hop: hopOf(r, hop, holder, state, frame, r.path[hop - 1]), state, chain: r.path.slice(0, hop + 1) });
   });
   return out;
+}
+
+/**
+ * One telling on (#1589's rule, `bentDrift`): `holder` hears it from the last of `chain` (who had
+ * it as `was`), by the dice of the chain it came down, and bends it their way.
+ */
+function bendOnce(r: RumourEntry, was: Bent, chain: readonly string[], holder: string, features: FeatureSwitches | undefined): Bent & { frame?: string } {
+  const org = r.leak ? ROAD_ORGS[r.leak] : undefined;
+  const from = chain[chain.length - 1];
+  const rand = generator(seedOf(`rumour-drift|${r.id}|${chain.join('>')}`));
+  const telling = tellingOf(PEOPLE[holder]?.culture ?? '');
+  const drift = (carriesFar(holder) ? 2 : 1) * orgDrift(from, holder);
+  const grow = rand(), moves = rand(), pick = rand(), swaps = rand(), whom = rand();
+  let { n, where, who, confidence, outside } = was;
+  if (drift > 0) {
+    n += Math.max(1, Math.round(n * grow * DRIFT_GROWTH * drift * telling.growth));
+    const others = r.places.filter(p => p !== where);
+    if (moves < PLACE_SHIFT * drift * telling.shift && others.length) where = others[Math.floor(pick * others.length)];
+    const pool = who && r.truth.who ? swapsFor(r.truth.who, who, [...chain, holder], features) : [];
+    if (swaps < NAME_SWAP * drift && pool.length) who = pool[Math.floor(whom * pool.length)];
+  }
+  confidence *= telling.toldOn;
+  if (org && !outside && !isMember(holder, org.id)) { confidence *= LEAK_DOUBT; outside = true; }
+  return { n, where, ...(who ? { who } : {}), confidence, outside, ...(telling.frame ? { frame: telling.frame } : {}) };
+}
+
+/** A holder's hop as they'd tell it, from how it stands with them (`from`: who told them). */
+function hopOf(r: RumourEntry, hop: number, holder: string, b: Bent, frame: string | undefined, from: string | undefined): RumourHop {
+  const org = r.leak ? ROAD_ORGS[r.leak] : undefined;
+  const source = sourceAt(hop);
+  const words = told(r, source, b.n, b.where, b.who, from);
+  const truth: Truth = b.n === r.truth.n && b.where === r.truth.where && b.who === r.truth.who ? 'true' : 'rumour';
+  // A secret is the organisation's to keep while it's among members (gated as the organisation
+  // keeps its business, knowledge.ts SECRECY_FLOOR); once out, people are still careful with it.
+  const sensitivity: Sensitivity = !org ? 'public' : b.outside ? 'guarded' : org.secrecy === 'secret' ? 'secret' : 'guarded';
+  return { holder, hop, n: b.n, where: b.where, text: frame ? `${words} ${frame}` : words, truth, source, confidence: b.confidence, ...(b.who ? { who: b.who } : {}), sensitivity };
 }
 
 /**
@@ -483,15 +508,30 @@ export const LEAK_CHANCE: Readonly<Record<'guarded' | 'secret', number>> = { gua
 /** Someone a claim reaches: at which hop, from whom, how, and how sure it is by then. */
 export interface Reached { person: string; hop: number; from: string; carriage: Carriage; confidence: number }
 
+/** The rule switch that puts reach in play (#1661): who a rumour reached knows it, and insiders keep their organisation's secrets. */
+export const REACH_FEATURE = 'reach-and-secrets';
+
+/**
+ * How far a rumour has travelled by the time the Warden comes (#1661): **far** once a weak tie has
+ * carried it between villages (a hop of its path by the road, `carriage`), else **near**, still
+ * close to where it started. Read off the path as written.
+ */
+export const reachKind = (r: RumourEntry): 'near' | 'far' =>
+  (r.path.some((pid, i) => i > 0 && carriage(r.path[i - 1], pid) === 'road') ? 'far' : 'near');
+
 /**
  * Everyone a rumour reaches beyond its path (#1589), nearest first: from each holder, everyone
  * they can pass it to (`carriage`), and on from them, until it's too unsure to bother with
  * (FORGOTTEN_AT). A leaked secret crosses from a member to an outsider only on a leak roll
  * (LEAK_CHANCE, doubled for a member who talks for a living), seeded by the rumour and the two of
- * them. Nothing in play reads it yet: in the game, the path is who holds it.
+ * them. With `reach-and-secrets` on (#1661) a near rumour (`reachKind`) hasn't left home yet:
+ * it passes between neighbours only, never by the road or to fellow members elsewhere, so it
+ * reaches fewer and is told truer; and everyone a rumour reaches knows it in play (`rumourFacts`).
+ * Off, nothing in play reads it: the path is who holds it.
  */
 export function reachOf(r: RumourEntry, features?: FeatureSwitches): Reached[] {
   const hops = driftOf(r, features);
+  const near = featureOn(features, REACH_FEATURE) && reachKind(r) === 'near';
   const org = r.leak ? ROAD_ORGS[r.leak] : undefined;
   const secrecy = org?.secrecy === 'secret' || org?.secrecy === 'guarded' ? org.secrecy : undefined;
   const seen = new Set(hops.map(h => h.holder));
@@ -502,7 +542,7 @@ export function reachOf(r: RumourEntry, features?: FeatureSwitches): Reached[] {
     for (const f of frontier) for (const p of EVERYONE) {
       if (seen.has(p.id)) continue;
       const how = carriage(f.person, p.id);
-      if (!how) continue;
+      if (!how || (near && how !== 'village')) continue;
       let confidence = f.confidence * tellingOf(p.culture).toldOn;
       if (org && secrecy && isMember(f.person, org.id) && !isMember(p.id, org.id)) {
         const chance = LEAK_CHANCE[secrecy] * (carriesFar(f.person) ? 2 : 1);
@@ -519,6 +559,34 @@ export function reachOf(r: RumourEntry, features?: FeatureSwitches): Reached[] {
   return out;
 }
 
+/**
+ * How everyone a rumour reached tells it (#1661), nearest first: each hears it from whoever passed
+ * it on (`reachOf`) and bends it their way, by #1589's rule, rolled on the chain it came down
+ * (`bendOnce`), so someone it could have reached next on its path tells it as they would have
+ * there. The further it's come, the more it's bent. How sure it is, is how sure `reachOf` found it.
+ */
+function reachedDrift(r: RumourEntry, features: FeatureSwitches | undefined): RumourHop[] {
+  const had = new Map<string, BentHop>(bentPath(r, features).map(b => [b.hop.holder, b] as const));
+  return reachOf(r, features).map(x => {
+    const from = had.get(x.from)!;
+    const { frame, ...state } = bendOnce(r, from.state, from.chain, x.person, features);
+    const reached: BentHop = { hop: hopOf(r, x.hop, x.person, { ...state, confidence: x.confidence }, frame, x.from), state: { ...state, confidence: x.confidence }, chain: [...from.chain, x.person] };
+    had.set(x.person, reached);
+    return reached.hop;
+  });
+}
+
+/**
+ * Everyone who knows a rumour, and how they tell it (#1661): its path (`driftOf`), and with
+ * `reach-and-secrets` and `rumour-drift` on, everyone it reached (`reachedDrift`). Off, its path.
+ */
+export const knownBy = (r: RumourEntry, features?: FeatureSwitches): RumourHop[] =>
+  [...driftOf(r, features), ...(reachInPlay(features) ? reachedDrift(r, features) : [])];
+
+/** Whether a run's rumours reach past their paths (#1661): reach is of bent rumours, so it needs `rumour-drift` too. */
+const reachInPlay = (features: FeatureSwitches | undefined): boolean =>
+  featureOn(features, REACH_FEATURE) && featureOn(features, 'rumour-drift');
+
 /** A rumour fact's hop, by the fact itself: which rumour, and how far it's come. Filled as each set of facts is built. */
 const HOPS = new WeakMap<Fact, { rumour: RumourEntry; hop: RumourHop }>();
 
@@ -531,21 +599,32 @@ const rumoursIn = (features: FeatureSwitches | undefined): RumourEntry[] =>
  * (`rumour:<id>:<hop>`), so it's the most specific thing they know about the topic, and carries
  * where they got it (`claimSource`), which is the hedge they say it with. By the run's switches:
  * which rumours, and how they drift (`driftOf`). With none given, #1580's, as it shipped.
+ *
+ * With `reach-and-secrets` on (#1661): everyone a bent rumour reached knows it too
+ * (`rumour:<id>:<hop>:<person>`, `knownBy`) as news heard in passing (knowledge.ts `hearsay`: told
+ * after what they know of their own village, before what everyone says), but nobody repeats a
+ * rumour about themself; and a leaked secret held by a member of its organisation is kept by it
+ * (`keptBy`), as its own business.
  */
 export function rumourFacts(features?: FeatureSwitches): Fact[] {
-  return rumoursIn(features).flatMap(r => driftOf(r, features).map(h => {
-    const fact: Fact = {
-      id: `rumour:${r.id}:${h.hop}`,
-      about: r.about,
-      text: h.text,
-      scope: { kind: 'person' as const, id: h.holder },
-      sensitivity: h.sensitivity,
-      truth: h.truth,
-      claimSource: h.source,
-    };
-    HOPS.set(fact, { rumour: r, hop: h });
-    return fact;
-  }));
+  const keeping = featureOn(features, REACH_FEATURE);
+  return rumoursIn(features).flatMap(r => knownBy(r, features)
+    .filter((h, i) => i < r.path.length || !r.about.includes(`person:${h.holder}`))
+    .map((h, i) => {
+      const fact: Fact = {
+        id: i < r.path.length ? `rumour:${r.id}:${h.hop}` : `rumour:${r.id}:${h.hop}:${h.holder}`,
+        about: r.about,
+        text: h.text,
+        scope: { kind: 'person' as const, id: h.holder },
+        sensitivity: h.sensitivity,
+        truth: h.truth,
+        claimSource: h.source,
+        ...(keeping && r.leak && isMember(h.holder, r.leak) ? { keptBy: r.leak } : {}),
+        ...(i < r.path.length ? {} : { hearsay: true }),
+      };
+      HOPS.set(fact, { rumour: r, hop: h });
+      return fact;
+    }));
 }
 
 const RUMOUR_SETS = new Map<string, readonly Fact[]>();
@@ -553,10 +632,10 @@ const RUMOUR_SETS = new Map<string, readonly Fact[]>();
 /**
  * Which set of rumour facts a run's switches give, as a key: by the switches that change them,
  * `rumour-drift` (which rumours, and how they bend) and, with it on, `humans-on-the-road` (who
- * someone is, so who a name can swap to).
+ * someone is, so who a name can swap to) and `reach-and-secrets` (who else knows them, #1661).
  */
 export const rumourSetKey = (features: FeatureSwitches | undefined): string =>
-  (featureOn(features, 'rumour-drift') ? (featureOn(features, 'humans-on-the-road') ? 'bent+humans' : 'bent') : 'first');
+  (featureOn(features, 'rumour-drift') ? `${featureOn(features, 'humans-on-the-road') ? 'bent+humans' : 'bent'}${featureOn(features, REACH_FEATURE) ? '+reach' : ''}` : 'first');
 
 /** The rumours' facts a run plays with, by its saved switches: each combination built once and kept, so a run's facts are always the same array. */
 export function rumourFactsFor(features: FeatureSwitches | undefined): readonly Fact[] {
@@ -587,8 +666,14 @@ export const PROPOSITIONS: Readonly<Record<string, PropositionEntry>> = Object.f
 ]);
 
 const BY_FACT: ReadonlyMap<string, string> = new Map(Object.values(PROPOSITIONS).flatMap(p => p.facts.map(f => [f, p.id] as const)));
-/** The proposition a fact speaks to, if any. */
-export const propositionOfFact = (factId: string): string | undefined => BY_FACT.get(factId);
+/**
+ * The proposition a fact speaks to, if any. Someone a rumour reached (#1661, `rumour:<id>:<hop>:<person>`)
+ * speaks to the rumour, as its path's holders do.
+ */
+export const propositionOfFact = (factId: string): string | undefined => {
+  const reached = /^rumour:([^:]+):\d+:/.exec(factId)?.[1];
+  return BY_FACT.get(factId) ?? (reached && PROPOSITIONS[reached] ? reached : undefined);
+};
 
 // ── Lies ────────────────────────────────────────────────────────────────────
 

@@ -43,8 +43,17 @@ const ON = ruleFeatures();
 /** Every topic any scope fact answers. */
 const TOPICS_OF_SCOPE = [...new Set(SCOPE_FACTS.flatMap(f => f.about))];
 
-/** The fact `p` tells about `topic` to someone they trust completely, with the scope facts on. */
+/**
+ * The fact `p` tells about `topic` to someone they trust completely, with the scope facts on: what
+ * they know, past any news they'd pass on first. With `reach-and-secrets` (#1661) a rumour that
+ * reached them is what they mention first, and asked again they answer from what they know
+ * (`skipHearsay`; reach-and-secrets.test.ts); `firstToldBy` is what they say first.
+ */
 const toldBy = (p: Person, topic: string): Fact | undefined => {
+  const r = resolve(p.id, topic, Infinity, { facts: ALL_FACTS, skipHearsay: true });
+  return r?.kind === 'told' ? r.fact : undefined;
+};
+const firstToldBy = (p: Person, topic: string): Fact | undefined => {
   const r = resolve(p.id, topic, Infinity, { facts: ALL_FACTS });
   return r?.kind === 'told' ? r.fact : undefined;
 };
@@ -249,7 +258,8 @@ describe('Knowledge slice C: what a village, the road and a trade know (#1610)',
   });
 
   it('has nothing written that no one would ever say', () => {
-    const said = new Set(EVERYONE.flatMap(p => TOPICS_OF_SCOPE.map(t => toldBy(p, t)?.id)));
+    // Said first, or asked again once they've passed on what news reached them (#1661).
+    const said = new Set(EVERYONE.flatMap(p => TOPICS_OF_SCOPE.flatMap(t => [firstToldBy(p, t)?.id, toldBy(p, t)?.id])));
     expect(SCOPE_FACTS.filter(f => !said.has(f.id)).map(f => f.id)).toEqual([]);
   });
 });
@@ -370,7 +380,8 @@ describe('Scope facts with knowledge questions (#1610 with #1611)', () => {
   });
 
   it('scope facts off: the same question isn’t matched, and the topic gets no answer', () => {
-    expect(freeQuestion('hf-maren', 'What does Hollowford live on?', SCOPE_OFF, 30)).toMatchObject({ topic: null, told: false });
+    // Without #1661's reach too: with it, Maren has heard the wolves on the ford road, and that's matched instead.
+    expect(freeQuestion('hf-maren', 'What does Hollowford live on?', { ...SCOPE_OFF, 'reach-and-secrets': false }, 30)).toMatchObject({ topic: null, told: false });
     const r = onTheRoad(SCOPE_OFF);
     const after = runRoadAction({ ...r, trust: { ...r.trust, 'hf-maren': 90 } }, 'question:hf-maren:place:hollowford');
     expect(after.asked?.['hf-maren'] ?? []).not.toContain('place:hollowford');

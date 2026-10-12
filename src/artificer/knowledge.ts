@@ -69,6 +69,21 @@ export interface Fact {
    * (`answer`). Absent, a fact is answered by scope and order alone, as before.
    */
   memorable?: number;
+  /**
+   * The organisation whose business it is, when that isn't its scope (#1661): a secret of theirs
+   * that reached a member another way (a rumour passed among them, claims.ts). Its holder keeps it
+   * as the organisation keeps its own facts (`gateOf`), and standing with it counts (`trustFor`).
+   * Only set on the facts of a run with `reach-and-secrets` on.
+   */
+  keptBy?: string;
+  /**
+   * Heard in passing (#1661): a rumour that reached them from someone on its way (claims.ts
+   * `reachOf`), not one they're on the path of. Their own scope, so only they know it, but it's
+   * news, not what they know for themself: they answer with it after anything of their own, their
+   * organisations', trade's or village's, and before what their People, culture, the region or the
+   * world say (`rank`).
+   */
+  hearsay?: boolean;
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */
@@ -99,6 +114,12 @@ export interface Org {
    * to depth n. Absent, it has no ranks, and every member is rank 1 (so knows its depth-1 facts).
    */
   ranks?: readonly string[];
+  /**
+   * The focus key it's talked about by (`group:compact`), if it has one. With keeping on (#1661,
+   * `answer`'s `keeping`), a member of a guarded or secret organisation keeps what they know about
+   * it as the organisation's business.
+   */
+  topic?: string;
 }
 
 /**
@@ -172,10 +193,14 @@ export function tells(k: Knower, f: Fact, topic: string): boolean {
   return !(topic === `person:${k.id}` && f.scope.kind !== 'person');
 }
 
-/** The trust `f` takes, told by a member of its scope to an outsider. */
+/** The organisation a fact is kept by as its own: its scope's, or the one it's a secret of (`keptBy`, #1661). */
+const keptByOf = (f: Fact): string | undefined => (f.scope.kind === 'org' ? f.scope.id : f.keptBy);
+
+/** The trust `f` takes, told by a member of its scope (or of the organisation it's kept by) to an outsider. */
 export function gateOf(f: Fact, orgs: Readonly<Record<string, Org>>): number {
-  if (f.scope.kind !== 'org') return SENSITIVITY_TRUST[f.sensitivity];
-  const org = orgs[f.scope.id!];
+  const kept = keptByOf(f);
+  if (kept === undefined) return SENSITIVITY_TRUST[f.sensitivity];
+  const org = orgs[kept];
   if (org?.secrecy === 'bound-to-tell') return 0;
   const floor = SENSITIVITY_TRUST[SECRECY_FLOOR[org?.secrecy ?? 'open']];
   return Math.max(SENSITIVITY_TRUST[f.sensitivity], floor);
@@ -199,12 +224,16 @@ export type KnowledgeAnswer =
   | { kind: 'told'; fact: Fact; hedge: string }
   /** What they say instead of what they know. The game knows it's a lie; the player doesn't. */
   | { kind: 'lied'; text: string; why: string; withheld: Fact | null; lie: Lie }
-  /** They know something, and you haven't earned it yet. */
-  | { kind: 'not-yet'; fact: Fact; trust: number }
+  /**
+   * They know something, and you haven't earned it yet. `keptFor` (#1661, only with `keeping`): it's
+   * their organisation's business, and that's what they say.
+   */
+  | { kind: 'not-yet'; fact: Fact; trust: number; keptFor?: string }
   /** They know nothing about it, and maybe who would (transactive memory: groups know who knows what). */
   | { kind: 'unknown'; referral: string | null };
 
-const rank = (f: Fact): number => SPECIFICITY.indexOf(f.scope.kind);
+/** How specific a fact is, for the sort: its scope's place in SPECIFICITY; hearsay (#1661) just after the village's. */
+const rank = (f: Fact): number => (f.hearsay ? SPECIFICITY.indexOf('village') + 0.5 : SPECIFICITY.indexOf(f.scope.kind));
 
 /**
  * The Warden's standing with each organisation (#1587), by org id: trust that counts with every
@@ -213,18 +242,45 @@ const rank = (f: Fact): number => SPECIFICITY.indexOf(f.scope.kind);
  */
 export type Standing = Readonly<Record<string, number>>;
 
-/** The trust brought to `f`: your trust in the person, plus your standing with its organisation if it's an organisation's fact. */
-export const trustFor = (f: Fact, trust: number, standing: Standing): number =>
-  f.scope.kind === 'org' ? trust + (standing[f.scope.id!] ?? 0) : trust;
+/** The trust brought to `f`: your trust in the person, plus your standing with its organisation if it's an organisation's fact (or one of its secrets, `keptBy`). */
+export const trustFor = (f: Fact, trust: number, standing: Standing): number => {
+  const kept = keptByOf(f);
+  return kept !== undefined ? trust + (standing[kept] ?? 0) : trust;
+};
+
+/**
+ * Insiders keeping their organisation's business (#1661), as the caller passes it: given, a member
+ * of a guarded or secret organisation keeps what they know of its business (`keeperOf`) from an
+ * outsider, and says so when they won't tell; `memberOf` are the organisations the Warden belongs to,
+ * whose members tell them. Not given, nobody keeps anything beyond the gates, as before.
+ */
+export interface Keeping { memberOf?: readonly string[] }
+
+/**
+ * The organisation `k` keeps `f` for, if any (#1661): one of theirs that keeps its business from
+ * outsiders (guarded or secret, never open or bound to tell), whose business `f` is: its own fact,
+ * a secret of it (`keptBy`), or anything about what it's talked about by (its `topic`). Whoever
+ * isn't a member (one who heard it through gossip) keeps nothing for it.
+ */
+export function keeperOf(k: Knower, f: Fact, orgs: Readonly<Record<string, Org>>): string | undefined {
+  const kept = keptByOf(f);
+  return Object.keys(k.orgs).find(id => {
+    const org = orgs[id];
+    if (org?.secrecy !== 'secret' && org?.secrecy !== 'guarded') return false;
+    return id === kept || (org.topic !== undefined && f.about.includes(org.topic));
+  });
+}
 
 /**
  * What `k` answers about `topic`, given your trust. Lies come first: a person who'd rather not say
  * says something else. Then the most specific fact they know (ties: the order the facts are in;
  * if it's a story from memory, `memorable`, the most memorable story they know about the topic),
  * if trust opens it (with your `standing` added, for an organisation's fact); else not yet; else
- * who'd know: the person among `others` holding the most specific fact about it.
+ * who'd know: the person among `others` holding the most specific fact about it. With `keeping`
+ * (#1661), an insider keeps their organisation's business (`keeperOf`): they tell a member, else
+ * it opens at its gate with your standing with the organisation added, and a "not yet" names it.
  */
-export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = [], standing: Standing = {}): KnowledgeAnswer {
+export function answer(k: Knower, topic: string, trust: number, facts: readonly Fact[], orgs: Readonly<Record<string, Org>>, others: readonly Knower[] = [], standing: Standing = {}, keeping?: Keeping): KnowledgeAnswer {
   const known = facts.filter(f => tells(k, f, topic)).sort((a, b) => rank(a) - rank(b));
   const lie = k.lies?.find(l => l.about === topic && trust < l.until);
   if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null, lie };
@@ -233,7 +289,13 @@ export function answer(k: Knower, topic: string, trust: number, facts: readonly 
   const best = known[0]?.memorable === undefined ? known[0] : known.reduce((m, f) => ((f.memorable ?? -Infinity) > m.memorable! ? f : m), known[0]);
   if (best) {
     const gate = gateOf(best, orgs);
-    return trustFor(best, trust, standing) >= gate ? { kind: 'told', fact: best, hedge: hedgeOf(best) } : { kind: 'not-yet', fact: best, trust: gate };
+    const told: KnowledgeAnswer = { kind: 'told', fact: best, hedge: hedgeOf(best) };
+    // Keeping (#1661): an insider tells a fellow member their organisation's business, and to anyone
+    // else it opens as its gate says, with standing with the organisation counting toward it.
+    const keeper = keeping ? keeperOf(k, best, orgs) : undefined;
+    if (keeper === undefined) return trustFor(best, trust, standing) >= gate ? told : { kind: 'not-yet', fact: best, trust: gate };
+    if (keeping?.memberOf?.includes(keeper)) return told;
+    return trust + (standing[keeper] ?? 0) >= gate ? told : { kind: 'not-yet', fact: best, trust: gate, keptFor: keeper };
   }
   // Who would know: someone else holding a fact about it, the most specific first; the world's
   // common knowledge sends you to no one in particular.

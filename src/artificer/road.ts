@@ -29,7 +29,7 @@ import { playFacts } from './history-in-play';
 import { honouringOrgs, membersOf, standingFrom } from './orgs';
 import { helpedBy, tieWord, HELP_FEATURE } from './ties';
 import { deedEffects, returnVisit, type HelpDeed } from './help';
-import type { Standing } from './knowledge';
+import type { Keeping, Standing } from './knowledge';
 import { answerQuestion, questionAbout } from './knowledge-questions';
 import { featureOn } from './features';
 import { arrivalLines, localMarket } from './economy';
@@ -50,8 +50,8 @@ import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, r
 import { streamFor } from './rng';
 import { seedOf } from './talents';
 import { momentOfTruth, readerOf, readingLeft, SECRET_GATE } from './rapport';
-import { liesFor, PROPOSITIONS } from './claims';
-import { claimsHeard, journalOf, readsAsLie, CLAIMED, type HeardClaim, type JournalEntry } from './journal';
+import { liesFor, PROPOSITIONS, REACH_FEATURE } from './claims';
+import { claimsHeard, journalOf, readsAsLie, CLAIMED, HEARSAY, type HeardClaim, type JournalEntry } from './journal';
 import { caughtOut, caughtWord, friendsWhoHear, guardOf, lieAbout, CAUGHT, CAUGHT_TRUST } from './caught-lies';
 
 // ── The route ───────────────────────────────────────────────────────────────
@@ -760,13 +760,14 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // read from this run's saved switches, never a global. So is its villages' history (#1656,
   // `playFacts`): the run's facts are `factsFor`'s, with the history after them if its switch is on.
   // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
-  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next) });
+  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
   // Asked again after a lie, with what you've heard otherwise in hand, they answer for it (#1660).
   if (r.kind === 'again' && confront(next, person, key, focusInline(f))) return next;
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
   spendTalk(next, ASK_HOURS);
   const before = heardSoFar(next);
-  if (r.kind === 'told') heardAnswer(next, pid, key, r.answer);
+  // News heard in passing (#1661) is kept as `hearsay:<topic>`, so asked again they answer from what they know.
+  if (r.kind === 'told') heardAnswer(next, pid, r.hearsay ? `${HEARSAY}${key}` : key, r.answer);
   if (r.kind === 'lied') heardLie(next, pid, key, r.lie.text);
   say(next, weighClaim(next, pid, r.line, own, before), 'action');
   flagClash(next, pid, before);
@@ -825,6 +826,15 @@ function confront(next: RoadState, person: Person, key: string, about: string): 
  */
 function standingOf(s: RoadState): { standing?: Standing } {
   return featureOn(s.features, 'organisations') ? { standing: standingFrom(s.asked) } : {};
+}
+
+/**
+ * Insiders keeping their organisations' business (#1661, knowledge.ts `Keeping`), as options for an
+ * ask: only with the run's `reach-and-secrets` switch on. The Warden belongs to no organisation yet
+ * (orgs.ts: they can't join one), so no member is told one's business for being one.
+ */
+function keepingOf(s: RoadState): { keeping?: Keeping } {
+  return featureOn(s.features, REACH_FEATURE) ? { keeping: { memberOf: [] } } : {};
 }
 
 /** An hour or so of talk: a little Clarity, and Charisma exercised (#1257). */
@@ -973,9 +983,9 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
   // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
-  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next) });
+  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
   const before = heardSoFar(next);
-  if (r.kind === 'told' && !r.again) heardAnswer(next, pid, topic, r.answer);
+  if (r.kind === 'told' && !r.again) heardAnswer(next, pid, r.hearsay ? `${HEARSAY}${topic}` : topic, r.answer);
   if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);
   say(next, weighClaim(next, pid, r.line, own, before), 'action');
   flagClash(next, pid, before);

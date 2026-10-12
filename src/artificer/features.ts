@@ -153,6 +153,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'action-length', name: 'Choose how long', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1668,
     note: 'Gathering food, wood, stone, water or fish can take as long as you choose (1–4 hours, the rest of the day, or until you have enough), played as trips out and back: carrying and the walk decide how many fit, and deadfall, berries and a fishing spot thin as you work them and come back over the days.',
   },
+  {
+    // A rules feature: it changes who can tell you a rumour (everyone it reached, claims.ts
+    // `reachOf`, not only its path) and how an organisation's member answers about its business (they
+    // deflect, naming it; standing with it counts), so a run from before it (absent: false) keeps
+    // today's answers on replay. Its rumours are bent ones, so that half needs `rumour-drift` too.
+    id: 'reach-and-secrets', name: 'Who knows a rumour, and who keeps a secret', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1661,
+    note: 'A rumour that has travelled the road is known by more of its people, and arrives more bent; one close to its source is known by fewer, and told truer. A member of a secretive organisation keeps its business from outsiders until they trust you enough, though what leaked through gossip is anyone\'s to tell.',
+  },
 ];
 
 /** Switches by feature id. */
