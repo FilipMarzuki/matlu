@@ -121,6 +121,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'history-in-play', name: 'People tell their history', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1656,
     note: 'Ask the people of a road village about their past (who holds the place, the old plague, the famine, the wars, what happened here) and they answer from what their village and its country remember: the long-lived may have seen it, the short-lived tell it as it reached them.',
   },
+  {
+    // A rules feature: it changes trust (coming back to a shop, a fair purchase, help that reaches
+    // someone's kin and friends and cools their rival) and what people say of each other (grudges),
+    // so a run from before it (absent: false) keeps today's trust and answers on replay. What it does
+    // along ties needs `ties` on too.
+    id: 'grudges-and-help', name: 'Grudges, and what helping does', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1659,
+    note: 'Some people hold a grudge, and it colours what they say of the other, sometimes unfairly. Help warms people: coming back to their shop day after day, a fair trade, a job done for them or for their kin. Help someone and their rival, or whoever holds a grudge against them, cools towards you.',
+  },
 ];
 
 /** Switches by feature id. */
