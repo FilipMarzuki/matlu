@@ -84,6 +84,16 @@ export type Motive =
   | { kind: 'fear' }
   | { kind: 'pride' };
 
+/**
+ * Why a lie was told, as what catching it costs (#1660, the owner's answers of 2026-10-12):
+ * - **protective**: covering for someone (Sabine for Orrin). Caught, they come clean and say why.
+ * - **loyal**: keeping a group's business (Tobin for the Compact). Caught, the same.
+ * - **greedy**: lying for gain (Hedda on salt). Caught, their trust drops, they guard their other
+ *   secrets more, and their friends hear of it (caught-lies.ts).
+ * `motive` is what the data grounds the lie in; `reason` is how the liar feels about having told it.
+ */
+export type LieReason = 'protective' | 'loyal' | 'greedy';
+
 /** A lie as written: who says it, about what, the words, how sure they make it sound, and why. */
 export interface LieEntry {
   id: string;
@@ -100,6 +110,10 @@ export interface LieEntry {
   text: string;
   /** Why, in words: what the game knows and the player never reads. */
   why: string;
+  /** What catching it costs (#1660, `caught-lies`). */
+  reason: LieReason;
+  /** What they say when the Warden shows they know (#1660): why, coming clean; or all they'll say, for a greedy lie. */
+  caught: string;
   placeholder?: boolean;
   source: string;
 }

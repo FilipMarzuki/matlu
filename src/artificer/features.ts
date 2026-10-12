@@ -137,6 +137,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'grudges-and-help', name: 'Grudges, and what helping does', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1659,
     note: 'Some people hold a grudge, and it colours what they say of the other, sometimes unfairly. Help warms people: coming back to their shop day after day, a fair trade, a job done for them or for their kin. Help someone and their rival, or whoever holds a grudge against them, cools towards you.',
   },
+  {
+    // A rules feature: it changes what asking a liar again does once you've heard otherwise (they
+    // come clean, or trust drops and their friends hear of it), so a run from before it (absent:
+    // false) keeps a caught liar sticking to their story on replay. It acts on lies, so it does
+    // nothing without `rumours-and-lies`.
+    id: 'caught-lies', name: 'What a caught lie costs', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1660,
+    note: 'Heard otherwise and asked again, a liar answers for it as their reason was: one who covered for a friend or kept their people\'s business comes clean and says why; one who lied for gain trusts you less, guards their secrets more, and their friends hear of it.',
+  },
 ];
 
 /** Switches by feature id. */
