@@ -53,7 +53,7 @@ describe('Packing for the hike (#1401)', () => {
   it('shows the AI the whole list and checks its reply', () => {
     const msg = observePack(newGame().sim);
     expect(msg).toMatch(/^PACKING — Friday afternoon/);
-    for (const k of KIT) expect(msg).toContain(`- ${k.id} (${k.weight} kg): ${k.name} — ${k.effect}`);
+    for (const k of KIT) expect(msg).toContain(`- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`);
     expect(msg).toContain(`Your pack holds ${PACK_CAPACITY} kg`);
     expect(msg).toMatch(/"pack": \["<item id>", \.\.\.\]/);
     expect(parsePackDecision('{"thoughts":"light","pack":["tarp","kasa"]}')).toEqual({ ok: true, decision: { thoughts: 'light', pack: ['tarp', 'kasa'] } });
