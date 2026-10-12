@@ -31,6 +31,7 @@ import { playFacts } from '../artificer/history-in-play';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
 import { respondedOn } from '../artificer/journal';
+import { chosenLength, lengthRefusal } from '../artificer/action-length';
 import { GAME_VERSION } from './version';
 
 /** The session format's version (version.ts): a stored game from another version doesn't load. */
@@ -45,7 +46,10 @@ export interface Game {
 /**
  * A move, as plain data so it travels over HTTP and MCP unchanged:
  * - `{ do }` one action now: a Reach action (`"scout"`, `"gather@2"`, or `{ q, opts }` for one
- *   with options), or on the road a road action (`"rest"`, `"talk:hf-maren"`).
+ *   with options), or on the road a road action (`"rest"`, `"talk:hf-maren"`). A gathering action
+ *   can take a length (#1668, `action-length`): `{ q: "wood@2", hours: 3 }` or `{ q: "wood", until: 10 }`
+ *   (`hours` 1–14 or "day", walks included; `until`: until the stores hold that many). Without
+ *   one it takes its usual length.
  * - `{ endDay }` end the day: the night passes.
  * - `{ plan }` a whole day's actions in one go, once the Warden has learned to plan.
  * - `{ choose }` an option in an encounter or the caravan meeting.
@@ -203,19 +207,21 @@ export function apply(g: Game, move: Move): ApplyResult {
     // The Reach, between encounters.
     if ('endDay' in move) next = endTheDay(before);
     else if ('do' in move) {
-      const why = actionRefusal(before.sim, move.do);
+      const item = actionItem(move.do);
+      const why = actionRefusal(before.sim, item);
       if (why) return refuse(why);
-      next = act(before, move.do as QueueItem);
+      next = act(before, item as QueueItem);
     } else if ('plan' in move) {
       const locked = queueLocked(before);
       if (locked) return refuse(`${locked} Do one thing at a time with { do }.`);
       // Only that each planned action exists: what's possible changes as the day goes (scouting a
       // ring opens it for the next action), and the sim skips anything impossible with a journal note.
-      for (const item of move.plan) {
+      const plan = move.plan.map(actionItem);
+      for (const item of plan) {
         const why = actionRefusal(before.sim, item, { syntaxOnly: true });
         if (why) return refuse(`In the plan: ${why}`);
       }
-      next = runQueuedDay({ ...before, queue: move.plan as QueueItem[] });
+      next = runQueuedDay({ ...before, queue: plan as QueueItem[] });
     } else return refuse('Nothing needs an answer now: do an action, end the day, or plan the day.');
   }
 
@@ -284,6 +290,19 @@ function changes(before: AppState, after: AppState): string[] {
  * Why a Reach action can't be done now, or null. Same checks and words the observation uses.
  * `syntaxOnly` checks just that the action and ring exist (for a plan, which runs later).
  */
+/**
+ * A Reach action as sent, with a length (#1668) folded into its options: `{ q, hours, until }`
+ * becomes `{ q, opts: { hours, until } }`, which is how the queue and the sim hold it. Anything
+ * else is passed on as it came.
+ */
+export function actionItem(item: unknown): unknown {
+  if (!item || typeof item !== 'object' || !('q' in item)) return item;
+  const { q, hours, until, opts } = item as { q: unknown; hours?: unknown; until?: unknown; opts?: unknown };
+  if (hours === undefined && until === undefined) return item;
+  const base = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts as Record<string, unknown> : {};
+  return { q, opts: { ...base, ...(hours !== undefined ? { hours: String(hours) } : {}), ...(until !== undefined ? { until: String(until) } : {}) } };
+}
+
 function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: boolean } = {}): string | null {
   const q = typeof item === 'string' ? item : item && typeof item === 'object' && 'q' in item ? String((item as { q: unknown }).q) : '';
   const [id, ringText] = q.split('@');
@@ -291,9 +310,13 @@ function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: bool
   const def = ACTIONS[id as ActionId];
   const ring = (ringText === undefined ? 1 : Number(ringText)) as Ring;
   if (!RINGS.includes(ring) || (ring !== 1 && !def.ringed)) return `"${q}" isn't a valid ring for ${id}${def.ringed ? ' (rings are 1, 2 and 3)' : ': it isn\'t done out on the land'}.`;
+  const itemOpts = typeof item === 'object' && item && 'opts' in item ? (item as { opts: Record<string, string> }).opts : {};
+  // A length (#1668): only for gathering, only well-formed, and only in a game with the switch on.
+  const badLength = lengthRefusal(id, itemOpts);
+  if (badLength) return `Can't set a length on ${id}: ${badLength}.`;
+  if (chosenLength(itemOpts) && !featureOn(s.config.world.features, 'action-length')) return 'Action lengths are off in this game: leave out hours and until.';
   if (opts.syntaxOnly) return null;
   if (def.ringed && !reachable(s.explore, ring)) return `You don't know the way to ring ${ring} yet: scout the ring before it first.`;
-  const itemOpts = typeof item === 'object' && item && 'opts' in item ? (item as { opts: Record<string, string> }).opts : {};
   const blocked = blockedReason(s, id as ActionId, ring, itemOpts);
   if (blocked) return `Can't ${id}${def.ringed ? ` in ring ${ring}` : ''} now: ${blocked}.`;
   if (s.hoursToday >= DAY_HOURS) return 'The day is spent. End the day.';

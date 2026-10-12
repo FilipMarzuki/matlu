@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
+import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, sessionNote, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
 import type { HelpDeed } from '../artificer/help';
@@ -20,7 +20,8 @@ import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
-import { ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { validPatches } from '../artificer/action-length';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
@@ -324,6 +325,8 @@ export interface QueuePreview {
   unease: ({ state: 'shaken' | 'panicked'; reasons: string[] } | null)[];
   /** What each ringed trip would bring home and how heavy it is to carry (#1296); null for camp work. */
   loads: (TripLoad | null)[];
+  /** A session of chosen length (#1668): its plan in words ("3 trips, about 14 firewood, the deadfall is getting thin"); null for a usual trip. */
+  plans: (string | null)[];
   /** A danger the Warden can see coming (a blizzard, with Intelligence 12+, #1315) — or null. The action still runs. */
   dangers: (string | null)[];
   /** Work that could make a serious, untreated injury worse (#1395) — or null. */
@@ -344,13 +347,19 @@ export function previewQueue(a: AppState): QueuePreview {
   const dangers: (string | null)[] = [];
   const strains: (string | null)[] = [];
   const loads: (TripLoad | null)[] = [];
+  const plans: (string | null)[] = [];
   const unease: QueuePreview['unease'] = [];
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
   const before: Region1State[] = [];
   for (const item of a.queue) {
-    if (hours >= DAY_HOURS) { day += 1; hours = 0; }
+    if (hours >= DAY_HOURS) {
+      day += 1; hours = 0;
+      // With chosen lengths (#1668), "the rest of the day" means tomorrow's whole day for an entry that
+      // spills over, so the projection starts the new day's clock again (the nights still aren't run).
+      if (featureOn(projected.config.world.features, 'action-length')) projected = { ...projected, hoursToday: 0 };
+    }
     dayOffset.push(day);
     before.push(projected);
     const { id, ring, opts } = parseItem(item);
@@ -363,6 +372,8 @@ export function previewQueue(a: AppState): QueuePreview {
     strains.push(reason ? null : riskFor(projected.injuries, id, ring, craft, skillLevel(projected.skills, 'firstaid')));
     // What the trip would bring home, and how heavy it is to carry (#1296).
     loads.push(reason ? null : tripLoad(projected, item));
+    // How a session of chosen length will go (#1668): its trips, what it brings in, what thins.
+    plans.push(reason ? null : sessionNote(projected, item));
     // How it will feel out there at that hour (#1364): the dark, the weather, the distance.
     const u = reason ? null : tripUnease(projected, item);
     unease.push(u && u.state !== 'calm' ? { state: u.state, reasons: u.reasons } : null);
@@ -370,7 +381,7 @@ export function previewQueue(a: AppState): QueuePreview {
     if (!reason) hours += queueHours(item, projected);
     projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, dangers, strains, unease, loads, projected, before };
+  return { dayOffset, warnings, dangers, strains, unease, loads, plans, projected, before };
 }
 
 /**
@@ -585,5 +596,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
   // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.
   const injuries = Array.isArray(sim.injuries) ? (sim.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : [];
-  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Worked patches (#1668): written only by a session of chosen length; kept if well-formed, else
+  // dropped — a dropped set reads as every patch fresh, which is how a save from before it plays.
+  const patches = validPatches(sim.patches) && Object.keys(sim.patches).length ? { ...sim.patches } : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

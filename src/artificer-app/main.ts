@@ -815,10 +815,11 @@ function queueBlock(a: AppState, preview: Preview): string {
     const d = preview.dayOffset[i];
     const why = preview.warnings[i];
     // Options are judged against the state this entry would run in (after the ones before it).
-    const groups = ACTIONS[id].options?.(preview.before[i], opts) ?? [];
+    const groups = ACTIONS[id].options?.(preview.before[i], opts, ring) ?? [];
     const needsChoice = groups.some(g => g.value === null);
     const open = groups.length > 0 && (expanded.has(i) || needsChoice);
-    const chosen = groups.map(g => g.choices.find(c => c.value === g.value)?.label).filter(Boolean).join(' · ');
+    // A length left at its usual (#1668) isn't worth a label on the row.
+    const chosen = groups.map(g => g.choices.find(c => c.value === g.value && c.value !== 'usual' && c.value !== 'none')?.label).filter(Boolean).join(' · ');
     const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="Options">${open ? '▾' : '▸'}</button>` : '';
     const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(g.label.toUpperCase())}</span><div class="optchoices">${g.choices.map(c =>
       `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(c.blocked ?? c.note)}">`
@@ -829,6 +830,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
       // What a remembered place does for this trip (#1380).
       + (!why && ACTIONS[id].ringed && tripPinNote(preview.before[i].pins, id, ring) ? `<span class="why pinnote">${esc(tripPinNote(preview.before[i].pins, id, ring)!)}</span>` : '')
+      // A session of chosen length (#1668): its plan — trips, the haul, what's thinning.
+      + (preview.plans[i] ? `<span class="why plan">${esc(preview.plans[i]!)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
       // Work that could make an injury worse (#1395).
       + (preview.strains[i] ? `<span class="why strain" title="A serious, untreated injury: heavy work (or crafting, for a hand) has a 15% chance to make it grave. Treat it first.">${esc(preview.strains[i]!)}</span>` : '')

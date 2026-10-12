@@ -44,6 +44,8 @@ import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
+import { featureOn } from './features';
+import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -224,6 +226,12 @@ export interface Region1State {
   strain?: number;
   /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */
   coldPitAt?: SiteId | null;
+  /**
+   * How worked each patch is (#1668, `action-length`): deadfall, berries, a fishing spot… by
+   * `${ring}:${patch}`, 0..1. Written only by a session of chosen length, so only with the switch
+   * on; a patch back to full is dropped. Absent: every patch untouched.
+   */
+  patches?: Patches;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -567,15 +575,16 @@ interface ActionDef {
   clarityRate: number;
   /** Why the action can't be done right now (in this ring, with these choices), or null if it can. */
   gate?: (s: Region1State, ring: Ring, opts: ActionOpts) => string | null;
-  /** Decisions this action offers, given the state it would run in and what's chosen so far. */
-  options?: (s: Region1State, opts: ActionOpts) => OptionGroup[];
+  /** Decisions this action offers, given the state it would run in and what's chosen so far (and the ring, when known). */
+  options?: (s: Region1State, opts: ActionOpts, ring?: Ring) => OptionGroup[];
   /**
    * Apply the effect to (an already-cloned) state; return the journal line.
    * `bonus` is the extra yield your tools give this action; `light` is the
    * average light the work had (#1281, 1 by day — darkness costs haul and sight).
    */
   /** `luck`: the trip's haul multiplier from its luck band (#1314) — 1 for an ordinary trip, and for work that isn't a haul. */
-  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts, light: number, luck: number) => string;
+  /** `sc` (#1668): how many usual trips' worth a session of chosen length adds up to — per patch for the yield, overall for the land. */
+  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts, light: number, luck: number, sc: RunScale) => string;
   /** How the chosen options change the work itself (hours and per-hour pulls). */
   variant?: (opts: ActionOpts, s?: Region1State, ring?: Ring) => { hours?: number; vigorRate?: number; clarityRate?: number };
   /** Happens out on the land: can target a ring, and pays its travel time. */
@@ -609,8 +618,8 @@ const dimNote = (light: number): string => (light < 1 ? (light < 0.5 ? ' Most of
  * Work a domain on (an already-cloned) state: it teaches you the ground and
  * draws down its supply (#1304). Returns a journal suffix for any find.
  */
-function workLand(s: Region1State, ring: Ring, d: Domain): string {
-  const w = work(s.explore, ring, d);
+function workLand(s: Region1State, ring: Ring, d: Domain, amount = 1): string {
+  const w = work(s.explore, ring, d, amount);
   s.explore = w.exploration;
   const f = w.found ? FINDS[w.found] : undefined;
   return f ? ` You know this ground well now — found a ${f.name.toLowerCase()} (${f.note}).` : '';
@@ -623,6 +632,13 @@ function workLand(s: Region1State, ring: Ring, d: Domain): string {
  */
 const haul = (s: Region1State, ring: Ring, d: Domain, raw: number, luck = 1): number =>
   (luck === 0 ? 0 : Math.max(1, Math.round(raw * supplyFactor(s.explore, ring, d) * luck)));
+/**
+ * How much a stretch of land work adds up to (#1668): `yieldOf(patch)` multiplies the haul from
+ * that patch, `amount` the land's draw and what the work teaches. A usual trip is one of each.
+ */
+export interface RunScale { yieldOf: (p: PatchId) => number; amount: number }
+const ONE_TRIP: RunScale = { yieldOf: () => 1, amount: 1 };
+
 /** What an ordinary day of ice fishing brings in, near camp (#1315). */
 export const FISH_CATCH = 3;
 /** +2 from a find already made here. */
@@ -768,6 +784,46 @@ const coldGearRecipe = (o: ActionOpts): CraftRecipe => (o.material === 'hide' ? 
 /** An option group, offered only when it's a real choice. */
 const choiceGroup = (key: string, label: string, value: string, choices: OptionChoice[]): OptionGroup => ({ key, label, value, choices });
 
+/** Hours to one decimal, for notes. */
+const hrs1 = (h: number): string => String(Math.round(h * 10) / 10);
+/** A store in the words the journal uses. */
+const STORE_WORD: Readonly<Record<keyof Stores, string>> = { rawFood: 'food', water: 'water', firewood: 'firewood', materials: 'materials', rations: 'rations', stone: 'stone', hides: 'hides' };
+
+/**
+ * The length choices of an open-ended gathering action (#1668): how long (the usual trip, 1-4
+ * hours walks included, or the rest of the day) and "until you have N" of its main store. None
+ * with the `action-length` switch off, so the action offers what it always did: nothing.
+ */
+function lengthOptions(id: LengthAction): (s: Region1State, opts: ActionOpts, ring?: Ring) => OptionGroup[] {
+  return (s, o, at) => {
+    if (!featureOn(s.config.world.features, 'action-length')) return [];
+    // Without a ring (the AI's list of actions), the notes speak for any ring.
+    const ring = at ?? 1;
+    const { work, travel } = actionHours(s, id, ring, {});
+    const rest = Math.max(0, DAY_HOURS - s.hoursToday);
+    const store = MAIN[id].store, word = STORE_WORD[store];
+    const timed = o.hours !== undefined && o.hours !== 'usual';
+    return [
+      choiceGroup('hours', 'Length', o.hours ?? 'usual', [
+        { value: 'usual', label: at === undefined ? 'Usual' : `Usual (${hrs1(work + travel)}h)`, note: 'one trip, as always', blocked: null },
+        ...HOUR_CHOICES.filter(h => h !== 'day').map(h => ({
+          value: h, label: `${h}h`, blocked: null,
+          note: at === undefined ? `${h}h, walks included: trips out and back, as many as the time and your load allow`
+            : travel > 0 ? `${h}h walks included, ${hrs1(travel)}h there and back each trip` : `${h}h of work, as many trips as it takes to carry`,
+        })),
+        { value: 'day', label: 'Rest of day', note: `${hrs1(rest)}h left today`, blocked: null },
+      ]),
+      choiceGroup('until', 'Until you have', o.until ?? 'none', [
+        { value: 'none', label: 'No target', note: 'stop when the time is up', blocked: null },
+        ...UNTIL_CHOICES.map(n => ({
+          value: n, label: `${n} ${word}`, note: `stop at ${n} ${word}, or when the ${timed ? 'time is up' : 'day ends'}`,
+          blocked: s.stores[store] >= Number(n) ? `you have ${s.stores[store]} already` : null,
+        })),
+      ]),
+    ];
+  };
+}
+
 /** View a Region 1 state as a crafter: stores are the inventory, the shelter is the bench. */
 function crafterOf(s: Region1State): CrafterState {
   return createCrafter(s.vitals, {
@@ -906,13 +962,13 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: (s, _b, r) => { s.explore = track(s.explore, r); return `Tracked a deer herd${where(r)} — you can hunt there.`; },
   },
   gather: {
-    name: 'Gather food', hours: 5, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r, _o, light, luck) => {
+    name: 'Gather food', hours: 5, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach, options: lengthOptions('gather'),
+    run: (s, b, r, _o, light, luck, sc) => {
       const blind = level(s.explore, r, 'forage') === 0;
       // In poor light you miss most of what's there (#1281).
       // …and snow cover buries what's left (#1306): deep snow, almost nothing to find.
-      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b, luck), darkYieldMult('gather', light) * snowBuries(s));
-      const note = workLand(s, r, 'forage');
+      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b, luck * sc.yieldOf('berries')), darkYieldMult('gather', light) * snowBuries(s));
+      const note = workLand(s, r, 'forage', sc.amount);
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
       return `${blind ? 'Wandered, not knowing where to look — gathered' : 'Gathered'} ${n} raw food${fiber ? ` and ${fiber} fiber` : ''}${where(r)}.${note}${dimNote(light)}`;
@@ -946,23 +1002,27 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: (s, r) => reach(s, r) ?? (melting(s) && s.stores.firewood < MELT_FIREWOOD ? 'the streams are frozen hard, and there is no firewood to melt snow' : null),
     // Once the streams ice over you break through to the water first (#1283); frozen hard, you melt snow instead (#1303).
     variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day, s.config.calendar) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
-    run: (s, b, r, _o, _light, luck) => {
-      const n = haul(s, r, 'water', landYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water'), luck);
-      const note = workLand(s, r, 'water');
+    options: lengthOptions('water'),
+    run: (s, b, r, _o, _light, luck, sc) => {
+      const n = haul(s, r, 'water', landYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water'), luck * sc.yieldOf('spring'));
+      const note = workLand(s, r, 'water', sc.amount);
       const melt = melting(s);
-      if (melt) s.stores.firewood -= MELT_FIREWOOD;
+      // A longer session (#1668) melts more snow, and burns wood in proportion — as far as the woodpile goes.
+      const burn = sc.amount === 1 ? MELT_FIREWOOD : Math.min(s.stores.firewood, Math.max(MELT_FIREWOOD, Math.round(MELT_FIREWOOD * sc.amount)));
+      if (melt) s.stores.firewood -= burn;
       s.stores.water += n; s.flags.everWater = true;
-      return melt ? `Melted ${n} water from snow${where(r)} (${MELT_FIREWOOD} firewood).${note}` : `Fetched ${n} water${where(r)}.${note}`;
+      return melt ? `Melted ${n} water from snow${where(r)} (${burn} firewood).${note}` : `Fetched ${n} water${where(r)}.${note}`;
     },
   },
   wood: {
-    name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, ringed: true, gate: reach,
+    name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, ringed: true, gate: reach, options: lengthOptions('wood'),
     // `b` (skill, tools, focus, techniques) adds to the firewood — it used to be ignored here (#1243).
-    run: (s, b, r, _o, light, luck) => {
+    // Firewood is the deadfall and materials the standing timber (#1668): on a long session the sticks run out first.
+    run: (s, b, r, _o, light, luck, sc) => {
       const dim = darkYieldMult('wood', light);
-      const f = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b, luck), dim);
-      const m = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 2, 1), luck), dim);
-      const note = workLand(s, r, 'timber');
+      const f = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b, luck * sc.yieldOf('deadfall')), dim);
+      const m = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 2, 1), luck * sc.yieldOf('timber')), dim);
+      const note = workLand(s, r, 'timber', sc.amount);
       s.stores.firewood += f; s.stores.materials += m; s.flags.everWood = true;
       return `Cut ${f} firewood and ${m} materials${where(r)}.${note}${dimNote(light)}`;
     },
@@ -972,17 +1032,19 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     // Once the lake ice is thick enough to stand on (#1315) — open all year in the flat world.
     gate: (s, r) => reach(s, r) ?? (feelsTemperature(s) && !iceThick(s.day, s.config.calendar) ? 'the ice is too thin' : null),
     // A slow, steady catch: modest, but the lake doesn't run out the way the land does.
-    run: (s, b, r, _o, light, luck) => {
-      const n = scaleHaul(haul(s, r, 'water', FISH_CATCH * RICHNESS[r] + b, luck), darkYieldMult('gather', light));
+    // (Over a long sitting the spot itself goes quiet, #1668 — and comes back in a few days.)
+    options: lengthOptions('fish'),
+    run: (s, b, r, _o, light, luck, sc) => {
+      const n = scaleHaul(haul(s, r, 'water', FISH_CATCH * RICHNESS[r] + b, luck * sc.yieldOf('fishing')), darkYieldMult('gather', light));
       s.stores.rawFood += n; s.flags.everFood = true;
       return n > 0 ? `Fished through the ice${where(r)} — ${n} raw food.` : `Sat over a hole in the ice${where(r)} and caught nothing.`;
     },
   },
   quarry: {
-    name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r, _o, light, luck) => {
-      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b, luck), darkYieldMult('quarry', light));
-      const note = workLand(s, r, 'stone');
+    name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach, options: lengthOptions('quarry'),
+    run: (s, b, r, _o, light, luck, sc) => {
+      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b, luck * sc.yieldOf('stone')), darkYieldMult('quarry', light));
+      const note = workLand(s, r, 'stone', sc.amount);
       s.stores.stone += n;
       return `Broke out ${n} stone${where(r)}.${note}${dimNote(light)}`;
     },
@@ -1223,8 +1285,146 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   if (id === 'build' && planBuild(s, opts).moving) { at = clone(s); moveForBuild(at, opts); }
   const recipe = def.recipeFor?.(at, opts) ?? def.recipe;
   if (recipe) return craftHours(at, recipe);
+  // A session of chosen length (#1668): its trips' work and walks.
+  const ses = sessionOf(s, item);
+  if (ses) return ses.plan.work + ses.plan.travel;
   const { work, travel } = actionHours(s, id, ring, opts);
   return work + travel;
+}
+
+// ── Chosen lengths (#1668) ──────────────────────────────────────────────────
+
+/** A session of chosen length, planned as trips (action-length.ts). */
+export interface Session {
+  id: LengthAction;
+  ring: Ring;
+  plan: TripPlan;
+  /** The usual trip's work hours: a session's yield is counted in usual trips' worth. */
+  usual: number;
+  /** The yield multiplier per patch: hours harvested at a fresh patch over the usual trip's hours. */
+  factor: Partial<Record<PatchId, number>>;
+  /** The work in usual trips, for the land's draw and what the work teaches. */
+  amount: number;
+}
+
+/** A queue item's options without a chosen length: the usual trip. */
+const withoutLength = (opts: ActionOpts): ActionOpts => Object.fromEntries(Object.entries(opts).filter(([k]) => k !== 'hours' && k !== 'until'));
+
+/** The length chosen for an item, when the switch is on and the action takes one; else null. */
+const lengthOf = (s: Region1State, id: ActionId, opts: ActionOpts): ReturnType<typeof chosenLength> =>
+  (hasLength(id) && featureOn(s.config.world.features, 'action-length') ? chosenLength(opts) : null);
+
+/**
+ * What a usual trip brings in, by store, before anything is left behind: a dry run with carrying
+ * and accidents off. Its haul per hour sets how heavy a session's loads get.
+ */
+function probeTrip(s: Region1State, id: LengthAction, ring: Ring, opts: ActionOpts): Haul {
+  const dry = runActionCore({ ...s, config: { ...s.config, world: { ...s.config.world, carrying: false, accidents: false } } }, { q: queueId(id, ring), opts });
+  const out: Haul = {};
+  for (const k of STORE_KEYS) { const g = dry.stores[k] - s.stores[k]; if (g > 0) out[k] = g; }
+  return out;
+}
+
+/** Plan a session of `budget` hours (walks included) as trips: carrying and the patches decide how they go. */
+function planSession(s: Region1State, id: LengthAction, ring: Ring, opts: ActionOpts, budget: number): Session {
+  const { work: usual, travel } = actionHours(s, id, ring, opts);
+  const probe = probeTrip(s, id, ring, opts);
+  const patches = patchesOf(id);
+  const start = Object.fromEntries(patches.map(p => [p, abundance(s.patches, ring, p)])) as Partial<Record<PatchId, number>>;
+  // How heavy an hour's harvest is, patch by patch, with the gear that suits it (#1294). A trip
+  // ends at a comfortable load: past that the walk home slows and strains (#1292), so you go back.
+  const gear = bestGear(s.tools, { ring, snow: (s.snowDepth ?? 0) > 0 || s.weatherToday === 'snow' }, probe, s.character.stats);
+  const bulkPerHour: Partial<Record<PatchId, number>> = {};
+  for (const k of Object.keys(probe) as (keyof Haul)[]) {
+    const p = ACTION_PATCHES[id][k];
+    if (p) bulkPerHour[p] = (bulkPerHour[p] ?? 0) + (cumbersome({ [k]: probe[k] }, gear) - gear.extra) / usual;
+  }
+  const capacity = Math.max(STEP, comfortableLoad(s.character.stats) - gear.extra);
+  const plan = planTrips({ budget, travel, start, main: MAIN[id].patch, bulkPerHour, capacity });
+  const factor = Object.fromEntries(patches.map(p => [p, (plan.harvest[p] ?? 0) / usual])) as Partial<Record<PatchId, number>>;
+  return { id, ring, plan, usual, factor, amount: plan.work / usual };
+}
+
+/**
+ * "Until you have N" (#1668): the shortest session, on the planning grid and within `cap` hours,
+ * whose dry run brings the stores to N, or the whole cap if even that falls short. The dry run
+ * is the real run (same seeds, same hour), so the session then stops exactly where it said.
+ */
+function untilHours(s: Region1State, id: LengthAction, ring: Ring, opts: ActionOpts, until: number, cap: number): number {
+  const store = MAIN[id].store;
+  const have = (h: number): number => runActionCore(s, { q: queueId(id, ring), opts: { ...opts, hours: String(h) } }).stores[store];
+  const lo = Math.max(1, Math.ceil((actionHours(s, id, ring, opts).travel + MIN_WORK) / STEP - 1e-9));
+  const hi = Math.max(lo, Math.floor(cap / STEP + 1e-9));
+  if (have(hi * STEP) < until) return hi * STEP;
+  let a = lo, b = hi;
+  while (a < b) {
+    const m = Math.floor((a + b) / 2);
+    if (have(m * STEP) >= until) b = m; else a = m + 1;
+  }
+  return a * STEP;
+}
+
+/**
+ * The session a queue item plays as (#1668), or null for the usual trip: the switch off, an action
+ * with a fixed length, or no length chosen. `hours` is the session's length, walks included (the
+ * first trip always gets an hour's work, however far the walk); "day" and "until" without hours run
+ * to the end of the day. Deterministic: no draws of its own.
+ */
+export function sessionOf(s: Region1State, item: QueueItem): Session | null {
+  const { id, ring, opts } = parseItem(item);
+  const len = lengthOf(s, id, opts);
+  if (!len || !hasLength(id)) return null;
+  // Planned afresh on every call, on purpose: no cache, so nothing outlives the state it was planned
+  // for (an "until" costs a handful of dry runs, a few milliseconds).
+  const usualOpts = withoutLength(opts);
+  const rest = Math.max(0, DAY_HOURS - s.hoursToday);
+  const cap = len.hours === 'day' || len.hours === null ? rest : len.hours;
+  const budget = len.until !== null ? untilHours(s, id, ring, usualOpts, len.until, cap) : cap;
+  const out = planSession(s, id, ring, usualOpts, budget);
+  // Home early with enough: the last trip ended on the target, not the clock.
+  const last = out.plan.trips[out.plan.trips.length - 1];
+  if (len.until !== null && budget < cap && last.ended === 'time') last.ended = 'target';
+  return out;
+}
+
+/** The yield and land scale a session runs at. */
+const scaleOf = (ses: Session): RunScale => ({ yieldOf: p => ses.factor[p] ?? 1, amount: ses.amount });
+
+/** The patches after a session, back into the save: a patch at full is left out. */
+function withPatches(patches: Patches | undefined, ring: Ring, end: Partial<Record<PatchId, number>>): Patches | undefined {
+  const out: Record<string, number> = { ...(patches ?? {}) };
+  for (const [p, a] of Object.entries(end) as [PatchId, number][]) {
+    if (a < 1) out[patchKey(ring, p)] = a; else delete out[patchKey(ring, p)];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** What thinned, in words ("the deadfall is getting thin"), from a session's end. */
+const thinWords = (ses: Session): string[] =>
+  (Object.entries(ses.plan.end) as [PatchId, number][]).map(([p, a]) => patchWord(p, a)).filter((w): w is string => w !== null);
+
+/** The journal's line on how a session went: its trips, and why it stopped. */
+function sessionLine(ses: Session): string {
+  const n = ses.plan.trips.length;
+  const last = ses.plan.trips[n - 1];
+  const why = last.ended === 'target' ? ', enough, and home' : last.ended === 'thin' ? ', not worth going back' : '';
+  const thin = thinWords(ses);
+  return `${n} trip${n === 1 ? '' : 's'}, ${hrs1(ses.plan.work)}h of work${ses.plan.travel > 0 ? ` and ${hrs1(ses.plan.travel)}h walking` : ''}${thin.length ? `; ${thin.join(', ')}` : ''}${why}.`;
+}
+
+/**
+ * The plan of a queued session, for the queue preview (#1668): "3 trips, about 14 firewood and 6
+ * materials, the deadfall is getting thin". From a dry run of the session itself, so the numbers
+ * are the run's (an encounter or a panic can still change the day). Null for a usual trip.
+ */
+export function sessionNote(s: Region1State, item: QueueItem): string | null {
+  const ses = sessionOf(s, item);
+  if (!ses) return null;
+  const dry = runActionCore(s, item);
+  const got = STORE_KEYS.map(k => [k, dry.stores[k] - s.stores[k]] as const).filter(([, g]) => g > 0).map(([k, g]) => `${g} ${STORE_WORD[k]}`);
+  const n = ses.plan.trips.length;
+  const parts = [`${n} trip${n === 1 ? '' : 's'}`, got.length ? `about ${got.length === 1 ? got[0] : `${got.slice(0, -1).join(', ')} and ${got.at(-1)}`}` : 'little to show for it', ...thinWords(ses)];
+  return parts.join(', ');
 }
 
 /**
@@ -1236,6 +1436,9 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
 export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
   const def = ACTIONS[id];
   if (def.gate) { const g = def.gate(s, ring, opts); if (g) return g; }
+  // "Until you have N" (#1668) with N already in the stores: nothing to go out for.
+  const len = lengthOf(s, id, opts);
+  if (len?.until != null && hasLength(id) && s.stores[MAIN[id].store] >= len.until) return `you already have ${len.until} ${STORE_WORD[MAIN[id].store]}`;
   if (!def.ringed) return null;
   // An autumn storm keeps you out of the far rings (#1284). A winter blizzard doesn't refuse you —
   // you can go out in it, and it may well kill you (#1315; see `dangerOf`).
@@ -1614,7 +1817,11 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const pain = painOf(next);
   // How long it takes (#1475): rain, deep snow and a blizzard (#1284, #1315), the tools, the map and
   // compass (#1400), agony (#1409) — and the walk to an outer ring, hard on the legs, easy on the mind.
-  const { work: workHours, travel } = actionHours(next, id, ring, opts);
+  // A session of chosen length (#1668) is its trips: the work at the site and a walk per trip.
+  const session = sessionOf(s, item);
+  const usual = actionHours(next, id, ring, opts);
+  const workHours = session ? session.plan.work : usual.work;
+  const travel = session ? session.plan.travel : usual.travel;
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -1676,9 +1883,14 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   }
   const lost = exposure === 'lost';
   const before = { ...next.stores };
-  say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1), 'action', at);
+  say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP), 'action', at);
+  // A session (#1668): how its trips went, and what it left of the patches.
+  if (session) {
+    next.patches = withPatches(next.patches, ring, session.plan.end);
+    say(next, sessionLine(session), 'action', at);
+  }
   // What you can carry home (#1291): a trip's haul is what it added to the stores, and what won't fit stays out there.
-  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex);
+  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, session?.plan.trips.length ?? 1);
   const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   if (exposure) {
@@ -1717,9 +1929,10 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
  * (#1292): over a comfortable load, the walk home (`homeHours`, at `walkRate`) takes longer and costs more Vigor.
  * The near ring has no walk home, so there it costs nothing extra.
  */
-function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring: Ring, homeHours: number, walkRate: number): void {
+function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring: Ring, homeHours: number, walkRate: number, trips = 1): void {
   const haul: Haul = {};
   for (const k of STORE_KEYS) { const gained = next.stores[k] - before[k]; if (gained > 0) haul[k] = gained; }
+  if (trips > 1) { carryHomeInTrips(next, haul, at, ring, homeHours, walkRate, trips); return; }
   // The gear that suits this haul (#1294) — the sled comes along only if it helps; it runs on snow.
   const snow = (next.snowDepth ?? 0) > 0 || next.weatherToday === 'snow';
   const gear = bestGear(next.tools, { ring, snow }, haul, next.character.stats);
@@ -1743,6 +1956,56 @@ function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring:
   say(next, `Walked home ${overloadWord(r)} (${Math.round(extraHours * 60)} min slower).`, r > 1.5 ? 'hardship' : 'action', at);
 }
 
+/** A haul shared out over `trips` loads as evenly as whole units go: load `i` of each. */
+function shareOf(haul: Haul, trips: number, i: number): Haul {
+  const out: Haul = {};
+  for (const k of Object.keys(haul) as (keyof Haul)[]) {
+    const q = haul[k] ?? 0;
+    const n = Math.floor(q / trips) + (i < q % trips ? 1 : 0);
+    if (n > 0) out[k] = n;
+  }
+  return out;
+}
+
+/**
+ * A session's haul carried home in its trips (#1668): each load fitted and walked home on its
+ * own, so a planned series of comfortable loads costs nothing extra, and an over-full one pays
+ * on its own walk. `homeHours` is the whole session's walking home.
+ */
+function carryHomeInTrips(next: Region1State, haul: Haul, at: LogEntry['at'], ring: Ring, homeHours: number, walkRate: number, trips: number): void {
+  const snow = (next.snowDepth ?? 0) > 0 || next.weatherToday === 'snow';
+  const left: Haul = {};
+  let heaviest = 0, extraHours = 0, extraVigor = 0, strain = 0, overloaded = 0, worst = 0;
+  const leg = homeHours / trips;
+  for (let i = 0; i < trips; i++) {
+    const load = shareOf(haul, trips, i);
+    const gear = bestGear(next.tools, { ring, snow }, load, next.character.stats);
+    const fit = fitHaul(load, gear, next.character.stats);
+    for (const k of Object.keys(fit.left) as (keyof Haul)[]) left[k] = (left[k] ?? 0) + (fit.left[k] ?? 0);
+    heaviest = Math.max(heaviest, rawWeight(fit.carried));
+    const r = overloadRatio(fit.carried, gear, next.character.stats);
+    const w = overloadWalk(r, leg, walkRate);
+    if (w.extraHours <= 0) continue;
+    worst = Math.max(worst, r);
+    extraHours += w.extraHours; extraVigor += w.extraVigor;
+    strain += strainFrom(r, leg + w.extraHours);
+    overloaded += leg + w.extraHours;
+  }
+  for (const k of STORE_KEYS) next.stores[k] -= left[k] ?? 0;
+  const line = leftLine(left);
+  if (line) say(next, line, 'hardship', at);
+  addTally(next, { leftStones: rawWeight(left), heaviest });
+  if (extraHours <= 0) return;
+  next.strain = (next.strain ?? 0) + strain;
+  addTally(next, { overloadedHours: overloaded });
+  const w = applyActivity(next.vitals, { hours: extraHours, vigorRate: extraVigor / extraHours, clarityRate: 0 });
+  next.vitals = w.vitals;
+  next.today.loadVigor += w.loadVigor;
+  next.today.pushedVigor ||= w.pushedVigor;
+  next.hoursToday += extraHours;
+  say(next, `Walked home ${overloadWord(worst)} on some of the trips (${Math.round(extraHours * 60)} min slower in all).`, worst > 1.5 ? 'hardship' : 'action', at);
+}
+
 /** What a trip would bring home and what it's like to carry (#1296), for the queue preview. */
 export interface TripLoad {
   /** The haul as found, before anything is left behind. */
@@ -1759,6 +2022,8 @@ export interface TripLoad {
   wouldHelp: (GearItem | 'waterskin')[];
   /** Whether there's a walk home to carry it on (#1292): the near ring has none, so overload costs nothing there. */
   walk: boolean;
+  /** A session of chosen length (#1668): the loads it's carried home in. The bulk and ratio are the heaviest load's. Absent: one trip. */
+  trips?: number;
 }
 
 /**
@@ -1775,9 +2040,13 @@ export function tripLoad(s: Region1State, item: QueueItem): TripLoad | null {
   if (!Object.keys(haul).length) return null;
   const ctx = { ring, snow: (s.snowDepth ?? 0) > 0 || s.weatherToday === 'snow' };
   const stats = s.character.stats;
+  // A session (#1668) carries its haul home in trips: judge the heaviest load (the first share), and what all of them leave.
+  const trips = sessionOf(s, item)?.plan.trips.length ?? 1;
+  const load = trips > 1 ? shareOf(haul, trips, 0) : haul;
   const fit = (tools: Region1State['tools']) => {
-    const gear = bestGear(tools, ctx, haul, stats);
-    const { carried, left } = fitHaul(haul, gear, stats);
+    const gear = bestGear(tools, ctx, load, stats);
+    const { carried, left: one } = fitHaul(load, gear, stats);
+    const left: Haul = trips > 1 ? Object.fromEntries(Object.entries(one).map(([k, n]) => [k, Math.min(haul[k as keyof Haul] ?? 0, (n ?? 0) * trips)])) : one;
     return { carried, left, gear, bulk: cumbersome(carried, gear), ratio: overloadRatio(carried, gear, stats) };
   };
   const now = fit(s.tools);
@@ -1788,7 +2057,7 @@ export function tripLoad(s: Region1State, item: QueueItem): TripLoad | null {
     .filter(({ f }) => carriedWeight(f.carried) > carriedWeight(now.carried) || (now.ratio > 1 && f.ratio < now.ratio - 0.05))
     .sort((a, b) => a.f.ratio - b.f.ratio)
     .map(({ g }) => g);
-  return { haul, left: now.left, cumbersome: now.bulk, max: maxLoad(stats), comfortable: comfortableLoad(stats), ratio: now.ratio, wouldHelp, walk: TRAVEL_HOURS[ring] > 0 };
+  return { haul, left: now.left, cumbersome: now.bulk, max: maxLoad(stats), comfortable: comfortableLoad(stats), ratio: now.ratio, wouldHelp, walk: TRAVEL_HOURS[ring] > 0, ...(trips > 1 ? { trips } : {}) };
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
@@ -2248,6 +2517,8 @@ export function endDay(s: Region1State): Region1State {
 
   // Overnight the land regrows a little, by the season — hardly at all in winter (#1304).
   next.explore = regrow(next.explore, growSeason(next.day, next.config.calendar), next.weatherToday === 'wind' || next.weatherToday === 'storm');
+  // ...and the patches a long session worked come back (#1668): the berries ripen again, the wind brings down new sticks.
+  if (next.patches && featureOn(next.config.world.features, 'action-length')) next.patches = recoverPatches(next.patches);
   // The day's snow lies, settles or melts (#1315).
   if (feelsTemperature(next)) next.snowDepth = nextSnowDepth(next.snowDepth ?? 0, next.weatherToday, next.day, next.config.calendar);
 
