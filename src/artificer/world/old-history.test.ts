@@ -6,6 +6,19 @@
  * mixed place keeps one telling per People, and they can contradict each other; culture bias
  * (claims.ts TELLING_BENDS) sets the direction, lifespan how much; lifespans come from canon.
  *
+ * The owner's answers to the PR's questions (2026-10-12) add five more, each with its test:
+ * - 7. "if it sounds good it stays": a people-count that is a story number (`isStoryNumber`) is
+ *   never retold differently;
+ * - 8. "changes if it makes for good storytelling": any other count grows and settles on the
+ *   story number above it when one is close (STORY_SNAP), never smaller than heard;
+ * - 9. land and seat counts move only onto a story number, never off one, and less often;
+ * - 10. years and ages never move, not even beside a land count that does;
+ * - 11. living memory varies by culture: one that writes things down (`literacy_valued`) bends an
+ *   old story less than another of the same People at the same age;
+ * - 12. the Remnants stay unbounded (they remember exactly, and hold no place's memory).
+ * Viddfolk 85 and Merfolk/Wildkin on the 75 baseline were confirmed as written: the lifespan
+ * tests below cover them.
+ *
  * The acceptance scenarios come first (Given/When/Then), then what holds them up: the lifespans
  * and their sources, the slots, the facts and the switch. The told histories are built once, in
  * `beforeAll`, because telling one runs the engine's 150 years.
@@ -22,10 +35,11 @@ import { remembered } from './remembered';
 import { regionalFacts, factsOfRegion } from './regional-facts';
 import { LOCAL_YEARS } from './local-history';
 import {
-  bendOld, generationOf, lifespanEntries, lifespanOf, livingMemoryOf, oldTellings, regionHolders, retellingsOf, slotsOf, villageHolders,
-  HUMAN_LIFESPAN, type Holder,
+  bendOld, generationOf, isStoryNumber, lifespanEntries, lifespanOf, livingMemoryOf, oldTellings, regionHolders, retellingsOf, slotsOf,
+  snapToStory, storyNumberAtOrAbove, villageHolders, writesItDown, HUMAN_LIFESPAN, LAND_SNAP, STORY_NUMBERS, STORY_SNAP, WRITTEN_GENERATION,
+  type Holder,
 } from './old-history';
-import type { People } from '../villages';
+import { VILLAGES, type People } from '../villages';
 
 const root = join(__dirname, '..', '..', '..');
 const ON = ruleFeatures();
@@ -55,6 +69,10 @@ function oldLines(): { id: string; text: string; ago: number; places: string[] }
 /** The people-counts in a text, in order (the `{n}` slots). */
 const counts = (text: string, places: readonly string[]): number[] =>
   slotsOf(text, places).slots.flatMap(s => (s.kind === 'n' ? [s.value] : []));
+
+/** The land and seat counts in a text, in order (the `{lands}` slots). */
+const landCounts = (text: string, places: readonly string[]): number[] =>
+  slotsOf(text, places).slots.flatMap(s => (s.kind === 'lands' ? [s.value] : []));
 
 const PLAGUE = 'A pestilence broke out near Hollowford and swept 7 provinces, killing 222. Among the dead were 5 of noble blood.';
 const PLACES = ['Hollowford', 'Ravenford', 'Ashwater'];
@@ -87,8 +105,11 @@ describe('#1650 acceptance', () => {
   });
 
   describe('2. Two villages of different cultures bend an old event in their bias\'s direction', () => {
-    it('Given the same old events told by Riksfolk of a loss-averse culture (fieldborn) and of a fatalist one (ridgefolk), When both retell them as often, Then the fieldborn count is never smaller, often larger, and neither falls below the truth', () => {
-      let larger = 0, compared = 0;
+    // Since counts settle on story numbers and stick there (scenario 7), the two often agree ("seven
+    // of noble blood" either way), and a fatalist count that settles later can end a little above a
+    // loss-averse one that settled early. The direction shows in the whole, not in every count.
+    it('Given the same old events told by Riksfolk of a loss-averse culture (fieldborn) and of a fatalist one (ridgefolk), When both retell them as often, Then the fieldborn count is larger far more often than smaller, larger in total, and neither falls below the truth', () => {
+      let larger = 0, smaller = 0, compared = 0, worseTotal = 0, shruggedTotal = 0;
       for (const l of oldLines()) {
         const truth = counts(l.text, l.places);
         if (!truth.length) continue;
@@ -96,24 +117,27 @@ describe('#1650 acceptance', () => {
         const shrugged = counts(bendOld(l.id, l.text, l.ago, { people: 'Riksfolk', culture: 'ridgefolk' }, l.places).text, l.places);
         truth.forEach((n, i) => {
           expect(shrugged[i]).toBeGreaterThanOrEqual(n);
-          expect(worse[i]).toBeGreaterThanOrEqual(shrugged[i]);
+          expect(worse[i]).toBeGreaterThanOrEqual(n);
           compared++;
+          worseTotal += worse[i]; shruggedTotal += shrugged[i];
           if (worse[i] > shrugged[i]) larger++;
+          if (worse[i] < shrugged[i]) smaller++;
         });
       }
       expect(compared).toBeGreaterThan(5);
-      expect(larger / compared).toBeGreaterThan(0.5);
+      expect(larger).toBeGreaterThan(smaller * 2);
+      expect(worseTotal).toBeGreaterThan(shruggedTotal);
     });
   });
 
   describe('3. Years never change', () => {
     it('Given a line full of years, ages and durations beside a death toll, When it is retold twenty times over, Then every year, age and duration reads as it did, and only the toll has grown', () => {
-      const text = 'In year 12 the siege of Ravenford ended — 3 years in the cold; the library founded by house Hedlund in 31 burned, killing 40. Ivar of Hedlund died at the age of 79, and a child of 1 was crowned.';
+      const text = 'In year 12 the siege of Ravenford ended — 3 years in the cold; the library founded by house Hedlund in 31 burned, killing 37. Ivar of Hedlund died at the age of 79, and a child of 1 was crowned.';
       const t = slotsOf(text, PLACES);
-      expect(t.slots.filter(s => s.kind === 'n').map(s => s.kind === 'n' && s.value)).toEqual([40]);
+      expect(t.slots.filter(s => s.kind === 'n').map(s => s.kind === 'n' && s.value)).toEqual([37]);
       const bent = bendOld('test:years', text, 500, { people: 'Riksfolk', culture: 'fieldborn' }, PLACES).text;
       for (const kept of ['In year 12', '3 years in the cold', 'in 31', 'at the age of 79', 'a child of 1']) expect(bent).toContain(kept);
-      expect(counts(bent, PLACES)[0]).toBeGreaterThan(40);
+      expect(counts(bent, PLACES)[0]).toBeGreaterThan(37);
     });
 
     it('Given every old fact of six histories, When old history bends, Then each keeps its "N years ago, in year Y:" and every number that isn\'t a count, in order', () => {
@@ -188,6 +212,124 @@ describe('#1650 acceptance', () => {
   });
 });
 
+describe('#1650 the owner\'s answers (2026-10-12)', () => {
+  describe('7. A count that sounds good stays', () => {
+    it('Given a toll that is already a story number (100 riders, 7 of noble blood), When it is retold a hundred times, Then it reads the same every time', () => {
+      expect(STORY_NUMBERS).toEqual([3, 7, 9, 12]);
+      for (const n of [3, 7, 9, 12, 10, 40, 90, 100, 300, 1000, 4000]) expect(isStoryNumber(n), String(n)).toBe(true);
+      for (const n of [1, 2, 5, 11, 13, 41, 101, 222, 1200, 1500]) expect(isStoryNumber(n), String(n)).toBe(false);
+      const text = 'A war-band of 100 riders crashed into Ravenford. Among the dead were 7 of noble blood.';
+      for (let i = 0; i < 30; i++) {
+        const bent = bendOld(`test:stays:${i}`, text, 2000, { people: 'Riksfolk', culture: 'fieldborn' }, PLACES).text;
+        expect(counts(bent, PLACES)).toEqual([100, 7]);
+      }
+    });
+  });
+
+  describe('8. Any other count settles on a story number when one is close', () => {
+    it('Given a toll that isn\'t a story number, When it is retold, Then it never shrinks, settles on the story number above it whenever that is within STORY_SNAP, and once settled stays', () => {
+      expect(storyNumberAtOrAbove(5)).toBe(7);
+      expect(storyNumberAtOrAbove(13)).toBe(20);
+      expect(storyNumberAtOrAbove(222)).toBe(300);
+      expect(storyNumberAtOrAbove(1001)).toBe(2000);
+      expect(snapToStory(260, STORY_SNAP)).toBe(300);
+      expect(snapToStory(1500, STORY_SNAP)).toBe(1500);
+      expect(snapToStory(6, STORY_SNAP)).toBe(7);
+      let settled = 0;
+      for (let i = 0; i < 40; i++) {
+        const id = `test:settles:${i}`;
+        let last = 222;
+        // The same event told at ever greater ages: each age's telling is the last one's, retold once more.
+        for (let ago = 41; ago <= 400; ago += 20) {
+          const [n] = counts(bendOld(id, PLAGUE, ago, { people: 'Riksfolk', culture: 'fieldborn' }, PLACES).text, PLACES);
+          expect(n).toBeGreaterThanOrEqual(last);
+          if (isStoryNumber(last)) expect(n).toBe(last);
+          last = n;
+        }
+        if (isStoryNumber(last)) settled++;
+      }
+      // Old enough, nearly every tale has found its number.
+      expect(settled).toBeGreaterThan(30);
+    });
+  });
+
+  describe('9. A land count moves only onto a story number', () => {
+    it('Given land and seat counts, When they are retold many times, Then each either stays as told or becomes the story number above it (within LAND_SNAP), a story number never moves, and they move less often than tolls', () => {
+      const text = 'Plague swept 5 provinces, killing 222; the Ashwater country lost 2 of its 8 lands, and Ketil of Deepcarve took up 3 other seats.';
+      expect(landCounts(text, PLACES)).toEqual([5, 8, 3]);
+      let landsMoved = 0, tollsMoved = 0;
+      for (let i = 0; i < 200; i++) {
+        const bent = bendOld(`test:lands:${i}`, text, 61, { people: 'Riksfolk', culture: 'fieldborn' }, PLACES).text; // two retellings
+        const [five, eight, three] = landCounts(bent, PLACES);
+        expect([5, 7]).toContain(five);
+        expect([8, 9]).toContain(eight);
+        expect(three).toBe(3);
+        if (five !== 5 || eight !== 8) landsMoved++;
+        if (counts(bent, PLACES)[0] !== 222) tollsMoved++;
+        expect(bent).toContain('2 of its');
+      }
+      expect(snapToStory(4, LAND_SNAP)).toBe(4); // seven is too far from four: it stays four
+      expect(landsMoved).toBeGreaterThan(0);
+      expect(landsMoved).toBeLessThan(tollsMoved);
+    });
+  });
+
+  describe('10. Years and ages never move, even beside a land count', () => {
+    it('Given years and ages written next to land and seat counts, When they are retold for a thousand years, Then every year and age reads as it did, and only the land counts may have moved', () => {
+      const text = 'In year 5 provinces rose against Ravenford; 6 provinces paid tribute for 8 years. Since 11 lands were lost, Ivar of Hedlund at the age of 13 took up 2 other seats in 6 years.';
+      // "year 5 provinces" and "Since 11 lands" are years, however the word after reads; the span and the age aren't counts.
+      expect(landCounts(text, PLACES)).toEqual([6, 2]);
+      let moved = 0;
+      for (let i = 0; i < 60; i++) {
+        const bent = bendOld(`test:years-lands:${i}`, text, 1000, { people: 'Riksfolk', culture: 'fieldborn' }, PLACES).text;
+        for (const kept of ['In year 5 provinces', 'for 8 years', 'Since 11 lands', 'at the age of 13', 'in 6 years']) expect(bent).toContain(kept);
+        const [six, two] = landCounts(bent, PLACES);
+        expect([6, 7]).toContain(six);
+        expect([2, 3]).toContain(two);
+        if (six !== 6 || two !== 2) moved++;
+      }
+      // The land counts beside them did move, so the years stood still while something around them didn't.
+      expect(moved).toBeGreaterThan(0);
+    });
+  });
+
+  describe('11. A culture that writes things down bends old stories less', () => {
+    it('Given Riksfolk of a literate culture (wallborn) and of one that isn\'t (fieldborn), When they tell the same old events at the same age, Then the literate tellers have retold them about half as often and grown the tolls less, though their bias would grow them a little more', () => {
+      expect(writesItDown('wallborn')).toBe(true);
+      expect(writesItDown('waterstead')).toBe(true);
+      expect(writesItDown('fieldborn')).toBe(false);
+      expect(writesItDown('nobody-knows')).toBe(false);
+      expect(WRITTEN_GENERATION).toBe(2);
+      // Eyewitnesses are the same: writing doesn't make anyone live longer.
+      expect(retellingsOf(LIVING_MEMORY, 'Riksfolk', 'wallborn')).toBe(0);
+      expect(retellingsOf(LIVING_MEMORY + 1, 'Riksfolk', 'wallborn')).toBe(1);
+      expect(retellingsOf(150, 'Riksfolk', 'fieldborn')).toBe(6);
+      expect(retellingsOf(150, 'Riksfolk', 'wallborn')).toBe(3);
+      let written = 0, spoken = 0;
+      for (const l of oldLines()) {
+        const truth = counts(l.text, l.places);
+        if (!truth.length) continue;
+        expect(retellingsOf(l.ago, 'Riksfolk', 'wallborn')).toBeLessThanOrEqual(retellingsOf(l.ago, 'Riksfolk', 'fieldborn'));
+        const w = counts(bendOld(l.id, l.text, l.ago, { people: 'Riksfolk', culture: 'wallborn' }, l.places).text, l.places);
+        const s = counts(bendOld(l.id, l.text, l.ago, { people: 'Riksfolk', culture: 'fieldborn' }, l.places).text, l.places);
+        truth.forEach((n, i) => { written += w[i] - n; spoken += s[i] - n; });
+      }
+      expect(written).toBeLessThan(spoken);
+    });
+  });
+
+  describe('12. The Remnants stay unbounded', () => {
+    it('Given the Remnants (never observed to age), When one tells an event of any age, Then it is exact, and no village or region counts them among its holders', () => {
+      expect(lifespanOf('Remnants')).toBeNull();
+      expect(retellingsOf(100_000, 'Remnants')).toBe(0);
+      expect(bendOld('test:plague', PLAGUE, 100_000, { people: 'Remnants', culture: 'fieldborn' }, PLACES).text).toBe(PLAGUE);
+      expect(lifespanEntries().find(e => e.people === 'Remnants')).toMatchObject({ unbounded: true, years: null });
+      for (const h of histories) for (const r of h.regions) expect(regionHolders(h, r.id).map(x => x.people)).not.toContain('Remnants');
+      for (const v of Object.keys(VILLAGES)) expect(villageHolders(v, ON).map(x => x.people)).not.toContain('Remnants');
+    });
+  });
+});
+
 describe('Lifespans come from canon (#1650)', () => {
   it('has one for every People, each citing words its source really holds', () => {
     const peoples: (People | 'Wildkin')[] = ['Bergfolk', 'Lövfolk', 'Markfolk', 'Viddfolk', 'Steinfolk', 'Pandor', 'Deepwalkers', 'Merfolk', 'Goblins', 'Fae', 'Giants', 'Dragons', 'Everstill', 'Constructs', 'Remnants', 'Wildkin', 'Riksfolk', 'Strandfolk'];
@@ -224,13 +366,14 @@ describe('Lifespans come from canon (#1650)', () => {
 describe('Slots: {n}, {place} and {who} (#1650)', () => {
   it('reads people-counts, places and named people out of the engine\'s words, and puts them back word for word', () => {
     const t = slotsOf(PLAGUE, PLACES);
-    expect(t.template).toBe('A pestilence broke out near {place} and swept 7 provinces, killing {n}. Among the dead were {n} of noble blood.');
-    expect(t.slots).toEqual([{ kind: 'place', value: 'Hollowford' }, { kind: 'n', value: 222, grouped: false }, { kind: 'n', value: 5, grouped: false }]);
+    expect(t.template).toBe('A pestilence broke out near {place} and swept {lands} provinces, killing {n}. Among the dead were {n} of noble blood.');
+    expect(t.slots).toEqual([{ kind: 'place', value: 'Hollowford' }, { kind: 'lands', value: 7 }, { kind: 'n', value: 222, grouped: false }, { kind: 'n', value: 5, grouped: false }]);
     const who = slotsOf('Vemund II of Deepcarve died, and Ketil V of Deepcarve took up Deep Hall of Fernford and 2 other seats.', ['Fernford']);
-    expect(who.template).toBe('{who} died, and {who} took up Deep Hall of Fernford and 2 other seats.');
+    expect(who.template).toBe('{who} died, and {who} took up Deep Hall of Fernford and {lands} other seats.');
     expect(who.slots[0]).toMatchObject({ kind: 'who', given: 'Vemund', numeral: 'II', house: 'Deepcarve' });
     // A place in a title ("of Fernford") or a region's name ("the Ashwater country") isn't moved.
-    expect(slotsOf('Plague swept through the Ashwater country, 2 of its 5 lands.', PLACES).slots).toEqual([]);
+    // The land count in it is one ("of its 5 lands"); the share before it ("2 of its") is left alone.
+    expect(slotsOf('Plague swept through the Ashwater country, 2 of its 5 lands.', PLACES).slots).toEqual([{ kind: 'lands', value: 5 }]);
     expect(slotsOf('A war-band of 1,200 riders crashed into Ravenford.', PLACES).slots).toEqual([{ kind: 'n', value: 1200, grouped: true }, { kind: 'place', value: 'Ravenford' }]);
   });
 
