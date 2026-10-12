@@ -780,3 +780,40 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 /* The weekly world's chip in the header (#1559). */
 .weekchip { cursor: help; }
 .weekchip b { color: var(--teal); }
+/* The day on a timer (#1669): a sheet along the bottom while the queue plays out — the clock,
+   the day's strip from 06:00 to 20:00, this action's bar (teal walking, gold working on a trip
+   session) and the lines each action wrote as it finished. Speed 1×/2×/4× and Skip on the right. */
+.playing { padding-bottom: min(54vh, 380px); }
+.playing .runbar, .playing .acts, .playing .rings, .playing .queue .x, .playing .queue .tog { opacity: .45; pointer-events: none; }
+.timer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 1180px; margin: 0 auto; display: grid; gap: 8px;
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px)); background: var(--panel); border: 1px solid var(--border2); border-bottom: 0;
+  border-radius: 14px 14px 0 0; box-shadow: 0 -8px 28px rgba(0,0,0,.45); animation: timer-up .25s ease-out; }
+@keyframes timer-up { from { transform: translateY(24px); opacity: 0; } }
+.timer .trow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.timer .tday { font-family: var(--display); font-size: 9px; letter-spacing: 2px; color: var(--teal); }
+.timer .tclock { font-family: var(--display); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: 1px; margin-right: auto; }
+.timer.night .tclock { color: var(--ice); }
+.timer .tspeed { display: inline-flex; gap: 4px; }
+.timer .tspeed .pill { min-width: 44px; min-height: 40px; justify-content: center; font-size: 10px; }
+.timer .tspeed .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.08); }
+.timer .tskip { min-height: 40px; font-size: 10px; }
+.timer .tstrip { position: relative; height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border);
+  background: repeating-linear-gradient(90deg, var(--sub2) 0 calc(100% / 7 - 1px), var(--border) calc(100% / 7 - 1px) calc(100% / 7)); }
+.timer .tsfill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, rgba(255,224,102,.35), rgba(255,224,102,.7)); }
+.timer.night .tsfill { background: linear-gradient(90deg, rgba(159,216,255,.25), rgba(159,216,255,.55)); }
+.timer .tnow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.timer .tname { font-family: var(--display); font-size: 11px; letter-spacing: 1px; color: var(--ink); }
+.timer .tphase { font-size: 13px; color: var(--dim); }
+.timer .tcount { margin-left: auto; font-family: var(--display); font-size: 8px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.timer .tbar { height: 14px; border-radius: 7px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.timer .tfill { display: block; height: 100%; width: 0; background: var(--green); }
+.timer .tfill[data-phase="out"], .timer .tfill[data-phase="back"] { background: var(--teal); }
+.timer .tfill[data-phase="work"] { background: var(--gold); }
+.timer.night .tfill { background: var(--ice); }
+.timer .tlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; max-height: min(22vh, 150px); overflow-y: auto; }
+.timer .tlog li { font-size: 12.5px; color: var(--dim); animation: timer-line .4s ease-out; }
+.timer .tlog li.bad { color: var(--warn); } .timer .tlog li.good { color: var(--green); } .timer .tlog li.skip, .timer .tlog li.wait { color: var(--faint); }
+.timer .tlog li.hint { color: var(--lilac); font-style: italic; }
+@keyframes timer-line { from { opacity: 0; transform: translateY(4px); } }
+/* Reduced motion: the timer still advances (the bars and the clock are the content), with no flourishes. */
+@media (prefers-reduced-motion: reduce) { .timer, .timer .tlog li { animation: none; } }
