@@ -14,7 +14,7 @@
  */
 
 import { readFileSync, mkdirSync } from 'node:fs';
-import { join, dirname, resolve, relative } from 'node:path';
+import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
@@ -51,6 +51,8 @@ for (const [n, [id, b]] of items.entries()) {
   // b.icon is a site URL ("/assets/..."); strip the leading slash so the path is plainly under public/.
   // (path.join wouldn't restart at it anyway, unlike path.resolve, but this reads unambiguously.)
   const file = join(ROOT, 'public', b.icon.replace(/^\/+/, ''));
+  // Stay inside public/: a brief's icon is reviewed repo content, but a stray "../" shouldn't read beyond it.
+  if (!resolve(file).startsWith(resolve(ROOT, 'public') + sep)) throw new Error(`icon path escapes public/: ${b.icon}`);
   const big = await sharp(file).resize(BIG, BIG, { kernel: 'nearest' }).png().toBuffer();
   composites.push({ input: big, left: x + PAD, top: y + PAD });
   composites.push({ input: file, left: x + PAD * 2 + BIG, top: y + PAD + BIG - ICON });
