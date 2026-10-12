@@ -63,6 +63,12 @@ export interface Fact {
    * Absent, everyone in the scope can know it, as deep as they reach.
    */
   tellers?: readonly string[];
+  /**
+   * How memorable it is, for a story told from memory (#1658, history-in-play.ts `memorabilityOf`):
+   * a person whose best answer is such a story tells the most memorable one they know instead
+   * (`answer`). Absent, a fact is answered by scope and order alone, as before.
+   */
+  memorable?: number;
 }
 
 /** How an organisation treats its own knowledge, toward outsiders. */
@@ -213,7 +219,8 @@ export const trustFor = (f: Fact, trust: number, standing: Standing): number =>
 
 /**
  * What `k` answers about `topic`, given your trust. Lies come first: a person who'd rather not say
- * says something else. Then the most specific fact they know (ties: the order the facts are in),
+ * says something else. Then the most specific fact they know (ties: the order the facts are in;
+ * if it's a story from memory, `memorable`, the most memorable story they know about the topic),
  * if trust opens it (with your `standing` added, for an organisation's fact); else not yet; else
  * who'd know: the person among `others` holding the most specific fact about it.
  */
@@ -221,7 +228,9 @@ export function answer(k: Knower, topic: string, trust: number, facts: readonly 
   const known = facts.filter(f => tells(k, f, topic)).sort((a, b) => rank(a) - rank(b));
   const lie = k.lies?.find(l => l.about === topic && trust < l.until);
   if (lie) return { kind: 'lied', text: lie.text, why: lie.why, withheld: known[0] ?? null, lie };
-  const best = known[0];
+  // A story from memory (#1658): when the most specific fact they'd answer with is one, they tell
+  // the most memorable story they know about it, whatever its scope (ties: the order above).
+  const best = known[0]?.memorable === undefined ? known[0] : known.reduce((m, f) => ((f.memorable ?? -Infinity) > m.memorable! ? f : m), known[0]);
   if (best) {
     const gate = gateOf(best, orgs);
     return trustFor(best, trust, standing) >= gate ? { kind: 'told', fact: best, hedge: hedgeOf(best) } : { kind: 'not-yet', fact: best, trust: gate };
