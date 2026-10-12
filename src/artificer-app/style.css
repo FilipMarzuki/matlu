@@ -817,3 +817,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 @keyframes timer-line { from { opacity: 0; transform: translateY(4px); } }
 /* Reduced motion: the timer still advances (the bars and the clock are the content), with no flourishes. */
 @media (prefers-reduced-motion: reduce) { .timer, .timer .tlog li { animation: none; } }
+
+/* The DEV tag (#1688): on a tab or button only dev mode shows. Small and amber, like the dev truths. */
+.devtag { display: inline-block; margin-left: 5px; padding: 1px 4px; border: 1px solid var(--amber); border-radius: 4px; color: var(--amber); font-family: var(--display); font-size: 7px; letter-spacing: 1px; line-height: 1.3; vertical-align: middle; }
+@media (max-width: 520px) { .tabbtn .devtag { margin-left: 2px; padding: 0 2px; font-size: 6px; } }
