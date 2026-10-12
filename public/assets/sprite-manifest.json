@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-09T05:18:02.810Z",
-  "totalAssets": 4027,
-  "wiredCount": 1161,
+  "generatedAt": "2026-10-12T13:38:23.747Z",
+  "totalAssets": 4075,
+  "wiredCount": 1209,
   "unwiredCount": 2866,
   "categories": [
     {
@@ -7617,8 +7617,113 @@
     },
     {
       "category": "icons",
-      "count": 125,
+      "count": 173,
       "assets": [
+        {
+          "name": "backpack",
+          "url": "/assets/sprites/icons/items/backpack.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "basket",
+          "url": "/assets/sprites/icons/items/basket.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "bedroll",
+          "url": "/assets/sprites/icons/items/bedroll.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "cold-gear",
+          "url": "/assets/sprites/icons/items/cold-gear.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "cold-pit",
+          "url": "/assets/sprites/icons/items/cold-pit.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "comic",
+          "url": "/assets/sprites/icons/items/comic.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "crude-shovel",
+          "url": "/assets/sprites/icons/items/crude-shovel.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "fire-steel",
+          "url": "/assets/sprites/icons/items/fire-steel.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "first-aid-kit",
+          "url": "/assets/sprites/icons/items/first-aid-kit.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "fishing-rod",
+          "url": "/assets/sprites/icons/items/fishing-rod.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "forester-notes",
+          "url": "/assets/sprites/icons/items/forester-notes.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "harness",
+          "url": "/assets/sprites/icons/items/harness.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "hat-mittens",
+          "url": "/assets/sprites/icons/items/hat-mittens.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "headlamp",
+          "url": "/assets/sprites/icons/items/headlamp.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "hide-parka",
+          "url": "/assets/sprites/icons/items/hide-parka.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
         {
           "name": "item-amber",
           "url": "/assets/sprites/icons/items/item-amber.png",
@@ -8271,6 +8376,48 @@
           "wired": true
         },
         {
+          "name": "kasa",
+          "url": "/assets/sprites/icons/items/kasa.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "map-compass",
+          "url": "/assets/sprites/icons/items/map-compass.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "matches",
+          "url": "/assets/sprites/icons/items/matches.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "materials",
+          "url": "/assets/sprites/icons/items/materials.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "mora-knife",
+          "url": "/assets/sprites/icons/items/mora-knife.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "notebook",
+          "url": "/assets/sprites/icons/items/notebook.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-balance-drop",
           "url": "/assets/sprites/icons/concepts/patch-balance-drop.png",
           "folder": "icons/concepts",
@@ -8491,6 +8638,195 @@
           "name": "patch-wave",
           "url": "/assets/sprites/icons/concepts/patch-wave.png",
           "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "phone",
+          "url": "/assets/sprites/icons/items/phone.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "pillow",
+          "url": "/assets/sprites/icons/items/pillow.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "pouch",
+          "url": "/assets/sprites/icons/items/pouch.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "rain-gear",
+          "url": "/assets/sprites/icons/items/rain-gear.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "rawFood",
+          "url": "/assets/sprites/icons/items/rawFood.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "shelter-hut",
+          "url": "/assets/sprites/icons/items/shelter-hut.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "shelter-leanto",
+          "url": "/assets/sprites/icons/items/shelter-leanto.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "shelter-stone",
+          "url": "/assets/sprites/icons/items/shelter-stone.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "shelter-timber",
+          "url": "/assets/sprites/icons/items/shelter-timber.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "sit-pad",
+          "url": "/assets/sprites/icons/items/sit-pad.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "skinning-knife",
+          "url": "/assets/sprites/icons/items/skinning-knife.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "sled",
+          "url": "/assets/sprites/icons/items/sled.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "sleeping-bag",
+          "url": "/assets/sprites/icons/items/sleeping-bag.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "sleeping-pad",
+          "url": "/assets/sprites/icons/items/sleeping-pad.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "spare-socks",
+          "url": "/assets/sprites/icons/items/spare-socks.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "stone-knife",
+          "url": "/assets/sprites/icons/items/stone-knife.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "sweets",
+          "url": "/assets/sprites/icons/items/sweets.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "tally-book",
+          "url": "/assets/sprites/icons/items/tally-book.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "tarp",
+          "url": "/assets/sprites/icons/items/tarp.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "thermos",
+          "url": "/assets/sprites/icons/items/thermos.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "toilet-paper",
+          "url": "/assets/sprites/icons/items/toilet-paper.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "trangia",
+          "url": "/assets/sprites/icons/items/trangia.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "water-bottle",
+          "url": "/assets/sprites/icons/items/water-bottle.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "waterskin",
+          "url": "/assets/sprites/icons/items/waterskin.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "weekend-food",
+          "url": "/assets/sprites/icons/items/weekend-food.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "whistle",
+          "url": "/assets/sprites/icons/items/whistle.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "wool-underlayer",
+          "url": "/assets/sprites/icons/items/wool-underlayer.png",
+          "folder": "icons/items",
           "category": "icons",
           "wired": true
         }
