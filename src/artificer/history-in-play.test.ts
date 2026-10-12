@@ -43,7 +43,8 @@ import { observeRoad } from '../artificer-ai/observe';
 import { apply, gameFrom, view, type Game } from '../artificer-play/session';
 
 const WARDEN = 'w-hist-1';
-const ON = ruleFeatures();
+// #1656 as it shipped: runs saved before #1658's `history-retold` keep these answers (history-retold.test.ts has #1658's).
+const ON = { ...ruleFeatures(), 'history-retold': false };
 const OFF = { ...ON, 'history-in-play': false };
 const FLAT = { ...ON, 'old-history-drift': false };
 const PLAGUE = 'history:hollowford:68:0';

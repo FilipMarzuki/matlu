@@ -122,6 +122,22 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Ask the people of a road village about their past (who holds the place, the old plague, the famine, the wars, what happened here) and they answer from what their village and its country remember: the long-lived may have seen it, the short-lived tell it as it reached them.',
   },
   {
+    // A rules feature: it changes who tells what (the caravan tells the countries' legends), which
+    // story "what happened here" answers with, and how the journal names and hedges a telling, so a
+    // run from before it (absent: false) keeps #1656's answers on replay. It changes how history is
+    // told, so it does nothing without `history-in-play`.
+    id: 'history-retold', name: 'Eyewitnesses, legends and the best story', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1658,
+    note: 'Someone who saw an old event says so, the caravan knows the old legends of the countries along the road, "what happened here?" gets the most memorable story a person knows, and the journal names each event.',
+  },
+  {
+    // A rules feature: it changes trust (coming back to a shop, a fair purchase, help that reaches
+    // someone's kin and friends and cools their rival) and what people say of each other (grudges),
+    // so a run from before it (absent: false) keeps today's trust and answers on replay. What it does
+    // along ties needs `ties` on too.
+    id: 'grudges-and-help', name: 'Grudges, and what helping does', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1659,
+    note: 'Some people hold a grudge, and it colours what they say of the other, sometimes unfairly. Help warms people: coming back to their shop day after day, a fair trade, a job done for them or for their kin. Help someone and their rival, or whoever holds a grudge against them, cools towards you.',
+  },
+  {
     // A rules feature: it changes what asking a liar again does once you've heard otherwise (they
     // come clean, or trust drops and their friends hear of it), so a run from before it (absent:
     // false) keeps a caught liar sticking to their story on replay. It acts on lies, so it does

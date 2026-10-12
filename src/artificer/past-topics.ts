@@ -44,6 +44,23 @@ export const KIND_TOPICS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * How the journal names an event of each of the engine's kinds (#1658: "The plague in the Wrenwood
+ * country, year 68"), where the engine's own name for it doesn't read well. Any other kind is
+ * named from the engine's (`SOLAR_ECLIPSE`: "the solar eclipse"), which reads well enough.
+ */
+const EVENT_NOUNS: Readonly<Record<string, string>> = {
+  PLAGUE: 'the plague', FAMINE: 'the famine', WAR: 'the war', FEUD: 'the feud', BORDER_WAR: 'the border war', BARBARIAN_INVASION: 'the invasion',
+  SUCCESSION: 'the new lord', SUCCESSION_CRISIS: 'the empty seat', USURP: 'the usurping', LOWBORN_RISE: 'the lowborn lord', LORD_DIED: 'the lord\'s death',
+  SEAT_VACANT: 'the empty seats', SEAT_SEIZED: 'the seized seat', DEATH: 'the lord\'s death', MURDER: 'the murder', KINSLAYING_NOTORIOUS: 'the kinslaying',
+  HARD_WINTER: 'the hard winter', HARVEST_POOR: 'the failed harvest', SHORTAGE: 'the dear bread', BANDITRY: 'the bandits', MIGRATION: 'the newcomers',
+  UNREST: 'the unrest', FAIR: 'the fair', FESTIVAL: 'the festival', VENTURE_FAILING: 'the failing venture', ROAD_FAILS: 'the dwindling trade',
+  SLUMP: 'the hard times', HOUSE_FALLS: 'a house\'s fall', HOUSE_RISES: 'a house\'s rise',
+};
+
+/** How the journal names an event of the engine's kind `kind` ("the plague"). */
+export const eventNoun = (kind: string): string => EVENT_NOUNS[kind] ?? `the ${kind.toLowerCase().replace(/_/g, ' ')}`;
+
+/**
  * How each fixed key is named in a question, and how it reads mid-sentence. Kept to what a player
  * would type: "plague" and "pestilence" but not "sick", which is how you ask after the healer
  * (free-questions.ts SCOPE_HINTS); "what happened" and "long ago", but not a bare "here", which

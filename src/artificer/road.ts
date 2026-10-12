@@ -27,7 +27,8 @@ import { ask, answerFor, leadOf, sentTo, tellsFor, ASK_HOURS, ASK_TRUST, LEAD_TR
 import { deflectionOf } from './free-questions';
 import { playFacts } from './history-in-play';
 import { honouringOrgs, membersOf, standingFrom } from './orgs';
-import { helpedBy, tieWord } from './ties';
+import { helpedBy, tieWord, HELP_FEATURE } from './ties';
+import { deedEffects, returnVisit, type HelpDeed } from './help';
 import type { Standing } from './knowledge';
 import { answerQuestion, questionAbout } from './knowledge-questions';
 import { featureOn } from './features';
@@ -148,6 +149,12 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   noticed?: Record<string, string[]>;
   /** People answers have pointed you to (#1497), in the order you heard of them. Absent before leads. */
   leads?: Lead[];
+  /**
+   * Your dealings with people (#1659), in the order they happened: each trade and each job done.
+   * What they do (help.ts `helpEffects`) is read off this list, not kept as a running number. Written
+   * only with the `grudges-and-help` switch, so absent in every run without it.
+   */
+  helps?: HelpDeed[];
   /** What you did in the Reach (#1346), carried out of it (#1499): it opens things to tell, and options. Absent before. */
   deeds?: string[];
   /** How the ride was paid for at the meeting (#1355); absent for a road begun before the meeting existed. */
@@ -272,6 +279,7 @@ function clone(s: RoadState): RoadState {
     ...(s.leads ? { leads: s.leads.map(l => ({ ...l })) } : {}),
     ...(s.deeds ? { deeds: [...s.deeds] } : {}),
     ...(s.readings ? { readings: { ...s.readings } } : {}),
+    ...(s.helps ? { helps: s.helps.map(h => ({ ...h })) } : {}),
     log: [...s.log],
   };
 }
@@ -383,7 +391,8 @@ function openVillage(s: RoadState, id: string): void {
 function tiesWordOf(s: RoadState): (pid: string) => number {
   if (!featureOn(s.features, 'ties')) return () => 0;
   const helped = helpedBy(s.quests, s.deeds);
-  return pid => tieWord(pid, helped);
+  // The ties of this run: with `grudges-and-help` (#1659), the ones written for it too.
+  return pid => tieWord(pid, helped, s.features);
 }
 
 /** Leave a village (#1246): word of how they took to you travels to the next. */
@@ -528,6 +537,8 @@ function trade(next: RoadState, id: string): RoadState {
     next.stores[lot.item] += lot.qty;
     say(next, `Bought ${lot.qty} ${lot.item} from ${terms.name} for ${price} marks.`, 'action');
   }
+  // A fair trade, and custom if you've come back (#1659): recorded, and what it does read off the record.
+  helped(next, { day: next.day, who: terms.trader, kind: selling ? 'sold' : 'bought' });
   const a = applyActivity(next.vitals, { hours: TRADE_HOURS, vigorRate: 0, clarityRate: -1 });
   next.vitals = a.vitals;
   next.today.loadClarity += a.loadClarity;
@@ -536,6 +547,31 @@ function trade(next: RoadState, id: string): RoadState {
   // A friend's price, paid or got (#1578): that's where you stand with them, in marks.
   if (terms.trust >= FRIEND_TRUST) showsTruth(next, terms.trader);
   return next;
+}
+
+/**
+ * Record a dealing with someone (#1659) and apply what it does (help.ts `deedEffects`, read off the
+ * record so far): trust with who it was for, and along their ties with the people you've met
+ * (someone not met yet hears of it from a friend when you meet, `tiesWordOf`). Only with the
+ * `grudges-and-help` switch; off, and in every run from before it, nothing is recorded or changed.
+ */
+function helped(next: RoadState, deed: HelpDeed): void {
+  if (!featureOn(next.features, HELP_FEATURE)) return;
+  const history = next.helps ?? [];
+  const effects = deedEffects(history, deed, next.features);
+  const regular = returnVisit(history, deed);
+  next.helps = [...history, deed];
+  // The caravan's own are tied too (Pim, to Arvid at the Gate), and aren't in a village's list.
+  const nameOf = (id: string): string => (personById(id) ?? TRAVELLERS.find(t => t.id === id))?.name ?? id;
+  if (regular) say(next, `${nameOf(deed.who)} knows your face by now, and greets you as a regular.`, 'action');
+  for (const [pid, d] of Object.entries(effects)) {
+    if (pid === deed.who) { bump(next, pid, d); continue; }
+    if (next.trust[pid] === undefined) continue;
+    bump(next, pid, d);
+    say(next, d > 0
+      ? `Word reaches ${nameOf(pid)} that you've done right by ${nameOf(deed.who)}. It warms them to you.`
+      : `Word reaches ${nameOf(pid)} that you've taken ${nameOf(deed.who)}'s side. They think the less of you for it.`, 'action');
+  }
 }
 
 // ── Quests (#1248) ──────────────────────────────────────────────────────────
@@ -569,6 +605,8 @@ function reward(next: RoadState, quest: QuestTemplate): void {
   if (learnt) { next.known.push(learnt); next.discovery[learnt] = 'quest'; }
   bump(next, quest.giver, QUEST_TRUST);
   for (const p of peopleOf(quest.village)) if (p.id !== quest.giver) bump(next, p.id, QUEST_TRUST_VILLAGE);
+  // A job done for someone is help that reaches their ties (#1659): kin and friends warm, a rival cools.
+  helped(next, { day: next.day, who: quest.giver, kind: 'task', quest: quest.id });
   const extras = [`${r.marks} marks`, r.item && `${r.item.qty} ${r.item.item}`, learnt && `the ${learnt} recipe`].filter(Boolean).join(', ');
   say(next, `${nameOf(quest.giver)}: "${quest.thanks}" ${quest.title} done — ${extras}.`, 'milestone');
 }

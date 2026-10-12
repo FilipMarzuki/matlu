@@ -13,6 +13,7 @@
 import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
+import type { HelpDeed } from '../artificer/help';
 import { leadOnLoad, type Lead } from '../artificer/asks';
 import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -390,6 +391,10 @@ export function serialize(a: AppState): string {
  * Parse a saved road (#1250), filling in fields a later Region 1.5 issue added. Null when
  * it isn't one — the same shape checks as the Reach: what the sim reads, then trust the rest.
  */
+/** A help deed as saved (#1659): a day, who, and a kind the road records. */
+const isHelpDeed = (h: unknown): h is HelpDeed =>
+  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (h.kind === 'sold' || h.kind === 'bought' || h.kind === 'task') && (h.quest === undefined || typeof h.quest === 'string');
+
 function parseRoad(x: unknown): RoadState | null {
   if (!isObj(x)) return null;
   const v = x.vitals;
@@ -399,7 +404,7 @@ function parseRoad(x: unknown): RoadState | null {
   const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
   // The optional fields below are only ever loaded checked: left out of the spread, so one saved in
   // the wrong shape (a string where a list belongs) loads as absent instead of as itself.
-  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, readings: _readings, ...rest } = x;
+  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, readings: _readings, helps: _helps, ...rest } = x;
   return {
     ...(rest as unknown as RoadState),
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
@@ -426,6 +431,9 @@ function parseRoad(x: unknown): RoadState | null {
     // What's left of each misreading (#1578), a share from 0 to 1; anything else is dropped, and
     // a person missing from it reads as all of it — as does a road from before rapport.
     ...(isObj(x.readings) ? { readings: Object.fromEntries(Object.entries(x.readings).filter((e): e is [string, number] => isNum(e[1]) && e[1] >= 0 && e[1] <= 1)) } : {}),
+    // Your dealings with people (#1659), in order; a road from before, or without the switch, has none.
+    // A deed in the wrong shape is dropped, so the rest still read.
+    ...(Array.isArray(x.helps) ? { helps: (x.helps as unknown[]).filter(isHelpDeed).map(h => ({ ...h })) } : {}),
   };
 }
 
