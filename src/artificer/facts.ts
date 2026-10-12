@@ -25,7 +25,7 @@
 import { ANSWERS, type Answer } from './answers';
 import { answer, gateOf, SENSITIVITY_TRUST, type Fact, type Knower, type KnowledgeAnswer, type Lie, type Org, type ScopeKind, type Sensitivity, type Standing, type Truth } from './knowledge';
 import { ORG_FACTS, ROAD_ORGS, ranksOf } from './orgs';
-import { TIE_FACTS } from './ties';
+import { HELP_FEATURE, HELP_TIE_FACTS, TIE_FACTS } from './ties';
 import { DEFAULT_RUMOUR_FACTS, rumourFactsFor, rumourSetKey } from './claims';
 import { featureOn, ruleFeatures, type FeatureSwitches } from './features';
 import { SKILLS, type SkillId } from './skills';
@@ -153,19 +153,25 @@ export const hasScopeFacts = (facts: readonly Fact[]): boolean => facts.some(f =
 
 /**
  * Every fact a new game can hold: today's, the scope facts, the organisations' (#1587), the ties'
- * (#1588) and the rumours' (#1580), as they bend by default (#1589). A run with `rumour-drift` off
- * hears the same rumours told #1580's way: the same fact ids, other words (claims.ts `RUMOUR_FACTS`).
+ * (#1588, the grudges' with them, #1659) and the rumours' (#1580), as they bend by default (#1589).
+ * A run with `rumour-drift` off hears the same rumours told #1580's way: the same fact ids, other
+ * words (claims.ts `RUMOUR_FACTS`).
  */
-export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS, ...DEFAULT_RUMOUR_FACTS];
+export const ALL_FACTS: readonly Fact[] = [...FACTS, ...SCOPE_FACTS, ...ORG_FACTS, ...TIE_FACTS, ...HELP_TIE_FACTS, ...DEFAULT_RUMOUR_FACTS];
 
 /**
  * The switchable sets of facts, in the order they join today's: what everyone knows (#1610), the
- * organisations' (#1587), and what people say of those they're tied to (#1588).
+ * organisations' (#1587), what people say of those they're tied to (#1588) and of those they hold a
+ * grudge against (#1659), and the rumours (#1580).
  */
-const SWITCHED_FACTS: readonly { feature: string; facts: (features: FeatureSwitches | undefined) => readonly Fact[] }[] = [
+// `needs`: another switch a set is only on with (its bit reads 0 without it, so a run with it off
+// shares the very array of a run without the set).
+const SWITCHED_FACTS: readonly { feature: string; needs?: string; facts: (features: FeatureSwitches | undefined) => readonly Fact[] }[] = [
   { feature: 'scope-facts', facts: () => SCOPE_FACTS },
   { feature: 'organisations', facts: () => ORG_FACTS },
   { feature: 'ties', facts: () => TIE_FACTS },
+  // The grudges and the kin tie that came with help (#1659): ties too, so only with `ties` on as well.
+  { feature: HELP_FEATURE, needs: 'ties', facts: () => HELP_TIE_FACTS },
   // The rumours depend on more switches than their own (#1589: how they bend, and who someone is).
   { feature: 'rumours-and-lies', facts: rumourFactsFor },
 ];
@@ -173,9 +179,9 @@ const SWITCHED_FACTS: readonly { feature: string; facts: (features: FeatureSwitc
 // Each combination of switches is built once and kept, so a run's facts are always the same array
 // (and the common cases are the very arrays above: none of the switches, FACTS; all of them,
 // ALL_FACTS). Keyed by which switches are on, as a string of 0s and 1s, in SWITCHED_FACTS' order
-// ('1010': scope facts and ties, no organisations or rumours): sixteen combinations at most, and
+// ('10100': scope facts and ties, no organisations, grudges or rumours): 32 combinations at most, and
 // with the rumours on, which of their sets (claims.ts `rumourSetKey`).
-const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], [`1111|${rumourSetKey(ruleFeatures())}`, ALL_FACTS]]);
+const FACT_SETS = new Map<string, readonly Fact[]>([['00000', FACTS], [`11111|${rumourSetKey(ruleFeatures())}`, ALL_FACTS]]);
 
 /**
  * The facts a run plays with, by its saved rule switches: with `scope-facts` on, the scope facts
@@ -194,7 +200,7 @@ const FACT_SETS = new Map<string, readonly Fact[]>([['0000', FACTS], [`1111|${ru
  * two more rumours (a debt, and a secret that leaked).
  */
 export function factsFor(features: FeatureSwitches | undefined): readonly Fact[] {
-  const bits = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) ? '1' : '0')).join('');
+  const bits = SWITCHED_FACTS.map(s => (featureOn(features, s.feature) && (!s.needs || featureOn(features, s.needs)) ? '1' : '0')).join('');
   const key = bits.endsWith('1') ? `${bits}|${rumourSetKey(features)}` : bits;
   let facts = FACT_SETS.get(key);
   if (!facts) {

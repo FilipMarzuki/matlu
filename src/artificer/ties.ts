@@ -20,15 +20,30 @@
  * the facts it gives the knowledge model, who the Warden has helped, and the word that follows.
  * Behind the `ties` rule switch: facts.ts `factsFor` adds the facts, road.ts the word.
  *
+ * A **grudge** (#1659) is one-sided: someone was wronged, or believes they were, and it colours
+ * what they say of the other, sometimes unfairly. The one it's held against holds no view in it,
+ * so asked about the holder they answer as they would anyway. And **help** reaches along ties
+ * (`helpRipples`): help someone, and their kin and friends warm to you; their rival, or whoever
+ * holds a grudge against them, sees you take their side, and cools. Both with the
+ * `grudges-and-help` switch, as are the ties that came with it (an entry's `feature`).
+ *
  * Pure and deterministic: data built once from other data, no randomness.
  */
 
 import type { Fact, Sensitivity, Truth } from './knowledge';
+import { featureOn, type FeatureSwitches } from './features';
 import { QUESTS } from './quests';
 import tiesFile from './content/ties.json';
 
-/** What joins two people. Plain kinds to start; the game reads only the opinions, never the kind. */
-export type TieKind = 'kin' | 'friend' | 'rival' | 'debt' | 'colleague';
+/**
+ * What joins two people. The game reads the opinions, and the kind only for help (`helpRipples`):
+ * kin share in it whatever they think of each other, and a rival or a grudge-holder cools. A
+ * `grudge` is one-sided: only its holder has a view (#1659).
+ */
+export type TieKind = 'kin' | 'friend' | 'rival' | 'debt' | 'colleague' | 'grudge';
+
+/** The rule switch grudges and help come with (#1659), and the ties written for them. */
+export const HELP_FEATURE = 'grudges-and-help';
 
 /** One side's view of the other: how they feel, and (if anything) what they say about them. */
 export interface TieView {
@@ -49,6 +64,8 @@ export interface TieEntry {
   between: readonly [string, string];
   /** By who holds them. Only someone on the road holds a view the game reads. */
   views: Readonly<Record<string, TieView>>;
+  /** A rule switch the tie needs: part of the graph only in a run with it on (#1659). None, and it's always there (with `ties`). */
+  feature?: string;
   placeholder?: boolean;
   /** The canon it rests on (`file › label`). */
   source: string;
@@ -78,11 +95,18 @@ export const elsewhereEntries = (): readonly ElsewhereEntry[] => ELSEWHERE_ENTRI
 /** One of `personId`'s ties, from their side: who to, what kind, and their view. */
 export interface Tie extends TieView { id: string; kind: TieKind; other: string }
 
-/** `personId`'s ties, as they see them (a tie they hold no view in isn't theirs to speak of). What a person sheet lists. */
-export function tiesOf(personId: string): Tie[] {
+/** Whether a tie is part of the graph in a run with these switches: always, unless it needs a switch that's off. */
+const tieIn = (t: TieEntry, features: FeatureSwitches | undefined): boolean => !t.feature || featureOn(features, t.feature);
+
+/**
+ * `personId`'s ties, as they see them (a tie they hold no view in isn't theirs to speak of). What a
+ * person sheet lists. Only the ties in a run with `features`: without them, the ties every run with
+ * `ties` has, as #1588 shipped them.
+ */
+export function tiesOf(personId: string, features?: FeatureSwitches): Tie[] {
   return TIE_ENTRIES.flatMap(t => {
     const v = t.views[personId];
-    if (!v || !t.between.includes(personId)) return [];
+    if (!v || !t.between.includes(personId) || !tieIn(t, features)) return [];
     const other = t.between[0] === personId ? t.between[1] : t.between[0];
     return [{ id: t.id, kind: t.kind, other, ...v }];
   });
@@ -100,7 +124,7 @@ const ELSEWHERE_IDS = new Set(ELSEWHERE_ENTRIES.map(e => e.id));
  * Someone elsewhere has no topic to ask about yet (topics.ts knows only the road's people), so
  * views of them stay in the graph, for word and the person sheet, and give no fact.
  */
-export const TIE_FACTS: readonly Fact[] = TIE_ENTRIES.flatMap(t => Object.entries(t.views).flatMap(([holder, v]) => {
+const tieFacts = (entries: readonly TieEntry[]): readonly Fact[] => entries.flatMap(t => Object.entries(t.views).flatMap(([holder, v]) => {
   const other = t.between[0] === holder ? t.between[1] : t.between[0];
   if (!v.says || ELSEWHERE_IDS.has(other)) return [];
   return [{
@@ -112,6 +136,15 @@ export const TIE_FACTS: readonly Fact[] = TIE_ENTRIES.flatMap(t => Object.entrie
     truth: v.truth ?? 'true',
   }];
 }));
+
+/** The ties' facts every run with `ties` has: those of the ties that need no other switch. */
+export const TIE_FACTS: readonly Fact[] = tieFacts(TIE_ENTRIES.filter(t => !t.feature));
+
+/**
+ * The facts of the ties that came with `grudges-and-help` (#1659): the grudges, said as their
+ * holders say them, and the kin tie written for help to reach. facts.ts adds them with both switches on.
+ */
+export const HELP_TIE_FACTS: readonly Fact[] = tieFacts(TIE_ENTRIES.filter(t => t.feature === HELP_FEATURE));
 
 /**
  * Who the Warden has helped: the giver of each quest done (#1248), and anyone elsewhere whose
@@ -135,8 +168,41 @@ export const TIE_WORD = 15;
  * by the Warden's errands alone. Someone they dislike praising you moves them not at all (a
  * grudge, not a reference); turning it against you is left for later.
  */
-export function tieWord(personId: string, helped: ReadonlySet<string>): number {
+export function tieWord(personId: string, helped: ReadonlySet<string>, features?: FeatureSwitches): number {
   let best = 0;
-  for (const t of tiesOf(personId)) if (t.opinion > 0 && helped.has(t.other)) best = Math.max(best, Math.round(TIE_WORD * t.opinion / 100));
+  for (const t of tiesOf(personId, features)) if (t.opinion > 0 && helped.has(t.other)) best = Math.max(best, Math.round(TIE_WORD * t.opinion / 100));
   return best;
+}
+
+/** The share of a kindness that reaches those tied to whoever had it (#1659): kin get half of it, friends half scaled by how they like them. */
+export const HELP_SHARE = 0.5;
+
+/**
+ * What one act of help for `helped`, worth `amount` of their trust, does to the people tied to
+ * them (#1659): the trust each one gains or loses, by id. It's read from their side of the tie,
+ * the views they hold of `helped`:
+ * - **kin** warm by HELP_SHARE of it, whatever they think of each other: helping someone's kin
+ *   counts toward them;
+ * - a **rival**, or anyone who thinks ill of them (a grudge-holder, say), sees you take their
+ *   side, and cools by as much. A rival cools even if they like their rival (Tobin of Maren):
+ *   it's a contest, and you picked a side;
+ * - a **friend** (anyone else who thinks well of them) warms by HELP_SHARE scaled by that opinion.
+ * Someone who holds no view of `helped` (the one a grudge is against) isn't moved. Only the ties in
+ * a run with `features`; the caller applies it to the people the Warden has met.
+ */
+export function helpRipples(helped: string, amount: number, features?: FeatureSwitches): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of TIE_ENTRIES) {
+    if (!t.between.includes(helped) || !tieIn(t, features)) continue;
+    const other = t.between[0] === helped ? t.between[1] : t.between[0];
+    const v = t.views[other];
+    if (!v) continue;
+    const by = t.kind === 'kin' ? HELP_SHARE * amount
+      : t.kind === 'rival' || t.kind === 'grudge' || v.opinion < 0 ? -HELP_SHARE * amount
+        : HELP_SHARE * amount * v.opinion / 100;
+    // Rounded away from zero alike both ways (Math.round takes -1.5 to -1, 1.5 to 2).
+    const d = Math.sign(by) * Math.round(Math.abs(by));
+    if (d) out[other] = (out[other] ?? 0) + d;
+  }
+  return out;
 }

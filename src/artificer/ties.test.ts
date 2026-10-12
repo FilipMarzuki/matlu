@@ -15,7 +15,7 @@ import { ALL_FACTS, FACTS, claimsTold, factsFor, resolve } from './facts';
 import { featureOn, ruleFeatures } from './features';
 import { ask, TELLS } from './asks';
 import { QUESTS } from './quests';
-import { TIE_FACTS, TIE_WORD, elsewhereEntries, helpedBy, tieEntries, tieWord, tiesOf } from './ties';
+import { HELP_FEATURE, HELP_TIE_FACTS, TIE_FACTS, TIE_WORD, elsewhereEntries, helpedBy, tieEntries, tieWord, tiesOf } from './ties';
 import { VILLAGES, TRAVELLERS, personById, type Person } from './villages';
 import { createRegion1, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -128,7 +128,14 @@ describe('The tie graph', () => {
       expect(t.between, t.id).toHaveLength(2);
       expect(ids.has(t.between[0]), `${t.id}: ${t.between[0]}`).toBe(true);
       expect(ids.has(t.between[1]) || elsewhere.has(t.between[1]), `${t.id}: ${t.between[1]}`).toBe(true);
-      expect(['kin', 'friend', 'rival', 'debt', 'colleague']).toContain(t.kind);
+      expect(['kin', 'friend', 'rival', 'debt', 'colleague', 'grudge']).toContain(t.kind);
+      // A grudge is one-sided (#1659): only its holder has a view, and it's ill.
+      if (t.kind === 'grudge') {
+        expect(Object.keys(t.views), t.id).toHaveLength(1);
+        expect(Object.values(t.views)[0].opinion, t.id).toBeLessThan(0);
+      }
+      // A tie that needs a switch needs one there is: the grudges and help's (#1659).
+      if (t.feature) expect(t.feature, t.id).toBe(HELP_FEATURE);
       expect(Object.keys(t.views).length, t.id).toBeGreaterThan(0);
       for (const [holder, v] of Object.entries(t.views)) {
         expect(t.between, `${t.id}: ${holder} isn't in the tie`).toContain(holder);
@@ -162,7 +169,8 @@ describe('The tie graph', () => {
   it('a view with words is a person-scope fact about the other, held by the one who has the view', () => {
     for (const t of tieEntries()) for (const [holder, v] of Object.entries(t.views)) {
       const other = t.between.find(x => x !== holder)!;
-      const f = TIE_FACTS.find(x => x.id === `tie:${t.id}:${holder}`);
+      // A tie that came with a switch gives its facts with it (#1659), the rest every run with `ties`.
+      const f = (t.feature ? HELP_TIE_FACTS : TIE_FACTS).find(x => x.id === `tie:${t.id}:${holder}`);
       if (!v.says || !ids.has(other)) { expect(f, `${t.id}:${holder}`).toBeUndefined(); continue; }
       expect(f?.scope).toEqual({ kind: 'person', id: holder });
       expect(f?.about).toEqual([`person:${other}`]);
