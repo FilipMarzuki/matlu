@@ -19,7 +19,7 @@ import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
 import { bestRun, heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { seasonOf, MIDWINTER_AFTER, type Grade, type OutcomeKind } from '../artificer/winter';
-import { daylightHours } from '../artificer/clock';
+import { daylightHours, DAY_START } from '../artificer/clock';
 import { dayMean, nightTemp, coldNightNeeds, isBlizzard, weatherName, BLIZZARD_HOURS, type WeatherId } from '../artificer/weather';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
@@ -65,7 +65,8 @@ import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
-import { choose, carryOn, forget, weighPin, roadChoose, act, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Phase, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -1036,7 +1037,15 @@ function resolvePanel(a: AppState): string {
   return '';
 }
 
+/**
+ * Draw the page. While the day plays out on the timer (#1669) the page shows the day as far as
+ * it has got, whatever asked for the redraw: the game already holds the day's end.
+ */
 function render(a: AppState): void {
+  drawPage(playing ? shownNow(playing) : a);
+}
+
+function drawPage(a: AppState): void {
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
@@ -1053,7 +1062,7 @@ function render(a: AppState): void {
       ${phaseChip(a)}
       <span class="spacer"></span>
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
-      <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
+      <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       ${weekChip(a)}
       ${experimentChip(a)}
@@ -1075,7 +1084,15 @@ function render(a: AppState): void {
     <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length)}
-    ${meetingModal(a.sim, a.meeting)}`;
+    ${meetingModal(a.sim, a.meeting)}
+    ${timerPanel()}`;
+  root.classList.toggle('playing', !!playing);
+  if (playing) {
+    tickTimer(playing);
+    // The newest line in view: lines arrive at the bottom of the timer's list.
+    const lines = root.querySelector<HTMLElement>('.timer .tlog');
+    if (lines) lines.scrollTop = lines.scrollHeight;
+  }
 }
 
 /** The encounter just answered (#1347), shown in the modal until you carry on. */
@@ -1246,6 +1263,181 @@ if (!saved) startLog(state, {}, null);
 function play(next: AppState, move: WebMove): void {
   kept = recordMove(kept, state, next, move);
   update(next);
+}
+
+// ── The day on a timer (#1669) ──────────────────────────────────────────────
+// Running the queue plays the day out in real time: a bar fills for each action, the clock moves
+// through the hours, and each action's journal lines arrive as it finishes. Presentation only:
+// the day is resolved at once, exactly as before (playback.ts), and saved before the first frame,
+// so closing or reloading the page simply finds the day done. Skip shows the end at once.
+
+/** The viewer's speed: 1×, 2× or 4×, kept in this browser (a convenience; storage may be blocked). */
+const SPEED_KEY = 'artificer.speed';
+let speed: Speed = (() => { try { return parseSpeed(localStorage.getItem(SPEED_KEY)); } catch { return 1; } })();
+
+/** The screen wake lock, where the browser has one (typed here: older DOM typings lack it). */
+type WakeLockHandle = { release(): Promise<void> };
+type WakeLockApi = { request(kind: 'screen'): Promise<WakeLockHandle> };
+
+interface Playing {
+  plays: DayPlay[];
+  /** How each day is written in the run's log (#1559). */
+  moveOf: (p: DayPlay) => WebMove;
+  /** The day playing, an index into `plays`. */
+  day: number;
+  /** Playback hours into that day. */
+  t: number;
+  /** The last frame's time (ms), or null before the first. */
+  last: number | null;
+  frame: number;
+  /** The step the page was last drawn at, so the page is redrawn only when one finishes. */
+  drawn: number;
+  lock: WakeLockHandle | null;
+}
+let playing: Playing | null = null;
+
+/** The moment the timer is at. */
+const momentOf = (pl: Playing): Moment => momentAt(pl.plays[pl.day], pl.t);
+
+/** The game as far as the timer has got: what the page draws while it runs. */
+const shownNow = (pl: Playing): AppState => shownAt(pl.plays[pl.day], momentOf(pl).done);
+
+/**
+ * Play days out on the timer. Each day is logged and saved as it starts, so leaving mid-day finds
+ * that day done. Nothing worth watching (a finished run, a choice still waiting): no timer.
+ */
+function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
+  if (!worthPlaying(plays)) {
+    for (const p of plays) { kept = recordMove(kept, state, p.after, moveOf(p)); keep(p.after); }
+    render(state);
+    return;
+  }
+  const pl: Playing = { plays, moveOf, day: 0, t: 0, last: null, frame: 0, drawn: -1, lock: null };
+  playing = pl;
+  startDay(pl);
+  void holdScreen(pl);
+  pl.drawn = momentOf(pl).index;
+  render(state);
+  pl.frame = requestAnimationFrame(now => frame(pl, now));
+}
+
+/** A day begins on the timer: it goes into the game (logged and saved) at once. */
+function startDay(pl: Playing): void {
+  const p = pl.plays[pl.day];
+  kept = recordMove(kept, state, p.after, pl.moveOf(p));
+  keep(p.after);
+  pl.t = 0;
+  pl.drawn = -1;
+}
+
+function frame(pl: Playing, now: number): void {
+  if (playing !== pl) return;
+  if (pl.last !== null) pl.t += ((now - pl.last) * speed) / MS_PER_HOUR;
+  pl.last = now;
+  let m = momentOf(pl);
+  if (m.over) {
+    if (pl.day + 1 >= pl.plays.length) { endTimer(); return; }
+    pl.day += 1;
+    startDay(pl);
+    m = momentOf(pl);
+  }
+  // A step finished (or the night came): the page catches up, and its lines arrive.
+  if (m.index !== pl.drawn) { pl.drawn = m.index; render(state); }
+  else tickTimer(pl);
+  pl.frame = requestAnimationFrame(t => frame(pl, t));
+}
+
+/** Skip (#1669): every day still to come goes into the game at once, and the screen shows the end. */
+function skipTimer(): void {
+  const pl = playing;
+  if (!pl) return;
+  while (pl.day + 1 < pl.plays.length) { pl.day += 1; startDay(pl); }
+  endTimer();
+}
+
+function endTimer(): void {
+  const pl = playing;
+  if (!pl) return;
+  cancelAnimationFrame(pl.frame);
+  playing = null;
+  if (pl.lock) void pl.lock.release().catch(() => undefined);
+  render(state);
+}
+
+function setSpeed(x: Speed): void {
+  speed = x;
+  try { localStorage.setItem(SPEED_KEY, String(x)); } catch { /* this visit only */ }
+  render(state);
+}
+
+/** Keep the screen awake while the day plays (a tablet left on the table), where the browser allows it. */
+async function holdScreen(pl: Playing): Promise<void> {
+  try {
+    const api = (navigator as unknown as { wakeLock?: WakeLockApi }).wakeLock;
+    if (!api) return;
+    const lock = await api.request('screen');
+    if (playing === pl) pl.lock = lock; else void lock.release().catch(() => undefined);
+  } catch { /* refused (battery saver, no permission): the timer runs anyway */ }
+}
+
+// The timer runs only while you watch: leave the page and the day is simply done when you come back.
+document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
+document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
+
+const PHASE_WORD: Record<Phase['kind'], string> = { out: 'walking out', work: 'working', back: 'walking back' };
+
+/** What the step running is called: "🪵 WOOD · NEAR". */
+function stepName(p: DayPlay, m: Moment): string {
+  if (m.index >= p.steps.length) return '☾ NIGHT FALLS';
+  const { id, ring } = parseItem(p.steps[m.index].item);
+  return `${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` · ${RING_NAME[ring].toUpperCase()}` : ''}`;
+}
+
+/** The leg of a trip session (#1668), in words; else the action's hours. */
+function phaseText(p: DayPlay, m: Moment): string {
+  if (m.index >= p.steps.length) return 'You eat, and sleep.';
+  const st = p.steps[m.index];
+  if (m.phase) return `${m.phase.trips > 1 ? `Trip ${m.phase.trip} of ${m.phase.trips} · ` : ''}${PHASE_WORD[m.phase.kind]}`;
+  return st.hours > 0 ? `${hrs(st.hours)}h` : 'skipped';
+}
+
+/** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
+function timerPanel(): string {
+  const pl = playing;
+  if (!pl) return '';
+  const p = pl.plays[pl.day];
+  const m = momentOf(pl);
+  const night = m.index >= p.steps.length;
+  const lines = linesAt(p, m.done, night);
+  const days = pl.plays.length > 1 ? ` · ${pl.day + 1} OF ${pl.plays.length} DAYS` : '';
+  return `<section class="timer${night ? ' night' : ''}" aria-label="The day plays out">
+    <div class="trow"><span class="tday">DAY ${p.before.sim.day}${days}</span><span class="tclock" id="pb-clock">${clockText(m.clock)}</span>
+      <span class="tspeed" role="group" aria-label="Speed">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
+      <button class="btn go tskip" data-pbskip title="Finish now (Esc)">⏭ SKIP</button></div>
+    <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
+    <div class="tnow"><span class="tname">${stepName(p, m)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
+    <div class="tbar" role="progressbar" aria-label="This action" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
+    <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(l.text)}</li>`).join('') : '<li class="wait">…</li>'}</ul>
+  </section>`;
+}
+
+/** Each frame: the clock, the bars and the trip's leg, without redrawing the page. */
+function tickTimer(pl: Playing): void {
+  const p = pl.plays[pl.day];
+  const m = momentOf(pl);
+  const clock = document.getElementById('pb-clock');
+  if (clock) clock.textContent = clockText(m.clock);
+  const bar = document.getElementById('pb-bar');
+  if (bar) {
+    bar.style.width = `${Math.round(m.frac * 1000) / 10}%`;
+    bar.dataset.phase = m.phase?.kind ?? '';
+    bar.parentElement?.setAttribute('aria-valuenow', String(Math.round(m.frac * 100)));
+  }
+  const strip = document.getElementById('pb-day');
+  if (strip) strip.style.width = `${Math.min(100, Math.max(0, ((m.clock - DAY_START) / DAY_HOURS) * 100))}%`;
+  const phase = document.getElementById('pb-phase');
+  const text = phaseText(p, m);
+  if (phase && phase.textContent !== text) phase.textContent = text;
 }
 
 // ── Arrival intro (#1228) ───────────────────────────────────────────────────
@@ -1493,13 +1685,18 @@ document.addEventListener('keydown', e => {
 });
 
 function update(next: AppState): void {
+  keep(next);
+  render(state);
+}
+
+/** Make `next` the game: into the history if the run just resolved, then saved. No redraw. */
+function keep(next: AppState): void {
   // The moment a run resolves, it goes into the history (once).
   const h = recordRun(history, state, next);
   if (h.length !== history.length || h[0] !== history[0]) { history = h; saveHistory(history); }
   state = next;
   save(state);
   saveKept();
-  render(state);
 }
 
 root.addEventListener('click', e => {
@@ -1516,6 +1713,13 @@ root.addEventListener('click', e => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
   const d = el.dataset;
+  // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
+  // already holds the day's end, so a move now would be made from a state the screen isn't showing.
+  if (playing) {
+    if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
+    if (d.pbskip !== undefined) { skipTimer(); return; }
+    if (!d.tab && d.cmd !== 'help') return;
+  }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
@@ -1535,7 +1739,7 @@ root.addEventListener('click', e => {
   else if (d.focus) { const f = parseFocus(d.focus); play(chooseFocus(state, f), { set: { focus: focusKey(f) } }); }
   else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; const plan = plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length]; play(chooseEating(state, plan), { set: { eating: plan } }); }
   // Before planning is learned (#1350), a tap does the thing now.
-  else if (d.q) { if (state.sim.canPlan) update(enqueue(state, d.q as QueueId)); else play(act(state, d.q as QueueId), { do: d.q }); }
+  else if (d.q) { const q = d.q as QueueId; if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q })); }
   else if (d.cmd === 'endday') play(endTheDay(state), { endDay: true });
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
@@ -1543,8 +1747,9 @@ root.addEventListener('click', e => {
   else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
-  else if (d.cmd === 'day') play(runQueuedDay(state), { plan: state.queue });
-  else if (d.cmd === 'all') { const next = runWholeQueue(state, (before, after) => { kept = recordMove(kept, before, after, { plan: before.queue }); }); update(next); }
+  // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.
+  else if (d.cmd === 'day') playOut([playDay(state)], p => ({ plan: p.before.queue }));
+  else if (d.cmd === 'all') playOut(playWholeQueue(state), p => ({ plan: p.before.queue }));
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
   else if (d.cmd === 'reset') { newWarden(); clearDraft(); startIntro(); }
@@ -1576,7 +1781,7 @@ root.addEventListener('click', e => {
     play(next, { choose: d.choose });
   }
   // Carrying on runs the rest of the planned day: logged as that day's plan, if it ran anything.
-  else if (d.cmd === 'carryon') { encounterAfter = null; if (state.stage === 'road') render(state); else play(carryOn(state), { plan: state.queue }); }
+  else if (d.cmd === 'carryon') { encounterAfter = null; if (state.stage === 'road') render(state); else { const next = carryOn(state); playOut(next === state ? [] : [playDay(state, next)], p => ({ plan: p.before.queue })); } }
   // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
   // Meeting the caravan (#1356): open the dialogue, answer, then climb aboard or watch them go.
   else if (d.cmd === 'meet') update(meetCaravan(state));
@@ -1594,6 +1799,7 @@ root.addEventListener('click', e => {
 // words never go into the game or its save. Then it's sent to be kept, because what players ask
 // is what shows how to grow the game. Nothing waits for that, and if it fails the game goes on.
 root.addEventListener('submit', e => {
+  if (playing) { e.preventDefault(); return; }
   // Sending the run to the records (#1559).
   if ((e.target as HTMLElement).closest('form[data-sendrun]')) { e.preventDefault(); void sendRun(); return; }
   const form = (e.target as HTMLElement).closest<HTMLFormElement>('form[data-question]');
