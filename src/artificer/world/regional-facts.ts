@@ -20,11 +20,19 @@
  * how public they were and the teller's stake (up to `private`/`secret`); regional news here is
  * `public` or `guarded`.
  *
- * Pure and deterministic: plain data in, plain data out, no randomness, no engine.
+ * **Old history bends (#1650)**, with `old-history-drift` on: an event past its tellers' living
+ * memory is told as the region's Peoples and cultures tell it (world/old-history.ts), one fact
+ * per telling, so a region of short-lived humans and long-lived Bergfolk can hold two accounts of
+ * one old plague. Off (and in every run from before the switch), as the history tells it.
+ *
+ * Pure and deterministic: plain data in, plain data out, no engine. The only dice are
+ * old-history.ts's, seeded by the event and who tells it.
  */
 
 import { economyLine, economyOfProvince, ventureFits, TRADE_WORDS } from '../economy';
+import { featureOn, type FeatureSwitches } from '../features';
 import { LIVING_MEMORY, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
+import { oldTellings, regionHolders, tellingId, type HeldBy, type Holder } from './old-history';
 
 /** A regional fact: the knowledge model's `Fact` shape (design §1), with when and what kind. */
 export interface RegionalFact {
@@ -44,6 +52,12 @@ export interface RegionalFact {
   /** The year it's about: the present for how things stand. */
   year: number;
   kind: 'politics' | 'economy' | 'event';
+  /**
+   * Who tells it this way (#1650), on an old event with `old-history-drift` on: the region's
+   * People and cultures whose telling this is, their share of the region, and how many times it's
+   * been retold among them (0: an eyewitness still tells it). Absent on everything else.
+   */
+  heldBy?: readonly HeldBy[];
 }
 
 /**
@@ -75,9 +89,14 @@ export const LIGHT_DUES = 0.25;
 /** Lines whose subject people are careful about. */
 const GUARDED = new Set(['FEUD', 'SEAT_SEIZED']);
 
-/** Every region's facts, region by region in the history's order. */
-export function regionalFacts(history: ReachHistory): RegionalFact[] {
-  return history.regions.flatMap(r => factsOfRegion(r, history.year));
+/**
+ * Every region's facts, region by region in the history's order. With `old-history-drift` on in
+ * the run (#1650), each region's old events are told the way its people tell them (`regionHolders`):
+ * one fact per telling, bent by age and culture (world/old-history.ts).
+ */
+export function regionalFacts(history: ReachHistory, features?: FeatureSwitches): RegionalFact[] {
+  const drift = featureOn(features, 'old-history-drift');
+  return history.regions.flatMap(r => factsOfRegion(r, history.year, drift ? regionHolders(history, r.id) : undefined));
 }
 
 /** The region a province belongs to, by the province's id this run (`p3`) or its name. */
@@ -110,8 +129,12 @@ export function ventureWhere(r: RegionHistory): string {
   return p && !ventureFits(economyOfProvince(p), r.venture.kind) ? `out beyond ${r.venture.province}` : `at ${r.venture.province}`;
 }
 
-/** One region's facts: how things stand now, then what happened there, oldest first. */
-export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[] {
+/**
+ * One region's facts: how things stand now, then what happened there, oldest first. Given its
+ * `holders` (#1650: who lives there, `regionHolders`), an old event is told as they tell it
+ * (`lineFacts`); without, as the history tells it, as before the switch.
+ */
+export function factsOfRegion(r: RegionHistory, present: number, holders?: readonly Holder[]): RegionalFact[] {
   const scope = { kind: 'region' as const, id: r.id };
   const regionKey = `region:${r.id}`;
   const place = (name: string) => `place:${slug(name)}`;
@@ -170,7 +193,7 @@ export function factsOfRegion(r: RegionHistory, present: number): RegionalFact[]
   r.alliances.forEach(([a, b], k) => facts.push(now(`alliance:${k}`, 'politics', `${a} and ${b} stand together.`, 2)));
 
   // --- what happened there ---
-  r.lines.forEach((line, k) => facts.push(lineFact(r, line, present, k)));
+  r.lines.forEach((line, k) => facts.push(...(holders ? lineFacts(r, line, present, k, holders) : [lineFact(r, line, present, k)])));
   return facts;
 }
 
@@ -184,11 +207,10 @@ export function lineFact(r: RegionHistory, line: RegionLine, present: number, k 
   const ago = present - line.year;
   const living = ago <= LIVING_MEMORY;
   const depth: 1 | 2 | 3 = !living ? 3 : ago <= GENERATION && line.significance > 2 ? 1 : 2;
-  const when = ago === 0 ? 'This year' : ago === 1 ? 'A year ago' : `${ago} years ago`;
+  const when = whenOf(ago);
   // The engine's venture news names the venture "at" its province ("The lumber camp at Saltmere
   // was thriving."); at a road village that doesn't live on it, it's out beyond (`ventureWhere`).
-  const beyond = line.kind.startsWith('VENTURE_') && line.province === r.venture.province && ventureWhere(r).startsWith('out beyond');
-  const told = beyond ? line.text.replace(` at ${line.province}`, ` out beyond ${line.province}`) : line.text;
+  const told = toldLine(r, line);
   return {
     id: `region:${r.id}:${line.year}:${k}`,
     about: [`region:${r.id}`, ...(line.province ? [`place:${slug(line.province)}`] : [])],
@@ -200,4 +222,36 @@ export function lineFact(r: RegionHistory, line: RegionLine, present: number, k 
     year: line.year,
     kind: line.category,
   };
+}
+
+const whenOf = (ago: number): string => (ago === 0 ? 'This year' : ago === 1 ? 'A year ago' : `${ago} years ago`);
+
+/** A regional event's words as told in the region: a venture out beyond a road village that doesn't live on it (`lineFact`). */
+function toldLine(r: RegionHistory, line: RegionLine): string {
+  const beyond = line.kind.startsWith('VENTURE_') && line.province === r.venture.province && ventureWhere(r).startsWith('out beyond');
+  return beyond ? line.text.replace(` at ${line.province}`, ` out beyond ${line.province}`) : line.text;
+}
+
+/**
+ * A told regional event as its region's `holders` tell it (#1650, world/old-history.ts
+ * `oldTellings`): within LIVING_MEMORY and seen by all of them, the one fact `lineFact` gives.
+ * Older, or past some People's living memory, one fact per telling: the most widely held keeps
+ * the event's own id (so `placeKnowledge` still finds it), each other one is told under
+ * `tellingId`. An eyewitness telling is `true`, at depth 1 within its witnesses' first generation
+ * if it's big news, else 2; a retold one is a `rumour` only the best-placed tell (3). Only the
+ * event's words bend: "N years ago, in year Y:" is put on after, so the year never moves.
+ */
+export function lineFacts(r: RegionHistory, line: RegionLine, present: number, k: number, holders: readonly Holder[]): RegionalFact[] {
+  const base = lineFact(r, line, present, k);
+  const ago = present - line.year;
+  const told = oldTellings(base.id, toldLine(r, line), ago, holders, r.provinces.map(p => p.name));
+  if (!told) return [base];
+  return told.map((t, i) => ({
+    ...base,
+    id: i === 0 ? base.id : tellingId(base.id, t),
+    text: `${whenOf(ago)}, in year ${line.year}: ${t.text}`,
+    truth: t.truth,
+    depth: t.truth === 'rumour' ? 3 : t.recent && line.significance > 2 ? 1 : 2,
+    heldBy: t.heldBy,
+  }));
 }
