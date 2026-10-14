@@ -30,14 +30,23 @@ import { QUEST_TRUST } from './quests';
 import { SALE_TRUST } from './trade';
 import { helpRipples } from './ties';
 
-/** One dealing with someone, as the road records it: a sale to them, a purchase from them, or a job done for them. */
+/**
+ * Every kind of deed the road can record. `sold`, `bought` and `task` are help (#1659); the rest are
+ * the rest of a track record (#1663, consistency.ts), recorded with the `consistency` switch: a job
+ * taken and `failed` or left to `expire`, and two with no source in play yet, a hard bargain
+ * (`haggled`) and a lie the Warden was caught in (`lied`). Only help does anything here.
+ */
+export const DEED_KINDS = ['sold', 'bought', 'task', 'failed', 'expired', 'haggled', 'lied'] as const;
+export type DeedKind = typeof DEED_KINDS[number];
+
+/** One dealing with someone, as the road records it: a sale to them, a purchase from them, a job done for them (or failed, or left). */
 export interface HelpDeed {
   /** The road day it happened. */
   day: number;
   /** Who it was for: the trader, or the quest's giver. */
   who: string;
-  kind: 'sold' | 'bought' | 'task';
-  /** The quest, for a job done. */
+  kind: DeedKind;
+  /** The quest, for a job done (or failed, or left). */
   quest?: string;
 }
 
