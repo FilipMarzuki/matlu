@@ -26,7 +26,7 @@ import { ruleFeatures, type FeatureSwitches } from '../artificer/features';
 import { createVitals } from '../artificer/vitality';
 import { createRoad, endRoadDay, runRoadAction, chooseRoadOption, peopleHere, questsHere, tradeTerms, villageOf, setRoadFocus, ROUTE, type RoadState, type RoadActionId } from '../artificer/road';
 import { encounterById, optionsFor, ENCOUNTERS } from '../artificer/encounters';
-import { openMeeting, meetingOptions, chooseInMeeting, boardingOf } from '../artificer/caravan-meeting';
+import { openMeeting, chooseInMeeting, boardingOf } from '../artificer/caravan-meeting';
 import { topicsOpen } from '../artificer/topics';
 import { parseFocus, GOAL_IDS } from '../artificer/focus';
 import { SKILL_IDS } from '../artificer/skills';
