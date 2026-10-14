@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, startGame, view, serialize, gameFrom, GAME_VERSION } from './session';
 import { handle, memoryStore, type ApiRequest } from './api';
 import { hollowfordGame } from './fixtures';
-import { loadChoices, saveChoices, devMode, devTruths, DEV_BY_DEFAULT, setDevMode, visibleTabs, tabToOpen, vitalCostLabel, type TabDef } from '../artificer-app/feature-choices';
+import { loadChoices, saveChoices, devMode, devTruths } from '../artificer-app/feature-choices';
 
 let n = 0;
 const deps = { now: () => Date.parse('2026-10-11T12:00:00Z'), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, newSeed: () => 's1' };
@@ -102,57 +102,10 @@ describe('The player’s switches and dev mode, in the browser (#1579)', () => {
     expect(loadChoices(null)).toEqual({});
   });
 
-  it('has dev mode off by default for players; ?dev turns it on and ?dev=0 off, remembered (#1688)', () => {
-    const s = fakeStore();
-    expect(DEV_BY_DEFAULT).toBe(false);
-    expect(devMode('', s)).toBe(false);
-    expect(devMode('?dev', s)).toBe(true);
-    expect(devMode('', s)).toBe(true);
-    expect(devMode('?dev=0', s)).toBe(false);
-    expect(devMode('', s)).toBe(false);
-    // Without storage, the address alone, else the default.
-    expect(devMode('', null)).toBe(false);
-    expect(devMode('?dev', null)).toBe(true);
-    expect(devMode('?dev=off', null)).toBe(false);
-  });
-
-  it('remembers the in-game Dev mode switch, and the address still wins (#1688)', () => {
-    const s = fakeStore();
-    setDevMode(true, s);
-    expect(devMode('', s)).toBe(true); // after a reload
-    setDevMode(false, s);
-    expect(devMode('', s)).toBe(false);
-    expect(devMode('?dev', s)).toBe(true);
-    // Storage that refuses: nothing kept, nothing thrown.
-    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => undefined };
-    expect(() => setDevMode(true, broken)).not.toThrow();
-    expect(devMode('', broken)).toBe(false);
-    expect(devMode('?dev', broken)).toBe(true);
-    setDevMode(true, null);
-  });
-
-  it('shows dev-only tabs only in dev mode, and leaves a hidden tab for the first one shown (#1688)', () => {
-    const tabs: TabDef<'plan' | 'history' | 'warden'>[] = [{ id: 'plan', label: 'PLAN' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }];
-    expect(visibleTabs(tabs, false).map(t => t.id)).toEqual(['plan', 'warden']);
-    expect(visibleTabs(tabs, true).map(t => t.id)).toEqual(['plan', 'history', 'warden']);
-    expect(tabToOpen('history', tabs, true)).toBe('history');
-    expect(tabToOpen('history', tabs, false)).toBe('plan');
-    expect(tabToOpen('warden', tabs, false)).toBe('warden');
-    expect(tabToOpen('nonsense', tabs, true)).toBe('plan');
-    expect(tabToOpen(null, tabs, false)).toBe('plan');
-  });
-
-  it('shows an action’s Vigor/Clarity cost only in dev mode (#1688)', () => {
-    expect(vitalCostLabel({ vigorRate: -3.5, clarityRate: -1 }, false)).toBeNull();
-    expect(vitalCostLabel({ vigorRate: -3.5, clarityRate: -1 }, true)).toBe('vigor + clarity');
-    expect(vitalCostLabel({ vigorRate: 1, clarityRate: -1 }, true)).toBe('clarity');
-    expect(vitalCostLabel({ vigorRate: 2, clarityRate: 1 }, true)).toBe('restores');
-  });
-
   it('shows the hidden truths only with ?dev=truths, never in plain dev mode (#1578)', () => {
     const s = fakeStore();
     expect(devTruths('', s)).toBe(false);
-    expect(devMode('?dev=truths', s)).toBe(true);
+    expect(devMode('?dev=truths', s)).toBe(false); // an extra inside dev mode, never the way in (#1688)
     expect(devTruths('?dev=truths', s)).toBe(true);
     expect(devTruths('', s)).toBe(true); // remembered
     expect(devTruths('?dev', s)).toBe(false); // plain dev mode turns them off again

@@ -10,7 +10,6 @@
 import { validFeatures, type FeatureSwitches } from '../artificer/features';
 
 const CHOICES_KEY = 'artificer.features';
-const DEV_KEY = 'artificer.dev';
 const TRUTHS_KEY = 'artificer.truths';
 
 /** What storage looks like to this file: enough of `localStorage` to read and write. */
@@ -42,58 +41,106 @@ export function saveChoices(choices: FeatureSwitches, store: Store | null = stor
   }
 }
 
-/**
- * Dev mode is off for players (#1688): it opens with the game's own Dev mode switch, or `?dev` in the
- * address. It was on for everyone while the whole game was an experiment (#1579); the owner turned
- * that round once the told history became a tab players could stumble on.
- */
-export const DEV_BY_DEFAULT = false;
+// ── Dev mode (#1579, #1688) ─────────────────────────────────────────────────
+//
+// Dev mode only shows or hides views; it never changes play. It's off for players and opens with a
+// password typed into the faint ⚙ in the help panel (the owner's call, #1688). `?dev` in the address
+// no longer opens it on its own (it did while the whole game was an experiment, #1579).
+//
+// This is a gate against curious players, not security: it runs in the browser, so anyone reading
+// the bundle can get past it. The code holds no password and no hash. The build reads the password's
+// SHA-256 (lowercase hex) from `VITE_DEV_PASSWORD_HASH`, set in the Artificer's Vercel project. With
+// the variable unset (a fresh checkout, CI) the ⚙ still shows but nothing opens it. To use dev mode
+// locally, put the hash in `.env.local` (gitignored) and run `npm run dev` or `npm run build:artificer`:
+//
+//   VITE_DEV_PASSWORD_HASH=<output of: printf %s 'your password' | sha256sum>
 
 /**
- * Whether dev mode is on: `?dev=0` in the address turns it off and remembers it, `?dev` (or any other
- * `?dev=…`, such as `?dev=truths`) turns it on and remembers it; with neither, what the in-game switch
- * last kept (`setDevMode`); with nothing kept, `DEV_BY_DEFAULT`. Dev mode only shows or hides views
- * (the features panel, the HISTORY tab, actions' Vigor/Clarity costs); it never changes play.
+ * Where an unlocked dev mode is remembered. A new key (the old one was `artificer.dev`): anyone who
+ * opened dev mode with `?dev` before the password gate starts locked again.
+ */
+const DEV_KEY = 'artificer.devUnlocked';
+
+/**
+ * Whether dev mode is on: unlocked with the password in this browser before (remembered), and not
+ * left since. `?dev=0` (or `?dev=off`) in the address leaves it, and that's remembered too. `?dev`
+ * or `?dev=truths` alone never opens it.
  */
 export function devMode(search = globalThis.location?.search ?? '', store: Store | null = storage()): boolean {
   const asked = new URLSearchParams(search).get('dev');
   try {
-    // Asked in the address: that, and remembered for the next visit.
-    if (asked !== null) {
-      const on = asked !== '0' && asked !== 'off';
-      store?.setItem(DEV_KEY, on ? '1' : '0');
-      return on;
+    if (asked === '0' || asked === 'off') {
+      store?.setItem(DEV_KEY, '0');
+      return false;
     }
-    const kept = store?.getItem(DEV_KEY);
-    return kept === '1' ? true : kept === '0' ? false : DEV_BY_DEFAULT;
+    return store?.getItem(DEV_KEY) === '1';
   } catch {
-    return asked === null ? DEV_BY_DEFAULT : asked !== '0' && asked !== 'off';
+    return false;
   }
 }
 
-/** The in-game Dev mode switch (#1688): remembered in this browser under `artificer.dev`, like `?dev`. */
+/** Remember dev mode as unlocked (after the right password) or left ("Leave dev mode"). */
 export function setDevMode(on: boolean, store: Store | null = storage()): void {
   try {
     store?.setItem(DEV_KEY, on ? '1' : '0');
   } catch {
-    // Not remembered; the switch still holds until the page reloads.
+    // Not remembered; dev mode still holds (or stays shut) until the page reloads.
   }
 }
 
-/** A tab that only dev mode shows carries `dev: true` (#1688), and wears a DEV tag. */
-export interface TabDef<T extends string> { id: T; label: string; dev?: boolean }
-
-/** The tabs to draw: every tab in dev mode, only the players' tabs without it. */
-export function visibleTabs<T extends string>(tabs: readonly TabDef<T>[], dev: boolean): TabDef<T>[] {
-  return tabs.filter(t => dev || !t.dev);
+/** SHA-256 of a string, as lowercase hex, with the browser's Web Crypto (also in Node 20, for tests). */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * The tab to open: `wanted` if it's a tab that shows now, otherwise the first tab that does (a kept
- * HISTORY tab after dev mode turned off, or a stored id that's no tab at all).
+ * Whether a typed password matches the expected hash (`VITE_DEV_PASSWORD_HASH`). Surrounding spaces
+ * are dropped (a phone keyboard likes to add one). No hash, or not a SHA-256 hex string: never. No
+ * Web Crypto (a page served over plain http that isn't localhost): never, rather than throwing.
  */
-export function tabToOpen<T extends string>(wanted: string | null, tabs: readonly TabDef<T>[], dev: boolean): T {
-  const shown = visibleTabs(tabs, dev);
+export async function devPasswordMatches(typed: string, expectedHex: string | undefined): Promise<boolean> {
+  const want = expectedHex?.trim().toLowerCase() ?? '';
+  if (!/^[0-9a-f]{64}$/.test(want) || !typed.trim()) return false;
+  try {
+    return (await sha256Hex(typed.trim())) === want;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A tab and when it shows (#1688, #1691): `dev` tabs only in dev mode; `needsCamp` tabs once the Warden
+ * has made camp, or early in dev mode (for testing), tagged DEV while that's the only reason.
+ */
+export interface TabDef<T extends string> { id: T; label: string; dev?: boolean; needsCamp?: boolean }
+
+/** What decides which tabs show: dev mode, and whether the Warden has made camp yet. */
+export interface TabView { dev: boolean; camp: boolean }
+
+/** Whether a tab shows now. */
+export function tabShown<T extends string>(t: TabDef<T>, v: TabView): boolean {
+  if (t.dev && !v.dev) return false;
+  if (t.needsCamp && !v.camp && !v.dev) return false;
+  return true;
+}
+
+/** Whether a shown tab wears the DEV tag: it shows only because dev mode is on. */
+export function tabIsDev<T extends string>(t: TabDef<T>, v: TabView): boolean {
+  return !!t.dev || (!!t.needsCamp && !v.camp);
+}
+
+/** The tabs to draw, in order. */
+export function visibleTabs<T extends string>(tabs: readonly TabDef<T>[], v: TabView): TabDef<T>[] {
+  return tabs.filter(t => tabShown(t, v));
+}
+
+/**
+ * The tab to open: `wanted` if it shows now, otherwise the first tab that does (a kept HISTORY tab
+ * after dev mode was left, a kept CAMP tab in a new run, or a stored id that's no tab at all).
+ */
+export function tabToOpen<T extends string>(wanted: string | null, tabs: readonly TabDef<T>[], v: TabView): T {
+  const shown = visibleTabs(tabs, v);
   return (shown.find(t => t.id === wanted) ?? shown[0]).id;
 }
 
@@ -110,8 +157,8 @@ export function vitalCostLabel(rates: { vigorRate: number; clarityRate: number }
  * Whether dev mode also shows the truths the game hides from players (#1578): the true trust beside
  * each felt word, and each skill's true level. Only `?dev=truths` turns this on (and it's remembered);
  * any other `?dev…` turns it off again. Dev mode alone never shows them: hidden information stays
- * hidden from players (the owner's call). `?dev=truths` also turns dev mode on (devMode reads it as
- * on), and the truths show only while dev mode is on: the game reads `dev && devTruths()` (#1688).
+ * hidden from players (the owner's call). `?dev=truths` no longer opens dev mode on its own (#1688):
+ * it's an extra inside dev mode, and the game reads `dev && devTruths()`.
  */
 export function devTruths(search = globalThis.location?.search ?? '', store: Store | null = storage()): boolean {
   const asked = new URLSearchParams(search).get('dev');
