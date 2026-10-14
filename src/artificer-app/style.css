@@ -601,6 +601,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .tlist li { display: grid; grid-template-columns: minmax(0, 1fr) 34px auto auto; gap: 6px; align-items: center; font-size: 12px; }
 .tlist .it { min-width: 0; text-transform: capitalize; }
+.tlist .it .q { text-transform: none; } /* a note, not a name: "gott om här", not "Gott Om Här" (#1709) */
 .tlist .q { color: var(--faint); }
 .tlist .pr { color: var(--gold); font-variant-numeric: tabular-nums; text-align: right; font-family: var(--display); font-size: 9px; }
 .tlist .pr::after { content: ' m'; color: var(--faint); }

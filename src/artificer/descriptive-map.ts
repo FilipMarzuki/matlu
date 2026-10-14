@@ -233,7 +233,7 @@ export function describeLand(s: Run): string[] {
 // ── Drawing your own map ────────────────────────────────────────────────────
 
 export type MapSurface = 'notebook' | 'hide' | 'bark';
-const SURFACE_WORDS: Readonly<Record<MapSurface, string>> = {
+export const SURFACE_WORDS: Readonly<Record<MapSurface, string>> = {
   notebook: 'the notebook and pencil', hide: 'a scraped hide and a charred stick', bark: 'a sheet of birch bark and a charred stick',
 };
 

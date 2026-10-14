@@ -214,7 +214,7 @@ export interface RumourHop {
   sensitivity: Sensitivity;
 }
 
-const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+export const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 /** A number as people say it: in words up to twenty, then in figures. */
 const spoken = (n: number): string => NUMBER_WORDS[n] ?? String(n);
 const named = (pid: string): string => PEOPLE[pid]?.name ?? pid;

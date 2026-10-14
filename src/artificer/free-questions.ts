@@ -179,7 +179,7 @@ export function matchQuestion(personId: string, question: string, answered: read
  */
 export const knowsAbout = (personId: string, key: string, facts: readonly Fact[] = ALL_FACTS): boolean => answerFor(personId, key, facts) !== undefined;
 
-const DEFLECTIONS = [
+export const DEFLECTIONS = [
   "I'd have to think on that. Ask me something else next time.",
   "That's not mine to know. Ask me something else, next time you're through.",
   'Hm. You want someone wiser than me for that one.',

@@ -74,7 +74,7 @@ const HOME: ReadonlyMap<string, string> = new Map(Object.values(VILLAGES).flatMa
 const residentsOf = (village: string): string[] => (VILLAGES[village]?.people ?? []).map(p => p.id);
 
 /** Where on the road something happens, by village: the spot people name. A placeholder for the owner. */
-const SPOT: Readonly<Record<string, string>> = {
+export const SPOT: Readonly<Record<string, string>> = {
   hollowford: 'the ford at Hollowford',
   saltmere: 'the racks at Saltmere',
   'kestrel-gate': 'the gate at Kestrel Gate',
@@ -114,7 +114,7 @@ function pathFor(base: Omit<RumourEntry, 'path'>, teller: string, avoid: Readonl
 // ── The road's own: ties and organisations ─────────────────────────────────
 
 /** How each kind of tie is talked about: the words (`{other}` is the other party, never swapped), and the number's range. Placeholders. */
-const TIE_TALK: Readonly<Record<string, { core: string; label: string; n: [number, number] }>> = {
+export const TIE_TALK: Readonly<Record<string, { core: string; label: string; n: [number, number] }>> = {
   rival: { core: '{who} and {other} had words at {where}, and it took {n} neighbours to part them.', label: 'A quarrel between {a} and {b}', n: [2, 5] },
   grudge: { core: '{who} and {other} had words at {where}, and it took {n} neighbours to part them.', label: 'A quarrel between {a} and {b}', n: [2, 5] },
   debt: { core: '{who} owes {other} {n} silver, borrowed at {where}, and hasn\'t paid a penny of it back.', label: 'What {a} and {b} owe', n: [3, 12] },

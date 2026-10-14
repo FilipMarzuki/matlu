@@ -96,7 +96,7 @@ export function experimentStep(i: ExperimentInput, hours = EXPERIMENT_HOURS): Ex
   return { target, steered, progress, hinted: !learned && before < EXPERIMENT_HINT && after >= EXPERIMENT_HINT, learned };
 }
 
-const WORD: Readonly<Record<string, string>> = { materials: 'cord and sticks', hides: 'the hide', stone: 'the stone', firewood: 'the firewood', rawFood: 'the food', water: 'the water', rations: 'the rations' };
+export const WORD: Readonly<Record<string, string>> = { materials: 'cord and sticks', hides: 'the hide', stone: 'the stone', firewood: 'the firewood', rawFood: 'the food', water: 'the water', rations: 'the rations' };
 /** The things a target is made from, in words ("the hide and cord and sticks"). */
 export const inputWords = (t: ExperimentTarget): string => {
   const w = t.inputs.map(k => WORD[k] ?? k);
