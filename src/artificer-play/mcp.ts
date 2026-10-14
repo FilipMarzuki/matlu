@@ -98,7 +98,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
   server.registerTool('act', {
     title: 'Make one move',
     description: [
-      'Make one move. move is an action id from the moves list, such as "scout", "water" or "gather@2" (ring 2),',
+      'Make one move. move is an action id from the moves list, such as "explore", "water" or "gather@2" (ring 2),',
       'or "end_day" to sleep, or any move exactly as the moves list shows it (a JSON object). Free settings take',
       'no hours: {"set": {"eating": "full" | "half" | "none"}}, {"set": {"focus": "goal:larder" | "none"}},',
       '{"set": {"site": "cave"}}. Gathering can take a length when the game has the action-length feature:',
@@ -108,7 +108,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     ].join(' '),
     inputSchema: z.object({
       game_id: gameId,
-      move: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('An action id like "scout", "end_day", or a move object from the list.'),
+      move: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('An action id like "explore", "end_day", or a move object from the list.'),
     }),
   }, async ({ game_id, move }) => after(await call('POST', movesPath(game_id), { move: toMove(move) })));
 

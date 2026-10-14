@@ -61,9 +61,9 @@ describe('The Artificer over MCP (#1556)', () => {
       expect(rowFor(id).client).toBe(`player-${era}`);
       expect(rowFor(id).model).toBe('some-model');
 
-      const scout = await client.callTool({ name: 'act', arguments: { game_id: id, move: 'scout' } });
+      const scout = await client.callTool({ name: 'act', arguments: { game_id: id, move: 'explore' } });
       expect(isError(scout)).toBe(false);
-      expect(textOf(scout)).toMatch(/Scouted/);
+      expect(textOf(scout)).toMatch(/Walked out and looked around/);
       expect(textOf(scout)).toMatch(/Day 1 · [\d.]+\/14h/);
 
       // A move object exactly as the moves list shows it works too.
@@ -72,7 +72,7 @@ describe('The Artificer over MCP (#1556)', () => {
       expect(isError(night)).toBe(false);
       const look = await client.callTool({ name: 'look', arguments: { game_id: id } });
       expect(textOf(look)).toContain('DAY 2');
-      expect(rowFor(id).moves).toEqual([{ do: 'scout' }, { do: 'water' }, { endDay: true }]);
+      expect(rowFor(id).moves).toEqual([{ do: 'explore' }, { do: 'water' }, { endDay: true }]);
       await client.close();
     });
   }
@@ -86,7 +86,7 @@ describe('The Artificer over MCP (#1556)', () => {
     expect(textOf(r)).toContain('MOVES NOW');
     expect(rowFor(id).moves).toEqual([]);
     // Planning a day is refused until the Warden has learned to plan.
-    const plan = await client.callTool({ name: 'plan_day', arguments: { game_id: id, actions: ['scout', 'water'] } });
+    const plan = await client.callTool({ name: 'plan_day', arguments: { game_id: id, actions: ['explore', 'water'] } });
     expect(isError(plan)).toBe(true);
     expect(textOf(plan)).toMatch(/plan/i);
     await client.close();

@@ -19,10 +19,11 @@ const moveOf = (line: string, moves = day1) => {
 
 describe('The console command line (#1557)', () => {
   it('reads action ids, rings, and the start of a move name', () => {
-    expect(moveOf('scout')).toEqual({ do: 'scout' });
-    expect(moveOf('  Scout  ')).toEqual({ do: 'scout' });
-    expect(moveOf('scout 1')).toEqual({ do: 'scout' });
-    expect(moveOf('scout 2')).toEqual({ do: 'scout@2' });
+    // A new game's exploring action is Explore (#1689).
+    expect(moveOf('explore')).toEqual({ do: 'explore' });
+    expect(moveOf('  Explore  ')).toEqual({ do: 'explore' });
+    expect(moveOf('explore 1')).toEqual({ do: 'explore' });
+    expect(moveOf('explore 2')).toEqual({ do: 'explore@2' });
     expect(moveOf('gather wood')).toEqual({ do: 'wood' });
     expect(moveOf('fetch water')).toEqual({ do: 'water' });
   });
@@ -81,7 +82,7 @@ describe('The console command line (#1557)', () => {
   });
 
   it('completes words from the moves and its own commands', () => {
-    expect(completions('sc', day1)).toContain('scout');
+    expect(completions('expl', day1)).toContain('explore');
     expect(completions('gather', day1)).toEqual(expect.arrayContaining(['gather food', 'gather wood']));
     expect(completions('end', day1)).toContain('end day');
     expect(completions('wa', encounter)).toContain('walk on');

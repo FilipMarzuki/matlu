@@ -13,7 +13,8 @@
  */
 
 import './style.css';
-import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
+import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -83,18 +84,18 @@ if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
 const GROUPS: { title: string; ids: ActionId[] }[] = [
-  { title: 'EXPLORE', ids: ['scout', 'survey', 'track', 'lookout'] },
+  { title: 'EXPLORE', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
   { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
   { title: 'BUILD', ids: ['build', 'coldPit', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'CARRYING GEAR', ids: ['basket', 'backpack', 'harness', 'sled'] },
-  { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest', 'treat'] },
+  { title: 'THINK & RECOVER', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
 ];
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
-  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
+  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -107,6 +108,8 @@ const ty = (s: AppState['sim'], r: Ring, d: Domain, base: number, per: number): 
 
 /** One-line "what you get" per action, in the chosen ring. Numbers mirror region1.ts yields. */
 const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
+  explore: () => 'look around: a new ring at least suspected, a known one a little clearer',
+  experiment: () => 'try things with what you have → work out what you don\'t know yet',
   scout: () => 'everything there at least suspected',
   survey: () => 'everything there observed → richer trips',
   track: () => 'game observed → you can hunt',
@@ -778,14 +781,21 @@ function paletteBlock(a: AppState, preview: Preview): string {
     return `<button class="ringtab ${focusRing === r ? 'on' : ''} ${open ? '' : 'locked'}" data-ring="${r}" title="${open ? '' : 'Scout the ring inside it first'}">`
       + `${RING_NAME[r].toUpperCase()}<span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h travel` : 'home ground'}</span></button>`;
   }).join('')}</div>`;
-  return tabs + GROUPS.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
+  // A group with nothing the Warden knows how to do yet (#1690) isn't shown at all.
+  const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
+  return tabs + known.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     const r: Ring = def.ringed ? focusRing : 1;
     const q = queueId(id, r);
-    const why = blockedReason(preview.projected, id, r);
+    // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
+    // With the switch off a blocked action stays tappable, as before: it would just be skipped.
+    const vis = visibilityOf(preview.projected, id, r);
+    if (vis.status === 'hidden') return '';
+    const why = vis.reason;
+    const greyed = !!why && !greyedTappable(preview.projected);
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
-    return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
+    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : `Would be skipped: ${why}`) : ''}">`
       + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div></button>`;
   }).join('')}</div></div>`).join('');

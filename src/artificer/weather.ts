@@ -227,7 +227,7 @@ const RAIN_SLOW: readonly ActionId[] = ['gather', 'wood', 'quarry'];
 export const weatherHours = (w: WeatherId, action: ActionId): number => (w === 'rain' && RAIN_SLOW.includes(action) ? 1.25 : 1);
 
 /** Fog hides the land: scouting and surveying learn nothing. */
-export const blindInFog = (w: WeatherId, action: ActionId): boolean => w === 'fog' && (action === 'scout' || action === 'survey');
+export const blindInFog = (w: WeatherId, action: ActionId): boolean => w === 'fog' && (action === 'scout' || action === 'survey' || action === 'explore');
 
 /** A storm keeps you out of the far rings. */
 export const stormBars = (w: WeatherId, ring: number): boolean => w === 'storm' && ring >= 2;

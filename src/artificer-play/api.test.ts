@@ -37,12 +37,12 @@ describe('The play API (#1555)', () => {
   it('2. a legal move returns 200 with what changed and the new view, and updates the stored game', async () => {
     const store = memoryStore();
     const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };
-    const r = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }), store, deps);
+    const r = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } }), store, deps);
     expect(r.status).toBe(200);
     const b = r.body as { changed: string[]; status: string };
-    expect(b.changed.join(' ')).toMatch(/Scouted/);
+    expect(b.changed.join(' ')).toMatch(/Walked out and looked around/);
     expect(b.status).toMatch(/Day 1/);
-    expect(store.rows.get(id)!.moves).toEqual([{ do: 'scout' }]);
+    expect(store.rows.get(id)!.moves).toEqual([{ do: 'explore' }]);
   });
 
   it('3. an illegal move returns 422 with the reason and the open moves, and changes nothing stored', async () => {
@@ -83,7 +83,7 @@ describe('The play API (#1555)', () => {
     const row = store.rows.get(id)!;
     const seedId = JSON.parse(row.session).id as string;
     expect(seedId).toMatch(/^play-/);
-    const responses = [start, await handle(get(`/api/v1/games/${id}`), store, deps), await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }), store, deps)];
+    const responses = [start, await handle(get(`/api/v1/games/${id}`), store, deps), await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } }), store, deps)];
     for (const r of responses) {
       const text = JSON.stringify(r.body);
       expect(text).not.toContain(seedId);
@@ -111,7 +111,7 @@ describe('The play API (#1555)', () => {
     const limits = { ...LIMITS, movesPerIpPerDay: 3 };
     const ids: string[] = [];
     for (let i = 0; i < 2; i++) ids.push(((await handle(post('/api/v1/games', {}), store, deps, limits)).body as { id: string }).id);
-    const move = (id: string, ip?: string) => handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }, ip), store, deps, limits);
+    const move = (id: string, ip?: string) => handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } }, ip), store, deps, limits);
     expect((await move(ids[0])).status).toBe(200);
     expect((await move(ids[1])).status).toBe(200);
     expect((await move(ids[0])).status).toBe(200);
@@ -145,7 +145,7 @@ describe('The play API (#1555)', () => {
     expect(full.status).toBe(429);
     expect((full.body as { error: string }).error).toMatch(/today/i);
     const id = (a.body as { id: string }).id;
-    const move = (ip: string) => handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }, ip), store, deps, limits);
+    const move = (ip: string) => handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } }, ip), store, deps, limits);
     expect((await move('198.51.100.1')).status).toBe(200);
     expect((await move('198.51.100.2')).status).toBe(200);
     expect((await move('198.51.100.3')).status).toBe(429);
@@ -158,11 +158,11 @@ describe('The play API (#1555)', () => {
     const realGet = store.get;
     const snapshot = await realGet(id);
     store.get = async () => structuredClone(snapshot);
-    const a = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } }), store, deps);
+    const a = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } }), store, deps);
     const b = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'water' } }), store, deps);
     expect(a.status).toBe(200);
     expect(b.status).toBe(409);
-    expect(store.rows.get(id)!.moves).toEqual([{ do: 'scout' }]);
+    expect(store.rows.get(id)!.moves).toEqual([{ do: 'explore' }]);
   });
 });
 

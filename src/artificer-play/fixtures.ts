@@ -49,7 +49,7 @@ export function thawApp(): AppState {
 }
 
 /** Taps tried each day before planning is learned: some can't be done yet, and the page lets you tap them anyway. */
-const ONE_AT_A_TIME: QueueItem[] = ['scout', 'water', 'gather', 'scout@2', 'hunt', 'wood', 'gather', 'rest'];
+const ONE_AT_A_TIME: QueueItem[] = ['explore', 'water', 'gather', 'explore@2', 'hunt', 'wood', 'gather', 'rest'];
 const DAY_PLAN: QueueItem[] = ['water', 'gather', 'wood', 'preserve', 'gather@2', 'wood', 'build'];
 
 /**
