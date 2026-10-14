@@ -11,6 +11,8 @@
 import { RING_NAME, RINGS, type Ring } from '../artificer/exploration';
 import type { Region1State } from '../artificer/region1';
 import { pinCapacity, letGoFirst, maxInterest, pinEffect, placeName, PIN_WORDS, type Pin } from '../artificer/pins';
+import { makeT, type T } from '../artificer/i18n';
+import { wordText } from './sim-words';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
@@ -18,13 +20,14 @@ const stars = (n: number): string => '★'.repeat(n);
 const FEELING_WORD: Readonly<Record<NonNullable<Pin['feeling']>, string>> = { eerie: 'eerie', awed: 'awe-struck', peaceful: 'peaceful' };
 
 /** "Memory: 2 of 3" — and, when it's full, the place you'd let go first (a suggestion). */
-export function memoryLine(s: Region1State): string {
+export function memoryLine(s: Region1State, t: T = makeT('en')): string {
   const held = s.pins?.length ?? 0, room = pinCapacity(s);
   const full = held >= room;
   const first = full ? letGoFirst(s.pins) : undefined;
-  return `<p class="enc-memory ${full ? 'full' : ''}">🧠 Memory: <b>${held} of ${room}</b> places${full && first
-    ? ` — full. You'd let go of <b>${esc(placeName(first))}</b> (${esc(RING_NAME[first.ring].toLowerCase())} ring) first. <button class="pinbtn" data-forget="${esc(first.id)}">Let it go</button>`
-    : ''}</p>`;
+  // In the viewer's language (#1709): it shows on the encounter screen, for a place worth remembering.
+  return `<p class="enc-memory ${full ? 'full' : ''}">${full && first
+    ? `${t('encui.memoryFullHtml', { held, room, place: esc(wordText(placeName(first), t) ?? placeName(first)), ring: esc(t(`ring.${first.ring}`).toLowerCase()) })} <button class="pinbtn" data-forget="${esc(first.id)}">${esc(t('encui.letGo'))}</button>`
+    : t('encui.memoryHtml', { held, room })}</p>`;
 }
 
 /** The 📌 on a ring of the land: how many places you remember there. Tapping lists them. */

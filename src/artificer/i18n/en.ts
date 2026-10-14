@@ -24,6 +24,7 @@ import { journal } from './en/journal';
 import { roadlog } from './en/roadlog';
 import { encounters } from './en/encounters';
 import { claims, claimsHand } from './en/claims';
+import { queue } from './en/queue';
 
 export const en = {
   // ── The language picker: the very first screen ─────────────────────────────
@@ -253,4 +254,5 @@ export const en = {
   ...encounters,
   ...claims,
   ...claimsHand,
+  ...queue,
 } as const satisfies Record<string, string>;

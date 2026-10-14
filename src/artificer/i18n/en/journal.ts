@@ -357,6 +357,8 @@ export const journal = {
   'log.eat.none': 'You stop eating. The food stays where it is.',
   'log.eat.full': 'Back to full rations.',
   'log.cantFocus': "You can't turn your mind to {about} — {why}.",
+  // The camp's own line (camp-view.ts CAMP_LINE, #1691), added as the journal is drawn.
+  'say.camp.now': 'You have a camp now.',
   // Why an exploring action isn't yours yet (action-unlocks.ts subActionLock).
   'reason.unlock': "you don't know how to {w} yet — {w2} ({Skill})",
 } as const;

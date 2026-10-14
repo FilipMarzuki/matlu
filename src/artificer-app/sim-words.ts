@@ -168,13 +168,14 @@ const ROAD_NAMES: ReadonlySet<string> = new Set([...Object.values(VILLAGES).flat
 const WORDS: ReadonlyMap<string, Key> = new Map((Object.keys(en) as Key[]).filter(k => k.startsWith('w.')).reverse().map(k => [en[k] as string, k]));
 const WORD_TEXTS: readonly string[] = [...WORDS.keys()];
 /** What an experiment can work with (experiment.ts WORD), as the `w.stuff.*` words. */
+const STORE_WORDS: readonly string[] = STORES.map(k => en[`storeword.${k}`]);
 const STUFF_TEXTS: readonly string[] = (Object.keys(en) as Key[]).filter(k => k.startsWith('w.stuff.')).map(k => en[k]);
 /** A regular expression that matches exactly one of `texts`, longest first. */
 function alternation(texts: readonly string[]): string {
   return [...texts].sort((a, b) => b.length - a.length).map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 }
 /** A word by its English, in the viewer's language (keeping a capital the English had). */
-const wordText = (v: string, t: T): string | undefined => {
+export const wordText = (v: string, t: T): string | undefined => {
   const k = WORDS.get(v) ?? WORDS.get(v[0]?.toLowerCase() + v.slice(1));
   if (!k) return undefined;
   const said = t(k);
@@ -211,6 +212,10 @@ const PATTERN: Readonly<Record<string, string>> = {
   n: NUM, m: NUM, h: NUM, have: NUM,
   nth: '\\d+(?:st|nd|rd|th)',
   where: '(?: in the (?:near|far|distant) ring)?',
+  // What's left of a line after its first part: possibly nothing (a plan with no more to say).
+  rest: '.*?',
+  // Amounts of stores, one or more ("14 firewood and 6 materials").
+  amounts: `\\d+ (?:${alternation(STORE_WORDS)})(?:(?:, | and )\\d+ (?:${alternation(STORE_WORDS)}))*`,
   // One of the `w.*` words, and nothing else: so "{w} ({w2})" can only split where the words are.
   w: alternation(WORD_TEXTS),
   // What an experiment works with ("the hide and cord and sticks"): the words, joined.
@@ -265,6 +270,11 @@ function part(name: string, v: string, t: T): string | undefined {
     }
     case 'injury': { const k = (['sprain', 'hand', 'cut'] as const).find(x => en[`injury.${x}`] === v); return k ? t(`injury.${k}`) : undefined; }
     case 'names': return namesText(v, t);
+    // Amounts of stores ("14 firewood and 6 materials"): each in turn, joined the viewer's way.
+    case 'amounts': {
+      const bits = v.split(/, | and /).map(b => { const m = b.match(/^(\d+) (.+)$/); const k = m && storeOf(m[2]); return m && k ? `${m[1]} ${t(`storeword.${k}`)}` : undefined; });
+      return bits.every(Boolean) ? (bits.length > 1 ? t('road.and', { a: bits.slice(0, -1).join(', '), b: bits.at(-1)! }) : bits[0]) : undefined;
+    }
     case 'num': { const i = NUMBER_WORDS.indexOf(v); return i >= 0 ? t(`num.${i}` as Key) : /^\d+$/.test(v) ? v : undefined; }
     // "2 materials + 4 stone": each amount in turn.
     case 'cost': {

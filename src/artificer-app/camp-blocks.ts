@@ -297,7 +297,7 @@ export function thawSummary(a: AppState, t: T): string {
     <p class="mood" style="margin:6px 0 10px">${esc(t('thaw.condition', { n: Math.round(s.vitals.condition) }))}</p>
     <p class="fgroup">${esc(t('thaw.left'))}</p><div class="res">${storeChip('rawFood', st.rawFood, t)}${storeChip('rations', st.rations, t)}${storeChip('water', st.water, t)}${storeChip('firewood', st.firewood, t)}${storeChip('materials', st.materials, t)}</div>
     <p class="fgroup" style="margin-top:12px">${esc(t('thaw.worst'))}</p>${worst.length
-      ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
+      ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(l => esc(simLine(l, t))).join(" ")}</li>`).join("")}</ul>`
       : `<p class="mood" style="margin:0">${esc(t('thaw.noWorst'))}</p>`}
     ${a.stayed
       ? `<p class="mood" style="margin-top:12px">${esc(t('thaw.stayed'))}</p>`

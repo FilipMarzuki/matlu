@@ -14,7 +14,7 @@
 
 import './style.css';
 import { drawnSight, mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, type TripLoad, routeKnown, parseItem, queueHours, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, type TripLoad, routeKnown, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
 import { bestRun, heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -33,11 +33,10 @@ import { provincesOf, type Provinces } from '../artificer/world/provinces';
 import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
-import { painOf, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
-import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
+import { painOf } from '../artificer/pain';
+import { HARM_NAME, HARM_WORDS, injuryView } from '../artificer/injuries';
 import { hasKit, SUGGESTED_PACK, validPack, kitSupplies, type KitId } from '../artificer/kit';
 import { isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
-import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, canRaise, canLower, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
@@ -54,14 +53,15 @@ import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
 import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type TabDef, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
+import { journalItems, logClass, logText } from './journal-view';
+import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { feltWord } from '../artificer/rapport';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { ringPinChip, ringPins, pinsList } from './pins-view';
-import { tripPinNote } from '../artificer/pins';
 import { meetingModal } from './caravan-view';
-import { truthLine, THREAT_WORDS, DARK_FADES } from '../artificer/panic';
+import { truthLine, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
@@ -578,15 +578,10 @@ function milesBlock(a: AppState): string {
   }).join('')}</ol>`;
 }
 
-/** A journal line's colour: hardship, a win, a skip — and, softly, what you learn about yourself (#1266). */
-const logClass = (l: Pick<LogEntry, 'kind' | 'text'>): string =>
-  isSelfKnowledge(l.text) ? 'hint' : l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-
 function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
-  return [...withCampLine(a.sim.log)].reverse().slice(0, limit).map((l: LogEntry) => {
-    return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
-  }).join('') || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
+  // Each line in the viewer's language (#1709, journal-view.ts): the log itself stays the sim's English.
+  return journalItems(withCampLine(a.sim.log), limit, 'D', t) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
 }
 
 /**
@@ -600,7 +595,7 @@ function oneAtATime(a: AppState): string {
   return `<div class="queue onestep">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
       <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
-      ${last ? `<p class="news ${last.kind}">${esc(last.text)}</p>` : ''}
+      ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>` : ''}
       <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
@@ -633,14 +628,14 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
       // What a remembered place does for this trip (#1380).
-      + (!why && ACTIONS[id].ringed && tripPinNote(preview.before[i].pins, id, ring) ? `<span class="why pinnote">${esc(tripPinNote(preview.before[i].pins, id, ring)!)}</span>` : '')
+      + (!why && ACTIONS[id].ringed && pinNoteText(preview.before[i].pins, id, ring, t) ? `<span class="why pinnote">${esc(pinNoteText(preview.before[i].pins, id, ring, t)!)}</span>` : '')
       // A session of chosen length (#1668): its plan — trips, the haul, what's thinning.
-      + (preview.plans[i] ? `<span class="why plan">${esc(preview.plans[i]!)}</span>` : '')
-      + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
+      + (preview.plans[i] ? `<span class="why plan">${esc(simLine(preview.plans[i]!, t))}</span>` : '')
+      + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(simLine(preview.dangers[i]!, t))}</span>` : '')
       // Work that could make an injury worse (#1395).
-      + (preview.strains[i] ? `<span class="why strain" title="A serious, untreated injury: heavy work (or crafting, for a hand) has a 15% chance to make it grave. Treat it first.">${esc(preview.strains[i]!)}</span>` : '')
+      + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
-      + (preview.unease[i] ? `<span class="why unease u-${preview.unease[i]!.state}" title="The work wears the mind harder${preview.unease[i]!.state === 'panicked' ? ', and something out there could send you running' : ''}">🌑 ${esc(preview.unease[i]!.reasons.filter(r => r !== 'ground you know').join(' · '))} — ${preview.unease[i]!.state === 'shaken' ? "you'll be uneasy" : 'you may panic'}</span>` : '')
+      + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
       + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
@@ -694,7 +689,7 @@ function statusBar(a: AppState, preview: Preview): string {
 function painChip(s: AppState['sim']): string {
   const p = painOf(s);
   if (!p) return '';
-  const tip = p >= 2 ? `Work drains your mind ${PAIN_DRAIN[p]}x${PAIN_HOURS[p] > 1 ? ` and takes ${PAIN_HOURS[p]}x as long` : ''}; tonight costs ${PAIN_NIGHT[p]} Clarity. Working through a bad injury makes it sharper.` : 'An ache. Working through a bad injury would make it sharper.';
+  const tip = painTip(p, t);
   return `<span class="tag pain p-${p}" title="${esc(tip)}">${esc(t('pain.label', { name: t(`pain.${p}`).toUpperCase() }))}</span>`;
 }
 
@@ -704,8 +699,8 @@ function injuryChips(s: AppState['sim']): string {
   const fa = skillLevel(s.skills, 'firstaid');
   return (s.injuries ?? []).map(i => {
     const v = injuryView(i, fa);
-    const tip = `${injuryWords(i, fa)}.${fa < KNOWS.severity ? ' You can\'t tell how bad it is — the pain is your guide.' : ''}`;
-    const parts = [v.name.toUpperCase(), v.severity?.toUpperCase() ?? v.badness?.toUpperCase(), v.nights !== undefined ? `~${v.nights} NIGHT${v.nights === 1 ? '' : 'S'}` : null].filter(Boolean);
+    // In the viewer's language (#1709): the chip and its tooltip are built from the injury's parts.
+    const { parts, tip } = injuryChip(i, fa, t);
     return `<span class="tag inj${v.severity ? ` sev-${v.severity}` : ''}${v.risk || v.festers ? ' risk' : ''}" title="${esc(tip)}">🩹 ${esc(parts.join(' · '))}</span>`;
   }).join('');
 }
@@ -722,8 +717,7 @@ function harmsBlock(s: AppState['sim']): string {
 function nightChip(s: AppState['sim']): string {
   const f = tonightsFright(s);
   if (!f || f.state === 'calm' || s.outcome) return '';
-  const why = f.reasons.filter(r => r !== 'home' && !r.startsWith('a warm')).join(', ');
-  return `<span class="tag fear s-${f.state}" title="Tonight looks ${THREAT_WORDS[f.perceived]}: ${esc(why)}. ${f.state === 'shaken' ? 'You\'ll lie awake: less Clarity back.' : 'A sleepless night: much less Clarity and some Vigor back.'} Shelter, a fire, a camp you know — each helps.">🌑 ${esc(t(f.state === 'shaken' ? 'night.uneasy' : 'night.sleepless'))}</span>`;
+  return `<span class="tag fear s-${f.state}" title="${esc(nightTip({ state: f.state, perceived: f.perceived, reasons: f.reasons }, t))}">🌑 ${esc(t(f.state === 'shaken' ? 'night.uneasy' : 'night.sleepless'))}</span>`;
 }
 
 /** The status bar's verdict: readiness through the autumn; once the snow is down, whether what's laid by reaches the thaw. */
@@ -868,8 +862,8 @@ function drawPage(a: AppState): void {
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}">${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`).join('')}</nav>
     ${tabBody(a, preview)}
-    ${encounterModal(a.sim, encounterAfter, a.queue.length)}
-    ${meetingModal(a.sim, a.meeting)}
+    ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
+    ${meetingModal(a.sim, a.meeting, t)}
     ${timerPanel()}`;
   root.classList.toggle('playing', !!playing);
   if (playing) {
@@ -1038,20 +1032,16 @@ const wardenOnRoad = (a: AppState, r: RoadState): AppState => ({
   ...a, sim: { ...a.sim, vitals: r.vitals, stores: r.stores, tools: r.tools, concepts: r.concepts, character: r.character, skills: r.skills, techniques: r.techniques, manuals: r.manuals, known: r.known, focus: r.focus },
 });
 
-function roadJournal(r: RoadState, limit: number): string {
-  return [...r.log].reverse().slice(0, limit).map(l => {
-    return `<li class="${logClass(l)}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
-  }).join('');
-}
+const roadJournal = (r: RoadState, limit: number): string => journalItems(r.log, limit, 'R', t);
 
 function renderRoad(a: AppState, r: RoadState): void {
   root.classList.remove('winter');
   root.style.setProperty('--snow', '0');
-  const body = roadTab === 'quests' ? `<section class="box">${questLog(r)}</section>`
+  const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r))
     : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
-    : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi);
-  const end = r.outcome ? `${roadEnd(r)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
+    : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
+  const end = r.outcome ? `${roadEnd(r, t)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
   root.innerHTML = `
     <header>
       <h1>${t('top.roadTitleHtml')}</h1>
@@ -1066,12 +1056,12 @@ function renderRoad(a: AppState, r: RoadState): void {
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
-    ${routeStrip(r)}
+    ${routeStrip(r, t)}
     ${end}
-    ${r.outcome ? '' : `${roadStatus(r)}${lastNews(r)}`}
+    ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
     <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
     ${body}
-    ${encounterModal(r as unknown as AppState['sim'], encounterAfter, 0)}`;
+    ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
@@ -1282,7 +1272,7 @@ function timerPanel(): string {
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
     <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
-    <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(l.text)}</li>`).join('') : '<li class="wait">…</li>'}</ul>
+    <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(logText(l, t))}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
 }
 

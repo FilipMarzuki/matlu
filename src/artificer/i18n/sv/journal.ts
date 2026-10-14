@@ -485,5 +485,6 @@ export const journalSv: Record<JournalKey, string> = {
   'log.eat.none': 'Du slutar äta. Maten får ligga kvar.',
   'log.eat.full': 'Tillbaka till fulla ransoner.',
   'log.cantFocus': 'Du kan inte rikta tankarna mot {about} — {why}.',
+  'say.camp.now': 'Nu har du ett läger.',
   'reason.unlock': 'du kan inte {w} än — {w2} ({Skill})',
 };
