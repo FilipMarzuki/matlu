@@ -79,6 +79,8 @@ describe('The console command line (#1557)', () => {
     // Someone not here is sent as typed, and the game says who is.
     expect(moveOf('ask sabine iron?', road)).toEqual({ ask: { person: 'sabine', question: 'iron?' } });
     expect(completions('as', road)).toContain('ask ');
+    // A Swedish game (#1713) labels the talks in Swedish: the name still finds the person.
+    expect(moveOf('ask orrin', [{ move: { do: 'talk:hf-orrin' }, label: 'Prata med Orrin' }])).toEqual({ do: 'ask:hf-orrin' });
   });
 
   it('completes words from the moves and its own commands', () => {

@@ -13,6 +13,7 @@ import { queueSv } from './sv/queue';
 import { historySv } from './sv/history';
 import { tabsSv } from './sv/tabs';
 import { loreSv } from './sv/lore';
+import { apiSv } from './sv/api';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -285,4 +286,5 @@ export const sv: Catalog = {
   ...historySv,
   ...tabsSv,
   ...loreSv,
+  ...apiSv,
 };

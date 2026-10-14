@@ -27,6 +27,7 @@ import { handle, type ApiDeps, type ApiResponse, type GameStore } from './api';
 import { GAME_VERSION, type Move, type MoveOption } from './session';
 import { experimentalOn } from '../artificer/features';
 import { achievementLines, type Achievement } from './achievements';
+import { makeT, LANGS, type Lang, type T } from '../artificer/i18n';
 
 export interface McpOptions {
   /** The player's address (as the HTTP API takes it), for the per-address limits. */
@@ -74,13 +75,17 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
       model: z.string().max(64).optional().describe('Which AI model is playing, if you know. Shown on the records as self-reported.'),
       features: z.record(z.string(), z.boolean()).optional().describe('Switch experimental rule features for this game, e.g. {"free-questions": false}. The rules tool lists them; leave out for the defaults.'),
       weekly: z.boolean().optional().describe("true to play this week's world: the same world (weather, encounters) for everyone, people and AIs, this week, so its runs compare fairly. Leave out for a fresh world."),
+      // Any string, so an unknown language gets the API's own refusal (a 400 that names the ones there are).
+      lang: z.string().optional().describe(`The language of the game's text: ${LANGS.map(l => `"${l}"`).join(' or ')}. Leave out for English (the default). Only the words change: the same game in each.`),
     }),
-  }, async ({ name, model, features, weekly }, ctx) => {
-    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), client: clientName(ctx.mcpReq.envelope, request) });
+  }, async ({ name, model, features, weekly, lang }, ctx) => {
+    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), ...(lang !== undefined ? { lang } : {}), client: clientName(ctx.mcpReq.envelope, request) });
     if (r.status !== 201) return failure(r);
     const b = gameBody(r);
-    const world = b.week ? `This is the weekly world, ${b.week}: everyone who plays this week plays the same one.\n` : '';
-    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n${world}${featuresLine(b.features)}\n${b.text}\n\n${movesBlock(b.moves)}`);
+    const t = tOf(b);
+    const world = b.week ? `${t ? t('api.mcp.weekly', { week: b.week }) : `This is the weekly world, ${b.week}: everyone who plays this week plays the same one.`}\n` : '';
+    const started = t ? t('api.mcp.started', { id: b.id }) : `Game started. game_id: ${b.id}\nPass this game_id to every other tool.`;
+    return text(`${started}\n${world}${featuresLine(b.features, t)}\n${b.text}\n\n${movesBlock(b.moves, t)}`);
   });
 
   server.registerTool('look', {
@@ -92,7 +97,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     const r = await call('GET', `/api/v1/games/${encodeURIComponent(game_id)}`);
     if (r.status !== 200) return failure(r);
     const b = gameBody(r);
-    return text(`${b.text}\n\n${movesBlock(b.moves)}`);
+    return text(`${b.text}\n\n${movesBlock(b.moves, tOf(b))}`);
   });
 
   server.registerTool('act', {
@@ -160,12 +165,20 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[]; week?: string }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[]; week?: string; lang?: Lang }
+
+/**
+ * The catalog for a game in another language (#1713), for the lines this file writes around its
+ * text; null for an English game, whose lines stay exactly as they were.
+ */
+const tOf = (b: { lang?: Lang }): T | null => (b.lang && b.lang !== 'en' ? makeT(b.lang) : null);
 
 /** Which experimental features this game plays with (#1579), as a line under its id; empty if none. */
-function featuresLine(features: Record<string, boolean> | undefined): string {
+function featuresLine(features: Record<string, boolean> | undefined, t: T | null = null): string {
   const on = experimentalOn(features);
-  return on.length ? `Experimental features on in this game: ${on.map(f => f.name).join(', ')}.\n` : '';
+  if (!on.length) return '';
+  // In another language (#1713) by id, the way new_game takes them: the features' names are English only.
+  return t ? `${t('api.mcp.features', { ids: on.map(f => `"${f.id}"`).join(', ') })}\n` : `Experimental features on in this game: ${on.map(f => f.name).join(', ')}.\n`;
 }
 
 const movesPath = (id: string): string => `/api/v1/games/${encodeURIComponent(id)}/moves`;
@@ -175,9 +188,10 @@ const text = (t: string): CallToolResult => ({ content: [{ type: 'text', text: t
 
 /** A refused or failed call: the reason, plus the open moves when the game said what they are. */
 function failure(r: ApiResponse): CallToolResult {
-  const b = r.body as { error?: string; moves?: MoveOption[] };
-  const why = r.status === 422 ? `Refused: ${b.error}` : `Error (${r.status}): ${b.error ?? 'unknown'}`;
-  return { content: [{ type: 'text', text: b.moves?.length ? `${why}\n\n${movesBlock(b.moves)}` : why }], isError: true };
+  const b = r.body as { error?: string; moves?: MoveOption[]; lang?: Lang };
+  const t = tOf(b);
+  const why = r.status === 422 ? (t ? t('api.mcp.refused', { why: b.error ?? '' }) : `Refused: ${b.error}`) : `Error (${r.status}): ${b.error ?? 'unknown'}`;
+  return { content: [{ type: 'text', text: b.moves?.length ? `${why}\n\n${movesBlock(b.moves, t)}` : why }], isError: true };
 }
 
 /**
@@ -188,21 +202,22 @@ function failure(r: ApiResponse): CallToolResult {
 function afterMove(r: ApiResponse, base: string): CallToolResult {
   if (r.status !== 200) return failure(r);
   const b = gameBody(r);
-  const changed = b.changed?.length ? b.changed.join('\n') : '(nothing new)';
+  const t = tOf(b);
+  const changed = b.changed?.length ? b.changed.join('\n') : t ? t('api.mcp.nothingNew') : '(nothing new)';
   const head = `${changed}\n\n${b.status}`;
-  if (b.phase === 'day') return text(`${head}\n(look shows the full view and the moves open now.)`);
+  if (b.phase === 'day') return text(`${head}\n${t ? t('api.mcp.lookHint') : '(look shows the full view and the moves open now.)'}`);
   // A finished run has a record (#1558): a full link, for the player's AI to pass on to them, and
   // the achievements it earned against everyone's records (#1559).
   const earned = b.achievements ? achievementLines(b.achievements) : [];
   const achieved = b.achievements ? `\n\n${earned.length ? `Achievements earned:\n${earned.map(l => `- ${l}`).join('\n')}` : 'No achievements this run.'}` : '';
   const record = b.record ? `\n\nHow this run compares with everyone's: ${new URL(b.record, base).href}` : '';
-  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}${achieved}${record}`);
+  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves, t)}` : ''}${achieved}${record}`);
 }
 
-function movesBlock(moves: MoveOption[]): string {
-  if (!moves.length) return 'No moves left: the run is over.';
+function movesBlock(moves: MoveOption[], t: T | null = null): string {
+  if (!moves.length) return t ? t('api.mcp.noMoves') : 'No moves left: the run is over.';
   const lines = moves.map(m => `- ${JSON.stringify(m.move)}  ${m.label}${m.hours !== undefined ? ` (${m.hours}h)` : ''}`);
-  return `MOVES NOW (pass one to act, or just its action id):\n${lines.join('\n')}`;
+  return `${t ? t('api.mcp.moves') : 'MOVES NOW (pass one to act, or just its action id):'}\n${lines.join('\n')}`;
 }
 
 /** The act tool's move: a shorthand string or a move object as listed. The API checks the shape. */
