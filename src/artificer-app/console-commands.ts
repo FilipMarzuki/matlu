@@ -115,7 +115,8 @@ function personIn(word: string, moves: MoveOption[]): string {
   const w = word.toLowerCase().replace(/[,:]$/, '');
   for (const m of moves) {
     const id = 'do' in m.move && typeof m.move.do === 'string' && m.move.do.startsWith('talk:') ? m.move.do.slice(5) : null;
-    if (id && (id === w || norm(m.label.replace(/^talk with /i, '')) === w)) return id;
+    // The label is the game's language (#1713): "Talk with Orrin", or "Prata med Orrin" in a Swedish game.
+    if (id && (id === w || norm(m.label.replace(/^(?:talk with|prata med) /i, '')) === w)) return id;
   }
   return w;
 }

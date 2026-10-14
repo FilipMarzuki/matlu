@@ -33,6 +33,8 @@ import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../art
 import { respondedOn } from '../artificer/journal';
 import { chosenLength, lengthRefusal } from '../artificer/action-length';
 import { GAME_VERSION } from './version';
+import { makeT, parseLang, type Lang } from '../artificer/i18n';
+import { changeText, moveLabel, refusalText, statusText, viewText, type Change } from './view-words';
 
 /** The session format's version (version.ts): a stored game from another version doesn't load. */
 export { GAME_VERSION };
@@ -41,6 +43,12 @@ export interface Game {
   /** Seeds the whole run (the Warden's id): the same id and the same moves give the same game. */
   id: string;
   app: AppState;
+  /**
+   * The language the game's text is in (#1713): English when absent. Presentation only: it isn't
+   * in the app state, so the same id and moves play the same game in every language; it travels
+   * beside the state in the saved session, so later turns answer in the same language.
+   */
+  lang?: Lang;
 }
 
 /**
@@ -114,9 +122,11 @@ export interface AskedQuestion {
  * A new game: a new Warden, seeded by `seed` if given (so it can be replayed), else a fresh one.
  * `features` switches rule features on or off for this game (#1579); the rest keep their defaults.
  */
-export function startGame(opts: { seed?: string; name?: string; features?: FeatureSwitches } = {}): Game {
+export function startGame(opts: { seed?: string; name?: string; features?: FeatureSwitches; lang?: Lang } = {}): Game {
   const id = opts.seed ? `play-${opts.seed}` : `play-${newCharacterId().slice(2)}`;
-  return { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden' }, undefined, opts.features)) };
+  const game: Game = { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden' }, undefined, opts.features)) };
+  // English is the default and isn't written down, so an English game is stored exactly as before.
+  return opts.lang && opts.lang !== 'en' ? { ...game, lang: opts.lang } : game;
 }
 
 /** A game around an existing app state (for tests, and for loading). */
@@ -125,7 +135,25 @@ export function gameFrom(app: AppState, id: string): Game {
 }
 
 export function view(g: Game): View {
-  return { ...viewOf(g.app), features: featuresOf(g.app.sim.config.world.features) };
+  const v = { ...viewOf(g.app), features: featuresOf(g.app.sim.config.world.features) };
+  return isEnglish(g) ? v : localView(g, v);
+}
+
+/** Whether a game's text is English: the AI harness's observation, as it always was. */
+const isEnglish = (g: Game): boolean => !g.lang || g.lang === 'en';
+
+/**
+ * A view in the game's language (#1713): the same phase and moves, its text drawn as the page draws
+ * it in that language (view-words.ts), the status and the moves' labels in its words.
+ */
+function localView(g: Game, v: View): View {
+  const t = makeT(g.lang!);
+  return {
+    ...v,
+    text: viewText(g.app, v.phase, t),
+    status: statusText(g.app, v.phase, t),
+    moves: v.moves.map(m => ({ ...m, label: moveLabel(g.app, v.phase, m.move as Record<string, unknown>, m.label, t) })),
+  };
 }
 
 function viewOf(a: AppState): Omit<View, 'features'> {
@@ -155,7 +183,8 @@ function viewOf(a: AppState): Omit<View, 'features'> {
 /** Apply one move. A refused move changes nothing and says why, with the moves that are open. */
 export function apply(g: Game, move: Move): ApplyResult {
   const before = g.app;
-  const refuse = (error: string): ApplyResult => ({ ok: false, error, moves: view(g).moves });
+  // A refusal is written in English and said again in the game's language (view-words.ts refusalText).
+  const refuse = (error: string): ApplyResult => ({ ok: false, error: isEnglish(g) ? error : refusalText(error, makeT(g.lang!)), moves: view(g).moves });
   const phase = phaseOf(before);
   let next: AppState;
 
@@ -226,23 +255,28 @@ export function apply(g: Game, move: Move): ApplyResult {
   }
 
   const settled = advance(next);
-  const game = { id: g.id, app: settled };
-  return { ok: true, game, changed: [...changes(before, next), ...changes(next, settled)], view: view(game), played, ...(asked ? { asked } : {}) };
+  const game: Game = { id: g.id, app: settled, ...(g.lang ? { lang: g.lang } : {}) };
+  const changed = [...changes(before, next), ...changes(next, settled)];
+  const say = isEnglish(g) ? englishChange : (c: Change) => changeText(c, makeT(g.lang!));
+  return { ok: true, game, changed: changed.map(say), view: view(game), played, ...(asked ? { asked } : {}) };
 }
 
 // ── Saving ──────────────────────────────────────────────────────────────────
 
 export function serialize(g: Game): string {
-  return JSON.stringify({ version: GAME_VERSION, id: g.id, app: JSON.parse(serializeApp(g.app)) });
+  // The language (#1713) sits beside the state, never in it, and only when it isn't English.
+  return JSON.stringify({ version: GAME_VERSION, id: g.id, ...(isEnglish(g) ? {} : { lang: g.lang }), app: JSON.parse(serializeApp(g.app)) });
 }
 
 /** A saved game, or null for anything that isn't one from this version. */
 export function deserialize(raw: string): Game | null {
   try {
-    const o = JSON.parse(raw) as { version?: string; id?: string; app?: unknown };
+    const o = JSON.parse(raw) as { version?: string; id?: string; lang?: unknown; app?: unknown };
     if (o.version !== GAME_VERSION || typeof o.id !== 'string') return null;
     const app = deserializeApp(JSON.stringify(o.app));
-    return app ? { id: o.id, app } : null;
+    // A language we no longer have reads as English rather than losing the game.
+    const lang = parseLang(o.lang);
+    return app ? { id: o.id, app, ...(lang && lang !== 'en' ? { lang } : {}) } : null;
   } catch {
     return null;
   }
@@ -276,15 +310,18 @@ export function advance(a: AppState): AppState {
  * What a move added to the journal: Reach entries, the caravan master's lines and road entries.
  * The road's journal starts as a copy of the Reach's, so a road made by this move counts from there.
  */
-function changes(before: AppState, after: AppState): string[] {
-  const out = after.sim.log.slice(before.sim.log.length).map(l => l.text);
+function changes(before: AppState, after: AppState): Change[] {
+  const out: Change[] = after.sim.log.slice(before.sim.log.length).map(l => ({ text: l.text }));
   if (after.meeting) {
     const from = before.meeting ? before.meeting.lines.length : 0;
-    out.push(...after.meeting.lines.slice(from).map(l => (l.speaker ? `${l.speaker}: ${l.text}` : l.text)));
+    out.push(...after.meeting.lines.slice(from).map(l => (l.speaker ? { speaker: l.speaker, text: l.text } : { text: l.text })));
   }
-  if (after.road) out.push(...after.road.log.slice(before.road ? before.road.log.length : after.sim.log.length).map(l => l.text));
+  if (after.road) out.push(...after.road.log.slice(before.road ? before.road.log.length : after.sim.log.length).map(l => ({ text: l.text })));
   return out;
 }
+
+/** A change as the English view has always written it. */
+const englishChange = (c: Change): string => (c.speaker ? `${c.speaker}: ${c.text}` : c.text);
 
 /**
  * Why a Reach action can't be done now, or null. Same checks and words the observation uses.

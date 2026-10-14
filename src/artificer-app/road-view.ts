@@ -346,8 +346,8 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi, t: T): string {
     <p class="mood qnote">${esc(t('freeq.notice'))}</p>`;
 }
 
-/** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. */
-function personSheet(r: RoadState, p: Person, ui: RoadUi, t: T): string {
+/** The open villager's sheet: talk, their quest, and trade or lessons if they offer them. Exported for the play API's text (#1713), which shows everyone's. */
+export function personSheet(r: RoadState, p: Person, ui: RoadUi, t: T): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
   return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${whoLine(r, p, t)} · ${rapportTag(r, p, ui, t)}</p><p class="mood" style="margin:2px 0 0">${esc(t(`person.${p.id}.personality` as Key))}</p></div>

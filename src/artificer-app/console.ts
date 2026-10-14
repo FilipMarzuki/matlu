@@ -15,6 +15,8 @@ import { inject } from '@vercel/analytics';
 import { parseCommand, completions, commonPrefix, HELP, type MoveOption } from './console-commands';
 import { loadChoices } from './feature-choices';
 import { achievementLines, type Achievement } from '../artificer-play/achievements';
+import { makeT, type Lang, type T } from '../artificer/i18n';
+import { storedLang } from './lang';
 
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
@@ -32,6 +34,8 @@ interface GameBody {
   achievements?: Achievement[];
   /** The weekly world this game plays (#1559), if it does. */
   week?: string;
+  /** The language of the game's text (#1713), when it isn't English. */
+  lang?: Lang;
 }
 
 const GAME_KEY = 'artificer.console.game';
@@ -42,6 +46,12 @@ const form = document.querySelector<HTMLFormElement>('#cmd')!;
 const input = document.querySelector<HTMLInputElement>('#line')!;
 
 let gameId: string | null = load();
+/**
+ * The catalog for the game on screen when its text isn't English (#1713), for the few lines the
+ * console writes around it ("Refused:", "(nothing new)"); null for English. The console's own help
+ * and welcome stay English.
+ */
+let gameT: T | null = null;
 let moves: MoveOption[] = [];
 let busy = false;
 const history: string[] = [];
@@ -66,7 +76,9 @@ async function newGame(name?: string, weekly = false): Promise<void> {
   // The client name tells the API this is the console (api.ts CONSOLE_CLIENT), and its players are people.
   // The browser's feature switches (#1579), shared with the game page: a feature switched off there is off here.
   // `weekly` plays this week's world, the same one for everyone (#1559).
-  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person', features: loadChoices(), ...(weekly ? { weekly: true } : {}) });
+  // The language (#1713) is the one chosen on the game page (lang.ts): a Swedish player gets a Swedish game here too.
+  const lang = storedLang();
+  const r = await api('POST', '/api/v1/games', { name, client: 'artificer-console', player: 'person', features: loadChoices(), ...(weekly ? { weekly: true } : {}), ...(lang && lang !== 'en' ? { lang } : {}) });
   if (r.status !== 201) return failed(r);
   const g = r.body as unknown as GameBody;
   remember(g.id);
@@ -94,7 +106,7 @@ async function move(m: unknown): Promise<void> {
   }
   const r = await api('POST', `/api/v1/games/${gameId}/moves`, { move: m });
   if (r.status === 422) {
-    print(`Refused: ${String(r.body.error)}`, 'warn');
+    print(gameT ? gameT('api.mcp.refused', { why: String(r.body.error) }) : `Refused: ${String(r.body.error)}`, 'warn');
     setMoves((r.body.moves as MoveOption[] | undefined) ?? moves);
     return;
   }
@@ -106,7 +118,7 @@ async function move(m: unknown): Promise<void> {
   }
   if (r.status !== 200) return failed(r);
   const g = r.body as unknown as GameBody;
-  print(g.changed?.length ? g.changed.join('\n') : '(nothing new)');
+  print(g.changed?.length ? g.changed.join('\n') : gameT ? gameT('api.mcp.nothingNew') : '(nothing new)');
   // On an ordinary day, what changed is enough; when the game wants a choice or has ended,
   // the whole view matters, as the MCP server does for AIs.
   show(g, g.phase !== 'day');
@@ -133,6 +145,7 @@ function print(text: string, kind: 'view' | 'note' | 'warn' | 'echo' | 'plain' =
 }
 
 function show(g: GameBody, full: boolean): void {
+  gameT = g.lang && g.lang !== 'en' ? makeT(g.lang) : null;
   if (full) print(g.text, 'view');
   statusEl.textContent = g.status;
   setMoves(g.moves);

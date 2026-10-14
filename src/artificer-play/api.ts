@@ -2,7 +2,8 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly?, lang? } → 201 view
+ *                                    (lang: "en" (the default) or "sv", the language of the game's text, #1713; anything else → 400)
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
  *                                    (the move that ends a run also gets its record's link and achievements, #1559)
@@ -48,6 +49,7 @@ import { isQuestionTopic } from '../artificer/knowledge-questions';
 import { personById } from '../artificer/villages';
 import { FEATURES, validFeatures, type FeatureSwitches } from '../artificer/features';
 import { tellHistoriesWith } from '../artificer/history-in-play';
+import { LANGS, parseLang } from '../artificer/i18n';
 import { runHistory } from '../artificer/world/history';
 
 // The road's people answer from their villages' history (#1656, `history-in-play`), and a server
@@ -288,9 +290,13 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       if (bad === null || bad.length) return fail(400, `"features" switches rule features on or off, as { "<id>": true | false }. Known: ${known.join(', ')}.`);
     }
     if (body.weekly !== undefined && typeof body.weekly !== 'boolean') return fail(400, '"weekly" is true to play this week\'s world, the one everyone plays this week.');
+    // The language of the game's text (#1713): refused when it isn't one we have, like an unknown
+    // feature, so a typo isn't silently English. Presentation only: the game is the same in each.
+    const lang = body.lang === undefined ? 'en' : parseLang(body.lang);
+    if (!lang) return fail(400, `"lang" is the language of the game's text: ${langList()}. Leave it out for English.`);
     // The weekly world (#1559): this week's seed for everyone; any other game gets a fresh one.
     const seed = body.weekly === true ? weeklySeed(isoWeek(deps.now()), deps.weeklySalt) : deps.newSeed?.();
-    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined });
+    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined, lang });
     const nowIso = new Date(deps.now()).toISOString();
     const client = shortText(body.client);
     // Where: the MCP server says so itself; the console by its client name; anything else is the API.
@@ -350,7 +356,7 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
       return fail(400, 'Ask a free question as { "ask": { "person": "<id>", "question": "…" } }.');
     }
     const r = apply(game, move);
-    if (!r.ok) return { status: 422, body: { error: r.error, moves: r.moves } };
+    if (!r.ok) return { status: 422, body: { error: r.error, moves: r.moves, ...(game.lang && game.lang !== 'en' ? { lang: game.lang } : {}) } };
     // The move as played is what's stored: for a question, the topic it matched, never its words.
     const updated: GameRecord = {
       ...record, session: serialize(r.game), moves: [...record.moves, r.played], phase: r.view.phase,
@@ -591,8 +597,12 @@ const fail = (status: number, error: string): ApiResponse => ({ status, body: { 
  */
 function gameBody(id: string, v: View, game: Game): Record<string, unknown> {
   const week = weekOfId(game.id);
-  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features, ...(week ? { week } : {}) };
+  // The language only when it isn't English (#1713), so an English game's body is as it always was.
+  return { id, version: GAME_VERSION, phase: v.phase, status: v.status, text: v.text, moves: v.moves, features: v.features, ...(week ? { week } : {}), ...(game.lang && game.lang !== 'en' ? { lang: game.lang } : {}) };
 }
+
+/** The languages a game's text can be in, for the refusal: "en" or "sv". */
+const langList = (): string => { const all = [...LANGS].sort().map(l => `"${l}"`); return `${all.slice(0, -1).join(', ')} or ${all.at(-1)}`; };
 
 function rulesBody(): Record<string, unknown> {
   return {
@@ -610,6 +620,7 @@ function rulesBody(): Record<string, unknown> {
     },
     // Switchable features (#1579): rule features are set per game, at POST /api/v1/games { "features": { "<id>": false } }.
     features: FEATURES.map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
+    lang: 'POST /api/v1/games { "lang": "sv" } plays a game whose text (the view, the moves\' labels, what changed, refusals) is in Swedish, drawn as the Swedish page draws it, with the page\'s buttons as markers like [do: talk:hf-maren]. "en" is the default and reads as always. Only the words differ: the same seed and moves are the same game. Any other value is refused (400). These rules stay in English.',
     weekly: 'POST /api/v1/games { "weekly": true } plays this week\'s world: the same seed for everyone, people and AIs, Monday to Monday (UTC). Its runs are compared with each other at GET /api/v1/runs/week.',
   };
 }

@@ -28,6 +28,7 @@ import { queue } from './en/queue';
 import { history } from './en/history';
 import { tabs } from './en/tabs';
 import { lore } from './en/lore';
+import { api } from './en/api';
 
 export const en = {
   // ── The language picker: the very first screen ─────────────────────────────
@@ -267,4 +268,5 @@ export const en = {
   ...history,
   ...tabs,
   ...lore,
+  ...api,
 } as const satisfies Record<string, string>;
