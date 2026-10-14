@@ -1,10 +1,7 @@
 import type { LoreCatalogKey } from '../en/lore';
-import { loreSv3 } from './lore3';
 
 /** Kulturernas seder på svenska, del två (#1711; se ./lore.ts): åkerfödda till stäppläger. */
 export const loreSv2: Partial<Record<LoreCatalogKey, string>> = {
-  ...loreSv3,
-
   'lore.culture:fieldborn/view:Wildkin/0': 'Djurfolk förvandlas till vargar när det är fullmåne.',
   'lore.culture:fieldborn/view:Wildkin/1': 'Våra kusiner i Västmarken flyttade sina stängsel in på djurfolkets mark på lagligt vis: i dagsljus, med alla som tittade på.',
   'lore.culture:fieldborn/view:Wildkin/2': 'Uppe i norr förlorar de nu sina högt belägna åkrar ett stängsel i taget. Djurfolket förlorade sina på samma sätt, till Gränsmarken.',

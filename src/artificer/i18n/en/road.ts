@@ -214,7 +214,7 @@ export const road = {
   'end.diedHead': '✝ THE ROAD ENDS HERE',
   'end.cargoHead': '✝ CARRIED ON AS CARGO',
   'end.arrived': 'The walls of Mistheim rise out of the morning mist, and the caravan rolls through the gate. You made it out of the Reach — and you are not arriving with nothing.',
-  'end.died': 'The road was one hardship too many. There is no one to carry on.',
+  'road.end.died': 'The road was one hardship too many. There is no one to carry on.',
   'end.cargo': 'Your body gave out on the road. The caravan brings you the rest of the way, but this journey is over.',
   'end.quests.one': '❗ {n} quest done',
   'end.quests.other': '❗ {n} quests done',

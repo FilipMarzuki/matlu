@@ -246,7 +246,8 @@ function outcomeText(a: AppState, t: T): string {
   if (a.stayed) return t('api.stayed');
   const o = a.sim.outcome;
   if (!o) return '';
-  // A death or a collapse in the Reach in a few words. (Not `end.died`: the road's catalog reuses that key for its own ending.)
+  // A death or a collapse in the Reach in a few words, as the English status says it ("died on day 11"):
+  // `end.died` / `end.collapsed` are the closing card's headlines ("THE REACH TAKES YOU"), too loud for a status line.
   if (o.kind === 'died' || o.kind === 'collapsed') return t(`api.outcome.${o.kind}`, { n: a.sim.day });
   return t('api.outcome', { what: isKey(`end.${o.kind}`) ? t(`end.${o.kind}` as Key) : o.kind, n: a.sim.day });
 }
