@@ -71,6 +71,8 @@ import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Phase, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
+import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
+import { pickerNeeded, storedLang, storeLang } from './lang';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -82,15 +84,25 @@ import { inject } from '@vercel/analytics';
 const ANALYTICS_HOST = 'artificer.corewarden.app';
 if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 
+// ── The viewer's language (#1704) ─────────────────────────────────────────────
+// The app chrome (header, tabs, headings, buttons, help, the dev gate) is drawn through `t`, from
+// the string catalog in src/artificer/i18n. Presentation only: the sim never sees the language, and
+// it isn't saved with the game. The opening, camp, road and generated text are still English
+// (later phases of #1685). `let`: choosing a language swaps `t` and redraws.
+let lang: Lang = storedLang() ?? 'en';
+let t: T = makeT(lang);
+document.documentElement.lang = lang;
+
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
-const GROUPS: { title: string; ids: ActionId[] }[] = [
-  { title: 'EXPLORE', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
-  { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
-  { title: 'BUILD', ids: ['build', 'coldPit', 'coldGear'] },
-  { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
-  { title: 'CARRYING GEAR', ids: ['basket', 'backpack', 'harness', 'sled'] },
-  { title: 'THINK & RECOVER', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
+// `key` names the group's heading in the catalog (`group.*`); the ids are the actions in it.
+const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
+  { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
+  { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
+  { key: 'build', ids: ['build', 'coldPit', 'coldGear'] },
+  { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
+  { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
+  { key: 'think', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
 ];
 
 const ICON: Record<ActionId, string> = {
@@ -383,7 +395,7 @@ function settlementView(a: AppState, provinceId: string): string {
     <p class="mood">${lord}${s.buildings.length} buildings. <span class="s-road">=</span> road, <span class="s-road">-</span> lane, a letter for each building${s.about.length ? `. About the place: ${esc(s.about.join(', '))}` : ''}.</p>
     <div class="mapwrap"><pre class="reachmap settlemap" aria-label="Layout of ${esc(s.name)}">${grid}</pre></div>
     ${info}<div class="settlekey">${key}</div>
-    <p style="margin-top:12px"><button class="pill" data-settle="">← BACK TO THE MAP</button></p></section>`;
+    <p style="margin-top:12px"><button class="pill" data-settle="">${esc(t('btn.backToMap'))}</button></p></section>`;
 }
 
 /** Who holds a square's province, and what the province remembers (for the MAP tab's square info). */
@@ -415,7 +427,7 @@ function describedMapTab(a: AppState): string {
   const intro = compass
     ? 'The map in your pack shows somewhere else entirely; this world isn\'t on it. But the compass still points north, so you know your bearings.'
     : 'There\'s no map of this world, and no compass to take a bearing by. You know the land the way you\'d tell it to a friend.';
-  return `<section class="box"><p class="eyebrow">THE LAND — what you know of it, from camp</p>
+  return `<section class="box"><p class="eyebrow">${esc(t('head.landDescribed'))}</p>
     <p class="mapinfo">${esc(intro)}</p>
     <ul class="landwords">${lines}</ul>
     <p class="mood">Explore to learn more of it: scouting adds places further out, and surveying makes the distances sure.${needs.length ? ` To draw a map of your own you need ${esc(needs.join(' and '))}.` : ''}</p></section>`;
@@ -445,10 +457,10 @@ function mapTab(a: AppState): string {
     : known ? describeCell(r, mapCell.x, mapCell.y)
     : 'Unknown ground. Scout the rings further out to learn it.';
   const seatHere = known && mapCell ? seatAt.get(mapCell.y * r.w + mapCell.x) : undefined;
-  const enter = seatHere ? `<p class="mapinfo"><b>${esc(seatHere.name)}</b> stands here. <button class="pill" data-settle="${seatHere.id}">ENTER ${esc(seatHere.name.toUpperCase())}</button></p>` : '';
+  const enter = seatHere ? `<p class="mapinfo"><b>${esc(seatHere.name)}</b> stands here. <button class="pill" data-settle="${seatHere.id}">${esc(t('btn.enter', { name: seatHere.name.toUpperCase() }))}</button></p>` : '';
   const drawn = mode === 'drawn';
   const words = drawn ? `<ul class="landwords">${describeLand(a.sim).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
-  return `<section class="box"><p class="eyebrow">${drawn ? 'YOUR MAP — drawn from what you\'ve seen' : 'THE REACH — a map of what you know'}</p>
+  return `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.reachMap'))}</p>
     <div class="mapwrap"><pre class="reachmap" aria-label="${drawn ? 'Your map' : 'Map of the Reach'}: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
     <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}${words}
     <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. ${drawn
@@ -463,7 +475,7 @@ function mapTab(a: AppState): string {
  */
 function historyTab(a: AppState): string {
   const h = chronicleFor(a.sim.character.id);
-  if (!h) return `<section class="box"><p class="eyebrow">THE REACH — its history</p><p class="mood">The old ones are still telling it. It takes a few seconds, once per run.</p></section>`;
+  if (!h) return `<section class="box"><p class="eyebrow">${esc(t('head.history'))}</p><p class="mood">The old ones are still telling it. It takes a few seconds, once per run.</p></section>`;
   const r = reachFor(a.sim.character.id);
   const provinces = provincesFor(a.sim.character.id);
   const campProvince = provinces.list[provinces.at[r.camp.y * r.w + r.camp.x]].id;
@@ -479,10 +491,10 @@ function historyTab(a: AppState): string {
     const mark = regional ? '<span class="regmark" title="news from the countryside">◇</span> ' : '';
     return `<p class="chron${regional ? ' regional' : ''}">${dated ? `<b>${dated[1]}</b> ` : ''}${mark}${body}</p>`;
   }).join('');
-  return `<section class="box"><p class="eyebrow">THE REACH — its history</p>
+  return `<section class="box"><p class="eyebrow">${esc(t('head.history'))}</p>
     <p class="mood">Years are the Reach's own count, from when its oldest houses first held land. It is now year ${h.year}. ${h.told} of ${h.logged} remembered deeds are worth the telling. <span class="regmark">◇</span> marks news from a region's countryside: famine, plague, a house losing its last seat.</p>
-    <p class="eyebrow" style="margin-top:12px">THE LORDSHIPS NOW</p>
-    <div class="tablewrap"><table class="lordships"><thead><tr><th>Lordship</th><th>People</th><th>Held by</th></tr></thead><tbody>${lordships}</tbody></table></div>
+    <p class="eyebrow" style="margin-top:12px">${esc(t('head.lordships'))}</p>
+    <div class="tablewrap"><table class="lordships"><thead><tr><th>${esc(t('head.lordship'))}</th><th>${esc(t('head.people'))}</th><th>${esc(t('head.heldBy'))}</th></tr></thead><tbody>${lordships}</tbody></table></div>
     <div class="chronicle">${body}</div></section>`;
 }
 
@@ -589,23 +601,23 @@ function portraitEl(id: string | null, size: number, cls = ''): string {
 /** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
 function focusChip(s: AppState['sim']): string {
   const lock = survivalLockOf(s);
-  if (lock) return `<button class="focuschip locked" data-tab="warden" title="Survival has taken over your thoughts">FOCUS <b>SURVIVAL</b> <span>${esc(lock)}</span></button>`;
+  if (lock) return `<button class="focuschip locked" data-tab="warden" title="${esc(t('status.survivalTip'))}">${esc(t('status.focus'))} <b>${esc(t('status.survival'))}</b> <span>${esc(lock)}</span></button>`;
   // Willpower moves the line where focus frays (#1256).
   const below = statEffects(s.character.stats).unreliableBelow;
   const frayed = s.focus && s.vitals.clarity.current < below;
-  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? `Clarity under ${below} — focus is unreliable` : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
+  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${esc(frayed ? t('status.frayedTip', { n: below }) : t('status.focusTip'))}">${esc(t('status.focus'))} <b>${esc(focusLabel(s.focus))}</b>${frayed ? ` <span>${esc(t('status.frayed'))}</span>` : ''}</button>`;
 }
 
 /** The eating plan (#1305): tap to cycle full → half → none. */
 function eatingChip(s: AppState['sim']): string {
   const plan = s.eating ?? 'full';
-  const label = plan === 'full' ? 'FULL' : plan === 'half' ? 'HALF' : 'NONE';
-  const tip = plan === 'full' ? 'A meal every night' : plan === 'half' ? 'A meal every other night: stretches the larder, wears the body' : 'Fasting: the food stays untouched';
-  return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${tip} — tap to change">RATIONS <b>${label}</b></button>`;
+  const label = t(plan === 'full' ? 'status.full' : plan === 'half' ? 'status.half' : 'status.none');
+  const tip = t(plan === 'full' ? 'status.fullTip' : plan === 'half' ? 'status.halfTip' : 'status.noneTip');
+  return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${esc(t('status.tapToChange', { tip }))}">${esc(t('status.rations'))} <b>${esc(label)}</b></button>`;
 }
 
 /** Topic kinds as the Warden tab groups them (#1495). */
-const TOPIC_GROUPS: readonly (readonly [string, string])[] = [['material', 'MATERIAL'], ['place', 'PLACE'], ['group', 'GROUP'], ['person', 'PERSON'], ['quest', 'QUEST'], ['role', 'JOB']];
+const TOPIC_GROUPS: readonly (readonly [string, Key])[] = [['material', 'focus.material'], ['place', 'focus.place'], ['group', 'focus.group'], ['person', 'focus.person'], ['quest', 'focus.quest'], ['role', 'focus.job']];
 
 /**
  * The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. On
@@ -628,7 +640,7 @@ function focusBlock(s: AppState['sim'], road?: RoadState): string {
   const open = road ? topicsOpen(road) : [];
   const topics = TOPIC_GROUPS.map(([kind, name]) => {
     const chips = open.filter(k => k.startsWith(`${kind}:`)).map(k => { const f = parseFocus(k); return f ? chip(k, focusLabel(f), 'something to ask people about') : ''; }).join('');
-    return chips ? `<p class="fgroup">${name}</p><div class="fchips">${chips}</div>` : '';
+    return chips ? `<p class="fgroup">${esc(t(name))}</p><div class="fchips">${chips}</div>` : '';
   }).join('');
   const below = statEffects(s.character.stats).unreliableBelow;
   // On the road a focus still costs its Clarity each night (the road sleeps by Region 1's rules), but
@@ -640,10 +652,10 @@ function focusBlock(s: AppState['sim'], road?: RoadState): string {
   const helps = road ? '' : 'Water, food, wood and shelter work goes better; ';
   return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. ${helps}learning waits until it passes.</p>` : ''}
     <p class="mood" style="margin-top:0">${note}</p>
-    <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
-    <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
-    <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>${topics}
-    <div class="fchips" style="margin-top:6px">${chip('none', 'No focus', 'free your mind (saves the Clarity)')}</div>`;
+    <p class="fgroup">${esc(t('focus.goal'))}</p><div class="fchips">${goals}</div>
+    <p class="fgroup">${esc(t('focus.skill'))}</p><div class="fchips">${skills}</div>
+    <p class="fgroup">${esc(t('focus.concept'))}</p><div class="fchips">${concepts}</div>${topics}
+    <div class="fchips" style="margin-top:6px">${chip('none', t('focus.none'), 'free your mind (saves the Clarity)')}</div>`;
 }
 
 /** The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts. */
@@ -657,17 +669,17 @@ function wardenTab(a: AppState): string {
     : '<p class="mood">No talents — a quick-start Warden. Start a fresh Warden to choose two.</p>';
   const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
   return `<div class="cols">
-    <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
-      <p class="wrank">RANK: ${artificerRank(a.sim, CRAFT_WORLD.concepts).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
-      <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim, a.stage === 'road' ? a.road : undefined)}
-      <p class="eyebrow" style="margin-top:16px">STATS — ${c.age !== undefined ? `age ${c.age}${isYoung(c.age) ? ', still growing' : ', grown'}` : "what you're built for"}</p>${statsBlock(c.stats, c.adult)}
-      <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
+    <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">${esc(t('head.artificer'))}</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
+      <p class="wrank">${esc(t('head.rank'))}: ${artificerRank(a.sim, CRAFT_WORLD.concepts).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.focus'))}</p>${focusBlock(a.sim, a.stage === 'road' ? a.road : undefined)}
+      <p class="eyebrow" style="margin-top:16px">${esc(c.age !== undefined ? t(isYoung(c.age) ? 'head.statsAge' : 'head.statsGrown', { age: c.age }) : t('head.stats'))}</p>${statsBlock(c.stats, c.adult)}
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.carrying'))}</p>${carryingBlock(a.sim)}
       ${packBlock(a.sim)}
       ${harmsBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>
-      <p class="eyebrow" style="margin-top:16px">QUIRKS — how you are, as far as you know it</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
-    <section class="box"><p class="eyebrow">SKILLS — improve by doing, more with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.talents'))}</p><div class="traits">${talents}</div>
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.quirks'))}</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
+    <section class="box"><p class="eyebrow">${esc(t('head.skills'))}</p>${skillsBlock(a.sim)}
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.concepts'))}</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
 }
@@ -693,7 +705,7 @@ function roadKeepsBlock(a: AppState): string {
   const marks = a.road?.marks ?? a.sim.marks ?? 0;
   const contacts = a.road ? [...new Set([...a.road.contacts, ...Object.entries(a.road.trust).filter(([, t]) => t >= CONTACT_TRUST).map(([id]) => id)])] : a.sim.contacts ?? [];
   if (!a.road && !marks && !contacts.length) return '';
-  return `<p class="eyebrow" style="margin-top:16px">THE ROAD — marks &amp; contacts</p>
+  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.roadKeeps'))}</p>
     <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
     ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
 }
@@ -711,7 +723,7 @@ function packTitle(id: KitId): string {
 function packBlock(s: AppState['sim']): string {
   if (!s.kit) return '';
   const left = kitSupplies(s.kit, s.dressings ?? 0);
-  return `<p class="eyebrow" style="margin-top:16px">THE PACK — what you brought on the hike</p>
+  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pack'))}</p>
     <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id))}">${esc(kitItem(id).name)}</span>`).join('')}</div>
     ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
 }
@@ -817,7 +829,7 @@ function paletteBlock(a: AppState, preview: Preview): string {
   }).join('')}</div>`;
   // A group with nothing the Warden knows how to do yet (#1690) isn't shown at all.
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
-  return tabs + known.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
+  return tabs + known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}${g.key === 'explore' || g.key === 'provision' ? ` <span class="ringnote">${esc(t('group.ringNote', { ring: RING_NAME[focusRing].toLowerCase() }))}</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     const r: Ring = def.ringed ? focusRing : 1;
     const q = queueId(id, r);
@@ -844,11 +856,11 @@ function oneAtATime(a: AppState): string {
   const last = s.log.at(-1);
   const spent = s.hoursToday >= DAY_HOURS;
   return `<div class="queue onestep">
-      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">ONE THING AT A TIME</p>
-      <p class="mood" style="margin:0 0 8px">${esc(queueLocked(a) ?? '')} Tap an action to do it now.</p>
+      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
+      <p class="mood" style="margin:0 0 8px">${esc(queueLocked(a) ?? '')} ${esc(t('queue.tapNow'))}</p>
       ${last ? `<p class="news ${last.kind}">${esc(last.text)}</p>` : ''}
-      <div class="qtot"><span>Today <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? '<span>The day is spent.</span>' : ''}</div>
-      <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>☾ END THE DAY</button></div>
+      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
+      <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
 }
 
@@ -868,11 +880,11 @@ function queueBlock(a: AppState, preview: Preview): string {
     const open = groups.length > 0 && (expanded.has(i) || needsChoice);
     // A length left at its usual (#1668) isn't worth a label on the row.
     const chosen = groups.map(g => g.choices.find(c => c.value === g.value && c.value !== 'usual' && c.value !== 'none')?.label).filter(Boolean).join(' · ');
-    const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="Options">${open ? '▾' : '▸'}</button>` : '';
+    const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="${esc(t('queue.options'))}">${open ? '▾' : '▸'}</button>` : '';
     const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(g.label.toUpperCase())}</span><div class="optchoices">${g.choices.map(c =>
       `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(c.blocked ?? c.note)}">`
       + `<b>${esc(c.label)}</b><span>${esc(c.blocked ?? c.note)}</span></button>`).join('')}</div></div>`).join('')}</div>` : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${d === 0 ? 'TODAY' : `DAY ${s.day + d}`}</span>`
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
       + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
@@ -885,17 +897,17 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="A serious, untreated injury: heavy work (or crafting, for a hand) has a 15% chance to make it grave. Treat it first.">${esc(preview.strains[i]!)}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? `<span class="why unease u-${preview.unease[i]!.state}" title="The work wears the mind harder${preview.unease[i]!.state === 'panicked' ? ', and something out there could send you running' : ''}">🌑 ${esc(preview.unease[i]!.reasons.filter(r => r !== 'ground you know').join(' · '))} — ${preview.unease[i]!.state === 'shaken' ? "you'll be uneasy" : 'you may panic'}</span>` : '')
-      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
+      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
-      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">THE QUEUE${fresh ? ' — NEW: PLAN AHEAD' : ''}</p>
-      <ol>${items || `<li class="empty">Empty — tap actions to plan. A day is ${DAY_HOURS} waking hours; the queue spills into the next day and you sleep between.</li>`}</ol>
-      <div class="qtot"><span>Today <b>${hrs(todayHours(a, preview))} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
+      <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
+      <ol>${items || `<li class="empty">${esc(t('queue.empty', { hours: DAY_HOURS }))}</li>`}</ol>
+      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(todayHours(a, preview))} / ${DAY_HOURS}h</b></span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
       <div class="runbar">
-        <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${a.queue.length ? '▶ RUN THE DAY' : '☾ PASS THE DAY'}</button>
-        <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>⏭ RUN WHOLE QUEUE</button>
-        <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>CLEAR</button>
+        <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
+        <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
+        <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>
     </div>`;
 }
@@ -904,10 +916,10 @@ function queueBlock(a: AppState, preview: Preview): string {
 function phaseChip(a: AppState): string {
   const cal = a.sim.config.calendar;
   const d = a.sim.day;
-  if (seasonOf(d, cal) === 'autumn') { const n = cal.winterDay - d; return `<span class="phase">AUTUMN · SNOW IN ${n} DAY${n === 1 ? '' : 'S'}</span>`; }
-  if (seasonOf(d, cal) === 'thaw') return '<span class="phase gold">THE THAW</span>';
+  if (seasonOf(d, cal) === 'autumn') { const n = cal.winterDay - d; return `<span class="phase">${esc(t(n === 1 ? 'top.autumn.one' : 'top.autumn.other', { n }))}</span>`; }
+  if (seasonOf(d, cal) === 'thaw') return `<span class="phase gold">${esc(t('top.thaw'))}</span>`;
   const n = cal.thawDay - d;
-  return `<span class="phase ice">WINTER · THAW IN ${n} DAY${n === 1 ? '' : 'S'}</span>`;
+  return `<span class="phase ice">${esc(t(n === 1 ? 'top.winter.one' : 'top.winter.other', { n }))}</span>`;
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
@@ -920,10 +932,10 @@ function statusBar(a: AppState, preview: Preview): string {
   const st = s.stores;
   const ready = winterReady(s);
   return `<div class="statusbar">
-    <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">TODAY <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
+    <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -952,7 +964,7 @@ function injuryChips(s: AppState['sim']): string {
 function harmsBlock(s: AppState['sim']): string {
   const harms = s.character.harms ?? [];
   if (!harms.length) return '';
-  return `<p class="eyebrow" style="margin-top:16px">OLD WOUNDS — what the body remembers</p>
+  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.wounds'))}</p>
     <ul class="harms">${harms.map(h => `<li><b>${esc(HARM_NAME[h][0].toUpperCase() + HARM_NAME[h].slice(1))}</b> <span>${esc(HARM_WORDS[h])}</span></li>`).join('')}</ul>`;
 }
 
@@ -968,9 +980,9 @@ function nightChip(s: AppState['sim']): string {
 function outlookTag(s: AppState['sim'], ready: boolean): string {
   const season = seasonOf(s.day, s.config.calendar);
   if (season === 'thaw') return '';
-  if (season === 'autumn') return `<span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>`;
+  if (season === 'autumn') return `<span class="tag ${ready ? 'yes' : 'no'}">${esc(t(ready ? 'status.ready' : 'status.notReady'))}</span>`;
   const short = outlookWarnings(s).length;
-  return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="The winter outlook">${short ? 'FALLING SHORT' : 'HOLDING'}</button>`;
+  return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="${esc(t('status.outlookTip'))}">${esc(t(short ? 'status.short' : 'status.holding'))}</button>`;
 }
 
 const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { arrived: 'Reached Mistheim', survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
@@ -987,6 +999,7 @@ function pastRuns(): string {
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
 type Tab = 'plan' | 'camp' | 'land' | 'map' | 'history' | 'warden' | 'progress';
+// `label` is the English name; the page draws each tab's label from the catalog (`tab.<id>`, #1704).
 const TABS: TabDef<Tab>[] = [
   { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
@@ -1010,29 +1023,29 @@ let showHelp = false;
  * shows later). Vitals and stores are always in the status bar.
  */
 function beforeCamp(a: AppState): string {
-  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">MAKE CAMP — pick your ground</p>${sitesBlock(a)}
-    <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</div>`;
+  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${sitesBlock(a)}
+    <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a)}</div>`;
 }
 
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
       return `<section class="box seasonbox">${seasonStrip(a)}</section><div class="plan">
-        <section class="box"><p class="eyebrow">ACTIONS — ${a.sim.canPlan ? 'tap to add to the queue' : 'tap to do it now'}</p>${paletteBlock(a, preview)}</section>
+        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview)}</section>
         <section class="box planside">${queueBlock(a, preview)}
-          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
+          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
       </div>`;
     case 'camp':
       return `<div class="cols">
-        <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
-          <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}${coldBlock(a.sim)}
-          <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
-        <section class="box camp-scene"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
+        <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a)}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim)}${coldBlock(a.sim)}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a)}</section>
+        <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a)}</section>
       </div>`;
     case 'land':
-      return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
+      return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${land(a)}${LAND_LEGEND}
         <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>
-        <section class="box" style="margin-top:14px"><p class="eyebrow">PINS — places you remember</p>${pinsList(a.sim)}</section>`;
+        <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(a.sim)}</section>`;
     case 'map':
       return mapTab(a);
     case 'history':
@@ -1041,11 +1054,11 @@ function tabBody(a: AppState, preview: Preview): string {
       return wardenTab(a);
     case 'progress':
       return `<div class="cols">
-        <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
-          <p class="eyebrow" style="margin-top:16px">WINTER OUTLOOK</p>${outlookBlock(a)}
-          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}
-          <p class="eyebrow" style="margin-top:16px">PAST RUNS</p>${pastRuns()}</section>
-        <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul class="full">${journal(a, 200)}</ul></section>
+        <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(a)}
+          <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(a)}
+          <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(a)}
+          <p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns()}</section>
+        <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p><ul class="full">${journal(a, 200)}</ul></section>
       </div>`;
   }
 }
@@ -1099,7 +1112,7 @@ function resolvePanel(a: AppState): string {
       </ul>` : '';
     return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${s.outcome.kind === 'survived' ? thawSummary(a) : ''}${facts}${recordBox(a)}`
       // One run per Warden (#1455): whoever comes next is someone new, and finds what this one left.
-      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="reset" title="Someone new — they start with the tools this Warden left">✦ NEW WARDEN</button></div></div>`;
+      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div></div>`;
   }
   return '';
 }
@@ -1132,27 +1145,22 @@ function drawPage(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
-      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
-      <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
-      <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
+      <span class="counter ctl">${esc(t('top.run'))} <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
+      <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
       ${experimentChip(a)}
-      <span class="ctl"><a class="pill" href="/play-with-ai/" title="Let your AI play Greywind Reach">PLAY WITH YOUR AI</a></span>
-      <span class="ctl"><button class="pill" data-cmd="weekly" title="This week's world: the one everyone, people and AIs, plays this week">📅 THIS WEEK</button></span>
+      <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
+      <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
-      <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
-      <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
+      <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
+      <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
-    ${fresh || showHelp ? `<div class="ledewrap"><p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
-      <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
-      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
-      Each night you eat and drink: <b>water is critical</b> — a few dry nights wreck body and mind — while <b>food</b> can be skipped for a while at a slower cost. Every night in a row without either hurts more. Scout first, then push outward —
-      working the land teaches you its detail. The snow comes on day ${a.sim.config.calendar.winterDay}, and there is no way out until spring: <b>live through the winter to the thaw</b>.
-      Progress saves in this browser.</p>${devGate()}</div>` : ''}
+    ${fresh || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}${tabIsDev(t, view) ? DEV_TAG : ''}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}">${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`).join('')}</nav>
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length)}
     ${meetingModal(a.sim, a.meeting)}
@@ -1175,7 +1183,7 @@ let encounterAfter: EncounterAfter | null = null;
 let showFeatures = false;
 
 /** The small DEV tag on a view only dev mode shows (#1688). */
-const DEV_TAG = ' <span class="devtag">DEV</span>';
+const devTag = (): string => ` <span class="devtag">${esc(t('tab.dev'))}</span>`;
 
 /**
  * The password's SHA-256 (lowercase hex), from the build (#1688): set `VITE_DEV_PASSWORD_HASH` in the
@@ -1184,22 +1192,73 @@ const DEV_TAG = ' <span class="devtag">DEV</span>';
  */
 const DEV_PASSWORD_HASH: string | undefined = import.meta.env.VITE_DEV_PASSWORD_HASH;
 
-/** The dev gate's state: its password field open, and what the last try said. */
+/** The dev gate's state: its password field open, and what the last try said (a catalog key, so it follows the language). */
 let devGateOpen = false;
-let devGateNote = '';
+let devGateNote: Key | '' = '';
 
 /**
  * The semi-hidden way into dev mode (#1688): a faint ⚙ in the corner of the help panel. Tapping it
  * opens an in-page password field (the viewer blocks `prompt()`); in dev mode it offers the way out.
  */
 function devGate(): string {
-  const icon = `<button class="devdot" data-cmd="devgate" aria-expanded="${devGateOpen}" aria-label="Developer" title="">⚙</button>`;
+  const icon = `<button class="devdot" data-cmd="devgate" aria-expanded="${devGateOpen}" aria-label="${esc(t('dev.label'))}" title="">⚙</button>`;
   if (!devGateOpen) return icon;
   const body = dev
-    ? `<span class="faint">Dev mode is on in this browser.</span> <button class="pill" data-cmd="devleave">LEAVE DEV MODE</button>`
-    : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="Developer password" placeholder="password">
-      <button class="pill" type="submit">UNLOCK</button>${devGateNote ? ` <span class="faint">${esc(devGateNote)}</span>` : ''}</form>`;
+    ? `<span class="faint">${esc(t('dev.on'))}</span> <button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button>`
+    : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="${esc(t('dev.password'))}" placeholder="${esc(t('dev.placeholder'))}">
+      <button class="pill" type="submit">${esc(t('dev.unlock'))}</button>${devGateNote ? ` <span class="faint">${esc(t(devGateNote))}</span>` : ''}</form>`;
   return `${icon}<div class="devgate">${body}</div>`;
+}
+
+// ── Language: the switch in help, and the picker before anything else (#1704) ──
+
+/** The help panel's language switch: each language named in itself, so it's findable whatever is showing. */
+function langSwitch(): string {
+  const pills = LANGS.map(l => `<button class="pill" data-lang="${l}" lang="${l}" aria-pressed="${lang === l}">${esc(makeT(l)('lang.name'))}</button>`).join('');
+  return `<div class="langswitch"><span>${esc(t('help.language'))}</span>${pills}</div>`;
+}
+
+/**
+ * Change the language: remember it, swap `t`, and redraw whatever is showing. Nothing in the game
+ * changes, so there's nothing to save but the choice itself.
+ */
+function setLang(next: Lang): void {
+  lang = next;
+  t = makeT(next);
+  storeLang(next);
+  document.documentElement.lang = next;
+  introEl.setAttribute('aria-label', t('intro.label'));
+  render(state);
+  if (intro) renderIntro();
+}
+
+/**
+ * The picker (#1704): the very first screen for a viewer who hasn't chosen (or whose stored choice
+ * is junk), before the hike page. Its own overlay over the page, like the intro, and drawn in both
+ * languages at once, since we don't know yet which one the viewer reads. `then` carries on to
+ * whatever would have come first without it (the intro, the weekly world, or the saved game).
+ */
+function showPicker(then: () => void): void {
+  const el = document.createElement('div');
+  el.className = 'intro langpick';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-label', LANGS.map(l => makeT(l)('picker.title')).join(' · '));
+  const choices = LANGS.map(l => {
+    const tl = makeT(l);
+    return `<button class="langchoice" data-pick="${l}" lang="${l}"><b>${esc(tl('lang.name'))}</b><span>${esc(tl('lang.play'))}</span></button>`;
+  }).join('');
+  const title = LANGS.map(l => `<span lang="${l}">${esc(makeT(l)('picker.title'))}</span>`).join('<span class="sep">·</span>');
+  const notes = LANGS.map(l => `<span lang="${l}">${esc(makeT(l)('picker.note'))}</span>`).join('');
+  el.innerHTML = `<div class="pickbox"><p class="picktitle">${title}</p><div class="langchoices">${choices}</div><p class="picknote">${notes}</p></div>`;
+  el.addEventListener('click', e => {
+    const pick = parseLang((e.target as HTMLElement).closest<HTMLElement>('[data-pick]')?.dataset.pick);
+    if (!pick) return;
+    el.remove();
+    setLang(pick);
+    then();
+  });
+  document.body.appendChild(el);
+  el.querySelector<HTMLButtonElement>('.langchoice')?.focus();
 }
 
 /** Open or shut dev mode, remember it, and leave a tab that no longer shows for the first one that does. */
@@ -1216,7 +1275,7 @@ function setDev(on: boolean): void {
 /** Check a typed password against the build's hash; the right one opens dev mode. */
 async function tryDevPassword(typed: string): Promise<void> {
   if (await devPasswordMatches(typed, DEV_PASSWORD_HASH)) setDev(true);
-  else devGateNote = DEV_PASSWORD_HASH ? 'Not that.' : 'No password is set for this build.';
+  else devGateNote = DEV_PASSWORD_HASH ? 'dev.wrong' : 'dev.noHash';
   render(state);
 }
 
@@ -1224,16 +1283,16 @@ async function tryDevPassword(typed: string): Promise<void> {
 function experimentChip(a: AppState): string {
   const on = experimentalOn(featuresOf(a.sim.config.world.features));
   if (!on.length) return '';
-  return `<span class="ctl"><span class="pill exp" title="This run plays with experimental features: ${esc(on.map(f => f.name).join(', '))}. They may change, or go.">🧪 EXPERIMENT</span></span>`;
+  return `<span class="ctl"><span class="pill exp" title="${esc(t('top.experimentTip', { names: on.map(f => f.name).join(', ') }))}">${esc(t('top.experiment'))}</span></span>`;
 }
 
 /** A 📅 chip while this run plays the weekly world (#1559): its week, the same world everyone plays. */
 function weekChip(a: AppState): string {
   const week = weekOfId(a.sim.character.id);
-  return week ? `<span class="counter ctl weekchip" title="This week's world (${week}): everyone, people and AIs, plays this one until Monday 00:00 UTC">📅 <b>${esc(shortWeek(week))}</b></span>` : '';
+  return week ? `<span class="counter ctl weekchip" title="${esc(t('top.weekChipTip', { week }))}">📅 <b>${esc(shortWeek(week))}</b></span>` : '';
 }
 
-const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES${DEV_TAG}</button></span>` : '');
+const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">${esc(t('top.features'))}${devTag()}</button></span>` : '');
 
 /**
  * The features panel (dev mode): every switchable feature, what it does, and its switch. Rule
@@ -1245,20 +1304,21 @@ function featuresPanel(a: AppState): string {
   const run = featuresOf(a.sim.config.world.features);
   const rows = FEATURES.map(f => {
     const on = typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default;
-    const now = f.kind === 'rules' ? ` · this run: <b>${run[f.id] ? 'on' : 'off'}</b>` : '';
+    const now = f.kind === 'rules' ? ` · ${t('dev.thisRun', { state: esc(t(run[f.id] ? 'dev.runOn' : 'dev.runOff')) })}` : '';
     return `<li><div><b>${esc(f.name)}</b> <span class="stage s-${f.stage}">${f.stage === 'experimental' ? '🧪 ' : ''}${f.stage.toUpperCase()}</span>
-      <p class="mood">${esc(f.note)} <span class="faint">(${f.kind === 'rules' ? 'rules: from the next new game' : 'looks: now'}${now} · #${f.issue})</span></p></div>
-      <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
+      <p class="mood">${esc(f.note)} <span class="faint">(${esc(t(f.kind === 'rules' ? 'dev.rules' : 'dev.looks'))}${now} · #${f.issue})</span></p></div>
+      <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${esc(t(on ? 'dev.featOn' : 'dev.featOff'))}</button></li>`;
   }).join('');
-  return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
-    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level, each person's true trust, and the rule behind each thing in the pack. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.</p>
-    <p><button class="pill" data-cmd="devleave">LEAVE DEV MODE</button></p></section>`;
+  return `<section class="box features"><p class="eyebrow">${esc(t('head.features'))}</p><ul class="flist">${rows}</ul>
+    <p class="mood">${t('dev.featuresNoteHtml')}</p>
+    <p><button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button></p></section>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
-const ROAD_TABS: { id: RoadTab; label: string }[] = [{ id: 'road', label: 'ROAD' }, { id: 'quests', label: 'QUESTS' }, { id: 'warden', label: 'WARDEN' }, { id: 'journal', label: 'JOURNAL' }];
+// Labels come from the catalog (`tab.<id>`).
+const ROAD_TABS: readonly RoadTab[] = ['road', 'quests', 'warden', 'journal'];
 let roadTab: RoadTab = 'road';
 // Dev mode (#1579) shows each person's true trust beside how they seem (#1578).
 const roadUi: RoadUi = { person: null, truths };
@@ -1282,27 +1342,27 @@ function renderRoad(a: AppState, r: RoadState): void {
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r))
-    : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">JOURNAL — THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
-    : r.outcome ? `<section class="box"><p class="eyebrow">THE LAST OF THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi);
-  const end = r.outcome ? `${roadEnd(r)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="Someone new — they start with the tools this Warden left">✦ NEW WARDEN</button></div>` : '';
+    : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
+    : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi);
+  const end = r.outcome ? `${roadEnd(r)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
   root.innerHTML = `
     <header>
-      <h1>🛞 THE CARAVAN <span class="mark">ROAD</span></h1>
+      <h1>${t('top.roadTitleHtml')}</h1>
       <span class="spacer"></span>
-      ${r.character.name ? `<button class="who" data-rtab="warden" title="Your Warden">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
-      <span class="counter ctl">MARKS <b>${r.marks}</b></span>
-      <span class="counter ctl">ROAD DAY <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
+      ${r.character.name ? `<button class="who" data-rtab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
+      <span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
+      <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
       ${weekChip(a)}
       ${experimentChip(a)}
-      <span class="ctl"><button class="pill" data-cmd="weekly" title="This week's world: the one everyone, people and AIs, plays this week">📅 THIS WEEK</button></span>
+      <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
-      <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
+      <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
     ${routeStrip(r)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r)}${lastNews(r)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(t => `<button class="tabbtn ${roadTab === t.id ? 'on' : ''}" role="tab" aria-selected="${roadTab === t.id}" data-rtab="${t.id}">${t.label}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
     ${body}
     ${encounterModal(r as unknown as AppState['sim'], encounterAfter, 0)}`;
 }
@@ -1524,14 +1584,14 @@ function timerPanel(): string {
   const m = momentOf(pl);
   const night = m.index >= p.steps.length;
   const lines = linesAt(p, m.done, night);
-  const days = pl.plays.length > 1 ? ` · ${pl.day + 1} OF ${pl.plays.length} DAYS` : '';
-  return `<section class="timer${night ? ' night' : ''}" aria-label="The day plays out">
-    <div class="trow"><span class="tday">DAY ${p.before.sim.day}${days}</span><span class="tclock" id="pb-clock">${clockText(m.clock)}</span>
-      <span class="tspeed" role="group" aria-label="Speed">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
-      <button class="btn go tskip" data-pbskip title="Finish now (Esc)">⏭ SKIP</button></div>
+  const days = pl.plays.length > 1 ? t('timer.days', { n: pl.day + 1, total: pl.plays.length }) : '';
+  return `<section class="timer${night ? ' night' : ''}" aria-label="${esc(t('timer.label'))}">
+    <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${clockText(m.clock)}</span>
+      <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
+      <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
     <div class="tnow"><span class="tname">${stepName(p, m)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
-    <div class="tbar" role="progressbar" aria-label="This action" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
+    <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
     <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(l.text)}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
 }
@@ -1563,7 +1623,7 @@ let intro: { beats: Beat[]; i: number } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
-introEl.setAttribute('aria-label', 'Arrival');
+introEl.setAttribute('aria-label', t('intro.label'));
 introEl.hidden = true;
 document.body.appendChild(introEl);
 
@@ -1672,8 +1732,8 @@ function renderIntro(): void {
     <div class="introbar">
       <span class="dots" aria-hidden="true">${dots}</span>
       <span class="spacer"></span>
-      ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
-      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : b.kind === 'pack' ? 'OFF WE GO ▸' : 'CONTINUE ▸'}</button>
+      ${last ? '' : `<button class="pill" data-intro="skip">${esc(t('intro.skip'))}</button>`}
+      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${esc(t(last ? 'intro.begin' : b.kind === 'pack' ? 'intro.offWeGo' : 'intro.next'))}</button>
     </div>`;
   const beatEl = introEl.querySelector('.beat');
   if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
@@ -1836,10 +1896,12 @@ root.addEventListener('click', e => {
   if (playing) {
     if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
     if (d.pbskip !== undefined) { skipTimer(); return; }
-    if (!d.tab && d.cmd !== 'help') return;
+    if (!d.tab && d.cmd !== 'help' && !d.lang) return;
   }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
+  // The language switch in help (#1704): presentation only, so it's fine mid-day too.
+  else if (d.lang) { const l = parseLang(d.lang); if (l) setLang(l); }
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
   else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
@@ -2020,20 +2082,20 @@ function recordBox(a: AppState): string {
   const sent = k?.sent;
   if (!sent) previewAchievements(a, ui);
   const list = sent?.achievements ?? ui.preview;
-  const ach = list ? achievementsHtml(list) : '<p class="note">Working out how this run compares…</p>';
+  const ach = list ? achievementsHtml(list) : `<p class="note">${esc(t('records.working'))}</p>`;
   let foot: string;
-  if (sent) foot = `<p class="note">In the records. <a href="/records/?game=${esc(sent.gameId)}">See how it compares with everyone's ›</a></p>`;
+  if (sent) foot = `<p class="note">${esc(t('records.sent'))} <a href="/records/?game=${esc(sent.gameId)}">${esc(t('records.compare'))}</a></p>`;
   else if (!k) foot = '<p class="note">This run began before runs could be sent to the records, so it can\'t be checked.</p>';
   else if (k.log.start.heirlooms?.length && !k.log.start.heirloomsFrom) {
     foot = '<p class="note">This Warden started with what an earlier one left, from a run that wasn\'t sent to the records, so the server can\'t check it. Send a run before you start the next Warden, and the next one can be sent too.</p>';
   } else {
     const sending = ui.status === 'sending';
-    foot = `<form data-sendrun><input id="runname" name="nick" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Nickname" aria-label="Your nickname on the records" value="${esc(ui.name)}">`
-      + `<button class="btn go" type="submit" ${sending ? 'disabled' : ''}>${sending ? 'SENDING…' : 'SEND TO THE RECORDS'}</button></form>`
-      + '<p class="note">The server plays your run again from the start before it counts. Only a nickname is kept, one word of letters.</p>'
+    foot = `<form data-sendrun><input id="runname" name="nick" maxlength="24" autocomplete="off" spellcheck="false" placeholder="${esc(t('records.nickname'))}" aria-label="${esc(t('records.nicknameLabel'))}" value="${esc(ui.name)}">`
+      + `<button class="btn go" type="submit" ${sending ? 'disabled' : ''}>${esc(t(sending ? 'records.sending' : 'records.send'))}</button></form>`
+      + `<p class="note">${esc(t('records.replayNote'))}</p>`
       + (ui.status === 'error' ? `<p class="note warn">${esc(ui.message)}</p>` : '');
   }
-  return `<div class="runrecord"><p class="eyebrow">THE RECORDS</p>${ach}${foot}</div>`;
+  return `<div class="runrecord"><p class="eyebrow">${esc(t('head.records'))}</p>${ach}${foot}</div>`;
 }
 
 /** Send this run to the records (#1559): its log and what it came to, for the server to replay. */
@@ -2054,11 +2116,11 @@ async function sendRun(): Promise<void> {
       ui.status = 'idle';
     } else {
       ui.status = 'error';
-      ui.message = body.error ?? `Something went wrong (${r.status}). Try again in a while.`;
+      ui.message = body.error ?? t('records.failed', { status: r.status });
     }
   } catch {
     ui.status = 'error';
-    ui.message = "The records can't be reached right now. Try again in a while.";
+    ui.message = t('records.unreachable');
   }
   render(state);
 }
@@ -2085,10 +2147,10 @@ async function startWeekly(): Promise<boolean> {
     if (typeof body?.gameId === 'string' && weekOfId(body.gameId)) gameId = body.gameId;
   } catch { /* offline, or the API isn't there (a local dev server): said below */ }
   if (!gameId) {
-    alert("This week's world can't be reached right now. Try again in a while.");
+    alert(t('weekly.unreachable'));
     return false;
   }
-  if (state.sim.log.length > 0 && !runOver(state) && !confirm("Leave this run and start this week's world? This run can't be picked up again.")) return false;
+  if (state.sim.log.length > 0 && !runOver(state) && !confirm(t('weekly.leave'))) return false;
   const next = makeWarden({ id: gameId }, undefined, loadChoices());
   startLog(next, {}, null);
   update(next);
@@ -2103,7 +2165,13 @@ render(state);
 // doesn't start it again. Otherwise a Warden still being made (a first visit, or after New Game)
 // picks up where it was (#1266).
 const resume = (): void => { if (!saved || loadDraft()) startIntro(); };
-if (new URLSearchParams(location.search).has('weekly')) {
-  window.history.replaceState(null, '', location.pathname); // `window.`: `history` here is the run history
-  void startWeekly().then(started => { if (!started) resume(); });
-} else resume();
+const weekly = new URLSearchParams(location.search).has('weekly');
+if (weekly) window.history.replaceState(null, '', location.pathname); // `window.`: `history` here is the run history
+const begin = (): void => {
+  if (weekly) void startWeekly().then(started => { if (!started) resume(); });
+  else resume();
+};
+// The language comes before everything else (#1704): a viewer with no usable choice stored picks one
+// first, then the page carries on exactly as it would have.
+if (pickerNeeded()) showPicker(begin);
+else begin();
