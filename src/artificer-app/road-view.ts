@@ -27,6 +27,7 @@ import { answerQuestion, parseLoreKey, questionAbout } from '../artificer/knowle
 import { QUESTION_NOTICE } from '../artificer-play/questions';
 import { featureById, featureOn } from '../artificer/features';
 import { feltWord, trueWord, RAPPORT_LADDER } from '../artificer/rapport';
+import { itemIcon } from './item-icons';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -91,7 +92,7 @@ export function roadStatus(r: RoadState): string {
   const st = r.stores;
   return `<section class="box rstatus">
     <div class="rbars">${bar('VIGOR', v.vigor.current, v.vigor.cap, 'vig')}${bar('CLARITY', v.clarity.current, v.clarity.cap, 'cla')}${bar('CONDITION', v.condition, 100, 'con')}</div>
-    <div class="res"><span class="chip">🍖 ${st.rawFood + st.rations} food</span><span class="chip">💧 ${st.water} water</span><span class="chip">🪙&nbsp;<b>${r.marks}</b>&nbsp;marks</span><span class="chip">⏳ ${hoursLeft(r)}h left today</span></div>
+    <div class="res"><span class="chip">${itemIcon('rawFood', { fallback: '🍖' })} ${st.rawFood + st.rations} food</span><span class="chip">${itemIcon('water', { fallback: '💧' })} ${st.water} water</span><span class="chip">🪙&nbsp;<b>${r.marks}</b>&nbsp;marks</span><span class="chip">⏳ ${hoursLeft(r)}h left today</span></div>
   </section>`;
 }
 
@@ -230,10 +231,10 @@ function tradePanel(r: RoadState): string {
   };
   const goods = Object.entries(r.stores).filter(([k, n]) => n > 0 && isGood(k));
   const yours = [
-    ...goods.map(([k, n]) => `<li><span class="it">${esc(itemName(k))} <span class="q">×${n}</span>${wanted(k) ? ' <span class="want">wanted</span>' : ''}${here(k)}</span><span class="pr">${sellPrice(k, 'sound', 1, t)}</span>${act(r, `sell:${k}`, 'SELL 1', TRADE_HOURS)}</li>`),
-    ...r.tools.filter(x => KIND_OF[x.item]).map(x => `<li><span class="it">${esc(itemName(x.item))} <span class="g g-${x.grade}">${x.grade}</span>${wanted(x.item) ? ' <span class="want">wanted</span>' : ''}${here(x.item)}</span><span class="pr">${sellPrice(x.item, x.grade, 1, t)}</span>${act(r, `sell:${x.item}:${x.grade}`, 'SELL', TRADE_HOURS)}</li>`),
+    ...goods.map(([k, n]) => `<li><span class="it">${itemIcon(k)}${esc(itemName(k))} <span class="q">×${n}</span>${wanted(k) ? ' <span class="want">wanted</span>' : ''}${here(k)}</span><span class="pr">${sellPrice(k, 'sound', 1, t)}</span>${act(r, `sell:${k}`, 'SELL 1', TRADE_HOURS)}</li>`),
+    ...r.tools.filter(x => KIND_OF[x.item]).map(x => `<li><span class="it">${itemIcon(x.item)}${esc(itemName(x.item))} <span class="g g-${x.grade}">${x.grade}</span>${wanted(x.item) ? ' <span class="want">wanted</span>' : ''}${here(x.item)}</span><span class="pr">${sellPrice(x.item, x.grade, 1, t)}</span>${act(r, `sell:${x.item}:${x.grade}`, 'SELL', TRADE_HOURS)}</li>`),
   ];
-  const theirs = t.sells.map(g => `<li><span class="it">${esc(itemName(g))}${here(g)}</span><span class="pr">${buyPrice(g as never, 1, t)}</span>${act(r, `buy:${g}:1`, 'BUY 1', TRADE_HOURS, { why: r.marks < buyPrice(g as never, 1, t) ? 'Not enough marks' : undefined })}${act(r, `buy:${g}:5`, '×5', 0, { why: r.marks < buyPrice(g as never, 5, t) ? `5 cost ${buyPrice(g as never, 5, t)} marks` : undefined })}</li>`);
+  const theirs = t.sells.map(g => `<li><span class="it">${itemIcon(g)}${esc(itemName(g))}${here(g)}</span><span class="pr">${buyPrice(g as never, 1, t)}</span>${act(r, `buy:${g}:1`, 'BUY 1', TRADE_HOURS, { why: r.marks < buyPrice(g as never, 1, t) ? 'Not enough marks' : undefined })}${act(r, `buy:${g}:5`, '×5', 0, { why: r.marks < buyPrice(g as never, 5, t) ? `5 cost ${buyPrice(g as never, 5, t)} marks` : undefined })}</li>`);
   return `<div class="sheetpart trade"><p class="fgroup">TRADE — prices in marks${friend ? ' · <span class="ok">friend’s rate</span>' : ''}</p>
     <p class="mood">${esc(t.name)} wants ${t.wants.join(' and ')} goods, and pays ×${WANTED} for them. Grade sets the price.${t.local ? ` ${esc(marketLine(t.local))}` : ''}</p>
     <div class="tcols"><div><p class="fgroup">YOU SELL</p><ul class="tlist">${yours.join('') || '<li class="mood">Nothing to sell.</li>'}</ul></div>

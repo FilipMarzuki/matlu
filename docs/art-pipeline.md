@@ -41,7 +41,7 @@ brief (art-briefs.json) ──▶ PixelLab burn ──▶ public/assets/sprites/
 3. **Save.** Icons go to `public/assets/sprites/icons/items/<id>.png`. Review the new set as a contact sheet at 1× and 4× (`npm run art:sheet` → `docs/art/contact-sheet-items.png`); regenerate any that don't read at 32 px (delete the PNG and its `icon`, then burn again).
 4. **Catalogue.** `npm run assets:sprites` regenerates `public/assets/sprite-manifest.json`.
 5. **Record.** Set the item's `icon` in `art-briefs.json` (a URL under `public/`, e.g. `/assets/sprites/icons/items/stone-knife.png`). The test checks the file exists and is 32 px.
-6. **Check in `/assets`.** The sprite shows a green dot. Note that the manifest marks a sprite wired when any file under `src/` names it, so the briefs file alone turns it green; the real wiring is the store and pack UI (#1675).
+6. **Check in `/assets`.** The sprite shows a green dot. Note that the manifest marks a sprite wired when any file under `src/` names it, so the briefs file alone turns it green; the real wiring is the store and pack UI (#1675): `src/artificer-app/item-icons.ts` reads each brief's `icon`, so an icon recorded here shows in the stores, the pack, trade lists and craft ingredients with no other change (an item without one keeps its emoji or plain text).
 7. **Commit** the PNGs, the briefs file and the manifest together.
 
 ## Where files live
