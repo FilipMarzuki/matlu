@@ -39,6 +39,18 @@ import { queueSv } from './sv/queue';
  *   grades: crude → grov · sound → duglig · fine → fin · masterwork → mästerverk
  *   shelter → skydd · lean-to → vindskydd (as the tarp) · winterized → vinterbonat · cold pit → kylgrop
  *   the pack's things keep their scout names from kit.ts (sovsäck, kåsa, stormkök, morakniv...)
+ *
+ * Added in phase 3 (#1709), the road, its people and the journal:
+ *   the wagon → vagnen · leg (of the route) → etapp · village → by · quest → uppdrag · lead → spår
+ *   roles: trader → handlare · teacher → lärare · healer → helare · elder → byäldste · smith → smed
+ *   · hunter → jägare · caravaneer → karavanförare · tinker → mekare
+ *   trust words: wary → vaksam ... trusted → förtrolig · close → nära
+ *   rumour → rykte · lie → lögn · a caught lie → en avslöjad lögn
+ *   foraging → plockning · the Compact → Pakten · the Compact of Knowing → Kunskapspakten
+ *   the Vidde Accords → Viddeavtalen · Deepwalkers → Djupvandrare · place and people names stay
+ *   names (Kestrel Gate, Lövfolk...)
+ *   The sim keeps its journal in English (the AI and the API read it); the page reads each line back
+ *   through the catalog (artificer-app/sim-words.ts), so a journal line is a template here.
  */
 export const sv: Catalog = {
   // ── Språkväljaren ──────────────────────────────────────────────────────────

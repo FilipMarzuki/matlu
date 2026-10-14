@@ -1046,7 +1046,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     <header>
       <h1>${t('top.roadTitleHtml')}</h1>
       <span class="spacer"></span>
-      ${r.character.name ? `<button class="who" data-rtab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
+      ${r.character.name ? `<button class="who" data-rtab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${esc(rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
       <span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
       ${weekChip(a)}

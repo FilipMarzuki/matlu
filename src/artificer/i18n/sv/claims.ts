@@ -63,7 +63,7 @@ export const claimsSv: Record<ClaimsKey, string> = {
   'fact.scope:north-road/reach': 'Vägen börjar vid kanten av Reach, dit karavanen kommer upp varje vår för den som har övervintrat där. De flesta år väntar någon.',
   'fact.scope:north-road/caravan': 'Bodil är karavanmästare. Tjugotvå vårar har hon kört vagnarna upp genom dalen, och hon är lika fäst vid varenda en som vid en släkting.',
   'fact.scope:north-road/tinker': 'Pim är karavanens mekare, en goblin som pratar med hjulaxlarna. Går något sönder mellan byarna är det hans att laga.',
-  'fact.scope:north-road/herbwife': 'Ottilia är karavanens örtkvinna: lågmäld, äldre än någon minns och stilla road av alla.',
+  'fact.scope:north-road/herbwife': 'Ottilia är karavanens örtkvinna: lågmäld, äldre än någon minns, och i tysthet roas av alla.',
   'fact.scope:north-road/route-singer': 'Runa är karavanens vägsångare. Hon för räkenskaperna i sånger och säljer från sin målade vagn på resdagarna.',
   'fact.scope:north-road/traders': 'Tobin köper i Hollowford, Hedda i Saltmere och Arvid innanför Porten, och Runa säljer från sin målade vagn på vägen däremellan.',
   'fact.scope:north-road/healers': 'Isa i Hollowford och Liv i Saltmere är helare, och Ottilia åker med karavanen. Det finns ingen helare vid Porten.',

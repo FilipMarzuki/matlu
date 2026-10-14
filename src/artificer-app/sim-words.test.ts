@@ -25,7 +25,7 @@ import { BIOME_NAME, describeCell, type Biome } from '../artificer/world/reach';
 import { describeLand, mapNeeds, reachOfRun, DESCRIPTIVE_MAP } from '../artificer/descriptive-map';
 import { createExploration, scout, survey } from '../artificer/exploration';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
-import { cellText, landLines, mapNeedsText, matchSimLine, optionGroupLabel, optionLabel, simLine, statNoteText } from './sim-words';
+import { cellText, landLines, mapNeedsText, matchSimLine, optionGroupLabel, optionLabel, readBack, simLine, statNoteText } from './sim-words';
 
 const enT: T = makeT('en');
 const svT: T = makeT('sv');
@@ -152,4 +152,31 @@ describe('The sim\'s words in the viewer\'s language (#1707)', () => {
       for (let y = 0; y < r.h; y += 3) for (let x = 0; x < r.w; x += 3) expect(cellText(r, x, y, enT)).toBe(describeCell(r, x, y));
     }
   });
+});
+
+describe('The journal\'s lines in the viewer\'s language (#1709)', () => {
+  /**
+   * Whole years and roads as the AI players play them — the scripted plan and two random legal
+   * players — and every line their journals wrote: each must be a catalog phrase or match a
+   * template, and filling the template with what it matched must give back the sim's line exactly.
+   * If someone rewords a journal line in the sim, this fails and names it, instead of the Swedish
+   * journal quietly showing it in English.
+   */
+  it('reads every journal line of played years and roads, and gives the English back unchanged', async () => {
+    const { playRun, aiCharacterId } = await import('../artificer-ai/runner');
+    const { scriptedPlayer } = await import('../artificer-ai/players/scripted');
+    const { randomPlayer } = await import('../artificer-ai/players/random');
+    const lines = new Set<string>();
+    for (const [i, player] of [scriptedPlayer(), randomPlayer({ seed: 3 }), randomPlayer({ seed: 4 })].entries()) {
+      const res = await playRun(player, { characterId: aiCharacterId(`${player.name}-${i}`, 'a') });
+      for (const l of res.final.log) lines.add(l.text);
+      for (const l of res.road?.final.log ?? []) lines.add(l.text);
+    }
+    expect(lines.size).toBeGreaterThan(150);
+    // A phrase said whole, or a template filled with what it matched (readBack is null when neither reads it).
+    expect([...lines].filter(l => readBack(l) !== l)).toEqual([]);
+    // And Swedish actually differs: no line falls through untranslated.
+    expect([...lines].filter(l => simLine(l, svT) === l)).toEqual([]);
+    for (const l of lines) expect(simLine(l, enT)).toBe(l);
+  }, 60_000);
 });
