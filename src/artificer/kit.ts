@@ -31,40 +31,46 @@ export interface KitItem {
   /** Kilograms. */
   weight: number;
   group: KitGroup;
-  /** What it does out here, in plain words. */
+  /**
+   * What a scout would say it's for (#1684): plain words, no numbers, no game terms. This is what
+   * the pack screen, the in-run pack list and the AI player see; the player finds out what's
+   * actually useful by playing.
+   */
+  does: string;
+  /** The rule it plays out here: documentation for the code, shown only with `?dev=truths` (#1684). */
   effect: string;
   /** A line in a scout's voice. */
   note: string;
 }
 
 export const KIT: readonly KitItem[] = [
-  { id: 'sleeping-bag', name: 'Sleeping bag', sv: 'sovsäck', weight: 1.6, group: 'sleep', effect: 'a sound bedroll from the first night (a fine one with the sleeping pad)', note: 'The heaviest thing in the pack, and the one you\'d never leave behind.' },
-  { id: 'sleeping-pad', name: 'Sleeping pad', sv: 'liggunderlag', weight: 0.4, group: 'sleep', effect: 'with the sleeping bag, a fine bedroll; on its own, cold nights cost 10% less', note: 'The ground steals more heat than the air does — the leader says it every single hike.' },
-  { id: 'pillow', name: 'Pillow', sv: 'kudde', weight: 0.3, group: 'sleep', effect: 'the first night\'s sleep is a little better (+2 Clarity), and that\'s all', note: 'Everyone laughs. Everyone is jealous at bedtime.' },
-  { id: 'mora-knife', name: 'Mora knife', sv: 'morakniv', weight: 0.1, group: 'fire-food', effect: 'a fine knife: hunting, preserving and work that needs a blade', note: 'Your knife-licence knife. You\'re allowed to carry it on hikes now.' },
-  { id: 'fire-steel', name: 'Fire steel', sv: 'eldstål', weight: 0.05, group: 'fire-food', effect: 'a fire catches and holds in the wind: wind never costs extra firewood for close work', note: 'Scrape it hard against the back of the knife. Birch bark catches every time.' },
-  { id: 'matches', name: 'Matches in a zip bag', sv: 'tändstickor', weight: 0.05, group: 'fire-food', effect: '5 easy fires: each spares a firewood when you work by firelight. They run out.', note: 'Kept dry in a freezer bag, because somebody always falls in the stream.' },
-  { id: 'kasa', name: 'Kåsa', sv: 'kåsa', weight: 0.1, group: 'fire-food', effect: 'a hot drink on every night the fire is kept in: +1 Clarity', note: 'Carved birch, hanging from your belt on a leather thong. It makes cocoa taste better.' },
-  { id: 'thermos', name: 'Thermos', sv: 'termos', weight: 0.6, group: 'fire-food', effect: 'two hot drinks for the first two cold nights: +4 Clarity each. Then it\'s empty.', note: 'Hot blackcurrant drink from home. It stays warm till Saturday lunch.' },
-  { id: 'trangia', name: 'Trangia stove and fuel', sv: 'stormkök', weight: 1.1, group: 'fire-food', effect: '4 hot meals on cold nights with no fire kept in: +3 Clarity each. Then the fuel is gone.', note: 'The patrol\'s stove. Somebody had to carry it, and it was your turn.' },
-  { id: 'weekend-food', name: 'Weekend food', sv: 'matsäck', weight: 1.5, group: 'fire-food', effect: '+4 food, packed (it keeps like rations)', note: 'Crispbread, cheese, oat porridge, a tin of meatballs. Enough for the weekend.' },
-  { id: 'sweets', name: 'Bag of sweets', sv: 'godis', weight: 0.2, group: 'fire-food', effect: 'once, when your mind is nearly gone (under 30 Clarity at night): +6 Clarity', note: 'Saturday sweets, saved. You were going to share them.' },
-  { id: 'water-bottle', name: 'Water bottle', sv: 'vattenflaska', weight: 0.3, group: 'fire-food', effect: 'a sound waterskin: +1 water a trip', note: 'Filled at home. Refill it at the stream and drink the stream.' },
-  { id: 'wool-underlayer', name: 'Wool underlayer', sv: 'ullunderställ', weight: 0.4, group: 'clothes', effect: 'wool layers: cold nights cost 15% less (stacks with knowing the cold)', note: 'Itchy, warm even when it\'s wet. Wool, never cotton — cotton kills.' },
-  { id: 'hat-mittens', name: 'Wool hat and mittens', sv: 'mössa och vantar', weight: 0.2, group: 'clothes', effect: 'blizzard exposure is a step safer', note: 'Knitted by your grandmother. Lose one mitten and you\'re in trouble.' },
-  { id: 'rain-gear', name: 'Rain gear', sv: 'regnställ', weight: 0.7, group: 'clothes', effect: 'rain soaks you half as fast', note: 'Jacket and trousers. It always rains on hikes, whatever the forecast said.' },
-  { id: 'spare-socks', name: 'Spare wool socks', sv: 'ullsockor', weight: 0.2, group: 'clothes', effect: 'dry socks after a soaking: being wet through costs half the Clarity', note: 'Two pairs. Dry feet are a happy scout.' },
-  { id: 'sit-pad', name: 'Sit pad', sv: 'sittunderlag', weight: 0.05, group: 'clothes', effect: 'a rest restores a little more (+2 Vigor)', note: 'A square of foam on a cord. A dry seat on a wet rock.' },
-  { id: 'first-aid-kit', name: 'First-aid kit', sv: 'första hjälpen', weight: 0.2, group: 'tools', effect: '3 dressings: "treat" uses one instead of goods, and treats one step better', note: 'Plasters, a bandage, blister tape and a tiny pair of scissors.' },
-  { id: 'headlamp', name: 'Headlamp', sv: 'pannlampa', weight: 0.15, group: 'tools', effect: '8 hours of light for close work after dark — no firewood, no dark penalty. The battery runs down.', note: 'For finding the latrine at night, mostly.' },
-  { id: 'map-compass', name: 'Map and compass', sv: 'karta och kompass', weight: 0.15, group: 'tools', effect: 'scouting and surveying take 20% less time', note: 'Orienteering badge. Red end north, map to the land, land to the map.' },
-  { id: 'whistle', name: 'Whistle', sv: 'visselpipa', weight: 0.02, group: 'tools', effect: 'face a boar or a bear and you can blow it: noise sends most animals off', note: 'Three blasts means help. Every scout has one round their neck.' },
-  { id: 'cord', name: 'Cord, 10 m', sv: 'snöre', weight: 0.2, group: 'tools', effect: '+2 materials', note: 'For the tarp, for a clothesline, for anything. You can never have too much cord.' },
-  { id: 'tarp', name: 'Tarp', sv: 'vindskydd', weight: 1.0, group: 'tools', effect: 'pitched when you make camp: a crude lean-to roof without felling a tree', note: 'The patrol\'s tarp — you were carrying it when you got separated.' },
-  { id: 'notebook', name: 'Notebook and pencil', sv: 'anteckningsbok', weight: 0.1, group: 'other', effect: '+10% insight from study', note: 'For the hike diary the leader wants. A pencil works in the rain; a pen doesn\'t.' },
-  { id: 'toilet-paper', name: 'Toilet paper', sv: 'toalettpapper', weight: 0.1, group: 'other', effect: 'nothing, out here', note: 'In a plastic bag. Every scout brings it. Every scout.' },
-  { id: 'phone', name: 'Phone', sv: 'mobil', weight: 0.2, group: 'other', effect: 'nothing: no signal, and dead by the third day', note: 'You promised to call home on Saturday evening.' },
-  { id: 'comic', name: 'Comic book', sv: 'serietidning', weight: 0.2, group: 'other', effect: 'once, resting on a rainy day: +3 Clarity', note: 'Bamse, read so many times the cover\'s coming off.' },
+  { id: 'sleeping-bag', name: 'Sleeping bag', sv: 'sovsäck', weight: 1.6, group: 'sleep', does: 'To sleep in.', effect: 'a sound bedroll from the first night (a fine one with the sleeping pad)', note: 'The heaviest thing in the pack, and the one you\'d never leave behind.' },
+  { id: 'sleeping-pad', name: 'Sleeping pad', sv: 'liggunderlag', weight: 0.4, group: 'sleep', does: 'Goes under the sleeping bag, between you and the ground.', effect: 'with the sleeping bag, a fine bedroll; on its own, cold nights cost 10% less', note: 'The ground steals more heat than the air does — the leader says it every single hike.' },
+  { id: 'pillow', name: 'Pillow', sv: 'kudde', weight: 0.3, group: 'sleep', does: 'For your head at night.', effect: 'the first night\'s sleep is a little better (+2 Clarity), and that\'s all', note: 'Everyone laughs. Everyone is jealous at bedtime.' },
+  { id: 'mora-knife', name: 'Mora knife', sv: 'morakniv', weight: 0.1, group: 'fire-food', does: 'For cutting, carving and whittling.', effect: 'a fine knife: hunting, preserving and work that needs a blade', note: 'Your knife-licence knife. You\'re allowed to carry it on hikes now.' },
+  { id: 'fire-steel', name: 'Fire steel', sv: 'eldstål', weight: 0.05, group: 'fire-food', does: 'Strikes sparks to light a fire.', effect: 'a fire catches and holds in the wind: wind never costs extra firewood for close work', note: 'Scrape it hard against the back of the knife. Birch bark catches every time.' },
+  { id: 'matches', name: 'Matches in a zip bag', sv: 'tändstickor', weight: 0.05, group: 'fire-food', does: 'To light a fire.', effect: '5 easy fires: each spares a firewood when you work by firelight. They run out.', note: 'Kept dry in a freezer bag, because somebody always falls in the stream.' },
+  { id: 'kasa', name: 'Kåsa', sv: 'kåsa', weight: 0.1, group: 'fire-food', does: 'A cup to drink from.', effect: 'a hot drink on every night the fire is kept in: +1 Clarity', note: 'Carved birch, hanging from your belt on a leather thong. It makes cocoa taste better.' },
+  { id: 'thermos', name: 'Thermos', sv: 'termos', weight: 0.6, group: 'fire-food', does: 'Keeps a drink hot.', effect: 'two hot drinks for the first two cold nights: +4 Clarity each. Then it\'s empty.', note: 'Hot blackcurrant drink from home. It stays warm till Saturday lunch.' },
+  { id: 'trangia', name: 'Trangia stove and fuel', sv: 'stormkök', weight: 1.1, group: 'fire-food', does: 'To cook on.', effect: '4 hot meals on cold nights with no fire kept in: +3 Clarity each. Then the fuel is gone.', note: 'The patrol\'s stove. Somebody had to carry it, and it was your turn.' },
+  { id: 'weekend-food', name: 'Weekend food', sv: 'matsäck', weight: 1.5, group: 'fire-food', does: 'Food for the weekend.', effect: '+4 food, packed (it keeps like rations)', note: 'Crispbread, cheese, oat porridge, a tin of meatballs. Enough for the weekend.' },
+  { id: 'sweets', name: 'Bag of sweets', sv: 'godis', weight: 0.2, group: 'fire-food', does: 'Something sweet for later.', effect: 'once, when your mind is nearly gone (under 30 Clarity at night): +6 Clarity', note: 'Saturday sweets, saved. You were going to share them.' },
+  { id: 'water-bottle', name: 'Water bottle', sv: 'vattenflaska', weight: 0.3, group: 'fire-food', does: 'To carry water in.', effect: 'a sound waterskin: +1 water a trip', note: 'Filled at home. Refill it at the stream and drink the stream.' },
+  { id: 'wool-underlayer', name: 'Wool underlayer', sv: 'ullunderställ', weight: 0.4, group: 'clothes', does: 'Worn under your clothes to keep you warm.', effect: 'wool layers: cold nights cost 15% less (stacks with knowing the cold)', note: 'Itchy, warm even when it\'s wet. Wool, never cotton — cotton kills.' },
+  { id: 'hat-mittens', name: 'Wool hat and mittens', sv: 'mössa och vantar', weight: 0.2, group: 'clothes', does: 'For your head and hands in the cold.', effect: 'blizzard exposure is a step safer', note: 'Knitted by your grandmother. Lose one mitten and you\'re in trouble.' },
+  { id: 'rain-gear', name: 'Rain gear', sv: 'regnställ', weight: 0.7, group: 'clothes', does: 'To keep the rain off.', effect: 'rain soaks you half as fast', note: 'Jacket and trousers. It always rains on hikes, whatever the forecast said.' },
+  { id: 'spare-socks', name: 'Spare wool socks', sv: 'ullsockor', weight: 0.2, group: 'clothes', does: 'Dry socks for wet feet.', effect: 'dry socks after a soaking: being wet through costs half the Clarity', note: 'Two pairs. Dry feet are a happy scout.' },
+  { id: 'sit-pad', name: 'Sit pad', sv: 'sittunderlag', weight: 0.05, group: 'clothes', does: 'Something dry to sit on.', effect: 'a rest restores a little more (+2 Vigor)', note: 'A square of foam on a cord. A dry seat on a wet rock.' },
+  { id: 'first-aid-kit', name: 'First-aid kit', sv: 'första hjälpen', weight: 0.2, group: 'tools', does: 'For cuts, scrapes and blisters.', effect: '3 dressings: "treat" uses one instead of goods, and treats one step better', note: 'Plasters, a bandage, blister tape and a tiny pair of scissors.' },
+  { id: 'headlamp', name: 'Headlamp', sv: 'pannlampa', weight: 0.15, group: 'tools', does: 'A light to see by in the dark.', effect: '8 hours of light for close work after dark — no firewood, no dark penalty. The battery runs down.', note: 'For finding the latrine at night, mostly.' },
+  { id: 'map-compass', name: 'Map and compass', sv: 'karta och kompass', weight: 0.15, group: 'tools', does: 'To find your way.', effect: 'scouting and surveying take 20% less time', note: 'Orienteering badge. Red end north, map to the land, land to the map.' },
+  { id: 'whistle', name: 'Whistle', sv: 'visselpipa', weight: 0.02, group: 'tools', does: 'For making a loud noise.', effect: 'face a boar or a bear and you can blow it: noise sends most animals off', note: 'Three blasts means help. Every scout has one round their neck.' },
+  { id: 'cord', name: 'Cord, 10 m', sv: 'snöre', weight: 0.2, group: 'tools', does: 'For tying things.', effect: '+2 materials', note: 'For the tarp, for a clothesline, for anything. You can never have too much cord.' },
+  { id: 'tarp', name: 'Tarp', sv: 'vindskydd', weight: 1.0, group: 'tools', does: 'A roof to sleep under.', effect: 'pitched when you make camp: a crude lean-to roof without felling a tree', note: 'The patrol\'s tarp — you were carrying it when you got separated.' },
+  { id: 'notebook', name: 'Notebook and pencil', sv: 'anteckningsbok', weight: 0.1, group: 'other', does: 'To write things down.', effect: '+10% insight from study', note: 'For the hike diary the leader wants. A pencil works in the rain; a pen doesn\'t.' },
+  { id: 'toilet-paper', name: 'Toilet paper', sv: 'toalettpapper', weight: 0.1, group: 'other', does: 'You know what for.', effect: 'nothing, out here', note: 'In a plastic bag. Every scout brings it. Every scout.' },
+  { id: 'phone', name: 'Phone', sv: 'mobil', weight: 0.2, group: 'other', does: 'To call home.', effect: 'nothing: no signal, and dead by the third day', note: 'You promised to call home on Saturday evening.' },
+  { id: 'comic', name: 'Comic book', sv: 'serietidning', weight: 0.2, group: 'other', does: 'Something to read.', effect: 'once, resting on a rainy day: +3 Clarity', note: 'Bamse, read so many times the cover\'s coming off.' },
 ];
 
 export const KIT_IDS = KIT.map(k => k.id) as KitId[];

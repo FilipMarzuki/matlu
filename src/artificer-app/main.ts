@@ -698,12 +698,21 @@ function roadKeepsBlock(a: AppState): string {
     ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
 }
 
-/** The hike pack (#1400): what you brought, each with what it does, and what's left of what runs out. */
+/**
+ * A packed item's hover text: what it's for and the scout's note (#1684), never its rule, unless
+ * the hidden truths are on (`?dev=truths`). Plain dev mode is on for everyone, so it can't be that.
+ */
+function packTitle(id: KitId): string {
+  const k = kitItem(id);
+  return `${k.does} ${k.note}${truths ? ` [rule: ${k.effect}]` : ''}`;
+}
+
+/** The hike pack (#1400): what you brought, each with what it's for, and what's left of what runs out. */
 function packBlock(s: AppState['sim']): string {
   if (!s.kit) return '';
   const left = kitSupplies(s.kit, s.dressings ?? 0);
   return `<p class="eyebrow" style="margin-top:16px">THE PACK — what you brought on the hike</p>
-    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(kitItem(id).effect)}">${esc(kitItem(id).name)}</span>`).join('')}</div>
+    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id))}">${esc(kitItem(id).name)}</span>`).join('')}</div>
     ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
 }
 
@@ -1242,7 +1251,7 @@ function featuresPanel(a: AppState): string {
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
   }).join('');
   return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
-    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level and each person's true trust. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.</p>
+    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level, each person's true trust, and the rule behind each thing in the pack. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.</p>
     <p><button class="pill" data-cmd="devleave">LEAVE DEV MODE</button></p></section>`;
 }
 
@@ -1675,7 +1684,7 @@ function renderIntro(): void {
 }
 
 /**
- * The packing screen (#1401): the whole list, by group — each item with its weight, what it does
+ * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
  * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
  * The weight bar and the leader's list stay at the bottom.
  */
@@ -1687,7 +1696,10 @@ function packForm(): string {
       const fits = on || packWeight([...draftPack, k.id]) <= PACK_CAPACITY;
       return `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : "won't fit — take something out first"}">`
         + `<span class="khead"><b>${esc(k.name)}</b>${k.sv && k.sv.toLowerCase() !== k.name.toLowerCase() ? ` <i>${esc(k.sv)}</i>` : ''}<span class="kkg">${k.weight} kg</span></span>`
-        + `<span class="keffect">${esc(k.effect)}</span><span class="knote">${esc(k.note)}</span></button>`;
+        // What a scout would say it's for, never the rule it plays (#1684): the player finds out
+        // what's useful by playing. The rule shows only with the hidden truths (`?dev=truths`).
+        + `<span class="kdoes">${esc(k.does)}</span><span class="knote">${esc(k.note)}</span>`
+        + `${truths ? `<span class="devtruth" title="Dev mode (?dev=truths): the rule this item plays">rule: ${esc(k.effect)}</span>` : ''}</button>`;
     }).join('');
     return `<p class="clabel">${esc(KIT_GROUPS[g].toUpperCase())}</p><div class="kchoices">${items}</div>`;
   }).join('');

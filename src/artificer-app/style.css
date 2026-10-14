@@ -395,7 +395,7 @@ body { min-height: 100vh; }
   .kchoice .khead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .kchoice .khead i { color: var(--dim); font-size: 11px; }
   .kchoice .kkg { margin-left: auto; color: var(--teal); font-variant-numeric: tabular-nums; font-size: 11px; }
-  .kchoice .keffect { color: var(--green); }
+  .kchoice .kdoes { color: var(--green); }
   .kchoice .knote { color: var(--dim); font-style: italic; font-size: 11px; }
   .kfoot { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 10px 0; margin-top: 8px; background: var(--bg); border-top: 1px solid var(--border); }
   .kbar { flex: 1 1 140px; height: 8px; border-radius: 999px; background: var(--sub); border: 1px solid var(--border); overflow: hidden; }
