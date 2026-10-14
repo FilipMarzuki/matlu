@@ -74,7 +74,8 @@ export interface HeardClaim {
   right?: boolean;
   /**
    * How the journal names what it's about, for a claim about a dated event of a place's history
-   * (#1656, history-in-play.ts), whose propositions are a history's own and not in PROPOSITIONS.
+   * (#1656, history-in-play.ts), whose propositions are a history's own and not in PROPOSITIONS,
+   * or about a rumour made for the run (#1662, run-rumours.ts), named as its rumour is.
    */
   label?: string;
 }
@@ -92,16 +93,19 @@ function claimOfFact(person: string, topic: string, f: Fact): HeardClaim | null 
   // A place's history (#1656): each dated event is a claim about what happened, under its happening.
   const past = pastEventOf(f);
   if (past) return claimOfPast(person, topic, f, past);
-  const proposition = propositionOfFact(f.id);
-  if (!proposition) return null;
   const hop = rumourHopOf(f);
+  // A rumour made for this run (#1662, run-rumours.ts) is no written proposition: it's filed under
+  // its own id, by its hop, and carries its own name for the journal, as a history's happening does.
+  const proposition = propositionOfFact(f.id) ?? hop?.rumour.id;
+  if (!proposition) return null;
+  const label = PROPOSITIONS[proposition] ? undefined : hop?.rumour.label;
   const source = sourceOf(f);
   // A rumour's version is what it says (the number, the place, and who, #1589): two hops that say
   // the same thing agree. Anything else true is `so`, and each untrue fact is its own account.
   const version = f.truth === 'true' ? 'so' : hop ? `${hop.hop.n}|${hop.hop.where}${hop.hop.who ? `|${hop.hop.who}` : ''}` : `fact:${f.id}`;
   // A rumour comes from whoever saw it; a person's own word from them; a scope's from the scope.
   const origin = hop ? hop.rumour.path[0] : f.scope.kind === 'person' ? f.scope.id! : `${f.scope.kind}:${f.scope.id ?? ''}`;
-  return { person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: hop ? hop.hop.confidence : SOURCE_CONFIDENCE[source], proposition, version, origin, truth: f.truth };
+  return { person, topic, text: f.text, source, hedge: SOURCE_HEDGE[source], confidence: hop ? hop.hop.confidence : SOURCE_CONFIDENCE[source], proposition, version, origin, truth: f.truth, ...(label ? { label } : {}) };
 }
 
 /**

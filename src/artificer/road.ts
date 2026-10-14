@@ -50,7 +50,7 @@ import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, r
 import { streamFor } from './rng';
 import { seedOf } from './talents';
 import { momentOfTruth, readerOf, readingLeft, SECRET_GATE } from './rapport';
-import { liesFor, PROPOSITIONS, REACH_FEATURE } from './claims';
+import { liesOfRun, PROPOSITIONS, REACH_FEATURE } from './claims';
 import { claimsHeard, journalOf, readsAsLie, CLAIMED, HEARSAY, type HeardClaim, type JournalEntry } from './journal';
 import { caughtOut, caughtWord, friendsWhoHear, guardOf, lieAbout, CAUGHT, CAUGHT_TRUST } from './caught-lies';
 import { brokenWordKnown, predictability, recordGate, trust as recordTrust, CONSISTENCY_FEATURE } from './consistency';
@@ -801,7 +801,8 @@ function askAbout(next: RoadState, pid: string): RoadState {
   // read from this run's saved switches, never a global. So is its villages' history (#1656,
   // `playFacts`): the run's facts are `factsFor`'s, with the history after them if its switch is on.
   // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
-  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
+  // With `run-rumours` on (#1662), the run's seed picks whether a pooled liar joins the written ones.
+  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesOfRun(next), ...standingOf(next), ...keepingOf(next) });
   // Asked again after a lie, with what you've heard otherwise in hand, they answer for it (#1660).
   if (r.kind === 'again' && confront(next, person, key, focusInline(f))) return next;
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
@@ -832,7 +833,7 @@ function confront(next: RoadState, person: Person, key: string, about: string): 
   const pid = person.id;
   const asked = next.asked?.[pid] ?? [];
   if (!asked.includes(`${CLAIMED}${key}`) || asked.includes(`${CAUGHT}${key}`)) return false;
-  const lie = lieAbout(next.features, pid, key);
+  const lie = lieAbout(next.features, pid, key, seedOf(next.character.id));
   const heard = heardSoFar(next);
   if (!lie || !heard || !caughtOut(lie, heard, villagesVisited(next))) return false;
   spendTalk(next, ASK_HOURS);
@@ -924,7 +925,7 @@ function heardSoFar(s: RoadState): HeardClaim[] | null {
   if (!featureOn(s.features, 'rumours-and-lies')) return null;
   // Nothing told yet, nothing heard: the same empty list whatever the facts, so a run that hasn't
   // asked anyone never needs its history told (#1656) just to say so.
-  return Object.keys(s.asked ?? {}).length ? claimsHeard(s.asked, playFacts(s), liesFor(s.features)) : [];
+  return Object.keys(s.asked ?? {}).length ? claimsHeard(s.asked, playFacts(s), liesOfRun(s)) : [];
 }
 
 /** The claim `pid` has just made, if it's one the journal keeps: in what's been heard now and not `before`. */
@@ -1024,7 +1025,7 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
   // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
-  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
+  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesOfRun(next), ...standingOf(next), ...keepingOf(next) });
   const before = heardSoFar(next);
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, r.hearsay ? `${HEARSAY}${topic}` : topic, r.answer);
   if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);
