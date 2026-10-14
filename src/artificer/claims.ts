@@ -41,6 +41,11 @@
  * - **a secret leaks** the way the engine's inventions do (storytelling/types.ts `leakProbBase`,
  *   halved when guild-protected): it starts with a member, gets out through one who talks for a
  *   living, and sounds less sure once it's out (`leakProblem`, `reachOf`).
+ *
+ * **Varied by the run (#1662)**, behind the `run-rumours` switch: the written rumours and lies stay
+ * as a base, and each run adds rumours made from its own history and people (run-rumours.ts, through
+ * `factsOfRumours`, so they drift and reach by the rules above) and, by its seed, maybe one more
+ * liar from a pool (`poolLies`, `liesFor`), keeping the road at LIARS.
  */
 
 import type { PerceptualBias } from '../../storytelling/types';
@@ -48,7 +53,7 @@ import type { ClaimSource, Fact, Lie, Reliability, Sensitivity, Truth } from './
 import { featureOn, ruleFeatures, type FeatureSwitches } from './features';
 import { ROAD_ORGS } from './orgs';
 import { tieEntries } from './ties';
-import { generator, seedOf } from './rng';
+import { generator, seedOf, shuffled } from './rng';
 import { VILLAGES, TRAVELLERS, asPlayed, type Person } from './villages';
 import { REACH_CULTURES } from './world/peoples';
 import claimsFile from './content/claims.json';
@@ -160,12 +165,13 @@ export interface TellerEntry {
 // trusts the interfaces instead, and claims.test.ts checks the data really has those shapes.
 const PROPOSITION_ENTRIES = claimsFile.propositions as unknown as readonly PropositionEntry[];
 const LIE_ENTRIES = claimsFile.lies as unknown as readonly LieEntry[];
+const POOL_LIE_ENTRIES = claimsFile.poolLies as unknown as readonly LieEntry[];
 const RUMOUR_ENTRIES = claimsFile.rumours as unknown as readonly RumourEntry[];
 const TELLER_ENTRIES = claimsFile.tellers as unknown as readonly TellerEntry[];
 
 /** Everything as written: what a reviewer checks against canon. */
-export const claimEntries = (): { propositions: readonly PropositionEntry[]; lies: readonly LieEntry[]; rumours: readonly RumourEntry[]; tellers: readonly TellerEntry[] } =>
-  ({ propositions: PROPOSITION_ENTRIES, lies: LIE_ENTRIES, rumours: RUMOUR_ENTRIES, tellers: TELLER_ENTRIES });
+export const claimEntries = (): { propositions: readonly PropositionEntry[]; lies: readonly LieEntry[]; poolLies: readonly LieEntry[]; rumours: readonly RumourEntry[]; tellers: readonly TellerEntry[] } =>
+  ({ propositions: PROPOSITION_ENTRIES, lies: LIE_ENTRIES, poolLies: POOL_LIE_ENTRIES, rumours: RUMOUR_ENTRIES, tellers: TELLER_ENTRIES });
 
 const EVERYONE: readonly Person[] = [...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS];
 const PEOPLE: Readonly<Record<string, Person>> = Object.fromEntries(EVERYONE.map(p => [p.id, p]));
@@ -607,8 +613,19 @@ const rumoursIn = (features: FeatureSwitches | undefined): RumourEntry[] =>
  * (`keptBy`), as its own business.
  */
 export function rumourFacts(features?: FeatureSwitches): Fact[] {
+  return factsOfRumours(rumoursIn(features), features);
+}
+
+/**
+ * The facts any rumours give the knowledge model, by `rumourFacts`' rule: the written ones, or
+ * (#1662, run-rumours.ts) those made for one run. `hearsay` marks every holder's fact as news
+ * heard in passing, the path's too (knowledge.ts `hearsay`): a run's own rumours then answer after
+ * what a person knows of themself, their organisations and their village, and before what the
+ * country and the road say, so they add answers without taking any written one's place.
+ */
+export function factsOfRumours(rumours: readonly RumourEntry[], features: FeatureSwitches | undefined, opts: { hearsay?: boolean } = {}): Fact[] {
   const keeping = featureOn(features, REACH_FEATURE);
-  return rumoursIn(features).flatMap(r => knownBy(r, features)
+  return rumours.flatMap(r => knownBy(r, features)
     .filter((h, i) => i < r.path.length || !r.about.includes(`person:${h.holder}`))
     .map((h, i) => {
       const fact: Fact = {
@@ -620,7 +637,7 @@ export function rumourFacts(features?: FeatureSwitches): Fact[] {
         truth: h.truth,
         claimSource: h.source,
         ...(keeping && r.leak && isMember(h.holder, r.leak) ? { keptBy: r.leak } : {}),
-        ...(i < r.path.length ? {} : { hearsay: true }),
+        ...(i < r.path.length && !opts.hearsay ? {} : { hearsay: true }),
       };
       HOPS.set(fact, { rumour: r, hop: h });
       return fact;
@@ -677,24 +694,74 @@ export const propositionOfFact = (factId: string): string | undefined => {
 
 // ── Lies ────────────────────────────────────────────────────────────────────
 
+/** A lie as written, as the knowledge model reads it. */
+const asLie = (l: LieEntry): Lie => ({ id: l.id, about: l.about, text: l.text, why: l.why, until: l.until, sounds: l.sounds });
+
 /** Every lie, by who tells it, as the knowledge model reads it (knowledge.ts `Lie`). */
 const ROAD_LIES: Readonly<Record<string, readonly Lie[]>> = LIE_ENTRIES.reduce<Record<string, Lie[]>>((by, l) => {
-  (by[l.person] ??= []).push({ id: l.id, about: l.about, text: l.text, why: l.why, until: l.until, sounds: l.sounds });
+  (by[l.person] ??= []).push(asLie(l));
   return by;
 }, {});
 
 const NO_LIES: Readonly<Record<string, readonly Lie[]>> = {};
 
+/** The rule switch that varies the run's liars (#1662), and its rumours (run-rumours.ts). */
+export const RUN_RUMOURS = 'run-rumours';
+
+/**
+ * How many of the road's people lie in one run (#1662; the owner: "3 of 18 is about right"): the
+ * three written liars always (the written lies stay as a base), and with `run-rumours` on, up to
+ * one more from the pool (`poolLies`). So 3–4 of the road's 17.
+ */
+export const LIARS = { min: 3, max: 4 } as const;
+
+/** The pooled liars, by person, in the order written: each has one lie (or more) that only some runs hear. */
+const POOL_LIARS: readonly string[] = [...new Set(POOL_LIE_ENTRIES.map(l => l.person))];
+
+/** Each seed's lies, built once and kept (a handful: one run plays at a time, a few on a server). */
+const RUN_LIES = new Map<number, Readonly<Record<string, readonly Lie[]>>>();
+const RUN_LIES_KEPT = 16;
+
+/**
+ * Which pooled liars join the written ones in a run (#1662), by its seed alone: how many (0 up to
+ * LIARS.max − LIARS.min, one draw), then which (a shuffle of the pool). Both are seeded by their own
+ * string keys (`run-lies|<seed>`, `run-lies|<seed>|order`), never by a draw from the sim's
+ * streams, so switching this on changes no other dice in the run, and nothing new is saved: a
+ * reloaded run reads the same liars off the same seed.
+ */
+export function pooledLiars(seed: number): string[] {
+  const extra = Math.floor(generator(seedOf(`run-lies|${seed}`))() * (LIARS.max - LIARS.min + 1));
+  return shuffled(POOL_LIARS, seedOf(`run-lies|${seed}|order`)).slice(0, extra);
+}
+
 /**
  * The lies a run plays with, by person, by its saved switches: every written lie with
  * `rumours-and-lies` on, none off (and in every run from before the switch, where a person who'd
- * rather not say says "not yet", as they always did).
+ * rather not say says "not yet", as they always did). With `run-rumours` on too (#1662) and the
+ * run's seed given, the pooled liars its seed picks (`pooledLiars`) lie as well. Without a seed, or
+ * with the switch off, the written lies alone: the very same object, as before.
  */
-export const liesFor = (features: FeatureSwitches | undefined): Readonly<Record<string, readonly Lie[]>> =>
-  (featureOn(features, 'rumours-and-lies') ? ROAD_LIES : NO_LIES);
+export function liesFor(features: FeatureSwitches | undefined, seed?: number): Readonly<Record<string, readonly Lie[]>> {
+  if (!featureOn(features, 'rumours-and-lies')) return NO_LIES;
+  if (seed === undefined || !featureOn(features, RUN_RUMOURS)) return ROAD_LIES;
+  let lies = RUN_LIES.get(seed);
+  if (!lies) {
+    const picked = new Set(pooledLiars(seed));
+    const by: Record<string, Lie[]> = Object.fromEntries(Object.entries(ROAD_LIES).map(([pid, ls]) => [pid, [...ls]]));
+    for (const l of POOL_LIE_ENTRIES) if (picked.has(l.person)) (by[l.person] ??= []).push(asLie(l));
+    lies = by;
+    RUN_LIES.set(seed, lies);
+    while (RUN_LIES.size > RUN_LIES_KEPT) RUN_LIES.delete(RUN_LIES.keys().next().value!);
+  }
+  return lies;
+}
 
-/** A lie as written, by id. */
-export const lieById = (id: string): LieEntry | undefined => LIE_ENTRIES.find(l => l.id === id);
+/** The lies a run plays with (`liesFor`), read off the run itself: its switches, and its Warden, whose id seeds it. */
+export const liesOfRun = (run: { features?: FeatureSwitches; character: { id: string } }): Readonly<Record<string, readonly Lie[]>> =>
+  liesFor(run.features, seedOf(run.character.id));
+
+/** A lie as written, by id: the written ones, then the pool's (#1662). */
+export const lieById = (id: string): LieEntry | undefined => LIE_ENTRIES.find(l => l.id === id) ?? POOL_LIE_ENTRIES.find(l => l.id === id);
 
 /**
  * What's wrong with a lie's motive, against the data, or null if it holds:

@@ -61,7 +61,7 @@
 import type { Fact } from './knowledge';
 import { ROAD_REGION, factsFor } from './facts';
 import { featureOn, featuresOf, type FeatureSwitches } from './features';
-import { KIND_TOPICS, PAST, eventNoun, pastSlug } from './past-topics';
+import { KIND_TOPICS, PAST, eventNoun, memorabilityOf, pastSlug } from './past-topics';
 import { seedOf } from './rng';
 import { topicDef } from './topics';
 import { TRAVELLERS, VILLAGES, asPlayed } from './villages';
@@ -70,6 +70,7 @@ import { regionHolders, villageHolders } from './world/old-history';
 import { factsOfRegion } from './world/regional-facts';
 import { NORTH_ROAD } from './world/regions';
 import { placeKnowledge, remembered, type PlaceFact } from './world/remembered';
+import { runRumourFacts } from './run-rumours';
 
 // ── Where a run's history comes from ────────────────────────────────────────
 
@@ -126,25 +127,12 @@ const EVENT_ID = /^((?:history|region):[^:@]+):(\d+):(\d+)(?::told-by:[^@]*)?$/;
 
 // ── How memorable an event is ───────────────────────────────────────────────
 
-/** What a kind of event weighs in memory (#1658): the dead of a plague, a famine or a war, then a new lord. Anything else 1. */
-const KIND_WEIGHT: Readonly<Record<string, number>> = { plague: 3, famine: 3, war: 3, lord: 2 };
+// How memorable an event is (#1658) lives in past-topics.ts now, beside the kinds it weighs, so
+// run-rumours.ts (#1662) can rank a run's rumours by it without importing this file.
+export { memorabilityOf } from './past-topics';
 
 /** What a happening of a village's own recent past (#1613: a quarrel, a fire, a wedding) weighs: as little as any small event. */
 export const LOCAL_WEIGHT = 1;
-
-/**
- * How memorable a dated event is (#1658): which story "what happened here?" is answered with
- * (knowledge.ts `answer`). Simple on purpose, and read off the history's own words, so everyone
- * ranks one event the same however their People tell it:
- * - its kind (`KIND_WEIGHT`): a plague, a famine or a war 3, a new lord 2, anything else 1;
- * - its dead: one more for every hundred killed, as the history counts them ("killing 326": 3.26);
- * - a tie goes to the older: a millionth for each year ago, less than one death's worth.
- * So a great plague of long ago outweighs a lord's change, which outweighs a quarrel last spring.
- */
-export function memorabilityOf(kind: string | undefined, words: string, ago: number): number {
-  const dead = Number(words.match(/\bkilling (\d[\d,]*)/)?.[1].replace(/,/g, '') ?? 0);
-  return (KIND_WEIGHT[KIND_TOPICS[kind ?? ''] ?? ''] ?? 1) + dead / 100 + ago / 1e6;
-}
 
 /** How memorable a happening of a village's recent past is: LOCAL_WEIGHT, and the older first on a tie. */
 const localMemorability = (text: string, present: number): number => {
@@ -336,7 +324,8 @@ const SETS_KEPT = 8;
  * after them (so a person's own words, their organisation's and their village's scope facts still
  * answer first, and history only answers what they didn't know). Off, `factsFor`'s very array.
  * With the switch on and no history to hand (a page whose worker hasn't finished, a test that
- * keeps none), `factsFor`'s too, and nothing is kept, so the history counts once it's there.
+ * keeps none), `factsFor`'s too, and nothing is kept, so the history counts once it's there. With
+ * `run-rumours` on too (#1662), the rumours made from the run's history last (run-rumours.ts).
  */
 export function playFacts(run: RunOf): readonly Fact[] {
   const base = factsFor(run.features);
@@ -347,7 +336,9 @@ export function playFacts(run: RunOf): readonly Fact[] {
   if (facts) { SETS.delete(key); SETS.set(key, facts); return facts; }
   const h = historyFor(seed);
   if (!h) return base;
-  facts = [...base, ...historyFacts(h, run.features)];
+  // With `run-rumours` on (#1662), the run's own rumours after its history: made from that history
+  // and the road's people, so they come with it, and heard in passing, so they add answers only.
+  facts = [...base, ...historyFacts(h, run.features), ...runRumourFacts(h, run.features)];
   SETS.set(key, facts);
   while (SETS.size > SETS_KEPT) SETS.delete(SETS.keys().next().value!);
   return facts;

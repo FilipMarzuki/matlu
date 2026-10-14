@@ -57,6 +57,9 @@ const EVENT_NOUNS: Readonly<Record<string, string>> = {
   SLUMP: 'the hard times', HOUSE_FALLS: 'a house\'s fall', HOUSE_RISES: 'a house\'s rise',
 };
 
+/** Whether the game has its own name for an event of the engine's kind `kind` (`EVENT_NOUNS`), so it reads well told as news (#1662). */
+export const namedEvent = (kind: string): boolean => kind in EVENT_NOUNS;
+
 /** How the journal names an event of the engine's kind `kind` ("the plague"). */
 export const eventNoun = (kind: string): string => EVENT_NOUNS[kind] ?? `the ${kind.toLowerCase().replace(/_/g, ' ')}`;
 
@@ -107,3 +110,22 @@ export function pastAbout(key: string): string | null {
   const place = key.match(/^past:place:(.+)$/u);
   return place ? titled(place[1]) : null;
 }
+
+/** What a kind of event weighs in memory (#1658): the dead of a plague, a famine or a war, then a new lord. Anything else 1. */
+const KIND_WEIGHT: Readonly<Record<string, number>> = { plague: 3, famine: 3, war: 3, lord: 2 };
+
+/**
+ * How memorable a dated event is (#1658): which story "what happened here?" is answered with
+ * (knowledge.ts `answer`). Simple on purpose, and read off the history's own words, so everyone
+ * ranks one event the same however their People tell it:
+ * - its kind (`KIND_WEIGHT`): a plague, a famine or a war 3, a new lord 2, anything else 1;
+ * - its dead: one more for every hundred killed, as the history counts them ("killing 326": 3.26);
+ * - a tie goes to the older: a millionth for each year ago, less than one death's worth.
+ * So a great plague of long ago outweighs a lord's change, which outweighs a quarrel last spring.
+ */
+export function memorabilityOf(kind: string | undefined, words: string, ago: number): number {
+  return (KIND_WEIGHT[KIND_TOPICS[kind ?? ''] ?? ''] ?? 1) + deadIn(words) / 100 + ago / 1e6;
+}
+
+/** How many an event killed, as the history's words count them ("killing 326"), or 0 if they don't say. */
+export const deadIn = (words: string): number => Number(words.match(/\bkilling (\d[\d,]*)/)?.[1].replace(/,/g, '') ?? 0);

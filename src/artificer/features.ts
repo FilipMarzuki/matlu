@@ -169,6 +169,16 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'consistency', name: 'What people come to expect of you', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1663,
     note: 'People learn your track record (fair dealing, kept word, the side you take) and word of it travels with friends, kin and the caravan. A steady record, even a hard one, gets expected terms; an erratic one gets hedged prices and wary answers. Only a record of dealing well earns the regular\'s rate and confidences.',
   },
+  {
+    // A rules feature: it adds rumours made from the run's own world (run-rumours.ts: its told
+    // history, the road's ties and organisations) and sometimes a fourth liar from a pool (claims.ts
+    // `liesFor`), so a run from before it (absent: false) keeps the written rumours and three liars
+    // on replay. Its rumours bend and travel as the written ones do and are told from the history,
+    // so they need `rumours-and-lies`, `rumour-drift` and `history-in-play` too; the pooled liar
+    // needs `rumours-and-lies`.
+    id: 'run-rumours', name: 'Rumours from this run\'s world', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1662,
+    note: 'Each run has rumours of its own, made from its history and its people: a quarrel at the market, a debt, a secret that leaked, the news from the country, an old disaster told bigger. Which of the road\'s people lie to you changes from run to run too.',
+  },
 ];
 
 /** Switches by feature id. */
