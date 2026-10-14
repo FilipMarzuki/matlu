@@ -86,9 +86,9 @@ export const roadlogSv: Record<RoadlogKey, string> = {
   'log.road.bought': 'Köpte {n} {good} av {who} för {m} marker.',
 
   // ── Uppdrag ────────────────────────────────────────────────────────────────
-  'log.road.takeOn': '{who}: "{say}" Du tar på dig {quest}.',
-  'log.road.questDone': '{who}: "{say}" {quest} klart — {rewards}.',
-  'log.road.expired': '{quest} blev aldrig gjort — {who} ser karavanen åka.',
+  'log.road.takeOn': '{who}: "{say}" Du tar på dig uppdraget ”{quest}”.',
+  'log.road.questDone': '{who}: "{say}" Uppdraget ”{quest}” är klart — {rewards}.',
+  'log.road.expired': 'Uppdraget ”{quest}” blev aldrig gjort — {who} ser karavanen åka.',
   'log.road.handed': 'Du lämnar {n} {good} till {who}, som du lovat.',
   'log.road.failedDelivery': 'Du kommer fram till {who} utan de {good} som {who2} anförtrodde dig. Det kommer att komma fram.',
 
@@ -130,7 +130,7 @@ export const roadlogSv: Record<RoadlogKey, string> = {
   'reason.road.costs': '{n} {good} kostar {m} marker; du har {h}',
   'reason.road.notOffering': 'ingen här erbjuder "{id}"',
   'reason.road.notTaken': 'du har inte tagit på dig "{id}"',
-  'reason.road.backHome': '{quest} är åt {who}, hemma i hens by',
+  'reason.road.backHome': '”{quest}” är åt {who}, hemma i hens by',
   'reason.road.questNeeds': '{quest}: {why}',
   'reason.road.nothingToAsk': 'inget att fråga om — rikta först fokus mot ett ämne, en färdighet eller ett koncept',
   'reason.road.questionsOff': 'fria frågor är avstängda i det här spelet',

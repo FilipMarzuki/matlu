@@ -48,7 +48,7 @@ export const KIND_TOPICS: Readonly<Record<string, string>> = {
  * country, year 68"), where the engine's own name for it doesn't read well. Any other kind is
  * named from the engine's (`SOLAR_ECLIPSE`: "the solar eclipse"), which reads well enough.
  */
-const EVENT_NOUNS: Readonly<Record<string, string>> = {
+export const EVENT_NOUNS: Readonly<Record<string, string>> = {
   PLAGUE: 'the plague', FAMINE: 'the famine', WAR: 'the war', FEUD: 'the feud', BORDER_WAR: 'the border war', BARBARIAN_INVASION: 'the invasion',
   SUCCESSION: 'the new lord', SUCCESSION_CRISIS: 'the empty seat', USURP: 'the usurping', LOWBORN_RISE: 'the lowborn lord', LORD_DIED: 'the lord\'s death',
   SEAT_VACANT: 'the empty seats', SEAT_SEIZED: 'the seized seat', DEATH: 'the lord\'s death', MURDER: 'the murder', KINSLAYING_NOTORIOUS: 'the kinslaying',

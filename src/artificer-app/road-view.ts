@@ -25,13 +25,13 @@ import { playFacts } from '../artificer/history-in-play';
 import { pastAbout } from '../artificer/past-topics';
 import { SIGNS } from '../artificer/notice';
 import { QUESTION_CHARS } from '../artificer/free-questions';
-import { answerQuestion, parseLoreKey, questionAbout } from '../artificer/knowledge-questions';
+import { answerQuestion, parseLoreKey } from '../artificer/knowledge-questions';
 import { featureById, featureOn } from '../artificer/features';
 import { feltWord, trueWord } from '../artificer/rapport';
 import { makeT, type Key, type T } from '../artificer/i18n';
 import { itemIcon } from './item-icons';
 import { esc } from './html';
-import { aboutKeyText, conceptName, focusInlineText, focusName, simLine } from './sim-words';
+import { aboutKeyText, conceptName, focusInlineText, focusName, questionAboutText, simLine } from './sim-words';
 import { cultureName, itemText, listText, marketText, needsText, peopleName, rapportLadder, rapportName, rewardText, roleName, techName } from './road-words';
 
 /** English, for callers (and tests) that don't pass a language. */
@@ -292,14 +292,15 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi, t: T): 
     if (parseLoreKey(k)) {
       // In the same place as when they said it (#1619), so it reads the same.
       const lore = answerQuestion(p, k, r.trust[p.id] ?? 0, [], { place: questionPlace(r) });
-      const label = questionAbout(k);
+      const label = questionAboutText(k, t);
       return lore.kind === 'told' ? toldLine(cap(label), simLine(lore.answer.text, t)) : '';
     }
     // The run's facts (#1656): with history-in-play on, what they told you of their village's past too.
     // News passed on (#1661, `hearsay:<topic>`) is the topic told with it; the topic after it, without.
     const topic = k.startsWith(HEARSAY) ? k.slice(HEARSAY.length) : k;
     const a = answerFor(p.id, topic, playFacts(r), topic === k && answered.includes(`${HEARSAY}${topic}`));
-    const past = pastAbout(topic);
+    // The past (#1656) by how a question names it, in the viewer's language (#1711: "Pesten", "Ätten Crowhelm").
+    const past = pastAbout(topic) ? questionAboutText(topic, t) : null;
     return a ? toldLine(parseFocus(topic) ? focusName(parseFocus(topic), t) : past ? cap(past) : topic, simLine(a.text, t)) : '';
   }).join('');
   // What you did in the Reach that means something to them (#1499): one button per deed, greyed once told.
@@ -333,7 +334,7 @@ function freeQuestion(r: RoadState, p: Person, ui: RoadUi, t: T): string {
     // knowledge model a "not yet" or someone to ask instead, #1611) is shown here.
     const told = mine.topic !== null && respondedOn(r.asked?.[p.id], mine.topic);
     return `${head}<p class="mood told"><b>${esc(t('freeq.youAsked'))}</b> — “${esc(mine.question)}”</p>${told
-      ? `<p class="mood">${esc(t('freeq.toldAbout', { name: p.name, about: parseFocus(mine.topic!) ? aboutKeyText(mine.topic!, t) : questionAbout(mine.topic!) }))}</p>`
+      ? `<p class="mood">${esc(t('freeq.toldAbout', { name: p.name, about: parseFocus(mine.topic!) ? aboutKeyText(mine.topic!, t) : questionAboutText(mine.topic!, t) }))}</p>`
       : `<p class="say">${esc(simLine(mine.reply, t))}</p>`}`;
   }
   const why = hoursLeft(r) <= 0 ? t('road.daySpent') : null;

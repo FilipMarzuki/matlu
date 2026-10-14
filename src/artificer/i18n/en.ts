@@ -25,6 +25,9 @@ import { roadlog } from './en/roadlog';
 import { encounters } from './en/encounters';
 import { claims, claimsHand } from './en/claims';
 import { queue } from './en/queue';
+import { history } from './en/history';
+import { tabs } from './en/tabs';
+import { lore } from './en/lore';
 
 export const en = {
   // ── The language picker: the very first screen ─────────────────────────────
@@ -33,6 +36,10 @@ export const en = {
   'lang.play': 'Play in English',
   'picker.title': 'Choose your language',
   'picker.note': 'You can change it later under ? (help).',
+
+  // ── How numbers are written (#1711, i18n/index.ts numText) ─────────────────
+  'fmt.decimal': '.',
+  'fmt.group': ',',
 
   // ── The header ─────────────────────────────────────────────────────────────
   'top.yourWarden': 'Your Warden',
@@ -255,4 +262,9 @@ export const en = {
   ...claims,
   ...claimsHand,
   ...queue,
+
+  // ── Phase 4 (#1711): the Reach's history, lore answers, the remaining tabs ─
+  ...history,
+  ...tabs,
+  ...lore,
 } as const satisfies Record<string, string>;

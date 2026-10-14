@@ -230,7 +230,7 @@ export type QuestionAnswer =
   | { kind: 'deflect'; line: string };
 
 /** How a lore topic reads mid-sentence, of the person's own people. */
-const LORE_ABOUT: Readonly<Record<LoreTopic, string>> = {
+export const LORE_ABOUT: Readonly<Record<LoreTopic, string>> = {
   values: 'what their people hold dear', taboos: 'what their people won\'t do', greeting: 'how their people greet',
   trade: 'how their people trade', mourning: 'how their people mourn', debt: 'how their people settle a debt', view: 'what their people think of',
 };

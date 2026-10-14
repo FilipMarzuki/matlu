@@ -14,31 +14,28 @@
 
 import './style.css';
 import { drawnSight, mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, type TripLoad, routeKnown, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
-import { RINGS, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
-import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
-import { bestRun, heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { seasonOf, MIDWINTER_AFTER } from '../artificer/winter';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
+import { type Ring } from '../artificer/exploration';
+import { type GearItem, type Haul } from '../artificer/load';
+import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
+import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
-import { nightTemp, coldNightNeeds } from '../artificer/weather';
 import { CAP_CEIL } from '../artificer/vitality';
-import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
-import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
+import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
-import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
-import { topicsOpen } from '../artificer/topics';
-import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
+import { focusKey, parseFocus } from '../artificer/focus';
+import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, mapRows, sightFor, GLYPH, type Biome, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
 import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
-import { HARM_NAME, HARM_WORDS, injuryView } from '../artificer/injuries';
-import { hasKit, SUGGESTED_PACK, validPack, kitSupplies, type KitId } from '../artificer/kit';
-import { isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
-import { STATS, STAT_IDS, DEFAULT_STATS, canRaise, canLower, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
-import { artificerRank, conceptRanks } from '../artificer/rank';
+import { injuryView } from '../artificer/injuries';
+import { hasKit, SUGGESTED_PACK, validPack, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
+import { DEFAULT_STATS, canRaise, canLower, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
+import { artificerRank } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
@@ -55,14 +52,14 @@ import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDe
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
-import { personById, CONTACT_TRUST } from '../artificer/villages';
-import { feltWord } from '../artificer/rapport';
-import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
+import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
-import { ringPinChip, ringPins, pinsList } from './pins-view';
+import { wardenTab } from './warden-view';
+import { landTab } from './land-view';
+import { progressTab, outlookWarnings } from './progress-view';
+import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
-import { truthLine, DARK_FADES } from '../artificer/panic';
-import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/quirks';
+import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
@@ -73,8 +70,8 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
-import { packForm, createForm, packTitle } from './opening-view';
-import { actionName, cellText, focusName, kitName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { packForm, createForm } from './opening-view';
+import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -103,53 +100,7 @@ document.documentElement.lang = lang;
 // The opening's forms and a day at camp are drawn by opening-view.ts and camp-blocks.ts (#1707),
 // in the viewer's language; the helpers (esc, hrs...) are html.ts's.
 
-function timeline(a: AppState): string {
-  const cal = a.sim.config.calendar;
-  const last = cal.thawDay;
-  // Day d sits at the left edge of its slot; slots are 1/last wide.
-  const x = (d: number): number => ((d - 1) / last) * 100;
-  return `<div class="timeline">`
-    + `<div class="season autumn" style="width:${x(cal.winterDay)}%"></div>`
-    + `<div class="season winter" style="width:${100 - x(cal.winterDay)}%"></div>`
-    + `<span class="lbl" style="left:0">AUTUMN</span>`
-    + `<span class="lbl" style="left:${x(cal.winterDay)}%">WINTER</span>`
-    + `<span class="lbl" style="left:${x(cal.thawDay) - 8}%">THAW</span>`
-    + `<div class="today" style="left:${Math.min(99.5, x(a.sim.day + 0.5))}%"></div></div>`
-    + `<div class="tl-legend"><span><b>Autumn</b> — prepare, days 1–${cal.winterDay - 1}</span><span><b>Winter</b> — survive, days ${cal.winterDay}–${cal.thawDay - 1}</span><span><b>Thaw</b> — day ${cal.thawDay}</span></div>`;
-}
-
-/** The nights the outlook measures against: the rest of the winter (all of it, while it's still autumn). */
-const outlookNights = (s: AppState['sim']): number => Math.min(winterOutlook(s).nightsToThaw, s.config.calendar.thawDay - s.config.calendar.winterDay);
-
-/** What falls short of the thaw, in plain words (empty when nothing does). */
-function outlookWarnings(s: AppState['sim']): string[] {
-  const o = winterOutlook(s);
-  const need = outlookNights(s);
-  const out: string[] = [];
-  if (need === 0) return out; // the thaw: nothing left to last
-  if (o.foodDays < need) out.push(`Food lasts ${o.foodDays} night${o.foodDays === 1 ? '' : 's'} — ${need - o.foodDays} short of the thaw.`);
-  if (o.fuelDays < need) out.push(`Firewood lasts ${o.fuelDays} night${o.fuelDays === 1 ? '' : 's'} — about ${Math.max(0, o.fuelToThaw - s.stores.firewood)} more wood to see the winter out.`);
-  if (o.warmthMargin < 0) out.push('The shelter is too cold for a clear midwinter night, even with the fire in. Walls, bedding or cold gear.');
-  return out;
-}
-
-/** The winter outlook (#1308): food, fuel and warmth against the nights to the thaw. Replaces the readiness pillars. */
-function outlookBlock(a: AppState): string {
-  const s = a.sim;
-  const cal = s.config.calendar;
-  const o = winterOutlook(s);
-  const need = outlookNights(s);
-  const warmNeed = coldNightNeeds(nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal));
-  const row = (name: string, progress: number, status: string, ok: boolean): string =>
-    `<div class="pillar"><span class="pn">${name}</span><div class="track"><div class="fill ${ok ? 'done' : 'short'}" style="width:${pct(progress)}%"></div></div><span class="st ${ok ? 'done' : 'short'}">${status}</span></div>`;
-  const warnings = outlookWarnings(s);
-  return row('FOOD', need ? o.foodDays / need : 1, `${o.foodDays} / ${need} NIGHTS`, o.foodDays >= need)
-    + row('FUEL', need ? o.fuelDays / need : 1, `${o.fuelDays} / ${need} NIGHTS`, o.fuelDays >= need)
-    // Warmth is judged against the year's hardest kind of night: clear, at midwinter.
-    + row('WARMTH', (warmth(s) + FIRE_WARMTH) / warmNeed, `${Math.floor((warmth(s) + FIRE_WARMTH) * 100)}% / ${Math.ceil(warmNeed * 100)}%`, o.warmthMargin >= 0)
-    + `<p class="mood" style="margin:6px 0 0">Water: ${o.waterDays} night${o.waterDays === 1 ? '' : 's'} in hand — fetch it as you go.</p>`
-    + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">Enough laid by to reach the thaw, if nothing goes wrong.</p>`);
-}
+// The PROGRESS tab (season, outlook, milestones, past runs) is drawn by progress-view.ts (#1711).
 
 /** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
 const expanded = new Set<number>();
@@ -265,15 +216,13 @@ function settlementView(a: AppState, provinceId: string): string {
     <p style="margin-top:12px"><button class="pill" data-settle="">${esc(t('btn.backToMap'))}</button></p></section>`;
 }
 
-/** Who holds a square's province, and what the province remembers (for the MAP tab's square info). */
+/** Who holds a square's province, and what the province remembers (for the MAP tab's square info; history-view.ts, #1711). */
 function provinceInfo(a: AppState, x: number, y: number): string {
   const r = reachFor(a.sim.character.id);
   const provinces = provincesFor(a.sim.character.id);
   const p = provinces.list[provinces.at[y * r.w + x]];
   const h = chronicleFor(a.sim.character.id)?.provinces.find(q => q.id === p.id);
-  if (!h) return `<p class="mapinfo provinfo"><b>${esc(p.name)}</b>, ${esc(cultureName(p.culture))} country. <span class="dim">Its story is still being told…</span></p>`;
-  const lines = h.lines.map(l => `<li><b>Year ${l.year}</b> ${esc(l.text)}</li>`).join('');
-  return `<p class="mapinfo provinfo"><b>${esc(h.title)}</b>, ${esc(h.culture)} country${h.holder ? `, held by ${esc(h.holder)}` : ', its seat empty'}.</p>${lines ? `<ul class="provlines">${lines}</ul>` : ''}`;
+  return provinceInfoView(p.name, cultureName(p.culture), h ?? null, t);
 }
 
 /** The map's key, in the viewer's language. */
@@ -317,59 +266,13 @@ function mapTab(a: AppState): string {
     <p class="mood">${esc(`${t('map.square')} ${t(drawn ? (hasKit(a.sim, 'map-compass') ? 'map.drawnCompass' : 'map.drawnNoCompass') : 'map.reachNote')}`)}</p></section>`;
 }
 
-/**
- * The HISTORY tab (#1540): who holds the Reach now, and the chronicle the engine wrote. The
- * chronicle is plain text (the engine's layered renderer: threads for the older years, then living
- * memory year by year); its section rules become headings and its dated lines get their year picked out.
- */
+/** The HISTORY tab (#1540), in the viewer's language (history-view.ts, #1711): who holds the Reach now, and the chronicle. */
 function historyTab(a: AppState): string {
   const h = chronicleFor(a.sim.character.id);
-  if (!h) return `<section class="box"><p class="eyebrow">${esc(t('head.history'))}</p><p class="mood">The old ones are still telling it. It takes a few seconds, once per run.</p></section>`;
+  if (!h) return historyView(null, null, t);
   const r = reachFor(a.sim.character.id);
   const provinces = provincesFor(a.sim.character.id);
-  const campProvince = provinces.list[provinces.at[r.camp.y * r.w + r.camp.x]].id;
-  const lordships = h.provinces.map(p => `<tr><td><b>${esc(p.title)}</b>${p.id === campProvince ? ' <span class="chip">your camp</span>' : ''}</td><td>${esc(p.culture)}</td><td>${p.holder ? esc(p.holder) : '<span class="faint">empty seat</span>'}</td></tr>`).join('');
-  const body = h.chronicle.split('\n').map(line => {
-    if (!line.trim() || /^[─═]+$/.test(line)) return '';
-    if (/^(AGES OF LEGEND|THE CHRONICLE|LIVING MEMORY)/.test(line)) return `<p class="eyebrow chronhead">${esc(line)}</p>`;
-    // A line marked ◇ is a big regional event (#1598): news from a region's countryside, not a court.
-    const dated = line.match(/^\s*(\d+)\s{2}(.*)$/);
-    const text = (dated ? dated[2] : line).trim();
-    const regional = text.startsWith('◇ ');
-    const body = esc(regional ? text.slice(2) : text);
-    const mark = regional ? '<span class="regmark" title="news from the countryside">◇</span> ' : '';
-    return `<p class="chron${regional ? ' regional' : ''}">${dated ? `<b>${dated[1]}</b> ` : ''}${mark}${body}</p>`;
-  }).join('');
-  return `<section class="box"><p class="eyebrow">${esc(t('head.history'))}</p>
-    <p class="mood">Years are the Reach's own count, from when its oldest houses first held land. It is now year ${h.year}. ${h.told} of ${h.logged} remembered deeds are worth the telling. <span class="regmark">◇</span> marks news from a region's countryside: famine, plague, a house losing its last seat.</p>
-    <p class="eyebrow" style="margin-top:12px">${esc(t('head.lordships'))}</p>
-    <div class="tablewrap"><table class="lordships"><thead><tr><th>${esc(t('head.lordship'))}</th><th>${esc(t('head.people'))}</th><th>${esc(t('head.heldBy'))}</th></tr></thead><tbody>${lordships}</tbody></table></div>
-    <div class="chronicle">${body}</div></section>`;
-}
-
-const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber', stone: 'Stone', water: 'Water', game: 'Game', routes: 'Routes' };
-
-/**
- * What you know of the land, ring by ring, as confidence chips (design §3):
- * ??? unknown · ~suspected · observed · detailed — plus the finds you've made.
- */
-function land(a: AppState): string {
-  const e = a.sim.explore;
-  return RINGS.map(r => {
-    const head = `<div class="ringhead">${esc(ringName(r, t).toUpperCase())} <span>${esc(TRAVEL_HOURS[r] ? t('ring.plus', { n: TRAVEL_HOURS[r] }) : t('ring.homeShort'))}</span></div>`;
-    if (!reachable(e, r) && domainsOf(r).every(d => level(e, r, d) === 0)) return `${head}<p class="mood" style="margin:0 0 6px">Out of reach — know the ring inside it first.</p>`;
-    const chips = domainsOf(r).map(d => {
-      const lv = level(e, r, d);
-      // What the land holds (#1304): only worth saying once you know the place, and once it isn't plenty.
-      const supply = d === 'routes' ? null : supplyWord(e.supply[r][d]);
-      const label = (lv === 0 ? '???' : lv === 1 ? `~${DOMAIN_LABEL[d]}` : DOMAIN_LABEL[d]) + (lv > 0 && supply && supply !== 'plenty' ? ` · ${supply}` : '');
-      return `<span class="chip l${lv}" title="${DOMAIN_LABEL[d]}: ${LEVEL_NAME[lv]}${supply ? ` · ${supply}` : ''}${e.worked[r][d] ? ` · worked ${e.worked[r][d]}×` : ''}">${label}</span>`;
-    }).join('');
-    const finds = domainsOf(r).filter(d => hasFind(e, r, d)).map(d => `<span class="chip find">★ ${FINDS[d]?.name}</span>`).join('');
-    const pass = r === 3 && routeKnown(a.sim) ? '<span class="chip find">★ The pass</span>' : '';
-    // Places you remember there (#1380): a 📌 that lists them when tapped.
-    return `${head}<div class="res">${chips}${finds}${pass}${ringPinChip(a.sim, r, pinRing === r)}</div>${pinRing === r ? ringPins(a.sim, r) : ''}`;
-  }).join('');
+  return historyView(h, provinces.list[provinces.at[r.camp.y * r.w + r.camp.x]].id, t);
 }
 
 // ── Blocks (each tab is composed from these) ────────────────────────────────
@@ -396,20 +299,6 @@ function loadBar(l: TripLoad): string {
     + `<span class="lword">${esc(word)}${esc(help)}</span></div>`;
 }
 
-/** The WARDEN tab's carrying panel (#1296): what you can lift, your gear, and how strained you are. */
-function carryingBlock(s: AppState['sim']): string {
-  const st = s.character.stats;
-  const gear = s.tools.filter(t => (GEAR_ITEMS as readonly string[]).includes(t.item));
-  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(gearName(t.item as GearItem))} <b>${t.grade.toUpperCase()}</b></span>`).join('')
-    : '<span class="mood" style="margin:0">No carrying gear — a basket, backpack, harness or sled would make loads easier.</span>';
-  const strain = s.strain ?? 0;
-  const status = s.today.exhausted ? `<p class="lockbanner">EXHAUSTED — your back aches from yesterday's loads. All work drains ${Math.round((EXHAUSTED_DRAIN - 1) * 100)}% more today.</p>`
-    : strain >= 0.5 ? `<p class="mood warn">Aching back — strain ${strain.toFixed(1)}. Tonight's recovery ${Math.round((1 - strainRecovery(strain)) * 100)}% less; a night's rest halves it.</p>`
-      : '<p class="mood ok">No strain — fresh for a heavy haul.</p>';
-  return `<div class="carrystats"><span>MAX <b>${maxLoad(st)}</b> stones</span><span>COMFORTABLE <b>${Math.round(comfortableLoad(st))}</b></span></div>
-    <div class="res" style="margin-top:6px">${chips}</div>${status}`;
-}
-
 /** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
 function focusChip(s: AppState['sim']): string {
   const lock = survivalLockOf(s);
@@ -428,155 +317,7 @@ function eatingChip(s: AppState['sim']): string {
   return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${esc(t('status.tapToChange', { tip }))}">${esc(t('status.rations'))} <b>${esc(label)}</b></button>`;
 }
 
-/** Topic kinds as the Warden tab groups them (#1495). */
-const TOPIC_GROUPS: readonly (readonly [string, Key])[] = [['material', 'focus.material'], ['place', 'focus.place'], ['group', 'focus.group'], ['person', 'focus.person'], ['quest', 'focus.quest'], ['role', 'focus.job']];
-
-/**
- * The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. On
- * the road (#1479) the chips set the road's focus, and the note says what a focus does there.
- */
-function focusBlock(s: AppState['sim'], road?: RoadState): string {
-  const lock = road ? roadLockOf(road) : survivalLockOf(s);
-  const cur = focusKey(s.focus);
-  const chip = (key: string, label: string, note: string) =>
-    `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
-  // On the road (#1479) a goal has no work to help: the chip says so instead of its Reach effect. A
-  // skill has no work either, but it's something to ask people about (#1495).
-  const idle = 'nothing to work on from the wagon (still costs the Clarity)';
-  const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, road ? idle : `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
-  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, road ? 'learns 3x as much from wagon crafts, which come out better; and something to ask people about' : 'learns 3x as much from practice; better work and better odds')).join('');
-  // The concepts open to this Warden and not yet mastered (#1478): the six, and the web as it opens.
-  const concepts = FOCUS_OPEN(s).map(c => chip(`concept:${c}`, focusLabel({ kind: 'concept', id: c }), `${CONCEPT_PER_HOUR} insight per hour you work${road ? ', and something to ask people about' : ''}`)).join('');
-  // Topics (#1494, #1495): on the road, what you've come across — met, held, taken on, heard named —
-  // grouped by kind. A topic is something to ask people about; it does no work.
-  const open = road ? topicsOpen(road) : [];
-  const topics = TOPIC_GROUPS.map(([kind, name]) => {
-    const chips = open.filter(k => k.startsWith(`${kind}:`)).map(k => { const f = parseFocus(k); return f ? chip(k, focusLabel(f), 'something to ask people about') : ''; }).join('');
-    return chips ? `<p class="fgroup">${esc(t(name))}</p><div class="fchips">${chips}</div>` : '';
-  }).join('');
-  const below = statEffects(s.character.stats).unreliableBelow;
-  // On the road a focus still costs its Clarity each night (the road sleeps by Region 1's rules), but
-  // only a concept gets anything for it: no goal work from the wagon, and wagon crafts practise at
-  // their own pace.
-  const note = road
-    ? `On the road, a focus costs ${FOCUS_COST} Clarity a night. A concept is turned over each night (halved below ${below} Clarity). A skill learns 3x as much from wagon crafts, and they come out better. Any focus but a goal gives you something to ask people about. Goals have no work from the wagon. No focus makes work faster.`
-    : `One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${below} Clarity it's halved.`;
-  const helps = road ? '' : 'Water, food, wood and shelter work goes better; ';
-  return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. ${helps}learning waits until it passes.</p>` : ''}
-    <p class="mood" style="margin-top:0">${note}</p>
-    <p class="fgroup">${esc(t('focus.goal'))}</p><div class="fchips">${goals}</div>
-    <p class="fgroup">${esc(t('focus.skill'))}</p><div class="fchips">${skills}</div>
-    <p class="fgroup">${esc(t('focus.concept'))}</p><div class="fchips">${concepts}</div>${topics}
-    <div class="fchips" style="margin-top:6px">${chip('none', t('focus.none'), 'free your mind (saves the Clarity)')}</div>`;
-}
-
-/** The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts. */
-function wardenTab(a: AppState): string {
-  const c = a.sim.character;
-  // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
-  const hidden = c.talents.filter(t => !t.known).length;
-  const talents = c.talents.length
-    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.signs !== undefined ? '<span class="found">discovered</span>' : ''}${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
-      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs in the journal.</span></div>' : '')
-    : '<p class="mood">No talents — a quick-start Warden. Start a fresh Warden to choose two.</p>';
-  const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
-  return `<div class="cols">
-    <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">${esc(t('head.artificer'))}</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
-      <p class="wrank">${esc(t('head.rank'))}: ${artificerRank(a.sim, CRAFT_WORLD.concepts).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.focus'))}</p>${focusBlock(a.sim, a.stage === 'road' ? a.road : undefined)}
-      <p class="eyebrow" style="margin-top:16px">${esc(c.age !== undefined ? t(isYoung(c.age) ? 'head.statsAge' : 'head.statsGrown', { age: c.age }) : t('head.stats'))}</p>${statsBlock(c.stats, c.adult)}
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.carrying'))}</p>${carryingBlock(a.sim)}
-      ${packBlock(a.sim)}
-      ${harmsBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.talents'))}</p><div class="traits">${talents}</div>
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.quirks'))}</p><div class="traits">${quirksBlock(c)}</div>${roadKeepsBlock(a)}</section>
-    <section class="box"><p class="eyebrow">${esc(t('head.skills'))}</p>${skillsBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.concepts'))}</p>
-      ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
-  </div>`;
-}
-
-/**
- * Quirks (#1364): the ones you know, by name and what they do; hidden ones only as a hint; and
- * any fears, with how far you've come in facing them.
- */
-function quirksBlock(c: AppState['sim']['character']): string {
-  const qs = c.quirks ?? [];
-  const known = qs.filter(q => q.known && !isFear(q.id)).map(q => `<div class="trait quirk"><b>${esc(quirkName(q.id))}</b><span class="note">${esc(QUIRKS[q.id]?.blurb ?? '')}</span></div>`);
-  const fears = qs.filter(q => isFear(q.id)).map(q => {
-    const tag = q.id.slice(5), words = FEAR_OF[tag] ?? tag, fades = tag === 'dark' ? DARK_FADES : FEAR_FADES;
-    return `<div class="trait fear"><b>${esc(quirkName(q.id))}</b><span class="down">− ${esc(words)} look${words.endsWith('s') ? '' : 's'} worse to you</span><span class="note">Face ${words.endsWith('s') ? 'them' : 'it'} calmly to fade it: ${q.faced ?? 0} of ${fades}.</span></div>`;
-  });
-  const hidden = qs.filter(q => !q.known).length;
-  const hint = hidden ? `<div class="trait hidden"><b>${hidden === 1 ? 'Something' : 'Things'} you don't know about yourself yet</b><span class="note">How you are when it's too much shows itself when it's too much.</span></div>` : '';
-  return known.join('') + fears.join('') + hint || '<p class="mood">Nothing known yet.</p>';
-}
-
-/** Marks and contacts (#1252): what the road earned, and what carries to the next road. */
-function roadKeepsBlock(a: AppState): string {
-  const marks = a.road?.marks ?? a.sim.marks ?? 0;
-  const contacts = a.road ? [...new Set([...a.road.contacts, ...Object.entries(a.road.trust).filter(([, t]) => t >= CONTACT_TRUST).map(([id]) => id)])] : a.sim.contacts ?? [];
-  if (!a.road && !marks && !contacts.length) return '';
-  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.roadKeeps'))}</p>
-    <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
-    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
-}
-
-/** The hike pack (#1400): what you brought, each with what it's for, and what's left of what runs out. */
-function packBlock(s: AppState['sim']): string {
-  if (!s.kit) return '';
-  const left = kitSupplies(s.kit, s.dressings ?? 0);
-  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pack'))}</p>
-    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id, t, truths))}">${itemIcon(id)}${esc(kitName(id, t))}</span>`).join('')}</div>
-    ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
-}
-
-/**
- * Stats (#1256, #1258), shown exactly — unlike skills, you know your own body and mind. While
- * young (#1399), each shows what it grows to.
- */
-function statsBlock(st: Stats, adult?: Stats): string {
-  return `<div class="statgrid">${STAT_IDS.map(id => `<div class="stat ${st[id] > 10 ? 'hi' : st[id] < 10 ? 'lo' : ''}" title="${esc(STATS[id].blurb)}">`
-    + `<span class="sk">${STATS[id].short}</span><span class="sv">${st[id]}</span>${adult && adult[id] !== st[id] ? `<span class="sg">grows to ${adult[id]}</span>` : '<span></span>'}`
-    + `<span class="sd">${esc(statNote(id, st[id]))}</span></div>`).join('')}</div>`;
-}
-
-/**
- * Skills (#1236, #1241) as the Warden sees them: a *self-assessed* level and
- * how close it feels to the next. The true level is hidden (Dunning–Kruger) —
- * you feel it in the work instead.
- */
-function skillsBlock(s: AppState['sim']): string {
-  return `<p class="mood" style="margin-top:0">How good you <i>think</i> you are. The work itself tells the truth.</p><div class="skills">${SKILL_IDS.map(id => {
-    const seems = perceivedProgress(s.skills[id] ?? 0);
-    const lvl = Math.floor(seems);
-    const name = LEVELS[lvl];
-    // Dev mode (#1579) shows the true level the game hides.
-    const truth = truths ? ` <span class="devtruth" title="Dev mode (?dev=truths): the true level">true: ${esc(LEVELS[skillLevel(s.skills, id)])}</span>` : '';
-    return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
-      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}${truth}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
-      + `<div class="techs">${TECHNIQUES.filter(t => t.skill === id).map(techChip(s)).join('')}</div></div>`;
-  }).join('')}</div>${s.manuals.length ? `<p class="mood">Manuals: ${s.manuals.map(m => `<b>${esc(manualById(m)?.name ?? m)}</b>`).join(', ')} — they guide your practice and teach what's within reach.</p>` : ''}`;
-}
-
-/** How a technique (#1243) is learned, as a hint for one you don't know yet. */
-const LEARN_HINT: Record<Technique['difficulty'], string> = {
-  easy: 'comes with a little practice',
-  hard: 'slow to work out alone — a manual or teacher helps',
-  teacher: 'can only be taught',
-};
-
-/** One technique: named once known; otherwise a hint at how it's learned. Each is typical of a level, not locked to it. */
-const techChip = (s: AppState['sim']) => (t: Technique): string => s.techniques.includes(t.id)
-  ? `<span class="tech known" title="${esc(t.how)} — typical of ${LEVELS[t.level]}">${esc(t.name)}</span>`
-  : `<span class="tech ${t.difficulty}" title="Typical of ${LEVELS[t.level]}: ${LEARN_HINT[t.difficulty]}">? ${t.difficulty === 'teacher' ? 'taught only' : t.difficulty}</span>`;
-
-function milesBlock(a: AppState): string {
-  return `<ol class="miles">${REGION1_MILESTONES.map(m => {
-    const done = a.sim.milestones.includes(m.id);
-    return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc(m.name.toUpperCase())}</span></li>`;
-  }).join('')}</ol>`;
-}
+// The WARDEN tab is drawn by warden-view.ts (#1711).
 
 function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
@@ -596,7 +337,7 @@ function oneAtATime(a: AppState): string {
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
       <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
       ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>` : ''}
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
+      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday, t)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
 }
@@ -636,13 +377,13 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
+      + `<span class="meta">${hrs(queueHours(item, preview.before[i]), t)}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       <ol>${items || `<li class="empty">${esc(t('queue.empty', { hours: DAY_HOURS }))}</li>`}</ol>
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(todayHours(a, preview))} / ${DAY_HOURS}h</b></span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
+      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(todayHours(a, preview), t)} / ${DAY_HOURS}h</b></span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
       <div class="runbar">
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
@@ -680,7 +421,7 @@ function statusBar(a: AppState, preview: Preview): string {
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
+    <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview), t)}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -705,14 +446,6 @@ function injuryChips(s: AppState['sim']): string {
   }).join('');
 }
 
-/** Old wounds (#1395): what grave injuries left behind, and what each does — for good. */
-function harmsBlock(s: AppState['sim']): string {
-  const harms = s.character.harms ?? [];
-  if (!harms.length) return '';
-  return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.wounds'))}</p>
-    <ul class="harms">${harms.map(h => `<li><b>${esc(HARM_NAME[h][0].toUpperCase() + HARM_NAME[h].slice(1))}</b> <span>${esc(HARM_WORDS[h])}</span></li>`).join('')}</ul>`;
-}
-
 /** Tonight, if it looks frightening (#1364): an uneasy or sleepless night, and why. */
 function nightChip(s: AppState['sim']): string {
   const f = tonightsFright(s);
@@ -725,22 +458,9 @@ function outlookTag(s: AppState['sim'], ready: boolean): string {
   const season = seasonOf(s.day, s.config.calendar);
   if (season === 'thaw') return '';
   if (season === 'autumn') return `<span class="tag ${ready ? 'yes' : 'no'}">${esc(t(ready ? 'status.ready' : 'status.notReady'))}</span>`;
-  const short = outlookWarnings(s).length;
+  const short = outlookWarnings(s, t).length;
   return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="${esc(t('status.outlookTip'))}">${esc(t(short ? 'status.short' : 'status.holding'))}</button>`;
 }
-
-const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { arrived: 'Reached Mistheim', survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
-
-/** The history of finished runs (newest first), with the best one marked. */
-function pastRuns(): string {
-  if (!history.length) return '<p class="mood">No finished runs yet. Live through the winter to the thaw, and it will be recorded here.</p>';
-  const best = bestRun(history);
-  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">${r.characterName ? `${esc(r.characterName)} · ` : ''}RUN ${r.run}</span>`
-    + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.grade ? ` — ${r.grade}` : ''}${r.injury ? ' · frostbite' : ''}</span>`
-    + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
-}
-
-const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
 type Tab = 'plan' | 'camp' | 'land' | 'map' | 'history' | 'warden' | 'progress';
 // `label` is the English name; the page draws each tab's label from the catalog (`tab.<id>`, #1704).
@@ -787,23 +507,15 @@ function tabBody(a: AppState, preview: Preview): string {
         <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a.sim, t)}</section>
       </div>`;
     case 'land':
-      return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${land(a)}${LAND_LEGEND}
-        <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>
-        <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(a.sim)}</section>`;
+      return landTab(a.sim, t, pinRing);
     case 'map':
       return mapTab(a);
     case 'history':
       return historyTab(a);
     case 'warden':
-      return wardenTab(a);
+      return wardenTab(a, t, truths);
     case 'progress':
-      return `<div class="cols">
-        <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(a)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(a)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(a)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns()}</section>
-        <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p><ul class="full">${journal(a, 200)}</ul></section>
-      </div>`;
+      return progressTab(a.sim, history, journal(a, 200), t);
   }
 }
 
@@ -1038,7 +750,7 @@ function renderRoad(a: AppState, r: RoadState): void {
   root.classList.remove('winter');
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
-    : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r))
+    : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
     : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
   const end = r.outcome ? `${roadEnd(r, t)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';

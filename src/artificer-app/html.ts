@@ -5,11 +5,15 @@
  */
 
 import { portraitById, portraitStyle } from './portraits';
+import { localNum, type T } from '../artificer/i18n';
 
 /** Escape text for innerHTML — sim text is ours today, but a save could be edited. */
 export const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-/** Hours for display: snow and blizzards stretch work into fractions, so show at most one decimal. */
-export const hrs = (h: number): string => String(Math.round(h * 10) / 10);
+/**
+ * Hours for display: snow and blizzards stretch work into fractions, so show at most one decimal.
+ * With `t`, in the viewer's language (#1711): "1,5" in Swedish.
+ */
+export const hrs = (h: number, t?: T): string => { const s = String(Math.round(h * 10) / 10); return t ? localNum(s, t) : s; };
 /** A fraction as a CSS percentage, held to 0–100. */
 export const pct = (x: number): number => Math.max(0, Math.min(100, x * 100));
 /** A pool's colour band from how full it is. */
