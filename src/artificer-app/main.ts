@@ -73,6 +73,7 @@ import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
+import { itemIcon } from './item-icons';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -533,7 +534,12 @@ const undiscovered = (s: AppState['sim']): number => DISCOVERIES.filter(d => !s.
 
 // ── Blocks (each tab is composed from these) ────────────────────────────────
 
-const storeChip = (icon: string, label: string, n: number, low = false): string => `<span class="r ${low ? 'low' : ''}">${icon} ${label} <b>${n}</b></span>`;
+/**
+ * A store chip: the good's 32 px icon (#1675), or its old emoji until it has one, the name as text
+ * and the count. The name is printed, so the icon's alt is empty (see item-icons.ts).
+ */
+const storeChip = (id: keyof AppState['sim']['stores'], emoji: string, label: string, n: number, low = false): string =>
+  `<span class="r ${low ? 'low' : ''}">${itemIcon(id, { fallback: emoji })} ${label} <b>${n}</b></span>`;
 
 // ── Carrying (#1296) ────────────────────────────────────────────────────────
 
@@ -561,7 +567,7 @@ function loadBar(l: TripLoad): string {
 function carryingBlock(s: AppState['sim']): string {
   const st = s.character.stats;
   const gear = s.tools.filter(t => (GEAR_ITEMS as readonly string[]).includes(t.item));
-  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${esc(GEAR_NAME[t.item as GearItem])} <b>${t.grade.toUpperCase()}</b></span>`).join('')
+  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(GEAR_NAME[t.item as GearItem])} <b>${t.grade.toUpperCase()}</b></span>`).join('')
     : '<span class="mood" style="margin:0">No carrying gear — a basket, backpack, harness or sled would make loads easier.</span>';
   const strain = s.strain ?? 0;
   const status = s.today.exhausted ? `<p class="lockbanner">EXHAUSTED — your back aches from yesterday's loads. All work drains ${Math.round((EXHAUSTED_DRAIN - 1) * 100)}% more today.</p>`
@@ -589,7 +595,7 @@ function storesRow(s: AppState['sim']): string {
   const st = s.stores;
   // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
   const streak = (n: number, word: string): string => (n ? ` <span class="streak">${word} ×${n}</span>` : '');
-  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
+  return `<div class="res">${storeChip('rawFood', '🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('water', '💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('firewood', '🪵', 'Fuel', st.firewood)}${storeChip('materials', '🪨', 'Mat', st.materials)}${storeChip('rations', '🧂', 'Rations', st.rations)}${storeChip('stone', '⛰️', 'Stone', st.stone)}${storeChip('hides', '🦌', 'Hides', st.hides)}</div>`;
 }
 
 /** A portrait frame (or a blank silhouette for an unnamed quick-start Warden). */
@@ -724,7 +730,7 @@ function packBlock(s: AppState['sim']): string {
   if (!s.kit) return '';
   const left = kitSupplies(s.kit, s.dressings ?? 0);
   return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pack'))}</p>
-    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id))}">${esc(kitItem(id).name)}</span>`).join('')}</div>
+    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id))}">${itemIcon(id)}${esc(kitItem(id).name)}</span>`).join('')}</div>
     ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
 }
 
@@ -788,7 +794,7 @@ function toolsBlock(a: AppState): string {
   const s = a.sim;
   // Tool names come from the craft actions that make them (output item → action).
   const toolName = (item: string): string => (item === HIDE_PARKA_RECIPE.output.item ? HIDE_PARKA_RECIPE.name : Object.values(ACTIONS).find(x => x.recipe?.output.item === item)?.recipe?.name ?? item);
-  const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
+  const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0)
     .map(([id, p]) => `<span class="r concept">${esc(id)} <b>R${p.rank}</b></span>`).join('');
   return `<div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
@@ -815,6 +821,17 @@ function journal(a: AppState, limit: number): string {
 }
 
 type Preview = ReturnType<typeof previewQueue>;
+
+/**
+ * A craft's ingredients (#1675) as icon chips under its card: "[icon] 2 mat". The recipe is the one
+ * the action would use with its default options (cold gear: woven fiber; a build: the plan as it
+ * stands), so a chosen option can change it; the queue row's options say what the choice costs.
+ */
+function ingredients(def: (typeof ACTIONS)[ActionId], s: AppState['sim']): string {
+  const recipe = def.recipeFor?.(s, {}) ?? def.recipe;
+  if (!recipe?.inputs.length) return '';
+  return `<div class="ingr">${recipe.inputs.map(i => `<span>${itemIcon(i.item)}<b>${i.qty}</b> ${esc(HAUL_NAME[i.item as keyof Haul] ?? i.item)}</span>`).join('')}</div>`;
+}
 
 function paletteBlock(a: AppState, preview: Preview): string {
   const resolved = a.sim.outcome !== null;
@@ -843,7 +860,7 @@ function paletteBlock(a: AppState, preview: Preview): string {
     const spends = vitalCostLabel(def, dev);
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : `Would be skipped: ${why}`) : ''}">`
       + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div></button>`;
+      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected)}</button>`;
   }).join('')}</div></div>`).join('');
 }
 
@@ -930,10 +947,16 @@ function statusBar(a: AppState, preview: Preview): string {
     return `<span class="mini"><span class="ml">${label}</span><span class="mt"><span class="mf ${b}" style="width:${pct(cur / max)}%"></span></span><span class="mv ${b}">${Math.round(cur)}</span></span>`;
   };
   const st = s.stores;
+  // The compact stores (#1675): icon and count, no name beside it, so the icon carries the name as
+  // its alt (and title, for a hover); the old emoji stays as the fallback.
+  const sIcon = (id: keyof typeof st, emoji: string, name: string): string => {
+    const img = itemIcon(id, { alt: name });
+    return img ? img.replace('<img ', `<img title="${name}" `) : emoji;
+  };
   const ready = winterReady(s);
   return `<div class="statusbar">
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', 'Food')}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', 'Water')}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', 'Fuel')}${st.firewood}</span><span>${sIcon('materials', '🪨', 'Mat')}${st.materials}</span><span>${sIcon('rations', '🧂', 'Rations')}${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
@@ -1091,7 +1114,7 @@ function thawSummary(a: AppState): string {
   const worst = worstNights(s);
   return `<div class="thaw"><p class="eyebrow ice">THE THAW — DAY ${s.day}</p><span class="grade g-${grade}">${THAW_HEAD[grade]}</span>
     <p class="mood" style="margin:6px 0 10px">Condition ${Math.round(s.vitals.condition)}% coming out of it.</p>
-    <p class="fgroup">WHAT WAS LEFT</p><div class="res">${storeChip('🍖', 'Food', st.rawFood)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('💧', 'Water', st.water)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}</div>
+    <p class="fgroup">WHAT WAS LEFT</p><div class="res">${storeChip('rawFood', '🍖', 'Food', st.rawFood)}${storeChip('rations', '🧂', 'Rations', st.rations)}${storeChip('water', '💧', 'Water', st.water)}${storeChip('firewood', '🪵', 'Fuel', st.firewood)}${storeChip('materials', '🪨', 'Mat', st.materials)}</div>
     <p class="fgroup" style="margin-top:12px">THE WORST NIGHTS</p>${worst.length
       ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
       : '<p class="mood" style="margin:0">Not one hard night all winter.</p>'}
@@ -1755,7 +1778,7 @@ function packForm(): string {
       const on = draftPack.includes(k.id);
       const fits = on || packWeight([...draftPack, k.id]) <= PACK_CAPACITY;
       return `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : "won't fit — take something out first"}">`
-        + `<span class="khead"><b>${esc(k.name)}</b>${k.sv && k.sv.toLowerCase() !== k.name.toLowerCase() ? ` <i>${esc(k.sv)}</i>` : ''}<span class="kkg">${k.weight} kg</span></span>`
+        + `<span class="khead">${itemIcon(k.id)}<b>${esc(k.name)}</b>${k.sv && k.sv.toLowerCase() !== k.name.toLowerCase() ? ` <i>${esc(k.sv)}</i>` : ''}<span class="kkg">${k.weight} kg</span></span>`
         // What a scout would say it's for, never the rule it plays (#1684): the player finds out
         // what's useful by playing. The rule shows only with the hidden truths (`?dev=truths`).
         + `<span class="kdoes">${esc(k.does)}</span><span class="knote">${esc(k.note)}</span>`

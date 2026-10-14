@@ -853,3 +853,23 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 /* The language switch in the help panel (#1704). */
 .langswitch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
 .langswitch .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+/* Item icons (#1675): 32 px pixel art in place of the emoji. The box is fixed (and the <img> has
+   width/height attributes), so the row is already its final size before the PNG arrives: no layout
+   shift. `pixelated` scales by whole pixels (none here, at 1×, but on a 2× tablet screen too) so
+   the art stays crisp instead of being smoothed into a blur. */
+.iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
+/* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
+.r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
+.packitem:has(.iicon) { display: inline-flex; align-items: center; }
+/* The compact status bar: icon then count, tight. */
+.sstores > span { display: inline-flex; align-items: center; gap: 2px; }
+/* The pack screen: the icon leads the item's name. */
+.kchoice .khead { align-items: center; }
+.kchoice .khead .iicon { margin: -4px 0; }
+/* Trade lists: icon, name, count on one line. */
+.tlist .it { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+/* A craft's ingredients under its card. */
+.act .ingr { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 10.5px; color: var(--dim); }
+.act .ingr span { display: inline-flex; align-items: center; gap: 3px; }
+.act .ingr b { color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 400; }
