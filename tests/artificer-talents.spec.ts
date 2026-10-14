@@ -21,7 +21,8 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
   page.on('pageerror', e => errors.push(e.message));
 
   await page.goto('/artificer.html');
-  await page.evaluate(() => localStorage.clear());
+  // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
 
   await toCreation(page);
@@ -71,7 +72,8 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
-  await page.evaluate(() => localStorage.clear());
+  // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
   // Skip through a first Warden to a saved game.
   for (let i = 0; i < 10 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
