@@ -54,7 +54,8 @@ import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { devMode, devTruths, loadChoices, saveChoices } from './feature-choices';
+import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, vitalCostLabel, type TabDef, type TabView } from './feature-choices';
+import { hasCamp, withCampLine } from './camp-view';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { feltWord } from '../artificer/rapport';
 import { ROAD_DAYS, roadLockOf, type RoadState } from '../artificer/road';
@@ -761,7 +762,8 @@ const logClass = (l: Pick<LogEntry, 'kind' | 'text'>): string =>
   isSelfKnowledge(l.text) ? 'hint' : l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
 
 function journal(a: AppState, limit: number): string {
-  return [...a.sim.log].reverse().slice(0, limit).map((l: LogEntry) => {
+  // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
+  return [...withCampLine(a.sim.log)].reverse().slice(0, limit).map((l: LogEntry) => {
     return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
   }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
 }
@@ -791,10 +793,11 @@ function paletteBlock(a: AppState, preview: Preview): string {
     if (vis.status === 'hidden') return '';
     const why = vis.reason;
     const greyed = !!why && !greyedTappable(preview.projected);
-    const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
+    // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
+    const spends = vitalCostLabel(def, dev);
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : `Would be skipped: ${why}`) : ''}">`
       + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
+      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div></button>`;
   }).join('')}</div></div>`).join('');
 }
 
@@ -950,12 +953,32 @@ function pastRuns(): string {
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
 type Tab = 'plan' | 'camp' | 'land' | 'map' | 'history' | 'warden' | 'progress';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
+const TABS: TabDef<Tab>[] = [
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
+/**
+ * Dev mode (#1688): off for players; the password in the help panel's faint ⚙ opens it (remembered in
+ * this browser), "Leave dev mode" shuts it. It only shows views: the features panel, the HISTORY tab,
+ * the CAMP tab before camp is made, actions' vital costs, and the `?dev=truths` extras. `let`: it flips.
+ */
+let dev = devMode();
+/** The hidden truths (true trust, true skill levels): `?dev=truths`, and only while dev mode is on (#1578). */
+let truths = dev && devTruths();
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
+// Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
+// open tab against what shows each time it draws (`tabToOpen`).
 let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
 let showHelp = false;
+
+/**
+ * Before camp is made (#1691) there's no CAMP tab, but choosing a site is how camp is made, so the
+ * site picker sits on the Plan tab until then (with the tools you've made so far, which the Camp tab
+ * shows later). Vitals and stores are always in the status bar.
+ */
+function beforeCamp(a: AppState): string {
+  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">MAKE CAMP — pick your ground</p>${sitesBlock(a)}
+    <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</div>`;
+}
 
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
@@ -963,7 +986,7 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<section class="box seasonbox">${seasonStrip(a)}</section><div class="plan">
         <section class="box"><p class="eyebrow">ACTIONS — ${a.sim.canPlan ? 'tap to add to the queue' : 'tap to do it now'}</p>${paletteBlock(a, preview)}</section>
         <section class="box planside">${queueBlock(a, preview)}
-          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div></section>
+          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
       </div>`;
     case 'camp':
       return `<div class="cols">
@@ -1066,6 +1089,10 @@ function drawPage(a: AppState): void {
   root.classList.toggle('winter', winter);
   root.style.setProperty('--snow', String(winter ? Math.max(0.25, a.sim.snowDepth ?? 0) : 0));
   const fresh = a.sim.log.length === 0;
+  // Which tabs show (#1688, #1691), and the open one settled against them: a CAMP tab kept from an
+  // earlier run opens PLAN until this run's camp is made, a kept HISTORY tab PLAN once dev mode is left.
+  const view: TabView = { dev, camp: hasCamp(a.sim) };
+  tab = tabToOpen(tab, TABS, view);
   root.innerHTML = `
     <header>
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
@@ -1083,15 +1110,15 @@ function drawPage(a: AppState): void {
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>
     ${featuresPanel(a)}
-    ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
+    ${fresh || showHelp ? `<div class="ledewrap"><p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
       and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
       Each night you eat and drink: <b>water is critical</b> — a few dry nights wreck body and mind — while <b>food</b> can be skipped for a while at a slower cost. Every night in a row without either hurts more. Scout first, then push outward —
       working the land teaches you its detail. The snow comes on day ${a.sim.config.calendar.winterDay}, and there is no way out until spring: <b>live through the winter to the thaw</b>.
-      Progress saves in this browser.</p>` : ''}
+      Progress saves in this browser.</p>${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}${tabIsDev(t, view) ? DEV_TAG : ''}</button>`).join('')}</nav>
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length)}
     ${meetingModal(a.sim, a.meeting)}
@@ -1110,11 +1137,54 @@ let encounterAfter: EncounterAfter | null = null;
 
 // ── Feature switches and dev mode (#1579) ──────────────────────────────────
 
-/** Dev mode (on by default while the game is an experiment; `?dev=0` turns it off, remembered): the features panel and hidden truths. */
-const dev = devMode();
-/** The hidden truths (true trust, true skill levels): only with `?dev=truths`, never in plain dev mode (#1578). */
-const truths = devTruths();
+// `dev` and `truths` are declared beside TABS.
 let showFeatures = false;
+
+/** The small DEV tag on a view only dev mode shows (#1688). */
+const DEV_TAG = ' <span class="devtag">DEV</span>';
+
+/**
+ * The password's SHA-256 (lowercase hex), from the build (#1688): set `VITE_DEV_PASSWORD_HASH` in the
+ * Artificer's Vercel project, or in `.env.local` to try dev mode locally (see feature-choices.ts).
+ * Unset, the ⚙ still shows, and no password opens it.
+ */
+const DEV_PASSWORD_HASH: string | undefined = import.meta.env.VITE_DEV_PASSWORD_HASH;
+
+/** The dev gate's state: its password field open, and what the last try said. */
+let devGateOpen = false;
+let devGateNote = '';
+
+/**
+ * The semi-hidden way into dev mode (#1688): a faint ⚙ in the corner of the help panel. Tapping it
+ * opens an in-page password field (the viewer blocks `prompt()`); in dev mode it offers the way out.
+ */
+function devGate(): string {
+  const icon = `<button class="devdot" data-cmd="devgate" aria-expanded="${devGateOpen}" aria-label="Developer" title="">⚙</button>`;
+  if (!devGateOpen) return icon;
+  const body = dev
+    ? `<span class="faint">Dev mode is on in this browser.</span> <button class="pill" data-cmd="devleave">LEAVE DEV MODE</button>`
+    : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="Developer password" placeholder="password">
+      <button class="pill" type="submit">UNLOCK</button>${devGateNote ? ` <span class="faint">${esc(devGateNote)}</span>` : ''}</form>`;
+  return `${icon}<div class="devgate">${body}</div>`;
+}
+
+/** Open or shut dev mode, remember it, and leave a tab that no longer shows for the first one that does. */
+function setDev(on: boolean): void {
+  dev = on;
+  setDevMode(on);
+  truths = on && devTruths('');
+  roadUi.truths = truths;
+  if (!on) showFeatures = false;
+  devGateOpen = false;
+  devGateNote = '';
+}
+
+/** Check a typed password against the build's hash; the right one opens dev mode. */
+async function tryDevPassword(typed: string): Promise<void> {
+  if (await devPasswordMatches(typed, DEV_PASSWORD_HASH)) setDev(true);
+  else devGateNote = DEV_PASSWORD_HASH ? 'Not that.' : 'No password is set for this build.';
+  render(state);
+}
 
 /** A 🧪 in the header while this run plays with an experimental rule feature: it may change, or go. */
 function experimentChip(a: AppState): string {
@@ -1129,7 +1199,7 @@ function weekChip(a: AppState): string {
   return week ? `<span class="counter ctl weekchip" title="This week's world (${week}): everyone, people and AIs, plays this one until Monday 00:00 UTC">📅 <b>${esc(shortWeek(week))}</b></span>` : '';
 }
 
-const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES</button></span>` : '');
+const featuresButton = (): string => (dev ? `<span class="ctl"><button class="pill" data-cmd="features" aria-pressed="${showFeatures}">🧪 FEATURES${DEV_TAG}</button></span>` : '');
 
 /**
  * The features panel (dev mode): every switchable feature, what it does, and its switch. Rule
@@ -1147,7 +1217,8 @@ function featuresPanel(a: AppState): string {
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${on ? 'ON' : 'OFF'}</button></li>`;
   }).join('');
   return `<section class="box features"><p class="eyebrow">🧪 FEATURES — DEV MODE</p><ul class="flist">${rows}</ul>
-    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level and each person's true trust. It's on for everyone while the game is an experiment: add <code>?dev=0</code> to the address to leave it, <code>?dev</code> to come back.</p></section>`;
+    <p class="mood">Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level and each person's true trust. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.</p>
+    <p><button class="pill" data-cmd="devleave">LEAVE DEV MODE</button></p></section>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
@@ -1733,6 +1804,8 @@ root.addEventListener('click', e => {
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
+  else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
+  else if (d.cmd === 'devleave') { setDev(false); render(state); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();
@@ -1810,6 +1883,9 @@ root.addEventListener('click', e => {
 // is what shows how to grow the game. Nothing waits for that, and if it fails the game goes on.
 root.addEventListener('submit', e => {
   if (playing) { e.preventDefault(); return; }
+  // The dev gate's password (#1688): checked against the build's hash, never sent anywhere.
+  const devForm = (e.target as HTMLElement).closest<HTMLFormElement>('form[data-devform]');
+  if (devForm) { e.preventDefault(); void tryDevPassword(devForm.querySelector<HTMLInputElement>('#devpw')?.value ?? ''); return; }
   // Sending the run to the records (#1559).
   if ((e.target as HTMLElement).closest('form[data-sendrun]')) { e.preventDefault(); void sendRun(); return; }
   const form = (e.target as HTMLElement).closest<HTMLFormElement>('form[data-question]');
