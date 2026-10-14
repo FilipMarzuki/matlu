@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_BETTERSTACK_DSN?: string;
   /** Matlu Codex URL — used for the in-game playtest feedback link. Defaults to production URL. */
   readonly VITE_WIKI_URL?: string;
+  /** Artificer dev mode (#1688): SHA-256 (lowercase hex) of the dev password. Never the password itself. */
+  readonly VITE_DEV_PASSWORD_HASH?: string;
 }
 
 interface ImportMeta {

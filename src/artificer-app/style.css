@@ -817,3 +817,15 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 @keyframes timer-line { from { opacity: 0; transform: translateY(4px); } }
 /* Reduced motion: the timer still advances (the bars and the clock are the content), with no flourishes. */
 @media (prefers-reduced-motion: reduce) { .timer, .timer .tlog li { animation: none; } }
+
+/* The DEV tag (#1688): on a tab or button only dev mode shows. Small and amber, like the dev truths. */
+.devtag { display: inline-block; margin-left: 5px; padding: 1px 4px; border: 1px solid var(--amber); border-radius: 4px; color: var(--amber); font-family: var(--display); font-size: 7px; letter-spacing: 1px; line-height: 1.3; vertical-align: middle; }
+@media (max-width: 520px) { .tabbtn .devtag { margin-left: 2px; padding: 0 2px; font-size: 6px; } }
+
+/* The dev gate (#1688): a faint ⚙ in the help panel's corner, and its in-page password field. */
+.ledewrap { position: relative; }
+.devdot { position: absolute; right: 2px; bottom: 2px; padding: 2px 4px; border: 0; background: transparent; color: var(--faint); font-size: 11px; line-height: 1; opacity: 0.35; cursor: pointer; }
+.devdot:hover, .devdot:focus-visible, .devdot[aria-expanded="true"] { opacity: 0.9; }
+.devgate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 12px; }
+.devform { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.devform input { min-width: 0; width: 160px; max-width: 100%; padding: 4px 6px; border: 1px solid var(--faint); border-radius: 4px; background: transparent; color: inherit; font: inherit; }
