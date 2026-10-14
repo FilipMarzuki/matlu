@@ -161,6 +161,39 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'reach-and-secrets', name: 'Who knows a rumour, and who keeps a secret', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1661,
     note: 'A rumour that has travelled the road is known by more of its people, and arrives more bent; one close to its source is known by fewer, and told truer. A member of a secretive organisation keeps its business from outsiders until they trust you enough, though what leaked through gossip is anyone\'s to tell.',
   },
+  {
+    // A rules feature: it changes prices (an erratic record is hedged, a trusted one gets the
+    // regular's rate), how open people are (consistency.ts `recordGate`) and what they say, so a
+    // run from before it (absent: false) keeps today's terms and answers on replay. Its record is
+    // the deed list `grudges-and-help` keeps, so it does nothing without that switch.
+    id: 'consistency', name: 'What people come to expect of you', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1663,
+    note: 'People learn your track record (fair dealing, kept word, the side you take) and word of it travels with friends, kin and the caravan. A steady record, even a hard one, gets expected terms; an erratic one gets hedged prices and wary answers. Only a record of dealing well earns the regular\'s rate and confidences.',
+  },
+  {
+    // A rules feature: it changes what a Warden can do (one Explore action where there were four,
+    // the others learned by level or a starting talent; crafts you haven't worked out refused as
+    // unknown; an Experiment action that can teach them), so a run from before it (absent: false)
+    // keeps every action as it was on replay.
+    id: 'action-visibility', name: 'Learn your actions as you go', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1690,
+    note: 'You start with one Explore action: scouting, surveying, looking out and tracking come as you get better at them (or from day one with a talent for it). Actions you don\'t know yet are hidden, ones you can\'t do right now are greyed out with the reason, and Experiment, with what you have at hand, can work out what you don\'t know yet.',
+  },
+  {
+    // A rules feature: it adds rumours made from the run's own world (run-rumours.ts: its told
+    // history, the road's ties and organisations) and sometimes a fourth liar from a pool (claims.ts
+    // `liesFor`), so a run from before it (absent: false) keeps the written rumours and three liars
+    // on replay. Its rumours bend and travel as the written ones do and are told from the history,
+    // so they need `rumours-and-lies`, `rumour-drift` and `history-in-play` too; the pooled liar
+    // needs `rumours-and-lies`.
+    id: 'run-rumours', name: 'Rumours from this run\'s world', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1662,
+    note: 'Each run has rumours of its own, made from its history and its people: a quarrel at the market, a debt, a secret that leaked, the news from the country, an old disaster told bigger. Which of the road\'s people lie to you changes from run to run too.',
+  },
+  {
+    // A rules feature: it changes what the Warden knows of the land and how it's shown (a
+    // description in words until they draw their own map, descriptive-map.ts), and adds a journal
+    // line when the map is drawn, so a run from before it (absent: false) keeps the Reach map on replay.
+    id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
+    note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
+  },
 ];
 
 /** Switches by feature id. */

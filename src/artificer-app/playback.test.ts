@@ -11,7 +11,8 @@ import { chooseSite, runAction, type QueueItem } from '../artificer/region1';
 
 /** A Warden who has scouted and surveyed the near ring and camps in the cave, able to plan. */
 function ready(id: string, features?: Record<string, boolean>): AppState {
-  const a = makeWarden({ id }, undefined, features);
+  // Scouting and surveying straight away: a Warden from before actions were learned as you go (#1690).
+  const a = makeWarden({ id }, undefined, { 'action-visibility': false, ...features });
   let s = runAction(a.sim, 'scout');
   s = runAction(s, 'survey');
   s = chooseSite(s, 'cave');

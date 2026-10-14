@@ -15,11 +15,11 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import {
-  ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -34,6 +34,8 @@ import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { featureOn } from '../artificer/features';
+import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
 import { peopleOf, personById, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
@@ -44,7 +46,7 @@ import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
-import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST } from '../artificer/trade';
+import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, friendly } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
@@ -137,6 +139,7 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
     case 'wood': return `+${ty('timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb('timber')} firewood, +${ty('timber', 2, 1)} materials`;
     case 'quarry': return `+${ty('stone', 3, 1) + fb('stone')} stone`;
     case 'fish': return `about +${FISH_CATCH * RICHNESS[r]} food through the ice (needs thick lake ice: the deep cold)`;
+    case 'explore': return 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
     case 'scout': return 'everything there at least suspected';
     case 'survey': return 'everything there observed';
     case 'track': return 'game observed';
@@ -160,6 +163,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   harness: 'firewood awkwardness 1.1, stone and hides 1.0 (a hide + 1 material)',
   sled: 'stone, firewood and hides count half their weight on snow or rings 1-2 (0.8 in ring 3); the sled adds 4 when taken (5 materials)',
   study: 'a third of your clarity -> concept insight (rank 1 reveals recipes)',
+  experiment: 'try things with the materials at hand (option "with" picks one) -> work out a recipe you don\'t know yet; a focus on its concept or skill doubles the progress',
   tinker: 'rests body, spends mind',
   rest: 'recovers a little',
   treat: 'tends your worst untreated injury (1h): a first-aid dressing, or improvised — a cut with 1 materials (or a hide), a sprain with 1 firewood + 1 materials, a hurt hand with 1 food',
@@ -239,7 +243,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
   lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => toolLabel(x, s.taughtBy)).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
-  lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
+  // With the actions you don't know hidden (#1690), what's still to work out isn't named either, as in the app: only how many.
+  const notYet = !undiscovered.length ? '' : visibilityOn(s) ? ` · ${undiscovered.length} still to work out (experiment with what you have, study, or learn the land)` : ` · not yet: ${undiscovered.join(', ')}`;
+  lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${notYet}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
   // Background (#1398): a scout, trained in first aid, camp chores, map and compass.
@@ -291,11 +297,22 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const finds = domainsOf(r).filter(d => hasFind(s.explore, r, d)).map(d => FINDS[d]?.name).join(', ');
     lines.push(`- ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
   }
+  // The land in words (#1686, `descriptive-map`): the AI, and the API that shows this same text,
+  // gets what the Warden knows of the land as a scout would say it, the same lines the MAP tab shows.
+  if (descriptiveMapOn(s)) {
+    const mode = mapMode(s);
+    const needs = mapNeeds(s);
+    lines.push(`WHAT YOU KNOW OF THE LAND AROUND CAMP (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
+    for (const l of describeLand(s)) lines.push(`  ${l}`);
+    if (needs.length) lines.push(`  To draw your own map you need ${needs.join(' and ')}.`);
+  }
 
   lines.push('');
   lines.push('ACTIONS (id · hours · effect · BLOCKED reason if it would be skipped now):');
   for (const id of Object.keys(ACTIONS) as ActionId[]) {
     const def = ACTIONS[id];
+    // What the Warden doesn't know how to do yet isn't listed (#1690); what they can't do now is, BLOCKED with why.
+    if (!shown(s, id)) continue;
     const rings: Ring[] = def.ringed ? RINGS.filter(r => reachable(s.explore, r)) : [1];
     for (const r of rings) {
       const why = blockedReason(s, id, r);
@@ -548,7 +565,7 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     if (t) {
       lines.push('');
       // A friend's rate is in the prices, so it's said; the trust behind it isn't (#1578).
-      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${t.trust >= FRIEND_TRUST ? ' · friend’s rate' : ''}`);
+      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${friendly(t) ? ' · friend’s rate' : ''}`);
       // The village's own market (#1599): the same line the trade panel shows.
       if (t.local) lines.push(`  market: ${marketLine(t.local)}`);
       lines.push(`  sells (marks each): ${t.sells.map(g => `${g} ${buyPrice(g as never, 1, t)}`).join(' · ')}`);

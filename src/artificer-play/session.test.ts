@@ -31,11 +31,11 @@ describe('The game session core (#1554)', () => {
     expect(v.phase).toBe('day');
     expect(v.text).toBe(observe(makeWarden({ id: g.id, name: 'Warden' }).sim));
     expect(v.text).toContain('DAY 1');
-    expect(v.moves.map(m => JSON.stringify(m.move))).toContain(JSON.stringify({ do: 'scout' }));
+    expect(v.moves.map(m => JSON.stringify(m.move))).toContain(JSON.stringify({ do: 'explore' }));
   });
 
   it('2. the same seed and the same moves give the same game', () => {
-    const moves: Move[] = [{ do: 'scout' }, { do: 'water' }, { endDay: true }, { do: 'wood' }, { endDay: true }];
+    const moves: Move[] = [{ do: 'explore' }, { do: 'water' }, { endDay: true }, { do: 'wood' }, { endDay: true }];
     const play = () => moves.reduce((g, m) => { const r = apply(g, m); return r.ok ? r.game : g; }, startGame({ seed: 's1' }));
     expect(serialize(play())).toBe(serialize(play()));
     // And another seed is another world.
@@ -61,12 +61,12 @@ describe('The game session core (#1554)', () => {
   it('4. one action reports only what it added to the journal, and the status shows the hours it took', () => {
     const g = startGame({ seed: 's1' });
     const logBefore = g.app.sim.log.length;
-    const r = apply(g, { do: 'scout' });
+    const r = apply(g, { do: 'explore' });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const added = r.game.app.sim.log.slice(logBefore).map(l => l.text);
     expect(r.changed).toEqual(added);
-    expect(r.changed.join(' ')).toMatch(/Scouted/);
+    expect(r.changed.join(' ')).toMatch(/Walked out and looked around/);
     const hours = r.game.app.sim.hoursToday;
     expect(hours).toBeGreaterThan(0);
     expect(r.view.status).toContain(`${hours}/${DAY_HOURS}h`);
@@ -129,21 +129,21 @@ describe('The game session core (#1554)', () => {
 
   it('plans a whole day only once the Warden has learned to plan, as the page does', () => {
     const g = startGame({ seed: 's1' });
-    const locked = apply(g, { plan: ['scout', 'water'] });
+    const locked = apply(g, { plan: ['explore', 'water'] });
     expect(locked.ok).toBe(false);
     if (!locked.ok) expect(locked.error).toMatch(/plan/i);
     // An open-planning Warden (as tests and older saves have) runs the day and sleeps.
     const open = gameFrom({ ...g.app, sim: { ...g.app.sim, canPlan: true } }, g.id);
-    const r = apply(open, { plan: ['scout', 'water', 'gather@9'] });
+    const r = apply(open, { plan: ['explore', 'water', 'gather@9'] });
     expect(r.ok).toBe(false); // ring 9 doesn't exist
-    const ok = apply(open, { plan: ['scout', 'water'] });
+    const ok = apply(open, { plan: ['explore', 'water'] });
     expect(ok.ok).toBe(true);
     if (ok.ok) expect(ok.game.app.sim.day).toBe(2);
   });
 
   it('7. a game survives being saved and loaded, and the save carries the game version', () => {
     let g = startGame({ seed: 's1' });
-    g = must(g, { do: 'scout' });
+    g = must(g, { do: 'explore' });
     const saved = serialize(g);
     expect(JSON.parse(saved).version).toBe(GAME_VERSION);
     const loaded = deserialize(saved);

@@ -95,6 +95,13 @@ export const valueOf = (item: string, grade: Grade = 'sound', qty = 1): number =
 export interface Terms {
   wants: readonly Kind[]; trust: number; priceFactor: number; local?: LocalMarket | null;
   sells?: readonly string[]; buyBack?: boolean;
+  /**
+   * Your track record with this trader (#1663, consistency.ts, with the `consistency` switch):
+   * `hedge` (above 1 for an erratic record) is how much more they charge and less they pay, and
+   * `regular` (a record that earns their trust) gives the friend's rate whatever the trust number.
+   * Absent, today's terms.
+   */
+  hedge?: number; regular?: boolean;
 }
 
 /**
@@ -110,11 +117,14 @@ export function localFactor(item: string, local: LocalMarket | null | undefined)
   return scarce.includes(item) || scarce.includes(KIND_OF[item]) ? SCARCE : 1;
 }
 
+/** Whether this trader gives you the friend's rate: trust enough, or a record that earned it (#1663). */
+export const friendly = (t: Pick<Terms, 'trust' | 'regular'>): boolean => t.trust >= FRIEND_TRUST || t.regular === true;
+
 /** Marks you're paid for `qty` of `item` at `grade`. */
 export function sellPrice(item: string, grade: Grade, qty: number, t: Terms): number {
   const wanted = t.wants.includes(KIND_OF[item]) ? WANTED : 1;
-  const friend = t.trust >= FRIEND_TRUST ? 1 + FRIEND_RATE : 1;
-  const offered = (valueOf(item, grade, qty) * wanted * friend * localFactor(item, t.local)) / t.priceFactor;
+  const friend = friendly(t) ? 1 + FRIEND_RATE : 1;
+  const offered = (valueOf(item, grade, qty) * wanted * friend * localFactor(item, t.local)) / t.priceFactor / (t.hedge ?? 1);
   // Buy-back (#1627): a good the trader sells themselves fetches at most ×BUY_BACK of what they'd
   // charge for it. Without the cap, the ×1.5 for a wanted kind (or a friend's rate at a market
   // town's keen markup, or a high Charisma) paid more than the stall charged, and buying a heap
@@ -126,9 +136,9 @@ export function sellPrice(item: string, grade: Grade, qty: number, t: Terms): nu
 
 /** What `qty` of a good costs from this trader, before rounding. */
 function buyCost(item: Good, qty: number, t: Terms): number {
-  const friend = t.trust >= FRIEND_TRUST ? 1 - FRIEND_RATE : 1;
+  const friend = friendly(t) ? 1 - FRIEND_RATE : 1;
   const markup = t.local?.market ? MARKET_MARKUP : MARKUP;
-  return valueOf(item, 'sound', qty) * markup * friend * localFactor(item, t.local) * t.priceFactor;
+  return valueOf(item, 'sound', qty) * markup * friend * localFactor(item, t.local) * t.priceFactor * (t.hedge ?? 1);
 }
 
 /** Marks you pay for `qty` of a good. */

@@ -50,9 +50,10 @@ import { ENCOUNTERS, encounterById, stepOf, unmet as encounterUnmet, chanceOf, r
 import { streamFor } from './rng';
 import { seedOf } from './talents';
 import { momentOfTruth, readerOf, readingLeft, SECRET_GATE } from './rapport';
-import { liesFor, PROPOSITIONS, REACH_FEATURE } from './claims';
+import { liesOfRun, PROPOSITIONS, REACH_FEATURE } from './claims';
 import { claimsHeard, journalOf, readsAsLie, CLAIMED, HEARSAY, type HeardClaim, type JournalEntry } from './journal';
 import { caughtOut, caughtWord, friendsWhoHear, guardOf, lieAbout, CAUGHT, CAUGHT_TRUST } from './caught-lies';
+import { brokenWordKnown, predictability, recordGate, trust as recordTrust, CONSISTENCY_FEATURE } from './consistency';
 
 // ── The route ───────────────────────────────────────────────────────────────
 
@@ -482,7 +483,7 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const trader = traderAmong(peopleHere(s));
   if (!trader) return null;
   const stock = TRADER_STOCK[trader.id];
-  const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+  const base = { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor, ...recordTerms(s, trader.id) };
   // Village economies (#1599): the village's own market sets what's cheap and dear, and its
   // trader always stocks what the village makes. Off (and in runs from before the switch), the
   // terms are exactly as they were. With it, every trader (the caravan's merchant on the wagon
@@ -491,6 +492,39 @@ export function tradeTerms(s: RoadState): (Terms & { trader: string; name: strin
   const local = localMarket(villageOf(s));
   if (!local) return { ...base, buyBack: true };
   return { ...base, sells: [...stock.sells, ...local.plentiful.filter(g => !stock.sells.includes(g))], local, buyBack: true };
+}
+
+/**
+ * What the Warden's track record does to a trader's terms (#1663, consistency.ts): an erratic record
+ * is hedged, one that earned their trust gets the regular's rate. Nothing with the `consistency`
+ * switch off (and in every run from before it), or with no record yet, so the terms are today's.
+ */
+function recordTerms(s: RoadState, trader: string): Pick<Terms, 'hedge' | 'regular'> {
+  if (!featureOn(s.features, CONSISTENCY_FEATURE) || !s.helps?.length) return {};
+  const hedge = predictability(s.helps, trader, s.features).hedge;
+  const regular = recordTrust(s.helps, trader, s.features).credit;
+  return { ...(hedge !== 1 ? { hedge } : {}), ...(regular ? { regular } : {}) };
+}
+
+/**
+ * What a trader says of your record (#1663), on your first trade with them in a day: why the terms
+ * are what they are ("You always pay fair", "I never know where I stand with you"). Read from the
+ * record before this trade. Only with the `consistency` switch.
+ */
+function recordLines(next: RoadState, trader: string, name: string): void {
+  if (!featureOn(next.features, CONSISTENCY_FEATURE) || !next.helps?.length) return;
+  if (next.helps.some(d => d.who === trader && d.day === next.day)) return;
+  const said = [predictability(next.helps, trader, next.features).says, recordTrust(next.helps, trader, next.features).says].filter(Boolean);
+  if (said.length) say(next, `${name}: "${said.join(' ')}"`, 'action');
+}
+
+/**
+ * Record a deed of a track record that does nothing by itself (#1663): a job failed or left to
+ * expire. Only with both the `consistency` switch and the deed list `grudges-and-help` keeps.
+ */
+function recordDeed(next: RoadState, deed: HelpDeed): void {
+  if (!featureOn(next.features, CONSISTENCY_FEATURE) || !featureOn(next.features, HELP_FEATURE)) return;
+  next.helps = [...(next.helps ?? []), deed];
 }
 
 /** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */
@@ -537,6 +571,8 @@ function trade(next: RoadState, id: string): RoadState {
     next.stores[lot.item] += lot.qty;
     say(next, `Bought ${lot.qty} ${lot.item} from ${terms.name} for ${price} marks.`, 'action');
   }
+  // Why the terms are what they are (#1663), said on the first trade of the day.
+  recordLines(next, terms.trader, terms.name);
   // A fair trade, and custom if you've come back (#1659): recorded, and what it does read off the record.
   helped(next, { day: next.day, who: terms.trader, kind: selling ? 'sold' : 'bought' });
   const a = applyActivity(next.vitals, { hours: TRADE_HOURS, vigorRate: 0, clarityRate: -1 });
@@ -590,6 +626,8 @@ function accept(next: RoadState, qid: string): RoadState {
   const n = quest.needs;
   if (n.kind === 'deliver') next.stores[n.item] += n.qty;
   say(next, `${nameOf(quest.giver)}: "${quest.offer}" You take on ${quest.title}.`, 'action');
+  // They've heard you left the last job undone (#1663): they say so.
+  if (featureOn(next.features, CONSISTENCY_FEATURE) && next.helps && brokenWordKnown(next.helps, quest.giver, next.features)) say(next, `${nameOf(quest.giver)}: "Last time you promised the same."`, 'action');
   // They asked you for help (#1578): no one asks a favour of someone they don't trust a little.
   showsTruth(next, quest.giver);
   return next;
@@ -659,6 +697,7 @@ function expireQuests(next: RoadState, villageId: string): void {
     if (st !== 'active' || !quest || quest.village !== villageId || quest.needs.kind === 'deliver') continue;
     next.quests[qid] = 'expired';
     bump(next, quest.giver, -EXPIRE_TRUST);
+    recordDeed(next, { day: next.day, who: quest.giver, kind: 'expired', quest: qid });
     say(next, `${quest.title} is left undone — ${nameOf(quest.giver)} watches the caravan go.`, 'hardship');
   }
 }
@@ -676,6 +715,7 @@ function arriveWithDeliveries(next: RoadState, villageId: string): void {
     } else {
       next.quests[qid] = 'failed';
       bump(next, quest.giver, -DELIVER_FAIL_TRUST);
+      recordDeed(next, { day: next.day, who: quest.giver, kind: 'failed', quest: qid });
       say(next, `You reach ${nameOf(n.recipient)} without the ${n.item} ${nameOf(quest.giver)} trusted you with. Word will get back.`, 'hardship');
     }
   }
@@ -755,12 +795,14 @@ function askAbout(next: RoadState, pid: string): RoadState {
   const sent = sentTo(next.leads, pid, key) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
   // Someone caught in a greedy lie (#1660) guards what else they know: their gates read higher.
-  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid));
+  // Your track record moves them too (#1663): trusted, they confide sooner; erratic, they're wary.
+  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid) + recordGate(next.helps, pid, next.features));
   // Referrals (#1609) and what everyone knows (#1610, `factsFor`) are switchable rule features:
   // read from this run's saved switches, never a global. So is its villages' history (#1656,
   // `playFacts`): the run's facts are `factsFor`'s, with the history after them if its switch is on.
   // So are lies (#1580, `liesFor`): with `rumours-and-lies` off, none, and a liar says "not yet".
-  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
+  // With `run-rumours` on (#1662), the run's seed picks whether a pooled liar joins the written ones.
+  const r = ask(person, key, focusInline(f), brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), lies: liesOfRun(next), ...standingOf(next), ...keepingOf(next) });
   // Asked again after a lie, with what you've heard otherwise in hand, they answer for it (#1660).
   if (r.kind === 'again' && confront(next, person, key, focusInline(f))) return next;
   if (r.kind === 'again') { say(next, r.line, 'skip'); return next; }
@@ -791,7 +833,7 @@ function confront(next: RoadState, person: Person, key: string, about: string): 
   const pid = person.id;
   const asked = next.asked?.[pid] ?? [];
   if (!asked.includes(`${CLAIMED}${key}`) || asked.includes(`${CAUGHT}${key}`)) return false;
-  const lie = lieAbout(next.features, pid, key);
+  const lie = lieAbout(next.features, pid, key, seedOf(next.character.id));
   const heard = heardSoFar(next);
   if (!lie || !heard || !caughtOut(lie, heard, villagesVisited(next))) return false;
   spendTalk(next, ASK_HOURS);
@@ -883,7 +925,7 @@ function heardSoFar(s: RoadState): HeardClaim[] | null {
   if (!featureOn(s.features, 'rumours-and-lies')) return null;
   // Nothing told yet, nothing heard: the same empty list whatever the facts, so a run that hasn't
   // asked anyone never needs its history told (#1656) just to say so.
-  return Object.keys(s.asked ?? {}).length ? claimsHeard(s.asked, playFacts(s), liesFor(s.features)) : [];
+  return Object.keys(s.asked ?? {}).length ? claimsHeard(s.asked, playFacts(s), liesOfRun(s)) : [];
 }
 
 /** The claim `pid` has just made, if it's one the journal keeps: in what's been heard now and not `before`. */
@@ -977,13 +1019,13 @@ function knowingAnswer(next: RoadState, person: Person, topic: string): RoadStat
   const shown = (next.noticed?.[pid] ?? []).includes(topic) ? NOTICE_TRUST : 0;
   const sent = sentTo(next.leads, pid, topic) ? LEAD_TRUST : 0;
   const own = next.trust[pid] ?? 0;
-  // As for an ask: someone caught in a greedy lie (#1660) guards what else they know.
-  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid));
+  // As for an ask: someone caught in a greedy lie (#1660) guards what else they know, and your record moves them (#1663).
+  const brought = Math.max(0, own + shown + sent - guardOf(next.asked, next.features, pid) + recordGate(next.helps, pid, next.features));
   // The facts are the run's (#1610): with scope-facts on, what their village, the road and their trade know too.
   // Where they are nudges how openly they speak (#1619): `questionPlace` is undefined with its switch off.
   // Who they are in this run (#1631): with humans on the road, Maren answers for the Riksfolk.
   // Lies (#1580) are the run's too: with `rumours-and-lies` on, a liar answers a question as an ask.
-  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesFor(next.features), ...standingOf(next), ...keepingOf(next) });
+  const r = answerQuestion(asPlayed(person, next.features), topic, brought, next.asked?.[pid] ?? [], { referrals: featureOn(next.features, 'referrals'), facts: playFacts(next), place: questionPlace(next), lies: liesOfRun(next), ...standingOf(next), ...keepingOf(next) });
   const before = heardSoFar(next);
   if (r.kind === 'told' && !r.again) heardAnswer(next, pid, r.hearsay ? `${HEARSAY}${topic}` : topic, r.answer);
   if (r.kind === 'lied' && !r.again) heardLie(next, pid, topic, r.lie.text);

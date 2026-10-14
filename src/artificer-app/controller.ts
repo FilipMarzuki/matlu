@@ -13,7 +13,7 @@
 import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, sessionNote, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
-import type { HelpDeed } from '../artificer/help';
+import { DEED_KINDS, type HelpDeed } from '../artificer/help';
 import { leadOnLoad, type Lead } from '../artificer/asks';
 import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -21,6 +21,7 @@ import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { validExperiments } from '../artificer/experiment';
 import { validPatches } from '../artificer/action-length';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
@@ -402,9 +403,9 @@ export function serialize(a: AppState): string {
  * Parse a saved road (#1250), filling in fields a later Region 1.5 issue added. Null when
  * it isn't one — the same shape checks as the Reach: what the sim reads, then trust the rest.
  */
-/** A help deed as saved (#1659): a day, who, and a kind the road records. */
+/** A help deed as saved (#1659): a day, who, and a kind the road records (#1663: any of `DEED_KINDS`). */
 const isHelpDeed = (h: unknown): h is HelpDeed =>
-  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (h.kind === 'sold' || h.kind === 'bought' || h.kind === 'task') && (h.quest === undefined || typeof h.quest === 'string');
+  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (DEED_KINDS as readonly unknown[]).includes(h.kind) && (h.quest === undefined || typeof h.quest === 'string');
 
 function parseRoad(x: unknown): RoadState | null {
   if (!isObj(x)) return null;
@@ -599,5 +600,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Worked patches (#1668): written only by a session of chosen length; kept if well-formed, else
   // dropped — a dropped set reads as every patch fresh, which is how a save from before it plays.
   const patches = validPatches(sim.patches) && Object.keys(sim.patches).length ? { ...sim.patches } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Experiment progress (#1690): kept if well-formed, else dropped — as if none had been made yet.
+  const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

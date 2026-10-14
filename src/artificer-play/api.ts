@@ -600,7 +600,7 @@ function rulesBody(): Record<string, unknown> {
     rules: RULES,
     roadRules: ROAD_RULES,
     moves: {
-      do: 'One action now: "scout", "gather@2" (ring 2), or { "q": "build", "opts": { … } }. On the road: "rest", "talk:<person id>", "sell:<item>" …',
+      do: 'One action now: "explore", "gather@2" (ring 2), or { "q": "build", "opts": { … } }. On the road: "rest", "talk:<person id>", "sell:<item>" …',
       length: 'With the "action-length" feature, gathering (gather, wood, quarry, fish, water) can take a length: { "q": "wood@2", "hours": 3 } (1–14 hours or "day", walks included, played as trips out and back) or { "q": "wood", "until": 10 } (until the stores hold 10). In do and in plan. Without one, the usual length.',
       endDay: 'true: end the day; the night passes.',
       plan: 'A whole day\'s actions in order, once the Warden has learned to plan.',

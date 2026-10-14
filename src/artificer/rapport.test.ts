@@ -206,7 +206,7 @@ describe('Rapport, not a number (#1578)', () => {
   });
 
   // 10. Given ?dev=truths, the cards and sheets show the truth beside the felt word; nowhere else
-  // changes. Plain dev mode (on for everyone during the experiment) never shows it.
+  // changes. Plain dev mode (the in-game switch or ?dev) never shows it.
   it('shows the true trust beside the word only with ?dev=truths', () => {
     const r = { ...inHollowford(), trust: { ...inHollowford().trust, 'hf-maren': 33 } };
     expect(roadView(r, { person: 'hf-maren' })).not.toContain('devtruth');

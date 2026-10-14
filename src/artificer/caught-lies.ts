@@ -24,7 +24,7 @@
  */
 
 import { featureOn, type FeatureSwitches } from './features';
-import { lieById, liesFor, PROPOSITIONS, type LieEntry } from './claims';
+import { claimEntries, lieById, liesFor, PROPOSITIONS, type LieEntry } from './claims';
 import { tieEntries } from './ties';
 import type { HeardClaim } from './journal';
 
@@ -38,10 +38,24 @@ export const GUARDED = 10;
 /** The most a friend of a caught greedy liar cools, from someone who loves them (opinion 100); less as they like them less. */
 export const CAUGHT_WORD = 10;
 
-/** The lie `pid` told about `topic` in this run, as written, if they told one. */
-export function lieAbout(features: FeatureSwitches | undefined, pid: string, topic: string): LieEntry | undefined {
-  const lie = liesFor(features)[pid]?.find(l => l.about === topic);
+/**
+ * The lie `pid` tells about `topic` in this run, as written, if they tell one. `seed` is the run's
+ * (#1662): with `run-rumours` on, a pooled liar its seed picks lies too (claims.ts `liesFor`).
+ */
+export function lieAbout(features: FeatureSwitches | undefined, pid: string, topic: string, seed?: number): LieEntry | undefined {
+  const lie = liesFor(features, seed)[pid]?.find(l => l.about === topic);
   return lie?.id ? lieById(lie.id) : undefined;
+}
+
+/**
+ * The lie behind a `caught:<topic>` already kept: any lie `pid` could have told about `topic`, the
+ * pool's too (#1662). A confrontation is only ever kept for a lie the run had, so this needs no
+ * seed: with `rumours-and-lies` off, none, as before.
+ */
+function caughtLie(features: FeatureSwitches | undefined, pid: string, topic: string): LieEntry | undefined {
+  if (!featureOn(features, 'rumours-and-lies')) return undefined;
+  const { lies, poolLies } = claimEntries();
+  return [...lies, ...poolLies].find(l => l.person === pid && l.about === topic);
 }
 
 /**
@@ -58,7 +72,7 @@ export function caughtOut(lie: LieEntry, heard: readonly HeardClaim[], visited: 
 /** The lies `pid` has been caught in, in the order they were caught: what `asked` keeps. */
 export function caughtIn(asked: Readonly<Record<string, readonly string[]>> | undefined, features: FeatureSwitches | undefined, pid: string): LieEntry[] {
   return (asked?.[pid] ?? []).flatMap(k => {
-    const lie = k.startsWith(CAUGHT) ? lieAbout(features, pid, k.slice(CAUGHT.length)) : undefined;
+    const lie = k.startsWith(CAUGHT) ? caughtLie(features, pid, k.slice(CAUGHT.length)) : undefined;
     return lie ? [lie] : [];
   });
 }
