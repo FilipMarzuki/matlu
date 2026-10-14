@@ -177,6 +177,16 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'action-visibility', name: 'Learn your actions as you go', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1690,
     note: 'You start with one Explore action: scouting, surveying, looking out and tracking come as you get better at them (or from day one with a talent for it). Actions you don\'t know yet are hidden, ones you can\'t do right now are greyed out with the reason, and Experiment, with what you have at hand, can work out what you don\'t know yet.',
   },
+  {
+    // A rules feature: it adds rumours made from the run's own world (run-rumours.ts: its told
+    // history, the road's ties and organisations) and sometimes a fourth liar from a pool (claims.ts
+    // `liesFor`), so a run from before it (absent: false) keeps the written rumours and three liars
+    // on replay. Its rumours bend and travel as the written ones do and are told from the history,
+    // so they need `rumours-and-lies`, `rumour-drift` and `history-in-play` too; the pooled liar
+    // needs `rumours-and-lies`.
+    id: 'run-rumours', name: 'Rumours from this run\'s world', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1662,
+    note: 'Each run has rumours of its own, made from its history and its people: a quarrel at the market, a debt, a secret that leaked, the news from the country, an old disaster told bigger. Which of the road\'s people lie to you changes from run to run too.',
+  },
 ];
 
 /** Switches by feature id. */

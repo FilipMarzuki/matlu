@@ -10,7 +10,7 @@
 import { healerTarget, INJURY_NAME, HEAL_HOURS } from '../artificer/injuries';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, TEND_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, questionPlace, journalNow, type RoadState } from '../artificer/road';
 import { CLAIMED, HEARSAY, respondedOn, type JournalEntry } from '../artificer/journal';
-import { liesFor } from '../artificer/claims';
+import { liesOfRun } from '../artificer/claims';
 import { asPlayed, peopleOf, personById, VILLAGES, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, localFactor, KIND_OF, TRADE_HOURS, friendly, WANTED } from '../artificer/trade';
@@ -281,7 +281,7 @@ function conversation(r: RoadState, p: Person, told: number, ui: RoadUi): string
     // A lie told instead of an answer (#1580): it reads like any other, since that's what it was.
     if (k.startsWith(CLAIMED)) {
       const topic = k.slice(CLAIMED.length);
-      const lie = liesFor(r.features)[p.id]?.find(l => l.about === topic);
+      const lie = liesOfRun(r)[p.id]?.find(l => l.about === topic);
       const about = parseFocus(topic);
       return lie ? `<p class="mood told"><b>${esc(about ? focusLabel(about) : topic)}</b> — “${esc(lie.text)}”</p>` : '';
     }
