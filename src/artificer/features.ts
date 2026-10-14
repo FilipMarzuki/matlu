@@ -177,6 +177,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'action-visibility', name: 'Learn your actions as you go', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1690,
     note: 'You start with one Explore action: scouting, surveying, looking out and tracking come as you get better at them (or from day one with a talent for it). Actions you don\'t know yet are hidden, ones you can\'t do right now are greyed out with the reason, and Experiment, with what you have at hand, can work out what you don\'t know yet.',
   },
+  {
+    // A rules feature: it changes what the Warden knows of the land and how it's shown (a
+    // description in words until they draw their own map, descriptive-map.ts), and adds a journal
+    // line when the map is drawn, so a run from before it (absent: false) keeps the Reach map on replay.
+    id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
+    note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
+  },
 ];
 
 /** Switches by feature id. */

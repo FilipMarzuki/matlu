@@ -14,7 +14,8 @@
 
 import './style.css';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
-import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { describeLand, drawnSight, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { repack, visibilityOn, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
@@ -37,7 +38,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
-import { SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
+import { hasKit, SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
 import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { isSelfKnowledge } from '../artificer/self-knowledge';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
@@ -403,13 +404,33 @@ const MAP_LEGEND = `<div class="legend maplegend">${(['meadow', 'heath', 'birch'
 /** The world the MAP tab last drew: a new run is a new Reach, so its open settlement and tapped square go. */
 let mapSeed: number | null = null;
 
+/**
+ * The MAP tab before you've drawn a map (#1686, `descriptive-map`): no grid, just what you know of
+ * the land as a scout would tell it, from camp, and what it'd take to draw a map of your own.
+ */
+function describedMapTab(a: AppState): string {
+  const compass = hasKit(a.sim, 'map-compass');
+  const lines = describeLand(a.sim).map(l => `<li>${esc(l)}</li>`).join('');
+  const needs = mapNeeds(a.sim);
+  const intro = compass
+    ? 'The map in your pack shows somewhere else entirely; this world isn\'t on it. But the compass still points north, so you know your bearings.'
+    : 'There\'s no map of this world, and no compass to take a bearing by. You know the land the way you\'d tell it to a friend.';
+  return `<section class="box"><p class="eyebrow">THE LAND — what you know of it, from camp</p>
+    <p class="mapinfo">${esc(intro)}</p>
+    <ul class="landwords">${lines}</ul>
+    <p class="mood">Explore to learn more of it: scouting adds places further out, and surveying makes the distances sure.${needs.length ? ` To draw a map of your own you need ${esc(needs.join(' and '))}.` : ''}</p></section>`;
+}
+
 function mapTab(a: AppState): string {
+  const mode = mapMode(a.sim);
+  if (mode === 'described') return describedMapTab(a);
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
   if (mapSettlement) return settlementView(a, mapSettlement);
   const provinces = provincesFor(a.sim.character.id);
   const seatAt = new Map(provinces.list.map(p => [p.seat.y * r.w + p.seat.x, p]));
-  const sight = sightFor(r, a.sim.explore);
+  // Your own drawn map (#1686) shows only what you've seen; with the switch off, the Reach map as before.
+  const sight = mode === 'drawn' ? drawnSight(a.sim) : sightFor(r, a.sim.explore);
   const rows = mapRows(r, sight);
   const grid = rows.map((row, y) => [...row].map((ch, x) => {
     // Glimpsed squares (only suspected so far) draw dimmer than ones you've surveyed or worked.
@@ -425,10 +446,14 @@ function mapTab(a: AppState): string {
     : 'Unknown ground. Scout the rings further out to learn it.';
   const seatHere = known && mapCell ? seatAt.get(mapCell.y * r.w + mapCell.x) : undefined;
   const enter = seatHere ? `<p class="mapinfo"><b>${esc(seatHere.name)}</b> stands here. <button class="pill" data-settle="${seatHere.id}">ENTER ${esc(seatHere.name.toUpperCase())}</button></p>` : '';
-  return `<section class="box"><p class="eyebrow">THE REACH — a map of what you know</p>
-    <div class="mapwrap"><pre class="reachmap" aria-label="Map of the Reach: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
-    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}
-    <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. You see what's within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).</p></section>`;
+  const drawn = mode === 'drawn';
+  const words = drawn ? `<ul class="landwords">${describeLand(a.sim).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  return `<section class="box"><p class="eyebrow">${drawn ? 'YOUR MAP — drawn from what you\'ve seen' : 'THE REACH — a map of what you know'}</p>
+    <div class="mapwrap"><pre class="reachmap" aria-label="${drawn ? 'Your map' : 'Map of the Reach'}: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
+    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}${words}
+    <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. ${drawn
+      ? (hasKit(a.sim, 'map-compass') ? 'Drawn true to the compass: what\'s within two hours of camp, the rings you\'ve glimpsed (dim), and those you know (bright).' : 'Drawn without a compass: ground you\'ve only glimpsed from afar can\'t be placed yet, so it stays off until you know it.')
+      : 'You see what\'s within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).'}</p></section>`;
 }
 
 /**
@@ -765,7 +790,7 @@ function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
   return [...withCampLine(a.sim.log)].reverse().slice(0, limit).map((l: LogEntry) => {
     return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
-  }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
+  }).join('') || `<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. ${visibilityOn(a.sim) ? 'Explore' : 'Scout'} before anything else — you don't yet know where food, water or wood are.</li>`;
 }
 
 type Preview = ReturnType<typeof previewQueue>;
