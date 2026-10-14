@@ -292,7 +292,7 @@ export function wearDown(stats: Readonly<Stats>, growth: Growth, id: StatId): { 
 }
 
 /** What the journal says when a stat rises — felt, not hidden. */
-const GAIN_WORDS: Readonly<Record<StatId, string>> = {
+export const GAIN_WORDS: Readonly<Record<StatId, string>> = {
   str: 'The heavy work has hardened your arms', agi: 'You move quicker and surer than you did', int: 'Using your head has sharpened it',
   wil: 'Pushing on when you were spent has steeled you', con: 'Hardship has toughened you', cha: 'Talking to people has come easier',
 };

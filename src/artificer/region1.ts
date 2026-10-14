@@ -2762,7 +2762,7 @@ export function setEating(s: Region1State, plan: EatingPlan): Region1State {
 }
 
 /** How the thaw finds a Warden of each grade. */
-const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
+export const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
   hale: 'hale, and stronger for it.',
   worn: 'worn thin, but standing.',
   broken: 'barely. It will be a long time before you are right.',

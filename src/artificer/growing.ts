@@ -39,7 +39,7 @@ export function grownStats(adult: Readonly<Stats>, age: number | undefined): Sta
 
 export const isYoung = (age: number | undefined): boolean => age !== undefined && age < ADULT_AGE;
 
-const GREW: Readonly<Record<StatId, string>> = { str: 'and stronger', con: 'and tougher', agi: 'and quicker on your feet', int: 'and sharper', wil: 'and steadier', cha: 'and surer of yourself' };
+export const GREW: Readonly<Record<StatId, string>> = { str: 'and stronger', con: 'and tougher', agi: 'and quicker on your feet', int: 'and sharper', wil: 'and steadier', cha: 'and surer of yourself' };
 
 /**
  * The journal line a new run opens with, a year on: what grew most this year (the stat furthest

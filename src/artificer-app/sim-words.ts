@@ -22,10 +22,10 @@
  */
 
 import { en } from '../artificer/i18n/en';
-import type { Key, T } from '../artificer/i18n';
+import { fill, type Key, type T } from '../artificer/i18n';
 import type { Ring } from '../artificer/exploration';
-import type { ActionId, OptionChoice, OptionGroup, SiteId } from '../artificer/region1';
-import { focusLabel, type Focus } from '../artificer/focus';
+import { ACTIONS, type ActionId, type OptionChoice, type OptionGroup, type SiteId } from '../artificer/region1';
+import { focusInline, focusKey, focusLabel, parseFocus, FOCUS_KEYS, type Focus } from '../artificer/focus';
 import { seasonOf, type Calendar } from '../artificer/winter';
 import { statEffects, DEFAULT_STATS, type StatId } from '../artificer/stats';
 import type { KitId } from '../artificer/kit';
@@ -33,6 +33,11 @@ import type { RankName } from '../rank-names';
 import type { WeatherId } from '../artificer/world';
 import { campBiome, descriptiveMapOn, knownPlaces, mapNeedIds, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
 import { BIOME_NAME, YIELDS, ringOfHours, type Reach } from '../artificer/world/reach';
+import { TOPICS, TOPIC_KINDS } from '../artificer/topics';
+import { VILLAGES, TRAVELLERS } from '../artificer/villages';
+import { QUESTS } from '../artificer/quests';
+import { LEVELS } from '../artificer/skills';
+import { NUMBER_WORDS } from '../artificer/claims';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
@@ -54,14 +59,40 @@ export const kitName = (id: KitId, t: T): string => t(`kit.${id}`);
 /** A concept by id: one of the six a Warden starts among has a catalog name; the wider web keeps the registry's for now. */
 export const conceptName = (id: string, t: T): string => tOr(t, `concept.${id}`, focusLabel({ kind: 'concept', id }));
 
-/** What the mind is on, as the status chip and the picker name it. Topics (the road's) keep the sim's words until phase 3. */
+/**
+ * A topic the mind can be on (topics.ts, #1494), by its key (`material:iron`, `person:hf-maren`):
+ * on its own (`inline` false: a chip, a heading) or mid-sentence. People and places are names; a
+ * quest is its title; a People is its name (#1709).
+ */
+export function topicText(key: string, t: T, inline = false): string {
+  const at = key.indexOf(':');
+  const kind = key.slice(0, at), id = key.slice(at + 1);
+  const f = parseFocus(key);
+  const english = f ? (inline ? focusInline(f) : focusLabel(f)) : id;
+  if (kind === 'quest') return tOr(t, `quest.${id}.title`, english);
+  if (kind === 'group' && isKey(`people.${id}`)) return t(`people.${id}` as Key);
+  return tOr(t, `topic.${kind}.${id}${inline ? '.in' : ''}`, english);
+}
+
+/** What the mind is on, as the status chip and the picker name it. */
 export function focusName(f: Focus | null, t: T): string {
   if (!f) return t('focus.noneShort');
   if (f.kind === 'goal') return t(`goal.${f.id}`);
   if (f.kind === 'skill') return t(`skill.${f.id}`);
   if (f.kind === 'concept') return conceptName(f.id, t);
-  return focusLabel(f);
+  return topicText(focusKey(f), t);
 }
+
+/** A focus mid-sentence (focus.ts focusInline): "iron", "the Compact"; a skill or concept by its name, lowercased. */
+export function focusInlineText(f: Focus, t: T): string {
+  if (f.kind === 'skill') return t(`skill.${f.id}`).toLowerCase();
+  if (f.kind === 'concept') return conceptName(f.id, t).toLowerCase();
+  if (f.kind === 'goal') return t(`goal.${f.id}`).toLowerCase();
+  return topicText(focusKey(f), t, true);
+}
+
+/** A focus key mid-sentence, or the key itself if it doesn't parse. */
+export const aboutKeyText = (key: string, t: T): string => { const f = parseFocus(key); return f ? focusInlineText(f, t) : key; };
 
 /** The weather's name on a day: snow and storms take their winter names once winter comes (as weather.ts weatherName). */
 export function weatherWord(w: WeatherId, day: number, cal: Calendar, t: T): string {
@@ -102,59 +133,267 @@ const storeOf = (v: string): StoreKey | undefined =>
 const recipeOf = (v: string): string | undefined =>
   (Object.keys(en) as Key[]).find(k => k.startsWith('recipe.') && en[k].toLowerCase() === v.toLowerCase())?.slice('recipe.'.length);
 
-const NUMBER = /^[−+]?\d+(\.\d+)?$/;
+const NUMBER = /^[−+-]?\d+(\.\d+)?$/;
+
+/** A good as the road names it (#1709): a store by its key or word ("rawFood", "food"), a tool by its id or name ("stone-knife", "stone knife"). */
+export function goodName(v: string, t: T): string | undefined {
+  const k = storeOf(v);
+  if (k) return t(`storeword.${k}`);
+  const dashed = v.replace(/ /g, '-');
+  const id = isKey(`recipe.${v}`) ? v : isKey(`recipe.${dashed}`) ? dashed : recipeOf(v) ?? recipeOf(v.replace(/-/g, ' '));
+  return id ? recipeName(id, t).toLowerCase() : undefined;
+}
+
+/** A technique by its English name, mid-sentence ("reading the grain"). */
+const techOf = (v: string): string | undefined =>
+  (Object.keys(en) as Key[]).find(k => /^tech\.[^.]+$/.test(k) && en[k].toLowerCase() === v.toLowerCase())?.slice('tech.'.length);
+/** A skill by its English name, mid-sentence ("foraging", "first aid"). */
+const skillOf = (v: string): Key | undefined =>
+  (Object.keys(en) as Key[]).find(k => k.startsWith('skill.') && en[k].toLowerCase() === v.toLowerCase());
+/** A topic by how it reads mid-sentence in English ("iron", "the Compact", "Kestrel Gate"). */
+const aboutOf = (v: string): string | undefined => {
+  for (const kind of TOPIC_KINDS) for (const [id, d] of Object.entries(TOPICS[kind])) if (d.inline === v) return `${kind}:${id}`;
+  return undefined;
+};
+/** A list of names as the sim joins them ("Orrin, Tobin and Maren"), joined again in the viewer's language. */
+const namesText = (v: string, t: T): string => {
+  const names = v.split(/, | and /);
+  return names.length > 1 ? t('road.and', { a: names.slice(0, -1).join(', '), b: names.at(-1)! }) : v;
+};
+
+/** Everyone on the road, by name: a `{who}` must be one of them. */
+const ROAD_NAMES: ReadonlySet<string> = new Set([...Object.values(VILLAGES).flatMap(v => v.people), ...TRAVELLERS].map(p => p.name));
+
+/** The small words a template picks among (`{w}`, the `w.*` keys), by their English. */
+const WORDS: ReadonlyMap<string, Key> = new Map((Object.keys(en) as Key[]).filter(k => k.startsWith('w.')).reverse().map(k => [en[k] as string, k]));
+const WORD_TEXTS: readonly string[] = [...WORDS.keys()];
+/** What an experiment can work with (experiment.ts WORD), as the `w.stuff.*` words. */
+const STUFF_TEXTS: readonly string[] = (Object.keys(en) as Key[]).filter(k => k.startsWith('w.stuff.')).map(k => en[k]);
+/** A regular expression that matches exactly one of `texts`, longest first. */
+function alternation(texts: readonly string[]): string {
+  return [...texts].sort((a, b) => b.length - a.length).map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+}
+/** A word by its English, in the viewer's language (keeping a capital the English had). */
+const wordText = (v: string, t: T): string | undefined => {
+  const k = WORDS.get(v) ?? WORDS.get(v[0]?.toLowerCase() + v.slice(1));
+  if (!k) return undefined;
+  const said = t(k);
+  return WORDS.has(v) ? said : said[0].toUpperCase() + said.slice(1);
+};
+/** The things an experiment worked with, said again: each known phrase in turn, joined the viewer's way. */
+const stuffText = (v: string, t: T): string => {
+  const bits: string[] = [];
+  let rest = v;
+  while (rest) {
+    const hit = [...STUFF_TEXTS].sort((a, b) => b.length - a.length).find(s => rest.startsWith(s));
+    if (!hit) return v;
+    bits.push(wordText(hit, t)!);
+    rest = rest.slice(hit.length).replace(/^(, | and )/, '');
+  }
+  return bits.length > 1 ? t('road.and', { a: bits.slice(0, -1).join(', '), b: bits.at(-1)! }) : bits[0] ?? v;
+};
+/** An action by its name as the sim writes it ("Craft basket", "Gather food"): the catalog's name for it. */
+const actionOf = (v: string): ActionId | undefined => (Object.keys(ACTIONS) as ActionId[]).find(id => ACTIONS[id].name === v);
+/** What survival has locked the mind on, or a focus, by its English name: goal, skill, concept or topic. */
+const focusOfName = (v: string): Focus | undefined => {
+  for (const key of FOCUS_KEYS) { const f = parseFocus(key); if (f && focusLabel(f) === v) return f; }
+  return undefined;
+};
+
+/**
+ * What a part may look like, when that's narrower than "anything": a number, an ordinal, or the
+ * optional " in the far ring" a trip's line carries (#1709). Narrow patterns let a template with
+ * several parts in a row match the one way it was meant to.
+ */
+/** A number as the sim writes one: a sign (a real minus, or a hyphen in "-5 °C"), digits, maybe a decimal. */
+const NUM = '[−+-]?\\d+(?:\\.\\d+)?';
+const PATTERN: Readonly<Record<string, string>> = {
+  n: NUM, m: NUM, h: NUM, have: NUM,
+  nth: '\\d+(?:st|nd|rd|th)',
+  where: '(?: in the (?:near|far|distant) ring)?',
+  // One of the `w.*` words, and nothing else: so "{w} ({w2})" can only split where the words are.
+  w: alternation(WORD_TEXTS),
+  // What an experiment works with ("the hide and cord and sticks"): the words, joined.
+  stuff: `(?:${alternation(STUFF_TEXTS)})(?:(?:, | and )(?:${alternation(STUFF_TEXTS)}))*`,
+  // A number as people say it (claims.ts NUMBER_WORDS): in words up to twenty, then in figures.
+  num: `(?:${alternation(NUMBER_WORDS)}|\\d+)`,
+  // A quest by its title, and nothing else: "{quest} {why}" splits where the title ends.
+  quest: alternation(QUESTS.map(q => q.title)),
+};
+/** A part's name without a trailing digit: `say2` is a `say`, `n2` a number. */
+const baseOf = (name: string): string => name.replace(/\d+$/, '');
 
 /**
  * One varying part of a sim sentence, said in the viewer's language — or undefined when it isn't
  * a value this part can be (then the template doesn't match after all, and the next is tried).
  */
 function part(name: string, v: string, t: T): string | undefined {
-  switch (name) {
+  switch (baseOf(name)) {
     case 'n': case 'm': case 'h': case 't': case 'have': return NUMBER.test(v) ? v : undefined;
+    // "2nd night running": the ordinal's own ending in each language.
+    case 'nth': { const m = v.match(/^(\d+)(st|nd|rd|th)$/); return m ? t(`ord.${m[2] as 'st'}`, { n: m[1] }) : undefined; }
+    // " in the far ring", or nothing: where a trip went.
+    case 'where': {
+      if (v === '') return '';
+      const r = ([1, 2, 3] as const).find(x => ` in ${en[`ring.the.${x}`]}` === v);
+      return r ? ` ${t('ring.in', { ring: t(`ring.the.${r}`) })}` : undefined;
+    }
     case 'theRing': { const r = ([1, 2, 3] as const).find(x => en[`ring.the.${x}`] === v); return r ? t(`ring.the.${r}`) : undefined; }
     case 'verb': return v === 'explore' || v === 'scout' ? t(`verb.${v}`) : undefined;
     case 'grade': return isKey(`grade.${v}`) ? t(`grade.${v}` as Key) : undefined;
     case 'recipe': { const id = recipeOf(v); return id ? recipeName(id, t).toLowerCase() : undefined; }
+    // A recipe by name at the head of a line ("Worked out: Brush hut"), with its capital.
+    case 'Recipe': { const id = recipeOf(v); return id ? recipeName(id, t) : undefined; }
     case 'store': case 'item': { const k = storeOf(v); return k ? t(`storeword.${k}`) : undefined; }
+    case 'good': return goodName(v, t);
     // The sim names the action by its id here ("explore isn't part of this game's rules").
     case 'action': return isKey(`act.${v}`) ? t(`act.${v}` as Key).toLowerCase() : undefined;
-    case 'concept': return conceptName(v, t).toLowerCase();
+    // An action by its English name, as it heads a refusal ("Craft basket: skipped — ...").
+    case 'act': { const k = (Object.keys(en) as Key[]).find(x => x.startsWith('act.') && en[x] === v); return k ? t(k) : undefined; }
+    // The sim names a concept by its id ("weaving"); read back in English, it stays the id.
+    case 'concept': return !/^[a-z][a-z-]*$/.test(v) ? undefined : t === enT ? v : conceptName(v, t).toLowerCase();
+    case 'skill': { const k = skillOf(v); return k ? t(k).toLowerCase() : undefined; }
+    case 'Skill': { const k = skillOf(v); return k ? t(k) : undefined; }
+    case 'tech': { const id = techOf(v); return id ? t(`tech.${id}` as Key).toLowerCase() : undefined; }
+    case 'about': {
+      const key = aboutOf(v);
+      if (key) return topicText(key, t, true);
+      const sk = skillOf(v);
+      if (sk) return t(sk).toLowerCase();
+      // A concept by its id: one of the six by the catalog's name, one from the wider web by the registry's.
+      return isKey(`concept.${v}`) || parseFocus(`concept:${v}`) ? conceptName(v, t).toLowerCase() : undefined;
+    }
+    case 'injury': { const k = (['sprain', 'hand', 'cut'] as const).find(x => en[`injury.${x}`] === v); return k ? t(`injury.${k}`) : undefined; }
+    case 'names': return namesText(v, t);
+    case 'num': { const i = NUMBER_WORDS.indexOf(v); return i >= 0 ? t(`num.${i}` as Key) : /^\d+$/.test(v) ? v : undefined; }
     // "2 materials + 4 stone": each amount in turn.
     case 'cost': {
       // A recipe's cost may carry its hours after it ("3 materials · 5h"), which read the same in any language.
-      const [, amounts, hours] = v.match(/^(.*?)((?: · [\d.]+h)?)$/)!;
+      const [, amounts, hours] = v.match(/^(.*?)((?: · [\d.]+h)?)$/s)!;
       const bits = amounts.split(' + ').map(b => { const m = b.match(/^(\d+) (\w+)$/); const k = m && storeOf(m[2]); return m && k ? `${m[1]} ${t(`storeword.${k}`)}` : undefined; });
       return bits.every(Boolean) ? bits.join(' + ') + hours : undefined;
     }
     // A list of recipes or concepts ("snare, brush hut"; "tension or leverage"): each word that has a name gets it.
     case 'list': return v.split(/(, | or )/).map(w => (w === ', ' || w === ' or ' ? w : recipeOf(w) ? recipeName(recipeOf(w)!, t).toLowerCase() : conceptName(w, t).toLowerCase())).join('');
-    // Anything else (a station's name) is a name, and stays as written.
+    // Something said in full (a person's line, an encounter's outcome): its own words, else read as a sentence of its own.
+    case 'say': {
+      const k = BY_TEXT.get(v);
+      if (k) return t(k);
+      // A line the catalog has in quotes (the caravan meeting's), quoted again by the journal: without its own quotes.
+      const q = BY_TEXT.get(`"${v}"`);
+      return q ? t(q).replace(/^"|"$/g, '') : simLine(v, t);
+    }
+    // A whole sentence inside another ("Craft basket: skipped — {why}."), or the rest of one: read on its own.
+    case 'line': case 'why': case 'rest': return simLine(v, t);
+    // One of the small words (`w.*`): an accident's ground, an injury's name, a luck's reason...
+    case 'w': return wordText(v, t);
+    case 'stuff': return stuffText(v, t);
+    // What heads a refusal or an outcome: an action ("Craft basket"), a road verb ("Sell"), or an option said whole.
+    case 'head': {
+      const id = actionOf(v);
+      if (id) return t(`act.${id}`);
+      const k = BY_TEXT.get(v);
+      return k ? t(k) : wordText(v, t);
+    }
+    // An option's label mid-sentence ("You meant to climb a tree"): said whole, its first letter down.
+    case 'opt': { const k = BY_TEXT.get(v[0]?.toUpperCase() + v.slice(1)); if (!k) return undefined; const s = t(k); return s[0].toLowerCase() + s.slice(1); }
+    case 'fear': return wordText(v, t);
+    case 'how': { const k = BY_TEXT.get(v); return k ? t(k) : undefined; }
+    case 'lock': return lockText(v, t);
+    case 'focus': { const f = focusOfName(v); return f ? focusName(f, t) : undefined; }
+    case 'talent': { const k = (Object.keys(en) as Key[]).find(x => /^talent\.[^.]+$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'stat': { const k = (Object.keys(en) as Key[]).find(x => /^stat\.[^.]+$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'weather': { const k = (Object.keys(en) as Key[]).find(x => x.startsWith('weather.') && en[x].toLowerCase() === v); return k ? t(k).toLowerCase() : undefined; }
+    case 'site': { const k = (Object.keys(en) as Key[]).find(x => /^site\.[a-z]+$/.test(x) && en[x].toLowerCase() === v); return k ? t(k).toLowerCase() : undefined; }
+    case 'ringword': { const r = ([1, 2, 3] as const).find(x => en[`ring.${x}`].toLowerCase() === v); return r ? t(`ring.${r}`).toLowerCase() : undefined; }
+    // What's left behind ("3 stone and 1 hide"): each amount, by the load's names.
+    case 'loads': {
+      const bits = v.split(/, | and /).map(b => { const m = b.match(/^(\d+) (.+)$/); const k = m && WORDS.get(m[2]); return m && k?.startsWith('w.load.') ? `${m[1]} ${t(k)}` : undefined; });
+      return bits.every(Boolean) ? (bits.length > 1 ? t('road.and', { a: bits.slice(0, -1).join(', '), b: bits.at(-1)! }) : bits[0]) : undefined;
+    }
+    // What the last Warden left ("a fine stone-knife, a sound basket"): each tool and its grade.
+    case 'tools': {
+      const bits = v.split(', ').map(b => { const m = b.match(/^a (\w+) (.+)$/); const name = m && goodName(m[2], t); return m && name && isKey(`grade.${m[1]}`) ? `${name} (${t(`grade.${m[1]}` as Key)})` : undefined; });
+      return bits.every(Boolean) ? bits.join(', ') : undefined;
+    }
+    // Someone on the road, by name (names are the same in every language), or a list of them.
+    case 'who': return ROAD_NAMES.has(v) ? v : undefined;
+    // A quest by its title.
+    case 'quest': { const q = QUESTS.find(x => x.title === v); return q ? t(`quest.${q.id}.title` as Key) : undefined; }
+    // What a quest paid ("6 marks, 2 rations, the hide-parka recipe").
+    case 'rewards': {
+      const bits = v.split(', ').map(b => {
+        let m = b.match(/^(\d+) marks$/);
+        if (m) return t('reward.marks', { n: m[1] });
+        m = b.match(/^the (.+) recipe$/);
+        if (m) { const g = goodName(m[1], t); return g ? t('reward.recipe', { item: g }) : undefined; }
+        m = b.match(/^(\d+) (.+)$/);
+        const g = m && goodName(m[2], t);
+        return m && g ? t('reward.item', { n: m[1], item: g }) : undefined;
+      });
+      return bits.every(Boolean) ? bits.join(', ') : undefined;
+    }
+    // What a free question was about: a topic, a skill or a concept, said as a focus is; else (a people's
+    // ways, the village's past: #1709 leaves those for a follow-up and phase 4) as the sim said it.
+    case 'qabout': return part('about', v, t) ?? v;
+    case 'level': { const i = LEVELS.indexOf(v as (typeof LEVELS)[number]); return i >= 0 ? t(`level.${i}` as Key) : undefined; }
+    case 'talentlow': { const k = (Object.keys(en) as Key[]).find(x => /^talent\.[^.]+$/.test(x) && en[x].toLowerCase() === v); return k ? t(k).toLowerCase() : undefined; }
+    // A skill by its id, as an encounter's requirement names it ("needs hunting 3").
+    case 'skillid': return isKey(`skill.${v}`) ? t(`skill.${v}` as Key).toLowerCase() : undefined;
+    case 'statshort': { const k = (Object.keys(en) as Key[]).find(x => /^stat\.[a-z]+\.short$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'kitlow': { const k = (Object.keys(en) as Key[]).find(x => /^kit\.[a-z-]+$/.test(x) && en[x].toLowerCase() === v); return k ? t(k).toLowerCase() : undefined; }
+    // A topic as an encounter's requirement words it (`place:kestrel-gate` → "kestrel gate").
+    case 'keywords': {
+      for (const kind of TOPIC_KINDS) for (const id of Object.keys(TOPICS[kind])) if (id.replace(/-/g, ' ') === v) return topicText(`${kind}:${id}`, t, true);
+      const sk = skillOf(v);
+      return sk ? t(sk).toLowerCase() : undefined;
+    }
+    // Concept ranks a new run carries ("joinery 2, tension 1").
+    case 'ranks': return v.split(', ').map(b => { const m = b.match(/^(\S+) (\d+)$/); return m ? `${conceptName(m[1], t).toLowerCase()} ${m[2]}` : b; }).join(', ');
+    // Anything else (a person's or a station's name) is a name, and stays as written.
     default: return v;
   }
 }
 
-/** The templates `simLine` knows: every reason, option note and label the sim writes as English. */
-const TEMPLATE_KEYS = (Object.keys(en) as Key[]).filter(k => k.startsWith('reason.') || (k.startsWith('opt.') && /\{|\s/.test(en[k])));
+// ── Lines said in full (#1709): what people say, encounters, techniques ─────
+
+/** The catalog areas whose English is a whole line the sim hands over as it is (a lore line, an encounter's text). */
+const PHRASE_AREAS = ['person.', 'quest.', 'ans.', 'tell.', 'sign.', 'tech.', 'econ.', 'harmlore.', 'deflect.', 'phr.', 'enc.', 'meet.', 'say.', 'fact.', 'claim.'];
+/** Each such line by its English (the first key wins when two areas say the same thing). */
+const BY_TEXT: ReadonlyMap<string, Key> = new Map((Object.keys(en) as Key[]).filter(k => PHRASE_AREAS.some(a => k.startsWith(a))).reverse().map(k => [en[k] as string, k]));
+
+/** The catalog key of a line the sim hands over whole (a person's lore line, an encounter's outcome), if it has one. */
+export const phraseKey = (text: string): Key | undefined => BY_TEXT.get(text);
+
+/** A line the sim hands over whole, in the viewer's language; as it came when the catalog doesn't have it. */
+export const phrase = (text: string, t: T): string => { const k = BY_TEXT.get(text); return k ? t(k) : text; };
+
+/**
+ * The templates `simLine` knows: every reason, option note and label the sim writes as English
+ * (#1707), and every journal line it writes (`log.*`, #1709).
+ */
+const TEMPLATE_KEYS = (Object.keys(en) as Key[]).filter(k => k.startsWith('reason.') || k.startsWith('log.') || (k.startsWith('opt.') && /\{|\s/.test(en[k])));
 
 interface Template { key: Key; re: RegExp; vars: string[] }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Each template as a regular expression, its `{vars}` as lazy groups. The ones with more fixed
- * words go first, so "you already have sound cold gear" is tried before "you already have {n} {store}".
+ * Each template as a regular expression, its `{vars}` as groups (lazy, or a part's own pattern).
+ * The ones with more fixed words go first, so "you already have sound cold gear" is tried before
+ * "you already have {n} {store}".
  */
 const TEMPLATES: readonly Template[] = TEMPLATE_KEYS.map(key => {
   const vars: string[] = [];
   const src = en[key].split(/(\{\w+\})/).map(bit => {
     const v = bit.match(/^\{(\w+)\}$/);
-    if (v) { vars.push(v[1]); return '(.+?)'; }
+    if (v) { vars.push(v[1]); return `(${PATTERN[baseOf(v[1])] ?? '.+?'})`; }
     return escapeRe(bit);
   }).join('');
-  return { key, re: new RegExp(`^${src}$`), vars };
+  return { key, re: new RegExp(`^${src}$`, 's'), vars };
 }).sort((a, b) => en[b.key].replace(/\{\w+\}/g, '').length - en[a.key].replace(/\{\w+\}/g, '').length);
 
 /** English straight from the catalog, for checking a part's value without saying it in any language. */
-const enT: T = key => en[key];
+const enT: T = (key, vars) => fill(en[key], vars);
 
 /** The template an English sim line matches, with its parts as the sim wrote them; null when none does. */
 export function matchSimLine(line: string): { key: Key; vars: Record<string, string> } | null {
@@ -168,12 +407,43 @@ export function matchSimLine(line: string): { key: Key; vars: Record<string, str
   return null;
 }
 
-/** A sentence the sim wrote in English, in the viewer's language; as it came when no template matches. */
-export function simLine(line: string, t: T): string {
+/** What's been read already, per `t`: a journal is drawn again on every tap, and its lines don't change. */
+const READ = new WeakMap<T, Map<string, string>>();
+
+/** A line read through its template (or found whole) and said with `t`; the line itself when neither. */
+function readLine(line: string, t: T): string {
+  const k = BY_TEXT.get(line);
+  if (k) return t(k);
   const m = matchSimLine(line);
-  if (!m) return line;
-  const vars = Object.fromEntries(Object.entries(m.vars).map(([k, v]) => [k, part(k, v, t) ?? v]));
-  return t(m.key, vars);
+  return m ? t(m.key, Object.fromEntries(Object.entries(m.vars).map(([name, v]) => [name, part(name, v, t) ?? v]))) : line;
+}
+
+/**
+ * A line read back into English: its template filled with the parts exactly as the sim wrote them
+ * (or the line found whole). What sim-words.test.ts compares with the line itself, so a template's
+ * fixed words can't drift from what the sim writes. Null when nothing reads it.
+ */
+export function readBack(line: string): string | null {
+  const k = BY_TEXT.get(line);
+  if (k) return en[k];
+  const m = matchSimLine(line);
+  return m ? fill(en[m.key], m.vars) : null;
+}
+
+/**
+ * A sentence the sim wrote in English, in the viewer's language; as it came when no template
+ * matches. A line said whole (a person's, an encounter's) is looked up first, then the templates.
+ * In English it's the sim's own line, untouched: the page shows exactly what the AI and the API read.
+ */
+export function simLine(line: string, t: T): string {
+  if (t('lang.name') === en['lang.name']) return line;
+  let seen = READ.get(t);
+  if (!seen) READ.set(t, (seen = new Map()));
+  const known = seen.get(line);
+  if (known !== undefined) return known;
+  const out = readLine(line, t);
+  seen.set(line, out);
+  return out;
 }
 
 // ── A queued action's options ───────────────────────────────────────────────

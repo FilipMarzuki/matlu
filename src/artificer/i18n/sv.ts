@@ -3,6 +3,12 @@ import { openingSv } from './sv/opening';
 import { kitSv } from './sv/kit';
 import { campSv } from './sv/camp';
 import { mapSv } from './sv/map';
+import { roadSv } from './sv/road';
+import { peopleSv } from './sv/people';
+import { journalSv } from './sv/journal';
+import { roadlogSv } from './sv/roadlog';
+import { encountersSv } from './sv/encounters';
+import { claimsSv } from './sv/claims';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -248,4 +254,10 @@ export const sv: Catalog = {
   ...kitSv,
   ...campSv,
   ...mapSv,
+  ...roadSv,
+  ...peopleSv,
+  ...journalSv,
+  ...roadlogSv,
+  ...encountersSv,
+  ...claimsSv,
 };

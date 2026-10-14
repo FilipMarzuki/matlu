@@ -18,6 +18,12 @@ import { opening } from './en/opening';
 import { kit } from './en/kit';
 import { camp } from './en/camp';
 import { map } from './en/map';
+import { road } from './en/road';
+import { people } from './en/people';
+import { journal } from './en/journal';
+import { roadlog } from './en/roadlog';
+import { encounters } from './en/encounters';
+import { claims, claimsHand } from './en/claims';
 
 export const en = {
   // ── The language picker: the very first screen ─────────────────────────────
@@ -238,4 +244,13 @@ export const en = {
   ...kit,
   ...camp,
   ...map,
+
+  // ── Phase 3 (#1709): the road and its people, the journal, encounters ──────
+  ...road,
+  ...people,
+  ...journal,
+  ...roadlog,
+  ...encounters,
+  ...claims,
+  ...claimsHand,
 } as const satisfies Record<string, string>;
