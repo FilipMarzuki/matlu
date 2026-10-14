@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import {
@@ -34,6 +34,7 @@ import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { featureOn } from '../artificer/features';
+import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
 import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
@@ -295,6 +296,15 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const known = domainsOf(r).map(d => `${d} ${LEVEL_NAME[level(s.explore, r, d)]}${d === 'routes' ? '' : ` · ${supplyWord(s.explore.supply[r][d])}`}`).join(', ');
     const finds = domainsOf(r).filter(d => hasFind(s.explore, r, d)).map(d => FINDS[d]?.name).join(', ');
     lines.push(`- ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
+  }
+  // The land in words (#1686, `descriptive-map`): the AI, and the API that shows this same text,
+  // gets what the Warden knows of the land as a scout would say it, the same lines the MAP tab shows.
+  if (descriptiveMapOn(s)) {
+    const mode = mapMode(s);
+    const needs = mapNeeds(s);
+    lines.push(`WHAT YOU KNOW OF THE LAND AROUND CAMP (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
+    for (const l of describeLand(s)) lines.push(`  ${l}`);
+    if (needs.length) lines.push(`  To draw your own map you need ${needs.join(' and ')}.`);
   }
 
   lines.push('');

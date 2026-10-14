@@ -30,6 +30,7 @@ import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork,
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
+import { canDrawMap, mapDrawnLine } from './descriptive-map';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
@@ -2018,6 +2019,9 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
   // Getting better opens new ways to explore (#1689), each with a line in the journal.
   if (visibilityOn(next)) for (const u of newlyOpen(s, next)) say(next, u.line, 'milestone', at);
+  // Knowing home ground well, with something to draw on, you draw your own map (#1686): said once,
+  // on the trip that makes it possible (both only ever come true, so it can't happen twice).
+  if (!canDrawMap(s) && canDrawMap(next)) say(next, mapDrawnLine(next), 'milestone', at);
   if (def.ringed) revisit(next, ring, at);
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });

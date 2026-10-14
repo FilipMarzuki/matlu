@@ -830,3 +830,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .devgate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 12px; }
 .devform { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .devform input { min-width: 0; width: 160px; max-width: 100%; padding: 4px 6px; border: 1px solid var(--faint); border-radius: 4px; background: transparent; color: inherit; font: inherit; }
+
+/* The land in words (#1686): what you know of it before you have drawn a map, one place per line. */
+.landwords { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 6px; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.landwords li { padding-left: 14px; position: relative; }
+.landwords li::before { content: "\203A"; position: absolute; left: 0; color: var(--gold); }

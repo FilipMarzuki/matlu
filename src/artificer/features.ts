@@ -187,6 +187,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'run-rumours', name: 'Rumours from this run\'s world', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1662,
     note: 'Each run has rumours of its own, made from its history and its people: a quarrel at the market, a debt, a secret that leaked, the news from the country, an old disaster told bigger. Which of the road\'s people lie to you changes from run to run too.',
   },
+  {
+    // A rules feature: it changes what the Warden knows of the land and how it's shown (a
+    // description in words until they draw their own map, descriptive-map.ts), and adds a journal
+    // line when the map is drawn, so a run from before it (absent: false) keeps the Reach map on replay.
+    id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
+    note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
+  },
 ];
 
 /** Switches by feature id. */
