@@ -1,4 +1,8 @@
 import type { Catalog } from './index';
+import { openingSv } from './sv/opening';
+import { kitSv } from './sv/kit';
+import { campSv } from './sv/camp';
+import { mapSv } from './sv/map';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -15,6 +19,19 @@ import type { Catalog } from './index';
  *   rations → ransoner · the larder → skafferiet · camp → läger · ring → ring
  *   Scout gear keeps its Swedish scout names: patrull, kåsa, morakniv.
  *   Names stay names: Greywind Reach, Hollowford, Saltmere, Tobin...
+ *
+ * Added in phase 2 (#1707), the opening and a day at camp:
+ *   the Reach → Reach (a name: no article, "i Reach", "Reach tar dig") · Artificer stays Artificer
+ *   (the class, the top rank, an unnamed Warden) · hike → hajk · patrol → patrull
+ *   the rings: Near/Far/Distant → Nära/Yttre/Fjärran ("den yttre ringen")
+ *   scout (the action) → spana · explore → utforska · survey → kartlägga · track → spåra
+ *   suspected → anad · observed → iakttagen · insight → insikt · concept → koncept
+ *   Condition (the reserve) → Reserv · Constitution → Fysik (FYS), so the two never meet
+ *   stores: food → mat · fuel/firewood → ved · materials → material (never "mat") · hides → hudar
+ *   ranks: Apprentice → Lärling · Journeyman → Gesäll · Master → Mästare
+ *   grades: crude → grov · sound → duglig · fine → fin · masterwork → mästerverk
+ *   shelter → skydd · lean-to → vindskydd (as the tarp) · winterized → vinterbonat · cold pit → kylgrop
+ *   the pack's things keep their scout names from kit.ts (sovsäck, kåsa, stormkök, morakniv...)
  */
 export const sv: Catalog = {
   // ── Språkväljaren ──────────────────────────────────────────────────────────
@@ -139,7 +156,7 @@ export const sv: Catalog = {
   'group.craft': 'TILLVERKA VERKTYG',
   'group.carry': 'BÄRUTRUSTNING',
   'group.think': 'TÄNKA & VILA',
-  'group.ringNote': '· ringen {ring}',
+  'group.ringNote': '· {ring} ringen',
   'focus.goal': 'MÅL',
   'focus.skill': 'FÄRDIGHET',
   'focus.concept': 'BEGREPP',
@@ -225,4 +242,10 @@ export const sv: Catalog = {
   // ── Veckans värld ──────────────────────────────────────────────────────────
   'weekly.unreachable': 'Det går inte att nå veckans värld just nu. Försök igen om en stund.',
   'weekly.leave': 'Lämna den här rundan och börja på veckans värld? Den här rundan går inte att ta upp igen.',
+
+  // ── Fas 2 (#1707): öppningen, packningen, en dag i lägret, kartan ──────────
+  ...openingSv,
+  ...kitSv,
+  ...campSv,
+  ...mapSv,
 };

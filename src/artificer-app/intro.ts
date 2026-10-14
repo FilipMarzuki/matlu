@@ -5,11 +5,15 @@
  *
  * Pure on purpose — it only decides *what* the intro says, from the sim state,
  * so it can be unit-tested; main.ts decides how it looks and when it plays.
+ *
+ * The words come from the string catalog (#1707) in the viewer's language: `t` is the page's
+ * translate function, English by default (the tests, and anything else that asks).
  */
 
 import { CRAFT_WORLD, type Region1State } from '../artificer/region1';
 import { artificerRank } from '../artificer/rank';
-import { heirloomList } from '../artificer/legacy';
+import { makeT, type T } from '../artificer/i18n';
+import { gradeWord, rankName, recipeName } from './sim-words';
 
 export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
 
@@ -27,29 +31,30 @@ export interface Beat {
   portal?: boolean;
 }
 
-const CLOSING: Beat = { kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] };
+const EN = makeT('en');
 
-/** The intro's beats for a Warden about to start `s`. */
-export function introBeats(s: Region1State): Beat[] {
+/** The intro's beats for a Warden about to start `s`, in the language `t` speaks. */
+export function introBeats(s: Region1State, t: T = EN): Beat[] {
   const daysToSnow = s.config.calendar.winterDay - s.day;
-  const rank = artificerRank(s, CRAFT_WORLD.concepts).toUpperCase();
+  const rank = rankName(artificerRank(s, CRAFT_WORLD.concepts), t).toUpperCase();
   // What the last Warden left (#1455): one run each, and the tools pass on.
-  const left = s.tools.filter(t => t.heirloom);
+  const left = s.tools.filter(x => x.heirloom).map(x => t('intro.heirloom', { grade: gradeWord(x.grade, t), item: recipeName(x.item, t).toLowerCase() })).join(', ');
 
   return [
     // First the weekend (#1666): the hike, and packing for it — then the portal.
-    { kind: 'narration', lines: ['Friday afternoon. Your patrol is heading out for a weekend hike in the forest.', 'Two nights in tents, back on Sunday.', "You've been looking forward to it all week."] },
-    { kind: 'pack', lines: ['What will you pack?'] },
-    { kind: 'narration', portal: true, lines: ['A seam opens in the air.', 'Light folds inward — and you fall through it.'] },
-    { kind: 'narration', lines: ['Cold stone under your hands.', 'Wind with no smell. A sky the colour of an old bruise.'] },
-    { kind: 'voice', lines: ['⟨ ARRIVAL DETECTED ⟩', 'Scanning…', 'Crafting knowledge exceeds threshold.'] },
-    { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
-    { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
-    { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
-    ...(left.length ? [{ kind: 'voice' as const, lines: ['Someone was here before you.', `They left: ${heirloomList(left)}.`] }] : []),
-    CLOSING,
+    { kind: 'narration', lines: [t('intro.hike1'), t('intro.hike2'), t('intro.hike3')] },
+    { kind: 'pack', lines: [t('intro.pack')] },
+    { kind: 'narration', portal: true, lines: [t('intro.seam1'), t('intro.seam2')] },
+    { kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2')] },
+    { kind: 'voice', lines: [t('intro.arrival'), t('intro.scanning'), t('intro.threshold')] },
+    { kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
+    { kind: 'create', lines: [t('intro.identify')] },
+    // `{name}` stays in the line: fillName fills it once the Warden has one.
+    { kind: 'voice', lines: [t('intro.registered'), t('intro.region'), t('intro.winter', { n: daysToSnow }), t('intro.survive')] },
+    ...(left ? [{ kind: 'voice' as const, lines: [t('intro.before'), t('intro.left', { list: left })] }] : []),
+    { kind: 'title', lines: [t('intro.close1'), t('intro.close2'), t('intro.close3')] },
   ];
 }
 
 /** Put the Warden's name into a line ("{name}"); an unnamed Warden is just "Artificer". */
-export const fillName = (line: string, name: string): string => line.replace(/\{name\}/g, name.trim() || 'Artificer');
+export const fillName = (line: string, name: string, t: T = EN): string => line.replace(/\{name\}/g, name.trim() || t('intro.noName'));

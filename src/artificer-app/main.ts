@@ -13,35 +13,32 @@
  */
 
 import './style.css';
-import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
-import { describeLand, drawnSight, mapMode, mapNeeds } from '../artificer/descriptive-map';
-import { repack, visibilityOn, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
-import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
-import { modifiersFor } from '../artificer/crafting';
+import { drawnSight, mapMode } from '../artificer/descriptive-map';
+import { repack, CRAFT_WORLD, FOCUS_OPEN, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, tonightsFright, FIRE_WARMTH, type TripLoad, routeKnown, parseItem, queueHours, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { RINGS, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
 import { bestRun, heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { seasonOf, MIDWINTER_AFTER, type Grade, type OutcomeKind } from '../artificer/winter';
-import { daylightHours, DAY_START } from '../artificer/clock';
-import { dayMean, nightTemp, coldNightNeeds, isBlizzard, weatherName, BLIZZARD_HOURS, type WeatherId } from '../artificer/weather';
-import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
+import { seasonOf, MIDWINTER_AFTER } from '../artificer/winter';
+import { DAY_START } from '../artificer/clock';
+import { nightTemp, coldNightNeeds } from '../artificer/weather';
+import { CAP_CEIL } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural, skillLevel } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat } from './intro';
-import { portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { topicsOpen } from '../artificer/topics';
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
-import { generateReach, mapRows, sightFor, describeCell, GLYPH, BIOME_NAME, type Biome, type Reach } from '../artificer/world/reach';
+import { generateReach, mapRows, sightFor, GLYPH, type Biome, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
 import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
-import { painOf, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
+import { painOf, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HARM_NAME, HARM_WORDS, injuryView, injuryWords, KNOWS } from '../artificer/injuries';
-import { hasKit, SUGGESTED_PACK, KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, validPack, kitItem, kitSupplies, type KitId, type KitGroup } from '../artificer/kit';
-import { grownStats, isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
+import { hasKit, SUGGESTED_PACK, validPack, kitSupplies, type KitId } from '../artificer/kit';
+import { isYoung, DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { isSelfKnowledge } from '../artificer/self-knowledge';
-import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
+import { STATS, STAT_IDS, DEFAULT_STATS, canRaise, canLower, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
@@ -55,7 +52,7 @@ import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, vitalCostLabel, type TabDef, type TabView } from './feature-choices';
+import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type TabDef, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { feltWord } from '../artificer/rapport';
@@ -69,11 +66,15 @@ import { QUIRKS, quirkName, isFear, FEAR_OF, FEAR_FADES } from '../artificer/qui
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
-import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Phase, type Speed } from './playback';
+import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
+import { esc, hrs, pct, band, portraitEl } from './html';
+import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
+import { packForm, createForm, packTitle } from './opening-view';
+import { actionName, cellText, focusName, kitName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -88,118 +89,19 @@ if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 // ── The viewer's language (#1704) ─────────────────────────────────────────────
 // The app chrome (header, tabs, headings, buttons, help, the dev gate) is drawn through `t`, from
 // the string catalog in src/artificer/i18n. Presentation only: the sim never sees the language, and
-// it isn't saved with the game. The opening, camp, road and generated text are still English
-// (later phases of #1685). `let`: choosing a language swaps `t` and redraws.
+// it isn't saved with the game. The opening and a day at camp are too (#1707: opening-view.ts,
+// camp-blocks.ts, and sim-words.ts for what the sim says in English). The journal, the road and
+// generated text are still English (later phases of #1685). `let`: choosing a language swaps `t`
+// and redraws.
 let lang: Lang = storedLang() ?? 'en';
 let t: T = makeT(lang);
 document.documentElement.lang = lang;
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
-// `key` names the group's heading in the catalog (`group.*`); the ids are the actions in it.
-const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
-  { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
-  { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
-  { key: 'build', ids: ['build', 'coldPit', 'coldGear'] },
-  { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
-  { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
-  { key: 'think', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
-];
-
-const ICON: Record<ActionId, string> = {
-  scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
-  wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
-  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
-};
-
-/** Extra yield your tools give an action (shown in the hint). */
-const bonus = (s: AppState['sim'], id: ActionId): number => modifiersFor(s.tools, id).yieldAdd;
-
-/** +2 if you've made the find in this ring × domain. */
-const fb = (s: AppState['sim'], r: Ring, d: Domain): number => (hasFind(s.explore, r, d) ? 2 : 0);
-/** Shorthand: this trip's yield from what you know of the ring (mirrors region1.ts). */
-const ty = (s: AppState['sim'], r: Ring, d: Domain, base: number, per: number): number => tripYield(s.explore, r, d, base, per);
-
-/** One-line "what you get" per action, in the chosen ring. Numbers mirror region1.ts yields. */
-const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
-  explore: () => 'look around: a new ring at least suspected, a known one a little clearer',
-  experiment: () => 'try things with what you have → work out what you don\'t know yet',
-  scout: () => 'everything there at least suspected',
-  survey: () => 'everything there observed → richer trips',
-  track: () => 'game observed → you can hunt',
-  lookout: () => 'ring +1 level · see over the next ring',
-  study: () => 'a third of your clarity → concept insight',
-  gather: (s, r) => `+${ty(s, r, 'forage', 3, 2) + bonus(s, 'gather')} raw food${fb(s, r, 'forage') ? ' +2 fiber' : ''}`,
-  hunt: (s, r) => `deer +${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} food & a hide · or small game`,
-  water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
-  wood: (s, r) => `+${ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber')} fuel, +${ty(s, r, 'timber', 2, 1)} mat`,
-  quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
-  fish: (_s, r) => `+~${FISH_CATCH * RICHNESS[r]} raw food · once the lake ice is thick`,
-  preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
-  build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
-  coldGear: () => 'eases a freezing night without enough fire · fiber or hide',
-  coldPit: s => `keeps ${coldPitHolds(s.site)} raw food from spoiling · 4 stone + 2 mat`,
-  knife: () => 'hunt −15% vigor, quicker preserving',
-  snare: () => '+1 food every night',
-  waterskin: () => '+1 water per trip · takes a hide',
-  bedroll: () => '+6 clarity overnight',
-  shovel: () => 'build −20% vigor · needs a roof',
-  basket: () => 'food & materials easier to carry · 2 mat',
-  backpack: () => 'every load easier to carry · a hide + 2 mat',
-  harness: () => 'wood, stone & hides easier to carry · a hide + 1 mat',
-  sled: () => 'drag stone, wood & hides — half the bulk on snow or level ground · 5 mat',
-  tinker: () => 'rests body, spends mind',
-  rest: () => 'recovers a little',
-  treat: () => 'tends your worst injury: heals faster, won\'t worsen · a dressing, or improvised',
-};
-
-const SITE_NOTE: Record<SiteId, string> = {
-  cave: 'Dry rock at your back. The warmest ground.',
-  tree: 'Windbreak and wood close by (+1 fuel per trip).',
-  river: 'Water at hand (+2 per trip), but the damp chills.',
-  hill: 'A fine view and nothing to stop the wind.',
-};
-
-const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
-  survived: { head: 'YOU MADE IT TO THE THAW', body: 'The ice breaks on the streams and the light comes back. Whatever the winter took from you, you are still here — and the Reach knows your name.' },
-  thrive: { head: 'YOU RIDE OUT WITH THE CARAVAN', body: 'You climb aboard rested and provisioned, trading surplus rations for a corner of the wagon and word of the road ahead. Region 2 opens already half-known to you.' },
-  ragged: { head: 'YOU SCRAMBLE ABOARD THE CARAVAN', body: 'You leave a half-built camp behind. The traders share what they can, but you spend the first leg recovering. You reach the next region alive — just thin.' },
-  crossed: { head: 'YOU STRIKE OUT ALONE', body: 'Cold gear cinched, rations packed, a route in your head — you walk out into the white. It is brutal and slow, but you make it through on what you built, beholden to no one.' },
-  turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
-  wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
-  collapsed: { head: 'THE CARAVAN FINDS YOU', body: 'Worked past the end of yourself, your body simply stops — days before the thaw. The spring caravan, coming up the valley, finds you and carries you out, barely alive. You keep what you learned — and the lesson about limits.' },
-  died: { head: 'THE REACH TAKES YOU', body: 'The Reach does not forgive: thirst, hunger, the cold, or a collapse with no one near but the wild. Your story ends here — what you learned dies with you. Another Warden will have to begin again.' },
-  grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
-};
-
-// ── Small helpers ───────────────────────────────────────────────────────────
-
-/** Escape text for innerHTML — sim text is ours today, but a save could be edited. */
-const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-/** Hours for display: snow and blizzards stretch work into fractions, so show at most one decimal. */
-const hrs = (h: number): string => String(Math.round(h * 10) / 10);
-const pct = (x: number): number => Math.max(0, Math.min(100, x * 100));
-const band = (ratio: number): string => (ratio > 0.75 ? 'fresh' : ratio > 0.45 ? 'ok' : ratio > 0.2 ? 'warn' : 'low');
-
 // ── Rendering ───────────────────────────────────────────────────────────────
-
-function poolRow(label: string, p: Pool): string {
-  const b = band(p.cap > 0 ? p.current / p.cap : 0);
-  // One scale up to the ceiling, so growth past the baseline is visible.
-  return `<div class="vital"><span class="vn">${label}</span><div class="track">`
-    + `<div class="fill ${b}" style="width:${pct(p.current / CAP_CEIL)}%"></div>`
-    + `<span class="mark base" style="left:${pct(BASELINE / CAP_CEIL)}%"></span>`
-    + `<span class="mark cap" style="left:${pct(p.cap / CAP_CEIL)}%"></span>`
-    + `</div><span class="vs ${b}">${Math.round(p.current)} / ${Math.round(p.cap)}</span></div>`;
-}
-
-function moodLine(a: AppState): string {
-  const v = a.sim.vitals;
-  if (v.vigor.current <= 0) return 'Spent — your legs are done. Push on and it costs your health.';
-  if (v.clarity.current <= 0) return 'Burnt out — you can barely think.';
-  const m = morale(v);
-  return m > 0.78 ? 'You feel sharp and steady.' : m > 0.58 ? 'Steady enough.' : m > 0.38 ? 'Worn thin; everything asks a little more.' : 'Running on fumes.';
-}
+// The opening's forms and a day at camp are drawn by opening-view.ts and camp-blocks.ts (#1707),
+// in the viewer's language; the helpers (esc, hrs...) are html.ts's.
 
 function timeline(a: AppState): string {
   const cal = a.sim.config.calendar;
@@ -214,42 +116,6 @@ function timeline(a: AppState): string {
     + `<span class="lbl" style="left:${x(cal.thawDay) - 8}%">THAW</span>`
     + `<div class="today" style="left:${Math.min(99.5, x(a.sim.day + 0.5))}%"></div></div>`
     + `<div class="tl-legend"><span><b>Autumn</b> — prepare, days 1–${cal.winterDay - 1}</span><span><b>Winter</b> — survive, days ${cal.winterDay}–${cal.thawDay - 1}</span><span><b>Thaw</b> — day ${cal.thawDay}</span></div>`;
-}
-
-const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁', rain: '🌧', fog: '🌫', wind: '🌬', storm: '⛈', snow: '❄' };
-
-/**
- * The season strip (#1308): one bar per day from day 1 to the thaw, its
- * height the day's daylight — so the shortening days are something you see —
- * coloured by season, with the first snow and midwinter marked. Under it,
- * today: the weather, the light, the cold and the snow cover.
- */
-function seasonStrip(a: AppState): string {
-  const s = a.sim;
-  const cal = s.config.calendar;
-  const days = cal.thawDay - 1;
-  const midwinter = cal.winterDay + MIDWINTER_AFTER;
-  const bars = Array.from({ length: days }, (_, i) => {
-    const d = i + 1;
-    const cls = [seasonOf(d, cal), d < s.day ? 'past' : d === s.day ? 'now' : '', d === cal.winterDay || d === midwinter ? 'mark' : ''].join(' ');
-    // Daylight runs about 6–11.5 hours; scale it so midwinter's short days still show.
-    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="Day ${d} · ${daylightHours(d, cal).toFixed(1)}h of light"></i>`;
-  }).join('');
-  // Markers sit over the centre of their day's bar.
-  const at = (d: number): string => `left:${(((d - 0.5) / days) * 100).toFixed(2)}%`;
-  const marks = `<span class="sm" style="${at(cal.winterDay)}">FIRST SNOW</span><span class="sm" style="${at(midwinter)}">MIDWINTER</span><span class="sm end">THAW ▸</span>`;
-  const seeded = s.config.world.weather === 'seeded';
-  const blizzard = seeded && isBlizzard(s.weatherToday, s.day, cal);
-  const today = [
-    seeded ? `<span class="wx ${blizzard ? 'danger' : ''}">${WEATHER_ICON[s.weatherToday]} ${esc(weatherName(s.weatherToday, s.day, cal))}</span>` : '',
-    `<span>☼ ${daylightHours(s.day, cal).toFixed(1)}h light</span>`,
-    seeded ? `<span>${Math.round(dayMean(s.day, cal))}°C</span>` : '',
-    seeded && (s.snowDepth ?? 0) > 0 ? `<span>snow cover ${Math.round((s.snowDepth ?? 0) * 100)}%</span>` : '',
-  ].filter(Boolean).join('');
-  return `<div class="seasonstrip" aria-label="The season, day by day"><div class="bars">${bars}</div><div class="marks">${marks}</div>`
-    + `<div class="today">${today}</div>`
-    + (blizzard ? `<p class="lockbanner">❄ A BLIZZARD — work out on the land takes ${BLIZZARD_HOURS}× as long, and the white is no place to be. Camp work is safe.</p>` : '')
-    + '</div>';
 }
 
 /** The nights the outlook measures against: the rest of the winter (all of it, while it's still autumn). */
@@ -410,33 +276,17 @@ function provinceInfo(a: AppState, x: number, y: number): string {
   return `<p class="mapinfo provinfo"><b>${esc(h.title)}</b>, ${esc(h.culture)} country${h.holder ? `, held by ${esc(h.holder)}` : ', its seat empty'}.</p>${lines ? `<ul class="provlines">${lines}</ul>` : ''}`;
 }
 
-const MAP_LEGEND = `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
-  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${BIOME_NAME[b].toLowerCase()}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> camp</span><span><b class="m-seat">#</b> settlement</span><span><b class="m-fog">${GLYPH.unknown}</b> unknown</span></div>`;
+/** The map's key, in the viewer's language. */
+const mapLegend = (): string => `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
+  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${esc(t(`biome.${b}`).toLowerCase())}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> ${esc(t('map.legend.camp'))}</span><span><b class="m-seat">#</b> ${esc(t('map.legend.seat'))}</span><span><b class="m-fog">${GLYPH.unknown}</b> ${esc(t('map.legend.unknown'))}</span></div>`;
 
 /** The MAP tab: the Reach as one character per square, what you can see of it, and a tapped square's details. */
 /** The world the MAP tab last drew: a new run is a new Reach, so its open settlement and tapped square go. */
 let mapSeed: number | null = null;
 
-/**
- * The MAP tab before you've drawn a map (#1686, `descriptive-map`): no grid, just what you know of
- * the land as a scout would tell it, from camp, and what it'd take to draw a map of your own.
- */
-function describedMapTab(a: AppState): string {
-  const compass = hasKit(a.sim, 'map-compass');
-  const lines = describeLand(a.sim).map(l => `<li>${esc(l)}</li>`).join('');
-  const needs = mapNeeds(a.sim);
-  const intro = compass
-    ? 'The map in your pack shows somewhere else entirely; this world isn\'t on it. But the compass still points north, so you know your bearings.'
-    : 'There\'s no map of this world, and no compass to take a bearing by. You know the land the way you\'d tell it to a friend.';
-  return `<section class="box"><p class="eyebrow">${esc(t('head.landDescribed'))}</p>
-    <p class="mapinfo">${esc(intro)}</p>
-    <ul class="landwords">${lines}</ul>
-    <p class="mood">Explore to learn more of it: scouting adds places further out, and surveying makes the distances sure.${needs.length ? ` To draw a map of your own you need ${esc(needs.join(' and '))}.` : ''}</p></section>`;
-}
-
 function mapTab(a: AppState): string {
   const mode = mapMode(a.sim);
-  if (mode === 'described') return describedMapTab(a);
+  if (mode === 'described') return describedMap(a.sim, t);
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
   if (mapSettlement) return settlementView(a, mapSettlement);
@@ -454,19 +304,17 @@ function mapTab(a: AppState): string {
     return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(seat ? SEAT_GLYPH : ch)}</span>`;
   }).join('')).join('\n');
   const known = !!mapCell && sight(mapCell.x, mapCell.y) > 0;
-  const info = !mapCell ? 'Tap a square to see what it is.'
-    : known ? describeCell(r, mapCell.x, mapCell.y)
-    : 'Unknown ground. Scout the rings further out to learn it.';
+  const info = !mapCell ? t('map.tap')
+    : known ? cellText(r, mapCell.x, mapCell.y, t)
+    : t('map.unknown');
   const seatHere = known && mapCell ? seatAt.get(mapCell.y * r.w + mapCell.x) : undefined;
-  const enter = seatHere ? `<p class="mapinfo"><b>${esc(seatHere.name)}</b> stands here. <button class="pill" data-settle="${seatHere.id}">${esc(t('btn.enter', { name: seatHere.name.toUpperCase() }))}</button></p>` : '';
+  const enter = seatHere ? `<p class="mapinfo">${t('map.standsHtml', { name: esc(seatHere.name) })} <button class="pill" data-settle="${seatHere.id}">${esc(t('btn.enter', { name: seatHere.name.toUpperCase() }))}</button></p>` : '';
   const drawn = mode === 'drawn';
-  const words = drawn ? `<ul class="landwords">${describeLand(a.sim).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  const words = drawn ? `<ul class="landwords">${landLines(a.sim, t).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
   return `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.reachMap'))}</p>
-    <div class="mapwrap"><pre class="reachmap" aria-label="${drawn ? 'Your map' : 'Map of the Reach'}: ${rows.length} rows of ${r.w} squares">${grid}</pre></div>
-    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${MAP_LEGEND}${words}
-    <p class="mood">A square is about half an hour's walk on open ground: more in wood, bog and on the fells. ${drawn
-      ? (hasKit(a.sim, 'map-compass') ? 'Drawn true to the compass: what\'s within two hours of camp, the rings you\'ve glimpsed (dim), and those you know (bright).' : 'Drawn without a compass: ground you\'ve only glimpsed from afar can\'t be placed yet, so it stays off until you know it.')
-      : 'You see what\'s within two hours of camp; scout the rings to glimpse further out (dim), and survey or work them to know them (bright).'}</p></section>`;
+    <div class="mapwrap"><pre class="reachmap" aria-label="${esc(t('map.rows', { name: t(drawn ? 'map.yourMap' : 'map.reachMap'), rows: rows.length, w: r.w }))}">${grid}</pre></div>
+    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${mapLegend()}${words}
+    <p class="mood">${esc(`${t('map.square')} ${t(drawn ? (hasKit(a.sim, 'map-compass') ? 'map.drawnCompass' : 'map.drawnNoCompass') : 'map.reachNote')}`)}</p></section>`;
 }
 
 /**
@@ -508,7 +356,7 @@ const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber
 function land(a: AppState): string {
   const e = a.sim.explore;
   return RINGS.map(r => {
-    const head = `<div class="ringhead">${RING_NAME[r].toUpperCase()} <span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h` : 'home'}</span></div>`;
+    const head = `<div class="ringhead">${esc(ringName(r, t).toUpperCase())} <span>${esc(TRAVEL_HOURS[r] ? t('ring.plus', { n: TRAVEL_HOURS[r] }) : t('ring.homeShort'))}</span></div>`;
     if (!reachable(e, r) && domainsOf(r).every(d => level(e, r, d) === 0)) return `${head}<p class="mood" style="margin:0 0 6px">Out of reach — know the ring inside it first.</p>`;
     const chips = domainsOf(r).map(d => {
       const lv = level(e, r, d);
@@ -524,28 +372,13 @@ function land(a: AppState): string {
   }).join('');
 }
 
-/** Names of the recipes you know (for the Tools & knowledge panel). */
-function knownList(s: AppState['sim']): string {
-  const name = (id: string): string => DISCOVERIES.find(d => d.recipe === id)?.name ?? RECIPE_NAMES[id] ?? id;
-  return s.known.map(name).join(', ');
-}
-const RECIPE_NAMES: Record<string, string> = { 'shelter-leanto': 'Lean-to', 'shelter-timber': 'Timber walls', 'cold-gear': 'Woven cold gear', 'stone-knife': 'Stone knife', bedroll: 'Bedroll' };
-const undiscovered = (s: AppState['sim']): number => DISCOVERIES.filter(d => !s.known.includes(d.recipe)).length;
-
 // ── Blocks (each tab is composed from these) ────────────────────────────────
-
-/**
- * A store chip: the good's 32 px icon (#1675), or its old emoji until it has one, the name as text
- * and the count. The name is printed, so the icon's alt is empty (see item-icons.ts).
- */
-const storeChip = (id: keyof AppState['sim']['stores'], emoji: string, label: string, n: number, low = false): string =>
-  `<span class="r ${low ? 'low' : ''}">${itemIcon(id, { fallback: emoji })} ${label} <b>${n}</b></span>`;
 
 // ── Carrying (#1296) ────────────────────────────────────────────────────────
 
-const GEAR_NAME: Record<GearItem | 'waterskin', string> = { basket: 'basket', backpack: 'backpack', harness: 'harness', sled: 'sled', waterskin: 'waterskin' };
-const HAUL_NAME: Record<keyof Haul, string> = { rawFood: 'food', rations: 'rations', water: 'water', firewood: 'fuel', materials: 'mat', stone: 'stone', hides: 'hide' };
-const haulText = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${HAUL_NAME[k]}`).join(', ');
+/** A piece of carrying gear by name (its recipe's), lower case. */
+const gearName = (item: GearItem | 'waterskin'): string => recipeName(item, t).toLowerCase();
+const haulText = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${haulWord(k, t)}`).join(', ');
 
 /**
  * A trip's load bar (#1296): the fill is the bulk of what's carried, the end of the bar is the max you
@@ -554,10 +387,10 @@ const haulText = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(
 function loadBar(l: TripLoad): string {
   const left = haulText(l.left);
   // Overload costs only on a walk home (#1292): near camp, a heavy load is just heavy.
-  const word = left ? `too much to carry — ${left} left behind` : l.ratio <= 1 ? 'comfortable' : !l.walk ? 'heavy, but camp is close' : l.ratio <= 1.5 ? 'heavy' : l.ratio <= 2 ? 'staggering' : 'barely able to carry it';
+  const word = left ? t('load.over', { left }) : t(l.ratio <= 1 ? 'load.ok' : !l.walk ? 'load.near' : l.ratio <= 1.5 ? 'load.heavy' : l.ratio <= 2 ? 'load.stagger' : 'load.barely');
   const cls = left ? 'over' : l.ratio <= 1 || !l.walk ? 'ok' : l.ratio <= 1.5 ? 'heavy' : 'stagger';
-  const help = l.wouldHelp.length && (left || (l.ratio > 1 && l.walk)) ? ` · a ${GEAR_NAME[l.wouldHelp[0]]} would make this easier` : '';
-  return `<div class="loadrow ${cls}" title="Bulk ${Math.round(l.cumbersome)} of ${Math.round(l.max)} stones (comfortable ${Math.round(l.comfortable)})">`
+  const help = l.wouldHelp.length && (left || (l.ratio > 1 && l.walk)) ? t('load.help', { gear: gearName(l.wouldHelp[0]) }) : '';
+  return `<div class="loadrow ${cls}" title="${esc(t('load.tip', { n: Math.round(l.cumbersome), max: Math.round(l.max), c: Math.round(l.comfortable) }))}">`
     + `<span class="lhaul">↩ ${esc(haulText(l.haul))}</span>`
     + `<span class="lbar"><span class="lfill" style="width:${pct(l.cumbersome / l.max)}%"></span><span class="lcomf" style="left:${pct(l.comfortable / l.max)}%"></span></span>`
     + `<span class="lword">${esc(word)}${esc(help)}</span></div>`;
@@ -567,7 +400,7 @@ function loadBar(l: TripLoad): string {
 function carryingBlock(s: AppState['sim']): string {
   const st = s.character.stats;
   const gear = s.tools.filter(t => (GEAR_ITEMS as readonly string[]).includes(t.item));
-  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(GEAR_NAME[t.item as GearItem])} <b>${t.grade.toUpperCase()}</b></span>`).join('')
+  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(gearName(t.item as GearItem))} <b>${t.grade.toUpperCase()}</b></span>`).join('')
     : '<span class="mood" style="margin:0">No carrying gear — a basket, backpack, harness or sled would make loads easier.</span>';
   const strain = s.strain ?? 0;
   const status = s.today.exhausted ? `<p class="lockbanner">EXHAUSTED — your back aches from yesterday's loads. All work drains ${Math.round((EXHAUSTED_DRAIN - 1) * 100)}% more today.</p>`
@@ -577,41 +410,14 @@ function carryingBlock(s: AppState['sim']): string {
     <div class="res" style="margin-top:6px">${chips}</div>${status}`;
 }
 
-/** The CAMP tab's cold storage (#1296): raw food kept cold or exposed, and what tonight will cost. */
-function coldBlock(s: AppState['sim']): string {
-  if (s.config.world.weather !== 'seeded') return '';
-  const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
-  const cap = coldCapacity(s, t);
-  const sp = spoilage(s.stores.rawFood, cap, t);
-  const pit = s.site && s.coldPitAt === s.site ? `a cold pit (${coldPitHolds(s.site)})` : null;
-  const snow = cap - (pit ? coldPitHolds(s.site) : 0) > 0 ? `the snow (${cap - (pit ? coldPitHolds(s.site) : 0)})` : null;
-  const where = [pit, snow].filter(Boolean).join(' and ') || 'nothing — dig a cold pit';
-  return `<div class="coldrow"><span>🧊 Kept cold <b>${sp.kept}</b> / ${cap}</span><span>Exposed <b>${sp.exposed}</b></span>`
-    + `<span class="${sp.spoiled ? 'warn' : 'ok'}">${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}</span></div>`
-    + `<p class="mood" style="margin:4px 0 0">Cold storage: ${where}. Rations never spoil.</p>`;
-}
-
-function storesRow(s: AppState['sim']): string {
-  const st = s.stores;
-  // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
-  const streak = (n: number, word: string): string => (n ? ` <span class="streak">${word} ×${n}</span>` : '');
-  return `<div class="res">${storeChip('rawFood', '🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('water', '💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('firewood', '🪵', 'Fuel', st.firewood)}${storeChip('materials', '🪨', 'Mat', st.materials)}${storeChip('rations', '🧂', 'Rations', st.rations)}${storeChip('stone', '⛰️', 'Stone', st.stone)}${storeChip('hides', '🦌', 'Hides', st.hides)}</div>`;
-}
-
-/** A portrait frame (or a blank silhouette for an unnamed quick-start Warden). */
-function portraitEl(id: string | null, size: number, cls = ''): string {
-  const p = portraitById(id);
-  return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
-}
-
 /** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
 function focusChip(s: AppState['sim']): string {
   const lock = survivalLockOf(s);
-  if (lock) return `<button class="focuschip locked" data-tab="warden" title="${esc(t('status.survivalTip'))}">${esc(t('status.focus'))} <b>${esc(t('status.survival'))}</b> <span>${esc(lock)}</span></button>`;
+  if (lock) return `<button class="focuschip locked" data-tab="warden" title="${esc(t('status.survivalTip'))}">${esc(t('status.focus'))} <b>${esc(t('status.survival'))}</b> <span>${esc(lockText(lock, t))}</span></button>`;
   // Willpower moves the line where focus frays (#1256).
   const below = statEffects(s.character.stats).unreliableBelow;
   const frayed = s.focus && s.vitals.clarity.current < below;
-  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${esc(frayed ? t('status.frayedTip', { n: below }) : t('status.focusTip'))}">${esc(t('status.focus'))} <b>${esc(focusLabel(s.focus))}</b>${frayed ? ` <span>${esc(t('status.frayed'))}</span>` : ''}</button>`;
+  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${esc(frayed ? t('status.frayedTip', { n: below }) : t('status.focusTip'))}">${esc(t('status.focus'))} <b>${esc(focusName(s.focus, t))}</b>${frayed ? ` <span>${esc(t('status.frayed'))}</span>` : ''}</button>`;
 }
 
 /** The eating plan (#1305): tap to cycle full → half → none. */
@@ -716,21 +522,12 @@ function roadKeepsBlock(a: AppState): string {
     ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')}${a.road && a.road.trust[id] !== undefined ? ` · ${feltWord(a.road, id)}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="mood">No contacts yet — anyone who comes to trust you on the road will remember you.</p>'}`;
 }
 
-/**
- * A packed item's hover text: what it's for and the scout's note (#1684), never its rule, unless
- * the hidden truths are on (`?dev=truths`). Plain dev mode is on for everyone, so it can't be that.
- */
-function packTitle(id: KitId): string {
-  const k = kitItem(id);
-  return `${k.does} ${k.note}${truths ? ` [rule: ${k.effect}]` : ''}`;
-}
-
 /** The hike pack (#1400): what you brought, each with what it's for, and what's left of what runs out. */
 function packBlock(s: AppState['sim']): string {
   if (!s.kit) return '';
   const left = kitSupplies(s.kit, s.dressings ?? 0);
   return `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pack'))}</p>
-    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id))}">${itemIcon(id)}${esc(kitItem(id).name)}</span>`).join('')}</div>
+    <div class="packlist">${s.kit.items.map(id => `<span class="packitem" title="${esc(packTitle(id, t, truths))}">${itemIcon(id)}${esc(kitName(id, t))}</span>`).join('')}</div>
     ${left.length ? `<p class="mood" style="margin:6px 0 0">Left: ${esc(left.join(' · '))}</p>` : ''}`;
 }
 
@@ -774,34 +571,6 @@ const techChip = (s: AppState['sim']) => (t: Technique): string => s.techniques.
   ? `<span class="tech known" title="${esc(t.how)} — typical of ${LEVELS[t.level]}">${esc(t.name)}</span>`
   : `<span class="tech ${t.difficulty}" title="Typical of ${LEVELS[t.level]}: ${LEARN_HINT[t.difficulty]}">? ${t.difficulty === 'teacher' ? 'taught only' : t.difficulty}</span>`;
 
-function vitalsBlock(a: AppState): string {
-  const v = a.sim.vitals;
-  return `<div class="vitals">${poolRow('VIGOR', v.vigor)}${poolRow('CLARITY', v.clarity)}
-      <div class="vital"><span class="vn">RESERVE</span><div class="track"><div class="fill ${band(v.condition / 100)}" style="width:${pct(v.condition / 100)}%"></div></div><span class="vs ${band(v.condition / 100)}">${Math.round(v.condition)}%</span></div>
-    </div><p class="mood">${moodLine(a)}</p>`;
-}
-
-function sitesBlock(a: AppState): string {
-  const s = a.sim;
-  const sites = (Object.keys(SITES) as SiteId[]).map(id =>
-    `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
-    + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
-    + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm${s.coldPitAt === id ? ` · cold pit (${coldPitHolds(id)} raw food)` : ''}.` : ''}</div></button>`).join('');
-  return `<div class="sites">${sites}</div>${scouted(s.explore, 1) ? '<p class="mood">Pick camp here, or choose a location on a queued build.</p>' : '<p class="mood">Scout first to find somewhere to settle.</p>'}`;
-}
-
-function toolsBlock(a: AppState): string {
-  const s = a.sim;
-  // Tool names come from the craft actions that make them (output item → action).
-  const toolName = (item: string): string => (item === HIDE_PARKA_RECIPE.output.item ? HIDE_PARKA_RECIPE.name : Object.values(ACTIONS).find(x => x.recipe?.output.item === item)?.recipe?.name ?? item);
-  const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${itemIcon(t.item)}${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
-  const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0)
-    .map(([id, p]) => `<span class="r concept">${esc(id)} <b>R${p.rank}</b></span>`).join('');
-  return `<div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
-    ${concepts ? `<div class="res" style="margin-top:6px">${concepts}</div>` : ''}
-    <p class="mood" style="margin:6px 0 0">Known recipes: ${esc(knownList(s))}${undiscovered(s) ? ` · ${undiscovered(s)} still to work out` : ''}</p>`;
-}
-
 function milesBlock(a: AppState): string {
   return `<ol class="miles">${REGION1_MILESTONES.map(m => {
     const done = a.sim.milestones.includes(m.id);
@@ -817,51 +586,7 @@ function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
   return [...withCampLine(a.sim.log)].reverse().slice(0, limit).map((l: LogEntry) => {
     return `<li class="${logClass(l)}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
-  }).join('') || `<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. ${visibilityOn(a.sim) ? 'Explore' : 'Scout'} before anything else — you don't yet know where food, water or wood are.</li>`;
-}
-
-type Preview = ReturnType<typeof previewQueue>;
-
-/**
- * A craft's ingredients (#1675) as icon chips under its card: "[icon] 2 mat". The recipe is the one
- * the action would use with its default options (cold gear: woven fiber; a build: the plan as it
- * stands), so a chosen option can change it; the queue row's options say what the choice costs.
- */
-function ingredients(def: (typeof ACTIONS)[ActionId], s: AppState['sim']): string {
-  const recipe = def.recipeFor?.(s, {}) ?? def.recipe;
-  if (!recipe?.inputs.length) return '';
-  return `<div class="ingr">${recipe.inputs.map(i => `<span>${itemIcon(i.item)}<b>${i.qty}</b> ${esc(HAUL_NAME[i.item as keyof Haul] ?? i.item)}</span>`).join('')}</div>`;
-}
-
-function paletteBlock(a: AppState, preview: Preview): string {
-  const resolved = a.sim.outcome !== null;
-  // Gates are judged against the state *after* the queue so far, so you can
-  // plan "scout, then gather" in one go. Blocked actions stay clickable (a
-  // skipped action costs nothing) but are dashed and say why.
-  // Land actions go to the ring picked in the tabs; everything else happens at camp.
-  const tabs = `<div class="rings">${RINGS.map(r => {
-    const open = reachable(preview.projected.explore, r);
-    return `<button class="ringtab ${focusRing === r ? 'on' : ''} ${open ? '' : 'locked'}" data-ring="${r}" title="${open ? '' : 'Scout the ring inside it first'}">`
-      + `${RING_NAME[r].toUpperCase()}<span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h travel` : 'home ground'}</span></button>`;
-  }).join('')}</div>`;
-  // A group with nothing the Warden knows how to do yet (#1690) isn't shown at all.
-  const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
-  return tabs + known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}${g.key === 'explore' || g.key === 'provision' ? ` <span class="ringnote">${esc(t('group.ringNote', { ring: RING_NAME[focusRing].toLowerCase() }))}</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
-    const def = ACTIONS[id];
-    const r: Ring = def.ringed ? focusRing : 1;
-    const q = queueId(id, r);
-    // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
-    // With the switch off a blocked action stays tappable, as before: it would just be skipped.
-    const vis = visibilityOf(preview.projected, id, r);
-    if (vis.status === 'hidden') return '';
-    const why = vis.reason;
-    const greyed = !!why && !greyedTappable(preview.projected);
-    // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
-    const spends = vitalCostLabel(def, dev);
-    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : `Would be skipped: ${why}`) : ''}">`
-      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected)}</button>`;
-  }).join('')}</div></div>`).join('');
+  }).join('') || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
 }
 
 /**
@@ -874,7 +599,7 @@ function oneAtATime(a: AppState): string {
   const spent = s.hoursToday >= DAY_HOURS;
   return `<div class="queue onestep">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
-      <p class="mood" style="margin:0 0 8px">${esc(queueLocked(a) ?? '')} ${esc(t('queue.tapNow'))}</p>
+      <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
       ${last ? `<p class="news ${last.kind}">${esc(last.text)}</p>` : ''}
       <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
@@ -896,15 +621,17 @@ function queueBlock(a: AppState, preview: Preview): string {
     const needsChoice = groups.some(g => g.value === null);
     const open = groups.length > 0 && (expanded.has(i) || needsChoice);
     // A length left at its usual (#1668) isn't worth a label on the row.
-    const chosen = groups.map(g => g.choices.find(c => c.value === g.value && c.value !== 'usual' && c.value !== 'none')?.label).filter(Boolean).join(' · ');
+    const chosen = groups.map(g => { const c = g.choices.find(x => x.value === g.value && x.value !== 'usual' && x.value !== 'none'); return c ? optionLabel(g, c, t) : ''; }).filter(Boolean).join(' · ');
     const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="${esc(t('queue.options'))}">${open ? '▾' : '▸'}</button>` : '';
-    const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(g.label.toUpperCase())}</span><div class="optchoices">${g.choices.map(c =>
-      `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(c.blocked ?? c.note)}">`
-      + `<b>${esc(c.label)}</b><span>${esc(c.blocked ?? c.note)}</span></button>`).join('')}</div></div>`).join('')}</div>` : '';
+    const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(optionGroupLabel(g, t).toUpperCase())}</span><div class="optchoices">${g.choices.map(c => {
+      const note = simLine(c.blocked ?? c.note, t);
+      return `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(note)}">`
+        + `<b>${esc(optionLabel(g, c, t))}</b><span>${esc(note)}</span></button>`;
+    }).join('')}</div></div>`).join('')}</div>` : '';
     return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
-      + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
+      + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
-      + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
+      + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
       // What a remembered place does for this trip (#1380).
       + (!why && ACTIONS[id].ringed && tripPinNote(preview.before[i].pins, id, ring) ? `<span class="why pinnote">${esc(tripPinNote(preview.before[i].pins, id, ring)!)}</span>` : '')
       // A session of chosen length (#1668): its plan — trips, the haul, what's thinning.
@@ -951,12 +678,12 @@ function statusBar(a: AppState, preview: Preview): string {
   // its alt (and title, for a hover); the old emoji stays as the fallback.
   const sIcon = (id: keyof typeof st, emoji: string, name: string): string => {
     const img = itemIcon(id, { alt: name });
-    return img ? img.replace('<img ', `<img title="${name}" `) : emoji;
+    return img ? img.replace('<img ', `<img title="${esc(name)}" `) : emoji;
   };
   const ready = winterReady(s);
   return `<div class="statusbar">
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', 'Food')}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', 'Water')}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', 'Fuel')}${st.firewood}</span><span>${sIcon('materials', '🪨', 'Mat')}${st.materials}</span><span>${sIcon('rations', '🧂', 'Rations')}${st.rations}</span></div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
     ${outlookTag(s, ready)}
@@ -968,7 +695,7 @@ function painChip(s: AppState['sim']): string {
   const p = painOf(s);
   if (!p) return '';
   const tip = p >= 2 ? `Work drains your mind ${PAIN_DRAIN[p]}x${PAIN_HOURS[p] > 1 ? ` and takes ${PAIN_HOURS[p]}x as long` : ''}; tonight costs ${PAIN_NIGHT[p]} Clarity. Working through a bad injury makes it sharper.` : 'An ache. Working through a bad injury would make it sharper.';
-  return `<span class="tag pain p-${p}" title="${esc(tip)}">PAIN · ${PAIN_NAME[p].toUpperCase()}</span>`;
+  return `<span class="tag pain p-${p}" title="${esc(tip)}">${esc(t('pain.label', { name: t(`pain.${p}`).toUpperCase() }))}</span>`;
 }
 
 /** Each open injury (#1395): kind, severity and healing left — in the warning colour when it could get worse. */
@@ -996,7 +723,7 @@ function nightChip(s: AppState['sim']): string {
   const f = tonightsFright(s);
   if (!f || f.state === 'calm' || s.outcome) return '';
   const why = f.reasons.filter(r => r !== 'home' && !r.startsWith('a warm')).join(', ');
-  return `<span class="tag fear s-${f.state}" title="Tonight looks ${THREAT_WORDS[f.perceived]}: ${esc(why)}. ${f.state === 'shaken' ? 'You\'ll lie awake: less Clarity back.' : 'A sleepless night: much less Clarity and some Vigor back.'} Shelter, a fire, a camp you know — each helps.">🌑 ${f.state === 'shaken' ? 'UNEASY NIGHT' : 'SLEEPLESS NIGHT'}</span>`;
+  return `<span class="tag fear s-${f.state}" title="Tonight looks ${THREAT_WORDS[f.perceived]}: ${esc(why)}. ${f.state === 'shaken' ? 'You\'ll lie awake: less Clarity back.' : 'A sleepless night: much less Clarity and some Vigor back.'} Shelter, a fire, a camp you know — each helps.">🌑 ${esc(t(f.state === 'shaken' ? 'night.uneasy' : 'night.sleepless'))}</span>`;
 }
 
 /** The status bar's verdict: readiness through the autumn; once the snow is down, whether what's laid by reaches the thaw. */
@@ -1046,24 +773,24 @@ let showHelp = false;
  * shows later). Vitals and stores are always in the status bar.
  */
 function beforeCamp(a: AppState): string {
-  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${sitesBlock(a)}
-    <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a)}</div>`;
+  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${sitesBlock(a.sim, t)}
+    <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</div>`;
 }
 
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<section class="box seasonbox">${seasonStrip(a)}</section><div class="plan">
-        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview)}</section>
+      return `<section class="box seasonbox">${seasonStrip(a.sim, t)}</section><div class="plan">
+        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
       </div>`;
     case 'camp':
       return `<div class="cols">
-        <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a)}
-          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim)}${coldBlock(a.sim)}
-          <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a)}</section>
-        <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a)}</section>
+        <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a.sim, t)}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim, t)}${coldBlock(a.sim, t)}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</section>
+        <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a.sim, t)}</section>
       </div>`;
     case 'land':
       return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${land(a)}${LAND_LEGEND}
@@ -1086,54 +813,10 @@ function tabBody(a: AppState, preview: Preview): string {
   }
 }
 
-/** How the thaw finds a Warden of each grade, for the summary's headline. */
-const THAW_HEAD: Record<Grade, string> = { hale: 'HALE — STRONGER FOR IT', worn: 'WORN THIN, BUT STANDING', broken: 'BROKEN, BUT ALIVE' };
-
-/**
- * The winter's worst nights, from the journal: the winter days with the most
- * hardship, worst first (ties go to the earlier night), with what went wrong.
- */
-function worstNights(s: AppState['sim'], n = 3): { day: number; lines: string[] }[] {
-  const byDay = new Map<number, string[]>();
-  for (const l of s.log) {
-    // Work lines carry their hour (`at`); what's left is the evening and the night — the cold, hunger and thirst.
-    if (l.kind !== 'hardship' || l.at || seasonOf(l.day, s.config.calendar) !== 'winter') continue;
-    byDay.set(l.day, [...(byDay.get(l.day) ?? []), l.text]);
-  }
-  return [...byDay].map(([day, lines]) => ({ day, lines })).sort((x, y) => y.lines.length - x.lines.length || x.day - y.day).slice(0, n);
-}
-
-/**
- * The thaw summary (#1308): how you came through, what was left, the winter's
- * worst nights, and the spring caravan — whose road opens with Region 1.5 (#1250).
- */
-function thawSummary(a: AppState): string {
-  const s = a.sim;
-  const grade = s.outcome?.grade ?? 'worn';
-  const st = s.stores;
-  const worst = worstNights(s);
-  return `<div class="thaw"><p class="eyebrow ice">THE THAW — DAY ${s.day}</p><span class="grade g-${grade}">${THAW_HEAD[grade]}</span>
-    <p class="mood" style="margin:6px 0 10px">Condition ${Math.round(s.vitals.condition)}% coming out of it.</p>
-    <p class="fgroup">WHAT WAS LEFT</p><div class="res">${storeChip('rawFood', '🍖', 'Food', st.rawFood)}${storeChip('rations', '🧂', 'Rations', st.rations)}${storeChip('water', '💧', 'Water', st.water)}${storeChip('firewood', '🪵', 'Fuel', st.firewood)}${storeChip('materials', '🪨', 'Mat', st.materials)}</div>
-    <p class="fgroup" style="margin-top:12px">THE WORST NIGHTS</p>${worst.length
-      ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
-      : '<p class="mood" style="margin:0">Not one hard night all winter.</p>'}
-    ${a.stayed
-      ? '<p class="mood" style="margin-top:12px">You let the caravan go on without you. The Reach is yours alone again.</p>'
-      : `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="meet" title="The spring caravan has come up the valley (#1356)">🛞 MEET THE CARAVAN</button>
-      <span class="mood" style="margin:0">Wagons in the valley: three villages, then Mistheim — if they'll take you.</span></div>`}</div>`;
-}
-
 function resolvePanel(a: AppState): string {
   const s = a.sim;
   if (s.outcome) {
-    const o = OUTCOME[s.outcome.kind];
-    const r = history[0];
-    const facts = r ? `<ul class="runfacts">
-        <li>${r.choice === 'thaw' ? 'Reached the thaw' : r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.grade ? ` — <b>${r.grade}</b>` : ''}${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
-        <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
-      </ul>` : '';
-    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${s.outcome.kind === 'survived' ? thawSummary(a) : ''}${facts}${recordBox(a)}`
+    return `<div class="resolve">${outcomeCard(a, history[0], t)}${recordBox(a)}`
       // One run per Warden (#1455): whoever comes next is someone new, and finds what this one left.
       + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div></div>`;
   }
@@ -1168,7 +851,7 @@ function drawPage(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
-      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim, CRAFT_WORLD.concepts)}</span></button>` : ''}
+      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
       <span class="counter ctl">${esc(t('top.run'))} <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
@@ -1252,7 +935,8 @@ function setLang(next: Lang): void {
   document.documentElement.lang = next;
   introEl.setAttribute('aria-label', t('intro.label'));
   render(state);
-  if (intro) renderIntro();
+  // The intro's beats are words in a language now (#1707): tell them again in the new one, where it was.
+  if (intro) { intro = { ...intro, beats: introBeats(state.sim, t) }; renderIntro(); }
 }
 
 /**
@@ -1582,23 +1266,6 @@ async function holdScreen(pl: Playing): Promise<void> {
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
 document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
 
-const PHASE_WORD: Record<Phase['kind'], string> = { out: 'walking out', work: 'working', back: 'walking back' };
-
-/** What the step running is called: "🪵 WOOD · NEAR". */
-function stepName(p: DayPlay, m: Moment): string {
-  if (m.index >= p.steps.length) return '☾ NIGHT FALLS';
-  const { id, ring } = parseItem(p.steps[m.index].item);
-  return `${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` · ${RING_NAME[ring].toUpperCase()}` : ''}`;
-}
-
-/** The leg of a trip session (#1668), in words; else the action's hours. */
-function phaseText(p: DayPlay, m: Moment): string {
-  if (m.index >= p.steps.length) return 'You eat, and sleep.';
-  const st = p.steps[m.index];
-  if (m.phase) return `${m.phase.trips > 1 ? `Trip ${m.phase.trip} of ${m.phase.trips} · ` : ''}${PHASE_WORD[m.phase.kind]}`;
-  return st.hours > 0 ? `${hrs(st.hours)}h` : 'skipped';
-}
-
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
 function timerPanel(): string {
   const pl = playing;
@@ -1613,7 +1280,7 @@ function timerPanel(): string {
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="tnow"><span class="tname">${stepName(p, m)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
+    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
     <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(l.text)}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
@@ -1634,7 +1301,7 @@ function tickTimer(pl: Playing): void {
   const strip = document.getElementById('pb-day');
   if (strip) strip.style.width = `${Math.min(100, Math.max(0, ((m.clock - DAY_START) / DAY_HOURS) * 100))}%`;
   const phase = document.getElementById('pb-phase');
-  const text = phaseText(p, m);
+  const text = phaseText(p, m, t);
   if (phase && phase.textContent !== text) phase.textContent = text;
 }
 
@@ -1686,7 +1353,7 @@ function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
   drawnBeat = -1;
-  intro = { beats: introBeats(state.sim), i: 0 };
+  intro = { beats: introBeats(state.sim, t), i: 0 };
   renderIntro();
 }
 
@@ -1743,8 +1410,8 @@ function renderIntro(): void {
   drawnBeat = intro.i;
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
-  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name))}</p>`).join('')
-    + (b.kind === 'create' ? createForm() : b.kind === 'pack' ? packForm() : '');
+  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name, t))}</p>`).join('')
+    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths) : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -1764,76 +1431,6 @@ function renderIntro(): void {
   if (b.kind === 'create') saveDraft();
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
-}
-
-/**
- * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
- * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
- * The weight bar and the leader's list stay at the bottom.
- */
-function packForm(): string {
-  const kg = packWeight(draftPack);
-  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
-    const items = KIT.filter(k => k.group === g).map(k => {
-      const on = draftPack.includes(k.id);
-      const fits = on || packWeight([...draftPack, k.id]) <= PACK_CAPACITY;
-      return `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : "won't fit — take something out first"}">`
-        + `<span class="khead">${itemIcon(k.id)}<b>${esc(k.name)}</b>${k.sv && k.sv.toLowerCase() !== k.name.toLowerCase() ? ` <i>${esc(k.sv)}</i>` : ''}<span class="kkg">${k.weight} kg</span></span>`
-        // What a scout would say it's for, never the rule it plays (#1684): the player finds out
-        // what's useful by playing. The rule shows only with the hidden truths (`?dev=truths`).
-        + `<span class="kdoes">${esc(k.does)}</span><span class="knote">${esc(k.note)}</span>`
-        + `${truths ? `<span class="devtruth" title="Dev mode (?dev=truths): the rule this item plays">rule: ${esc(k.effect)}</span>` : ''}</button>`;
-    }).join('');
-    return `<p class="clabel">${esc(KIT_GROUPS[g].toUpperCase())}</p><div class="kchoices">${items}</div>`;
-  }).join('');
-  const pct = Math.min(100, (kg / PACK_CAPACITY) * 100);
-  return `<form class="create pack" onsubmit="return false">
-    <p class="mood" style="margin:0">The backpack comes free, and the clothes you're wearing. Everything else has to fit in ${PACK_CAPACITY} kg.</p>
-    ${groups}
-    <div class="kfoot">
-      <div class="kbar" role="meter" aria-label="Pack weight" aria-valuemin="0" aria-valuemax="${PACK_CAPACITY}" aria-valuenow="${kg}"><span style="width:${pct}%"></span></div>
-      <span class="kweight"><b>${kg}</b> / ${PACK_CAPACITY} kg</span>
-      <button type="button" class="pill" data-kitcmd="leader">THE LEADER'S LIST</button>
-      <button type="button" class="pill" data-kitcmd="empty">EMPTY IT</button>
-    </div>
-  </form>`;
-}
-
-/** The creation form: your name (written, beside the standard portrait), two of four offered talents, age, stats. Choices live in `draft` until Continue. */
-function createForm(): string {
-  const offer = talentOffer(seedOf(draft.id));
-  const talents = offer.map(t => `<button class="tchoice" data-talent="${t}" aria-pressed="${draft.talents.includes(t)}"><b>${esc(TALENTS[t].name)}</b><span class="up">+ ${esc(TALENTS[t].blurb)}</span></button>`).join('');
-  return `<form class="create" onsubmit="return false">
-    <label class="clabel" for="wname">NAME — write it</label>
-    <div class="cwho">${portraitEl(STANDARD_PORTRAIT, 64)}<input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}"></div>
-    <p class="clabel">TALENTS — choose ${TALENT_PICKS} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
-    <p class="mood" style="margin:0">…and something else in you, not yet known.</p>
-    <p class="clabel">AGE — how old you are, the weekend it began</p>
-    <div class="achoices">${START_AGES.map(a => `<button type="button" class="achoice" data-age="${a}" aria-pressed="${draft.age === a}">${a}</button>`).join('')}</div>
-    <p class="mood" style="margin:0">You'll grow up over the runs, a year each; your stats grow with you.</p>
-    ${statsForm()}
-  </form>`;
-}
-
-/**
- * The stats step (#1258): point-buy over the six stats. Every stat starts at 10
- * with 6 points to spend; steps above 13 cost 2. All 10s is a valid Warden, so
- * this never blocks BEGIN — unspent points just get a nudge.
- */
-function statsForm(): string {
-  const left = pointsLeft(draft.stats);
-  const rows = STAT_IDS.map(id => {
-    const v = draft.stats[id];
-    const dear = v >= 13 && v < 15 ? ' dear' : '';
-    // Growing up (#1399): what you have now, at the age chosen; the score is who you'll be at 18.
-    const now = grownStats(draft.stats, draft.age)[id];
-    return `<div class="srow"><div class="sname"><b>${esc(STATS[id].name)}</b><span>${esc(STATS[id].blurb)}</span><span class="snote ${v > 10 ? 'up' : v < 10 ? 'cost' : ''}">${esc(statNote(id, v))}</span>${now !== v ? `<span class="snow">${now} now, at ${draft.age}</span>` : ''}</div>`
-      + `<div class="sstep"><button type="button" class="pill" data-stat="${id}" data-delta="-1" aria-label="Lower ${esc(STATS[id].name)}" ${canLower(draft.stats, id) ? '' : 'disabled'}>−</button>`
-      + `<span class="sval">${v}</span>`
-      + `<button type="button" class="pill${dear}" data-stat="${id}" data-delta="1" aria-label="Raise ${esc(STATS[id].name)} (costs ${raiseCost(v)})" title="${v >= 13 ? 'costs 2 points' : 'costs 1 point'}" ${canRaise(draft.stats, id) ? '' : 'disabled'}>+</button></div></div>`;
-  }).join('');
-  return `<p class="clabel">STATS — who you'll grow up to be · spend ${POINT_BUDGET} points <span>(${left} left${left > 0 ? ' · unspent points are wasted' : ''}) · above 13 costs 2 · lower one to 7 to buy more</span></p>
-    <div class="schoices">${rows}</div>`;
 }
 
 // Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
