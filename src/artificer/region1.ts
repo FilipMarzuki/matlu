@@ -1225,7 +1225,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     name: 'Experiment', hours: EXPERIMENT_HOURS, vigorRate: -0.5, clarityRate: -3,
     gate: s => skillLockOf(s, 'experiment'),
     options: (s, o) => {
-      const mats = experimentMaterials(s);
+      // Nothing to choose in a game without the action (a random player's options mustn't shift a stream).
+      const mats = visibilityOn(s) ? experimentMaterials(s) : [];
       return mats.length > 1 ? [choiceGroup('with', 'Try with', o.with ?? 'any', [
         { value: 'any', label: 'Anything', note: 'whatever seems promising', blocked: null },
         ...mats.map(k => ({ value: k, label: STORE_WORD[k][0].toUpperCase() + STORE_WORD[k].slice(1), note: `${s.stores[k]} at hand`, blocked: null })),

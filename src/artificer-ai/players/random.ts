@@ -18,6 +18,7 @@
 import { KIT_IDS, PACK_CAPACITY, packWeight, type KitId } from '../../artificer/kit';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
+import { shown } from '../../artificer/action-visibility';
 import type { Player } from '../runner';
 import { villageOf, ROAD_CRAFTS, type RoadActionId, type RoadState } from '../../artificer/road';
 import { peopleOf, VILLAGES } from '../../artificer/villages';
@@ -80,7 +81,8 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
   function uniformDay(s: Region1State): Entry[] {
     const n = 2 + Math.floor(rand() * 5);
     return Array.from({ length: n }, () => {
-      const id = pick(ACTION_IDS);
+      // Any action the Warden knows of (#1690): with the switch off, exactly the list it always was.
+      const id = pick(ACTION_IDS.filter(x => shown(s, x)));
       return toEntry(id, ACTIONS[id].ringed ? 1 + Math.floor(rand() * 3) : 1, randomOpts(s, id, false));
     });
   }
