@@ -50,7 +50,7 @@ describe('Arrival intro', () => {
     const beats = introBeats(s);
     const all = beats.flatMap(b => b.lines).join('\n');
     expect(all).toMatch(/Someone was here before you\./);
-    expect(all).toMatch(/They left: a fine stone-knife\./);
+    expect(all).toMatch(/They left: a fine stone knife\./);
     // Still a new person: the creation screen runs, and the heirloom line comes after registration.
     expect(beats.findIndex(b => b.lines[0] === 'Someone was here before you.')).toBeGreaterThan(beats.findIndex(b => b.kind === 'create'));
     expect(introBeats(createRegion1()).flatMap(b => b.lines).join('\n')).not.toMatch(/Someone was here/);

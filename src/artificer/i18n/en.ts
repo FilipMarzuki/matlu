@@ -14,6 +14,11 @@
  *   to agree on "one vs the rest", so nothing cleverer is needed for these two languages.
  * - Names stay names: Greywind Reach, Hollowford, Saltmere, Tobin... are the same in every language.
  */
+import { opening } from './en/opening';
+import { kit } from './en/kit';
+import { camp } from './en/camp';
+import { map } from './en/map';
+
 export const en = {
   // ── The language picker: the very first screen ─────────────────────────────
   // Each language's own name and call to play, drawn in that language whatever is chosen.
@@ -183,7 +188,7 @@ export const en = {
   'timer.skipTip': 'Finish now (Esc)',
   'timer.action': 'This action',
 
-  // ── The opening's controls (the opening's own words are phase 2) ───────────
+  // ── The opening's controls (its words are in ./en/opening.ts) ──────────────
   'intro.label': 'Arrival',
   'intro.skip': 'SKIP ›',
   'intro.next': 'CONTINUE ▸',
@@ -227,4 +232,10 @@ export const en = {
   // ── This week's world ──────────────────────────────────────────────────────
   'weekly.unreachable': "This week's world can't be reached right now. Try again in a while.",
   'weekly.leave': "Leave this run and start this week's world? This run can't be picked up again.",
+
+  // ── Phase 2 (#1707): the opening, the pack, a day at camp, the map ─────────
+  ...opening,
+  ...kit,
+  ...camp,
+  ...map,
 } as const satisfies Record<string, string>;

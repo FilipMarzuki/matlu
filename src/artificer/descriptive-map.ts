@@ -79,7 +79,19 @@ export interface KnownPlace {
   horizon: boolean;
   /** As a scout would say it. */
   text: string;
+  /**
+   * The same words as parts (#1707), for the page to say in the viewer's language: the bearing as
+   * an index (of eight points with the compass, of four without) and the walking time as a band.
+   * `text` stays the English the AI reads; the app's English rendering of these equals it.
+   */
+  dir: { exact: boolean; i: number };
+  time: TimeWord;
 }
+
+/** A walking time as a band of words (#1707): `n` is the minutes or hours where the words carry a number. */
+export type TimeWord =
+  | { band: 'minutes' | 'hours' | 'hoursHalf'; n: number }
+  | { band: 'hour' | 'hourHalf' | 'few' | 'quarter' | 'half' | 'better' | 'hourish' | 'couple' | 'halfDay' | 'day' };
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
@@ -118,29 +130,45 @@ const VAGUE_DIRS = ['north-ish', 'east-ish', 'south-ish', 'west-ish'] as const;
 /** Degrees clockwise from north, from camp to (x, y). Screen y grows southwards. */
 const bearingOf = (r: Reach, x: number, y: number): number => (Math.atan2(x - r.camp.x, r.camp.y - y) * 180 / Math.PI + 360) % 360;
 
+/** Which of the points a bearing is: of eight with the compass, of four (roughly) without. */
+export const directionIndex = (bearing: number, exact: boolean): number => (exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4);
+
 /** The compass gives one of eight points ("due west", "north-east"); without it, one of four, roughly ("west-ish"). */
 export function directionWords(bearing: number, exact: boolean): string {
-  return exact ? EXACT_DIRS[Math.round(bearing / 45) % 8] : VAGUE_DIRS[Math.round(bearing / 90) % 4];
+  return exact ? EXACT_DIRS[directionIndex(bearing, true)] : VAGUE_DIRS[directionIndex(bearing, false)];
 }
+
+/** A walking time's band: to the nearest five minutes or half hour when sure, in rough bands when not. */
+export function timeWord(hours: number, exact: boolean): TimeWord {
+  const m = hours * 60;
+  if (exact) {
+    if (m < 55) return { band: 'minutes', n: Math.max(5, Math.round(m / 5) * 5) };
+    const h = Math.round(m / 30) / 2;
+    if (h === 1) return { band: 'hour' };
+    if (h === 1.5) return { band: 'hourHalf' };
+    return Number.isInteger(h) ? { band: 'hours', n: h } : { band: 'hoursHalf', n: Math.floor(h) };
+  }
+  if (m <= 10) return { band: 'few' };
+  if (m <= 22) return { band: 'quarter' };
+  if (m <= 40) return { band: 'half' };
+  if (m <= 55) return { band: 'better' };
+  if (m <= 80) return { band: 'hourish' };
+  if (m <= 150) return { band: 'couple' };
+  if (m <= 270) return { band: 'halfDay' };
+  return { band: 'day' };
+}
+
+const TIME_TEXT: Readonly<Record<TimeWord['band'], (n: number) => string>> = {
+  minutes: n => `about ${n} minutes`, hour: () => 'about an hour', hourHalf: () => 'about an hour and a half',
+  hours: n => `about ${n} hours`, hoursHalf: n => `about ${n} and a half hours`,
+  few: () => 'a few minutes', quarter: () => 'maybe a quarter hour', half: () => 'maybe half an hour', better: () => 'the better part of an hour',
+  hourish: () => 'an hour or so', couple: () => 'a couple of hours', halfDay: () => 'half a day\'s walk or so', day: () => 'the best part of a day',
+};
 
 /** A walking time as a scout would say it: to the nearest five minutes or half hour when sure, in rough bands when not. */
 export function timeWords(hours: number, exact: boolean): string {
-  const m = hours * 60;
-  if (exact) {
-    if (m < 55) return `about ${Math.max(5, Math.round(m / 5) * 5)} minutes`;
-    const h = Math.round(m / 30) / 2;
-    if (h === 1) return 'about an hour';
-    if (h === 1.5) return 'about an hour and a half';
-    return Number.isInteger(h) ? `about ${h} hours` : `about ${Math.floor(h)} and a half hours`;
-  }
-  if (m <= 10) return 'a few minutes';
-  if (m <= 22) return 'maybe a quarter hour';
-  if (m <= 40) return 'maybe half an hour';
-  if (m <= 55) return 'the better part of an hour';
-  if (m <= 80) return 'an hour or so';
-  if (m <= 150) return 'a couple of hours';
-  if (m <= 270) return 'half a day\'s walk or so';
-  return 'the best part of a day';
+  const w = timeWord(hours, exact);
+  return TIME_TEXT[w.band]('n' in w ? w.n : 0);
 }
 
 /**
@@ -182,16 +210,24 @@ export function knownPlaces(s: Run): KnownPlace[] {
     const exactTime = compass || level(s.explore, ring, DOMAIN_OF[kind]) >= 2;
     const dir = directionWords(bearing, compass);
     const text = p.seen ? `${SUBJECT[kind]} ${dir}, ${timeWords(p.hours, exactTime)}.` : `${SUBJECT[kind]} ${dir}; you haven't been.`;
-    out.push({ kind, at: { x, y }, hours: p.hours, bearing, exactBearing: compass, exactTime: p.seen && exactTime, horizon: !p.seen, text });
+    out.push({
+      kind, at: { x, y }, hours: p.hours, bearing, exactBearing: compass, exactTime: p.seen && exactTime, horizon: !p.seen, text,
+      dir: { exact: compass, i: directionIndex(bearing, compass) }, time: timeWord(p.hours, exactTime),
+    });
   }
   return out.sort((a, b) => Number(a.horizon) - Number(b.horizon) || a.hours - b.hours);
+}
+
+/** The ground camp stands on (the description's first line). */
+export function campBiome(s: Pick<Region1State, 'character'>): Biome {
+  const r = reachOfRun(s);
+  return r.cells[r.camp.y * r.w + r.camp.x].biome;
 }
 
 /** What you know of the land, as lines: where camp is, then each place. Empty with the switch off. */
 export function describeLand(s: Run): string[] {
   if (!descriptiveMapOn(s)) return [];
-  const r = reachOfRun(s);
-  return [CAMP_LINE[r.cells[r.camp.y * r.w + r.camp.x].biome], ...knownPlaces(s).map(p => p.text)];
+  return [CAMP_LINE[campBiome(s)], ...knownPlaces(s).map(p => p.text)];
 }
 
 // ── Drawing your own map ────────────────────────────────────────────────────
@@ -228,14 +264,22 @@ export function mapMode(s: Run): 'reach' | 'described' | 'drawn' {
   return mapDrawn(s) ? 'drawn' : 'described';
 }
 
-/** What's still missing before you can draw a map, in words (empty once you can, or with the switch off). */
-export function mapNeeds(s: Run): string[] {
+/** What's still missing before you can draw a map (empty once you can, or with the switch off): to know home ground, something to draw on. */
+export function mapNeedIds(s: Run): ('home' | 'surface')[] {
   if (!descriptiveMapOn(s) || canDrawMap(s)) return [];
-  const out: string[] = [];
-  if (!knowsHomeGround(s)) out.push('to know home ground better (every part of the near ring observed: explore it more, survey it, or work it)');
-  if (!mapSurface(s)) out.push('something to draw on (a notebook, a hide, or birch bark from cutting wood)');
+  const out: ('home' | 'surface')[] = [];
+  if (!knowsHomeGround(s)) out.push('home');
+  if (!mapSurface(s)) out.push('surface');
   return out;
 }
+
+const NEED_TEXT = {
+  home: 'to know home ground better (every part of the near ring observed: explore it more, survey it, or work it)',
+  surface: 'something to draw on (a notebook, a hide, or birch bark from cutting wood)',
+} as const;
+
+/** What's still missing before you can draw a map, in words (empty once you can, or with the switch off). */
+export const mapNeeds = (s: Run): string[] => mapNeedIds(s).map(n => NEED_TEXT[n]);
 
 /** The journal line on the trip that makes the map possible. */
 export function mapDrawnLine(s: Run): string {
