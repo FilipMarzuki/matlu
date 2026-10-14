@@ -10,15 +10,16 @@
  * through, drawing every journal line it wrote. Then it reads what a player would see (text,
  * tooltips, labels, placeholders) and looks for English words that have no business in Swedish.
  *
- * Left English on purpose, and so switched off in the runs drawn here (each is listed in #1709's
- * report for a follow-up): a people's or culture's ways told to a free question (content/
- * peoples-lore.json, cultures-lore.json), and everything the story engine tells — the villages'
- * history in play, eyewitnesses and legends, old history bending with age, and the run's rumours of
- * the past (phase 4). The run-rumours of the road's own ties and organisations are checked on their
- * own below, since they're templates here.
+ * Since phase 4 (#1711) nothing is left out: every rule switch is on, the story engine's history
+ * included (the villages' history in play, eyewitnesses and legends, old history bending with age,
+ * the run's rumours of the past), and so are a people's and a culture's ways told to a free question.
+ * The histories are told here as the server tells them (`tellHistoriesWith(runHistory)`), so the
+ * road's people answer from them. history-i18n.test.ts checks the history's own views.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { forgetHistories, tellHistoriesWith } from '../artificer/history-in-play';
+import { runHistory } from '../artificer/world/history';
 import { makeT, type T } from '../artificer/i18n';
 import { createRegion1, chooseOption, endDay, runAction, setFocus, blockedReason, ACTIONS, FOCUS_OPEN, type ActionId, type QueueItem, type Region1State } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
@@ -38,6 +39,7 @@ import { encounterModal } from './encounter-view';
 import { meetingModal } from './caravan-view';
 import { journalItems } from './journal-view';
 import { simLine } from './sim-words';
+import { wardenTab } from './warden-view';
 
 const sv = makeT('sv');
 const en = makeT('en');
@@ -71,8 +73,12 @@ function englishIn(html: string): string[] {
   return [...text.matchAll(ENGLISH_RE)].map(m => text.slice(Math.max(0, m.index! - 40), m.index! + 40).replace(/\s+/g, ' ').trim());
 }
 
-/** The run's rule switches, without what this phase leaves English (the story engine's history, phase 4). */
-const FEATURES: FeatureSwitches = { ...ruleFeatures(), 'history-in-play': false, 'history-retold': false, 'old-history-drift': false, 'run-rumours': false };
+/** The run's rule switches: all of them (#1711: the story engine's history too). */
+const FEATURES: FeatureSwitches = ruleFeatures();
+
+// The road's people answer from the run's told history (history-in-play.ts): tell it as the server does.
+beforeAll(() => tellHistoriesWith(runHistory));
+afterAll(() => { tellHistoriesWith(null); forgetHistories(); });
 
 /** A tiny seeded stream, so the played runs are the same every time. */
 function lcg(seed: number): () => number {
@@ -144,12 +150,41 @@ describe('The caravan road, in Swedish (#1709)', () => {
     expect(shown(roadView(hf, { person: 'hf-orrin' }, sv))).toContain('Ved till smedjan');
   });
 
+  it('draws answers from a village’s past and its people’s ways, and the journal of them, with no English (#1711)', () => {
+    const villageLegs = ROUTE.map((l, i) => (l.kind === 'village' ? i : -1)).filter(i => i >= 0);
+    const PAST = ['past:here', 'past:around', 'past:plague', 'past:famine', 'past:war', 'past:lord', 'past:murder'];
+    let told = 0;
+    for (const leg of villageLegs) {
+      let r = busyVillage(leg);
+      for (const p of peopleHere(r)) {
+        // Their People's and culture's ways, on every topic, and a view of their neighbours.
+        const lore = ['values', 'taboos', 'greeting', 'trade', 'mourning', 'debt'].flatMap(topic => [`group:${p.people}/${topic}`, `culture:${p.culture}/${topic}`])
+          .concat(`group:${p.people}/view/group:Goblins`, `culture:${p.culture}/view/group:Bergfolk`);
+        r = { ...r, asked: { ...r.asked, [p.id]: [...(r.asked?.[p.id] ?? []), ...PAST, ...lore] } };
+        // One real free question each, so the journal has its line.
+        r = { ...runRoadAction({ ...r, hoursToday: 0 }, `question:${p.id}:past:here` as RoadActionId), hoursToday: 0 };
+      }
+      for (const p of peopleHere(r)) {
+        const html = roadView(r, { person: p.id }, sv);
+        told += (html.match(/class="mood told"/g) ?? []).length;
+        expect(englishIn(html)).toEqual([]);
+      }
+      expect(englishIn(journalItems(r.log, 1000, 'R', sv))).toEqual([]);
+      expect(englishIn(questLog(r, false, sv))).toEqual([]);
+    }
+    expect(told).toBeGreaterThan(30);
+  });
+
   it('draws the wagon, its travellers, the caravan meeting and the end of the road, with no English', () => {
     const r = road();
     expect(villageOf(r)).toBeNull();
     expect(englishIn(routeStrip(r, sv))).toEqual([]);
     for (const p of TRAVELLERS) expect(englishIn(roadView({ ...r, trust: { ...r.trust, [p.id]: 90 } }, { person: p.id }, sv))).toEqual([]);
     expect(shown(roadView(r, { person: null }, sv))).toContain('PÅ VAGNEN');
+    // The WARDEN tab on the road (#1711), as main.ts draws it: the run's Warden with the road's skills, focus and topics.
+    const s0 = createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-road-sv' });
+    const onRoad = { ...s0, vitals: r.vitals, stores: r.stores, tools: r.tools, concepts: r.concepts, character: r.character, skills: r.skills, techniques: r.techniques, manuals: r.manuals, known: r.known, focus: r.focus };
+    expect(englishIn(wardenTab({ sim: onRoad, stage: 'road', road: { ...r, heard: ['material:iron', 'place:kestrel-gate', 'group:compact', 'person:hf-orrin'] } }, sv))).toEqual([]);
     // The meeting at the thaw, at each step, and once it's over.
     const s = createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-meet-sv' });
     const reach: Region1State = { ...s, day: 61, marks: 2, stores: { ...s.stores, hides: 3 }, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals: s.vitals } };

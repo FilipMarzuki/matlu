@@ -8,7 +8,8 @@ import { sv } from './sv';
 describe('the string catalog (#1704)', () => {
   it('has every English key in Swedish, with the same {vars}', () => {
     const keys = Object.keys(en) as Key[];
-    const missing = keys.filter(k => typeof sv[k] !== 'string' || !sv[k]!.trim());
+    // A number's thousands separator (#1711) is a space in Swedish, so it's the one string that's only whitespace.
+    const missing = keys.filter(k => typeof sv[k] !== 'string' || (!sv[k]!.trim() && k !== 'fmt.group'));
     expect(missing).toEqual([]);
     const varsDiffer = keys.filter(k => sv[k] !== undefined && varsOf(sv[k]!).join(',') !== varsOf(en[k]).join(','));
     expect(varsDiffer).toEqual([]);

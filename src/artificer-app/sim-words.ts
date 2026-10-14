@@ -22,7 +22,7 @@
  */
 
 import { en } from '../artificer/i18n/en';
-import { fill, type Key, type T } from '../artificer/i18n';
+import { fill, localNum, type Key, type T } from '../artificer/i18n';
 import type { Ring } from '../artificer/exploration';
 import { ACTIONS, type ActionId, type OptionChoice, type OptionGroup, type SiteId } from '../artificer/region1';
 import { focusInline, focusKey, focusLabel, parseFocus, FOCUS_KEYS, type Focus } from '../artificer/focus';
@@ -38,6 +38,9 @@ import { VILLAGES, TRAVELLERS } from '../artificer/villages';
 import { QUESTS } from '../artificer/quests';
 import { LEVELS } from '../artificer/skills';
 import { NUMBER_WORDS } from '../artificer/claims';
+import { HIST_PATTERN, cultureText, histPart, regionText } from './history-words';
+import { questionAbout } from '../artificer/knowledge-questions';
+import { allCultureLore } from '../artificer/culture-lore';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
@@ -224,6 +227,12 @@ const PATTERN: Readonly<Record<string, string>> = {
   num: `(?:${alternation(NUMBER_WORDS)}|\\d+)`,
   // A quest by its title, and nothing else: "{quest} {why}" splits where the title ends.
   quest: alternation(QUESTS.map(q => q.title)),
+  // One of the small words at the head of a sentence, said with its capital (#1711: "The ford-moot" → "Vadtinget").
+  W: alternation(WORD_TEXTS),
+  // A number as a rumour of the past says it (#1711): in words up to twenty, then in figures, grouped past a thousand.
+  numc: `(?:${alternation(NUMBER_WORDS)}|\\d[\\d,]*)`,
+  // The history's own parts (#1711): someone as the chronicle names them, a lordship, a region... (history-words.ts).
+  ...HIST_PATTERN,
 };
 /** A part's name without a trailing digit: `say2` is a `say`, `n2` a number. */
 const baseOf = (name: string): string => name.replace(/\d+$/, '');
@@ -233,8 +242,12 @@ const baseOf = (name: string): string => name.replace(/\d+$/, '');
  * a value this part can be (then the template doesn't match after all, and the next is tried).
  */
 function part(name: string, v: string, t: T): string | undefined {
+  // The history's parts first (#1711): their names are their own, so nothing else is read this way.
+  const hist = histPart(baseOf(name), v, t);
+  if (hist !== null) return hist;
   switch (baseOf(name)) {
-    case 'n': case 'm': case 'h': case 't': case 'have': return NUMBER.test(v) ? v : undefined;
+    // A decimal in the viewer's way (#1711): "1,5" in Swedish.
+    case 'n': case 'm': case 'h': case 't': case 'have': return NUMBER.test(v) ? localNum(v, t) : undefined;
     // "2nd night running": the ordinal's own ending in each language.
     case 'nth': { const m = v.match(/^(\d+)(st|nd|rd|th)$/); return m ? t(`ord.${m[2] as 'st'}`, { n: m[1] }) : undefined; }
     // " in the far ring", or nothing: where a trip went.
@@ -266,7 +279,9 @@ function part(name: string, v: string, t: T): string | undefined {
       const sk = skillOf(v);
       if (sk) return t(sk).toLowerCase();
       // A concept by its id: one of the six by the catalog's name, one from the wider web by the registry's.
-      return isKey(`concept.${v}`) || parseFocus(`concept:${v}`) ? conceptName(v, t).toLowerCase() : undefined;
+      if (isKey(`concept.${v}`) || parseFocus(`concept:${v}`)) return conceptName(v, t).toLowerCase();
+      // A people's ways or the village's past (#1711: "I don't know much about the plague.").
+      return questionAboutWords(v, t);
     }
     case 'injury': { const k = (['sprain', 'hand', 'cut'] as const).find(x => en[`injury.${x}`] === v); return k ? t(`injury.${k}`) : undefined; }
     case 'names': return namesText(v, t);
@@ -281,7 +296,7 @@ function part(name: string, v: string, t: T): string | undefined {
       // A recipe's cost may carry its hours after it ("3 materials · 5h"), which read the same in any language.
       const [, amounts, hours] = v.match(/^(.*?)((?: · [\d.]+h)?)$/s)!;
       const bits = amounts.split(' + ').map(b => { const m = b.match(/^(\d+) (\w+)$/); const k = m && storeOf(m[2]); return m && k ? `${m[1]} ${t(`storeword.${k}`)}` : undefined; });
-      return bits.every(Boolean) ? bits.join(' + ') + hours : undefined;
+      return bits.every(Boolean) ? bits.join(' + ') + localNum(hours, t) : undefined;
     }
     // A list of recipes or concepts ("snare, brush hut"; "tension or leverage"): each word that has a name gets it.
     case 'list': return v.split(/(, | or )/).map(w => (w === ', ' || w === ' or ' ? w : recipeOf(w) ? recipeName(recipeOf(w)!, t).toLowerCase() : conceptName(w, t).toLowerCase())).join('');
@@ -297,6 +312,8 @@ function part(name: string, v: string, t: T): string | undefined {
     case 'line': case 'why': case 'rest': return simLine(v, t);
     // One of the small words (`w.*`): an accident's ground, an injury's name, a luck's reason...
     case 'w': return wordText(v, t);
+    case 'W': { const s = wordText(v, t); return s && s[0].toUpperCase() + s.slice(1); }
+    case 'numc': { const i = NUMBER_WORDS.indexOf(v); return i >= 0 ? t(`num.${i}` as Key) : /^\d[\d,]*$/.test(v) ? localNum(v, t) : undefined; }
     case 'stuff': return stuffText(v, t);
     // What heads a refusal or an outcome: an action ("Craft basket"), a road verb ("Sell"), or an option said whole.
     case 'head': {
@@ -345,7 +362,8 @@ function part(name: string, v: string, t: T): string | undefined {
     }
     // What a free question was about: a topic, a skill or a concept, said as a focus is; else (a people's
     // ways, the village's past: #1709 leaves those for a follow-up and phase 4) as the sim said it.
-    case 'qabout': return part('about', v, t) ?? v;
+    // A people's ways and the village's past are said too (#1711); a place's name stays as it is.
+    case 'qabout': return part('about', v, t) ?? questionAboutWords(v, t) ?? v;
     case 'level': { const i = LEVELS.indexOf(v as (typeof LEVELS)[number]); return i >= 0 ? t(`level.${i}` as Key) : undefined; }
     case 'talentlow': { const k = (Object.keys(en) as Key[]).find(x => /^talent\.[^.]+$/.test(x) && en[x].toLowerCase() === v); return k ? t(k).toLowerCase() : undefined; }
     // A skill by its id, as an encounter's requirement names it ("needs hunting 3").
@@ -368,7 +386,7 @@ function part(name: string, v: string, t: T): string | undefined {
 // ── Lines said in full (#1709): what people say, encounters, techniques ─────
 
 /** The catalog areas whose English is a whole line the sim hands over as it is (a lore line, an encounter's text). */
-const PHRASE_AREAS = ['person.', 'quest.', 'ans.', 'tell.', 'sign.', 'tech.', 'econ.', 'harmlore.', 'deflect.', 'phr.', 'enc.', 'meet.', 'say.', 'fact.', 'claim.'];
+const PHRASE_AREAS = ['lore.', 'hist.lhc.', 'person.', 'quest.', 'ans.', 'tell.', 'sign.', 'tech.', 'econ.', 'harmlore.', 'deflect.', 'phr.', 'enc.', 'meet.', 'say.', 'fact.', 'claim.'];
 /** Each such line by its English (the first key wins when two areas say the same thing). */
 const BY_TEXT: ReadonlyMap<string, Key> = new Map((Object.keys(en) as Key[]).filter(k => PHRASE_AREAS.some(a => k.startsWith(a))).reverse().map(k => [en[k] as string, k]));
 
@@ -382,7 +400,11 @@ export const phrase = (text: string, t: T): string => { const k = BY_TEXT.get(te
  * The templates `simLine` knows: every reason, option note and label the sim writes as English
  * (#1707), and every journal line it writes (`log.*`, #1709).
  */
-const TEMPLATE_KEYS = (Object.keys(en) as Key[]).filter(k => k.startsWith('reason.') || k.startsWith('log.') || (k.startsWith('opt.') && /\{|\s/.test(en[k])));
+/** The history's sentences (#1711, i18n/en/history.ts): every `hist.*` key but its words and fragments. */
+const HIST_TEMPLATE = /^hist\.(?:ev|reg|say|arc|fact|label|rum|lh|lhc|head)\.|^hist\.legendCentury$|^loreq\.(?:hedged|close)$/;
+const HIST_FRAGMENT: ReadonlySet<string> = new Set(['hist.fact.besides']);
+const TEMPLATE_KEYS = (Object.keys(en) as Key[]).filter(k => k.startsWith('reason.') || k.startsWith('log.') || (k.startsWith('opt.') && /\{|\s/.test(en[k]))
+  || (HIST_TEMPLATE.test(k) && !HIST_FRAGMENT.has(k)));
 
 interface Template { key: Key; re: RegExp; vars: string[] }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -399,7 +421,7 @@ const TEMPLATES: readonly Template[] = TEMPLATE_KEYS.map(key => {
     if (v) { vars.push(v[1]); return `(${PATTERN[baseOf(v[1])] ?? '.+?'})`; }
     return escapeRe(bit);
   }).join('');
-  return { key, re: new RegExp(`^${src}$`, 's'), vars };
+  return { key, re: new RegExp(`^${src}$`, 'su'), vars };
 }).sort((a, b) => en[b.key].replace(/\{\w+\}/g, '').length - en[a.key].replace(/\{\w+\}/g, '').length);
 
 /** English straight from the catalog, for checking a part's value without saying it in any language. */
@@ -424,8 +446,99 @@ const READ = new WeakMap<T, Map<string, string>>();
 function readLine(line: string, t: T): string {
   const k = BY_TEXT.get(line);
   if (k) return t(k);
+  const lore = loreAnswer(line, t);
+  if (lore !== undefined) return lore;
   const m = matchSimLine(line);
-  return m ? t(m.key, Object.fromEntries(Object.entries(m.vars).map(([name, v]) => [name, part(name, v, t) ?? v]))) : line;
+  if (m) return t(m.key, Object.fromEntries(Object.entries(m.vars).map(([name, v]) => [name, part(name, v, t) ?? v])));
+  return namedRegion(line, t) ?? line;
+}
+
+// ── A people's or a culture's ways, and what a question was about (#1711) ───
+
+/** Every lore claim the road's people can voice, by its English (i18n/en/lore.ts), longest first. */
+const LORE_TEXTS: readonly [string, Key][] = (Object.keys(en) as Key[]).filter(k => k.startsWith('lore.')).map(k => [en[k] as string, k] as [string, Key]).sort((a, b) => b[0].length - a[0].length);
+const LORE_FRAMES: readonly [string, Key][] = [['Between us: ', 'loreq.hedged'], ["Since it's you: ", 'loreq.close']];
+
+/**
+ * A lore answer (knowledge-questions.ts: up to two claims, each maybe "Between us: "), claim by
+ * claim. Undefined unless it's made of nothing but known claims (then it's read some other way).
+ */
+function loreAnswer(text: string, t: T): string | undefined {
+  const said: string[] = [];
+  let rest = text;
+  while (rest) {
+    const frame = LORE_FRAMES.find(([f]) => rest.startsWith(f));
+    if (frame) rest = rest.slice(frame[0].length);
+    const hit = LORE_TEXTS.find(([c]) => rest === c || rest.startsWith(`${c} `));
+    if (!hit) return undefined;
+    said.push(frame ? t(frame[1], { line: t(hit[1]) }) : t(hit[1]));
+    rest = rest.slice(hit[0].length).replace(/^ /, '');
+  }
+  return said.length ? said.join(' ') : undefined;
+}
+
+/** How each lore topic reads (knowledge-questions.ts LORE_ABOUT), by its English. */
+const LORE_ABOUT_KEYS: ReadonlyMap<string, Key> = new Map((Object.keys(en) as Key[]).filter(k => k.startsWith('loreq.about.')).map(k => [en[k] as string, k]));
+/** How each fixed past topic reads (past-topics.ts pastAbout), by its English. */
+const PAST_ABOUT_KEYS: ReadonlyMap<string, Key> = new Map((['here', 'around', 'plague', 'famine', 'war', 'lord', 'murder'] as const).map(k => [en[`pastq.${k}`], `pastq.${k}` as Key]));
+
+/** A People or a culture as a question names it ("the Goblins", "the Fieldborn"), said. */
+const groupText = (v: string, t: T): string | undefined => {
+  const m = v.match(/^the (.+)$/);
+  if (!m) return undefined;
+  // A People by its id; a culture by the lore's name for it ("Bergfolk Holds" is mountainhold), as the road names it.
+  const culture = allCultureLore().find(c => c.name === m[1]);
+  const name = isKey(`people.${m[1]}`) ? t(`people.${m[1]}` as Key) : culture && isKey(`culture.${culture.id}`) ? t(`culture.${culture.id}` as Key) : cultureText(m[1], t);
+  return name === undefined ? undefined : t('loreq.group', { name });
+};
+
+/**
+ * What a free question was about, as the sim words it (knowledge-questions.ts questionAbout): a
+ * topic, a people's ways ("how their people mourn", "what their people think of the Goblins"), or
+ * the past ("what happened here", "the house of Crowhelm", a place's name). Undefined when it's none.
+ */
+export function questionAboutWords(v: string, t: T): string | undefined {
+  const lore = LORE_ABOUT_KEYS.get(v);
+  if (lore) return t(lore);
+  const view = en['loreq.about.view'];
+  if (v.startsWith(`${view} `)) {
+    const groups = v.slice(view.length + 1).split(' and ').map(g => groupText(g, t));
+    if (!groups.every(Boolean)) return undefined;
+    const list = groups.length > 1 ? t('road.and', { a: groups.slice(0, -1).join(', '), b: groups.at(-1)! }) : groups[0]!;
+    return `${t('loreq.about.view')} ${list}`;
+  }
+  const past = PAST_ABOUT_KEYS.get(v);
+  if (past) return t(past);
+  const house = v.match(/^the house of (.+)$/);
+  if (house) return t('pastq.house', { house: house[1] });
+  return undefined;
+}
+
+/** What a free question's topic key was about, in the viewer's language (road-view.ts: what they told you, and when). */
+export function questionAboutText(topic: string, t: T): string {
+  const english = questionAbout(topic);
+  if (t('lang.name') === en['lang.name']) return english;
+  const f = parseFocus(topic);
+  if (f) return focusInlineText(f, t);
+  return questionAboutWords(english, t) ?? english;
+}
+
+/**
+ * A country's news told on its own (#1711), which names its country after the first sentence
+ * (storytelling/render.ts renderRegionalEventNamed: "Famine struck Ravenford, in the Hollowford
+ * country."): the sentence without the country is read as any other, and the country goes back in
+ * after its first sentence. Undefined when it isn't one, or the sentence itself doesn't read.
+ */
+function namedRegion(line: string, t: T): string | undefined {
+  const m = line.match(/^(.*?), in ([^,.]*?)\.(\s.*)?$/s);
+  if (!m) return undefined;
+  const region = regionText(m[2], t);
+  if (region === undefined) return undefined;
+  const base = `${m[1]}.${m[3] ?? ''}`;
+  const said = readLine(base, t);
+  if (said === base) return undefined;
+  // After the first sentence of what was said, as the English puts it after its own.
+  return said.replace(/\.(\s|$)/, `${t('hist.inRegion', { region })}.$1`);
 }
 
 /**

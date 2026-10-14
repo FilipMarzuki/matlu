@@ -350,7 +350,7 @@ export const encountersSv: Record<keyof typeof encounters, string> = {
   'enc.broken-axle.text': 'Ett knak som när en gren bryts, och den andra vagnen krängar och tvärstannar. Bakaxeln har spruckit. Pim ligger redan under den och svär kärleksfullt åt den.',
   'enc.broken-axle.freeze': 'Du står bredvid medan de andra arbetar. Det tar dem hela eftermiddagen.',
   'enc.broken-axle.opt.help-fix': 'Kryp in under och hjälp Pim',
-  'enc.broken-axle.opt.help-fix.success': 'Tillsammans spjälar ni den med färsk ask och ståltråd. Pim klappar axeln och sedan dig. "Den håller till Mistheim. Du får krypa under min vagn när du vill."',
+  'enc.broken-axle.opt.help-fix.success': 'Tillsammans spjälar ni den med färskt askvirke och ståltråd. Pim klappar axeln och sedan dig. "Den håller till Mistheim. Du får krypa under min vagn när du vill."',
   'enc.broken-axle.opt.help-fix.fail': 'Du håller i fel ände i fel ögonblick, och spjälan glider två gånger. Pim får det gjort till slut, med en blick.',
   'enc.broken-axle.opt.hands': 'Hämta, bär och håll lyktan',
   'enc.broken-axle.opt.hands.success': 'Inte glamoröst, men någon måste hålla lyktan. Bodil lägger märke till vem som gör det.',

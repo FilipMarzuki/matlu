@@ -62,6 +62,26 @@ export function translate(lang: Lang, key: Key, vars?: Vars, catalogs: Catalogs 
   return fill(text, vars);
 }
 
+/**
+ * A number as the viewer's language writes it (#1711): Swedish puts a comma where English puts a
+ * point ("1,5 timmar"), and groups thousands with a space ("1 200"); English is unchanged. `digits`
+ * fixes the decimals (`toFixed`); without it the number is written as short as it goes. Takes `t`
+ * rather than a language so every view that already has `t` can use it: the separators are catalog
+ * strings (`fmt.decimal`, `fmt.group`).
+ */
+export function numText(n: number | string, t: T, digits?: number): string {
+  const s = typeof n === 'string' ? n : digits === undefined ? String(n) : n.toFixed(digits);
+  return localNum(s, t);
+}
+
+/** A number already written the English way ("1.5", "1,200", "−3"), rewritten in the viewer's language. */
+export function localNum(s: string, t: T): string {
+  const dec = t('fmt.decimal'), group = t('fmt.group');
+  if (dec === '.' && group === ',') return s;
+  // Swap the separators through a placeholder so neither overwrites the other.
+  return s.replace(/(\d),(?=\d{3}\b)/g, '$1\u0000').replace(/(\d)\.(?=\d)/g, `$1${dec}`).replace(/\u0000/g, group);
+}
+
 /** A `t` bound to one language (and, for tests, to other catalogs). */
 export function makeT(lang: Lang, catalogs: Catalogs = CATALOGS): T {
   return (key, vars) => translate(lang, key, vars, catalogs);

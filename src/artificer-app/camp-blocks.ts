@@ -9,7 +9,7 @@
  * sim says in English goes through sim-words.ts. Pure: state in, HTML out.
  */
 
-import type { T } from '../artificer/i18n';
+import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
 import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, spoilage, warmth, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
@@ -114,7 +114,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
-      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
+      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}<span class="h">${hrs(queueHours(q, preview.projected), t)}H</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
   }).join('')}</div></div>`).join('');
 }
@@ -137,7 +137,7 @@ export function seasonStrip(s: Sim, t: T): string {
     const d = i + 1;
     const cls = [seasonOf(d, cal), d < s.day ? 'past' : d === s.day ? 'now' : '', d === cal.winterDay || d === midwinter ? 'mark' : ''].join(' ');
     // Daylight runs about 6–11.5 hours; scale it so midwinter's short days still show.
-    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="${esc(t('season.dayTip', { d, h: daylightHours(d, cal).toFixed(1) }))}"></i>`;
+    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="${esc(t('season.dayTip', { d, h: numText(daylightHours(d, cal), t, 1) }))}"></i>`;
   }).join('');
   // Markers sit over the centre of their day's bar.
   const at = (d: number): string => `left:${(((d - 0.5) / days) * 100).toFixed(2)}%`;
@@ -146,7 +146,7 @@ export function seasonStrip(s: Sim, t: T): string {
   const blizzard = seeded && isBlizzard(s.weatherToday, s.day, cal);
   const today = [
     seeded ? `<span class="wx ${blizzard ? 'danger' : ''}">${WEATHER_ICON[s.weatherToday]} ${esc(weatherWord(s.weatherToday, s.day, cal, t))}</span>` : '',
-    `<span>${esc(t('season.light', { h: daylightHours(s.day, cal).toFixed(1) }))}</span>`,
+    `<span>${esc(t('season.light', { h: numText(daylightHours(s.day, cal), t, 1) }))}</span>`,
     seeded ? `<span>${Math.round(dayMean(s.day, cal))}°C</span>` : '',
     seeded && (s.snowDepth ?? 0) > 0 ? `<span>${esc(t('season.snowCover', { n: Math.round((s.snowDepth ?? 0) * 100) }))}</span>` : '',
   ].filter(Boolean).join('');
@@ -265,7 +265,7 @@ export function phaseText(p: DayPlay, m: Moment, t: T): string {
   if (m.index >= p.steps.length) return t('timer.sleep');
   const st = p.steps[m.index];
   if (m.phase) return `${m.phase.trips > 1 ? t('timer.trip', { n: m.phase.trip, total: m.phase.trips }) : ''}${t(`timer.${m.phase.kind}`)}`;
-  return st.hours > 0 ? `${hrs(st.hours)}h` : t('timer.skipped');
+  return st.hours > 0 ? `${hrs(st.hours, t)}h` : t('timer.skipped');
 }
 
 // ── The closing card ────────────────────────────────────────────────────────

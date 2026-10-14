@@ -10,6 +10,9 @@ import { roadlogSv } from './sv/roadlog';
 import { encountersSv } from './sv/encounters';
 import { claimsSv } from './sv/claims';
 import { queueSv } from './sv/queue';
+import { historySv } from './sv/history';
+import { tabsSv } from './sv/tabs';
+import { loreSv } from './sv/lore';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -58,6 +61,11 @@ export const sv: Catalog = {
   'lang.play': 'Spela på svenska',
   'picker.title': 'Välj språk',
   'picker.note': 'Du kan byta senare under ? (hjälp).',
+
+  // ── Hur tal skrivs ─────────────────────────────────────────────────────────
+  'fmt.decimal': ',',
+  // Ett hårt mellanslag, så att "1 200" inte bryts över två rader.
+  'fmt.group': ' ',
 
   // ── Överst ─────────────────────────────────────────────────────────────────
   'top.yourWarden': 'Din väktare',
@@ -140,8 +148,8 @@ export const sv: Catalog = {
   'head.pins': 'NÅLAR — platser du minns',
   'head.landDescribed': 'LANDET — det du vet om det, sett från lägret',
   'head.yourMap': 'DIN KARTA — ritad efter det du har sett',
-  'head.reachMap': 'THE REACH — en karta över det du vet',
-  'head.history': 'THE REACH — dess historia',
+  'head.reachMap': 'REACH — en karta över det du vet',
+  'head.history': 'REACH — dess historia',
   'head.lordships': 'HERRESÄTENA NU',
   'head.lordship': 'Herresäte',
   'head.people': 'Folk',
@@ -274,4 +282,7 @@ export const sv: Catalog = {
   ...encountersSv,
   ...claimsSv,
   ...queueSv,
+  ...historySv,
+  ...tabsSv,
+  ...loreSv,
 };

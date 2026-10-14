@@ -322,7 +322,7 @@ const FAMILIES: Readonly<Record<string, readonly string[]>> = {
   mountainhold: ['Hallr', 'Gruvman', 'Djupin', 'Skarv', 'Fjällby'],
 };
 
-const MOOT: Readonly<Record<string, string>> = {
+export const MOOT: Readonly<Record<string, string>> = {
   hollowford: 'ford-moot', saltmere: 'well-council', 'kestrel-gate': 'gate-council',
 };
 
@@ -376,7 +376,9 @@ const person = (c: Ctx, k: number) => c.names[k % c.names.length];
 /** The newest country line of these kinds, if any. */
 const latest = (c: Ctx, ...kinds: string[]) => c.lines.find(l => kinds.includes(l.kind));
 
-const GOOD_YEAR: Readonly<Record<string, string>> = {
+// The word lists below are exported only so the page's catalog (i18n/en/history.ts, #1711) can say
+// each of them in Swedish by its key; nothing else reads them from outside.
+export const GOOD_YEAR: Readonly<Record<string, string>> = {
   farming: 'the barley stood to the shoulder, and the village paid off its debts',
   fishing: 'the nets came up full all season',
   herding: 'nearly every ewe had twins',
@@ -387,7 +389,7 @@ const GOOD_YEAR: Readonly<Record<string, string>> = {
   salt: 'the crust came in thick and white all summer, and the salt-carts went up to the Gate heavy',
   tolls: 'more wagons came through the gate than anyone could remember, and the toll-chest was full by autumn',
 };
-const BAD_YEAR: Readonly<Record<string, string>> = {
+export const BAD_YEAR: Readonly<Record<string, string>> = {
   farming: 'the rain came at harvest and the barley rotted in the stook',
   fishing: 'the fish went deep and stayed there',
   herding: 'the lambing came in sleet, and half the lambs were lost',
@@ -398,12 +400,12 @@ const BAD_YEAR: Readonly<Record<string, string>> = {
   salt: 'the rains came early and the crust melted back into the mere before it could be raked',
   tolls: 'the wagons went round by the old drove road, and the toll-chest stood half empty',
 };
-const QUARREL: Readonly<Record<string, string>> = {
+export const QUARREL: Readonly<Record<string, string>> = {
   farming: 'a boundary stone between their fields', fishing: 'the best drying racks on the shore', herding: 'grazing on the common',
   lumber: 'a stand of timber both said was theirs', mining: 'a claim on the seam', peat: 'the peat cuttings by the old track',
   trading: 'a stall by the market cross', salt: 'the best stretch of crust on the shore', tolls: 'a share of the toll',
 };
-const BUILDING: Readonly<Record<string, string>> = {
+export const BUILDING: Readonly<Record<string, string>> = {
   farming: 'a new mill on the stream', fishing: 'a smoke-house on the shore', herding: 'new stone folds on the hill',
   lumber: 'a saw-pit by the road', mining: 'an ore-shed with a proper roof', peat: 'a long drying barn', trading: 'a covered market',
   salt: 'a salt-shed with a proper roof', tolls: 'a new toll-house by the gate',
