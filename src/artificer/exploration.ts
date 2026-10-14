@@ -106,6 +106,26 @@ export function lookout(e: Exploration, ring: Ring): Exploration {
   return next;
 }
 
+/** How far one explore trip's look round firms up a domain it already suspects (#1689). */
+export const GLANCE_STEP = 0.5;
+/** How many domains one explore trip's look round firms up. */
+export const GLANCE_DOMAINS = 2;
+
+/**
+ * Explore (#1689): the one exploring action a new Warden has. Out into a ring you don't know, it's a
+ * scout's look (everything at least suspected). Into one you do, it firms up the least-known
+ * domains a little, never past observed: a survey's worth takes several trips, which is why
+ * learning to survey is worth something. Deterministic: ties go in `DOMAINS` order.
+ */
+export function explore(e: Exploration, ring: Ring): Exploration {
+  if (!scouted(e, ring)) return scout(e, ring);
+  const next = clone(e);
+  const open = domainsOf(ring).filter(d => next.known[ring][d] < 2);
+  const least = [...open].sort((a, b) => next.known[ring][a] - next.known[ring][b] || DOMAINS.indexOf(a) - DOMAINS.indexOf(b)).slice(0, GLANCE_DOMAINS);
+  for (const d of least) next.known[ring][d] = Math.min(2, next.known[ring][d] + GLANCE_STEP);
+  return next;
+}
+
 /** Insight a trip working a domain teaches it (three trips ≈ one level). */
 export const WORK_INSIGHT = 0.35;
 /** Overview a trip spills into the ring's other domains — never past "suspected". */

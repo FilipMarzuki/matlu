@@ -21,9 +21,9 @@ describe('Planning is learned (#1350)', () => {
     const g = newGame();
     const a = { ...g, sim: { ...g.sim, config: { ...g.sim.config, world: { ...g.sim.config.world, encounters: false } } } };
     expect(a.sim.canPlan).toBe(false);
-    expect(enqueue(a, 'scout').queue).toEqual([]);
-    // …but a tap does the thing now, and the day can be ended by hand.
-    const done = act(a, 'scout');
+    expect(enqueue(a, 'explore').queue).toEqual([]);
+    // …but a tap does the thing now, and the day can be ended by hand. (A new game explores, #1689.)
+    const done = act(a, 'explore');
     expect(done.sim.hoursToday).toBeGreaterThan(0);
     expect(endTheDay(done).sim.day).toBe(2);
   });

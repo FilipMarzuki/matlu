@@ -170,6 +170,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'People learn your track record (fair dealing, kept word, the side you take) and word of it travels with friends, kin and the caravan. A steady record, even a hard one, gets expected terms; an erratic one gets hedged prices and wary answers. Only a record of dealing well earns the regular\'s rate and confidences.',
   },
   {
+    // A rules feature: it changes what a Warden can do (one Explore action where there were four,
+    // the others learned by level or a starting talent; crafts you haven't worked out refused as
+    // unknown; an Experiment action that can teach them), so a run from before it (absent: false)
+    // keeps every action as it was on replay.
+    id: 'action-visibility', name: 'Learn your actions as you go', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1690,
+    note: 'You start with one Explore action: scouting, surveying, looking out and tracking come as you get better at them (or from day one with a talent for it). Actions you don\'t know yet are hidden, ones you can\'t do right now are greyed out with the reason, and Experiment, with what you have at hand, can work out what you don\'t know yet.',
+  },
+  {
     // A rules feature: it adds rumours made from the run's own world (run-rumours.ts: its told
     // history, the road's ties and organisations) and sometimes a fourth liar from a pool (claims.ts
     // `liesFor`), so a run from before it (absent: false) keeps the written rumours and three liars

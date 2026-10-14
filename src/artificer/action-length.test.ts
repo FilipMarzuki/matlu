@@ -207,9 +207,10 @@ describe('Choose how long an action takes (#1668)', () => {
   });
 });
 
-/** A seeded game past its first scout (so the near ring is known): actions there are open. */
+/** A seeded game past its first look round (so the near ring is known): actions there are open. */
 function playedTo(g: Game): Game {
-  const r = apply(g, { do: 'scout' });
+  // A new game explores where it used to scout (#1689).
+  const r = apply(g, { do: 'explore' });
   if (!r.ok) throw new Error(r.error);
   return r.game;
 }

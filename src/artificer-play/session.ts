@@ -18,7 +18,7 @@ import {
   meetCaravan, meetingChoose, rideCaravan, stayBehind, roadAct, roadChoose, roadEndDay, newCharacterId,
   serialize as serializeApp, deserialize as deserializeApp, type AppState,
 } from '../artificer-app/controller';
-import { ACTIONS, DAY_HOURS, EATING_PLANS, SITES, blockedReason, queueHours, queueId, type ActionId, type EatingPlan, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, DAY_HOURS, EATING_PLANS, SITES, blockedReason, skillLockOf, visibilityOn, queueHours, queueId, type ActionId, type EatingPlan, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { RINGS, reachable, type Ring } from '../artificer/exploration';
 import { parseFocus } from '../artificer/focus';
 import { encounterById, optionsFor } from '../artificer/encounters';
@@ -306,7 +306,7 @@ export function actionItem(item: unknown): unknown {
 function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: boolean } = {}): string | null {
   const q = typeof item === 'string' ? item : item && typeof item === 'object' && 'q' in item ? String((item as { q: unknown }).q) : '';
   const [id, ringText] = q.split('@');
-  if (!(id in ACTIONS)) return `There's no action "${q}". The actions are listed in the view (e.g. "scout", "gather@2").`;
+  if (!(id in ACTIONS)) return `There's no action "${q}". The actions are listed in the view (e.g. "explore", "gather@2").`;
   const def = ACTIONS[id as ActionId];
   const ring = (ringText === undefined ? 1 : Number(ringText)) as Ring;
   if (!RINGS.includes(ring) || (ring !== 1 && !def.ringed)) return `"${q}" isn't a valid ring for ${id}${def.ringed ? ' (rings are 1, 2 and 3)' : ': it isn\'t done out on the land'}.`;
@@ -315,8 +315,11 @@ function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: bool
   const badLength = lengthRefusal(id, itemOpts);
   if (badLength) return `Can't set a length on ${id}: ${badLength}.`;
   if (chosenLength(itemOpts) && !featureOn(s.config.world.features, 'action-length')) return 'Action lengths are off in this game: leave out hours and until.';
+  // Something the Warden doesn't know how to do yet (#1689, #1690) is refused even in a plan: it isn't in their actions.
+  const lock = skillLockOf(s, id as ActionId, itemOpts);
+  if (lock) return `Can't ${id}: ${lock}.`;
   if (opts.syntaxOnly) return null;
-  if (def.ringed && !reachable(s.explore, ring)) return `You don't know the way to ring ${ring} yet: scout the ring before it first.`;
+  if (def.ringed && !reachable(s.explore, ring)) return `You don't know the way to ring ${ring} yet: ${visibilityOn(s) ? 'explore' : 'scout'} the ring before it first.`;
   const blocked = blockedReason(s, id as ActionId, ring, itemOpts);
   if (blocked) return `Can't ${id}${def.ringed ? ` in ring ${ring}` : ''} now: ${blocked}.`;
   if (s.hoursToday >= DAY_HOURS) return 'The day is spent. End the day.';

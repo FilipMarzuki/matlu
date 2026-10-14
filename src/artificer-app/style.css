@@ -171,6 +171,7 @@
 .queue li .why.danger { font-weight: 700; }
 .queue li .dayn { font-family: var(--display); font-size: 7px; color: var(--teal); min-width: 34px; }
 .act.soft { border-style: dashed; }
+.act.greyed { opacity: .45; cursor: not-allowed; }
 .act .y .gate { color: var(--warn); }
 .log li.skip { color: var(--faint); }
 .resolve .btn { margin-top: 12px; }
