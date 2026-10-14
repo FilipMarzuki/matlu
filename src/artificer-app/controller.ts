@@ -21,6 +21,7 @@ import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { validExperiments } from '../artificer/experiment';
 import { validPatches } from '../artificer/action-length';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
@@ -599,5 +600,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Worked patches (#1668): written only by a session of chosen length; kept if well-formed, else
   // dropped — a dropped set reads as every patch fresh, which is how a save from before it plays.
   const patches = validPatches(sim.patches) && Object.keys(sim.patches).length ? { ...sim.patches } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Experiment progress (#1690): kept if well-formed, else dropped — as if none had been made yet.
+  const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

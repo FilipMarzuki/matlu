@@ -30,9 +30,9 @@ describe('The play API as a Vercel function (#1555)', () => {
     expect(start.headers.get('access-control-allow-origin')).toBe('*');
     expect(start.headers.get('cache-control')).toBe('no-store');
     const { id } = (await start.json()) as { id: string };
-    const move = await postJson(`/api/v1/games/${id}/moves`, { move: { do: 'scout' } });
+    const move = await postJson(`/api/v1/games/${id}/moves`, { move: { do: 'explore' } });
     expect(move.status).toBe(200);
-    expect(((await move.json()) as { changed: string[] }).changed.join(' ')).toMatch(/Scouted/);
+    expect(((await move.json()) as { changed: string[] }).changed.join(' ')).toMatch(/Walked out and looked around/);
     const again = await call(`/api/v1/games/${id}`);
     expect(again.status).toBe(200);
     expect(((await again.json()) as { status: string }).status).toMatch(/Day 1/);

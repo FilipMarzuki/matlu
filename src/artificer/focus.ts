@@ -28,7 +28,7 @@ export const isTopic = (f: Focus | null | undefined): f is TopicFocus => !!f && 
 export const GOALS: Readonly<Record<GoalId, { name: string; actions: readonly ActionId[] }>> = {
   shelter: { name: 'Shelter', actions: ['build', 'wood'] },
   larder: { name: 'Larder', actions: ['hunt', 'gather', 'preserve'] },
-  explore: { name: 'Explore', actions: ['scout', 'survey', 'lookout', 'track'] },
+  explore: { name: 'Explore', actions: ['scout', 'survey', 'lookout', 'track', 'explore'] },
 };
 export const GOAL_IDS = Object.keys(GOALS) as GoalId[];
 

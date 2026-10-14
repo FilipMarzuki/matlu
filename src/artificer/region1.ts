@@ -39,12 +39,14 @@ import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDe
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type PendingEncounter } from './encounters';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
-import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { createExploration, scout, survey, track, lookout, explore as exploreRing, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
+import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
+import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
@@ -232,6 +234,12 @@ export interface Region1State {
    * on; a patch back to full is dropped. Absent: every patch untouched.
    */
   patches?: Patches;
+  /**
+   * Experimenting (#1690, `action-visibility`): hours of progress towards each recipe not yet
+   * worked out, by recipe id (experiment.ts). Written only by the Experiment action, so only with
+   * the switch on; a recipe worked out is dropped. Absent: none.
+   */
+  experiments?: Record<string, number>;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -379,6 +387,7 @@ function clone(s: Region1State): Region1State {
     tools: [...s.tools],
     concepts: { ...s.concepts },
     ...(s.taughtBy ? { taughtBy: [...s.taughtBy] } : {}),
+    ...(s.experiments ? { experiments: { ...s.experiments } } : {}),
     today: { ...s.today },
     deprivation: { ...s.deprivation },
     skills: { ...s.skills },
@@ -532,10 +541,12 @@ export type ActionId =
   | 'basket' | 'backpack' | 'harness' | 'sled'
   | 'lookout' | 'study'
   | 'tinker' | 'rest' | 'treat'
-  | 'fish' | 'coldPit';
+  | 'fish' | 'coldPit'
+  // Learning your actions as you go (#1689, #1690): only with the `action-visibility` switch on.
+  | 'explore' | 'experiment';
 
 /** Actions that happen out on the land, in a chosen ring. */
-export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish';
+export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore';
 /**
  * A queue entry: an action, optionally aimed at a ring (`wood@2`). A bare id
  * means the near ring, so plans written before rings existed still read right.
@@ -595,11 +606,16 @@ interface ActionDef {
   recipeFor?: (s: Region1State, opts: ActionOpts) => CraftRecipe | null;
 }
 
-const needsScout = (s: Region1State): string | null => (scouted(s.explore, 1) ? null : "you don't know the land yet — scout first");
+/** Learning your actions as you go (#1689, #1690): the run's switch. */
+export const visibilityOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, ACTION_VISIBILITY);
+/** How the land gets known: by scouting, or (with the switch on) by exploring. */
+const scoutVerb = (s: Region1State): string => (visibilityOn(s) ? 'explore' : 'scout');
+
+const needsScout = (s: Region1State): string | null => (scouted(s.explore, 1) ? null : `you don't know the land yet — ${scoutVerb(s)} first`);
 
 /** Can you get to this ring? (The one inside it must be known first.) */
 const reach = (s: Region1State, ring: Ring): string | null =>
-  (reachable(s.explore, ring) ? null : `the ${RING_NAME[(ring - 1) as Ring].toLowerCase()} ring isn't known yet — scout it first`);
+  (reachable(s.explore, ring) ? null : `the ${RING_NAME[(ring - 1) as Ring].toLowerCase()} ring isn't known yet — ${scoutVerb(s)} it first`);
 
 /** Game you've tracked (observed) in any ring. */
 export const gameTracked = (s: Region1State): boolean => RINGS.some(r => level(s.explore, r, 'game') >= 2);
@@ -915,6 +931,40 @@ function latchDiscoveries(s: Region1State): void {
   }
 }
 
+/** Every recipe discovery could lead to, by id: what Experiment works towards (#1690). */
+const RECIPE_BY_ID: Readonly<Record<string, CraftRecipe>> = Object.fromEntries([
+  ...Object.values(REGION1_RECIPES), ...Object.values(GEAR_RECIPES), ...Object.values(SHELTER_TYPES).map(t => t.recipe),
+  ...Object.values(WALL_TYPES).map(t => t.recipe), HIDE_PARKA_RECIPE,
+].map(r => [r.id, r]));
+
+/** What experimenting can work out (#1690): each discovery, with what its recipe is made from. In DISCOVERIES order. */
+export const EXPERIMENT_TARGETS: readonly ExperimentTarget[] = DISCOVERIES.map(d => {
+  const r = RECIPE_BY_ID[d.recipe];
+  return { recipe: d.recipe, name: d.name, concepts: [d.concept, ...(r?.concepts ?? []).filter(c => c !== d.concept)], skill: skillFor('build', d.recipe), inputs: r ? r.inputs.map(i => i.item) : [] };
+});
+
+/** Store keys the Warden can choose to try with (#1690): those at hand that some target is made from. */
+const experimentMaterials = (s: Region1State): (keyof Stores)[] =>
+  STORE_KEYS.filter(k => s.stores[k] >= 1 && EXPERIMENT_TARGETS.some(t => !s.known.includes(t.recipe) && t.inputs.includes(k)));
+
+/**
+ * Why the Warden doesn't know how to do this at all, or null (#1690): the reason an action is
+ * **hidden** rather than greyed out. The two new actions don't exist with the switch off; with it
+ * on, an exploring sub-action not yet learned (#1689), or a craft whose recipe isn't worked out.
+ * The circumstances (a missing tool, materials, the dark, the weather) are `blockedReason`'s.
+ */
+export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}): string | null {
+  if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
+  if (!visibilityOn(s)) return null;
+  const sub = subActionLock(id, s);
+  if (sub) return sub;
+  // Cold gear's default is woven fiber, which every Warden knows; its hide option is a choice inside it.
+  // Anyone can dig a cold pit: it has a recipe for its costs, but nothing to work out.
+  if (id === 'coldPit') return null;
+  const recipe = id === 'coldGear' ? coldGearRecipe(opts) : ACTIONS[id].recipe;
+  return recipe ? unknownRecipe(s, recipe) : null;
+}
+
 /**
  * Gate for a craft action. The extra gate goes first (a hide needs a hunt),
  * then "you already have a good one", then the crafting module's own checks.
@@ -1107,7 +1157,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   lookout: {
     // You look out over ground you've scouted; without that it would stand in for scouting two rings at once.
     name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true,
-    gate: (s, r) => reach(s, r) ?? (scouted(s.explore, r) ? null : `scout the ${RING_NAME[r].toLowerCase()} ring first`),
+    gate: (s, r) => reach(s, r) ?? (scouted(s.explore, r) ? null : `${scoutVerb(s)} the ${RING_NAME[r].toLowerCase()} ring first`),
     // Camped on the hilltop, the near look-out is a short climb.
     variant: (_o, s, ring) => (s?.site === 'hill' && ring === 1 ? { hours: 2 } : {}),
     run: (s, _b, r, _o, light) => {
@@ -1151,6 +1201,51 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       s.vitals.clarity.current = Math.max(0, s.vitals.clarity.current - strain);
       s.today.loadClarity += strain;
       return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).${night.lamp ? ' By headlamp.' : night.fire ? ' By firelight.' : night.clarity > 1 ? ' Straining in the dark.' : ''}`;
+    },
+  },
+  // Learning your actions as you go (#1689): the one exploring action a new Warden has.
+  explore: {
+    name: 'Explore', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true,
+    gate: (s, r) => skillLockOf(s, 'explore') ?? reach(s, r),
+    run: (s, _b, r, _o, light) => {
+      if (tooDarkToSee('explore', light)) return tooDark(r);
+      if (blindInFog(s.weatherToday, 'explore')) return fogged(r);
+      const first = !scouted(s.explore, r);
+      s.explore = exploreRing(s.explore, r);
+      if (first) {
+        return r === 1 ? 'Walked out and looked around — you know now roughly where food, water, wood and stone lie.'
+          : r === 2 ? 'Walked out to the far ring and looked around — forage, timber, and paths leading on.'
+            : 'Walked out as far as the distant hills — and glimpsed the pass out of the Reach.';
+      }
+      return `Walked the ground${where(r)} again and looked closer — it's a little clearer now.`;
+    },
+  },
+  // Try something with what you have (#1690): always there with the switch on, it works out what you don't know yet.
+  experiment: {
+    name: 'Experiment', hours: EXPERIMENT_HOURS, vigorRate: -0.5, clarityRate: -3,
+    gate: s => skillLockOf(s, 'experiment'),
+    options: (s, o) => {
+      const mats = experimentMaterials(s);
+      return mats.length > 1 ? [choiceGroup('with', 'Try with', o.with ?? 'any', [
+        { value: 'any', label: 'Anything', note: 'whatever seems promising', blocked: null },
+        ...mats.map(k => ({ value: k, label: STORE_WORD[k][0].toUpperCase() + STORE_WORD[k].slice(1), note: `${s.stores[k]} at hand`, blocked: null })),
+      ])] : [];
+    },
+    run: (s, _b, _r, o) => {
+      s.today.absorbed = true;
+      const step = experimentStep({ targets: EXPERIMENT_TARGETS, known: s.known, have: k => s.stores[k as keyof Stores] ?? 0, progress: s.experiments ?? {}, focus: s.focus, with: o.with && o.with !== 'any' ? o.with : undefined });
+      if (!step.target) return 'Turned over what you have — nothing in it you don\'t already know how to use. More to work with might show you more.';
+      s.experiments = step.progress;
+      if (!Object.keys(s.experiments).length) delete s.experiments;
+      const stuff = inputWords(step.target);
+      if (step.learned) {
+        s.known.push(step.target.recipe);
+        say(s, `Worked out: ${step.target.name} — trying things with ${stuff}, you found how it goes together.`, 'milestone');
+        return `Experimented with ${stuff}${step.steered ? ', your mind on it' : ''} — and it came.`;
+      }
+      return step.hinted
+        ? `Experimented with ${stuff}. You think there's a way to make something of it, if you keep at it.`
+        : `Experimented with ${stuff}${step.steered ? ', your mind on it' : ''} — closer, you think.`;
     },
   },
   tinker: {
@@ -1435,6 +1530,9 @@ export function sessionNote(s: Region1State, item: QueueItem): string | null {
  */
 export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
   const def = ACTIONS[id];
+  // Something you don't know how to do yet (#1690): refused before any circumstance is looked at.
+  const lock = skillLockOf(s, id, opts);
+  if (lock) return lock;
   if (def.gate) { const g = def.gate(s, ring, opts); if (g) return g; }
   // "Until you have N" (#1668) with N already in the stores: nothing to go out for.
   const len = lengthOf(s, id, opts);
@@ -1913,10 +2011,12 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (fright && fright.state !== 'calm') landPanic(next, fright, before, workHours, at);
   else if (fright && at.light < DUSK_LIGHT) faceFear(next, ['dark'], DARK_FADES, at);
   // First into a ring, you may find a manual someone left behind (#1243).
-  const manual = id === 'scout' && !tooDarkToSee('scout', at.light) && !blindInFog(next.weatherToday, 'scout') ? MANUAL_BY_RING[ring] : undefined;
+  const manual = (id === 'scout' || id === 'explore') && !tooDarkToSee(id, at.light) && !blindInFog(next.weatherToday, id) ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
+  // Getting better opens new ways to explore (#1689), each with a line in the journal.
+  if (visibilityOn(next)) for (const u of newlyOpen(s, next)) say(next, u.line, 'milestone', at);
   if (def.ringed) revisit(next, ring, at);
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });

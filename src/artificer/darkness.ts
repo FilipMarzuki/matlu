@@ -35,7 +35,7 @@ export const darkTravelDrain = (light: number): number => 1 + 0.3 * (1 - light);
 
 /** Too dark to learn anything from looking at the land. */
 export const tooDarkToSee = (action: ActionId, light: number): boolean =>
-  (action === 'scout' || action === 'survey' || action === 'lookout') && light < SEE_BELOW;
+  (action === 'scout' || action === 'survey' || action === 'lookout' || action === 'explore') && light < SEE_BELOW;
 
 /** Firewood a fire for close work burns: one per started four hours. */
 export const firelightCost = (hours: number): number => Math.ceil(hours / 4);
