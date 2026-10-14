@@ -271,7 +271,7 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
     const meeting = gameFrom(thawApp(), 'play-thaw');
     const dead = gameFrom({ ...day.app, sim: { ...day.app.sim, outcome: { choice: 'collapse', kind: 'died', vitals: day.app.sim.vitals } } }, day.id);
     const english = [
-      ...errors(day, [{ do: 'teleport' }, { do: 'hunt@3' }, { do: 'rest@2' }, { do: 'treat' }, { do: { q: 'wood', hours: 99 } }, { plan: ['water'] }, { choose: 'x' },
+      ...errors(day, [{ do: 'teleport' }, { do: 'hunt@3' }, { do: 'rest@2' }, { do: 'treat' }, { do: { q: 'wood', hours: 99 } } as unknown as Move, { plan: ['water'] }, { choose: 'x' },
         { set: { focus: 'zz' } }, { set: { eating: 'x' } }, { set: { site: 'moon' } }, { ask: { person: 'hf-orrin', question: 'Hej?' } }]),
       ...errors(village, [{ do: 'teleport' }, { ask: { person: 'nobody', question: 'Hej?' } }, { ask: { person: 'hf-orrin', question: '   ' } }, { set: { eating: 'half' } }, { set: { site: 'cave' } }, { plan: ['water'] }]),
       ...errors(meeting, [{ do: 'scout' }, { choose: 'zz' }]),
