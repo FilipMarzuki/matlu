@@ -86,3 +86,17 @@ export function localNum(s: string, t: T): string {
 export function makeT(lang: Lang, catalogs: Catalogs = CATALOGS): T {
   return (key, vars) => translate(lang, key, vars, catalogs);
 }
+
+/**
+ * The keys more than one area defines, each with the areas that do (#1714). A catalog is several
+ * area objects spread into one (en.ts, sv.ts), and a spread doesn't complain about a repeated key:
+ * the later area silently wins, which is how the road's `end.died` once hid the camp's. Pure, so the
+ * test can show it catches a planted duplicate as well as checking the real catalogs.
+ */
+export function duplicateKeys(areas: Record<string, object>): { key: string; areas: string[] }[] {
+  const where = new Map<string, string[]>();
+  for (const [area, strings] of Object.entries(areas)) {
+    for (const key of Object.keys(strings)) where.set(key, [...(where.get(key) ?? []), area]);
+  }
+  return [...where].filter(([, found]) => found.length > 1).map(([key, found]) => ({ key, areas: found }));
+}

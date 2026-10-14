@@ -30,7 +30,8 @@ import { tabs } from './en/tabs';
 import { lore } from './en/lore';
 import { api } from './en/api';
 
-export const en = {
+/** The strings that live in this file rather than an area file under ./en/. */
+const core = {
   // ── The language picker: the very first screen ─────────────────────────────
   // Each language's own name and call to play, drawn in that language whatever is chosen.
   'lang.name': 'English',
@@ -247,7 +248,18 @@ export const en = {
   // ── This week's world ──────────────────────────────────────────────────────
   'weekly.unreachable': "This week's world can't be reached right now. Try again in a while.",
   'weekly.leave': "Leave this run and start this week's world? This run can't be picked up again.",
+} as const satisfies Record<string, string>;
 
+/**
+ * Every area by name: this file's own strings (`core`) and each file under ./en/. They are spread
+ * into one object, so a key two areas both define would silently keep only the later one
+ * (#1714: the road's `end.died` hid the camp's). duplicates.test.ts checks with `duplicateKeys` that no
+ * key is defined twice.
+ */
+export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api };
+
+export const en = {
+  ...core,
   // ── Phase 2 (#1707): the opening, the pack, a day at camp, the map ─────────
   ...opening,
   ...kit,

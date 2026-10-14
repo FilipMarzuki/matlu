@@ -209,7 +209,7 @@ export const roadSv: Record<keyof typeof road, string> = {
   'end.diedHead': '✝ HÄR TAR VÄGEN SLUT',
   'end.cargoHead': '✝ BÅREN SOM LAST',
   'end.arrived': 'Mistheims murar reser sig ur morgondimman, och karavanen rullar in genom porten. Du tog dig ut ur Reach — och du kommer inte tomhänt.',
-  'end.died': 'Vägen var en prövning för mycket. Det finns ingen som kan fortsätta.',
+  'road.end.died': 'Vägen var en prövning för mycket. Det finns ingen som kan fortsätta.',
   'end.cargo': 'Kroppen gav upp på vägen. Karavanen bär dig resten av vägen, men den här resan är över.',
   'end.quests.one': '❗ {n} uppdrag klart',
   'end.quests.other': '❗ {n} uppdrag klara',

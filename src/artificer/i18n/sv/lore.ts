@@ -1,5 +1,4 @@
 import type { LoreCatalogKey } from '../en/lore';
-import { loreSv2 } from './lore2';
 
 /**
  * Ett folks och en kulturs seder på svenska (#1711): det någon längs vägen säger när en fri fråga
@@ -11,8 +10,6 @@ import { loreSv2 } from './lore2';
  * the Old Accords → de gamla avtalen.
  */
 export const loreSv: Partial<Record<LoreCatalogKey, string>> = {
-  ...loreSv2,
-
   // ── Frågans ämne, och hur ett påstående sägs ───────────────────────────────
   'loreq.about.values': 'vad deras folk håller kärt',
   'loreq.about.taboos': 'vad deras folk aldrig gör',

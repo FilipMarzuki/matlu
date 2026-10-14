@@ -13,6 +13,8 @@ import { queueSv } from './sv/queue';
 import { historySv } from './sv/history';
 import { tabsSv } from './sv/tabs';
 import { loreSv } from './sv/lore';
+import { loreSv2 } from './sv/lore2';
+import { loreSv3 } from './sv/lore3';
 import { apiSv } from './sv/api';
 
 /**
@@ -56,7 +58,8 @@ import { apiSv } from './sv/api';
  *   The sim keeps its journal in English (the AI and the API read it); the page reads each line back
  *   through the catalog (artificer-app/sim-words.ts), so a journal line is a template here.
  */
-export const sv: Catalog = {
+/** The strings that live in this file rather than an area file under ./sv/. */
+const core: Catalog = {
   // ── Språkväljaren ──────────────────────────────────────────────────────────
   'lang.name': 'Svenska',
   'lang.play': 'Spela på svenska',
@@ -270,7 +273,13 @@ export const sv: Catalog = {
   // ── Veckans värld ──────────────────────────────────────────────────────────
   'weekly.unreachable': 'Det går inte att nå veckans värld just nu. Försök igen om en stund.',
   'weekly.leave': 'Lämna den här rundan och börja på veckans värld? Den här rundan går inte att ta upp igen.',
+};
 
+/** Every area by name, as en.ts has them (`enAreas`): duplicates.test.ts checks that no key is defined in two. */
+export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv };
+
+export const sv: Catalog = {
+  ...core,
   // ── Fas 2 (#1707): öppningen, packningen, en dag i lägret, kartan ──────────
   ...openingSv,
   ...kitSv,
@@ -285,6 +294,8 @@ export const sv: Catalog = {
   ...queueSv,
   ...historySv,
   ...tabsSv,
+  ...loreSv3,
+  ...loreSv2,
   ...loreSv,
   ...apiSv,
 };

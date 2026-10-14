@@ -441,7 +441,7 @@ export function roadEnd(r: RoadState, t: T = EN): string {
   const done = Object.values(r.quests).filter(q => q === 'done').length;
   const friends = Object.entries(r.trust).filter(([, x]) => x >= CONTACT_TRUST).map(([id]) => personById(id)?.name ?? id);
   const head = t(o.kind === 'arrived' ? 'end.arrivedHead' : o.kind === 'died' ? 'end.diedHead' : 'end.cargoHead');
-  const body = t(o.kind === 'arrived' ? 'end.arrived' : o.kind === 'died' ? 'end.died' : 'end.cargo');
+  const body = t(o.kind === 'arrived' ? 'end.arrived' : o.kind === 'died' ? 'road.end.died' : 'end.cargo');
   return `<section class="box arrive ${o.kind}"><p class="eyebrow">${esc(head)}</p><p class="mood">${esc(body)}</p>
     <div class="res"><span class="chip">🪙&nbsp;${t('road.marksHtml', { n: r.marks })}</span><span class="chip">${esc(plural(t, 'end.quests', done))}</span><span class="chip">${esc(plural(t, 'end.contacts', friends.length))}</span><span class="chip">${esc(plural(t, 'end.techniques', r.techniques.length))}</span></div>
     ${friends.length ? `<p class="mood">${esc(t('end.remember', { names: friends.join(', ') }))}</p>` : ''}</section>`;
