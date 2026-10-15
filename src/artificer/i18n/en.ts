@@ -246,6 +246,12 @@ const core = {
   'look.rune-1': 'Etched slate',
   'look.rune-2': 'Waking runes',
   'look.rune-3': 'Full rune tech',
+  // The look switcher in the header (#1736): temporary, for reviewing the era looks.
+  'look.label': 'LOOK',
+  'look.switch': 'Era look (temporary, for reviewing the looks)',
+  'look.prev': 'Previous look',
+  'look.next': 'Next look',
+  'look.game': "The game's ({look})",
 
   // ── The records box at the end of a run ────────────────────────────────────
   'records.working': 'Working out how this run compares…',

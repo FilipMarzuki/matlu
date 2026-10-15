@@ -269,6 +269,11 @@ const core: Catalog = {
   'look.rune-1': 'Etsad skiffer',
   'look.rune-2': 'Vaknande runor',
   'look.rune-3': 'Full runteknik',
+  'look.label': 'UTSEENDE',
+  'look.switch': 'Epokens utseende (tillfälligt, för att granska utseendena)',
+  'look.prev': 'Föregående utseende',
+  'look.next': 'Nästa utseende',
+  'look.game': 'Spelets ({look})',
 
   // ── Rekorden ───────────────────────────────────────────────────────────────
   'records.working': 'Räknar ut hur rundan står sig…',

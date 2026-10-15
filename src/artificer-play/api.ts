@@ -619,7 +619,9 @@ function rulesBody(): Record<string, unknown> {
       ask: '{ "person": "<person id>", "question": "…" }: on the road, a question in your own words, once per person per stay (up to 200 characters). Questions are kept, with nothing about you, to improve the game.',
     },
     // Switchable features (#1579): rule features are set per game, at POST /api/v1/games { "features": { "<id>": false } }.
-    features: FEATURES.map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
+    // Only rule features: a ui feature (the page's look switcher, #1736) is the web page's alone, and
+    // listing it would invite a client to send it at new game, where it's refused as unknown.
+    features: FEATURES.filter(f => f.kind === 'rules').map(f => ({ id: f.id, name: f.name, note: f.note, stage: f.stage, kind: f.kind, default: f.default })),
     lang: 'POST /api/v1/games { "lang": "sv" } plays a game whose text (the view, the moves\' labels, what changed, refusals) is in Swedish, drawn as the Swedish page draws it, with the page\'s buttons as markers like [do: talk:hf-maren]. "en" is the default and reads as always. Only the words differ: the same seed and moves are the same game. Any other value is refused (400). These rules stay in English.',
     weekly: 'POST /api/v1/games { "weekly": true } plays this week\'s world: the same seed for everyone, people and AIs, Monday to Monday (UTC). Its runs are compared with each other at GET /api/v1/runs/week.',
   };

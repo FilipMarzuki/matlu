@@ -8,8 +8,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COLOR_TOKENS, IMAGE_TOKENS, SHADOW_TOKENS, ERAS, LOOKS, LOOK_IDS, FADE_MS, contrast, eraOf, stepOf, hexRgb,
-  isLookId, lookFromQuery, lookOfGame, looksCss, shownLook, type LookId,
+  isLookId, lookFromQuery, lookOfGame, looksCss, shownLook, loadLookChoice, saveLookChoice, stepLook, LOOK_SWITCHER_FEATURE, type LookId,
 } from './looks';
+import { featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import { newGame, serialize } from './controller';
 
 const ALL_TOKENS: readonly string[] = [...COLOR_TOKENS, ...IMAGE_TOKENS, ...SHADOW_TOKENS];
@@ -203,6 +204,52 @@ describe('the look is presentation only (#1719)', () => {
     expect(serialize(game)).toBe(before);
     // No look id is in the save.
     for (const id of LOOK_IDS) expect(before).not.toContain(id);
+  });
+
+  it('the look switcher (#1736) is a ui feature, on by default, that no run saves', () => {
+    const f = featureById(LOOK_SWITCHER_FEATURE);
+    expect(f?.kind).toBe('ui');
+    expect(uiFeatureOn({}, LOOK_SWITCHER_FEATURE)).toBe(true);
+    expect(uiFeatureOn({ [LOOK_SWITCHER_FEATURE]: false }, LOOK_SWITCHER_FEATURE)).toBe(false);
+    expect(Object.keys(ruleFeatures())).not.toContain(LOOK_SWITCHER_FEATURE);
+  });
+
+  it('reads the switcher\'s stored choice back safely', () => {
+    const m = new Map<string, string>();
+    const store = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+    expect(loadLookChoice(store)).toBeNull();
+    saveLookChoice('steampunk-2', store);
+    expect(loadLookChoice(store)).toBe('steampunk-2');
+    m.set('artificer.look', 'not-a-look');
+    expect(loadLookChoice(store)).toBeNull();
+    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+    expect(loadLookChoice(broken)).toBeNull();
+    expect(() => saveLookChoice('rune-1', broken)).not.toThrow();
+    expect(loadLookChoice(null)).toBeNull();
+  });
+
+  it('the switcher\'s choice overrides the game\'s look, and clearing it brings the game\'s back', () => {
+    const m = new Map<string, string>();
+    const store = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+    const game = newGame();
+    const before = serialize(game);
+    saveLookChoice('rune-3', store);
+    expect(shownLook(lookOfGame(game), loadLookChoice(store))).toBe('rune-3');
+    saveLookChoice(null, store);
+    expect(m.has('artificer.look')).toBe(false);
+    expect(shownLook(lookOfGame(game), loadLookChoice(store))).toBe('scout-1');
+    expect(serialize(game)).toBe(before);
+  });
+
+  it('steps round the game\'s look and the nine, both ways', () => {
+    expect(stepLook(null, 1)).toBe('scout-1');
+    expect(stepLook('scout-1', -1)).toBeNull();
+    expect(stepLook(null, -1)).toBe('rune-3');
+    expect(stepLook('rune-3', 1)).toBeNull();
+    let at: LookId | null = null;
+    const seen: (LookId | null)[] = [];
+    for (let i = 0; i < 10; i++) { at = stepLook(at, 1); seen.push(at); }
+    expect(seen).toEqual([...LOOK_IDS, null]);
   });
 
   it('?look= previews a look only where allowed (dev mode, a local dev server)', () => {

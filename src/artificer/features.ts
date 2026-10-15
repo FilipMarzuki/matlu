@@ -194,6 +194,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
     note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
   },
+  {
+    // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
+    // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
+    // look from the game.
+    id: 'look-switcher', name: 'Look switcher', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1736,
+    note: 'Temporary, for reviewing era looks: a small switcher in the header shows any of the nine looks (or the game\'s own). The choice is kept in this browser, never in the save.',
+  },
 ];
 
 /** Switches by feature id. */
