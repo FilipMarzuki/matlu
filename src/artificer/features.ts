@@ -248,6 +248,15 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No more "rings": the land is told by how far it is. Close by, half a day out (there and back), a day out, and overnight away past that, measured from where you are until you make camp, and from camp after that, so the distances follow camp when it moves.',
   },
   {
+    // A rules feature: it changes when the drawn map comes (map-learning.ts: no longer by itself once
+    // home ground is known, but by a Draw your map action behind a few nights and enough places found,
+    // which writes `mapLearned`) and adds the first day's journal line, so a run from before it
+    // (absent: false) keeps #1686's automatic map on replay. It draws #1686's map, so it does nothing
+    // without `descriptive-map`.
+    id: 'map-learning', name: 'Learn the map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1754,
+    note: 'At first you know the land only as directions and distances. After a few nights, once you\'ve found enough places in enough directions and have something to draw on, you sit down and place what you found on a blank map, by its direction and distance from camp; near enough counts. Doing it gives you your own map, and what you find later goes on it too.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

@@ -31,7 +31,8 @@ import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork,
 import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
-import { canDrawMap, mapDrawnLine } from './descriptive-map';
+import { canDrawMap, mapDrawnLine, descriptiveMapOn } from './descriptive-map';
+import { mapLearningOn, drawMapGate, MAP_DRAW_HOURS, LOOK_AROUND_LINE, PLACED_LINE } from './map-learning';
 import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, ratingText, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -245,6 +246,12 @@ export interface Region1State {
    */
   campSpot?: CampSpotState;
   /**
+   * The map-drawing session is done (#1754, `map-learning`): you've placed what you found, and your
+   * own map is drawn (descriptive-map.ts `canDrawMap`). Written only by the Draw your map action, so
+   * only with the switch on. Absent: not yet (or a run without the switch).
+   */
+  mapLearned?: true;
+  /**
    * How worked each patch is (#1668, `action-length`): deadfall, berries, a fishing spot… by
    * `${ring}:${patch}`, 0..1. Written only by a session of chosen length, so only with the switch
    * on; a patch back to full is dropped. Absent: every patch untouched.
@@ -400,6 +407,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   // A year on (#1399): what grew.
   const grew = legacy && age !== undefined && legacy.age !== undefined ? birthdayLine(adult, age) : null;
   if (grew) say(s, grew, 'milestone');
+  // Learning the map (#1754): the first thing you do is look around; the land is directions and distances for now.
+  if (mapLearningOn(s) && descriptiveMapOn(s)) say(s, LOOK_AROUND_LINE, 'milestone');
   return s;
 }
 
@@ -579,7 +588,9 @@ export type ActionId =
   // Learning your actions as you go (#1689, #1690): only with the `action-visibility` switch on.
   | 'explore' | 'experiment'
   // Making camp is an action (#1732): only with the `camp-as-action` switch on.
-  | 'camp';
+  | 'camp'
+  // Drawing your map from what you've found (#1754): only with the `map-learning` switch on.
+  | 'drawmap';
 
 /** Actions that happen out on the land, in a chosen ring. */
 export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore';
@@ -1033,6 +1044,7 @@ const experimentMaterials = (s: Region1State): (keyof Stores)[] =>
  */
 export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}): string | null {
   if (id === 'camp') return campAsActionOn(s) ? null : "camp isn't part of this game's rules";
+  if (id === 'drawmap') return mapLearningOn(s) && descriptiveMapOn(s) ? null : "drawmap isn't part of this game's rules";
   if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
   if (!visibilityOn(s)) return null;
   const sub = subActionLock(id, s);
@@ -1206,6 +1218,18 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const spot = chosenSpot(s, o);
       if (spot) moveCamp(s, spot.kind, spot.id);
       return '';
+    },
+  },
+  // Draw your map (#1754, `map-learning`): once a few nights have passed and enough places are found
+  // in enough directions, with something to draw on, you sit down at camp and place what you found.
+  // On the page a placement session comes first (map-learning.ts); the AI's Warden draws from what it knows.
+  drawmap: {
+    name: 'Draw your map', hours: MAP_DRAW_HOURS, vigorRate: 0, clarityRate: -1.5,
+    gate: s => drawMapGate(s),
+    // The journal's "you have a map of your own now" follows (the milestone below, descriptive-map.ts mapDrawnLine).
+    run: s => {
+      s.mapLearned = true;
+      return PLACED_LINE;
     },
   },
   build: {

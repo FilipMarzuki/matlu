@@ -696,6 +696,43 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc .runbar { margin-top: 12px; }
 @media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }
 
+/* Drawing your map (#1754): the encounter modal's frame, with a list of finds and a blank grid, camp in the middle */
+/* Every tap redraws the modal, so it doesn't replay the encounter's entrance each time. */
+.mapl { position: relative; width: min(760px, 100%); animation: none; }
+.mapl-x { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border2); background: var(--sub); color: var(--dim); font-size: 14px; cursor: pointer; }
+.mapl-how { margin: -6px 0 12px; font-size: 12px; }
+.mapl-body { display: flex; gap: 16px; align-items: flex-start; }
+.mapl-side { flex: 1 1 220px; min-width: 0; }
+.mapl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mapl-place { width: 100%; min-height: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border2); background: var(--sub); color: var(--ink); font-family: var(--body); font-size: 13px; cursor: pointer; }
+.mapl-place.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.mapl-place.placed { opacity: .6; cursor: default; }
+.mapl-place .mk { width: 1.4em; text-align: center; }
+.mapl-ok { margin-left: auto; color: var(--green); font-size: 11px; }
+.mapl-where { flex-basis: 100%; padding-left: 1.7em; color: var(--dim); font-size: 11.5px; }
+.mapl-note { margin: 10px 0 0; padding: 8px 11px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 13px; }
+.mapl-note.hint { border-left-color: var(--warn); }
+.mapl-note.right { border-left-color: var(--green); }
+.mapl-gridwrap { position: relative; flex: 0 1 auto; width: min(400px, 100%); padding: 16px; box-sizing: border-box; }
+.mapl-gridwrap > span { position: absolute; font-family: var(--display); font-size: 9px; color: var(--amber); }
+.mapl-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.mapl-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.mapl-e { right: 3px; top: 50%; transform: translateY(-50%); }
+.mapl-w { left: 3px; top: 50%; transform: translateY(-50%); }
+.mapl-grid { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; padding: 4px; border-radius: 8px; border: 1px solid var(--border2); background: var(--sub2); }
+.mapl-cell { aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 4px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 13px; line-height: 1; cursor: pointer; }
+.mapl-cell:hover { border-color: var(--teal); }
+.mapl-cell:focus-visible, .mapl-cell.cur:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.mapl-cell.camp { background: rgba(200,146,42,.18); border-color: var(--amber); cursor: default; }
+.mapl-cell.has { background: rgba(136,255,136,.12); border-color: rgba(136,255,136,.5); }
+.mapl-invite { margin: 10px 0 0; }
+.lookland { display: block; margin-top: 4px; color: var(--dim); font-style: italic; }
+@media (max-width: 640px) {
+  .mapl-body { flex-direction: column; align-items: stretch; gap: 8px; } .mapl-gridwrap { width: 100%; padding: 14px; } .mapl-side { flex: none; }
+  .mapl .enc-text { font-size: 13px; margin-bottom: 8px; padding-right: 36px; } .mapl-how { font-size: 11px; margin: 0 0 8px; }
+  .mapl-list { grid-template-columns: 1fr 1fr; gap: 5px; } .mapl-place { font-size: 12px; padding: 6px 8px; } .mapl-where { padding-left: 0; font-size: 10.5px; }
+}
+
 /* Meeting the caravan (#1356): a dialogue in the encounter modal's style */
 .meet-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
 .meet-who { margin: 0; font-size: 13px; color: var(--dim); }

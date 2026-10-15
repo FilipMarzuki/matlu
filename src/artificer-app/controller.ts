@@ -24,6 +24,7 @@ import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
 import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
+import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
 import { validPatches } from '../artificer/action-length';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
@@ -628,5 +629,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
   // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.
   const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // The map-drawing session done (#1754): only `true`, and only with `map-learning` on; anything else is dropped (not yet).
+  const mapLearned = validMapLearned(sim.mapLearned) && featureOn(config.world.features, MAP_LEARNING) ? true as const : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, mapLearned, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

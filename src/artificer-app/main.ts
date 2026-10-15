@@ -55,6 +55,8 @@ import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
+import { mapSessionModal, newSessionUi, lookAroundLand, type MapSessionUi } from './map-session-view';
+import { mapSessionOpen, placeOn, unplaced, moveCell, NEW_SESSION, type MapSession } from '../artificer/map-learning';
 import { wardenTab } from './warden-view';
 import { landTab, seeLandLink, tripNews } from './land-view';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
@@ -306,7 +308,8 @@ function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
   // Each line in the viewer's language (#1709, journal-view.ts): the log itself stays the sim's English.
   // A land trip's line links to its ring on the LAND tab (#1730).
-  const seeLand = (l: { text: string }): string => { const r = tripRing(l.text); return r ? ` ${seeLandLink(r, t)}` : ''; };
+  // The first day's look around (#1754) is followed by what lay where that morning.
+  const seeLand = (l: { text: string }): string => { const r = tripRing(l.text); return r ? ` ${seeLandLink(r, t)}` : lookAroundLand(a.sim, l, t); };
   return journalItems(withCampLine(a.sim.log), limit, 'D', t, seeLand) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
 }
 
@@ -609,6 +612,7 @@ function drawPage(a: AppState): void {
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
+    ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}`;
   root.classList.toggle('playing', !!playing);
   if (playing) {
@@ -621,6 +625,73 @@ function drawPage(a: AppState): void {
 
 /** The encounter just answered (#1347), shown in the modal until you carry on. */
 let encounterAfter: EncounterAfter | null = null;
+
+// ── Drawing your map (#1754, map-learning.ts) ───────────────────────────────
+// The session is the page's own until it's done: what's placed is kept while you look away
+// ("Later"), and "Draw it" queues the Draw your map action, the move the log records. A reload
+// starts the placing again: it's quick, and nothing in the game depends on it.
+
+/** The open session, or null; and what was placed when it was last shut (for this run only). */
+let mapUi: MapSessionUi | null = null;
+let mapKept: { id: string; session: MapSession } | null = null;
+
+function openMapSession(): void {
+  const kept = mapKept?.id === state.sim.character.id ? mapKept.session : NEW_SESSION;
+  mapUi = newSessionUi(kept);
+  render(state);
+  root.querySelector<HTMLElement>('.mapl-place:not([disabled])')?.focus();
+}
+
+function closeMapSession(): void {
+  if (mapUi) mapKept = { id: state.sim.character.id, session: mapUi.session };
+  mapUi = null;
+  render(state);
+}
+
+/** A tap (or Enter) in the session: pick a place, place it on a square, draw, or shut it. */
+function mapTap(d: DOMStringMap): void {
+  if (!mapUi && (d.cmd === 'mapsession' || d.q === 'drawmap')) { openMapSession(); return; }
+  if (!mapUi) return;
+  if (d.cmd === 'mapclose') { closeMapSession(); return; }
+  if (d.cmd === 'mapdraw') {
+    mapUi = null;
+    mapKept = null;
+    // The action itself, as any other: queued if you can plan, else done now.
+    const q = 'drawmap' as QueueId;
+    if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q }));
+    return;
+  }
+  if (d.mapsel) {
+    mapUi = { ...mapUi, selected: d.mapsel, note: null };
+    render(state);
+    root.querySelector<HTMLElement>('.mapl-cell.cur')?.focus();
+    return;
+  }
+  if (d.mapcell) {
+    const [x, y] = d.mapcell.split(',').map(Number);
+    const cursor = { x, y };
+    if (!mapUi.selected) { mapUi = { ...mapUi, cursor, note: { kind: 'pick' } }; render(state); root.querySelector<HTMLElement>('.mapl-place:not([disabled])')?.focus(); return; }
+    const r = placeOn(state.sim, mapUi.session, mapUi.selected, cursor);
+    const ok = r.judgement?.ok === true;
+    const note: MapSessionUi['note'] = !r.judgement ? null : r.judgement.ok ? { kind: 'right', id: mapUi.selected } : { kind: 'hint', hint: r.judgement.hint };
+    // Placed: on to the next place still to put down. A miss keeps the place picked, to try again.
+    const next = ok ? unplaced(state.sim, r.session)[0]?.id ?? null : mapUi.selected;
+    mapUi = { session: r.session, selected: next, cursor, note };
+    render(state);
+    root.querySelector<HTMLElement>(ok ? (next ? '.mapl-cell.cur' : '[data-cmd="mapdraw"]') : '.mapl-cell.cur')?.focus();
+  }
+}
+
+// The session's keyboard: the arrow keys move the square in the grid (a roving tabindex), Escape shuts it.
+document.addEventListener('keydown', e => {
+  if (!mapUi) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeMapSession(); return; }
+  if (!e.key.startsWith('Arrow') || !(e.target as HTMLElement).closest('.mapl-grid')) return;
+  e.preventDefault();
+  mapUi = { ...mapUi, cursor: moveCell(mapUi.cursor, e.key) };
+  render(state);
+  root.querySelector<HTMLElement>('.mapl-cell.cur')?.focus();
+});
 
 // ── Feature switches and dev mode (#1579) ──────────────────────────────────
 
@@ -1367,6 +1438,8 @@ root.addEventListener('click', e => {
     if (d.pbskip !== undefined) { skipTimer(); return; }
     if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep) return; // the look switcher (#1736) only redraws
   }
+  // Drawing your map (#1754): the session's own taps, and the action's button opens the session first.
+  if (d.mapsel || d.mapcell || d.cmd === 'mapsession' || d.cmd === 'mapdraw' || d.cmd === 'mapclose' || (d.q === 'drawmap' && mapSessionOpen(state.sim))) { mapTap(d); return; }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.

@@ -37,6 +37,7 @@ import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, 
 import { featureOn } from '../artificer/features';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { mapLearningOn, mapSessionOpen, mapUnlockNeedTexts, MAP_DRAW_HOURS } from '../artificer/map-learning';
 import { campAsActionOn, knownSpots, ratingCountsText, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
 import { nowText, nowWords, timeWordsOn } from '../artificer/time-words';
@@ -176,6 +177,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   experiment: 'try things with the materials at hand (option "with" picks one) -> work out a recipe you don\'t know yet; a focus on its concept or skill doubles the progress',
   tinker: 'rests body, spends mind',
   rest: 'recovers a little',
+  drawmap: 'sit down at camp and draw your own map from what you\'ve found (opens after a few nights, with enough places found in enough directions and something to draw on)',
   camp: 'make camp at a place you know (option "spot"): the walk there, then 2h setting up; moving leaves your shelter behind',
   treat: 'tends your worst untreated injury (1h): a first-aid dressing, or improvised — a cut with 1 materials (or a hide), a sprain with 1 firewood + 1 materials, a hurt hand with 1 food',
 };
@@ -356,10 +358,13 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // gets what the Warden knows of the land as a scout would say it, the same lines the MAP tab shows.
   if (descriptiveMapOn(s)) {
     const mode = mapMode(s);
-    const needs = mapNeeds(s);
+    // Learning the map (#1754): what the unlock still needs, with how far along each is, and once it's open, the action.
+    const learning = mapLearningOn(s);
+    const needs = learning ? mapUnlockNeedTexts(s) : mapNeeds(s);
     lines.push(`WHAT YOU KNOW OF THE LAND AROUND CAMP (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
     for (const l of describeLand(s)) lines.push(`  ${l}`);
-    if (needs.length) lines.push(`  To draw your own map you need ${needs.join(' and ')}.`);
+    if (needs.length) lines.push(`  To draw your own map you need ${needs.length > 2 ? `${needs.slice(0, -1).join(', ')} and ${needs[needs.length - 1]}` : needs.join(' and ')}.`);
+    if (mapSessionOpen(s)) lines.push(`  You can draw your own map now: do "drawmap" (${MAP_DRAW_HOURS}h at camp), and your Warden places what you've found by its direction and distance from camp.`);
   }
 
   lines.push('');

@@ -29,6 +29,8 @@ import { timeWordsOn } from '../artificer/time-words';
 import { pinsList, pinsRoom, ringPinChip, ringPinRows, ringPins } from './pins-view';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { fold } from './fold';
+import { mapSessionOpen } from '../artificer/map-learning';
+import { mapSessionInvite } from './map-session-view';
 import { NO_NEWS, chipKey, placeKey, type LandNews } from './land-news';
 
 /**
@@ -130,7 +132,7 @@ function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: La
   const needs = drawn ? '' : mapNeedsText(s, t);
   const top = `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.landDescribed'))}</p>
     ${drawn ? map : `<p class="mapinfo">${esc(t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro'))}</p>`}
-    ${words([{ text: t(`map.camp.${campBiome(s)}`), fresh: false }], t)}</section>${campSpotsSection(s, t)}`;
+    ${words([{ text: t(`map.camp.${campBiome(s)}`), fresh: false }], t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>${campSpotsSection(s, t)}`;
   const pins = s.pins?.length ? pinsRoom(s, t) : `${pinsRoom(s, t)}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return `${top}
     <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.land'))}</p>${RINGS.map(r => ringSection(s, r, places[r], t, news)).join('')}
