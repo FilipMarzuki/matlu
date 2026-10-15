@@ -22,16 +22,27 @@ import { campBiome, knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
 import { esc } from './html';
-import { buildsWords, mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
+import { buildsWords, distanceT, mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
+import { distanceOn, measuredFromCamp } from '../artificer/distance-words';
+import { timeWordsOn } from '../artificer/time-words';
 import { pinsList, pinsRoom, ringPinChip, ringPinRows, ringPins } from './pins-view';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { fold } from './fold';
 import { NO_NEWS, chipKey, placeKey, type LandNews } from './land-news';
 
-/** A ring's heading: its name and how far out it is. */
-const ringHead = (r: Ring, t: T): string => `${esc(ringName(r, t).toUpperCase())} <span>${esc(TRAVEL_HOURS[r] ? t('ring.plus', { n: TRAVEL_HOURS[r] }) : t('ring.homeShort'))}</span>`;
+/**
+ * A ring's heading: its name and how far out it is. With `distance-not-rings` on (#1752) its name is
+ * a distance, said from where it's measured: where you are until camp is made, camp after that; the
+ * hours of walking it adds go with it, unless the time of day is told in words (#1740).
+ */
+function ringHead(s: Region1State, r: Ring, t: T): string {
+  if (!distanceOn(s)) return `${esc(ringName(r, t).toUpperCase())} <span>${esc(TRAVEL_HOURS[r] ? t('ring.plus', { n: TRAVEL_HOURS[r] }) : t('ring.homeShort'))}</span>`;
+  const from = t(measuredFromCamp(s) ? 'ring.from.camp' : 'ring.from.here');
+  const plus = TRAVEL_HOURS[r] && !timeWordsOn(s) ? `${t('ring.plus', { n: TRAVEL_HOURS[r] })} · ` : '';
+  return `${esc(ringName(r, t).toUpperCase())} <span>${esc(plus + from)}</span>`;
+}
 
 /** A ring you can't reach and know nothing of: it shows one line. */
 const outOfReach = (s: Region1State, r: Ring): boolean => !reachable(s.explore, r) && domainsOf(r).every(d => level(s.explore, r, d) === 0);
@@ -64,8 +75,9 @@ function ringChips(s: Region1State, r: Ring, t: T, news: LandNews = NO_NEWS): st
  * draws this too (view-words.ts), so it says what it said.
  */
 export function landRings(s: Region1State, t: T, pinRing: Ring | null = null): string {
+  t = distanceT(s, t);
   return RINGS.map(r => {
-    const head = `<div class="ringhead">${ringHead(r, t)}</div>`;
+    const head = `<div class="ringhead">${ringHead(s, r, t)}</div>`;
     if (outOfReach(s, r)) return `${head}<p class="mood" style="margin:0 0 6px">${esc(t('land.outOfReach'))}</p>`;
     // Places you remember there (#1380): a 📌 that lists them when tapped.
     return `${head}<div class="res">${ringChips(s, r, t)}${ringPinChip(s, r, pinRing === r, t)}</div>${pinRing === r ? ringPins(s, r, t) : ''}`;
@@ -95,7 +107,7 @@ const words = (lines: PlaceLine[], t: T): string => lines.length
 function ringSection(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: LandNews): string {
   const held = (s.pins ?? []).filter(p => p.ring === r).length;
   const out = outOfReach(s, r);
-  const summary = `<span class="ringhead" id="land-ring-${r}">${ringHead(r, t)}</span>${held ? ` <span class="foldnote">📌 ${held}</span>` : ''}${out ? ` <span class="foldnote">${esc(t('land.outOfReach'))}</span>` : ''}${news.rings.includes(r) ? newMark(t) : ''}`;
+  const summary = `<span class="ringhead" id="land-ring-${r}">${ringHead(s, r, t)}</span>${held ? ` <span class="foldnote">📌 ${held}</span>` : ''}${out ? ` <span class="foldnote">${esc(t('land.outOfReach'))}</span>` : ''}${news.rings.includes(r) ? newMark(t) : ''}`;
   // Out of reach with nothing seen there (not even on the skyline): only the line.
   if (out && !places.length) return `<div class="fold ringfold shut">${summary}</div>`;
   const body = `${words(places, t)}${out ? '' : `<div class="res">${ringChips(s, r, t, news)}</div>${ringPinRows(s, r, t)}`}`;
@@ -141,6 +153,8 @@ export interface LandOpts { map?: string; news?: LandNews }
  * the key, how to learn more and the places you remember, then the Reach map, as LAND and MAP were.
  */
 export function landTab(s: Region1State, t: T, pinRing: Ring | null = null, opts: LandOpts = {}): string {
+  // The run's own words (#1752): its rings said as distances with `distance-not-rings` on, whoever draws it.
+  t = distanceT(s, t);
   const mode = mapMode(s);
   if (mode !== 'reach') return mergedLand(s, t, mode === 'drawn', mode === 'drawn' ? opts.map ?? drawnMapBlock(s, t) : '', opts.news ?? NO_NEWS);
   return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${landRings(s, t, pinRing)}${landLegend(t)}

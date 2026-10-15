@@ -26,7 +26,7 @@ import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artif
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
-import { actionName, buildsWords, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots, ratingBadges, siteRating, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
 import { seasonView, weatherReport } from '../artificer/weather-words';
@@ -111,7 +111,9 @@ export function campBadges(s: Sim, t: T): string {
 }
 
 export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T }): string {
-  const { ring: focusRing, dev, t } = opts;
+  const { ring: focusRing, dev } = opts;
+  // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
+  const t = distanceT(a.sim, opts.t);
   const resolved = a.sim.outcome !== null;
   const tabs = `<div class="rings">${RINGS.map(r => {
     const open = reachable(preview.projected.explore, r);

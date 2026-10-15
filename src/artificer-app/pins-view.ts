@@ -12,7 +12,7 @@ import { RINGS, type Ring } from '../artificer/exploration';
 import type { Region1State } from '../artificer/region1';
 import { pinCapacity, letGoFirst, maxInterest, pinWeight, placeName, PIN_WORDS, type Pin } from '../artificer/pins';
 import { makeT, type T } from '../artificer/i18n';
-import { wordText } from './sim-words';
+import { distanceT, wordText } from './sim-words';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
@@ -87,6 +87,8 @@ export function ringPinRows(s: Region1State, ring: Ring, t: T = makeT('en')): st
 
 /** The PINS list: every place you remember, by ring, with forget and (once Memory allows) interest controls. */
 export function pinsList(s: Region1State, t: T = makeT('en')): string {
+  // The run's own words (#1752): with `distance-not-rings` on, the places by how far they are.
+  t = distanceT(s, t);
   const pins = s.pins ?? [];
   const head = pinsRoom(s, t);
   if (!pins.length) return `${head}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
