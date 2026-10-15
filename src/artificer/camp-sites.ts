@@ -344,3 +344,114 @@ export function siteKnowledge(s: Run, spot: Pick<CampSpot, 'kind' | 'x' | 'y'>):
   }
   return { band, facts, text: `${BAND_TEXT[band]}: ${facts.map(factText).join(' ')}` };
 }
+
+// ── How good a place it looks (#1756, switch `camp-site-ratings`) ───────────
+//
+// The owner: "once the player finds decently suitable camp sites, they could pop up as an icon on
+// the make camp action… great sites, and good sites + a number". So each known site is rated great,
+// good or poor from what the Warden *believes* about it: the facts of its reading above (vague,
+// fair, sharp), never `spotTraits` directly. A vague reading can call a windy, damp spot sheltered
+// and dry, and the rating believes it; camping there (the band becomes `known`: the true traits)
+// or reading it more sharply corrects it. Nothing here draws a random number of its own: a
+// misjudgement is `siteKnowledge`'s string-keyed seed, so the same Warden and site always rate the same.
+
+/** The rule switch (features.ts). */
+export const CAMP_SITE_RATINGS = 'camp-site-ratings';
+
+/** On only where camp is an action too: without it there are no sites to rate. */
+export const siteRatingsOn = (s: Pick<Region1State, 'config'>): boolean => campAsActionOn(s) && featureOn(s.config.world.features, CAMP_SITE_RATINGS);
+
+export type SiteRating = 'great' | 'good' | 'poor';
+
+/** What a reading's facts say, as the rating weighs them. Wood `null`: the reading doesn't say. */
+interface Belief { wind: Wind; water: 0 | 1 | 2; wood: 0 | 1 | 2 | null; dry: boolean; risk: boolean }
+
+/** Minutes as near (2), within the hour (1) or far (0): the same lines the fair reading draws. */
+const nearness = (min: number): 0 | 1 | 2 => (min <= SHORT * 60 ? 2 : min <= HOUR * 60 ? 1 : 0);
+
+/**
+ * The words a reading said, read back as belief. A glance can't tell some shelter from none at all:
+ * "looks sheltered" is believed some shelter, except in a cave, which you can see is out of the wind.
+ * "Water somewhere off" is believed within the hour.
+ */
+function beliefOf(kind: SiteId, facts: readonly SiteFact[]): Belief {
+  const b: Belief = { wind: 'some', water: 1, wood: null, dry: false, risk: false };
+  for (const f of facts) {
+    switch (f.key) {
+      case 'looksSheltered': b.wind = kind === 'cave' ? 'still' : 'some'; break;
+      case 'outOfWind': b.wind = 'still'; break;
+      case 'someWind': b.wind = 'some'; break;
+      case 'looksOpen': case 'openWind': b.wind = 'open'; break;
+      case 'waterNear': case 'waterHere': case 'waterShort': b.water = 2; break;
+      case 'waterWalk': case 'waterOff': b.water = 1; break;
+      case 'waterFar': b.water = 0; break;
+      case 'waterAt': b.water = nearness(f.n ?? 0); break;
+      case 'woodHere': case 'woodClose': b.wood = 2; break;
+      case 'woodWalk': b.wood = 1; break;
+      case 'woodFar': b.wood = 0; break;
+      case 'woodAt': b.wood = nearness(f.n ?? 0); break;
+      case 'seemsDry': case 'groundDry': b.dry = true; break;
+      case 'seemsDamp': case 'groundDamp': b.dry = false; break;
+      case 'floods': case 'rockfall': case 'deadfall': case 'lightning': b.risk = true; break;
+    }
+  }
+  return b;
+}
+
+/** Points for how warm a shelter there can get (region1.ts `SITES`): the cave most, the riverbank and hilltop none. */
+const WARMTH_POINTS: Readonly<Record<SiteId, number>> = { cave: 2, tree: 1, river: 0, hill: 0 };
+/** Points at which a site is good, and great. */
+export const GOOD_FROM = 3, GREAT_FROM = 5;
+
+/**
+ * A rating from a reading's facts, for a kind of site. Open to the wind, it's poor: a night's fire
+ * doesn't keep up. Otherwise warmth, the wind (out of it 2, some shelter 1), water and wood (near 2,
+ * within the hour 1, far 0; wood a reading doesn't mention counts 1) and dry ground (1) add up, and
+ * a spotted danger takes 3 off: good from 3, great from 5, and great only out of the wind, on dry
+ * ground, with no danger seen. So a dry cave with no danger seen is great; a riverbank (damp by
+ * nature) or a hilltop (open) never is.
+ */
+export function ratingOfFacts(kind: SiteId, facts: readonly SiteFact[]): SiteRating {
+  const b = beliefOf(kind, facts);
+  if (b.wind === 'open') return 'poor';
+  const points = WARMTH_POINTS[kind] + (b.wind === 'still' ? 2 : 1) + b.water + (b.wood ?? 1) + (b.dry ? 1 : 0) - (b.risk ? 3 : 0);
+  if (points >= GREAT_FROM && b.wind === 'still' && b.dry && !b.risk) return 'great';
+  return points >= GOOD_FROM ? 'good' : 'poor';
+}
+
+/** How good a place to camp the Warden believes a site is: from their reading of it, the truth once camped there. */
+export const siteRating = (s: Run, spot: Pick<CampSpot, 'kind' | 'x' | 'y'>): SiteRating => ratingOfFacts(spot.kind, siteKnowledge(s, spot).facts);
+
+export interface RatingCounts { great: number; good: number }
+
+/** How many of the sites you know you believe great, and good. Zeros with the switch off. */
+export function siteRatingCounts(s: Run): RatingCounts {
+  const counts: RatingCounts = { great: 0, good: 0 };
+  if (!siteRatingsOn(s)) return counts;
+  for (const p of knownSpots(s)) {
+    const r = siteRating(s, p);
+    if (r !== 'poor') counts[r]++;
+  }
+  return counts;
+}
+
+/** The glyph for each rating that's shown: text glyphs until there's art. */
+export const RATING_GLYPH: Readonly<Record<Exclude<SiteRating, 'poor'>, string>> = { great: '★', good: '✓' };
+
+/** The badges, "★ 1 · ✓ 3", leaving out a zero: '' until a site rated good or better is known. */
+export const ratingBadges = (c: RatingCounts): string =>
+  [c.great ? `${RATING_GLYPH.great} ${c.great}` : '', c.good ? `${RATING_GLYPH.good} ${c.good}` : ''].filter(Boolean).join(' · ');
+
+/** A rating in English, as the AI and the API read it. A poor one isn't said, as the page doesn't mark it. */
+export const RATING_TEXT: Readonly<Record<Exclude<SiteRating, 'poor'>, string>> = { great: '★ great place to camp', good: '✓ good place to camp' };
+
+/** A site's rating in English, for its note under the action: '★ great place to camp', '✓ good…'; '' when poor or with the switch off. */
+export function ratingText(s: Run, spot: Pick<CampSpot, 'kind' | 'x' | 'y'>): string {
+  if (!siteRatingsOn(s)) return '';
+  const r = siteRating(s, spot);
+  return r === 'poor' ? '' : RATING_TEXT[r];
+}
+
+/** The counts in English, for the AI and the API: "★ 1 great · ✓ 3 good"; '' with none. */
+export const ratingCountsText = (c: RatingCounts): string =>
+  [c.great ? `${RATING_GLYPH.great} ${c.great} great` : '', c.good ? `${RATING_GLYPH.good} ${c.good} good` : ''].filter(Boolean).join(' · ');

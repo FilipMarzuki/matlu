@@ -37,7 +37,7 @@ import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, 
 import { featureOn } from '../artificer/features';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
-import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
+import { campAsActionOn, knownSpots, ratingCountsText, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
 import { nowText, nowWords, timeWordsOn } from '../artificer/time-words';
 import { makeT } from '../artificer/i18n';
@@ -179,6 +179,16 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
 
 /** The sled's hint with distances (#1752): the same rule, rings 1-2 and 3 said as how far out. */
 const SLED_HINT_DIST = 'stone, firewood and hides count half their weight on snow or up to half a day out (0.8 a day out); the sled adds 4 when taken (5 materials)';
+
+/**
+ * The places to camp you know, rated from your reading of them (#1756, `camp-site-ratings`): the
+ * counts the page's Make camp card shows as badges, in English. '' until one rates good or better.
+ */
+function ratedNote(s: Region1State): string {
+  if (!siteRatingsOn(s)) return '';
+  const counts = ratingCountsText(siteRatingCounts(s));
+  return counts ? ` · PLACES TO CAMP YOU KNOW, as you read them: ${counts}` : '';
+}
 
 const haulWords = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${k}`).join(', ');
 
@@ -369,7 +379,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
       // What a place you remember does for this trip (#1381), as the queue preview shows a person.
       const pin = def.ringed ? tripPinNote(s.pins, id, r) : null;
-      lines.push(`- ${id}${ringTag} · ${h1(queueHours(queueId(id, r), s))}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}`);
+      lines.push(`- ${id}${ringTag} · ${h1(queueHours(queueId(id, r), s))}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}${id === 'camp' ? ratedNote(s) : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {
