@@ -20,6 +20,7 @@ import { ROUTE, type RoadState } from './road';
 import { CONTACT_TRUST } from './villages';
 import type { EndChoice, Grade as WinterGrade, Injury, OutcomeKind } from './winter';
 import { STAT_IDS, type Stats } from './stats';
+import { difficultyOfCharacter } from './difficulty';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
 import { bestPerItem, type Grade, type Tool } from './crafting';
@@ -60,6 +61,8 @@ export interface RunRecord {
   milestones: number;
   /** The highest-ranked concept, if any were learned. */
   topConcept: { id: string; rank: number } | null;
+  /** Difficulty (#1728): the multiplier the Warden was made with, when above ×1.00. Absent: ×1.00 (and on older records). */
+  difficulty?: number;
 }
 
 /** What carries into a new run. */
@@ -97,6 +100,8 @@ export interface Legacy {
   wear?: number;
   /** Tools the last Warden left for this one (#1455), at the grade they were at the end. Optional so older legacies still load. */
   heirlooms?: Tool[];
+  /** The character's difficulty multiplier (#1728), fixed at their creation. Absent: ×1.00. */
+  difficulty?: number;
 }
 
 /**
@@ -140,6 +145,8 @@ export function summarizeRun(s: Region1State, run: number): RunRecord {
     recipes: s.known.length,
     milestones: s.milestones.length,
     topConcept: top ? { id: top[0], rank: top[1].rank } : null,
+    // Difficulty (#1728): what the Warden left unspent at creation, kept only above ×1.00 (absent reads ×1.00).
+    ...(difficultyOfCharacter(s.character) > 1 ? { difficulty: difficultyOfCharacter(s.character) } : {}),
   };
 }
 
@@ -166,6 +173,7 @@ export function legacyOf(s: Carrier): Legacy {
     ...(s.character.harms?.length ? { harms: [...s.character.harms] } : {}),
     ...(s.character.background ? { background: s.character.background } : {}),
     ...(s.character.pack ? { pack: [...s.character.pack] } : {}),
+    ...(s.character.difficulty !== undefined ? { difficulty: s.character.difficulty } : {}),
   };
 }
 

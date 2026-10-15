@@ -70,8 +70,9 @@ export function startProblem(s: unknown): string | null {
   if (s.portrait !== undefined && !(isStr(s.portrait) && s.portrait.length <= 32)) return 'That isn\'t a portrait.';
   if (s.chosen !== undefined) {
     const offer = talentOffer(seedOf(s.id));
-    if (!Array.isArray(s.chosen) || s.chosen.length !== TALENT_PICKS || new Set(s.chosen).size !== s.chosen.length || !s.chosen.every(t => offer.includes(t as TalentId))) {
-      return `The talents must be ${TALENT_PICKS} of the ones this Warden was offered.`;
+    // Up to two (#1728): fewer, or none, is a choice the creation screen allows — it adds to the difficulty.
+    if (!Array.isArray(s.chosen) || s.chosen.length > TALENT_PICKS || new Set(s.chosen).size !== s.chosen.length || !s.chosen.every(t => offer.includes(t as TalentId))) {
+      return `The talents must be up to ${TALENT_PICKS} of the ones this Warden was offered.`;
     }
   }
   if (s.stats !== undefined && !validStats(s.stats)) return 'The stats aren\'t a point-buy the creation screen allows.';

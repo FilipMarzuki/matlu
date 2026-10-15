@@ -18,6 +18,8 @@ export const api = {
   'api.legend': 'Moves are in brackets: [do: X] is { "do": "X" }, [choose: X] is { "choose": "X" }, [ask: X] is { "ask": { "person": "X", "question": "…" } }, [set site: X] is { "set": { "site": "X" } } and [endDay] is { "endDay": true }. An action\'s choices go in { "do": { "q": "<id>", "opts": { "<choice>": "<value>" } } }.',
   'api.dayHead': 'DAY {n} · {weather} · {h}/{max} hours used',
   'api.canPlan': 'You can plan whole days: send { "plan": [ … ] } with the day\'s actions in order.',
+  // Difficulty (#1728): {m} is "×1.90". Shown only above ×1.00.
+  'api.difficulty': 'Difficulty {m}: chosen at creation, from the stat points and talent picks left unspent. It changes nothing in play, and goes into the run record.',
   'api.oneAtATime': 'One thing at a time: each action happens as you send it. Once a skill first levels up, you can plan whole days.',
   'api.actions': 'Actions',
   'api.blocked': 'not now: {why}',

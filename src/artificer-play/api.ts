@@ -2,7 +2,7 @@
  * The play API (#1555, plan: docs/spikes/artificer-play-api.md): the session core (session.ts)
  * behind HTTP, with games stored on our side.
  *
- *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly?, lang? } → 201 view
+ *   POST /api/v1/games               start a game          { name?, client?, model?, player?, features?, weekly?, lang?, stats? } → 201 view
  *                                    (lang: "en" (the default) or "sv", the language of the game's text, #1713; anything else → 400)
  *   GET  /api/v1/games/:id           view it               → 200 view
  *   POST /api/v1/games/:id/moves     apply one move        { move } → 200 changed + view | 422 why
@@ -48,6 +48,8 @@ import { knowsAbout } from '../artificer/free-questions';
 import { isQuestionTopic } from '../artificer/knowledge-questions';
 import { personById } from '../artificer/villages';
 import { FEATURES, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { validStats, CREATION_MIN, CREATION_MAX, POINT_BUDGET, type Stats } from '../artificer/stats';
+import { PER_POINT } from '../artificer/difficulty';
 import { tellHistoriesWith } from '../artificer/history-in-play';
 import { LANGS, parseLang } from '../artificer/i18n';
 import { runHistory } from '../artificer/world/history';
@@ -296,7 +298,12 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (!lang) return fail(400, `"lang" is the language of the game's text: ${langList()}. Leave it out for English.`);
     // The weekly world (#1559): this week's seed for everyone; any other game gets a fresh one.
     const seed = body.weekly === true ? weeklySeed(isoWeek(deps.now()), deps.weeklySalt) : deps.newSeed?.();
-    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined, lang });
+    // Stats chosen (#1728): the creation screen's point-buy; points left unspent are allowed and
+    // recorded as a difficulty multiplier. Left out: the quick start (all 10s), ×1.00.
+    if (body.stats !== undefined && !validStats(body.stats)) {
+      return fail(400, `"stats" are the six stats (str, con, agi, int, wil, cha), each ${CREATION_MIN}–${CREATION_MAX}, costing at most ${POINT_BUDGET} points: 1 per step up to 13, 2 per step above, and lowering one refunds 1 per step. Points left unspent are fine: each adds ×${PER_POINT.toFixed(2)} to the difficulty. Leave out for all 10s.`);
+    }
+    const game = startGame({ seed, name, features: body.features as FeatureSwitches | undefined, lang, ...(body.stats !== undefined ? { stats: body.stats as Stats } : {}) });
     const nowIso = new Date(deps.now()).toISOString();
     const client = shortText(body.client);
     // Where: the MCP server says so itself; the console by its client name; anything else is the API.

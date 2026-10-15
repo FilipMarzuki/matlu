@@ -13,6 +13,7 @@
  */
 
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, noticeTalent, signOf, withoutHidden, hasHidden, type Difference, type GrowthEvent, type Talent, type TalentId } from './talents';
+import { difficultyOf, difficultyRead } from './difficulty';
 import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exerciseFrom, gainLine, wearDown, wearLine, WIL_EXERCISE_BELOW, STAT_IDS as GROWTH_STATS, HARD_NIGHT_EXERCISE, LONG_DAY_HOURS, WEAR_HUNGRY, WEAR_THIRSTY, WEAR_LIMIT, RECOVERY_CAP, overtrainedLine, OVERTRAINED, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
@@ -274,6 +275,12 @@ export interface Character {
   wear?: number;
   /** Exercise since the last proper night (#1414), waiting on recovery to bank it. It doesn't carry into a new run. */
   pending?: Partial<Stats>;
+  /**
+   * Difficulty (#1728): what was left unspent at creation — stat points and talent picks — as a
+   * multiplier for a future high score (difficulty.ts). Fixed when the Warden is made; no rule
+   * reads it. Absent: ×1.00 (all spent, a quick start, or a save from before it).
+   */
+  difficulty?: number;
 }
 
 /**
@@ -300,6 +307,12 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const age = who.age ?? (legacy?.age !== undefined ? legacy.age + 1 : undefined);
   // The hike pack (#1400): chosen now, or what this character packed last time. None: today's bare start.
   const pack = who.pack ?? legacy?.pack;
+  // Difficulty (#1728), fixed here, at BEGIN: a character carried on keeps theirs; a new one made
+  // from creation choices (stats or talent picks) is worth what they left unspent. A quick start
+  // (neither: tests, old callers) is ×1.00. Kept only above ×1.00, so a full spend saves as before.
+  const carried = legacy?.stats !== undefined || legacy?.talents !== undefined || who.talents !== undefined;
+  const difficulty = carried ? difficultyRead(legacy?.difficulty)
+    : who.chosen !== undefined || who.stats !== undefined ? difficultyOf(adult, who.chosen ?? []) : 1;
   const packed = pack ? startFromPack(pack) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   // What this Warden packed, and what the last one left for them (#1455) — less anything the pack already matches or beats.
@@ -341,6 +354,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
       ...(legacy?.harms?.length ? { harms: [...legacy.harms] } : {}),
       ...(background ? { background } : {}),
       ...(pack ? { pack: [...pack] } : {}),
+      ...(difficulty > 1 ? { difficulty } : {}),
     },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
