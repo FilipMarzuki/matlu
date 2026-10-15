@@ -43,12 +43,33 @@ import { HIST_PATTERN, cultureText, histPart, regionText } from './history-words
 import { questionAbout } from '../artificer/knowledge-questions';
 import { allCultureLore } from '../artificer/culture-lore';
 import { knownSpot, parseSpotId, siteKnowledge, siteRating, siteRatingsOn, type CampSpot, type SiteFact } from '../artificer/camp-sites';
+import { distanceOn } from '../artificer/distance-words';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
 
 /** `t(key)` when the key exists, else the fallback (the sim's own English). */
 const tOr = (t: T, key: string, fallback: string): string => (isKey(key) ? t(key) : fallback);
+
+// ── Distance, not rings (#1752) ─────────────────────────────────────────────
+
+/** The `t`s that ask for a key's `.dist` version first, by the `t` they wrap: one each, so `simLine`'s cache keeps working. */
+const DIST_T = new WeakMap<T, T>();
+
+/**
+ * The `t` a run's page draws with: with `distance-not-rings` on, any key that has a `.dist` version
+ * (i18n/en/distance.ts: the same string with its rings said as distances, the same `{vars}`) is said
+ * that way; with it off, `t` itself, so nothing changes.
+ */
+export function distanceT(s: Pick<Region1State, 'config'>, t: T): T {
+  if (!distanceOn(s)) return t;
+  let d = DIST_T.get(t);
+  if (!d) {
+    d = (key, vars) => (isKey(`${key}.dist`) ? t(`${key}.dist` as Key, vars) : t(key, vars));
+    DIST_T.set(t, d);
+  }
+  return d;
+}
 
 // ── Names by id ─────────────────────────────────────────────────────────────
 
@@ -216,7 +237,8 @@ const NUM = '[−+-]?\\d+(?:\\.\\d+)?';
 const PATTERN: Readonly<Record<string, string>> = {
   n: NUM, m: NUM, h: NUM, have: NUM,
   nth: '\\d+(?:st|nd|rd|th)',
-  where: '(?: in the (?:near|far|distant) ring)?',
+  // With `distance-not-rings` on (#1752) the sim says the distance instead: " half a day out".
+  where: '(?: in the (?:near|far|distant) ring| close by| half a day out| a day out)?',
   // What's left of a line after its first part: possibly nothing (a plan with no more to say).
   rest: '.*?',
   // Amounts of stores, one or more ("14 firewood and 6 materials").
@@ -256,9 +278,17 @@ function part(name: string, v: string, t: T): string | undefined {
     case 'where': {
       if (v === '') return '';
       const r = ([1, 2, 3] as const).find(x => ` in ${en[`ring.the.${x}`]}` === v);
-      return r ? ` ${t('ring.in', { ring: t(`ring.the.${r}`) })}` : undefined;
+      if (r) return ` ${t('ring.in', { ring: t(`ring.the.${r}`) })}`;
+      // A distance (#1752): " half a day out".
+      const d = ([1, 2, 3] as const).find(x => ` ${en[`ring.at.${x}`]}` === v);
+      return d ? ` ${t(`ring.at.${d}`)}` : undefined;
     }
-    case 'theRing': { const r = ([1, 2, 3] as const).find(x => en[`ring.the.${x}`] === v); return r ? t(`ring.the.${r}`) : undefined; }
+    case 'theRing': {
+      const r = ([1, 2, 3] as const).find(x => en[`ring.the.${x}`] === v);
+      if (r) return t(`ring.the.${r}`);
+      const d = ([1, 2, 3] as const).find(x => en[`ring.the.${x}.dist`] === v);
+      return d ? t(`ring.the.${d}.dist`) : undefined;
+    }
     case 'verb': return v === 'explore' || v === 'scout' ? t(`verb.${v}`) : undefined;
     case 'grade': return isKey(`grade.${v}`) ? t(`grade.${v}` as Key) : undefined;
     case 'recipe': { const id = recipeOf(v); return id ? recipeName(id, t).toLowerCase() : undefined; }

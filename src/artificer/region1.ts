@@ -49,6 +49,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
+import { ringWordsFor } from './distance-words';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
 
@@ -431,7 +432,11 @@ function clone(s: Region1State): Region1State {
   };
 }
 
-const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
+// With `distance-not-rings` on (#1752), every line the journal keeps says distances, not rings (distance-words.ts).
+const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => {
+  const said = ringWordsFor(s, text);
+  s.log.push(at ? { day: s.day, text: said, kind, at } : { day: s.day, text: said, kind });
+};
 
 /**
  * Exercise stats (#1257) — hours per stat, from work on the Reach, on the road, or the night. It
@@ -1031,7 +1036,7 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
   if (!visibilityOn(s)) return null;
   const sub = subActionLock(id, s);
-  if (sub) return sub;
+  if (sub) return ringWordsFor(s, sub);
   // Cold gear's default is woven fiber, which every Warden knows; its hide option is a choice inside it.
   // Anyone can dig a cold pit: it has a recipe for its costs, but nothing to work out.
   if (id === 'coldPit') return null;
@@ -1620,6 +1625,12 @@ export function sessionNote(s: Region1State, item: QueueItem): string | null {
  * asks "is this allowed?" — the sim, the plan preview, the AI — uses this.
  */
 export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
+  const why = whyBlocked(s, id, ring, opts);
+  // Said as distances with `distance-not-rings` on (#1752): the page, the AI and the API read this.
+  return why === null ? null : ringWordsFor(s, why);
+}
+
+function whyBlocked(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts): string | null {
   const def = ACTIONS[id];
   // Something you don't know how to do yet (#1690): refused before any circumstance is looked at.
   const lock = skillLockOf(s, id, opts);
@@ -1697,7 +1708,7 @@ function faceFear(next: Region1State, tags: readonly string[], fades: number, at
 function landFright(s: Region1State, ring: Ring, light: number): (ReturnType<typeof frightOf> & { ambient: number; reasons: string[] }) | null {
   if (!s.config.world.encounters) return null;
   const ambient = ringAmbient(s, ring, light);
-  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient, reasons: landReasons(sceneOf(s, ring, light)) };
+  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient, reasons: landReasons(sceneOf(s, ring, light)).map(r => ringWordsFor(s, r)) };
 }
 
 /** A stretch of land as fear reads it (#1367). */
@@ -3070,7 +3081,9 @@ export function deathLine(s: Pick<Region1State, 'deprivation'>): string {
 export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const clarityAtDusk = next.vitals.clarity.current;
   const hoursWorked = next.hoursToday;
-  const say = (text: string, kind: LogEntry['kind']): void => { next.log.push({ day: next.day, text, kind }); };
+  // On the Reach (a run with its switches), said as distances with `distance-not-rings` on (#1752).
+  const config = (next as Partial<Pick<Region1State, 'config'>>).config;
+  const say = (text: string, kind: LogEntry['kind']): void => { next.log.push({ day: next.day, text: config ? ringWordsFor({ config }, text) : text, kind }); };
 
   // Food and water are separate needs, and both are needed to recover (#1233).
   // Fresh food first; when it's gone, the winter larder (#1302).

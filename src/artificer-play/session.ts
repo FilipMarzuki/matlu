@@ -35,7 +35,10 @@ import { respondedOn } from '../artificer/journal';
 import { chosenLength, lengthRefusal } from '../artificer/action-length';
 import { GAME_VERSION } from './version';
 import type { Stats } from '../artificer/stats';
-import { makeT, parseLang, type Lang } from '../artificer/i18n';
+import { fill, makeT, parseLang, type Lang } from '../artificer/i18n';
+import { en } from '../artificer/i18n/en';
+import { distanceOn, DISTANCE_AT } from '../artificer/distance-words';
+import { distanceT } from '../artificer-app/sim-words';
 import { changeText, moveLabel, refusalText, statusText, viewText, type Change } from './view-words';
 
 /** The session format's version (version.ts): a stored game from another version doesn't load. */
@@ -153,7 +156,7 @@ const isEnglish = (g: Game): boolean => !g.lang || g.lang === 'en';
  * it in that language (view-words.ts), the status and the moves' labels in its words.
  */
 function localView(g: Game, v: View): View {
-  const t = makeT(g.lang!);
+  const t = distanceT(g.app.sim, makeT(g.lang!));
   return {
     ...v,
     text: viewText(g.app, v.phase, t),
@@ -190,7 +193,7 @@ function viewOf(a: AppState): Omit<View, 'features'> {
 export function apply(g: Game, move: Move): ApplyResult {
   const before = g.app;
   // A refusal is written in English and said again in the game's language (view-words.ts refusalText).
-  const refuse = (error: string): ApplyResult => ({ ok: false, error: isEnglish(g) ? error : refusalText(error, makeT(g.lang!)), moves: view(g).moves });
+  const refuse = (error: string): ApplyResult => ({ ok: false, error: isEnglish(g) ? error : refusalText(error, distanceT(before.sim, makeT(g.lang!))), moves: view(g).moves });
   const phase = phaseOf(before);
   let next: AppState;
 
@@ -263,7 +266,7 @@ export function apply(g: Game, move: Move): ApplyResult {
   const settled = advance(next);
   const game: Game = { id: g.id, app: settled, ...(g.lang ? { lang: g.lang } : {}) };
   const changed = [...changes(before, next), ...changes(next, settled)];
-  const say = isEnglish(g) ? englishChange : (c: Change) => changeText(c, makeT(g.lang!));
+  const say = isEnglish(g) ? englishChange : (c: Change) => changeText(c, distanceT(settled.sim, makeT(g.lang!)));
   return { ok: true, game, changed: changed.map(say), view: view(game), played, ...(asked ? { asked } : {}) };
 }
 
@@ -352,7 +355,12 @@ function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: bool
   if (!(id in ACTIONS)) return `There's no action "${q}". The actions are listed in the view (e.g. "explore", "gather@2").`;
   const def = ACTIONS[id as ActionId];
   const ring = (ringText === undefined ? 1 : Number(ringText)) as Ring;
-  if (!RINGS.includes(ring) || (ring !== 1 && !def.ringed)) return `"${q}" isn't a valid ring for ${id}${def.ringed ? ' (rings are 1, 2 and 3)' : ': it isn\'t done out on the land'}.`;
+  // With `distance-not-rings` on (#1752) the refusals say distances: the catalog's English (i18n/en/distance.ts).
+  const dist = distanceOn(s);
+  if (!RINGS.includes(ring) || (ring !== 1 && !def.ringed)) {
+    return dist ? fill(en[def.ringed ? 'api.no.badRing.dist' : 'api.no.notOnLand.dist'], { q, action: id })
+      : `"${q}" isn't a valid ring for ${id}${def.ringed ? ' (rings are 1, 2 and 3)' : ': it isn\'t done out on the land'}.`;
+  }
   const itemOpts = typeof item === 'object' && item && 'opts' in item ? (item as { opts: Record<string, string> }).opts : {};
   // A length (#1668): only for gathering, only well-formed, and only in a game with the switch on.
   const badLength = lengthRefusal(id, itemOpts);
@@ -362,9 +370,12 @@ function actionRefusal(s: Region1State, item: unknown, opts: { syntaxOnly?: bool
   const lock = skillLockOf(s, id as ActionId, itemOpts);
   if (lock) return `Can't ${id}: ${lock}.`;
   if (opts.syntaxOnly) return null;
-  if (def.ringed && !reachable(s.explore, ring)) return `You don't know the way to ring ${ring} yet: ${visibilityOn(s) ? 'explore' : 'scout'} the ring before it first.`;
+  if (def.ringed && !reachable(s.explore, ring)) {
+    return dist ? fill(en[visibilityOn(s) ? 'api.no.wayExplore.dist' : 'api.no.wayScout.dist'], { ring })
+      : `You don't know the way to ring ${ring} yet: ${visibilityOn(s) ? 'explore' : 'scout'} the ring before it first.`;
+  }
   const blocked = blockedReason(s, id as ActionId, ring, itemOpts);
-  if (blocked) return `Can't ${id}${def.ringed ? ` in ring ${ring}` : ''} now: ${blocked}.`;
+  if (blocked) return def.ringed && dist ? fill(en['api.no.blockedRing.dist'], { action: id, ring, why: blocked }) : `Can't ${id}${def.ringed ? ` in ring ${ring}` : ''} now: ${blocked}.`;
   if (s.hoursToday >= DAY_HOURS) return 'The day is spent. End the day.';
   return null;
 }
@@ -379,7 +390,8 @@ function dayMoves(a: AppState): MoveOption[] {
       for (const ring of def.ringed ? RINGS.filter(r => reachable(s.explore, r)) : [1 as Ring]) {
         if (blockedReason(s, id, ring)) continue;
         const q = queueId(id, ring);
-        out.push({ move: { do: q }, label: `${def.name}${def.ringed ? ` (ring ${ring})` : ''}`, hours: Math.round(queueHours(q, s) * 10) / 10 });
+        const where = !def.ringed ? '' : distanceOn(s) ? ` (${DISTANCE_AT[ring]})` : ` (ring ${ring})`;
+        out.push({ move: { do: q }, label: `${def.name}${where}`, hours: Math.round(queueHours(q, s) * 10) / 10 });
       }
     }
   }

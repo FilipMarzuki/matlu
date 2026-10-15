@@ -343,5 +343,6 @@ export function matchRefusal(english: string): { key: Key; vars: Record<string, 
 const REFUSALS: readonly [Key, RegExp, string[]][] = (Object.keys(en) as Key[]).filter(k => k.startsWith('api.no.')).map(key => {
   const names: string[] = [];
   const pattern = en[key].replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{(\w+)\\\}/g, (_, name: string) => { names.push(name); return '(.+?)'; });
-  return [key, new RegExp(`^${pattern}$`, 's'), names];
-});
+  return [key, new RegExp(`^${pattern}$`, 's'), names] as [Key, RegExp, string[]];
+  // The distance refusals (#1752) first: "Can't gather at @2 now: …" would otherwise read as "Can't {action} now: {why}".
+}).sort((a, b) => Number(b[0].endsWith('.dist')) - Number(a[0].endsWith('.dist')));

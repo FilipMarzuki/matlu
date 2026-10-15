@@ -78,7 +78,7 @@ import { esc, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
-import { actionName, choiceNote, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -98,7 +98,10 @@ if (import.meta.env.PROD && location.hostname === ANALYTICS_HOST) inject();
 // generated text are still English (later phases of #1685). `let`: choosing a language swaps `t`
 // and redraws.
 let lang: Lang = storedLang() ?? 'en';
-let t: T = makeT(lang);
+let baseT: T = makeT(lang);
+// The run's own words on top (#1752): with `distance-not-rings` on, its rings said as distances
+// (sim-words.ts distanceT). Set again on each draw, from the run being drawn.
+let t: T = baseT;
 document.documentElement.lang = lang;
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
@@ -561,6 +564,7 @@ function render(a: AppState): void {
 }
 
 function drawPage(a: AppState): void {
+  t = distanceT(a.sim, baseT);
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
@@ -668,7 +672,8 @@ function langSwitch(): string {
  */
 function setLang(next: Lang): void {
   lang = next;
-  t = makeT(next);
+  baseT = makeT(next);
+  t = baseT;
   storeLang(next);
   document.documentElement.lang = next;
   introEl.setAttribute('aria-label', t('intro.label'));
