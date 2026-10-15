@@ -22,7 +22,7 @@ export const DEV_ONLY_KEYS: readonly Key[] = [
   'top.dev', 'top.devTip', 'tab.dev', 'top.features', 'head.features',
   'dev.label', 'dev.on', 'dev.leave', 'dev.password', 'dev.placeholder', 'dev.unlock', 'dev.wrong', 'dev.noHash',
   'dev.enter', 'dev.openNote', 'dev.featOn', 'dev.featOff', 'dev.thisRun', 'dev.runOn', 'dev.runOff', 'dev.rules', 'dev.looks',
-  'dev.featuresNoteHtml',
+  'dev.featuresNoteHtml', 'dev.looksHead', 'dev.lookGame', 'dev.lookNote',
   'warden.truth', 'warden.truthTip', 'road.true', 'road.trueTip', 'pack.rule', 'pack.ruleTip',
 ];
 

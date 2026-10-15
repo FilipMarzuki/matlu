@@ -15,6 +15,7 @@ import { DEFAULT_CALENDAR, MIDWINTER_AFTER } from '../artificer/winter';
 import type { Region1State } from '../artificer/region1';
 import { progressOf, type Progress } from '../artificer-ai/progress';
 import { featuresOf } from '../artificer/features';
+import { difficultyRead, difficultyOfCharacter } from '../artificer/difficulty';
 import type { Transcript } from '../artificer-ai/report';
 import { nicknameOf, type PlayerKind, type Run, type RunDetail, type Surface } from './records';
 import { weekOfId } from './weekly';
@@ -96,6 +97,8 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
       vitals: { vigor: Math.round(v.vigor.current), clarity: Math.round(v.clarity.current), condition: Math.round(v.condition) },
       milestones,
       features: featuresOf(app.sim.config.world.features),
+      // Difficulty (#1728): fixed at creation and kept on the character; 1 when nothing was left unspent.
+      difficulty: difficultyOfCharacter(app.sim.character),
       // The weekly world (#1559), read off the Warden's id, which a weekly game takes from its week's seed.
       ...(week ? { week } : {}),
       ...(meta.dev ? { dev: true as const } : {}),
@@ -174,6 +177,8 @@ export function runOfTranscript(t: Transcript, meta: { gameVersion: string; clie
       stats: { ...((roadLast?.stats ?? reach.stats) ?? {}) },
       vitals: roadLast ? { ...roadLast.vitals } : { vigor: reach.vitals.vigor, clarity: reach.vitals.clarity, condition: reach.vitals.condition },
       milestones: milestoneDays(lines),
+      // Difficulty (#1728): the harness writes it with the start (absent on older transcripts: ×1.00).
+      difficulty: difficultyRead(t.start.difficulty),
     },
   };
 }

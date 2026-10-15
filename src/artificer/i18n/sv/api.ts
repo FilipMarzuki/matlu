@@ -10,6 +10,7 @@ export const apiSv: Record<ApiKey, string> = {
   'api.legend': 'Dragen står inom hakparentes: [do: X] betyder { "do": "X" }, [choose: X] betyder { "choose": "X" }, [ask: X] betyder { "ask": { "person": "X", "question": "…" } }, [set site: X] betyder { "set": { "site": "X" } } och [endDay] betyder { "endDay": true }. En sysslas val skickas som { "do": { "q": "<id>", "opts": { "<val>": "<värde>" } } }.',
   'api.dayHead': 'DAG {n} · {weather} · {h}/{max} timmar använda',
   'api.canPlan': 'Du kan planera hela dagar: skicka { "plan": [ … ] } med dagens sysslor i ordning.',
+  'api.difficulty': 'Svårighetsgrad {m}: vald när du skapades, efter de egenskapspoäng och talanger du lämnade oanvända. Den ändrar inget i spelet och skrivs in i rundans rekord.',
   'api.oneAtATime': 'En sak i taget: varje syssla blir av när du skickar den. När en färdighet går upp en nivå första gången kan du planera hela dagar.',
   'api.actions': 'Sysslor',
   'api.blocked': 'inte nu: {why}',

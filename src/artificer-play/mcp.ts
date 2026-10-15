@@ -77,9 +77,11 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
       weekly: z.boolean().optional().describe("true to play this week's world: the same world (weather, encounters) for everyone, people and AIs, this week, so its runs compare fairly. Leave out for a fresh world."),
       // Any string, so an unknown language gets the API's own refusal (a 400 that names the ones there are).
       lang: z.string().optional().describe(`The language of the game's text: ${LANGS.map(l => `"${l}"`).join(' or ')}. Leave out for English (the default). Only the words change: the same game in each.`),
+      // Any numbers, so a spread that isn't a legal point-buy gets the API's own refusal, which says the rules.
+      stats: z.record(z.string(), z.number()).optional().describe('Your stats, as the creation screen\'s point-buy: {"str":12,"con":11,"agi":10,"int":10,"wil":10,"cha":10}. Each starts at 10, 6 points to spend (1 per step to 13, 2 above), lower one to 7 to buy more. Points left unspent are allowed and raise the difficulty multiplier the run records (+0.10 each). Leave out for a quick start: all 10s, recorded as ×1.00.'),
     }),
-  }, async ({ name, model, features, weekly, lang }, ctx) => {
-    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), ...(lang !== undefined ? { lang } : {}), client: clientName(ctx.mcpReq.envelope, request) });
+  }, async ({ name, model, features, weekly, lang, stats }, ctx) => {
+    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), ...(lang !== undefined ? { lang } : {}), ...(stats !== undefined ? { stats } : {}), client: clientName(ctx.mcpReq.envelope, request) });
     if (r.status !== 201) return failure(r);
     const b = gameBody(r);
     const t = tOf(b);

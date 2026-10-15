@@ -56,7 +56,9 @@ describe('Talents (#1263)', () => {
     expect(hidden[0]).toMatchObject({ id: hiddenTalent(seedOf('w-vega'), ['forager', 'hardy']), tier: 1 });
     expect(make()).toEqual(t);
     expect(validPick(['forager', 'hardy'])).toBe(true);
-    expect(validPick(['forager'])).toBe(false);
+    // Fewer than two is a choice now (#1728): it adds to the difficulty. More than two isn't.
+    expect(validPick(['forager'])).toBe(true);
+    expect(validPick(['forager', 'hardy', 'sharp'])).toBe(false);
     expect(validPick(['forager', 'forager'])).toBe(false);
     expect(validPick(['forager', 'wizard'])).toBe(false);
   });
