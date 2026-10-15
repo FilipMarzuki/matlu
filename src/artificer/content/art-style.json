@@ -1,5 +1,9 @@
 {
   "_readme": "The Artificer's pixel-art style guide, machine-readable (#1673, epic #1672). The PixelLab icon pass (#1674) reads this with art-briefs.json: every request gets these sizes, this palette, this outline and light, and the reference icons as style images. The prose version is docs/art-pipeline.md. Palette: extracted from 36 of the old Homestead item icons that fit the Artificer's hand-made, stone-age-and-scout-kit look (k-means, 32 colours), so new icons sit beside the kept ones.",
+  "eraLooks": {
+    "doc": "docs/art-pipeline.md#era-looks",
+    "use": "the interface frame's nine looks (three eras of three steps: scout and cartographer, steampunk, rune tech), their rules and touchstones (#1718, epic #1717). Not the item art: icons keep this file's style in every era. Palettes come later (#1693)."
+  },
   "icon": { "size": 32, "use": "tier 0: every material, item, tool and recipe result; also the static frame of an action icon" },
   "card": { "size": 128, "use": "tier 1: the inspect card, made first; the item's icon is then redrawn to match it" },
   "actionIcon": { "size": 32, "frames": { "min": 4, "max": 8 }, "use": "an animated loop per camp action (#1678); frame 0 is the idle frame and the action's static icon" },
