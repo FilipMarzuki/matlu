@@ -38,6 +38,8 @@ import { featureOn } from '../artificer/features';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
+import { nowText, nowWords, timeWordsOn } from '../artificer/time-words';
+import { makeT } from '../artificer/i18n';
 import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
@@ -216,6 +218,9 @@ const WX_HOW: Readonly<Record<Exclude<SeasonView, 'numbers'>, string>> = {
   strip: "you've seen a season turn, so you know the shape of the year",
 };
 
+/** The catalog's English, for the words the page draws in the viewer's language (#1740). */
+const EN = makeT('en');
+
 /** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
 export function observe(s: Region1State, notes: readonly string[] = []): string {
   const cal = s.config.calendar;
@@ -230,6 +235,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const calendarKnown = wx.view === 'numbers' || wx.view === 'strip';
   lines.push(`DAY ${s.day} — ${calendarKnown ? (season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`) : SEASON_SHORT[wx.season]}.`);
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
+  // The time of day in words (#1740, `time-words`): what the page's queue box says. The hours stay:
+  // the rules (a cached prompt) and every move are in hours, so the AI plans in them as before.
+  if (timeWordsOn(s)) lines.push(`TIME OF DAY: ${nowText(nowWords(s.day, s.hoursToday, cal), EN)}`);
   // Learned planning (#1350): until the first level-up, one action per reply.
   if (!s.canPlan) lines.push("PLANNING: not yet — you take things one at a time. Put ONE action in the queue (only the first runs); you'll be asked again after it. An empty queue ends the day. The first time a skill levels up, you'll be able to plan whole days.");
   for (const n of notes) lines.push(`NOTE: ${n}`);

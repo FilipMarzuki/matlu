@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -65,13 +65,15 @@ import { meetingModal } from './caravan-view';
 import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
-import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
-import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
+import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { nowTotal, queueTimes, timerClock } from './time-view';
+import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
+import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, hrs, pct, band, portraitEl } from './html';
+import { esc, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
@@ -347,7 +349,7 @@ function oneAtATime(a: AppState): string {
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
       <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
       ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>${lastTripNews(a)}` : ''}
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday, t)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
+      <div class="qtot"><span>${nowTotal(s, t, dev)}</span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
 }
@@ -358,6 +360,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   const resolved = s.outcome !== null;
   // The day planning opened up (#1350): the queue arrives with a glow.
   const fresh = s.log.some(l => l.text === PLANNING_UNLOCKED && l.day >= s.day - 1);
+  // The hours, or the time of day in words (#1740, `time-words`, time-view.ts).
+  const times = queueTimes(a, preview, t, dev);
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -374,7 +378,10 @@ function queueBlock(a: AppState, preview: Preview): string {
       return `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(note)}">`
         + `<b>${esc(optionLabel(g, c, t))}</b><span>${esc(note)}</span></button>`;
     }).join('')}</div></div>`).join('')}</div>` : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
+    // The grip (#1743): drag it (mouse, touch or pen) or use the arrow keys on it to move the task.
+    // Only the grip takes the drag, so taps on the row's own buttons and scrolling the page still work.
+    const grip = a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
       + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
@@ -387,13 +394,14 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${hrs(queueHours(item, preview.before[i]), t)}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
+      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
-      <ol>${items || `<li class="empty">${esc(t('queue.empty', { hours: DAY_HOURS }))}</li>`}</ol>
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(todayHours(a, preview), t)} / ${DAY_HOURS}h</b></span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
+      ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
+      <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
+      <div class="qtot"><span>${times.total}</span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
       <div class="runbar">
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
@@ -424,7 +432,7 @@ function statusBar(a: AppState, preview: Preview): string {
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview), t)}/${DAY_HOURS}H</b></span>
+    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -1056,11 +1064,11 @@ function timerPanel(): string {
   const lines = linesAt(p, m.done, night);
   const days = pl.plays.length > 1 ? t('timer.days', { n: pl.day + 1, total: pl.plays.length }) : '';
   return `<section class="timer${night ? ' night' : ''}" aria-label="${esc(t('timer.label'))}">
-    <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${clockText(m.clock)}</span>
+    <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${esc(timerClock(p.before.sim, m.clock, t, dev))}</span>
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
+    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
     <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(logText(l, t))}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
@@ -1071,7 +1079,7 @@ function tickTimer(pl: Playing): void {
   const p = pl.plays[pl.day];
   const m = momentOf(pl);
   const clock = document.getElementById('pb-clock');
-  if (clock) clock.textContent = clockText(m.clock);
+  if (clock) clock.textContent = timerClock(p.before.sim, m.clock, t, dev);
   const bar = document.getElementById('pb-bar');
   if (bar) {
     bar.style.width = `${Math.round(m.frac * 1000) / 10}%`;
@@ -1081,7 +1089,7 @@ function tickTimer(pl: Playing): void {
   const strip = document.getElementById('pb-day');
   if (strip) strip.style.width = `${Math.min(100, Math.max(0, ((m.clock - DAY_START) / DAY_HOURS) * 100))}%`;
   const phase = document.getElementById('pb-phase');
-  const text = phaseText(p, m, t);
+  const text = phaseText(p, m, t, dev);
   if (phase && phase.textContent !== text) phase.textContent = text;
 }
 
@@ -1411,6 +1419,103 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'roadday') { roadUi.person = null; play(roadEndDay(state), { endDay: true }); }
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
   else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
+});
+
+// ── Reordering the queue (#1743) ─────────────────────────────────────────────
+// Drag a task by its grip (⋮⋮) to a new place. Pointer Events give mouse, touch and pen one code
+// path (HTML5 drag-and-drop doesn't work on touch). Pointer capture keeps the moves coming to the
+// grip even when the finger leaves it, and `touch-action: none` on the grip alone (style.css)
+// stops the browser scrolling the page from there, while the rest of the row scrolls as usual.
+// The decisions (where it lands, the gap) are pure, in queue-drag.ts; this only moves pixels.
+
+/** A screen-reader line after a move: one live region kept outside `root`, so redraws don't replace it. */
+const queueLive = document.createElement('p');
+queueLive.className = 'sr-only';
+queueLive.setAttribute('aria-live', 'polite');
+document.body.appendChild(queueLive);
+
+/** Move a task and keep the page's own state in step: an open options menu goes with its task. */
+function moveTask(from: number, to: number, refocus: boolean): void {
+  const next = moveQueued(state, from, to);
+  if (next === state) return;
+  const open = [...expanded].map(i => followMove(i, from, to));
+  expanded.clear();
+  open.forEach(i => expanded.add(i));
+  const name = actionName(parseItem(state.queue[from]).id, t);
+  update(next);
+  queueLive.textContent = t('queue.moved', { name, n: to + 1, total: next.queue.length });
+  if (refocus) root.querySelector<HTMLElement>(`[data-grip="${to}"]`)?.focus();
+}
+
+interface QueueDrag {
+  pointerId: number; from: number; to: number; x0: number; y0: number;
+  grip: HTMLElement; li: HTMLElement; ol: HTMLElement; rows: HTMLElement[]; rects: RowRect[];
+  /** How far the other rows slide to open the gap: the dragged row's height plus the list's gap. */
+  step: number;
+  /** Past the threshold: until then a press is still a tap. */
+  active: boolean;
+}
+let queueDrag: QueueDrag | null = null;
+
+root.addEventListener('pointerdown', e => {
+  const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-grip]');
+  if (!grip || playing || queueDrag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const li = grip.closest<HTMLElement>('li[data-qi]');
+  const ol = li?.parentElement;
+  if (!li || !ol) return;
+  // No text selection or native drag from a mouse press on the grip.
+  e.preventDefault();
+  const rows = [...ol.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.dataset.qi !== undefined);
+  const rects = rows.map(r => { const b = r.getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; });
+  const from = Number(li.dataset.qi);
+  const gap = parseFloat(getComputedStyle(ol).rowGap) || 0;
+  grip.setPointerCapture(e.pointerId);
+  queueDrag = { pointerId: e.pointerId, from, to: from, x0: e.clientX, y0: e.clientY, grip, li, ol, rows, rects, step: rects[from].bottom - rects[from].top + gap, active: false };
+});
+
+root.addEventListener('pointermove', e => {
+  const g = queueDrag;
+  if (!g || e.pointerId !== g.pointerId) return;
+  if (!g.active) {
+    if (!pastThreshold(g.x0, g.y0, e.clientX, e.clientY)) return;
+    g.active = true;
+    g.li.classList.add('lifted');
+    g.ol.classList.add('sorting');
+  }
+  e.preventDefault();
+  const dy = e.clientY - g.y0;
+  g.li.style.transform = `translateY(${dy}px)`;
+  // Where the dragged row's middle is now decides where it lands.
+  const mid = (g.rects[g.from].top + g.rects[g.from].bottom) / 2 + dy;
+  g.to = dropIndex(mid, g.rects, g.from);
+  g.rows.forEach((r, i) => { if (i !== g.from) r.style.transform = `translateY(${gapShift(i, g.from, g.to, g.step)}px)`; });
+});
+
+function endQueueDrag(e: PointerEvent, drop: boolean): void {
+  const g = queueDrag;
+  if (!g || e.pointerId !== g.pointerId) return;
+  queueDrag = null;
+  if (g.grip.hasPointerCapture(e.pointerId)) g.grip.releasePointerCapture(e.pointerId);
+  g.rows.forEach(r => { r.style.transform = ''; });
+  g.li.classList.remove('lifted');
+  g.ol.classList.remove('sorting');
+  if (drop && g.active && g.to !== g.from && !playing) moveTask(g.from, g.to, false);
+}
+root.addEventListener('pointerup', e => endQueueDrag(e, true));
+root.addEventListener('pointercancel', e => endQueueDrag(e, false));
+root.addEventListener('lostpointercapture', e => endQueueDrag(e, false));
+
+// The keyboard (#1743): ↑/↓ on a focused grip, or Alt+↑/↓ anywhere in a queue row, moves the task.
+root.addEventListener('keydown', e => {
+  if (playing || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  const el = e.target as HTMLElement;
+  const onGrip = el.matches('[data-grip]');
+  if (!onGrip && !e.altKey) return;
+  const li = el.closest<HTMLElement>('.queue li[data-qi]');
+  if (!li || (onGrip && (e.ctrlKey || e.metaKey || e.shiftKey))) return;
+  e.preventDefault();
+  const from = Number(li.dataset.qi);
+  moveTask(from, from + (e.key === 'ArrowUp' ? -1 : 1), true);
 });
 
 // Ask anything (#1575): a free question to someone on the road, once per person per stay. It's

@@ -41,6 +41,7 @@ import { logText } from '../artificer-app/journal-view';
 import { hrs } from '../artificer-app/html';
 import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, weatherLines, weatherWord } from '../artificer-app/sim-words';
 import type { Phase } from './session';
+import { nowLine } from '../artificer-app/time-view';
 
 // ── HTML to text ────────────────────────────────────────────────────────────
 
@@ -138,6 +139,8 @@ function dayText(a: AppState, t: T): string {
     legend(t),
     '',
     t('api.dayHead', { n: s.day, weather: weatherWord(s.weatherToday, s.day, s.config.calendar, t), h: hrs(s.hoursToday, t), max: DAY_HOURS }),
+    // The time of day in words (#1740, `time-words`): what the page's queue box says.
+    ...(nowLine(s, t, false) ? [`${t('time.label')}: ${nowLine(s, t, false)}`] : []),
     t(s.canPlan ? 'api.canPlan' : 'api.oneAtATime'),
     // The weather and the season in words (#1729): what the page's weather box says.
     ...(weather.length ? ['', head('wx.head', t), ...weather] : []),

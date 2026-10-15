@@ -24,10 +24,11 @@ import type { RunRecord } from '../artificer/legacy';
 import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
-import { esc, hrs, pct, band } from './html';
+import { esc, pct, band } from './html';
 import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { seasonView, weatherReport } from '../artificer/weather-words';
+import { actionTime, timerLength, timeWordsShown } from './time-view';
 import type { previewQueue, AppState } from './controller';
 import type { DayPlay, Moment } from './playback';
 
@@ -103,6 +104,8 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
       + `${esc(ringName(r, t).toUpperCase())}<span>${esc(TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'))}</span></button>`;
   }).join('')}</div>`;
   // A group with nothing the Warden knows how to do yet (#1690) isn't shown at all.
+  // In words (#1740), the length gets a line of its own under the name.
+  const tw = timeWordsShown(a.sim, dev);
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
   return tabs + known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}${g.key === 'explore' || g.key === 'provision' ? ` <span class="ringnote">${esc(t('group.ringNote', { ring: ringName(focusRing, t).toLowerCase() }))}</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
@@ -117,7 +120,8 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
-      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}<span class="h">${hrs(queueHours(q, preview.projected), t)}H</span></div>`
+      // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
+      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
   }).join('')}</div></div>`).join('');
 }
@@ -344,12 +348,12 @@ export function stepName(p: DayPlay, m: Moment, t: T): string {
   return `${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` · ${esc(ringName(ring, t).toUpperCase())}` : ''}`;
 }
 
-/** The leg of a trip session (#1668), in words; else the action's hours. */
-export function phaseText(p: DayPlay, m: Moment, t: T): string {
+/** The leg of a trip session (#1668), in words; else the action's hours (or, #1740, its length in words). */
+export function phaseText(p: DayPlay, m: Moment, t: T, dev = false): string {
   if (m.index >= p.steps.length) return t('timer.sleep');
   const st = p.steps[m.index];
   if (m.phase) return `${m.phase.trips > 1 ? t('timer.trip', { n: m.phase.trip, total: m.phase.trips }) : ''}${t(`timer.${m.phase.kind}`)}`;
-  return st.hours > 0 ? `${hrs(st.hours, t)}h` : t('timer.skipped');
+  return st.hours > 0 ? timerLength(p.before.sim, st.start, st.hours, t, dev) : t('timer.skipped');
 }
 
 // ── The closing card ────────────────────────────────────────────────────────

@@ -210,6 +210,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No calendar and no thermometer at the start: the weather and the season are told in words ("cloudy and windy; you can see your breath in the morning; the first snow can\'t be far off"). Keep a tally of the days (the notebook, or a week of notches) and you know the day and about how long to the snow; once you\'ve seen the first snow, the season strip.',
   },
   {
+    // A rules feature, though the sim is untouched (time-words.ts only reads state): it changes
+    // what the Warden and the AI are told (the time of day in words in the queue box, a task's
+    // length as "all morning" instead of "4h"), so a run from before it (absent: false) keeps the
+    // hours on replay.
+    id: 'time-words', name: 'The time of day in words', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1740,
+    note: 'No watch that keeps this world\'s time: the queue box says when in the day it is ("early morning, the sun just up"), how long each task takes ("part of the morning", "the afternoon and into the evening") and when you\'d be done ("around dusk"), following the day\'s real light, instead of hours.',
+  },
+  {
     // A rules feature: it changes what can happen in a run (camp is made by an action, at real places
     // on the Reach that you've explored, and what you can tell of them), so a run from before it
     // (absent: false) keeps the four sites and the free choice of them on replay.

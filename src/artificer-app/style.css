@@ -120,6 +120,9 @@
   .act:disabled { opacity: .38; cursor: not-allowed; }
   .act .t { font-family: var(--display); font-size: 8px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
   .act .t .h { margin-left: auto; color: var(--faint); font-size: 7px; }
+  /* The length in words (#1740, `time-words`): a line of its own under the name, in the body font. */
+  .act .t:has(.tw) { flex-wrap: wrap; row-gap: 1px; }
+  .act .t .h.tw { flex-basis: 100%; margin-left: 0; font-family: var(--body); font-size: 10px; letter-spacing: 0; }
   .act .y { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .act .y .yield { color: var(--green); } .act .y .vc { color: var(--warn); }
 
@@ -932,3 +935,18 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .lookswitch .pill { padding: 6px 8px; }
 .lookswitch .lsname { margin-inline: 3px 2px; }
 .lookswitch select.pill { max-width: 15em; padding-block: 5px; appearance: auto; }
+
+/* Reordering the queue (#1743): the grip on each row takes the drag. `touch-action: none` is on the
+   grip only, so a finger there drags the task instead of scrolling, and anywhere else scrolls as usual.
+   While a row is lifted, the others slide (transform) to open a gap where it will land. */
+.queue .grip { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; border: none; background: none;
+  color: var(--faint); font-size: 13px; letter-spacing: -3px; line-height: 1; padding: 6px 7px 6px 3px; margin: -5px 0 -5px -6px; border-radius: 5px; }
+.queue .grip:hover, .queue .grip:focus-visible { color: var(--gold); }
+.queue .grip:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.queue ol.sorting li { transition: transform .15s ease; }
+.queue ol.sorting li.lifted { transition: none; position: relative; z-index: 2; cursor: grabbing; border-color: var(--gold);
+  box-shadow: 0 8px 22px rgba(0,0,0,.5); background: var(--sub2); }
+.queue ol.sorting li.lifted .grip { cursor: grabbing; color: var(--gold); }
+.playing .queue .grip { opacity: .45; pointer-events: none; }
+/* Words only a screen reader hears (the queue's "moved to place 2 of 5"). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

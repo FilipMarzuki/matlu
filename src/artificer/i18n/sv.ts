@@ -17,6 +17,7 @@ import { loreSv2 } from './sv/lore2';
 import { loreSv3 } from './sv/lore3';
 import { apiSv } from './sv/api';
 import { weatherSv } from './sv/weather';
+import { timeSv } from './sv/time';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -206,6 +207,10 @@ const core: Catalog = {
   'queue.day': 'DAG {n}',
   'queue.options': 'Val',
   'queue.remove': 'Ta bort',
+  // Att flytta i kön (#1743).
+  'queue.grip': 'Flytta {name}: dra, eller använd piltangenterna upp och ner',
+  'queue.gripTip': 'Dra för att flytta',
+  'queue.moved': '{name} flyttad till plats {n} av {total}',
   'queue.empty': 'Tom. Tryck på sysslor för att planera. En dag har {hours} vakna timmar; det som inte hinns med flyttas till nästa dag, och du sover emellan.',
   'queue.todayHours': 'Idag',
   'queue.spans.one': 'Räcker <b>{n}</b> dag',
@@ -297,7 +302,7 @@ const core: Catalog = {
 };
 
 /** Every area by name, as en.ts has them (`enAreas`): duplicates.test.ts checks that no key is defined in two. */
-export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv };
+export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv, timeSv };
 
 export const sv: Catalog = {
   ...core,
@@ -320,4 +325,5 @@ export const sv: Catalog = {
   ...loreSv,
   ...apiSv,
   ...weatherSv,
+  ...timeSv,
 };
