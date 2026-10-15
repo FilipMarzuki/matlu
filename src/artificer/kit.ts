@@ -233,9 +233,13 @@ export const WOOL_COLD = 0.85, PAD_COLD = 0.9;
 /** …and with the odd things on (#1727): a family tent's spare room is a little warmer, and hard sweets soothe a cold throat. */
 export const TENT_COLD = 0.9, THROAT_SWEETS_COLD = 0.95;
 // Multipliers, so each thing takes its share off what's left and they stack without ever reaching zero.
-export const kitColdCost = (s: KitRun): number =>
-  (hasKit(s, 'wool-underlayer') ? WOOL_COLD : 1) * (hasKit(s, 'sleeping-pad') && !hasKit(s, 'sleeping-bag') ? PAD_COLD : 1)
-  * (hasExtra(s, 'family-tent') ? TENT_COLD : 1) * (hasExtra(s, 'throat-sweets') ? THROAT_SWEETS_COLD : 1);
+// With `thermal-model` (#1770) the wool and the pad are insulation in the night's heat balance
+// (thermal.ts insulationHeld), so they don't also take a share off here.
+export const kitColdCost = (s: KitRun): number => {
+  const inClo = featureOn(s.config?.world.features, 'thermal-model');
+  return (hasKit(s, 'wool-underlayer') && !inClo ? WOOL_COLD : 1) * (hasKit(s, 'sleeping-pad') && !hasKit(s, 'sleeping-bag') && !inClo ? PAD_COLD : 1)
+    * (hasExtra(s, 'family-tent') ? TENT_COLD : 1) * (hasExtra(s, 'throat-sweets') ? THROAT_SWEETS_COLD : 1);
+};
 
 /** Scouting and surveying with a map and compass. */
 export const MAP_TIME = 0.8;

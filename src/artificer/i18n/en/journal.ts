@@ -339,6 +339,7 @@ export const journal = {
   'log.awake': 'You lie awake a long time, listening to the dark.',
   'log.sleepless': 'A sleepless night: every sound out there is something coming.',
   'log.coldNight': 'A cold, broken night — the exposure bites.',
+  'log.dangerousNight': 'Dangerously cold: you lie shivering, and the cold goes deep.',
   'log.lastStand': 'Everything in you says stop. You refuse. You wake, somehow — Condition 1. That was your one reprieve.',
   'log.kasa': 'A hot drink from your kåsa by the fire.',
   'log.thermos': 'Hot blackcurrant from the thermos — still warm, somehow.',

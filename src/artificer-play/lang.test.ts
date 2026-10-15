@@ -107,10 +107,11 @@ function pick(body: Record<string, unknown>, i: number, r: () => number): Move {
 
 /**
  * Camp as a free setting, as before #1732: the policy above settles that way. And the site's
- * warmth ceilings, as before #1763: the games below are pinned to how this policy's run goes
- * (where it ends, what it's refused), and a warmer camp changes that.
+ * warmth ceilings, as before #1763, and the warmth fraction rather than the heat balance, as
+ * before #1770: the games below are pinned to how this policy's run goes (where it ends, what
+ * it's refused), and a warmer or colder camp changes that.
  */
-const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false };
+const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false, 'thermal-model': false };
 /**
  * …and the map drawn by itself, as before #1754: the policy picks among the moves open, so a
  * Draw your map move would send this seeded year down another path, longer than the loop allows.

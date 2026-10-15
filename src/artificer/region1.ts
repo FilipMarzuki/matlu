@@ -51,6 +51,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
+import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
@@ -563,7 +564,38 @@ export interface WinterOutlook {
 export function nightFuel(s: Region1State, day = s.day): number {
   if (!feelsTemperature(s)) return 0;
   const w = Math.max(0, warmth(s) - (day === s.day ? windChill(s.weatherToday) : 0));
-  return fireNeed(nightTemp(day, day === s.day ? s.weatherToday : 'wind', s.config.calendar), w);
+  const weather = day === s.day ? s.weatherToday : 'wind';
+  return nightFire(s, nightTemp(day, weather, s.config.calendar), weather, w, day);
+}
+
+/**
+ * Firewood a night's fire asks (#1303): 1, plus 1 for every full 5 °C of frost, less in a warm
+ * shelter (weather.ts fireNeed). With `thermal-model` (#1770) the frost is judged where you sleep
+ * with no fire lit (thermal.ts sleeperEnvironment), so a cave's steady +4 °C asks for none and
+ * walls take a few degrees off; and above freezing a fire is lit anyway (1 firewood) if the night
+ * would be cold or worse without one, as anyone would.
+ */
+function nightFire(s: Region1State, t: number, weather: WeatherId, w: number, day = s.day): number {
+  if (!thermalOn(s)) return fireNeed(t, w);
+  const at = { ...s, day };
+  const frost = fireNeed(sleeperEnvironment(at, { tempC: t, weather, fire: 0 }).airC, w);
+  if (frost > 0) return frost;
+  const bare = thermalNight(at, { tempC: t, weather, fire: 0 }).quality;
+  return bare === 'cold' || bare === 'dangerous' ? 1 : 0;
+}
+
+/**
+ * Tonight at camp as the thermal model sees it (#1770, `thermal-model`): with the fire judged as
+ * the night will judge it (all of it if the woodpile covers what the frost asks, else its share).
+ * Null with the switch off, in the flat world, or before there's a camp. Pure.
+ */
+export function tonightThermal(s: Region1State): ThermalNight | null {
+  if (!thermalOn(s) || !feelsTemperature(s) || !s.site) return null;
+  const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
+  const shelterW = Math.max(0, warmth(s) - windChill(s.weatherToday));
+  const need = kitFireNeed(s, nightFire(s, t, s.weatherToday, shelterW));
+  const fire = need === 0 ? 0 : Math.min(1, s.stores.firewood / need);
+  return thermalNight(s, { tempC: t, weather: s.weatherToday, fire });
 }
 
 export function winterOutlook(s: Region1State): WinterOutlook {
@@ -1883,7 +1915,7 @@ function nightSceneOf(s: Region1State, fire: boolean, fireKept: boolean): NightS
 export function tonightsFright(s: Region1State): { state: PanicState; perceived: Threat; reasons: string[] } | null {
   if (!s.config.world.encounters) return null;
   const shelterW = Math.max(0, warmth(s) - windChill(s.weatherToday));
-  const need = feelsTemperature(s) ? fireNeed(nightTemp(s.day, s.weatherToday, s.config.calendar), shelterW) : 0;
+  const need = feelsTemperature(s) ? nightFire(s, nightTemp(s.day, s.weatherToday, s.config.calendar), s.weatherToday, shelterW) : 0;
   const kept = need > 0 && s.stores.firewood >= need;
   const scene = nightSceneOf(s, kept || (need === 0 && s.stores.firewood > 0), kept);
   const f = frightOf(s, nightAmbient(scene), true);
@@ -2859,11 +2891,19 @@ export function endDay(s: Region1State): Region1State {
   const shelterW = Math.max(0, warmth(next) - windChill(next.weatherToday));
   // The night's fire (#1303): burn what the frost asks. Kept in all night, it warms the shelter too (#1306).
   const fire = keepFire(next, shelterW);
-  const w = Math.min(1, shelterW + (fire.kept ? FIRE_WARMTH : 0));
-  const freeze = fire.freeze;
+  // With `thermal-model` (#1770) the night is a heat balance (thermal.ts): the air, wind and fire at
+  // the sleeper against what they wear, sleep in and lie on. Its quality decides the same cold-night
+  // effects the warmth fraction did (thermalEffects), so only *which* night it was changes.
+  const heat = feelsTemperature(next) && thermalOn(next)
+    ? thermalNight(next, { tempC: nightTemp(next.day, next.weatherToday, next.config.calendar), weather: next.weatherToday, fire: fire.share })
+    : null;
+  const felt = heat ? thermalEffects(heat) : null;
+  if (heat?.quality === 'dangerous') say(next, 'Dangerously cold: you lie shivering, and the cold goes deep.', 'hardship');
+  const w = felt ? felt.warmth : Math.min(1, shelterW + (fire.kept ? FIRE_WARMTH : 0));
+  const freeze = felt ? felt.freeze : fire.freeze;
   // A cold night (#1283): the frost decides how much shelter is enough — and rain with no roof is always cold (#1284).
   // (The flat world keeps the old rule.)
-  const cold = feelsTemperature(next)
+  const cold = felt ? felt.coldNight : feelsTemperature(next)
     ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0 && !naturalRoof(next))
     : w < 0.3 && next.tier < 2;
   // Cooped up (#1305): a day without going out, studying or crafting adds to the streak; any of them ends it.
@@ -2871,7 +2911,7 @@ export function endDay(s: Region1State): Region1State {
   next.cabinDays = cooped ? (next.cabinDays ?? 0) + 1 : 0;
   if (next.cabinDays === CABIN_FEVER_FROM) say(next, 'Cabin fever — too many days inside these walls. Your thoughts go round in circles.', 'hardship');
   // How far short of tonight's frost the shelter falls (#1306): a deep shortfall bites harder.
-  const coldShortfall = cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
+  const coldShortfall = felt ? felt.coldShortfall : cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
   // How frightening the night is (#1367): the weather, the season, the shelter and the fire — read against your nerve.
   // A fire burns if it was kept in through the frost — or, on a night that asked for none, if there's wood for one.
   const nightFright = next.config.world.encounters
@@ -2967,11 +3007,13 @@ export function endDay(s: Region1State): Region1State {
  * shelter, #1306) and the Condition a short or missing fire will cost.
  * Above freezing, or in the flat world, no fire is needed.
  */
-function keepFire(next: Region1State, w: number): { kept: boolean; freeze: number } {
-  if (!feelsTemperature(next)) return { kept: false, freeze: 0 };
+function keepFire(next: Region1State, w: number): { kept: boolean; freeze: number; share: number } {
+  if (!feelsTemperature(next)) return { kept: false, freeze: 0, share: 0 };
   const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
-  const full = fireNeed(t, w);
-  if (full === 0) return { kept: false, freeze: 0 };
+  // With `thermal-model` (#1770) the frost is judged where you sleep (a cave asks for no fire), and a
+  // night that would be cold without one gets a fire above freezing too.
+  const full = nightFire(next, t, next.weatherToday, w);
+  if (full === 0) return { kept: false, freeze: 0, share: 0 };
   // A clear day and a magnifying glass (#1727): the fire is lit in the last of the sun, sparing a log.
   const need = kitFireNeed(next, full);
   if (need < full) say(next, 'You light the evening fire with the magnifying glass while the sun is still out.', 'action');
@@ -2979,12 +3021,13 @@ function keepFire(next: Region1State, w: number): { kept: boolean; freeze: numbe
   next.stores.firewood -= burnt;
   if (burnt === need) {
     say(next, `Kept the fire in through a ${Math.round(t)} °C night — ${burnt} firewood.`, 'action');
-    return { kept: true, freeze: 0 };
+    return { kept: true, freeze: 0, share: 1 };
   }
   say(next, burnt > 0
     ? `The firewood ran out in the night (${burnt} of the ${need} it needed). The cold crept in.`
     : `No firewood — a fireless night at ${Math.round(t)} °C.`, 'hardship');
-  return { kept: false, freeze: freezeLoss(t, w, next.coldGear, (need - burnt) / need) };
+  // `share`: how much of the night the fire burned, for the thermal model (#1770).
+  return { kept: false, freeze: freezeLoss(t, w, next.coldGear, (need - burnt) / need), share: burnt / need };
 }
 
 /** How much a fire kept in all night adds to the shelter's warmth (#1306). */

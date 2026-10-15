@@ -22,7 +22,7 @@ import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty'
 import {
   ACTIONS, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
-  tripLoad, tripUnease, tonightsFright, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
+  tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
@@ -36,6 +36,7 @@ import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import type { SiteId } from '../artificer/region1';
 import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_WARMTH } from '../artificer/built-warmth';
+import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
@@ -296,10 +297,18 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // With `built-warmth` (#1763) a site has no ceiling: it's said by its natural shelter and what building it needs.
   const built = builtWarmthOn(s);
   const siteNote = (k: SiteId): string => (built ? siteShelterText(k) : `max ${pct(SITES[k].warmth)}`);
-  const sites = built
+  // With `thermal-model` (#1770) the night is a heat balance, said on its own line below, so the
+  // warmth fraction's percentages are left out.
+  const heat = tonightThermal(s);
+  const thermal = thermalOn(s);
+  const sites = built && thermal
+    ? `Sites by natural shelter: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${SHELTER_TEXT.word[k]}`).join(', ')}`
+    : built
     ? `Sites by natural shelter: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${SHELTER_TEXT.word[k]}`).join(', ')} (a site gives a head start, not a ceiling: timber walls, soundly built, with a fire make any of them warm enough for midwinter; the hilltop's wind costs ${pct(WIND_EXPOSURE)} until walls are soundly built, the riverbank's damp ${pct(DAMP)} until a shelter is soundly built off the ground, and a bedroll adds ${pct(BED_WARMTH)})`
     : `Sites: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}`;
-  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (${built ? `natural shelter: ${siteNote(s.site)}` : siteNote(s.site)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}${built ? `, ${pct(warmth(s))} warm` : ''}` : 'none yet'}. ${sites}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (${built ? `natural shelter: ${siteNote(s.site)}` : siteNote(s.site)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}${built && !thermal ? `, ${pct(warmth(s))} warm` : ''}` : 'none yet'}. ${sites}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  // Tonight as a heat balance (#1770, `thermal-model`): the words, and the clo figures to plan with.
+  if (heat) lines.push(`NIGHT AT CAMP (as it stands, with the fire the woodpile allows): ${nightLineForAi(heat)}. Clothes, bag and pad add up; a cave's air stays mild and steady all winter but its rock needs a pad; wind and open sky make a night colder than the air; walls with a fire inside them warm the air.`);
   // Each camp keeps what you built there (#1753): the camps you're away from, by spot id.
   const kept = keptCamps(s);
   if (kept.length) lines.push(`BUILT AT OTHER PLACES: ${kept.map(c => `${c.id}: ${buildsText(c.items)}`).join('; ')} (still there when you camp there again; food you leave in a cold pit stays in it)`);

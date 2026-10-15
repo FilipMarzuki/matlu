@@ -273,6 +273,15 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'A site no longer caps how warm camp can get: a cave shelters you a lot with nothing built, a treeline some, a riverbank little and a hilltop not at all, and a proper wood shelter with a fire makes any of them warm enough. The hilltop\'s wind costs a little until walls are built well enough to stop it, the riverbank\'s damp until the floor is off the wet ground, and a bed keeps you off the cold ground.',
   },
   {
+    // A rules feature: it changes which nights are cold (region1.ts endDay, thermal.ts: a heat
+    // balance on ISO 11079 IREQ, clo, ISO 23537 bag ratings and ASTM F3340 pad R-values instead of
+    // the warmth fraction), how much firewood a night asks (judged where you sleep), and what the
+    // Warden, the AI and the API are told of tonight, so a run from before it (absent: false) keeps
+    // the warmth fraction on replay.
+    id: 'thermal-model', name: 'Nights as a heat balance', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1770,
+    note: 'A night at camp is worked out the way cold-weather gear is rated: the air, wind and fire where you sleep against what you wear, sleep in and lie on. A cave stays about +4 °C all winter, still and damp, and its rock needs a good pad; wind on a hilltop makes the night colder than the air; walls and a fire inside them warm the air. A better sleeping bag or pad helps as much as its rating says.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
