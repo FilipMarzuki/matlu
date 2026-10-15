@@ -21,6 +21,7 @@ import { dayMean, nightTemp, isBlizzard, BLIZZARD_HOURS, type WeatherId } from '
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import type { Haul } from '../artificer/load';
 import type { RunRecord } from '../artificer/legacy';
+import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band } from './html';
@@ -312,10 +313,15 @@ export function thawSummary(a: AppState, t: T): string {
 export function outcomeCard(a: AppState, run: RunRecord | undefined, t: T): string {
   const o = a.sim.outcome;
   if (!o) return '';
+  // Difficulty (#1728): the run's record says it; without one (the API's views), the Warden's own.
+  // In the facts always, so a full spend reads ×1.00 too; with no record, only when above ×1.00.
+  const mult = run ? difficultyRead(run.difficulty) : difficultyOfCharacter(a.sim.character);
+  const hard = `<li>${esc(t('end.difficulty', { m: difficultyLabel(mult) }))}</li>`;
   const facts = run ? `<ul class="runfacts">
       <li>${t(run.choice === 'thaw' ? 'end.thawOnHtml' : run.choice === 'collapse' ? 'end.endedOnHtml' : 'end.leftOnHtml', { n: run.day })}${run.grade ? t('end.gradeHtml', { grade: esc(t(`grade.${run.grade}`)) }) : ''}${run.readyDay ? t('end.readyOnHtml', { n: run.readyDay }) : esc(t('end.neverReady'))}</li>
       <li>${esc([run.site ? t('end.camp', { site: siteName(run.site, t), n: run.tier }) + (run.shelterGrade ? ` (${gradeWord(run.shelterGrade, t)})` : '') : t('end.noCamp'), t(run.tools.length === 1 ? 'end.tools.one' : 'end.tools.other', { n: run.tools.length }), t('end.recipes', { n: run.recipes }), t('end.milestones', { n: run.milestones })].join(' · '))}</li>
-    </ul>` : '';
+      ${hard}
+    </ul>` : mult > 1 ? `<ul class="runfacts">${hard}</ul>` : '';
   const head = o.choice === 'collapse' ? t('end.ended', { n: run?.run ?? '' }) : t('end.complete', { n: run?.run ?? '' });
   return `<h3>${esc(head)}</h3><div class="outcome"><span class="head">${esc(t(`end.${o.kind}`))}</span>${esc(t(`end.${o.kind}.body`))}</div>${o.kind === 'survived' ? thawSummary(a, t) : ''}${facts}`;
 }

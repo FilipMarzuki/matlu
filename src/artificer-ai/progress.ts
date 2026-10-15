@@ -60,6 +60,8 @@ export interface Progress {
    */
   stats?: Stats;
   exercise?: { banked: Partial<Stats>; pending: Partial<Stats> };
+  /** Difficulty (#1728): the multiplier the Warden was made with, when above ×1.00. Absent: ×1.00 (and on older transcripts). */
+  difficulty?: number;
 }
 
 const r1 = (x: number): number => Math.round(x * 10) / 10;
@@ -111,6 +113,7 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     carry: { leftStones: r1(s.tally?.leftStones ?? 0), overloadedHours: r1(s.tally?.overloadedHours ?? 0), spoiled: s.tally?.spoiled ?? 0, strain: r1(s.strain ?? 0) },
     stats: { ...s.character.stats },
     exercise: { banked: roundAll(s.character.exercise), pending: roundAll(s.character.pending) },
+    ...(s.character.difficulty !== undefined ? { difficulty: s.character.difficulty } : {}),
   };
 }
 

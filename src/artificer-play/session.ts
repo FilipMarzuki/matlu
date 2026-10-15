@@ -33,6 +33,7 @@ import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../art
 import { respondedOn } from '../artificer/journal';
 import { chosenLength, lengthRefusal } from '../artificer/action-length';
 import { GAME_VERSION } from './version';
+import type { Stats } from '../artificer/stats';
 import { makeT, parseLang, type Lang } from '../artificer/i18n';
 import { changeText, moveLabel, refusalText, statusText, viewText, type Change } from './view-words';
 
@@ -122,9 +123,13 @@ export interface AskedQuestion {
  * A new game: a new Warden, seeded by `seed` if given (so it can be replayed), else a fresh one.
  * `features` switches rule features on or off for this game (#1579); the rest keep their defaults.
  */
-export function startGame(opts: { seed?: string; name?: string; features?: FeatureSwitches; lang?: Lang } = {}): Game {
+export function startGame(opts: { seed?: string; name?: string; features?: FeatureSwitches; lang?: Lang; stats?: Stats } = {}): Game {
   const id = opts.seed ? `play-${opts.seed}` : `play-${newCharacterId().slice(2)}`;
-  const game: Game = { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden' }, undefined, opts.features)) };
+  // Stats chosen (#1728): a point-buy, maybe with points left unspent, and — the API offers no talent
+  // pick — no talents chosen, so the game is worth what was left (difficulty.ts). Without: a quick
+  // start, ×1.00, as before. `chosen: []` is what a quick start's talents already are: no draw changes.
+  const creation = opts.stats ? { stats: { ...opts.stats }, chosen: [] } : {};
+  const game: Game = { id, app: advance(makeWarden({ id, name: opts.name?.trim() || 'Warden', ...creation }, undefined, opts.features)) };
   // English is the default and isn't written down, so an English game is stored exactly as before.
   return opts.lang && opts.lang !== 'en' ? { ...game, lang: opts.lang } : game;
 }

@@ -10,8 +10,9 @@
 import type { T } from '../artificer/i18n';
 import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, type KitGroup, type KitId } from '../artificer/kit';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
-import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, type Stats } from '../artificer/stats';
+import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
 import { grownStats, START_AGES } from '../artificer/growing';
+import { difficultyOf, difficultyLabel, unchosenPicks, unspentPoints } from '../artificer/difficulty';
 import { itemIcon } from './item-icons';
 import { esc, portraitEl } from './html';
 import { kitName, statNoteText } from './sim-words';
@@ -101,7 +102,7 @@ export function createForm(draft: DraftView, t: T): string {
   return `<form class="create" onsubmit="return false">
     <label class="clabel" for="wname">${esc(t('create.name'))}</label>
     <div class="cwho">${portraitEl(draft.portrait, 64)}<input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="${esc(t('create.placeholder'))}" value="${esc(draft.name)}"></div>
-    <p class="clabel">${esc(t('create.talents', { n: TALENT_PICKS }))} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
+    <p class="clabel">${esc(t('create.talents', { n: TALENT_PICKS }))} <span>(${draft.talents.length}/${TALENT_PICKS} · ${esc(t('create.unchosen', { n: unchosenPicks(draft.talents), m: difficultyLabel(difficultyOf(draft.stats, draft.talents)) }))})</span></p><div class="tchoices">${talents}</div>
     <p class="mood" style="margin:0">${esc(t('create.unknown'))}</p>
     <p class="clabel">${esc(t('create.age'))}</p>
     <div class="achoices">${START_AGES.map(a => `<button type="button" class="achoice" data-age="${a}" aria-pressed="${draft.age === a}">${a}</button>`).join('')}</div>
@@ -113,10 +114,12 @@ export function createForm(draft: DraftView, t: T): string {
 /**
  * The stats step (#1258): point-buy over the six stats. Every stat starts at 10
  * with 6 points to spend; steps above 13 cost 2. All 10s is a valid Warden, so
- * this never blocks BEGIN — unspent points just get a nudge.
+ * this never blocks BEGIN. Points left unspent are a real choice (#1728): no nudge,
+ * just how many and the difficulty multiplier they make (with the talents unchosen).
  */
 export function statsForm(draft: DraftView, t: T): string {
-  const left = pointsLeft(draft.stats);
+  const left = unspentPoints(draft.stats);
+  const unspent = t('create.unspent', { n: left, m: difficultyLabel(difficultyOf(draft.stats, draft.talents)) });
   const rows = STAT_IDS.map(id => {
     const v = draft.stats[id];
     const dear = v >= 13 && v < 15 ? ' dear' : '';
@@ -128,6 +131,6 @@ export function statsForm(draft: DraftView, t: T): string {
       + `<span class="sval">${v}</span>`
       + `<button type="button" class="pill${dear}" data-stat="${id}" data-delta="1" aria-label="${esc(t('create.raise', { stat: name, n: raiseCost(v) }))}" title="${esc(t(v >= 13 ? 'create.costs2' : 'create.costs1'))}" ${canRaise(draft.stats, id) ? '' : 'disabled'}>+</button></div></div>`;
   }).join('');
-  return `<p class="clabel">${esc(t('create.stats', { n: POINT_BUDGET }))} <span>(${esc(t('create.left', { n: left }))}${left > 0 ? esc(t('create.wasted')) : ''})${esc(t('create.rules'))}</span></p>
+  return `<p class="clabel">${esc(t('create.stats', { n: POINT_BUDGET }))} <span>(${esc(unspent)})${esc(t('create.rules'))}</span></p>
     <div class="schoices">${rows}</div>`;
 }

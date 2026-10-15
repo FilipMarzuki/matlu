@@ -91,7 +91,19 @@ export interface RunDetail {
   features?: Record<string, boolean>;
   /** The weekly world it was played on (#1559), "2026-W41"; absent for any other world. */
   week?: string;
+  /**
+   * Difficulty (#1728): the multiplier the Warden was made with — stat points and talent picks left
+   * unspent at creation — for a future leaderboard. Written on every record from then on (1 for a
+   * full spend); absent on older records, which read ×1.00 (`runDifficulty`).
+   */
+  difficulty?: number;
 }
+
+/** A record's difficulty multiplier (#1728): its own, or ×1.00 for one from before it (or not a number ≥ 1). */
+export const runDifficulty = (r: { detail?: { difficulty?: unknown } | null }): number => {
+  const d = r.detail?.difficulty;
+  return typeof d === 'number' && Number.isFinite(d) && d >= 1 ? Math.round(d * 100) / 100 : 1;
+};
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */
 export interface StoredRun extends Run {

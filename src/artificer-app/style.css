@@ -8,16 +8,20 @@
     --gold: #ffe066; --teal: #4dd4f0; --amber: #c8922a;
     --green: #88ff88; --warn: #ffaa33; --danger: #ff5a5a; --ice: #9fd8ff;
     --lilac: #c9b4ff;
+    /* Era looks (#1719): these are the defaults, the look of a page with no look (the records page,
+       play-with-ai). The game sets <html data-look="…"> and looks.ts sets every colour token above
+       and these for that look. Only colours, images and shadows: a look never moves a box. */
+    --plate: #22243a; --ornament: rgba(159,216,255,.18); --grain: rgba(159,216,255,.03);
+    --page-texture: radial-gradient(1100px 520px at 70% -10%, rgba(159,216,255,.06), transparent),
+      radial-gradient(900px 500px at 10% 110%, rgba(200,146,42,.05), transparent);
+    --box-ornament: none; --box-glow: none;
     --display: "Silkscreen", "Courier New", monospace;
     --body: "Chakra Petch", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background:
-      radial-gradient(1100px 520px at 70% -10%, rgba(159,216,255,.06), transparent),
-      radial-gradient(900px 500px at 10% 110%, rgba(200,146,42,.05), transparent),
-      var(--bg);
+    background: var(--page-texture), var(--bg);
     color: var(--ink); font-family: var(--body); line-height: 1.5;
   }
   .wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px; padding-inline: 16px; }
@@ -36,7 +40,7 @@
   /* Winter timeline + readiness strip */
   .strip { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-bottom: 14px; }
   @media (max-width: 820px) { .strip { grid-template-columns: 1fr; } }
-  .box { background: var(--panel); border: 1px solid var(--border); border-radius: 13px; padding: 14px; min-width: 0; }
+  .box { background-color: var(--panel); background-image: var(--box-ornament); box-shadow: var(--box-glow); border: 1px solid var(--border); border-radius: 13px; padding: 14px; min-width: 0; }
   .eyebrow { font-family: var(--display); font-size: 9px; letter-spacing: 2px; color: var(--teal); margin: 0 0 11px; }
   .eyebrow.ice { color: var(--ice); }
 
@@ -487,7 +491,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .thaw .runbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 
 /* The winter look: panels frost over with the snow cover; the camp scene gets falling snow. */
-#app.winter .box { background-image: linear-gradient(180deg, rgba(220,238,255,calc(var(--snow, 0) * .09)), transparent 70%); border-color: rgba(159,216,255,calc(.15 + var(--snow, 0) * .25)); }
+#app.winter .box { background-image: linear-gradient(180deg, rgba(220,238,255,calc(var(--snow, 0) * .09)), transparent 70%), var(--box-ornament); border-color: rgba(159,216,255,calc(.15 + var(--snow, 0) * .25)); }
 #app.winter .camp-scene {
   background-image:
     radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.7), transparent),
@@ -867,6 +871,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
    shift. `pixelated` scales by whole pixels (none here, at 1×, but on a 2× tablet screen too) so
    the art stays crisp instead of being smoothed into a blur. */
 .iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
+/* The icon's slot plate (#1719, #1693): a mid-tone per look, so the same icon reads on parchment and slate. */
+.iicon { background-color: var(--plate); border-radius: 4px; }
 /* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
 .r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
 .packitem:has(.iicon) { display: inline-flex; align-items: center; }
@@ -881,3 +887,9 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .act .ingr { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 10.5px; color: var(--dim); }
 .act .ingr span { display: inline-flex; align-items: center; gap: 3px; }
 .act .ingr b { color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+/* The look picker (dev mode, #1719): preview any of the nine era looks. */
+.lookpick { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.lookpills { display: flex; flex-wrap: wrap; gap: 6px; }
+.lookdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; flex: none; }
+.lookpick .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
