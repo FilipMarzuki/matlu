@@ -111,6 +111,7 @@ const core: Catalog = {
   'status.survival': 'ÖVERLEVNAD',
   'status.survivalTip': 'Att överleva har tagit över dina tankar',
   'status.focusTip': 'Det du går och tänker på',
+  'status.focusClose': 'Stäng fokusväljaren',
   'status.frayed': 'splittrat',
   'status.frayedTip': 'Klarhet under {n}: du kan inte lita på ditt fokus',
   'status.rations': 'MAT',
