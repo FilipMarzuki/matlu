@@ -72,12 +72,23 @@ export function ringPins(s: Region1State, ring: Ring, t: T = makeT('en')): strin
   return here.length ? `<ul class="pins">${here.map(p => pinRow(s, p, false, t)).join('')}</ul>` : '';
 }
 
+/** How many places you can hold in mind, and whether you can weigh them yet (the PINS list's first line). */
+export function pinsRoom(s: Region1State, t: T = makeT('en')): string {
+  const room = pinCapacity(s), top = maxInterest(s.skills);
+  const weigh = top ? `${t('pins.weigh', { stars: stars(top) })} ${t(top < 3 ? 'pins.weighMore' : 'pins.weighTop')}` : t('pins.weighLater');
+  return `<p class="mood" style="margin:0 0 8px">${t(room === 1 ? 'pins.roomHtml.one' : 'pins.roomHtml.other', { n: room })} ${esc(weigh)}</p>`;
+}
+
+/** A ring's places with their forget and interest controls (the merged LAND tab's ring sections, #1730). */
+export function ringPinRows(s: Region1State, ring: Ring, t: T = makeT('en')): string {
+  const here = (s.pins ?? []).filter(p => p.ring === ring);
+  return here.length ? `<ul class="pins">${here.map(p => pinRow(s, p, true, t)).join('')}</ul>` : '';
+}
+
 /** The PINS list: every place you remember, by ring, with forget and (once Memory allows) interest controls. */
 export function pinsList(s: Region1State, t: T = makeT('en')): string {
   const pins = s.pins ?? [];
-  const room = pinCapacity(s), top = maxInterest(s.skills);
-  const weigh = top ? `${t('pins.weigh', { stars: stars(top) })} ${t(top < 3 ? 'pins.weighMore' : 'pins.weighTop')}` : t('pins.weighLater');
-  const head = `<p class="mood" style="margin:0 0 8px">${t(room === 1 ? 'pins.roomHtml.one' : 'pins.roomHtml.other', { n: room })} ${esc(weigh)}</p>`;
+  const head = pinsRoom(s, t);
   if (!pins.length) return `${head}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return head + RINGS.filter(r => pins.some(p => p.ring === r)).map(r =>
     `<div class="ringhead">${esc(t(`ring.${r}`).toUpperCase())}</div><ul class="pins">${pins.filter(p => p.ring === r).map(p => pinRow(s, p, true, t)).join('')}</ul>`).join('');
