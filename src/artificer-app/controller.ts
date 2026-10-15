@@ -24,6 +24,7 @@ import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
 import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
+import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
 import { validSiteBuilds, CAMP_BUILDS_PER_SITE } from '../artificer/camp-builds';
 import { validPatches } from '../artificer/action-length';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
@@ -629,9 +630,11 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
   // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.
   const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;
+  // The map-drawing session done (#1754): only `true`, and only with `map-learning` on; anything else is dropped (not yet).
+  const mapLearned = validMapLearned(sim.mapLearned) && featureOn(config.world.features, MAP_LEARNING) ? true as const : undefined;
   // The camps you're away from (#1753): kept if well-formed and the switch is on, else dropped — a
   // dropped record reads as a save from before it, whose builds are the current camp's.
   const siteBuilds = campSpot && featureOn(config.world.features, CAMP_BUILDS_PER_SITE) && validSiteBuilds(sim.siteBuilds) && Object.keys(sim.siteBuilds).length
     ? JSON.parse(JSON.stringify(sim.siteBuilds)) as Region1State['siteBuilds'] : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, siteBuilds, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, siteBuilds, mapLearned, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

@@ -107,6 +107,12 @@ function pick(body: Record<string, unknown>, i: number, r: () => number): Move {
 
 /** Camp as a free setting, as before #1732: the policy above settles that way. */
 const OLD_CAMP = { 'camp-as-action': false };
+/**
+ * …and the map drawn by itself, as before #1754: the policy picks among the moves open, so a
+ * Draw your map move would send this seeded year down another path, longer than the loop allows.
+ * Learning the map in both languages is map-learning-app.test.ts's.
+ */
+const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());
@@ -116,8 +122,8 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
     const store = memoryStore();
     // The policy below settles with the free "site" setting, so these games keep it (#1732's switch off);
     // Make camp as an action, in both languages, is camp-as-action.test.ts's and camp-i18n.test.ts's.
-    const en = (await handle(post('/api/v1/games', { name: 'Vega', features: OLD_CAMP }), store, deps)).body;
-    const sv = (await handle(post('/api/v1/games', { name: 'Vega', lang: 'sv', features: OLD_CAMP }), store, deps)).body;
+    const en = (await handle(post('/api/v1/games', { name: 'Vega', features: SAME_YEAR }), store, deps)).body;
+    const sv = (await handle(post('/api/v1/games', { name: 'Vega', lang: 'sv', features: SAME_YEAR }), store, deps)).body;
     expect(sv.lang).toBe('sv');
     const ids = [String(en.id), String(sv.id)];
     let last: Record<string, unknown>[] = [en, sv];
