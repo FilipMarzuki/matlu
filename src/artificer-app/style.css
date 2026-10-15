@@ -874,3 +874,27 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .act .ingr { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 10.5px; color: var(--dim); }
 .act .ingr span { display: inline-flex; align-items: center; gap: 3px; }
 .act .ingr b { color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+/* Folds (#1730, fold.ts): the merged LAND tab's ring sections and keys. A plain <details>, so it
+   opens with a tap or the keyboard with no script; the marker is drawn here so it reads the same in
+   every browser. A ring out of reach is the same row with no marker and nothing to open. */
+.fold { border-top: 1px solid var(--border); }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "\25B8"; color: var(--gold); width: 10px; flex: none; }
+.fold[open] > summary::before { content: "\25BE"; }
+.fold > summary .ringhead, .fold.shut .ringhead { margin: 0; }
+.fold.shut { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0 8px 18px; }
+.fold .foldnote { font-size: 12px; color: var(--faint); }
+.ringfold[open] { padding-bottom: 8px; }
+.keyfold { margin-top: 12px; }
+.keyfold > summary { font-size: 12px; color: var(--dim); }
+.keyfold .legend { margin-top: 0; }
+/* What a land trip turned up (#1730, land-news.ts): a small "new" until the viewer has seen the tab,
+   and the link from the trip's line to its ring. */
+.newmark { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; vertical-align: middle; }
+.chip.new { border-color: var(--gold); }
+.landwords li.new { color: var(--gold); }
+.seeland { background: none; border: 0; padding: 0 2px; color: var(--teal); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tripnews { margin: 0 0 8px; }
+.tripnews .landwords { margin: 0 0 6px; }

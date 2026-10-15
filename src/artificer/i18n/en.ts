@@ -100,7 +100,6 @@ const core = {
   'tab.plan': 'PLAN',
   'tab.camp': 'CAMP',
   'tab.land': 'LAND',
-  'tab.map': 'MAP',
   'tab.history': 'HISTORY',
   'tab.warden': 'WARDEN',
   'tab.progress': 'PROGRESS',

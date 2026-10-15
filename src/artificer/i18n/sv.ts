@@ -127,7 +127,6 @@ const core: Catalog = {
   'tab.plan': 'PLAN',
   'tab.camp': 'LÄGRET',
   'tab.land': 'LANDET',
-  'tab.map': 'KARTA',
   'tab.history': 'HISTORIA',
   'tab.warden': 'VÄKTAREN',
   'tab.progress': 'FRAMSTEG',
