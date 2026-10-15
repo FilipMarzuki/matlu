@@ -207,6 +207,10 @@ const core: Catalog = {
   'queue.day': 'DAG {n}',
   'queue.options': 'Val',
   'queue.remove': 'Ta bort',
+  // Att flytta i kön (#1743).
+  'queue.grip': 'Flytta {name}: dra, eller använd piltangenterna upp och ner',
+  'queue.gripTip': 'Dra för att flytta',
+  'queue.moved': '{name} flyttad till plats {n} av {total}',
   'queue.empty': 'Tom. Tryck på sysslor för att planera. En dag har {hours} vakna timmar; det som inte hinns med flyttas till nästa dag, och du sover emellan.',
   'queue.todayHours': 'Idag',
   'queue.spans.one': 'Räcker <b>{n}</b> dag',

@@ -34,6 +34,7 @@ import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
 import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
+import { moveQueueItem } from './queue-drag';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -251,6 +252,23 @@ export function endTheDay(a: AppState): AppState {
 export function dequeueAt(a: AppState, index: number): AppState {
   if (index < 0 || index >= a.queue.length) return a;
   return { ...a, queue: a.queue.filter((_, i) => i !== index) };
+}
+
+/**
+ * Move a planned task to another place in the queue (#1743): the task at `from` ends up at `to`.
+ * Only the order changes, and the sim never sees anything but the order it's given, so a run with
+ * the same seed and the same final order plays the same.
+ *
+ * Every entry in the queue is still a plan: whatever already ran today is in the sim (its hours in
+ * `hoursToday`), not here, and while a day plays out on the timer the page takes no edits (#1669).
+ * So any entry can move, but only when the queue is open at all — the same rule as `enqueue`: not
+ * before planning is learned (`queueLocked`, #1350), not once the run is over, not on the road.
+ * The same place, or an index out of range, gives the state back unchanged.
+ */
+export function moveQueued(a: AppState, from: number, to: number): AppState {
+  if (a.sim.outcome || a.stage === 'road' || queueLocked(a)) return a;
+  if (from === to || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= a.queue.length || to >= a.queue.length) return a;
+  return { ...a, queue: moveQueueItem(a.queue, from, to) };
 }
 
 /**
