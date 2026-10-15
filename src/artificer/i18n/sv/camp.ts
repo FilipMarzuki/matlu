@@ -184,6 +184,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'yield.winterized': 'vinterbonat',
   'yield.coldGear': 'lindrar en iskall natt utan tillräckligt med eld · fiber eller hud',
   'yield.coldPit': 'håller {n} rå mat från att bli dålig · 4 sten + 2 material',
+  'yield.coldPitSlows': 'håller {n} rå mat kall och saktar ner förruttnelsen · 4 sten + 2 material',
   'yield.knife': 'jakt −15% kraft, snabbare konservering',
   'yield.snare': '+1 mat varje natt',
   'yield.waterskin': '+1 vatten per tur · kräver en hud',

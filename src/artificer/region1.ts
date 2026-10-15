@@ -232,6 +232,12 @@ export interface Region1State {
   /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */
   coldPitAt?: SiteId | null;
   /**
+   * The rot owed by the food in the cold pit (#1757, `cold-pit-slows`): a fraction of one raw food,
+   * 0..1, carried from night to night until it adds up to a whole one that goes bad. Written only
+   * with the switch on; dropped when nothing is in the pit. Absent: none owed.
+   */
+  pitRot?: number;
+  /**
    * Where camp is on the Reach (#1732, `camp-as-action`): the spot's id (`river@12,20`) and every spot
    * camped at, whose true traits you know. Written only by the Make camp action, so only with the
    * switch on. Absent: camp is a site kind alone, as before.
@@ -708,7 +714,7 @@ export const GEAR_RECIPES: Readonly<Record<'basket' | 'backpack' | 'harness' | '
   sled: { id: 'sled', name: 'Sled', inputs: [{ item: 'materials', qty: 5 }], output: { item: 'sled', qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['leverage'] },
 };
 
-/** The cold pit (#1295): a stone-lined pit that keeps raw food from spoiling. Dug at camp, it stays there. */
+/** The cold pit (#1295): a stone-lined pit that keeps raw food cold (and, with `cold-pit-slows`, #1757, slows the rot rather than stopping it). Dug at camp, it stays there. */
 export const COLD_PIT_RECIPE: CraftRecipe = { id: 'cold-pit', name: 'Cold pit', inputs: [{ item: 'stone', qty: 4 }, { item: 'materials', qty: 2 }], output: { item: 'cold-pit', qty: 1 }, tier: 0, station: null, timeBase: 4 };
 
 const shelterRecipe = (id: string, name: string, tier: number, inputs: CraftRecipe['inputs'], timeBase: number, vigorRate = -3.5): CraftRecipe =>
@@ -823,6 +829,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
     next.campSpot = { at: spot, camped: next.campSpot?.camped.includes(spot) ? [...next.campSpot.camped] : [...(next.campSpot?.camped ?? []), spot] };
     if (next.coldPitAt) next.coldPitAt = null;
   }
+  // The pit's carried rot (#1757) belongs to the pit where it built up: leaving camp leaves it behind.
+  delete next.pitRot;
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -2309,7 +2317,9 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     // The pit is part of the camp, not something you carry.
     next.tools = next.tools.filter(t => t.item !== COLD_PIT_RECIPE.output.item);
     next.coldPitAt = next.site;
-    say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold.`, 'action', at);
+    // A new pit starts with no rot carried over (#1757), even if one was left behind earlier today.
+    delete next.pitRot;
+    say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold${featureOn(next.config.world.features, 'cold-pit-slows') ? ' and slows the rot' : ''}.`, 'action', at);
   } else if (result.kind === 'crafted') {
     say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : " Crude — it won't hold up through a winter.") : ''}`, 'action', at);
   } else if (result.kind === 'failed') {
@@ -2594,12 +2604,21 @@ export const coldPitHolds = (site: SiteId | null): number => (site === 'river' ?
 /** Raw food the snow keeps, once winter has come and while the nights stay at or below 2 °C. */
 export const SNOW_CACHE = 6;
 
+/** Raw food the cold pit at this camp holds: none when there's no pit here. */
+const pitCapacity = (s: Pick<Region1State, 'site' | 'coldPitAt'>): number => (s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0);
+/** Raw food the snow keeps tonight, at night temperature `t`: only in winter, on a night at or below 2 °C. */
+const snowCapacity = (s: Pick<Region1State, 'day' | 'config'>, t: number): number => (seasonOf(s.day, s.config.calendar) === 'winter' && t <= 2 ? SNOW_CACHE : 0);
+
 /** Raw food kept cold tonight, at night temperature `t`: the pit at this camp, and the snow in winter. */
 export function coldCapacity(s: Pick<Region1State, 'site' | 'coldPitAt' | 'day' | 'config'>, t: number): number {
-  const pit = s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0;
-  const snow = seasonOf(s.day, s.config.calendar) === 'winter' && t <= 2 ? SNOW_CACHE : 0;
-  return pit + snow;
+  return pitCapacity(s) + snowCapacity(s, t);
 }
+
+/**
+ * With `cold-pit-slows` (#1757): the share of the open rate at which food in the cold pit still
+ * spoils. A third; a quarter at the river, where the water runs cold past the pit.
+ */
+export const pitSlowing = (site: SiteId | null): number => (site === 'river' ? 0.25 : 1 / 3);
 
 /** The share of exposed raw food that spoils in a night at `t` °C: a fifth when mild, half that near freezing, none in a hard frost. */
 export const spoilRate = (t: number): number => (t <= -5 ? 0 : t <= 2 ? 0.1 : 0.2);
@@ -2613,6 +2632,39 @@ export function spoilage(rawFood: number, capacity: number, t: number): { kept: 
   const exposed = rawFood - kept;
   // (The epsilon keeps 20% of 10 at 2 rather than float noise rounding it up to 3; max keeps a zero from going -0.)
   return { kept, exposed, spoiled: Math.max(0, Math.ceil(exposed * spoilRate(t) - 1e-9)) };
+}
+
+/** One night's spoilage at camp, with what the cold pit holds and the rot it carries to tomorrow. */
+export interface NightSpoilage {
+  kept: number;
+  exposed: number;
+  spoiled: number;
+  /** Of the food kept, how much is in the pit (and so still slowly spoiling). 0 with the switch off. */
+  inPit: number;
+  /** The rot the pit's food owes after tonight (0..1). Only with `cold-pit-slows`. */
+  pitRot?: number;
+}
+
+/**
+ * Tonight's spoilage at camp (pure). With `cold-pit-slows` off (or a run from before it), exactly
+ * `spoilage`: what the pit and the snow hold keeps. With it on (#1757), the snow still keeps what
+ * it holds (packed in snow, food stays frozen), but the food in the pit spoils too, at a share of
+ * the open rate (`pitSlowing`), so mild nights speed it and frost slows it as for open food.
+ *
+ * Deterministic, with no draw: a third of a fifth of 8 is 0.53 of a food, so rather than round each
+ * night up (which would rot one every night, nearly the open rate), the fraction is carried in
+ * `pitRot`, and a whole food goes bad each time it adds up to one.
+ */
+export function nightSpoilage(s: Pick<Region1State, 'site' | 'coldPitAt' | 'day' | 'config' | 'stores' | 'pitRot'>, t: number): NightSpoilage {
+  const base = spoilage(s.stores.rawFood, coldCapacity(s, t), t);
+  if (!featureOn(s.config.world.features, 'cold-pit-slows')) return { ...base, inPit: 0 };
+  // The snow fills first (it keeps for good); the pit takes the rest of what's kept.
+  const inPit = Math.min(pitCapacity(s), Math.max(0, base.kept - snowCapacity(s, t)));
+  if (inPit === 0) return { ...base, inPit, pitRot: 0 };
+  const owed = (s.pitRot ?? 0) + inPit * spoilRate(t) * pitSlowing(s.site);
+  // (The epsilon keeps float noise from leaving 0.9999… owed; the result is rounded so saves stay tidy.)
+  const rot = Math.min(inPit, Math.floor(owed + 1e-9));
+  return { ...base, spoiled: base.spoiled + rot, inPit, pitRot: Math.max(0, Math.round((owed - rot) * 1e6) / 1e6) };
 }
 
 /** Days before the thaw within which the spring caravan is near enough to find a collapsed Warden (#1323). */
@@ -2718,9 +2770,14 @@ export function endDay(s: Region1State): Region1State {
   }
 
   // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.
+  // With `cold-pit-slows` (#1757), the pit's food spoils too, slowly, its rot carried night to night.
   if (feelsTemperature(next)) {
     const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
-    const { spoiled } = spoilage(next.stores.rawFood, coldCapacity(next, t), t);
+    const { spoiled, pitRot } = nightSpoilage(next, t);
+    if (pitRot !== undefined) {
+      if (pitRot > 0) next.pitRot = pitRot;
+      else delete next.pitRot;
+    }
     if (spoiled > 0) {
       next.stores.rawFood -= spoiled;
       addTally(next, { spoiled });

@@ -12,11 +12,12 @@
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
-import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, spoilage, warmth, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
+import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
 import { daylightHours } from '../artificer/clock';
+import { featureOn } from '../artificer/features';
 import { dayMean, nightTemp, isBlizzard, BLIZZARD_HOURS, type WeatherId } from '../artificer/weather';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import type { Haul } from '../artificer/load';
@@ -70,7 +71,8 @@ export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
     case 'quarry': return t('yield.quarry', { n: ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone') });
     case 'fish': return t('yield.fish', { n: FISH_CATCH * RICHNESS[r] });
     case 'build': return s.tier < 2 ? t('yield.build', { n: s.tier + 1, m: BUILD_COST[s.tier as 0 | 1] }) : t('yield.winterized');
-    case 'coldPit': return t('yield.coldPit', { n: coldPitHolds(s.site) });
+    // With `cold-pit-slows` (#1757) the pit slows the rot rather than stopping it, and says so.
+    case 'coldPit': return t(featureOn(s.config.world.features, 'cold-pit-slows') ? 'yield.coldPitSlows' : 'yield.coldPit', { n: coldPitHolds(s.site) });
     default: return t(`yield.${id}`);
   }
 }
@@ -285,7 +287,7 @@ export function coldBlock(s: Sim, t: T): string {
   if (s.config.world.weather !== 'seeded') return '';
   const temp = nightTemp(s.day, s.weatherToday, s.config.calendar);
   const cap = coldCapacity(s, temp);
-  const sp = spoilage(s.stores.rawFood, cap, temp);
+  const sp = nightSpoilage(s, temp);
   const pitHolds = s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0;
   const pit = pitHolds ? t('cold.pit', { n: pitHolds }) : null;
   const snow = cap - pitHolds > 0 ? t('cold.snow', { n: cap - pitHolds }) : null;

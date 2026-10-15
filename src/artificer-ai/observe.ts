@@ -22,7 +22,7 @@ import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty'
 import {
   ACTIONS, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
-  tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
+  tripLoad, tripUnease, tonightsFright, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
@@ -153,6 +153,9 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
   }
 }
 
+/** The cold pit's hint with `cold-pit-slows` (#1757): it slows the rot rather than stopping it. */
+const COLD_PIT_SLOWS_HINT = 'a cold pit at camp: keeps 8 raw food (12 at the river) cold and slows the rot — it spoils at a third of the open rate (a quarter at the river) · 4 stone + 2 materials';
+
 const CAMP_HINT: Partial<Record<ActionId, string>> = {
   preserve: '2 raw food -> 1 ration (smoke: up to 3; dry: up to 2)',
   build: 'next shelter stage (see options)',
@@ -209,8 +212,9 @@ function loadLine(s: Region1State): string {
 function coldLine(s: Region1State): string | null {
   if (s.config.world.weather !== 'seeded') return null;
   const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
-  const sp = spoilage(s.stores.rawFood, coldCapacity(s, t), t);
-  return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${s.site && s.coldPitAt === s.site ? ', cold pit' : ', no cold pit'}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
+  const sp = nightSpoilage(s, t);
+  const pit = s.site && s.coldPitAt === s.site ? (featureOn(s.config.world.features, 'cold-pit-slows') ? ', cold pit — slows the rot, doesn\'t stop it' : ', cold pit') : ', no cold pit';
+  return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${pit}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
 }
 
 /** A tool, named by grade — and, for an heirloom that hasn't taught yet, what it still holds of its maker's knowledge (#1456, #1469). */
@@ -360,7 +364,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     for (const r of rings) {
       const why = blockedReason(s, id, r);
       const ringTag = def.ringed ? ` ring ${r}` : '';
-      const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
+      const hint = def.ringed ? landHint(s, id, r) : id === 'coldPit' && featureOn(s.config.world.features, 'cold-pit-slows') ? COLD_PIT_SLOWS_HINT : (CAMP_HINT[id] ?? '');
       const odds = tripOdds(s, id, r);
       const danger = why ? null : dangerOf(s, id, r);
       // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
