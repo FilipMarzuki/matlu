@@ -39,7 +39,7 @@ import { landRings } from '../artificer-app/land-view';
 import { outlookBlock } from '../artificer-app/progress-view';
 import { logText } from '../artificer-app/journal-view';
 import { hrs } from '../artificer-app/html';
-import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, weatherWord } from '../artificer-app/sim-words';
+import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, weatherLines, weatherWord } from '../artificer-app/sim-words';
 import type { Phase } from './session';
 
 // ── HTML to text ────────────────────────────────────────────────────────────
@@ -130,11 +130,14 @@ function dayText(a: AppState, t: T): string {
   const eating = t(s.eating === 'half' ? 'status.half' : s.eating === 'none' ? 'status.none' : 'status.full');
   const land = landLines(s, t);
   const journal = journalLines(withCampLine(s.log), 'D', 6, t);
+  const weather = weatherLines(s, t);
   return [
     legend(t),
     '',
     t('api.dayHead', { n: s.day, weather: weatherWord(s.weatherToday, s.day, s.config.calendar, t), h: hrs(s.hoursToday, t), max: DAY_HOURS }),
     t(s.canPlan ? 'api.canPlan' : 'api.oneAtATime'),
+    // The weather and the season in words (#1729): what the page's weather box says.
+    ...(weather.length ? ['', head('wx.head', t), ...weather] : []),
     '',
     head('head.warden', t),
     vitalsLine(s, t),

@@ -69,7 +69,7 @@ import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artific
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
-import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
+import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, applyLook, installLooks, lookFromQuery, lookOfGame, shownLook, type LookId } from './looks';
 import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
@@ -393,15 +393,8 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where we are in the season, in a few words (for the header chip). */
-function phaseChip(a: AppState): string {
-  const cal = a.sim.config.calendar;
-  const d = a.sim.day;
-  if (seasonOf(d, cal) === 'autumn') { const n = cal.winterDay - d; return `<span class="phase">${esc(t(n === 1 ? 'top.autumn.one' : 'top.autumn.other', { n }))}</span>`; }
-  if (seasonOf(d, cal) === 'thaw') return `<span class="phase gold">${esc(t('top.thaw'))}</span>`;
-  const n = cal.thawDay - d;
-  return `<span class="phase ice">${esc(t(n === 1 ? 'top.winter.one' : 'top.winter.other', { n }))}</span>`;
-}
+/** Where we are in the season, in a few words (for the header chip): in words until the calendar is earned (#1729, camp-blocks.ts). */
+const phaseChip = (a: AppState): string => seasonChip(a.sim, t, { dev });
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
 function statusBar(a: AppState, preview: Preview): string {
@@ -504,7 +497,7 @@ function beforeCamp(a: AppState): string {
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<section class="box seasonbox">${seasonStrip(a.sim, t)}</section><div class="plan">
+      return `<section class="box seasonbox">${weatherBox(a.sim, t, { dev })}</section><div class="plan">
         <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
