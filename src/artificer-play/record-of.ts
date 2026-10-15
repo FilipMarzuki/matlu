@@ -46,6 +46,8 @@ export interface RunMeta {
   name: string | null;
   moves: number;
   costUsd?: number | null;
+  /** A web run played with the page's dev mode on (#1735): `detail.dev` is then true. */
+  dev?: boolean;
 }
 
 /** The record for a game that has ended. Throws if it hasn't: only a finished game has a record. */
@@ -96,6 +98,7 @@ export function runOf(app: AppState, measures: GameMeasures, meta: RunMeta): Run
       features: featuresOf(app.sim.config.world.features),
       // The weekly world (#1559), read off the Warden's id, which a weekly game takes from its week's seed.
       ...(week ? { week } : {}),
+      ...(meta.dev ? { dev: true as const } : {}),
     },
   };
 }

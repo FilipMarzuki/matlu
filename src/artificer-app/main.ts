@@ -43,12 +43,12 @@ import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
-import { newLog, recordMove, runOver, claimOf, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
+import { newLog, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
 import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { devMode, devTruths, devPasswordMatches, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type TabDef, type TabView } from './feature-choices';
+import { devMode, devTruths, devNeedsPassword, devUnlocks, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type TabDef, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
@@ -468,9 +468,10 @@ const TABS: TabDef<Tab>[] = [
   { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
 /**
- * Dev mode (#1688): off for players; the password in the help panel's faint ⚙ opens it (remembered in
- * this browser), "Leave dev mode" shuts it. It only shows views: the features panel, the HISTORY tab,
- * the CAMP tab before camp is made, actions' vital costs, and the `?dev=truths` extras. `let`: it flips.
+ * Dev mode (#1688, #1735): off until the help panel's faint ⚙ turns it on (with the password, if the
+ * build sets one; remembered in this browser), "Leave dev mode" shuts it, and "DEV" shows in the header
+ * while it's on. It only shows views: the features panel, the HISTORY tab, the CAMP tab before camp is
+ * made, actions' vital costs, and the `?dev=truths` extras. `let`: it flips.
  */
 let dev = devMode();
 /** The hidden truths (true trust, true skill levels): `?dev=truths`, and only while dev mode is on (#1578). */
@@ -562,6 +563,7 @@ function drawPage(a: AppState): void {
       <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
       ${experimentChip(a)}
+      ${devChip()}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
@@ -600,7 +602,7 @@ const devTag = (): string => ` <span class="devtag">${esc(t('tab.dev'))}</span>`
 /**
  * The password's SHA-256 (lowercase hex), from the build (#1688): set `VITE_DEV_PASSWORD_HASH` in the
  * Artificer's Vercel project, or in `.env.local` to try dev mode locally (see feature-choices.ts).
- * Unset, the ⚙ still shows, and no password opens it.
+ * Unset, dev mode is open to anyone testing (#1735): the ⚙ turns it on with no password.
  */
 const DEV_PASSWORD_HASH: string | undefined = import.meta.env.VITE_DEV_PASSWORD_HASH;
 
@@ -610,14 +612,17 @@ let devGateNote: Key | '' = '';
 
 /**
  * The semi-hidden way into dev mode (#1688): a faint ⚙ in the corner of the help panel. Tapping it
- * opens an in-page password field (the viewer blocks `prompt()`); in dev mode it offers the way out.
+ * opens a button that turns dev mode on, or, when the build sets a password (#1735), an in-page
+ * password field (the viewer blocks `prompt()`); in dev mode it offers the way out.
  */
 function devGate(): string {
   const icon = `<button class="devdot" data-cmd="devgate" aria-expanded="${devGateOpen}" aria-label="${esc(t('dev.label'))}" title="">⚙</button>`;
   if (!devGateOpen) return icon;
   const body = dev
     ? `<span class="faint">${esc(t('dev.on'))}</span> <button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button>`
-    : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="${esc(t('dev.password'))}" placeholder="${esc(t('dev.placeholder'))}">
+    : !devNeedsPassword(DEV_PASSWORD_HASH)
+      ? `<span class="faint">${esc(t('dev.openNote'))}</span> <button class="pill" data-cmd="deventer">${esc(t('dev.enter'))}</button>`
+      : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="${esc(t('dev.password'))}" placeholder="${esc(t('dev.placeholder'))}">
       <button class="pill" type="submit">${esc(t('dev.unlock'))}</button>${devGateNote ? ` <span class="faint">${esc(t(devGateNote))}</span>` : ''}</form>`;
   return `${icon}<div class="devgate">${body}</div>`;
 }
@@ -678,6 +683,7 @@ function showPicker(then: () => void): void {
 function setDev(on: boolean): void {
   dev = on;
   setDevMode(on);
+  noteDevRun();
   truths = on && devTruths('');
   roadUi.truths = truths;
   if (!on) showFeatures = false;
@@ -687,7 +693,7 @@ function setDev(on: boolean): void {
 
 /** Check a typed password against the build's hash; the right one opens dev mode. */
 async function tryDevPassword(typed: string): Promise<void> {
-  if (await devPasswordMatches(typed, DEV_PASSWORD_HASH)) setDev(true);
+  if (await devUnlocks(typed, DEV_PASSWORD_HASH)) setDev(true);
   else devGateNote = DEV_PASSWORD_HASH ? 'dev.wrong' : 'dev.noHash';
   render(state);
 }
@@ -698,6 +704,9 @@ function experimentChip(a: AppState): string {
   if (!on.length) return '';
   return `<span class="ctl"><span class="pill exp" title="${esc(t('top.experimentTip', { names: on.map(f => f.name).join(', ') }))}">${esc(t('top.experiment'))}</span></span>`;
 }
+
+/** "DEV" in the header while dev mode is on (#1735), so a screenshot or a bug report shows it. */
+const devChip = (): string => (dev ? `<span class="ctl"><span class="pill devchip" title="${esc(t('top.devTip'))}">${esc(t('top.dev'))}</span></span>` : '');
 
 /** A 📅 chip while this run plays the weekly world (#1559): its week, the same world everyone plays. */
 function weekChip(a: AppState): string {
@@ -763,6 +772,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
       ${weekChip(a)}
       ${experimentChip(a)}
+      ${devChip()}
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
@@ -815,7 +825,10 @@ type Kept = Recorder & { sent?: { gameId: string; achievements?: Achievement[] }
 function loadKept(): Kept | null {
   try {
     const k = JSON.parse(localStorage.getItem(LOG_KEY) ?? 'null') as Kept | null;
-    return k && k.log?.v === WEB_LOG_VERSION && Array.isArray(k.log.moves) && typeof k.log.start?.id === 'string' && !!k.measures && typeof k.measures === 'object' ? k : null;
+    if (!(k && k.log?.v === WEB_LOG_VERSION && Array.isArray(k.log.moves) && typeof k.log.start?.id === 'string' && !!k.measures && typeof k.measures === 'object')) return null;
+    // The dev mark (#1735) is `true` or absent: anything else stored there is dropped.
+    if (k.dev !== true) delete k.dev;
+    return k;
   } catch { return null; }
 }
 
@@ -838,10 +851,22 @@ const logFor = (a: AppState): Kept | null => (kept && kept.log.start.id === a.si
 function startLog(a: AppState, spec: Omit<WebStart, 'id' | 'features' | 'heirlooms' | 'heirloomsFrom'>, heirlooms: Tool[] | null, heirloomsFrom: string | null = null): void {
   const start: WebStart = { id: a.sim.character.id, ...spec, features: { ...(a.sim.config.world.features ?? {}) }, heirlooms, ...(heirlooms?.length && heirloomsFrom ? { heirloomsFrom } : {}) };
   kept = { log: newLog(start), measures: {} };
+  noteDevRun(a);
   saveKept();
+}
+
+/**
+ * Mark this run's log as played in dev mode (#1735) when dev mode is on while the run is still being
+ * played: turned on mid-run, a run begun with it on, or a reload with both. Its record then says
+ * `dev: true`. Kept beside the log, not in the game or its save: dev mode never changes play.
+ */
+function noteDevRun(a: AppState = state): void {
+  const next = markDev(kept, a, dev);
+  if (next !== kept) { kept = next; saveKept(); }
 }
 // A first visit: a Warden made just now, with nothing behind it.
 if (!saved) startLog(state, {}, null);
+noteDevRun();
 
 /** A move the page made: written down if it changed the game (web-log.ts recordMove), then shown. */
 function play(next: AppState, move: WebMove): void {
@@ -1227,6 +1252,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
   else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
+  else if (d.cmd === 'deventer') { setDev(true); render(state); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();
@@ -1430,7 +1456,7 @@ async function sendRun(): Promise<void> {
   try {
     const r = await fetch('/api/v1/runs/submit', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ log: k.log, claim: claimOf(localRun(state, k)), name: ui.name }),
+      body: JSON.stringify(submitBody(k, claimOf(localRun(state, k)), ui.name)),
     });
     const body = (await r.json().catch(() => ({}))) as { id?: string; achievements?: Achievement[]; error?: string };
     if ((r.status === 201 || r.status === 200) && body.id) {

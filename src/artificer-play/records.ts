@@ -91,6 +91,8 @@ export interface RunDetail {
   features?: Record<string, boolean>;
   /** The weekly world it was played on (#1559), "2026-W41"; absent for any other world. */
   week?: string;
+  /** Played with the web page's dev mode on (#1735), so a board can leave it out; absent otherwise. */
+  dev?: true;
 }
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */

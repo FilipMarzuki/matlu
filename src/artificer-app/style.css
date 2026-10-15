@@ -584,6 +584,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .sheetpart .qnote { font-size: 10.5px; }
 /* Feature switches (#1579): the 🧪 marks an experiment wherever it shows; the panel is dev mode only. */
 .pill.exp { border-color: var(--amber); color: var(--amber); cursor: help; }
+/* "DEV" in the header while dev mode is on (#1735): filled amber, so it shows in any screenshot. */
+.pill.devchip { border-color: var(--amber); background: var(--amber); color: var(--bg); font-weight: bold; cursor: help; }
 .exptag { margin-left: 6px; color: var(--amber); letter-spacing: 1px; }
 .devtruth { font-family: var(--body); font-size: 10px; color: var(--amber); letter-spacing: 0; text-transform: none; }
 .features { margin: 12px 0; }

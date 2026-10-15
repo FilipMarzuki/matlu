@@ -85,6 +85,8 @@ const core: Catalog = {
   'top.features': '🧪 FUNKTIONER',
   'top.experiment': '🧪 EXPERIMENT',
   'top.experimentTip': 'Den här rundan provar experimentella funktioner: {names}. De kan ändras eller försvinna.',
+  'top.dev': 'DEV',
+  'top.devTip': 'Dev-läget är på: sidan visar vyer för att testa, som spelare inte ser. En runda som spelas med det på märks så i rekorden.',
   'top.roadTitleHtml': '🛞 KARAVAN<span class="mark">VÄGEN</span>',
   'top.marks': 'MARKER',
   'top.roadDay': 'DAG PÅ VÄGEN',
@@ -249,6 +251,8 @@ const core: Catalog = {
   'dev.unlock': 'LÅS UPP',
   'dev.wrong': 'Inte det.',
   'dev.noHash': 'Det här bygget har inget lösenord.',
+  'dev.enter': 'SLÅ PÅ DEV-LÄGET',
+  'dev.openNote': 'Dev-läget är till för att testa: det visar vad varje syssla kostar, historien och funktionerna. Det ändrar aldrig spelet, och en runda som spelas med det på märks så i rekorden.',
   'dev.featOn': 'PÅ',
   'dev.featOff': 'AV',
   'dev.thisRun': 'den här rundan: <b>{state}</b>',
@@ -256,7 +260,7 @@ const core: Catalog = {
   'dev.runOff': 'av',
   'dev.rules': 'regler: från nästa nya spel',
   'dev.looks': 'utseende: direkt',
-  'dev.featuresNoteHtml': 'Sparas i den här webbläsaren och används av textkonsolen också. Lägg till <code>?dev=truths</code> för att också se det spelet döljer: varje färdighets riktiga nivå, hur mycket varje person verkligen litar på dig, och regeln bakom varje sak i packningen. Dev-läget är avstängt för spelare och öppnas med lösenordet bakom ⚙ i hjälpen.',
+  'dev.featuresNoteHtml': 'Sparas i den här webbläsaren och används av textkonsolen också. Lägg till <code>?dev=truths</code> för att också se det spelet döljer: varje färdighets riktiga nivå, hur mycket varje person verkligen litar på dig, och regeln bakom varje sak i packningen. Dev-läget slås på och av med ⚙ i hjälpen (med ett lösenord, om bygget har ett).',
 
   // ── Rekorden ───────────────────────────────────────────────────────────────
   'records.working': 'Räknar ut hur rundan står sig…',

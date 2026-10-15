@@ -57,6 +57,8 @@ const core = {
   'top.features': '🧪 FEATURES',
   'top.experiment': '🧪 EXPERIMENT',
   'top.experimentTip': 'This run plays with experimental features: {names}. They may change, or go.',
+  'top.dev': 'DEV',
+  'top.devTip': 'Dev mode is on: this page shows views for testing that players don\'t see. A run played with it on is marked as such in the records.',
   'top.roadTitleHtml': '🛞 THE CARAVAN <span class="mark">ROAD</span>',
   'top.marks': 'MARKS',
   'top.roadDay': 'ROAD DAY',
@@ -224,6 +226,8 @@ const core = {
   'dev.unlock': 'UNLOCK',
   'dev.wrong': 'Not that.',
   'dev.noHash': 'No password is set for this build.',
+  'dev.enter': 'TURN ON DEV MODE',
+  'dev.openNote': 'Dev mode is for testing: it shows what each action costs, the history and the features. It never changes the game, and a run played with it on is marked as such in the records.',
   'dev.featOn': 'ON',
   'dev.featOff': 'OFF',
   'dev.thisRun': 'this run: <b>{state}</b>',
@@ -231,7 +235,7 @@ const core = {
   'dev.runOff': 'off',
   'dev.rules': 'rules: from the next new game',
   'dev.looks': 'looks: now',
-  'dev.featuresNoteHtml': "Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level, each person's true trust, and the rule behind each thing in the pack. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.",
+  'dev.featuresNoteHtml': "Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level, each person's true trust, and the rule behind each thing in the pack. Dev mode is turned on and off with the ⚙ in the help panel (with a password, if this build sets one).",
 
   // ── The records box at the end of a run ────────────────────────────────────
   'records.working': 'Working out how this run compares…',
