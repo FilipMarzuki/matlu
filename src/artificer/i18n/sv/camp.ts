@@ -367,6 +367,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'end.neverReady': ' · aldrig vinterklar',
   'end.camp': '{site}, skydd nivå {n}',
   'end.noCamp': 'Inget läger',
+  'end.difficulty': 'Svårighetsgrad {m}: det du lämnade oanvänt när du skapades',
   'end.tools.one': '{n} verktyg',
   'end.tools.other': '{n} verktyg',
   'end.recipes': '{n} recept',
