@@ -221,6 +221,7 @@ export const journal = {
   'log.raised': 'Raised {grade} {recipe} — tier {n}, {m}% warm.',
   'log.raised.a': 'Raised a {grade} {recipe} — tier {n}, {m}% warm.',
   'log.coldPit': 'Dug a cold pit and lined it with stone — it keeps {n} raw food cold.',
+  'log.coldPitSlows': 'Dug a cold pit and lined it with stone — it keeps {n} raw food cold and slows the rot.',
   'log.crafted': 'Crafted {grade} {recipe}.',
   'log.crafted.a': 'Crafted a {grade} {recipe}.',
   'log.crafted.goodGear': 'Crafted {grade} {recipe}. Good gear for the winter.',

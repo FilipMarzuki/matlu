@@ -233,6 +233,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Each place to camp you know is rated from what you believe about it (its shelter from the wind, water, wood, dry ground and any danger you spotted): great, good or poor. The Make camp action shows how many great (★) and good (✓) places you know. A quick look can overrate a place; camping there shows what it\'s really like.',
   },
   {
+    // A rules feature: it changes what spoils overnight (region1.ts `nightSpoilage`: the cold pit's
+    // food rots too, slowly, its fraction carried in `pitRot`), so a run from before it (absent:
+    // false) keeps a pit that stops the rot on replay.
+    id: 'cold-pit-slows', name: 'The cold pit slows the rot', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1757,
+    note: 'A cold pit keeps raw food cold and slows the rot, but doesn\'t stop it: food in the pit spoils at about a third of the open rate (a quarter at the river), faster on mild nights and slower in frost.',
+  },
+  {
     // A rules feature, though what you can reach and what a trip costs are untouched (the rings stay
     // in the sim, distance-words.ts): it changes what the Warden, the AI and the API are told (the
     // rings said as distances, the land told from camp once it's made) and the English the journal

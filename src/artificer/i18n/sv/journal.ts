@@ -349,6 +349,7 @@ export const journalSv: Record<JournalKey, string> = {
   'log.raised': 'Byggde {recipe} ({grade}) — nivå {n}, {m} % varmt.',
   'log.raised.a': 'Byggde {recipe} ({grade}) — nivå {n}, {m} % varmt.',
   'log.coldPit': 'Grävde en kylgrop och klädde den med sten — den håller {n} mat kall.',
+  'log.coldPitSlows': 'Grävde en kylgrop och klädde den med sten — den håller {n} mat kall och saktar ner förruttnelsen.',
   'log.crafted': 'Tillverkade {recipe} ({grade}).',
   'log.crafted.a': 'Tillverkade {recipe} ({grade}).',
   'log.crafted.goodGear': 'Tillverkade {recipe} ({grade}). Bra kläder för vintern.',

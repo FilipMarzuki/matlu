@@ -615,6 +615,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
   // …and a cold pit only at a real site (#1295); none before it.
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
+  // …and the cold pit's carried rot (#1757): a fraction 0..1, only with `cold-pit-slows` on; else none owed.
+  const pitRot = typeof sim.pitRot === 'number' && Number.isFinite(sim.pitRot) && sim.pitRot > 0 && sim.pitRot < 1 && featureOn(config.world.features, 'cold-pit-slows') ? sim.pitRot : undefined;
   // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
   // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.
@@ -626,5 +628,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
   // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.
   const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

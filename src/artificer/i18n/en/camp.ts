@@ -193,6 +193,7 @@ export const camp = {
   'yield.winterized': 'winterized',
   'yield.coldGear': 'eases a freezing night without enough fire · fiber or hide',
   'yield.coldPit': 'keeps {n} raw food from spoiling · 4 stone + 2 mat',
+  'yield.coldPitSlows': 'keeps {n} raw food cold and slows the rot · 4 stone + 2 mat',
   'yield.knife': 'hunt −15% vigor, quicker preserving',
   'yield.snare': '+1 food every night',
   'yield.waterskin': '+1 water per trip · takes a hide',
