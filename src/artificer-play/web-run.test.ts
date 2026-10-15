@@ -31,7 +31,9 @@ const kindsOf = (moves: WebMove[]): Set<string> => new Set(moves.map(m => ('set'
 
 describe('Web-game runs (#1559)', () => {
   it('Given a whole run played as the page plays it, When its log is replayed, Then it ends in exactly the same game, with the same record', () => {
-    const s = start();
+    // Every kind of move, the free site setting among them: a game from before Make camp became an
+    // action (#1732). With it on, the next test replays a run taps and reloads included.
+    const s = start({ features: ruleFeatures({ 'camp-as-action': false }) });
     const played = pagePlay(startOf(s), recorder(s));
     expect(runOver(played.app)).toBe(true);
     const kinds = kindsOf(played.rec.log.moves);

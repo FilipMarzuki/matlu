@@ -74,6 +74,8 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   tinker: 'handcraft', fish: 'fieldcraft', treat: 'firstaid',
   // Explore (#1689) is a scout's work: it's how a new Warden learns to scout, survey and look out.
   explore: 'scouting',
+  // Making camp (#1732) is camp craft: clearing the ground, laying the fire, rigging a windbreak.
+  camp: 'fieldcraft',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',
