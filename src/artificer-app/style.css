@@ -882,7 +882,8 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
    shift. `pixelated` scales by whole pixels (none here, at 1×, but on a 2× tablet screen too) so
    the art stays crisp instead of being smoothed into a blur. */
 .iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
-/* The icon's slot plate (#1719, #1693): a mid-tone per look, so the same icon reads on parchment and slate. */
+/* The icon's slot plate (#1719, #1693): a faint tile in the dark looks, so dark-drawn icons don't sink
+   into slate; transparent on the parchment looks (#1749), where the icon sits right on the paper. */
 .iicon { background-color: var(--plate); border-radius: 4px; }
 /* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
 .r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
