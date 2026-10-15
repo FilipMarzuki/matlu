@@ -2,7 +2,7 @@
 
 **Issue:** #1673 · **Epic:** #1672 · **Written:** 2026-10-12
 
-What art the Artificer needs, how it gets made, and the rules that keep it looking like one game. The machine-readable halves are [`src/artificer/content/art-style.json`](../src/artificer/content/art-style.json) (the style guide) and [`src/artificer/content/art-briefs.json`](../src/artificer/content/art-briefs.json) (a visual brief per item). `src/artificer/art-briefs.test.ts` keeps them honest.
+What art the Artificer needs, how it gets made, and the rules that keep it looking like one game. The machine-readable halves are [`src/artificer/content/art-style.json`](../src/artificer/content/art-style.json) (the style guide) and [`src/artificer/content/art-briefs.json`](../src/artificer/content/art-briefs.json) (a visual brief per item). `src/artificer/art-briefs.test.ts` keeps them honest. How the interface's look changes across the game's three eras is [Era looks](#era-looks) (#1718).
 
 The owner's decisions (2026-10-12, #1672): **pixel art**, **made with PixelLab** through the burn pipeline, **start with the stores and inventory** (icons in place of emoji) and inspect cards for crafted items, **keep the old Homestead icons that match**, and **concept art is the reference, not the source**.
 
@@ -99,6 +99,81 @@ Passed to PixelLab as style images with every icon request:
 | `/assets/sprites/icons/items/item-berries.png` | organic colour on a dark base, a lot read in 32 px |
 | `/assets/sprites/icons/items/item-rope.png` | fibre texture, a simple strong silhouette |
 | `/assets/sprites/icons/items/item-raw-fish.png` | a creature-made material, the cool side of the palette |
+
+## Era looks
+
+**Issue:** #1718 · **Epic:** #1717 · **Written:** 2026-10-15
+
+The owner (2026-10-15): the game's look should change as the Warden grows, "fluid but noticeable", from scout and cartographer, to steampunk, to rune tech. Three eras of three steps each make **nine looks**. This section is the framework; the palettes and their contrast test are #1693, the theme engine that swaps them is #1719, each era's art is #1720–#1722, the triggers and the age-up moment are #1723, and history staying visible is #1724.
+
+An era look is the **interface's frame**: panel colours, paper and backgrounds, borders, dividers, corner pieces, buttons and the small ornaments around them. It is not the item art. An icon draws its object as that object looks (the style guide above) whatever era the frame is in, so a stone knife stays flint and wood in a brass frame, and "no metal-age fantasy gear in Region 1" still holds for Region 1's items.
+
+Only the scout era is in play today. The steampunk and rune-tech looks are built and previewed in dev mode, and their triggers wait for those eras' content.
+
+### The nine looks
+
+| Step | Scout and cartographer | Steampunk | Rune tech |
+| --- | --- | --- | --- |
+| **1** | **Field journal:** pencil on parchment, muted greens | **Tinkerer's bench:** dark wood, first copper | **Etched slate:** runes carved but not lit |
+| **2** | **Cartographer:** inked lines, compass-rose details, warmer paper | **Brass engine:** brass rims, rivets, gauges | **Waking runes:** cyan glow in edges |
+| **3** | **Surveyor:** richer colour, first hints of brass | **Soot and steam:** darker, a faint rune glint | **Full rune tech:** violet and cyan glow on dark |
+
+### Each step: mood, motifs, ornament
+
+**Scout and cartographer**: a person on foot, learning the land by walking it and writing it down.
+
+- **1. Field journal.** *Mood:* quiet, careful, a little cold; the first notes of someone new here. *Motifs:* graphite pencil, smudges, parchment grain, pressed leaves, muted greens and greys. *Ornament:* almost none; a pencil rule under a heading, a smudge in a corner. Borders are sketched, never inked.
+- **2. Cartographer.** *Mood:* confident, curious; the land starts to make sense. *Motifs:* ink lines over the pencil, compass roses, scale bars, contour hatching, a warmer, yellower paper. *Ornament:* a small compass rose on panel corners, inked borders with a thin double rule, hatching as a divider.
+- **3. Surveyor.** *Mood:* settled, capable, the land measured. *Motifs:* fuller colour washes on the paper, survey marks and triangulation lines, brass instrument edges. *Ornament:* the first brass, a small rivet or brass corner on the main panels only. This step **foreshadows steampunk**.
+
+**Steampunk**: the Warden starts building machines, and the camp starts to sound like a workshop.
+
+- **1. Tinkerer's bench.** *Mood:* warm, cluttered, hopeful; the first machine on a wooden bench. *Motifs:* dark oiled wood and its grain, the first copper (wire, a pipe, a kettle), lamplight. *Ornament:* wooden frames with visible joints (pegs, dovetails); copper only as thin lines and wire.
+- **2. Brass engine.** *Mood:* proud, loud, working; the machine runs. *Motifs:* brass rims, rivets, gauges with needles, pipes, cogs at the edges. *Ornament:* brass bezels round panels, rivet rows along borders, a gauge as the corner piece. Ornament stays at the edges; the middle of a panel stays plain enough to read.
+- **3. Soot and steam.** *Mood:* heavy, smoky, a little uneasy; the works have grown. *Motifs:* soot-dark metal, steam wisps, scorch marks, a cooler and darker palette. *Ornament:* the same brass, tarnished and darker, and one faint rune glint in one place only (a seam, a gauge face). This step **foreshadows rune tech**.
+
+**Rune tech**: engineering with magic inside. The machines stay; runes go into them.
+
+- **1. Etched slate.** *Mood:* still, precise, expectant; the inscriptions are there but nothing answers yet. *Motifs:* dark slate and stone, carved Elder Futhark lines (Runescript's alphabet, `WORLD.md` § Runescript), the wood and metal of the earlier eras worked into the frame. *Ornament:* runes cut into borders and corners, unlit: shown by their cut edges and shadow, no glow.
+- **2. Waking runes.** *Mood:* alive, humming, careful; the first rune works. *Motifs:* cyan light at the edges of the cuts, conduit lines between runes. *Ornament:* the same carved borders, with cyan only along the rune edges and conduits; panels stay dark and plain.
+- **3. Full rune tech.** *Mood:* sure, bright, a little strange. *Motifs:* violet and cyan glow on dark slate and metal, inscriptions that run the length of a border. *Ornament:* glowing rune bands on panel borders and corner pieces. Glow sits behind or beside text, never on it. What comes after rune tech is open, so this step foreshadows nothing yet.
+
+### The rules
+
+Art agents and the theme engine follow these; they are the owner's (#1717).
+
+1. **The look changes when the Warden makes something new**, never on a rank number or a level. Each step's trigger is a made thing: brass appears with the first brass part, runes glow when the first rune works. The trigger list is #1723's; a step without a trigger is dev-preview only. (After *A Dark Room*.)
+2. **An era boundary gets an age-up moment, and it is quiet:** a short beat, one journal line, then the new look fades in. **Steps inside an era drift without announcement:** no popup, no sound, no line. (After *Age of Empires*, softer.)
+3. **Earlier eras stay visible.** The journal keeps its pencil-on-parchment look in every era, the drawn map stays hand-drawn, and old tools and items keep their colours and icons. A new era changes the frame around them and never repaints what the Warden already has. (After *Mistborn*.)
+4. **The layout never changes, only colours and ornaments.** Every panel, button and list keeps its place and size in all nine looks. A look is a token set (colours, borders, ornament images), not a layout. Ornaments sit in margins, borders and corners and never cover text or a control. (After *Slay the Spire* and *Hollow Knight*.)
+5. **Rune tech is engineering with magic inside**, learned through concepts like any craft. A rune is part of a tool, carved and built into it. Draw runes as cut lines, inlays and conduits in a made thing, never as free-floating sigils or sparkles. Canon: the rune-tech note in `docs/canon.md`. (After *Stormlight*'s fabrials.)
+6. **Each era's last step foreshadows the next:** brass in the surveyor's frame, a rune glint in the soot. One small touch, not a preview of the whole next era.
+7. **Players can keep a look they've reached.** A setting beside reduced motion holds the frame on any step already reached, never one not yet reached. So each step's art has to stand on its own: a player may stay there.
+
+For all nine: text and controls meet the same contrast bar in every look (#1693), and `prefers-reduced-motion` turns glow, steam and fades into still images and instant swaps.
+
+### Touchstones
+
+One line each on what we take, and only that.
+
+**Games**
+
+- ***Age of Empires.*** Advancing to a new age is a deliberate moment, and buildings change their look with it. We take the age-up beat at an era boundary, made quieter.
+- ***A Dark Room.*** It starts as a near-empty text screen, and new panels and words appear as the player builds and discovers. We take an interface that grows with what you've made.
+- ***Slay the Spire.*** Each act has its own backdrop and colours while the screen's layout stays the same. We take same layout, new palette.
+- ***Hollow Knight.*** Each area has a strong palette and mood of its own under an interface that doesn't move. We take a palette that carries the mood by itself.
+- ***Arcanum: Of Steamworks and Magick Obscura.*** A fantasy world going through an industrial revolution, with technology and magic at odds. We take steam-age machines in a fantasy world; whether ours are at odds is the owner's question (#1725).
+- ***Dishonored.*** An industrial city of pipes, gauges and grime, with a strange supernatural power beside the machines. We take the ornament language of industrial brass, and the grimier step.
+- ***Frostpunk.*** A city in a frozen world, built around a coal-fired generator. We take steam as warmth and survival, a warm glow against cold dark, for soot and steam.
+
+**Books**
+
+- ***Mistborn*** (Brandon Sanderson). The series moves its world from one age into a later, industrial one, and the earlier age is still remembered there. We take a world told in eras, with the old era still present.
+- ***The Stormlight Archive*** (Brandon Sanderson). Fabrials are devices built around gemstones that hold power, made by artisans as engineering. We take magic housed inside an engineered thing.
+- ***Perdido Street Station*** (China Miéville). A grimy city where steam machines, science and thaumaturgy are parts of the same industry. We take magic and machines as one messy craft, and the grime.
+- ***Raising Steam*** (Terry Pratchett). The railway comes to the Discworld. We take the wonder, and the humour, of a new machine arriving among people who've never seen one.
+- **Jules Verne.** Machines like the Nautilus, described with an engineer's care and an explorer's wonder. We take instruments, gauges and the explorer's eye.
+- ***The Wonderful Adventures of Nils*** (Selma Lagerlöf). Written as a geography reader for Swedish schoolchildren: the country seen from above, from a goose's back. We take the land seen as a map, for the cartographer step.
 
 ## Audit of the old icons
 
