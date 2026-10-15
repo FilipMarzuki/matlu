@@ -27,7 +27,7 @@ import type { Region1State } from './region1';
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -271,8 +271,18 @@ export function mapSurface(s: Pick<Region1State, 'kit' | 'flags'> & { config?: R
 /** Knowing home ground well enough to draw it: every part of the near ring at least observed. */
 export const knowsHomeGround = (s: Pick<Region1State, 'explore'>): boolean => domainsOf(1).every(d => level(s.explore, 1, d) >= 2);
 
-/** Can you draw your own map? With the switch on, once you know home ground and have something to draw on. */
-export const canDrawMap = (s: Run): boolean => descriptiveMapOn(s) && knowsHomeGround(s) && mapSurface(s) !== null;
+/**
+ * Learning the map (#1754, `map-learning`) replaces the automatic drawing: with that switch on, the
+ * map is drawn once the map-drawing session is done (map-learning.ts), which the save keeps as
+ * `mapLearned`. The switch is read here by id, as map-learning.ts builds on this module.
+ */
+const learnsMap = (s: Pick<Run, 'config'>): boolean => featureOn(s.config.world.features, 'map-learning');
+
+/**
+ * Can you draw your own map? With the switch on, once you know home ground and have something to
+ * draw on; with `map-learning` on too, once you've sat down and placed what you found.
+ */
+export const canDrawMap = (s: Run): boolean => descriptiveMapOn(s) && (learnsMap(s) ? s.mapLearned === true : knowsHomeGround(s) && mapSurface(s) !== null);
 
 /** Has the map been drawn? The same as being able to: it's drawn the moment you can (and the journal says so). */
 export const mapDrawn = canDrawMap;
@@ -285,7 +295,8 @@ export function mapMode(s: Run): 'reach' | 'described' | 'drawn' {
 
 /** What's still missing before you can draw a map (empty once you can, or with the switch off): to know home ground, something to draw on. */
 export function mapNeedIds(s: Run): ('home' | 'surface')[] {
-  if (!descriptiveMapOn(s) || canDrawMap(s)) return [];
+  // With `map-learning` (#1754) what's missing is that module's to say (map-learning.ts mapNeedsFor).
+  if (!descriptiveMapOn(s) || canDrawMap(s) || learnsMap(s)) return [];
   const out: ('home' | 'surface')[] = [];
   if (!knowsHomeGround(s)) out.push('home');
   if (!mapSurface(s)) out.push('surface');

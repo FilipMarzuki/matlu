@@ -47,13 +47,13 @@ export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
-  { key: 'think', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
+  { key: 'think', ids: ['study', 'experiment', 'drawmap', 'tinker', 'rest', 'treat'] },
 ];
 
 export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
-  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
+  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */

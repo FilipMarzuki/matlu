@@ -32,7 +32,8 @@ import type { KitId } from '../artificer/kit';
 import type { RankName } from '../rank-names';
 import type { WeatherId } from '../artificer/world';
 import { weatherReport } from '../artificer/weather-words';
-import { campBiome, descriptiveMapOn, knownPlaces, mapNeedIds, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
+import { campBiome, descriptiveMapOn, knownPlaces, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
+import { mapLearningOn, mapNeedsFor, mapProgress, MAP_NIGHTS, MAP_PLACES, MAP_DIRECTIONS } from '../artificer/map-learning';
 import { BIOME_NAME, YIELDS, ringOfHours, type Reach } from '../artificer/world/reach';
 import { TOPICS, TOPIC_KINDS } from '../artificer/topics';
 import { VILLAGES, TRAVELLERS } from '../artificer/villages';
@@ -734,10 +735,16 @@ export function weatherLines(s: Parameters<typeof weatherReport>[0], t: T): stri
   ];
 }
 
-/** What's still needed to draw a map, as a phrase ("x and y"), or '' when nothing is. */
-export function mapNeedsText(s: Parameters<typeof mapNeedIds>[0], t: T): string {
-  const needs = mapNeedIds(s).map(n => t(`map.need.${n}`));
-  return needs.length === 2 ? t('map.needsAnd', { a: needs[0], b: needs[1] }) : needs[0] ?? '';
+/**
+ * What's still needed to draw a map, as a phrase ("x and y", "x, y and z"), or '' when nothing is:
+ * #1686's needs, or with `map-learning` (#1754) the unlock's, with how far along each is.
+ */
+export function mapNeedsText(s: Parameters<typeof mapNeedsFor>[0], t: T): string {
+  const p = mapLearningOn(s) ? mapProgress(s) : null;
+  const so = { nights: [MAP_NIGHTS, p?.nights], places: [MAP_PLACES, p?.places], directions: [MAP_DIRECTIONS, p?.directions] } as const;
+  const needs = mapNeedsFor(s).map(n => (n === 'home' || n === 'surface' ? t(`map.need.${n}`) : t(`map.need.${n}`, { m: so[n][0], n: so[n][1] ?? 0 })));
+  if (needs.length < 2) return needs[0] ?? '';
+  return t('map.needsAnd', { a: needs.slice(0, -1).join(t('map.needsSep')), b: needs[needs.length - 1] });
 }
 
 /** A square's line (world/reach.ts describeCell): what it is, how far, and what it gives. */

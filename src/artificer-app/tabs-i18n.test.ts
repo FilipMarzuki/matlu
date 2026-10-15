@@ -146,7 +146,8 @@ describe('The remaining tabs, in Swedish (#1711)', () => {
 
 /** The same rich Warden before a map (no surface to draw on), with one drawn (birch bark), and with the descriptive-map switch off. */
 const described = (): Region1State => ({ ...rich(), kit: { ...rich().kit!, items: rich().kit!.items.filter(k => k !== 'notebook') }, flags: { ...rich().flags, everWood: false, everHide: false } });
-const drawn = (): Region1State => ({ ...described(), flags: { ...described().flags, everWood: true } });
+// With learning the map (#1754, on in a new game) the map is drawn once its session is done: `mapLearned`.
+const drawn = (): Region1State => ({ ...described(), flags: { ...described().flags, everWood: true }, mapLearned: true });
 const switchOff = (s: Region1State): Region1State => ({ ...s, config: { ...s.config, world: { ...s.config.world, features: { ...s.config.world.features, 'descriptive-map': false } } } });
 /** A fresh Warden: home ground unknown, the far rings out of reach. */
 const fresh = (): Region1State => createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-tabs-land' });

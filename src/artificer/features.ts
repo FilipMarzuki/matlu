@@ -256,6 +256,15 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Moving camp no longer leaves your shelter and cold pit behind for good: each place you camp keeps what you built there, and it\'s there when you come back. A shelter left long weathers a little. The cold pit\'s food comes with you when you go, unless you choose to leave it in the pit: then it stays there (and keeps spoiling slowly, as it would in the pit), and it\'s yours again when you camp there.',
   },
   {
+    // A rules feature: it changes when the drawn map comes (map-learning.ts: no longer by itself once
+    // home ground is known, but by a Draw your map action behind a few nights and enough places found,
+    // which writes `mapLearned`) and adds the first day's journal line, so a run from before it
+    // (absent: false) keeps #1686's automatic map on replay. It draws #1686's map, so it does nothing
+    // without `descriptive-map`.
+    id: 'map-learning', name: 'Learn the map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1754,
+    note: 'At first you know the land only as directions and distances. After a few nights, once you\'ve found enough places in enough directions and have something to draw on, you sit down and place what you found on a blank map, by its direction and distance from camp; near enough counts. Doing it gives you your own map, and what you find later goes on it too.',
+  },
+  {
     // A rules feature: it changes how warm a camp is (region1.ts `warmth`, built-warmth.ts: the site's
     // natural shelter plus what you build, softly less its wind or damp, and a bed), and what the
     // Warden, the AI and the API are told of a site (its natural shelter and what it needs, not a
