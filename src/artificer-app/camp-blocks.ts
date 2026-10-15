@@ -24,7 +24,8 @@ import type { RunRecord } from '../artificer/legacy';
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band } from './html';
-import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, weatherWord } from './sim-words';
+import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, weatherLines, weatherWord } from './sim-words';
+import { seasonView, weatherReport } from '../artificer/weather-words';
 import type { previewQueue, AppState } from './controller';
 import type { DayPlay, Moment } from './playback';
 
@@ -124,6 +125,28 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
 const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁', rain: '🌧', fog: '🌫', wind: '🌬', storm: '⛈', snow: '❄' };
 
 /**
+ * The strip's bars and markers: one bar per day from day 1 to the thaw, its height the day's
+ * daylight, the first snow and midwinter marked. `hours` puts each day's hours of light in its
+ * tooltip; the strip earned in words (#1729) leaves them out, as there's nothing to measure them by.
+ */
+function stripBars(s: Sim, t: T, hours: boolean): string {
+  const cal = s.config.calendar;
+  const days = cal.thawDay - 1;
+  const midwinter = cal.winterDay + MIDWINTER_AFTER;
+  const bars = Array.from({ length: days }, (_, i) => {
+    const d = i + 1;
+    const cls = [seasonOf(d, cal), d < s.day ? 'past' : d === s.day ? 'now' : '', d === cal.winterDay || d === midwinter ? 'mark' : ''].join(' ');
+    const tip = hours ? t('season.dayTip', { d, h: numText(daylightHours(d, cal), t, 1) }) : t('wx.dayTip', { d });
+    // Daylight runs about 6–11.5 hours; scale it so midwinter's short days still show.
+    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="${esc(tip)}"></i>`;
+  }).join('');
+  // Markers sit over the centre of their day's bar.
+  const at = (d: number): string => `left:${(((d - 0.5) / days) * 100).toFixed(2)}%`;
+  const marks = `<span class="sm" style="${at(cal.winterDay)}">${esc(t('season.firstSnow'))}</span><span class="sm" style="${at(midwinter)}">${esc(t('season.midwinter'))}</span><span class="sm end">${esc(t('season.thaw'))}</span>`;
+  return `<div class="bars">${bars}</div><div class="marks">${marks}</div>`;
+}
+
+/**
  * The season strip (#1308): one bar per day from day 1 to the thaw, its
  * height the day's daylight — so the shortening days are something you see —
  * coloured by season, with the first snow and midwinter marked. Under it,
@@ -131,17 +154,6 @@ const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁',
  */
 export function seasonStrip(s: Sim, t: T): string {
   const cal = s.config.calendar;
-  const days = cal.thawDay - 1;
-  const midwinter = cal.winterDay + MIDWINTER_AFTER;
-  const bars = Array.from({ length: days }, (_, i) => {
-    const d = i + 1;
-    const cls = [seasonOf(d, cal), d < s.day ? 'past' : d === s.day ? 'now' : '', d === cal.winterDay || d === midwinter ? 'mark' : ''].join(' ');
-    // Daylight runs about 6–11.5 hours; scale it so midwinter's short days still show.
-    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="${esc(t('season.dayTip', { d, h: numText(daylightHours(d, cal), t, 1) }))}"></i>`;
-  }).join('');
-  // Markers sit over the centre of their day's bar.
-  const at = (d: number): string => `left:${(((d - 0.5) / days) * 100).toFixed(2)}%`;
-  const marks = `<span class="sm" style="${at(cal.winterDay)}">${esc(t('season.firstSnow'))}</span><span class="sm" style="${at(midwinter)}">${esc(t('season.midwinter'))}</span><span class="sm end">${esc(t('season.thaw'))}</span>`;
   const seeded = s.config.world.weather === 'seeded';
   const blizzard = seeded && isBlizzard(s.weatherToday, s.day, cal);
   const today = [
@@ -150,10 +162,57 @@ export function seasonStrip(s: Sim, t: T): string {
     seeded ? `<span>${Math.round(dayMean(s.day, cal))}°C</span>` : '',
     seeded && (s.snowDepth ?? 0) > 0 ? `<span>${esc(t('season.snowCover', { n: Math.round((s.snowDepth ?? 0) * 100) }))}</span>` : '',
   ].filter(Boolean).join('');
-  return `<div class="seasonstrip" aria-label="${esc(t('season.label'))}"><div class="bars">${bars}</div><div class="marks">${marks}</div>`
+  return `<div class="seasonstrip" aria-label="${esc(t('season.label'))}">${stripBars(s, t, true)}`
     + `<div class="today">${today}</div>`
     + (blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '')
     + '</div>';
+}
+
+/**
+ * The weather box (#1729, switch `weather-words`): the weather and the season in words, and as
+ * much of the calendar as the Warden has earned (weather-words.ts). In words at the start; with a
+ * tally kept, the day and about how long to the snow; once a season has turned, the strip as well
+ * (its bars and markers, never the hours of light or the degrees). Dev mode shows the strip with
+ * its numbers alongside the words from day 1. With the switch off it's the season strip, as today.
+ */
+export function weatherBox(s: Sim, t: T, opts: { dev?: boolean } = {}): string {
+  const view = seasonView(s);
+  if (view === 'numbers') return seasonStrip(s, t);
+  const seeded = s.config.world.weather === 'seeded';
+  const blizzard = seeded && isBlizzard(s.weatherToday, s.day, s.config.calendar);
+  const words = `<div class="wxwords"><p class="eyebrow">${seeded ? `${WEATHER_ICON[s.weatherToday]} ` : ''}${esc(t('wx.head'))}</p>`
+    + weatherLines(s, t).map(l => `<p>${esc(l)}</p>`).join('') + '</div>';
+  const strip = opts.dev ? seasonStrip(s, t)
+    : view === 'strip' ? `<div class="seasonstrip" aria-label="${esc(t('season.label'))}">${stripBars(s, t, false)}</div>`
+      : '';
+  // The dev strip carries its own blizzard banner.
+  return `<div class="wxbox">${words}${strip}`
+    + (blizzard && !opts.dev ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '')
+    + '</div>';
+}
+
+/**
+ * Where we are in the season, in a few words (the header chip). With the switch off, once the
+ * strip is earned, or in dev mode: "AUTUMN · SNOW IN 30 DAYS", as today. Before that (#1729): the
+ * season in words ("LATE AUTUMN"), and with a tally the snow's rough count ("LATE AUTUMN · SNOW IN
+ * ABOUT 15 DAYS").
+ */
+export function seasonChip(s: Sim, t: T, opts: { dev?: boolean } = {}): string {
+  const cal = s.config.calendar;
+  const d = s.day;
+  const season = seasonOf(d, cal);
+  const cls = season === 'autumn' ? 'phase' : season === 'thaw' ? 'phase gold' : 'phase ice';
+  const r = weatherReport(s);
+  if (r.view === 'numbers' || r.view === 'strip' || opts.dev) {
+    if (season === 'thaw') return `<span class="${cls}">${esc(t('top.thaw'))}</span>`;
+    const n = season === 'autumn' ? cal.winterDay - d : cal.thawDay - d;
+    const key = season === 'autumn' ? (n === 1 ? 'top.autumn.one' : 'top.autumn.other') : (n === 1 ? 'top.winter.one' : 'top.winter.other');
+    return `<span class="${cls}">${esc(t(key, { n }))}</span>`;
+  }
+  // With the snow's count, "snow soon" would say it twice: the season is just late autumn.
+  const name = t(`wx.chip.${r.season === 'snowSoon' && r.toSnow !== null ? 'late' : r.season}`);
+  const text = r.toSnow !== null ? t(r.toSnow === 1 ? 'wx.chip.snowIn.one' : 'wx.chip.snowIn.other', { season: name, n: r.toSnow }) : name;
+  return `<span class="${cls}">${esc(text)}</span>`;
 }
 
 // ── The camp: vitals, stores, cold storage, the site, tools ─────────────────

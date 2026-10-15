@@ -194,6 +194,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
     note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
   },
+  {
+    // A rules feature, though the sim is untouched (weather-words.ts only reads state): it changes
+    // what the Warden and the AI are told (the weather and season in words, the calendar earned),
+    // so a run from before it (absent: false) keeps the strip and its numbers on replay.
+    id: 'weather-words', name: 'The weather in words', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1729,
+    note: 'No calendar and no thermometer at the start: the weather and the season are told in words ("cloudy and windy; you can see your breath in the morning; the first snow can\'t be far off"). Keep a tally of the days (the notebook, or a week of notches) and you know the day and about how long to the snow; once you\'ve seen the first snow, the season strip.',
+  },
 ];
 
 /** Switches by feature id. */

@@ -467,6 +467,12 @@ body { min-height: 100vh; }
 .seasonstrip .wx { color: var(--ink); font-weight: 600; }
 .seasonstrip .wx.danger { color: var(--danger); }
 .seasonstrip .lockbanner { margin: 8px 0 0; }
+/* The weather in words (#1729): a few lines, as a scout would say them, until the strip is earned. */
+.wxwords .eyebrow { margin-bottom: 4px; }
+.wxwords p:not(.eyebrow) { margin: 0 0 2px; font-size: 13px; line-height: 1.45; color: var(--dim); }
+.wxwords .eyebrow + p { color: var(--ink); }
+.wxbox .seasonstrip { margin-top: 10px; }
+.wxbox .lockbanner { margin: 8px 0 0; }
 .pillar .fill.short { background: var(--warn); }
 .pillar .st.short { color: var(--warn); }
 .warnlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; color: var(--warn); font-size: 12px; }

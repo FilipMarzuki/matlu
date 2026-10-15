@@ -12,12 +12,26 @@ import { REGION1_MILESTONES, warmth, winterOutlook, FIRE_WARMTH, type Region1Sta
 import { MIDWINTER_AFTER } from '../artificer/winter';
 import { nightTemp, coldNightNeeds } from '../artificer/weather';
 import { bestRun, type RunRecord } from '../artificer/legacy';
+import { seasonView, weatherReport } from '../artificer/weather-words';
 import { esc, pct } from './html';
 
 const plural = (t: T, key: string, n: number, vars: Record<string, string | number> = {}): string => t(`${key}.${n === 1 ? 'one' : 'other'}` as Key, { n, ...vars });
 
-/** The season as a bar: autumn, winter, the thaw, and today. */
+/**
+ * The season as a bar: autumn, winter, the thaw, and today. Until the calendar is earned (#1729,
+ * weather-words.ts) there's no bar to draw: the season as you sense it, and the count if you keep one.
+ */
 export function timeline(s: Region1State, t: T): string {
+  const view = seasonView(s);
+  if (view === 'words' || view === 'tally') {
+    const r = weatherReport(s);
+    const lines = [
+      t(`wx.season.${r.season}`),
+      ...(r.tally ? [t(`wx.tally.${r.tally}`, { n: s.day })] : []),
+      ...(r.toSnow !== null ? [t(r.toSnow === 1 ? 'wx.toSnow.one' : 'wx.toSnow.other', { n: r.toSnow })] : []),
+    ];
+    return `<div class="wxwords">${lines.map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
+  }
   const cal = s.config.calendar;
   const last = cal.thawDay;
   // Day d sits at the left edge of its slot; slots are 1/last wide.
