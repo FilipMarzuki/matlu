@@ -39,8 +39,9 @@ import { landRings } from '../artificer-app/land-view';
 import { outlookBlock } from '../artificer-app/progress-view';
 import { logText } from '../artificer-app/journal-view';
 import { hrs } from '../artificer-app/html';
-import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, spotRated, weatherLines, weatherWord } from '../artificer-app/sim-words';
+import { actionName, buildsWords, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, spotRated, weatherLines, weatherWord } from '../artificer-app/sim-words';
 import { knownSpot, siteRatingCounts } from '../artificer/camp-sites';
+import { buildsAt } from '../artificer/camp-builds';
 import type { Phase } from './session';
 import { nowLine } from '../artificer-app/time-view';
 
@@ -124,7 +125,13 @@ function actionLines(s: Region1State, t: T): string[] {
       out.push(`- ${actionName(id, t)}${def.ringed ? ` (${ringName(ring, t).toLowerCase()})` : ''} · ${hrs(queueHours(q, s), t)} h · ${what}${badges} [do: ${q}]`);
       for (const g of def.options?.(s, {}) ?? []) {
         // A place to camp says how good you believe it is (#1756), as its option does on the page.
-        const rated = (c: { value: string }): string => { const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined; const r = p ? spotRated(s, p, t) : ''; return r ? ` (${r})` : ''; };
+        // …and what's built there (#1753).
+        const rated = (c: { value: string }): string => {
+          const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined;
+          const r = p ? spotRated(s, p, t) : '';
+          const b = p ? buildsAt(s, p.id) : [];
+          return `${r ? ` (${r})` : ''}${b.length ? ` (${t('campsite.builtThere', { list: buildsWords(b, t) })})` : ''}`;
+        };
         out.push(`    ${optionGroupLabel(g, t)} "${g.key}": ${g.choices.map(c => `"${c.value}" = ${optionLabel(g, c, t)}${rated(c)}`).join(' | ')}`);
       }
     }

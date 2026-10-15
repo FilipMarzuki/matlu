@@ -26,8 +26,9 @@ import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artif
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
-import { actionName, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots, ratingBadges, siteRating, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
+import { buildsAt } from '../artificer/camp-builds';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
 import type { previewQueue, AppState } from './controller';
@@ -315,10 +316,13 @@ export function spotsBlock(s: Sim, t: T): string {
     // How good you believe it is (#1756): ★ great or ✓ good beside the name; a poor one isn't marked.
     const rating = siteRatingsOn(s) ? siteRating(s, p) : 'poor';
     const rated = rating === 'poor' ? '' : `<span class="rate ${rating}">${esc(t(`campsite.rate.${rating}`))}</span>`;
+    const built = buildsAt(s, p.id);
     return `<button class="siteopt ${p.here ? 'chosen' : ''}" data-camp="${esc(p.id)}" ${p.here || s.outcome ? 'disabled' : ''}>`
       + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}${rated}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[p.kind].warmth * 100) }))}</span></div>`
       + `<div class="d"><b>${esc(spotWhere(p, t) + tag)}</b></div>`
       + `<div class="d">${esc(spotReading(s, p, t) + here)}</div>`
+      // What's built there (#1753, `camp-builds-per-site`): each camp keeps its own.
+      + (built.length ? `<div class="d built">${esc(t('campsite.builtHere', { list: buildsWords(built, t) }))}</div>` : '')
       + (p.here ? '' : `<div class="d go">${esc(t('campsite.go'))}</div>`) + `</button>`;
   }).join('');
   return `<div class="sites">${spots}</div><p class="mood">${esc(t('campsite.pick'))}</p>`;

@@ -22,8 +22,9 @@ import { campBiome, knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
 import { esc } from './html';
-import { distanceT, mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
+import { buildsWords, distanceT, mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
+import { buildsAt } from '../artificer/camp-builds';
 import { distanceOn, measuredFromCamp } from '../artificer/distance-words';
 import { timeWordsOn } from '../artificer/time-words';
 import { pinsList, pinsRoom, ringPinChip, ringPinRows, ringPins } from './pins-view';
@@ -122,7 +123,9 @@ function ringSection(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: 
  */
 export function campSpotsSection(s: Region1State, t: T): string {
   if (!campAsActionOn(s)) return '';
-  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}</li>`).join('');
+  // Each with what's built there (#1753): "lean-to, cold pit".
+  const built = (id: string): string => { const b = buildsAt(s, id); return b.length ? ` · ${esc(buildsWords(b, t))}` : ''; };
+  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}${built(p.id)}</li>`).join('');
   return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}</p><ul class="landwords campspots">${rows}</ul></section>`;
 }
 

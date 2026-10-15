@@ -44,6 +44,7 @@ import { HIST_PATTERN, cultureText, histPart, regionText } from './history-words
 import { questionAbout } from '../artificer/knowledge-questions';
 import { allCultureLore } from '../artificer/culture-lore';
 import { knownSpot, parseSpotId, siteKnowledge, siteRating, siteRatingsOn, type CampSpot, type SiteFact } from '../artificer/camp-sites';
+import { buildsPerSiteOn, moveNotes, pitFoodChoice, type BuildItem } from '../artificer/camp-builds';
 import { distanceOn } from '../artificer/distance-words';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
@@ -612,6 +613,7 @@ const CHOICE_KEY: Readonly<Record<string, Readonly<Record<string, Key>>>> = {
   hours: { day: 'opt.restOfDay' },
   until: { none: 'opt.noTarget' },
   with: { any: 'opt.anything' },
+  pitFood: { take: 'opt.pitFood.take', leave: 'opt.pitFood.leave' },
 };
 const SHELTER_RECIPE: Readonly<Record<string, string>> = { leanto: 'shelter-leanto', hut: 'shelter-hut', timber: 'shelter-timber', stone: 'shelter-stone' };
 
@@ -667,15 +669,27 @@ export function spotRated(s: Parameters<typeof siteRating>[0], p: CampSpot, t: T
   return r === 'poor' ? '' : t(`campsite.rated.${r}`);
 }
 
+/** What's built at a camp site (#1753), in the viewer's language: "lean-to, timber walls, cold pit (5 raw food)"; '' when none. */
+export const buildsWords = (items: readonly BuildItem[], t: T): string =>
+  items.map(i => (i.n ? t('campsite.build.pitFood', { n: i.n }) : t(`campsite.build.${i.key}`))).join(', ');
+
 /** A camp site's note under the Make camp action, as the sim's English one says it (region1.ts campOptions). */
 export function spotNote(s: Region1State, p: CampSpot, t: T): string {
   const rated = spotRated(s, p, t);
-  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...(!p.here && s.tier > 0 ? [t('campsite.leaves')] : []), spotReading(s, p, t), ...(rated ? [rated] : [])].join(' · ');
+  // What's built there and what stays here (#1753); with the switch off, the shelter is left behind for good.
+  const kept = buildsPerSiteOn(s) ? moveNotes(s, p).map(n => t(`campsite.${n.key}`, { list: buildsWords(n.items ?? [], t) }))
+    : !p.here && s.tier > 0 ? [t('campsite.leaves')] : [];
+  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...kept, spotReading(s, p, t), ...(rated ? [rated] : [])].join(' · ');
 }
 
 /** A choice's note in the viewer's language: a camp site's from the state it would run in, any other read back from the sim's English. */
 export function choiceNote(s: Region1State, g: OptionGroup, c: OptionChoice, t: T): string {
   if (c.blocked) return simLine(c.blocked, t);
+  // The cold pit's food (#1753): from the state, as the sim's English says it (campOptions).
+  if (g.key === 'pitFood') {
+    const pit = pitFoodChoice(s);
+    if (pit) return c.value === 'leave' ? t('campsite.pitFood.leave', { n: pit.n, site: t(`campsite.at.${pit.site}`) }) : t('campsite.pitFood.take');
+  }
   const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined;
   return p ? spotNote(s, p, t) : simLine(c.note, t);
 }
