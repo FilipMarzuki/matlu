@@ -198,7 +198,10 @@ export function knownSpots(s: Run): CampSpot[] {
       dir: { exact: compass, i: directionIndex(bearing, compass) }, time: timeWord(hours, exactTime), text,
     };
   });
-  return spots.sort((a, b) => Number(b.atYou) - Number(a.atYou) || Number(b.start) - Number(a.start) || a.hours - b.hours);
+  // A total order: equal walking times fall back to the id (plain string order, not localeCompare,
+  // which depends on the locale), so the options and the default spot never depend on sort details.
+  return spots.sort((a, b) => Number(b.atYou) - Number(a.atYou) || Number(b.start) - Number(a.start) || a.hours - b.hours
+    || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 /** A known site by its id, or undefined. */
