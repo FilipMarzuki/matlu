@@ -42,7 +42,7 @@ import { NUMBER_WORDS } from '../artificer/claims';
 import { HIST_PATTERN, cultureText, histPart, regionText } from './history-words';
 import { questionAbout } from '../artificer/knowledge-questions';
 import { allCultureLore } from '../artificer/culture-lore';
-import { knownSpot, parseSpotId, siteKnowledge, type CampSpot, type SiteFact } from '../artificer/camp-sites';
+import { knownSpot, parseSpotId, siteKnowledge, siteRating, siteRatingsOn, type CampSpot, type SiteFact } from '../artificer/camp-sites';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
@@ -626,9 +626,20 @@ export function spotReading(s: Parameters<typeof siteKnowledge>[0], p: CampSpot,
   return t('campsite.reading', { band: t(`campsite.band.${k.band}`), facts: k.facts.map(f => factWords(f, t)).join(' ') });
 }
 
+/**
+ * How good a place to camp you believe a site is (#1756, `camp-site-ratings`): "★ great place to
+ * camp" or "✓ good place to camp"; '' for a poor one, which isn't marked, or with the switch off.
+ */
+export function spotRated(s: Parameters<typeof siteRating>[0], p: CampSpot, t: T): string {
+  if (!siteRatingsOn(s)) return '';
+  const r = siteRating(s, p);
+  return r === 'poor' ? '' : t(`campsite.rated.${r}`);
+}
+
 /** A camp site's note under the Make camp action, as the sim's English one says it (region1.ts campOptions). */
 export function spotNote(s: Region1State, p: CampSpot, t: T): string {
-  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...(!p.here && s.tier > 0 ? [t('campsite.leaves')] : []), spotReading(s, p, t)].join(' · ');
+  const rated = spotRated(s, p, t);
+  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...(!p.here && s.tier > 0 ? [t('campsite.leaves')] : []), spotReading(s, p, t), ...(rated ? [rated] : [])].join(' · ');
 }
 
 /** A choice's note in the viewer's language: a camp site's from the state it would run in, any other read back from the sim's English. */

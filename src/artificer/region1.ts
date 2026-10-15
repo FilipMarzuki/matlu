@@ -32,7 +32,7 @@ import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, ov
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { canDrawMap, mapDrawnLine } from './descriptive-map';
-import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
+import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, ratingText, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
@@ -801,11 +801,15 @@ function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
   const chosen = chosenSpot(s, opts);
   return [{
     key: 'spot', label: 'Where', value: chosen?.id ?? null,
-    choices: knownSpots(s).map(p => ({
-      value: p.id, label: SITES[p.kind].name,
-      note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${!p.here && s.tier > 0 ? ' · leaves your shelter behind' : ''} · ${siteKnowledge(s, p).text}`,
-      blocked: p.here ? "you're camped here already" : null,
-    })),
+    choices: knownSpots(s).map(p => {
+      // How good a place you believe it is (#1756, `camp-site-ratings`): '' when poor or off.
+      const rated = ratingText(s, p);
+      return {
+        value: p.id, label: SITES[p.kind].name,
+        note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${!p.here && s.tier > 0 ? ' · leaves your shelter behind' : ''} · ${siteKnowledge(s, p).text}${rated ? ` · ${rated}` : ''}`,
+        blocked: p.here ? "you're camped here already" : null,
+      };
+    }),
   }];
 }
 
