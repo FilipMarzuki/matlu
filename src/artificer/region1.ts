@@ -32,6 +32,7 @@ import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, ov
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { canDrawMap, mapDrawnLine } from './descriptive-map';
+import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
@@ -236,6 +237,12 @@ export interface Region1State {
    * with the switch on; dropped when nothing is in the pit. Absent: none owed.
    */
   pitRot?: number;
+  /**
+   * Where camp is on the Reach (#1732, `camp-as-action`): the spot's id (`river@12,20`) and every spot
+   * camped at, whose true traits you know. Written only by the Make camp action, so only with the
+   * switch on. Absent: camp is a site kind alone, as before.
+   */
+  campSpot?: CampSpotState;
   /**
    * How worked each patch is (#1668, `action-length`): deadfall, berries, a fishing spot… by
    * `${ring}:${patch}`, 0..1. Written only by a session of chosen length, so only with the switch
@@ -565,7 +572,9 @@ export type ActionId =
   | 'tinker' | 'rest' | 'treat'
   | 'fish' | 'coldPit'
   // Learning your actions as you go (#1689, #1690): only with the `action-visibility` switch on.
-  | 'explore' | 'experiment';
+  | 'explore' | 'experiment'
+  // Making camp is an action (#1732): only with the `camp-as-action` switch on.
+  | 'camp';
 
 /** Actions that happen out on the land, in a chosen ring. */
 export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore';
@@ -739,7 +748,8 @@ const isSite = (v: string | undefined): v is SiteId => v !== undefined && v in S
  * and the recipe for the next stage.
  */
 export function planBuild(s: Region1State, opts: ActionOpts): { site: SiteId | null; moving: boolean; fromTier: Tier; recipe: CraftRecipe | null } {
-  const site = isSite(opts.site) ? opts.site : s.site;
+  // With camp as an action (#1732) a build is always at camp: moving is the Make camp action's.
+  const site = isSite(opts.site) && !campAsActionOn(s) ? opts.site : s.site;
   const moving = site !== null && site !== s.site;
   const fromTier: Tier = moving ? 0 : s.tier;
   const recipe = fromTier === 0 ? SHELTER_TYPES[isShelterType(opts.type) ? opts.type : 'leanto'].recipe
@@ -754,7 +764,7 @@ function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
   const plan = planBuild(s, opts);
   const groups: OptionGroup[] = [];
   const knowsLand = scouted(s.explore, 1);
-  groups.push({
+  if (!campAsActionOn(s)) groups.push({
     key: 'site', label: 'Location', value: plan.site,
     choices: (Object.keys(SITES) as SiteId[]).map(id => ({
       value: id, label: SITES[id].name,
@@ -776,10 +786,45 @@ function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
   return groups.filter(g => g.choices.length > 1);
 }
 
+// ── Make camp (#1732, `camp-as-action`) ─────────────────────────────────────
+
+/** The site a Make camp entry is for: the one chosen, or (none chosen) the action's default. Undefined: none it can be. */
+const chosenSpot = (s: Region1State, opts: ActionOpts) => (opts.spot ? knownSpot(s, opts.spot) : defaultSpot(s));
+
+/** Why camp can't be made there now, or null. */
+function campGate(s: Region1State, opts: ActionOpts): string | null {
+  if (opts.spot) {
+    const p = knownSpot(s, opts.spot);
+    if (!p) return "you don't know of a place to camp there";
+    return p.here ? "you're camped here already" : null;
+  }
+  return defaultSpot(s) ? null : 'you know no other place to camp yet — explore first';
+}
+
+/** The sites you know, as the action's one decision: each by name, direction and walking time, and what you can tell of it. */
+function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
+  if (!campAsActionOn(s)) return [];
+  const chosen = chosenSpot(s, opts);
+  return [{
+    key: 'spot', label: 'Where', value: chosen?.id ?? null,
+    choices: knownSpots(s).map(p => ({
+      value: p.id, label: SITES[p.kind].name,
+      note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${!p.here && s.tier > 0 ? ' · leaves your shelter behind' : ''} · ${siteKnowledge(s, p).text}`,
+      blocked: p.here ? "you're camped here already" : null,
+    })),
+  }];
+}
+
 /** Leave the current shelter and settle at `site` (on an already-cloned state). */
-function moveCamp(next: Region1State, site: SiteId): void {
+function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
   const moved = next.site !== null && next.tier > 0;
   next.site = site;
+  // Camp as an action (#1732): camp is a real place now, and you'll know it as it is from tonight.
+  // A cold pit stays where it was dug, so a pit at the old spot doesn't follow you.
+  if (spot) {
+    next.campSpot = { at: spot, camped: next.campSpot?.camped.includes(spot) ? [...next.campSpot.camped] : [...(next.campSpot?.camped ?? []), spot] };
+    if (next.coldPitAt) next.coldPitAt = null;
+  }
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -976,6 +1021,7 @@ const experimentMaterials = (s: Region1State): (keyof Stores)[] =>
  * The circumstances (a missing tool, materials, the dark, the weather) are `blockedReason`'s.
  */
 export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}): string | null {
+  if (id === 'camp') return campAsActionOn(s) ? null : "camp isn't part of this game's rules";
   if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
   if (!visibilityOn(s)) return null;
   const sub = subActionLock(id, s);
@@ -1137,11 +1183,25 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
     },
   },
+  // Make camp (#1732, `camp-as-action`): an action like any other, at a site you know, a real place on
+  // the Reach. It takes the walk there from where you are, then the setting up.
+  camp: {
+    name: 'Make camp', hours: CAMP_SETUP_HOURS, vigorRate: -2.5, clarityRate: -0.5,
+    gate: (s, _r, o) => campGate(s, o),
+    options: (s, o) => campOptions(s, o),
+    variant: (o, s) => (s && campAsActionOn(s) ? { hours: CAMP_SETUP_HOURS + (chosenSpot(s, o)?.hours ?? 0) } : {}),
+    // moveCamp writes the journal's lines ("Chose the … as your ground", the tarp), so the action adds none.
+    run: (s, _b, _r, o) => {
+      const spot = chosenSpot(s, o);
+      if (spot) moveCamp(s, spot.kind, spot.id);
+      return '';
+    },
+  },
   build: {
     name: 'Build shelter', hours: 8, vigorRate: -3.5, clarityRate: -1.5,
     gate: (s, _r, opts) => {
       const plan = planBuild(s, opts);
-      if (!plan.site) return 'choose a location';
+      if (!plan.site) return campAsActionOn(s) ? 'make camp first' : 'choose a location';
       if (plan.moving && !scouted(s.explore, 1)) return needsScout(s);
       if (!plan.recipe) return 'the shelter is already winterized';
       const unknown = unknownRecipe(s, plan.recipe);
@@ -1348,6 +1408,8 @@ function latchMilestones(s: Region1State): void {
 export function chooseSite(s: Region1State, site: SiteId): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
+  // With camp as an action (#1732) the site is chosen by the Make camp action, never set for free.
+  if (campAsActionOn(next)) return next;
   if (!scouted(next.explore, 1)) { say(next, `Can't stake a claim yet: ${needsScout(next)}.`, 'skip'); return next; }
   if (next.site === site) return next;
   moveCamp(next, site);
@@ -2005,7 +2067,9 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   }
   const lost = exposure === 'lost';
   const before = { ...next.stores };
-  say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP), 'action', at);
+  const said = def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP);
+  // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
+  if (said || id !== 'camp') say(next, said, 'action', at);
   // A session (#1668): how its trips went, and what it left of the patches.
   if (session) {
     next.patches = withPatches(next.patches, ring, session.plan.end);

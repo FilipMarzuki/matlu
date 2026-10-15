@@ -66,6 +66,7 @@ export const apiSv: Record<ApiKey, string> = {
   'api.no.roadFeeds': 'På vägen är det karavanen som ger dig mat.',
   'api.no.site': 'En lägerplats är en av {ids}.',
   'api.no.campLeft': 'Du har lämnat ditt läger bakom dig.',
+  'api.no.campAction': 'Att slå läger är en handling i det här spelet: gör "camp" med alternativet "spot" (en av lägerplatserna som vyn listar), t.ex. { "do": { "q": "camp", "opts": { "spot": "<spot>" } } }.',
 
   'api.mcp.started': 'Spelet har börjat. game_id: {id}\nSkicka med detta game_id till alla andra verktyg.',
   'api.mcp.weekly': 'Det här är veckans värld, {week}: alla som spelar den här veckan spelar samma.',

@@ -165,8 +165,8 @@ function campSite(cells: readonly Cell[], w: number, h: number, rnd: () => numbe
   return best;
 }
 
-/** Hours on foot from camp to every cell (Dijkstra over the crossing cost of each cell entered). */
-function walkingHours(cells: readonly Cell[], w: number, h: number, camp: { x: number; y: number }): number[] {
+/** Hours on foot from camp (or any square) to every cell (Dijkstra over the crossing cost of each cell entered). */
+export function walkingHours(cells: readonly Cell[], w: number, h: number, camp: { x: number; y: number }): number[] {
   const hours = cells.map(() => Infinity);
   const start = camp.y * w + camp.x;
   hours[start] = 0;

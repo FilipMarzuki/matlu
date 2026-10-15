@@ -142,7 +142,7 @@ describe('API, MCP and the console stay clean of dev mode (#1735)', () => {
     seen.push((await api('GET', `/api/v1/rules${DEV_QUERY}`)).raw);
     expect(seen.length).toBeGreaterThan(100);
     expect(hitsIn(seen)).toEqual([]);
-  });
+  }, 30_000); // several whole API games in two languages; slow on CI runners
 
   it('Given an MCP game, including one started with dev parameters, Then no dev-only text appears in its tools’ answers', async () => {
     const client = new Client({ name: 'dev-probe', version: '1.0.0' });

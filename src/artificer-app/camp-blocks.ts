@@ -26,7 +26,8 @@ import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artif
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
-import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, weatherLines, weatherWord } from './sim-words';
+import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
 import type { previewQueue, AppState } from './controller';
@@ -41,7 +42,7 @@ export type Preview = ReturnType<typeof previewQueue>;
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
   { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
-  { key: 'build', ids: ['build', 'coldPit', 'coldGear'] },
+  { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
   { key: 'think', ids: ['study', 'experiment', 'tinker', 'rest', 'treat'] },
@@ -50,7 +51,7 @@ export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry
 export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
-  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
+  lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -284,8 +285,31 @@ export function coldBlock(s: Sim, t: T): string {
     + `<p class="mood" style="margin:4px 0 0">${esc(t('cold.storage', { where }))}</p>`;
 }
 
+/** Where camp is now, as it stands: the shelter, how warm, the cold pit. */
+const campNow = (s: Sim, t: T): string =>
+  ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) })] : [])].join(' · ')}.`;
+
+/**
+ * Camp as an action (#1732): the places to camp you know, each a real place on the Reach, with
+ * where it is, how warm it can get and what you can tell of it. Tapping one makes camp there the
+ * way any action is done: queued once you plan, done now before then (main.ts `data-camp`).
+ */
+export function spotsBlock(s: Sim, t: T): string {
+  const spots = knownSpots(s).map(p => {
+    const here = p.here ? campNow(s, t) : '';
+    const tag = p.here ? ` · ${t('campsite.yours')}` : p.start ? ` · ${t('campsite.start')}` : '';
+    return `<button class="siteopt ${p.here ? 'chosen' : ''}" data-camp="${esc(p.id)}" ${p.here || s.outcome ? 'disabled' : ''}>`
+      + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[p.kind].warmth * 100) }))}</span></div>`
+      + `<div class="d"><b>${esc(spotWhere(p, t) + tag)}</b></div>`
+      + `<div class="d">${esc(spotReading(s, p, t) + here)}</div>`
+      + (p.here ? '' : `<div class="d go">${esc(t('campsite.go'))}</div>`) + `</button>`;
+  }).join('');
+  return `<div class="sites">${spots}</div><p class="mood">${esc(t('campsite.pick'))}</p>`;
+}
+
 /** Where camp can be made: each site, how warm it can get, and the camp as it stands. */
 export function sitesBlock(s: Sim, t: T): string {
+  if (campAsActionOn(s)) return spotsBlock(s, t);
   const sites = (Object.keys(SITES) as SiteId[]).map(id => {
     const here = s.site === id
       ? ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.coldPitAt === id ? [t('site.pit', { n: coldPitHolds(id) })] : [])].join(' · ')}.`

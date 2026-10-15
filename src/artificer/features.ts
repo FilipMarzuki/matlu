@@ -218,6 +218,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No watch that keeps this world\'s time: the queue box says when in the day it is ("early morning, the sun just up"), how long each task takes ("part of the morning", "the afternoon and into the evening") and when you\'d be done ("around dusk"), following the day\'s real light, instead of hours.',
   },
   {
+    // A rules feature: it changes what can happen in a run (camp is made by an action, at real places
+    // on the Reach that you've explored, and what you can tell of them), so a run from before it
+    // (absent: false) keeps the four sites and the free choice of them on replay.
+    id: 'camp-as-action', name: 'Make camp is an action, at places you know', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1732,
+    note: 'Making camp is an action like any other, with the walk there and the setting up. Only places you have explored are offered, each a real place on the land: a cave in the high ground, the edge of a wood, the stream\'s bank, open heath. Your Intelligence, skills and Keen Eye decide how well you can read a place before you camp there.',
+  },
+  {
     // A rules feature: it changes what spoils overnight (region1.ts `nightSpoilage`: the cold pit's
     // food rots too, slowly, its fraction carried in `pitRot`), so a run from before it (absent:
     // false) keeps a pit that stops the rot on replay.
