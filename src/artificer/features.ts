@@ -248,6 +248,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No more "rings": the land is told by how far it is. Close by, half a day out (there and back), a day out, and overnight away past that, measured from where you are until you make camp, and from camp after that, so the distances follow camp when it moves.',
   },
   {
+    // A rules feature: it changes what moving camp does (region1.ts `moveCamp`: the camp you leave is
+    // kept by its spot id in `siteBuilds`, the camp you go to restored from it, and the cold pit's food
+    // stays in the pit), so a run from before it (absent: false) leaves its builds behind on replay.
+    // It needs `camp-as-action` (spot ids); without it, it does nothing.
+    id: 'camp-builds-per-site', name: 'Each camp site keeps what you built there', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1753,
+    note: 'Moving camp no longer leaves your shelter and cold pit behind for good: each place you camp keeps what you built there, and it\'s there when you come back. A shelter left long weathers a little. The cold pit\'s food comes with you when you go, unless you choose to leave it in the pit: then it stays there (and keeps spoiling slowly, as it would in the pit), and it\'s yours again when you camp there.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

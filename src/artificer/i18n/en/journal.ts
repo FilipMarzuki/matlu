@@ -222,6 +222,13 @@ export const journal = {
   'log.raised.a': 'Raised a {grade} {recipe} — tier {n}, {m}% warm.',
   'log.coldPit': 'Dug a cold pit and lined it with stone — it keeps {n} raw food cold.',
   'log.coldPitSlows': 'Dug a cold pit and lined it with stone — it keeps {n} raw food cold and slows the rot.',
+  // Each camp keeps what you built there (#1753).
+  'log.pitLeft': 'You leave {n} raw food in the cold pit.',
+  'log.shelterStands': 'Your shelter here still stands.',
+  'log.shelterWeathered': 'Your shelter here still stands, a little weathered.',
+  'log.pitBack': 'You take {n} raw food back out of the cold pit.',
+  'log.pitSpoiledAway': '{n} raw food in the cold pit went bad while you were away.',
+  'log.pitThere': 'The cold pit here is as you left it.',
   'log.crafted': 'Crafted {grade} {recipe}.',
   'log.crafted.a': 'Crafted a {grade} {recipe}.',
   'log.crafted.goodGear': 'Crafted {grade} {recipe}. Good gear for the winter.',
