@@ -246,6 +246,55 @@ export function lookOfGame(_game: Readonly<AppState>): LookId {
 /** The look on screen: a dev preview if there is one, else the game's own. */
 export const shownLook = (game: LookId, preview: LookId | null): LookId => preview ?? game;
 
+// ── The look switcher (#1736): temporary, for reviewing era looks ─────────────
+// A small control in the header that anyone can use to show any of the nine looks, while the dev
+// password isn't deployed. It's the `look-switcher` ui feature (features.ts): switch it off there, or
+// delete the feature, this block and `lookSwitcher` in main.ts, once #1723 decides the look from the game.
+
+/** The ui feature that shows the switcher. */
+export const LOOK_SWITCHER_FEATURE = 'look-switcher';
+
+/** Where the viewer's chosen look is kept: this browser only, never the save. */
+const LOOK_KEY = 'artificer.look';
+
+type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+const storage = (): Store | null => {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** The look this viewer chose with the switcher, or null for the game's own (none kept, junk, or storage refused). */
+export function loadLookChoice(store: Store | null = storage()): LookId | null {
+  try {
+    const v = store?.getItem(LOOK_KEY);
+    return isLookId(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep the viewer's choice; null forgets it, so the game's look shows again. */
+export function saveLookChoice(id: LookId | null, store: Store | null = storage()): void {
+  try {
+    if (id) store?.setItem(LOOK_KEY, id);
+    else store?.removeItem(LOOK_KEY);
+  } catch {
+    // Not remembered; the choice still holds until the page reloads.
+  }
+}
+
+/**
+ * The switcher's previous/next: round the ring "the game's look" (null), scout-1 … rune-3, and back.
+ */
+export function stepLook(current: LookId | null, dir: 1 | -1): LookId | null {
+  const ring: (LookId | null)[] = [null, ...LOOK_IDS];
+  const i = ring.indexOf(current);
+  return ring[(i + dir + ring.length) % ring.length];
+}
+
 /**
  * A preview asked for in the address: `?look=rune-2`. Honoured only where `allowed` (dev mode, or a
  * local dev server, for screenshots); anything else, or a look that doesn't exist, is no preview.

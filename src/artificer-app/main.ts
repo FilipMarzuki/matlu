@@ -41,7 +41,7 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
-import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
+import { FEATURES, experimentalOn, featuresOf, uiFeatureOn } from '../artificer/features';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
 import { newLog, recordMove, runOver, claimOf, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
 import { runOf } from '../artificer-play/record-of';
@@ -74,7 +74,7 @@ import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
-import { LOOKS, LOOK_IDS, applyLook, installLooks, lookFromQuery, lookOfGame, shownLook, type LookId } from './looks';
+import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { actionName, focusName, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -484,7 +484,17 @@ let truths = dev && devTruths();
 // or on a local dev server (`npm run dev`, for screenshots). The preview is this page's alone: a
 // reload without `?look` forgets it.
 installLooks();
-let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV);
+/** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
+const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
+// While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
+let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
+
+/** Show a look over the game's own (null: the game's), and keep it while the switcher is on. */
+function setLookPreview(id: LookId | null): void {
+  lookPreview = id;
+  if (switcherOn()) saveLookChoice(id);
+  render(state);
+}
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
 // open tab against what shows each time it draws (`tabToOpen`).
@@ -577,6 +587,7 @@ function drawPage(a: AppState): void {
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
+      ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
@@ -692,7 +703,7 @@ function setDev(on: boolean): void {
   setDevMode(on);
   truths = on && devTruths('');
   roadUi.truths = truths;
-  if (!on) { showFeatures = false; lookPreview = null; }
+  if (!on) { showFeatures = false; if (!switcherOn()) lookPreview = null; }
   devGateOpen = false;
   devGateNote = '';
 }
@@ -753,6 +764,21 @@ function lookPicker(a: AppState): string {
     <p class="mood">${esc(t('dev.lookNote', { look: t(`look.${shown}`) }))}</p></div>`;
 }
 
+/**
+ * The look switcher (#1736): temporary, for reviewing era looks while the dev password isn't
+ * deployed. A compact control in the header: previous, a menu of the nine looks and the game's own,
+ * next. Kept in this browser, never in the save; off with the `look-switcher` ui feature.
+ */
+function lookSwitcher(a: AppState): string {
+  if (!switcherOn()) return '';
+  const game = lookOfGame(a);
+  const opt = (v: string, label: string, on: boolean): string => `<option value="${v}"${on ? ' selected' : ''}>${esc(label)}</option>`;
+  const options = opt('game', t('look.game', { look: t(`look.${game}`) }), lookPreview === null)
+    + LOOK_IDS.map(id => opt(id, `${id} · ${t(`look.${id}`)}`, lookPreview === id)).join('');
+  return `<span class="ctl lookswitch" role="group" aria-label="${esc(t('look.switch'))}" title="${esc(t('look.switch'))}">
+    <button class="pill" data-lookstep="-1" aria-label="${esc(t('look.prev'))}">‹</button><span class="lsname">${esc(t('look.label'))}</span><select class="pill" data-lookselect aria-label="${esc(t('look.switch'))}">${options}</select><button class="pill" data-lookstep="1" aria-label="${esc(t('look.next'))}">›</button></span>`;
+}
+
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
@@ -791,6 +817,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       ${experimentChip(a)}
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
+      ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
@@ -1260,7 +1287,7 @@ root.addEventListener('click', e => {
   if (playing) {
     if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
     if (d.pbskip !== undefined) { skipTimer(); return; }
-    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang) return;
+    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep) return; // the look switcher (#1736) only redraws
   }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
@@ -1280,12 +1307,18 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
   // A look preview (#1719): presentation only, so it's fine mid-day too.
-  else if (d.lookpick) { lookPreview = d.lookpick === 'game' ? null : LOOK_IDS.find(id => id === d.lookpick) ?? null; render(state); }
+  else if (d.lookpick) setLookPreview(LOOK_IDS.find(id => id === d.lookpick) ?? null);
+  // The look switcher's previous / next (#1736); focus stays on the button pressed, for the keyboard.
+  else if (d.lookstep) { setLookPreview(stepLook(lookPreview, d.lookstep === '-1' ? -1 : 1)); root.querySelector<HTMLElement>(`[data-lookstep="${d.lookstep}"]`)?.focus(); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();
     const f = FEATURES.find(x => x.id === d.feature);
-    if (f) { saveChoices({ ...choices, [f.id]: !(typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default) }); render(state); }
+    if (f) {
+      saveChoices({ ...choices, [f.id]: !(typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default) });
+      if (f.id === LOOK_SWITCHER_FEATURE && !switcherOn()) { saveLookChoice(null); lookPreview = null; }
+      render(state);
+    }
   }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
@@ -1500,6 +1533,14 @@ async function sendRun(): Promise<void> {
   }
   render(state);
 }
+
+// The look switcher's menu (#1736): a choice from the list, by mouse or by the arrow keys.
+root.addEventListener('change', e => {
+  const sel = (e.target as HTMLElement).closest<HTMLSelectElement>('select[data-lookselect]');
+  if (!sel) return;
+  setLookPreview(LOOK_IDS.find(id => id === sel.value) ?? null);
+  root.querySelector<HTMLSelectElement>('select[data-lookselect]')?.focus();
+});
 
 // The nickname is kept as it's typed, so a redraw (the achievements coming in) doesn't lose it.
 root.addEventListener('input', e => {

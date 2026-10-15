@@ -209,6 +209,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'weather-words', name: 'The weather in words', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1729,
     note: 'No calendar and no thermometer at the start: the weather and the season are told in words ("cloudy and windy; you can see your breath in the morning; the first snow can\'t be far off"). Keep a tally of the days (the notebook, or a week of notches) and you know the day and about how long to the snow; once you\'ve seen the first snow, the season strip.',
   },
+  {
+    // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
+    // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
+    // look from the game.
+    id: 'look-switcher', name: 'Look switcher', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1736,
+    note: 'Temporary, for reviewing era looks: a small switcher in the header shows any of the nine looks (or the game\'s own). The choice is kept in this browser, never in the save.',
+  },
 ];
 
 /** Switches by feature id. */

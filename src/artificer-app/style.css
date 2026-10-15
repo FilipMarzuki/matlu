@@ -923,3 +923,10 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .lookpills { display: flex; flex-wrap: wrap; gap: 6px; }
 .lookdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; flex: none; }
 .lookpick .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+/* The look switcher (#1736): temporary, for reviewing era looks. In the header's own row of
+   controls, so it never covers anything; compact, and it wraps with the header at phone width. */
+.lookswitch { gap: 3px; }
+.lookswitch .pill { padding: 6px 8px; }
+.lookswitch .lsname { margin-inline: 3px 2px; }
+.lookswitch select.pill { max-width: 15em; padding-block: 5px; appearance: auto; }
