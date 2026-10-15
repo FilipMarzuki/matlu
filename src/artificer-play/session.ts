@@ -30,6 +30,7 @@ import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { playFacts } from '../artificer/history-in-play';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
+import { campAsActionOn } from '../artificer/camp-sites';
 import { respondedOn } from '../artificer/journal';
 import { chosenLength, lengthRefusal } from '../artificer/action-length';
 import { GAME_VERSION } from './version';
@@ -416,6 +417,9 @@ export function isRoadAction(id: string): boolean {
   return ROAD_VERBS.includes(verb) && !!rest;
 }
 
+/** The refusal of a free `site` setting in a game where making camp is an action (#1732). */
+export const CAMP_IS_AN_ACTION = 'Making camp is an action in this game: do "camp" with the "spot" option (one of the places to camp the view lists), e.g. { "do": { "q": "camp", "opts": { "spot": "<spot>" } } }.';
+
 /** Free settings: focus, eating, site. A string is the reason one can't be set. */
 export function applySet(a: AppState, set: { focus?: string; eating?: string; site?: string }): AppState | string {
   let s = a;
@@ -430,6 +434,8 @@ export function applySet(a: AppState, set: { focus?: string; eating?: string; si
     s = chooseEating(s, set.eating as EatingPlan);
   }
   if (set.site !== undefined) {
+    // Camp as an action (#1732): where to camp is the Make camp action's choice, not a free setting.
+    if (s.stage !== 'road' && campAsActionOn(s.sim)) return CAMP_IS_AN_ACTION;
     if (!(set.site in SITES)) return `A camp site is one of ${Object.keys(SITES).join(', ')}.`;
     if (s.stage === 'road') return 'You left your camp behind.';
     s = settle(s, set.site as SiteId);

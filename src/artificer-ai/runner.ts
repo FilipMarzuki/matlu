@@ -12,6 +12,7 @@ import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
+import { campAsActionOn } from '../artificer/camp-sites';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, focusRefusal, FOCUS_OPEN, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
@@ -37,7 +38,11 @@ import { runHistory } from '../artificer/world/history';
 // kept per seed (history-in-play.ts).
 tellHistoriesWith(runHistory);
 
+/** The note for a reply that sets "site" in a game where making camp is an action (#1732). */
+export const SITE_IGNORED = 'Your "site" did nothing: in this game you make camp with the "camp" action, at one of the places its "spot" option lists.';
+
 /** Token usage a model player reports per call (all optional; summed per run). */
+
 export interface Usage {
   input: number; output: number; cacheRead: number; cacheWrite: number;
   /** Actual billed USD, summed over the run's calls; null when the player doesn't report it (#1231). */
@@ -676,6 +681,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         }
         if (!p.ok) { invalid = true; errors = p.errors; s = runDay(s, []).state; notes.push(`Your reply for day ${day} was invalid twice, so the day ended.`); break; }
         const d = p.decision;
+        if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
         thoughts = d.thoughts || thoughts;
         if (d.focus) s = setFocus(s, parseFocus(d.focus));
         if (d.eating) s = setEating(s, d.eating);
@@ -731,6 +737,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
     s = applyPinOrders(s, d);
+    // Camp as an action (#1732): the "site" field sets nothing (chooseSite refuses it); say so, once a day.
+    if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
     // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);

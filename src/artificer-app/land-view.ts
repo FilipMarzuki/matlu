@@ -22,7 +22,8 @@ import { campBiome, knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
 import { esc } from './html';
-import { mapNeedsText, placeLine, ringName } from './sim-words';
+import { mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
+import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { pinsList, pinsRoom, ringPinChip, ringPinRows, ringPins } from './pins-view';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { fold } from './fold';
@@ -100,13 +101,24 @@ function ringSection(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: 
   return fold(`land.ring.${r}`, summary, body, r === 1 && !out, 'ringfold');
 }
 
+/**
+ * The places to camp you know (#1732, `camp-as-action`), each marked ⛺: by name, direction and
+ * walking time from where you are, your camp among them. Empty with the switch off. Making camp at
+ * one is the Make camp action (or its card on the Camp tab).
+ */
+export function campSpotsSection(s: Region1State, t: T): string {
+  if (!campAsActionOn(s)) return '';
+  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}</li>`).join('');
+  return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}</p><ul class="landwords campspots">${rows}</ul></section>`;
+}
+
 /** The merged LAND tab (#1730), with the descriptive-map switch on. `map` is your drawn map's block (map-view.ts). */
 function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews): string {
   const places = placesByRing(s, t, news);
   const needs = drawn ? '' : mapNeedsText(s, t);
   const top = `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.landDescribed'))}</p>
     ${drawn ? map : `<p class="mapinfo">${esc(t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro'))}</p>`}
-    ${words([{ text: t(`map.camp.${campBiome(s)}`), fresh: false }], t)}</section>`;
+    ${words([{ text: t(`map.camp.${campBiome(s)}`), fresh: false }], t)}</section>${campSpotsSection(s, t)}`;
   const pins = s.pins?.length ? pinsRoom(s, t) : `${pinsRoom(s, t)}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return `${top}
     <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.land'))}</p>${RINGS.map(r => ringSection(s, r, places[r], t, news)).join('')}
@@ -130,7 +142,7 @@ export function landTab(s: Region1State, t: T, pinRing: Ring | null = null, opts
   if (mode !== 'reach') return mergedLand(s, t, mode === 'drawn', mode === 'drawn' ? opts.map ?? drawnMapBlock(s, t) : '', opts.news ?? NO_NEWS);
   return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${landRings(s, t, pinRing)}${landLegend(t)}
         <p class="mood">${esc(t('land.howTo'))}</p></section>
-        <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(s, t)}</section>
+        ${campSpotsSection(s, t)}<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(s, t)}</section>
         <div style="margin-top:14px">${opts.map ?? reachMapSection(s, t)}</div>`;
 }
 

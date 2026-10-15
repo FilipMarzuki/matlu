@@ -78,7 +78,7 @@ import { esc, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
-import { actionName, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { actionName, choiceNote, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -370,7 +370,7 @@ function queueBlock(a: AppState, preview: Preview): string {
     const chosen = groups.map(g => { const c = g.choices.find(x => x.value === g.value && x.value !== 'usual' && x.value !== 'none'); return c ? optionLabel(g, c, t) : ''; }).filter(Boolean).join(' · ');
     const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="${esc(t('queue.options'))}">${open ? '▾' : '▸'}</button>` : '';
     const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(optionGroupLabel(g, t).toUpperCase())}</span><div class="optchoices">${g.choices.map(c => {
-      const note = simLine(c.blocked ?? c.note, t);
+      const note = choiceNote(preview.before[i], g, c, t);
       return `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(note)}">`
         + `<b>${esc(optionLabel(g, c, t))}</b><span>${esc(note)}</span></button>`;
     }).join('')}</div></div>`).join('')}</div>` : '';
@@ -1419,6 +1419,8 @@ root.addEventListener('click', e => {
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
   else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
   else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
+  // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
+  else if (d.camp) { const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
   // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.

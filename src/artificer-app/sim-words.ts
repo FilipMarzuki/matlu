@@ -24,7 +24,7 @@
 import { en } from '../artificer/i18n/en';
 import { fill, localNum, type Key, type T } from '../artificer/i18n';
 import type { Ring } from '../artificer/exploration';
-import { ACTIONS, type ActionId, type OptionChoice, type OptionGroup, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, type ActionId, type OptionChoice, type OptionGroup, type Region1State, type SiteId } from '../artificer/region1';
 import { focusInline, focusKey, focusLabel, parseFocus, FOCUS_KEYS, type Focus } from '../artificer/focus';
 import { seasonOf, type Calendar } from '../artificer/winter';
 import { statEffects, DEFAULT_STATS, type StatId } from '../artificer/stats';
@@ -42,6 +42,7 @@ import { NUMBER_WORDS } from '../artificer/claims';
 import { HIST_PATTERN, cultureText, histPart, regionText } from './history-words';
 import { questionAbout } from '../artificer/knowledge-questions';
 import { allCultureLore } from '../artificer/culture-lore';
+import { knownSpot, parseSpotId, siteKnowledge, type CampSpot, type SiteFact } from '../artificer/camp-sites';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
@@ -591,6 +592,8 @@ export function optionLabel(g: OptionGroup, c: OptionChoice, t: T): string {
   const named = CHOICE_KEY[g.key]?.[c.value];
   if (named) return t(named);
   if (g.key === 'site') return siteName(c.value as SiteId, t);
+  // A camp site (#1732): its kind's name; the page says where it is and what you can tell of it (spotNote).
+  if (g.key === 'spot') { const p = parseSpotId(c.value); return p ? siteName(p.kind, t) : c.label; }
   if (g.key === 'type' || g.key === 'walls') return recipeName(SHELTER_RECIPE[c.value] ?? c.value, t, c.label);
   if (g.key === 'concept') return conceptName(c.value, t);
   if (g.key === 'with') { const k = storeOf(c.value); return k ? t(`store.${k}`) : c.label; }
@@ -607,6 +610,32 @@ export function placeLine(p: KnownPlace, t: T): string {
   const place = t(`map.place.${p.kind}`);
   const dir = p.dir.exact ? t(`map.dir.${p.dir.i}` as Key) : t(`map.vague.${p.dir.i}` as Key);
   return p.horizon ? t('map.horizon', { place, dir }) : t('map.seen', { place, dir, time: timeText(p.time, t) });
+}
+
+// ── Camp sites (#1732, camp-sites.ts) ───────────────────────────────────────
+
+/** Where a camp site is from where you are: "due west, about 45 minutes", or "where you are". */
+export const spotWhere = (p: CampSpot, t: T): string => (p.atYou ? t('campsite.here')
+  : t('campsite.where', { dir: p.dir.exact ? t(`map.dir.${p.dir.i}` as Key) : t(`map.vague.${p.dir.i}` as Key), time: timeText(p.time, t) }));
+
+const factWords = (f: SiteFact, t: T): string => t(`campsite.fact.${f.key}` as Key, f.n !== undefined ? { n: f.n } : undefined);
+
+/** What you can tell about a camp site, in the viewer's language: how sure the reading is, then the facts. */
+export function spotReading(s: Parameters<typeof siteKnowledge>[0], p: CampSpot, t: T): string {
+  const k = siteKnowledge(s, p);
+  return t('campsite.reading', { band: t(`campsite.band.${k.band}`), facts: k.facts.map(f => factWords(f, t)).join(' ') });
+}
+
+/** A camp site's note under the Make camp action, as the sim's English one says it (region1.ts campOptions). */
+export function spotNote(s: Region1State, p: CampSpot, t: T): string {
+  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...(!p.here && s.tier > 0 ? [t('campsite.leaves')] : []), spotReading(s, p, t)].join(' · ');
+}
+
+/** A choice's note in the viewer's language: a camp site's from the state it would run in, any other read back from the sim's English. */
+export function choiceNote(s: Region1State, g: OptionGroup, c: OptionChoice, t: T): string {
+  if (c.blocked) return simLine(c.blocked, t);
+  const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined;
+  return p ? spotNote(s, p, t) : simLine(c.note, t);
 }
 
 /** What you know of the land, as lines (descriptive-map.ts describeLand): where camp is, then each place. */
