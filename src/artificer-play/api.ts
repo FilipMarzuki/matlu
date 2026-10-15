@@ -11,7 +11,7 @@
  *   GET  /api/v1/runs                the run records: the latest and the best (#1558) → 200
  *   GET  /api/v1/runs/ai             every AI's records, all versions, for the dev site (#1558) → 200
  *   GET  /api/v1/runs/week[/:week]   a weekly world's records, best first (#1559) → 200
- *   POST /api/v1/runs/submit         a web-game run, replayed before it counts (#1559) { log, claim, name? } → 201 | 422 why
+ *   POST /api/v1/runs/submit         a web-game run, replayed before it counts (#1559) { log, claim, name?, dev? } → 201 | 422 why
  *   GET  /api/v1/weekly              this week's world: its week and seed (#1559) → 200
  *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
  *   GET  /api/v1/rules               the rules text        → 200
@@ -422,7 +422,7 @@ async function submitWebRun(req: ApiRequest, store: GameStore, deps: ApiDeps, li
   if (existing) {
     // Its record may not have been written then (a database blip): write it now.
     const game = deserialize(existing.session);
-    if (game && !(await store.runBySource(sourceOf(id)))) await saveRun(store, existing, game);
+    if (game && !(await store.runBySource(sourceOf(id)))) await saveRun(store, existing, game, body.dev === true);
     return { status: 200, body: { id, record: `/records/?game=${id}`, already: true, ...(await achievementsBody(store, id)) } };
   }
 
@@ -464,7 +464,10 @@ async function submitWebRun(req: ApiRequest, store: GameStore, deps: ApiDeps, li
     replay = { ok: false, error: 'the game couldn\'t play one of its moves.', at: -1 };
   }
   if (!replay.ok) return { status: 422, body: { error: `The run doesn't replay: ${replay.error}`, at: replay.at } };
-  const run = runOf(replay.app, replay.measures, { playerKind: 'person', model: null, client: WEB_CLIENT, surface: 'web', gameVersion: GAME_VERSION, name, moves: log.moves.length });
+  // Played with the page's dev mode on (#1735): the page says so, and the record keeps it, so a board
+  // can leave such runs out. Only a person's web run can say it: the API and MCP have no dev mode.
+  const dev = body.dev === true;
+  const run = runOf(replay.app, replay.measures, { playerKind: 'person', model: null, client: WEB_CLIENT, surface: 'web', gameVersion: GAME_VERSION, name, moves: log.moves.length, dev });
   const differs = claimMismatch(body.claim, run);
   if (differs.length) {
     return { status: 422, body: { error: `The run replays to a different end (${differs.join(', ')}), so it can't count.`, differs, replayed: claimOf(run) } };
@@ -502,10 +505,10 @@ function webGameId(log: WebLog): string {
  * Write a finished game's record. A failure is logged, not passed on: the move itself was saved,
  * and the player shouldn't see an error for a record they didn't ask for.
  */
-async function saveRun(store: GameStore, g: GameRecord, game: Game): Promise<void> {
+async function saveRun(store: GameStore, g: GameRecord, game: Game, dev = false): Promise<void> {
   try {
     const run = runOf(game.app, g.measures, {
-      playerKind: g.player, model: g.model, client: g.client, surface: g.surface, gameVersion: g.version, name: g.name, moves: g.moves.length,
+      playerKind: g.player, model: g.model, client: g.client, surface: g.surface, gameVersion: g.version, name: g.name, moves: g.moves.length, dev,
     });
     await store.insertRun(sourceOf(g.id), run);
   } catch (e) {

@@ -41,19 +41,24 @@ export function saveChoices(choices: FeatureSwitches, store: Store | null = stor
   }
 }
 
-// ── Dev mode (#1579, #1688) ─────────────────────────────────────────────────
+// ── Dev mode (#1579, #1688, #1735) ──────────────────────────────────────────
 //
-// Dev mode only shows or hides views; it never changes play. It's off for players and opens with a
-// password typed into the faint ⚙ in the help panel (the owner's call, #1688). `?dev` in the address
-// no longer opens it on its own (it did while the whole game was an experiment, #1579).
+// Dev mode only shows or hides views; it never changes play. It's off until someone turns it on with
+// the faint ⚙ in the help panel, and it's open to anyone testing the game (the owner's call, #1735):
+// with no password configured, the ⚙ turns it on at once. One setting closes it again:
+// `VITE_DEV_PASSWORD_HASH`, the SHA-256 (lowercase hex) of a password, set in the Artificer's Vercel
+// project; then the ⚙ asks for that password (#1688). `?dev` in the address never opens it on its
+// own (it did while the whole game was an experiment, #1579).
 //
-// This is a gate against curious players, not security: it runs in the browser, so anyone reading
-// the bundle can get past it. The code holds no password and no hash. The build reads the password's
-// SHA-256 (lowercase hex) from `VITE_DEV_PASSWORD_HASH`, set in the Artificer's Vercel project. With
-// the variable unset (a fresh checkout, CI) the ⚙ still shows but nothing opens it. To use dev mode
+// The password is a gate against curious players, not security: it runs in the browser, so anyone
+// reading the bundle can get past it. The code holds no password and no hash. To try the password
 // locally, put the hash in `.env.local` (gitignored) and run `npm run dev` or `npm run build:artificer`:
 //
 //   VITE_DEV_PASSWORD_HASH=<output of: printf %s 'your password' | sha256sum>
+//
+// AI players never get dev mode (#1735): it lives only in this page. The play API, the MCP server,
+// the text console and the AI benchmark have none, and no parameter turns one on. dev-only.ts lists
+// the dev-only words, and src/artificer-play/dev-mode-ai.test.ts checks none of them reaches an AI.
 
 /**
  * Where an unlocked dev mode is remembered. A new key (the old one was `artificer.dev`): anyone who
@@ -62,7 +67,7 @@ export function saveChoices(choices: FeatureSwitches, store: Store | null = stor
 const DEV_KEY = 'artificer.devUnlocked';
 
 /**
- * Whether dev mode is on: unlocked with the password in this browser before (remembered), and not
+ * Whether dev mode is on: turned on at the ⚙ in this browser before (remembered), and not
  * left since. `?dev=0` (or `?dev=off`) in the address leaves it, and that's remembered too. `?dev`
  * or `?dev=truths` alone never opens it.
  */
@@ -79,7 +84,7 @@ export function devMode(search = globalThis.location?.search ?? '', store: Store
   }
 }
 
-/** Remember dev mode as unlocked (after the right password) or left ("Leave dev mode"). */
+/** Remember dev mode as on (turned on at the ⚙, #1735) or left ("Leave dev mode"). */
 export function setDevMode(on: boolean, store: Store | null = storage()): void {
   try {
     store?.setItem(DEV_KEY, on ? '1' : '0');
@@ -107,6 +112,23 @@ export async function devPasswordMatches(typed: string, expectedHex: string | un
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether this build asks for a password before dev mode opens (#1735): only when a hash is
+ * configured. Unset or blank, dev mode is open to anyone who taps the ⚙. Anything else set, even
+ * something that isn't a SHA-256 hex string, closes it: a mistyped setting fails shut, never open.
+ */
+export function devNeedsPassword(expectedHex: string | undefined): boolean {
+  return (expectedHex?.trim() ?? '') !== '';
+}
+
+/**
+ * Whether the dev gate opens for what was typed (#1735): with no hash configured, always (nothing
+ * needs typing); with one, only for the right password (`devPasswordMatches`).
+ */
+export async function devUnlocks(typed: string, expectedHex: string | undefined): Promise<boolean> {
+  return !devNeedsPassword(expectedHex) || devPasswordMatches(typed, expectedHex);
 }
 
 /**
