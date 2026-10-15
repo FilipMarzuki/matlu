@@ -28,7 +28,7 @@ const NIGHT = 15; // 21:00
 describe('The hike kit (#1400)', () => {
   // 1. A pack within 9 kg: accepted, and day 1 has its tools and stores.
   it('turns a pack into day 1', () => {
-    expect(KIT.length).toBe(27);
+    expect(KIT.length).toBe(57); // the scout's list (#1400) and the 30 odd things (#1727)
     expect(packWeight(SUGGESTED_PACK)).toBeLessThanOrEqual(PACK_CAPACITY);
     expect(packWeight(KIT_IDS)).toBeGreaterThan(PACK_CAPACITY); // you can't take everything
     expect(validPack(SUGGESTED_PACK)).toBe(true);

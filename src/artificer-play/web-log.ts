@@ -33,7 +33,7 @@ export interface WebStart {
   id: string;
   name?: string;
   portrait?: string;
-  /** The two talents picked from the four on offer (the offer comes from the id). */
+  /** The talents picked from the four on offer, up to two (#1728: fewer adds to the difficulty; the offer comes from the id). */
   chosen?: TalentId[];
   stats?: Stats;
   age?: number;

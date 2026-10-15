@@ -16,7 +16,7 @@
  */
 
 import { featureOn } from './features';
-import { hasKit } from './kit';
+import { hasKit, hasExtra } from './kit';
 import { seedOf } from './rng';
 import { domainsOf, level, type Domain, type Ring } from './exploration';
 import { generateReach, sightFor, mapRows, ringOfHours, COST, IN_VIEW_HOURS, type Biome, type Reach, type Sight } from './world/reach';
@@ -242,8 +242,9 @@ export const SURFACE_WORDS: Readonly<Record<MapSurface, string>> = {
  * bark, once you've cut wood. All three only ever come true (the pack is fixed, the flags are
  * one-way), so a map once drawn stays drawn even after the hide is made into a waterskin.
  */
-export function mapSurface(s: Pick<Region1State, 'kit' | 'flags'>): MapSurface | null {
-  if (hasKit(s, 'notebook')) return 'notebook';
+export function mapSurface(s: Pick<Region1State, 'kit' | 'flags'> & { config?: Region1State['config'] }): MapSurface | null {
+  // The squared notebook (#1727) is paper and pencils too, when the odd things do something.
+  if (hasKit(s, 'notebook') || hasExtra(s, 'notebook-pencils')) return 'notebook';
   if (s.flags.everHide) return 'hide';
   if (s.flags.everWood) return 'bark';
   return null;

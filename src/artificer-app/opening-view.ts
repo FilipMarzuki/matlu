@@ -10,8 +10,9 @@
 import type { T } from '../artificer/i18n';
 import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, type KitGroup, type KitId } from '../artificer/kit';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
-import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, type Stats } from '../artificer/stats';
+import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
 import { grownStats, START_AGES } from '../artificer/growing';
+import { difficultyOf, difficultyLabel, unchosenPicks, unspentPoints } from '../artificer/difficulty';
 import { itemIcon } from './item-icons';
 import { esc, portraitEl } from './html';
 import { kitName, statNoteText } from './sim-words';
@@ -27,12 +28,40 @@ export function packTitle(id: KitId, t: T, truths: boolean): string {
   return `${t(`kit.${id}.does`)} ${t(`kit.${id}.note`)}${truths ? ` [rule: ${kitItem(id).effect}]` : ''}`;
 }
 
+/** Which pack sections the viewer has opened or folded (#1727), by section: what main.ts keeps in the browser. */
+export type PackOpen = Partial<Record<KitGroup, boolean>>;
+
+/** Where main.ts keeps `PackOpen`, per browser (a convenience: lose it and the sections fall back to their defaults). */
+export const PACK_OPEN_KEY = 'artificer.packOpen';
+
+/**
+ * Is a pack section open? As the viewer last left it; until they've touched it, open when it holds
+ * something packed, so the leader's list shows what's in the pack and the 30 odd things don't
+ * bury it (#1727).
+ */
+export function sectionOpen(g: KitGroup, pack: readonly KitId[], open: PackOpen = {}): boolean {
+  return open[g] ?? KIT.some(k => k.group === g && pack.includes(k.id));
+}
+
+/** A stored `PackOpen`, kept only where it's a section id and a boolean; anything else reads as nothing touched. */
+export function readPackOpen(raw: string | null): PackOpen {
+  try {
+    const o = JSON.parse(raw ?? 'null') as unknown;
+    if (typeof o !== 'object' || o === null || Array.isArray(o)) return {};
+    return Object.fromEntries(Object.entries(o).filter(([g, v]) => Object.hasOwn(KIT_GROUPS, g) && typeof v === 'boolean')) as PackOpen;
+  } catch { return {}; }
+}
+
 /**
  * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
  * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
  * The weight bar and the leader's list stay at the bottom.
+ *
+ * Each section folds (#1727): a `<details>` whose `<summary>` main.ts listens to. The page redraws
+ * on every tap, so whether a section is open comes from `open` (the viewer's choices), not from
+ * the browser's own toggle, which a redraw would forget.
  */
-export function packForm(pack: readonly KitId[], t: T, truths = false): string {
+export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}): string {
   const kg = packWeight(pack);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
     const items = KIT.filter(k => k.group === g).map(k => {
@@ -48,7 +77,10 @@ export function packForm(pack: readonly KitId[], t: T, truths = false): string {
         + `<span class="kdoes">${esc(t(`kit.${k.id}.does`))}</span><span class="knote">${esc(t(`kit.${k.id}.note`))}</span>`
         + `${truths ? `<span class="devtruth" title="${esc(t('pack.ruleTip'))}">${esc(t('pack.rule', { rule: k.effect }))}</span>` : ''}</button>`;
     }).join('');
-    return `<p class="clabel">${esc(t(`kitgroup.${g}`).toUpperCase())}</p><div class="kchoices">${items}</div>`;
+    const packedHere = KIT.filter(k => k.group === g && pack.includes(k.id)).length;
+    return `<details class="kgroup" data-group="${g}"${sectionOpen(g, pack, open) ? ' open' : ''}>`
+      + `<summary class="clabel" data-kitgroup="${g}">${esc(t(`kitgroup.${g}`).toUpperCase())} <span>${esc(t('pack.inGroup', { n: packedHere }))}</span></summary>`
+      + `<div class="kchoices">${items}</div></details>`;
   }).join('');
   const fill = Math.min(100, (kg / PACK_CAPACITY) * 100);
   return `<form class="create pack" onsubmit="return false">
@@ -70,7 +102,7 @@ export function createForm(draft: DraftView, t: T): string {
   return `<form class="create" onsubmit="return false">
     <label class="clabel" for="wname">${esc(t('create.name'))}</label>
     <div class="cwho">${portraitEl(draft.portrait, 64)}<input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="${esc(t('create.placeholder'))}" value="${esc(draft.name)}"></div>
-    <p class="clabel">${esc(t('create.talents', { n: TALENT_PICKS }))} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
+    <p class="clabel">${esc(t('create.talents', { n: TALENT_PICKS }))} <span>(${draft.talents.length}/${TALENT_PICKS} · ${esc(t('create.unchosen', { n: unchosenPicks(draft.talents), m: difficultyLabel(difficultyOf(draft.stats, draft.talents)) }))})</span></p><div class="tchoices">${talents}</div>
     <p class="mood" style="margin:0">${esc(t('create.unknown'))}</p>
     <p class="clabel">${esc(t('create.age'))}</p>
     <div class="achoices">${START_AGES.map(a => `<button type="button" class="achoice" data-age="${a}" aria-pressed="${draft.age === a}">${a}</button>`).join('')}</div>
@@ -82,10 +114,12 @@ export function createForm(draft: DraftView, t: T): string {
 /**
  * The stats step (#1258): point-buy over the six stats. Every stat starts at 10
  * with 6 points to spend; steps above 13 cost 2. All 10s is a valid Warden, so
- * this never blocks BEGIN — unspent points just get a nudge.
+ * this never blocks BEGIN. Points left unspent are a real choice (#1728): no nudge,
+ * just how many and the difficulty multiplier they make (with the talents unchosen).
  */
 export function statsForm(draft: DraftView, t: T): string {
-  const left = pointsLeft(draft.stats);
+  const left = unspentPoints(draft.stats);
+  const unspent = t('create.unspent', { n: left, m: difficultyLabel(difficultyOf(draft.stats, draft.talents)) });
   const rows = STAT_IDS.map(id => {
     const v = draft.stats[id];
     const dear = v >= 13 && v < 15 ? ' dear' : '';
@@ -97,6 +131,6 @@ export function statsForm(draft: DraftView, t: T): string {
       + `<span class="sval">${v}</span>`
       + `<button type="button" class="pill${dear}" data-stat="${id}" data-delta="1" aria-label="${esc(t('create.raise', { stat: name, n: raiseCost(v) }))}" title="${esc(t(v >= 13 ? 'create.costs2' : 'create.costs1'))}" ${canRaise(draft.stats, id) ? '' : 'disabled'}>+</button></div></div>`;
   }).join('');
-  return `<p class="clabel">${esc(t('create.stats', { n: POINT_BUDGET }))} <span>(${esc(t('create.left', { n: left }))}${left > 0 ? esc(t('create.wasted')) : ''})${esc(t('create.rules'))}</span></p>
+  return `<p class="clabel">${esc(t('create.stats', { n: POINT_BUDGET }))} <span>(${esc(unspent)})${esc(t('create.rules'))}</span></p>
     <div class="schoices">${rows}</div>`;
 }

@@ -19,6 +19,7 @@
  * same seed and moves play the same game in every language.
  */
 
+import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import { en } from '../artificer/i18n/en';
 import type { Key, T } from '../artificer/i18n';
 import { ACTIONS, DAY_HOURS, queueHours, queueId, survivalLockOf, type ActionId, type Region1State } from '../artificer/region1';
@@ -142,6 +143,8 @@ function dayText(a: AppState, t: T): string {
     vitalsLine(s, t),
     moodLine(s, t),
     `${t('status.focus')} ${focus} · ${t('status.rations')} ${eating}`,
+    // Difficulty (#1728): only when something was left unspent at creation.
+    ...(difficultyOfCharacter(s.character) > 1 ? [t('api.difficulty', { m: difficultyLabel(difficultyOfCharacter(s.character)) })] : []),
     '',
     head('head.stores', t),
     storesLine(s, t),

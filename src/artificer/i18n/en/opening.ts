@@ -49,17 +49,22 @@ export const opening = {
   'kitgroup.clothes': 'Clothes',
   'kitgroup.tools': 'Tools',
   'kitgroup.other': 'Other',
+  'kitgroup.personal': 'Personal',
+  // A section's line while it's folded (#1727): how many of its things are packed.
+  'pack.inGroup': '{n} packed',
 
   // ── Character creation ─────────────────────────────────────────────────────
   'create.name': 'NAME — write it',
   'create.placeholder': 'What are you called?',
-  'create.talents': 'TALENTS — choose {n}',
+  'create.talents': 'TALENTS — choose up to {n}',
+  // Difficulty (#1728): a talent pick left unchosen is a choice, worth a higher multiplier ({m} is "×1.25").
+  'create.unchosen': 'Unchosen: {n} · difficulty {m}',
   'create.unknown': '…and something else in you, not yet known.',
   'create.age': 'AGE — how old you are, the weekend it began',
   'create.grow': "You'll grow up over the runs, a year each; your stats grow with you.",
   'create.stats': "STATS — who you'll grow up to be · spend {n} points",
-  'create.left': '{n} left',
-  'create.wasted': ' · unspent points are wasted',
+  // Difficulty (#1728): points left unspent are a choice, worth a higher multiplier ({m} is "×1.30").
+  'create.unspent': 'Unspent: {n} · difficulty {m}',
   'create.rules': ' · above 13 costs 2 · lower one to 7 to buy more',
   'create.now': '{n} now, at {age}',
   'create.lower': 'Lower {stat}',

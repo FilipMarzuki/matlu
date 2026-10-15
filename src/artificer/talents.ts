@@ -179,9 +179,12 @@ export function startingTalents(chosen: readonly TalentId[], characterId: string
   return [...known, { id: hiddenTalent(seedOf(characterId), chosen), tier: MIN_TIER, known: false }];
 }
 
-/** A valid creation pick: known ids, no repeats, exactly {@link TALENT_PICKS} (or none, for a quick start). */
+/**
+ * A valid creation pick: known ids, no repeats, at most {@link TALENT_PICKS}. Fewer (or none) is a
+ * real choice (#1728): each pick left unchosen adds to the difficulty multiplier (difficulty.ts).
+ */
 export function validPick(ids: readonly string[]): ids is TalentId[] {
-  return (ids.length === 0 || ids.length === TALENT_PICKS) && new Set(ids).size === ids.length && ids.every(id => id in TALENTS);
+  return ids.length <= TALENT_PICKS && new Set(ids).size === ids.length && ids.every(id => id in TALENTS);
 }
 
 /** A well-formed talent list from a save (ids known, tiers 1–4, at most one of each). */

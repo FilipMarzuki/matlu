@@ -18,6 +18,7 @@ import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
 import { hasKit, kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
+import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
   ACTIONS, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
@@ -275,6 +276,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const { age, adult } = s.character;
   const grown = adult ? withTraining(adult, s.character.trained) : null;
   lines.push(`STATS: ${STAT_IDS.map(k => `${STATS[k].short} ${s.character.stats[k]}${grown && grown[k] !== s.character.stats[k] ? ` (${grown[k]} grown up)` : ''}`).join(' · ')}`);
+  // Difficulty (#1728): only when something was left unspent at creation, so other games read as before.
+  const hard = difficultyOfCharacter(s.character);
+  if (hard > 1) lines.push(`DIFFICULTY: ${difficultyLabel(hard)} — chosen at creation, from the stat points and talent picks left unspent. It changes nothing in play, and goes into the run record.`);
   if (age !== undefined && adult) lines.push(`AGE: ${age}${isYoung(age) ? ` — still growing (skills learn ${YOUNG_PRACTICE}x as fast)` : ' — grown'}`);
   // Talents (#1263): only the ones the Warden knows about — never the hidden one, nor any tier.
   const knownTalents = s.character.talents.filter(t => t.known);

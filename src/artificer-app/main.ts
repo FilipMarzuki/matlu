@@ -32,7 +32,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { hasKit, SUGGESTED_PACK, validPack, type KitId } from '../artificer/kit';
+import { hasKit, SUGGESTED_PACK, validPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -70,7 +70,8 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
-import { packForm, createForm } from './opening-view';
+import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
+import { LOOKS, LOOK_IDS, applyLook, installLooks, lookFromQuery, lookOfGame, shownLook, type LookId } from './looks';
 import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -468,6 +469,15 @@ const TABS: TabDef<Tab>[] = [
 let dev = devMode();
 /** The hidden truths (true trust, true skill levels): `?dev=truths`, and only while dev mode is on (#1578). */
 let truths = dev && devTruths();
+
+// ── Era looks (#1719) ─────────────────────────────────────────────────────────
+// The page's colours and ornaments, one of nine looks (looks.ts). Presentation only: the look is
+// worked out each time the page is drawn (`lookOfGame`), never saved. Dev mode can preview any look
+// (the picker in the features panel); `?look=<id>` previews one from the address too, in dev mode
+// or on a local dev server (`npm run dev`, for screenshots). The preview is this page's alone: a
+// reload without `?look` forgets it.
+installLooks();
+let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV);
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
 // open tab against what shows each time it draws (`tabToOpen`).
@@ -534,6 +544,7 @@ function drawPage(a: AppState): void {
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
+  applyLook(shownLook(lookOfGame(a), lookPreview));
   if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
@@ -673,7 +684,7 @@ function setDev(on: boolean): void {
   setDevMode(on);
   truths = on && devTruths('');
   roadUi.truths = truths;
-  if (!on) showFeatures = false;
+  if (!on) { showFeatures = false; lookPreview = null; }
   devGateOpen = false;
   devGateNote = '';
 }
@@ -715,9 +726,23 @@ function featuresPanel(a: AppState): string {
       <p class="mood">${esc(f.note)} <span class="faint">(${esc(t(f.kind === 'rules' ? 'dev.rules' : 'dev.looks'))}${now} · #${f.issue})</span></p></div>
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${esc(t(on ? 'dev.featOn' : 'dev.featOff'))}</button></li>`;
   }).join('');
-  return `<section class="box features"><p class="eyebrow">${esc(t('head.features'))}</p><ul class="flist">${rows}</ul>
+  return `<section class="box features">${lookPicker(a)}<p class="eyebrow">${esc(t('head.features'))}</p><ul class="flist">${rows}</ul>
     <p class="mood">${t('dev.featuresNoteHtml')}</p>
     <p><button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button></p></section>`;
+}
+
+/**
+ * The look picker (dev mode, #1719): preview any of the nine looks on this page. It changes only
+ * what's drawn: the game, its save and its run log never see it. "The game's look" ends the preview.
+ */
+function lookPicker(a: AppState): string {
+  const game = lookOfGame(a);
+  const shown = shownLook(game, lookPreview);
+  const swatch = (id: LookId): string => `<i class="lookdot" style="background:${LOOKS[id].tokens.panel};border-color:${LOOKS[id].tokens.gold}"></i>`;
+  const pills = LOOK_IDS.map(id => `<button class="pill" data-lookpick="${id}" aria-pressed="${lookPreview === id}" title="${id}">${swatch(id)}${esc(t(`look.${id}`))}</button>`).join('');
+  const back = `<button class="pill" data-lookpick="game" aria-pressed="${lookPreview === null}">${esc(t('dev.lookGame', { look: t(`look.${game}`) }))}</button>`;
+  return `<div class="lookpick"><p class="eyebrow">${esc(t('dev.looksHead'))}</p><div class="lookpills">${back}${pills}</div>
+    <p class="mood">${esc(t('dev.lookNote', { look: t(`look.${shown}`) }))}</p></div>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
@@ -1019,9 +1044,14 @@ const STANDARD_PORTRAIT = 'loke';
 type Draft = { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number };
 const blankDraft = (): Draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
 let draft: Draft = blankDraft();
-const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
+// A name is all BEGIN needs (#1728): fewer talents than allowed, or none, is a choice — each pick
+// left unchosen adds to the difficulty multiplier, like a stat point left unspent.
+const draftValid = (): boolean => draft.name.trim().length > 0;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
+// Which pack sections this viewer has opened or folded (#1727): a per-browser convenience, so
+// storage that's blocked or empty just means every section starts as its default.
+let packOpen: PackOpen = (() => { try { return readPackOpen(localStorage.getItem(PACK_OPEN_KEY)); } catch { return {}; } })();
 
 // The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
 // so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
@@ -1106,7 +1136,7 @@ function renderIntro(): void {
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
   const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name, t))}</p>`).join('')
-    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths) : '');
+    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen) : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -1132,10 +1162,19 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
+  // A pack section's heading (#1727): fold or open it, and remember that. preventDefault stops the
+  // browser toggling the <details> itself; the redraw sets `open` from packOpen instead.
+  if (btn?.dataset.kitgroup) {
+    e.preventDefault();
+    const g = btn.dataset.kitgroup as KitGroup;
+    packOpen = { ...packOpen, [g]: !sectionOpen(g, draftPack, packOpen) };
+    try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
+    renderIntro(); return;
+  }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
   if (btn?.dataset.kit) {
     const id = btn.dataset.kit as KitId;
@@ -1220,6 +1259,8 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
   else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
+  // A look preview (#1719): presentation only, so it's fine mid-day too.
+  else if (d.lookpick) { lookPreview = d.lookpick === 'game' ? null : LOOK_IDS.find(id => id === d.lookpick) ?? null; render(state); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();
