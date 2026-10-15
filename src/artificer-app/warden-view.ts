@@ -60,15 +60,20 @@ export function carryingBlock(s: Region1State, t: T): string {
 /** Topic kinds as the Warden tab groups them (#1495). */
 const TOPIC_GROUPS: readonly (readonly [string, Key])[] = [['material', 'focus.material'], ['place', 'focus.place'], ['group', 'focus.group'], ['person', 'focus.person'], ['quest', 'focus.quest'], ['role', 'focus.job']];
 
+/** How the focus picker is drawn: the Warden tab's as it always was; the status bar's (#1758) disabled while locked. */
+export interface FocusBlockOpts { disableWhenLocked?: boolean }
+
 /**
  * The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. On
  * the road (#1479) the chips set the road's focus, and the note says what a focus does there.
  */
-export function focusBlock(s: Region1State, t: T, road?: RoadState): string {
+export function focusBlock(s: Region1State, t: T, road?: RoadState, opts: FocusBlockOpts = {}): string {
   const lock = road ? roadLockOf(road) : survivalLockOf(s);
   const cur = focusKey(s.focus);
+  // The status bar's picker (#1758) greys the choices out while survival holds the mind.
+  const off = opts.disableWhenLocked && lock ? ' disabled' : '';
   const chip = (key: string, label: string, note: string) =>
-    `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
+    `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}"${off}>${esc(label)}</button>`;
   const name = (f: Focus): string => focusName(f, t);
   // On the road (#1479) a goal has no work to help: the chip says so instead of its Reach effect.
   const goals = GOAL_IDS.map(g => chip(`goal:${g}`, name({ kind: 'goal', id: g }), road ? t('warden.focus.idle') : t('warden.focus.goalTip', { actions: GOALS[g].actions.map(a => actionName(a, t)).join(', ') }))).join('');

@@ -85,6 +85,7 @@ const core = {
   'status.survival': 'SURVIVAL',
   'status.survivalTip': 'Survival has taken over your thoughts',
   'status.focusTip': 'What your mind is working on',
+  'status.focusClose': 'Close the focus picker',
   'status.frayed': 'frayed',
   'status.frayedTip': 'Clarity under {n} — focus is unreliable',
   'status.rations': 'RATIONS',
