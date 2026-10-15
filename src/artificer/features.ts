@@ -256,6 +256,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Moving camp no longer leaves your shelter and cold pit behind for good: each place you camp keeps what you built there, and it\'s there when you come back. A shelter left long weathers a little. The cold pit\'s food comes with you when you go, unless you choose to leave it in the pit: then it stays there (and keeps spoiling slowly, as it would in the pit), and it\'s yours again when you camp there.',
   },
   {
+    // A rules feature: it changes how warm a camp is (region1.ts `warmth`, built-warmth.ts: the site's
+    // natural shelter plus what you build, softly less its wind or damp, and a bed), and what the
+    // Warden, the AI and the API are told of a site (its natural shelter and what it needs, not a
+    // ceiling), so a run from before it (absent: false) keeps the four ceilings on replay.
+    id: 'built-warmth', name: 'Warmth comes from what you build', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1763,
+    note: 'A site no longer caps how warm camp can get: a cave shelters you a lot with nothing built, a treeline some, a riverbank little and a hilltop not at all, and a proper wood shelter with a fire makes any of them warm enough. The hilltop\'s wind costs a little until walls are built well enough to stop it, the riverbank\'s damp until the floor is off the wet ground, and a bed keeps you off the cold ground.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

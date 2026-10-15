@@ -9,6 +9,7 @@
  * sim says in English goes through sim-words.ts. Pure: state in, HTML out.
  */
 
+import { builtWarmthOn } from '../artificer/built-warmth';
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
@@ -300,6 +301,16 @@ export function coldBlock(s: Sim, t: T): string {
     + `<p class="mood" style="margin:4px 0 0">${esc(t('cold.storage', { where }))}</p>`;
 }
 
+/**
+ * A site card's warmth (#1763): with `built-warmth`, its natural shelter in a word ("SHELTERED",
+ * "EXPOSED") in the corner and, under it, why and what building it needs; otherwise the ceiling.
+ */
+const warmTag = (s: Sim, site: SiteId, t: T): string =>
+  `<span class="warm" style="margin-left:auto">${esc(builtWarmthOn(s) ? t(`shelter.word.${site}`).toUpperCase() : t('site.maxWarm', { n: Math.round(SITES[site].warmth * 100) }))}</span>`;
+const upper1 = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1);
+const shelterLine = (s: Sim, site: SiteId, t: T): string =>
+  (builtWarmthOn(s) ? `<div class="d shelterwords">${esc(`${upper1(t(`shelter.why.${site}`))}: ${t(`shelter.needs.${site}`)}.`)}</div>` : '');
+
 /** Where camp is now, as it stands: the shelter, how warm, the cold pit. */
 const campNow = (s: Sim, t: T): string =>
   ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) })] : [])].join(' · ')}.`;
@@ -318,8 +329,9 @@ export function spotsBlock(s: Sim, t: T): string {
     const rated = rating === 'poor' ? '' : `<span class="rate ${rating}">${esc(t(`campsite.rate.${rating}`))}</span>`;
     const built = buildsAt(s, p.id);
     return `<button class="siteopt ${p.here ? 'chosen' : ''}" data-camp="${esc(p.id)}" ${p.here || s.outcome ? 'disabled' : ''}>`
-      + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}${rated}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[p.kind].warmth * 100) }))}</span></div>`
+      + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}${rated}${warmTag(s, p.kind, t)}</div>`
       + `<div class="d"><b>${esc(spotWhere(p, t) + tag)}</b></div>`
+      + shelterLine(s, p.kind, t)
       + `<div class="d">${esc(spotReading(s, p, t) + here)}</div>`
       // What's built there (#1753, `camp-builds-per-site`): each camp keeps its own.
       + (built.length ? `<div class="d built">${esc(t('campsite.builtHere', { list: buildsWords(built, t) }))}</div>` : '')
@@ -336,7 +348,8 @@ export function sitesBlock(s: Sim, t: T): string {
       ? ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.coldPitAt === id ? [t('site.pit', { n: coldPitHolds(id) })] : [])].join(' · ')}.`
       : '';
     return `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
-      + `<div class="t">${esc(siteName(id, t).toUpperCase())}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[id].warmth * 100) }))}</span></div>`
+      + `<div class="t">${esc(siteName(id, t).toUpperCase())}${warmTag(s, id, t)}</div>`
+      + shelterLine(s, id, t)
       + `<div class="d">${esc(t(`site.note.${id}`) + here)}</div></button>`;
   }).join('');
   return `<div class="sites">${sites}</div><p class="mood">${esc(t(scouted(s.explore, 1) ? 'site.pick' : 'site.scoutFirst'))}</p>`;

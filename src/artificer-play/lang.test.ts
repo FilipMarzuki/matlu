@@ -105,8 +105,12 @@ function pick(body: Record<string, unknown>, i: number, r: () => number): Move {
   return rest[Math.floor(r() * rest.length)].move;
 }
 
-/** Camp as a free setting, as before #1732: the policy above settles that way. */
-const OLD_CAMP = { 'camp-as-action': false };
+/**
+ * Camp as a free setting, as before #1732: the policy above settles that way. And the site's
+ * warmth ceilings, as before #1763: the games below are pinned to how this policy's run goes
+ * (where it ends, what it's refused), and a warmer camp changes that.
+ */
+const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());

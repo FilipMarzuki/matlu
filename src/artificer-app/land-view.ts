@@ -15,6 +15,8 @@
  * The winter outlook the tab's status chip opens is the PROGRESS tab's (progress-view.ts).
  */
 
+import { builtWarmthOn } from '../artificer/built-warmth';
+import type { SiteId } from '../artificer/region1';
 import type { Key, T } from '../artificer/i18n';
 import { RINGS, TRAVEL_HOURS, FINDS, domainsOf, level, reachable, hasFind, supplyWord, type Ring } from '../artificer/exploration';
 import { routeKnown, type Region1State } from '../artificer/region1';
@@ -123,7 +125,9 @@ export function campSpotsSection(s: Region1State, t: T): string {
   if (!campAsActionOn(s)) return '';
   // Each with what's built there (#1753): "lean-to, cold pit".
   const built = (id: string): string => { const b = buildsAt(s, id); return b.length ? ` · ${esc(buildsWords(b, t))}` : ''; };
-  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}${built(p.id)}</li>`).join('');
+  // Its natural shelter in a word (#1763, `built-warmth`): "sheltered", "exposed".
+  const shelter = (kind: SiteId): string => (builtWarmthOn(s) ? ` · ${esc(t(`shelter.word.${kind}`))}` : '');
+  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}${built(p.id)}${shelter(p.kind)}</li>`).join('');
   return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}</p><ul class="landwords campspots">${rows}</ul></section>`;
 }
 
