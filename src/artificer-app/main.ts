@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -65,13 +65,14 @@ import { meetingModal } from './caravan-view';
 import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
-import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
-import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, clockText, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
+import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { nowTotal, queueTimes, timerClock } from './time-view';
+import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, hrs, pct, band, portraitEl } from './html';
+import { esc, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
@@ -347,7 +348,7 @@ function oneAtATime(a: AppState): string {
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
       <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
       ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>${lastTripNews(a)}` : ''}
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday, t)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
+      <div class="qtot"><span>${nowTotal(s, t, dev)}</span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
 }
@@ -358,6 +359,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   const resolved = s.outcome !== null;
   // The day planning opened up (#1350): the queue arrives with a glow.
   const fresh = s.log.some(l => l.text === PLANNING_UNLOCKED && l.day >= s.day - 1);
+  // The hours, or the time of day in words (#1740, `time-words`, time-view.ts).
+  const times = queueTimes(a, preview, t, dev);
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -387,13 +390,14 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${hrs(queueHours(item, preview.before[i]), t)}h</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
+      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
-      <ol>${items || `<li class="empty">${esc(t('queue.empty', { hours: DAY_HOURS }))}</li>`}</ol>
-      <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(todayHours(a, preview), t)} / ${DAY_HOURS}h</b></span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
+      ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
+      <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
+      <div class="qtot"><span>${times.total}</span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
       <div class="runbar">
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
@@ -424,7 +428,7 @@ function statusBar(a: AppState, preview: Preview): string {
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${hrs(todayHours(a, preview), t)}/${DAY_HOURS}H</b></span>
+    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -1031,11 +1035,11 @@ function timerPanel(): string {
   const lines = linesAt(p, m.done, night);
   const days = pl.plays.length > 1 ? t('timer.days', { n: pl.day + 1, total: pl.plays.length }) : '';
   return `<section class="timer${night ? ' night' : ''}" aria-label="${esc(t('timer.label'))}">
-    <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${clockText(m.clock)}</span>
+    <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${esc(timerClock(p.before.sim, m.clock, t, dev))}</span>
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
+    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
     <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(logText(l, t))}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
@@ -1046,7 +1050,7 @@ function tickTimer(pl: Playing): void {
   const p = pl.plays[pl.day];
   const m = momentOf(pl);
   const clock = document.getElementById('pb-clock');
-  if (clock) clock.textContent = clockText(m.clock);
+  if (clock) clock.textContent = timerClock(p.before.sim, m.clock, t, dev);
   const bar = document.getElementById('pb-bar');
   if (bar) {
     bar.style.width = `${Math.round(m.frac * 1000) / 10}%`;
@@ -1056,7 +1060,7 @@ function tickTimer(pl: Playing): void {
   const strip = document.getElementById('pb-day');
   if (strip) strip.style.width = `${Math.min(100, Math.max(0, ((m.clock - DAY_START) / DAY_HOURS) * 100))}%`;
   const phase = document.getElementById('pb-phase');
-  const text = phaseText(p, m, t);
+  const text = phaseText(p, m, t, dev);
   if (phase && phase.textContent !== text) phase.textContent = text;
 }
 

@@ -120,6 +120,9 @@
   .act:disabled { opacity: .38; cursor: not-allowed; }
   .act .t { font-family: var(--display); font-size: 8px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
   .act .t .h { margin-left: auto; color: var(--faint); font-size: 7px; }
+  /* The length in words (#1740, `time-words`): a line of its own under the name, in the body font. */
+  .act .t:has(.tw) { flex-wrap: wrap; row-gap: 1px; }
+  .act .t .h.tw { flex-basis: 100%; margin-left: 0; font-family: var(--body); font-size: 10px; letter-spacing: 0; }
   .act .y { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .act .y .yield { color: var(--green); } .act .y .vc { color: var(--warn); }
 

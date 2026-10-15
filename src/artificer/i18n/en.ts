@@ -30,6 +30,7 @@ import { tabs } from './en/tabs';
 import { lore } from './en/lore';
 import { api } from './en/api';
 import { weather } from './en/weather';
+import { time } from './en/time';
 
 /** The strings that live in this file rather than an area file under ./en/. */
 const core = {
@@ -276,7 +277,7 @@ const core = {
  * (#1714: the road's `end.died` hid the camp's). duplicates.test.ts checks with `duplicateKeys` that no
  * key is defined twice.
  */
-export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather };
+export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather, time };
 
 export const en = {
   ...core,
@@ -303,4 +304,6 @@ export const en = {
   ...api,
   // #1729: the weather and the season in words.
   ...weather,
+  // #1740: the time of day in words.
+  ...time,
 } as const satisfies Record<string, string>;
