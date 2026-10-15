@@ -19,14 +19,15 @@ import { featureOn } from './features';
 import { hasKit, hasExtra } from './kit';
 import { seedOf } from './rng';
 import { domainsOf, level, type Domain, type Ring } from './exploration';
-import { generateReach, sightFor, mapRows, ringOfHours, COST, IN_VIEW_HOURS, type Biome, type Reach, type Sight } from './world/reach';
+import { generateReach, sightFor, mapRows, ringOfHours, walkFrom, COST, IN_VIEW_HOURS, type Biome, type Reach, type Sight } from './world/reach';
+import { distanceOn, ringWordsFor } from './distance-words';
 import type { Region1State } from './region1';
 
 /** The rule switch (features.ts). */
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -100,15 +101,26 @@ const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
  * across the squares between (`hours` of the neighbour you step in from counts its whole
  * crossing). Open water has no walking time of its own, so a lake's edge is its shore.
  */
-function edgeHours(r: Reach, x: number, y: number): number {
-  const half = COST[r.cells[r.camp.y * r.w + r.camp.x].biome] / 2;
+function edgeHours(r: Reach, x: number, y: number, from: { x: number; y: number } = r.camp, walk: readonly number[] = r.hours): number {
+  const half = COST[r.cells[from.y * r.w + from.x].biome] / 2;
   let best = Infinity;
   for (const [dx, dy] of NEIGHBOURS) {
     const nx = x + dx, ny = y + dy;
     if (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h) continue;
-    best = Math.min(best, r.hours[ny * r.w + nx]);
+    best = Math.min(best, walk[ny * r.w + nx]);
   }
   return half + best;
+}
+
+/**
+ * Where the land is told from (#1752): with `distance-not-rings` on, camp once it's made (#1732's
+ * `campSpot`, camp-sites.ts `whereYouAre`) and where you are, the run's start, before that; with it
+ * off, always the start, as #1686 had it. The spot id is read here rather than through camp-sites.ts,
+ * which builds on this module.
+ */
+export function landOrigin(s: Pick<Run, 'config' | 'campSpot'>, r: Reach): { x: number; y: number } {
+  const m = distanceOn(s) && s.campSpot ? /@(\d+),(\d+)$/.exec(s.campSpot.at) : null;
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : r.camp;
 }
 
 /** A lake square is seen from its shore: open water has no ring of its own (its walking time is Infinity). */
@@ -128,7 +140,7 @@ const EXACT_DIRS = ['due north', 'north-east', 'due east', 'south-east', 'due so
 const VAGUE_DIRS = ['north-ish', 'east-ish', 'south-ish', 'west-ish'] as const;
 
 /** Degrees clockwise from north, from camp to (x, y). Screen y grows southwards. */
-const bearingOf = (r: Reach, x: number, y: number): number => (Math.atan2(x - r.camp.x, r.camp.y - y) * 180 / Math.PI + 360) % 360;
+const bearingOf = (r: Reach, x: number, y: number, from: { x: number; y: number } = r.camp): number => (Math.atan2(x - from.x, from.y - y) * 180 / Math.PI + 360) % 360;
 
 /** Which of the points a bearing is: of eight with the compass, of four (roughly) without. */
 export const directionIndex = (bearing: number, exact: boolean): number => (exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4);
@@ -180,19 +192,24 @@ export function timeWords(hours: number, exact: boolean): string {
 export function knownPlaces(s: Run): KnownPlace[] {
   if (!descriptiveMapOn(s)) return [];
   const r = reachOfRun(s);
-  const sight = withShores(r, sightFor(r, s.explore));
-  const campKind = KIND_OF[r.cells[r.camp.y * r.w + r.camp.x].biome];
+  // Told from camp, or where you are before it (#1752): the walk from there, and what's in view and known
+  // from there too, since the rings (what you know of the land) were always measured from camp.
+  const from = landOrigin(s, r);
+  const moved = from.x !== r.camp.x || from.y !== r.camp.y;
+  const walk = moved ? walkFrom(r, from.x, from.y) : r.hours;
+  const sight = withShores(r, sightFor(moved ? { ...r, hours: walk } : r, s.explore));
+  const campKind = KIND_OF[r.cells[from.y * r.w + from.x].biome];
   const compass = hasKit(s, 'map-compass');
   const nearest = new Map<PlaceKind, { i: number; hours: number; seen: boolean }>();
   for (let i = 0; i < r.cells.length; i++) {
     const x = i % r.w, y = Math.floor(i / r.w);
-    if (x === r.camp.x && y === r.camp.y) continue;
+    if (x === from.x && y === from.y) continue;
     const kind = KIND_OF[r.cells[i].biome];
     if (kind === campKind) continue;
     const seen = sight(x, y) > 0;
     // Only high ground can be known unseen: it stands on the skyline.
     if (!seen && kind !== 'high') continue;
-    const hours = edgeHours(r, x, y);
+    const hours = edgeHours(r, x, y, from, walk);
     if (!Number.isFinite(hours)) continue;
     const had = nearest.get(kind);
     // A seen square beats one on the skyline; then the nearer; ties go to the earlier square, so it's deterministic.
@@ -203,7 +220,7 @@ export function knownPlaces(s: Run): KnownPlace[] {
     const p = nearest.get(kind);
     if (!p) continue;
     const x = p.i % r.w, y = Math.floor(p.i / r.w);
-    const bearing = bearingOf(r, x, y);
+    const bearing = bearingOf(r, x, y, from);
     // Beyond a day out counts as the distant ring: the furthest you know of.
     const ring: Ring = ringOfHours(p.hours) ?? 3;
     // Surveying sharpens it: knowing that ring's ground for this kind of place (observed or better) gives a sure walking time.
@@ -218,10 +235,11 @@ export function knownPlaces(s: Run): KnownPlace[] {
   return out.sort((a, b) => Number(a.horizon) - Number(b.horizon) || a.hours - b.hours);
 }
 
-/** The ground camp stands on (the description's first line). */
-export function campBiome(s: Pick<Region1State, 'character'>): Biome {
+/** The ground camp stands on (the description's first line): where the land is told from (`landOrigin`). */
+export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run, 'config' | 'campSpot'>>): Biome {
   const r = reachOfRun(s);
-  return r.cells[r.camp.y * r.w + r.camp.x].biome;
+  const from = s.config ? landOrigin({ config: s.config, campSpot: s.campSpot }, r) : r.camp;
+  return r.cells[from.y * r.w + from.x].biome;
 }
 
 /** What you know of the land, as lines: where camp is, then each place. Empty with the switch off. */
@@ -280,7 +298,7 @@ const NEED_TEXT = {
 } as const;
 
 /** What's still missing before you can draw a map, in words (empty once you can, or with the switch off). */
-export const mapNeeds = (s: Run): string[] => mapNeedIds(s).map(n => NEED_TEXT[n]);
+export const mapNeeds = (s: Run): string[] => mapNeedIds(s).map(n => ringWordsFor(s, NEED_TEXT[n]));
 
 /** The journal line on the trip that makes the map possible. */
 export function mapDrawnLine(s: Run): string {

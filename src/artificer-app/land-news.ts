@@ -14,6 +14,7 @@
 
 import { RINGS, RING_NAME, domainsOf, level, type Ring } from '../artificer/exploration';
 import { knownPlaces } from '../artificer/descriptive-map';
+import { DISTANCE_AT } from '../artificer/distance-words';
 import { ringOfHours } from '../artificer/world/reach';
 import type { LogEntry, Region1State } from '../artificer/region1';
 
@@ -61,18 +62,24 @@ export const mergeNews = (a: LandNews, b: LandNews): LandNews => ({
 // ── Land trips, by their journal lines (region1.ts ACTIONS: scout, survey, lookout, explore) ──
 
 const RING_BY_NAME: Readonly<Record<string, Ring>> = Object.fromEntries(RINGS.map(r => [RING_NAME[r].toLowerCase(), r]));
-const ringIn = (where: string | undefined): Ring => (where ? RING_BY_NAME[where] ?? 1 : 1);
+/** With `distance-not-rings` on (#1752) a line says the distance instead ("half a day out"; distance-words.ts). */
+const RING_BY_DISTANCE: Readonly<Record<string, Ring>> = Object.fromEntries(RINGS.map(r => [DISTANCE_AT[r], r]));
+const ringIn = (where: string | undefined, distance?: string): Ring => (where ? RING_BY_NAME[where] ?? 1 : distance ? RING_BY_DISTANCE[distance] ?? 1 : 1);
+/** Where a trip went, either way: " in the far ring" (group 1) or " half a day out" (group 2). */
+const WHERE = '(?: in the (\\w+) ring| (close by|half a day out|a day out))?';
 
 const TRIP_LINES: readonly [RegExp, (m: RegExpMatchArray) => Ring][] = [
   [/^Scouted the near ground — /, () => 1],
   [/^Pushed out to the far ring — /, () => 2],
+  [/^Pushed out half a day — /, () => 2],
   [/^Reached the distant hills — /, () => 3],
   [/^Walked out and looked around — /, () => 1],
   [/^Walked out to the far ring and looked around — /, () => 2],
+  [/^Walked out half a day and looked around — /, () => 2],
   [/^Walked out as far as the distant hills — /, () => 3],
-  [/^Walked the ground(?: in the (\w+) ring)? again and looked closer/, m => ringIn(m[1])],
-  [/^Surveyed carefully(?: in the (\w+) ring)? — /, m => ringIn(m[1])],
-  [/^Climbed high(?: in the (\w+) ring)? and looked out/, m => ringIn(m[1])],
+  [new RegExp(`^Walked the ground${WHERE} again and looked closer`), m => ringIn(m[1], m[2])],
+  [new RegExp(`^Surveyed carefully${WHERE} — `), m => ringIn(m[1], m[2])],
+  [new RegExp(`^Climbed high${WHERE} and looked out`), m => ringIn(m[1], m[2])],
 ];
 
 /** The ring a land trip went to, read off its journal line; null for any other line. */

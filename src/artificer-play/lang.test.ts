@@ -176,7 +176,8 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
     // It played a while, into the winter, with encounters on the way and refusals among the moves.
     expect([...phases]).toEqual(expect.arrayContaining(['day', 'encounter']));
     expect(seen).toMatch(/DAG [3-9]\d/);
-    expect(seen).toContain('Kan inte jaga i ring 3 nu');
+    // A distance, not a ring (#1752, on by default): the number the move takes, after @.
+    expect(seen).toContain('Kan inte jaga vid @3 nu');
     expect(englishIn(seen)).toEqual([]);
 
     // Later: the stored game still answers in Swedish.

@@ -1,0 +1,63 @@
+import type { distance } from '../en/distance';
+
+/**
+ * Avstånd i stället för ringar på svenska (#1752, `distance-not-rings`): i närheten, en halv dag
+ * bort, en dag bort, och en övernattning bort längre ut, räknat från där du är tills du slår läger,
+ * och från lägret sedan.
+ */
+export const distanceSv: Record<keyof typeof distance, string> = {
+  'ring.1.dist': 'I närheten',
+  'ring.2.dist': 'En halv dag bort',
+  'ring.3.dist': 'En dag bort',
+  'ring.the.1.dist': 'marken i närheten',
+  'ring.the.2.dist': 'marken en halv dag bort',
+  'ring.the.3.dist': 'marken en dag bort',
+  'ring.at.1': 'i närheten',
+  'ring.at.2': 'en halv dag bort',
+  'ring.at.3': 'en dag bort',
+  'ring.travel.dist': '+{n} h fram och tillbaka',
+  'ring.lockedTip.dist': 'Lär känna marken närmare först',
+  'ring.from.here': 'från där du är',
+  'ring.from.camp': 'från lägret',
+  'map.cell.beyond.dist': 'en övernattning bort',
+
+  'head.land.dist': 'LANDET — det du vet, efter hur långt bort det är',
+  'group.ringNote.dist': '· {ring}',
+  'yield.explore.dist': 'se dig omkring: ny mark längre ut åtminstone anad, känd mark lite tydligare',
+  'yield.lookout.dist': 'marken +1 nivå · se ut över marken längre ut',
+  'land.outOfReach.dist': 'Utom räckhåll — lär känna marken närmare först.',
+  'land.howTo.dist': 'Spana för att få överblick, kartlägg för att bli säker, och arbeta landet för detaljerna. Marken i närheten tunnas ut när du arbetar den; ta dig längre ut för rikare mark.',
+  'land.learnMore.dist': 'Spana för överblick och platser längre ut, kartlägg för att bli säker och få avstånden exakta, och arbeta landet för detaljerna. Marken i närheten tunnas ut när du arbetar den; ta dig längre ut för rikare mark.',
+  'map.need.home.dist': 'känna hemmamarken bättre (all mark i närheten iakttagen: utforska den mer, kartlägg den eller arbeta i den)',
+  'map.unknown.dist': 'Okänd mark. Spana längre ut för att lära känna den.',
+  'map.drawnCompass.dist': 'Ritad efter kompassen: det som ligger inom två timmar från lägret, marken du har anat (svagt) och marken du känner (starkt).',
+  'map.reachNote.dist': 'Du ser det som ligger inom två timmar från lägret; spana längre ut för att ana mer (svagt), och kartlägg eller arbeta marken för att känna den (starkt).',
+  'encui.where.dist': 'D{n} · {ring} · {clock}',
+  'encui.memoryFullHtml.dist': '🧠 Minne: <b>{held} av {room}</b> platser — fullt. Du skulle släppa <b>{place}</b> ({ring}) först.',
+  'pins.fx.fishing.dist': '+{n} vatten och fisk där',
+  'pins.fx.forage.dist': '+{n} mat insamlad där',
+  'pins.fx.stone.dist': '+{n} sten bruten där',
+  'pins.fx.eerie.dist': 'den marken känns värre',
+  'pins.fx.eerieMuch.dist': 'den marken känns mycket värre',
+  'pins.fx.wonder.dist': 'den marken är inte värre i mörkret',
+  'pins.fx.calm.dist': 'den marken känns lugnare',
+  'pins.fx.calmMuch.dist': 'den marken känns mycket lugnare',
+
+  'api.no.badRing.dist': '"{q}" är inget avstånd för {action} (@1 i närheten, @2 en halv dag bort, @3 en dag bort).',
+  'api.no.notOnLand.dist': '"{q}" är inget avstånd för {action}: det görs inte ute i landet.',
+  'api.no.wayExplore.dist': 'Du hittar inte så långt ut än (@{ring}): utforska marken närmare först.',
+  'api.no.wayScout.dist': 'Du hittar inte så långt ut än (@{ring}): spana i marken närmare först.',
+  'api.no.blockedRing.dist': 'Kan inte {action} vid @{ring} nu: {why}.',
+
+  'reason.noGameIn.dist': 'du har inte sett något vilt{where}',
+  'reason.untrackedIn.dist': 'inget vilt spårat{where} än',
+  'log.scout.2.dist': 'Tog dig en halv dag ut — nya växter och nytt timmer, och stigar som leder vidare.',
+  'log.explore.2.dist': 'Gick en halv dag ut och såg dig omkring — växter, timmer och stigar som leder vidare.',
+  'log.lookout.over.dist': 'Klättrade högt{where} och spanade ut — marken nedanför blir tydligare, och du ser ut över {theRing}.',
+  'log.letGo.dist': 'Du släpper det: {w}{where}.',
+  'say.unlock.scout.dist': 'Du har gått så mycket i de här markerna att du kan svepa över en hel sträcka mark på en gång. Nu kan du spana.',
+  'say.manual.tally-book.dist': 'Under en nedrasad hudkoja en halv dag bort: en fångstmans räknebok, sidor fulla av spår och tålmodiga anteckningar.',
+  'w.unlock.scout.verb.dist': 'spana över en hel sträcka mark',
+  'w.harm.stiff-knee.does.dist': 'de långa vandringarna ut kostar mer',
+  'w.unease.distant.dist': 'marken en dag bort',
+};

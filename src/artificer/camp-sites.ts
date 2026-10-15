@@ -39,7 +39,7 @@ import { generator, seedOf } from './rng';
 import { level, type Domain, type Ring } from './exploration';
 import { skillLevel } from './skills';
 import { reachOfRun, directionWords, directionIndex, timeWord, timeWords, type TimeWord } from './descriptive-map';
-import { walkingHours, ringOfHours, type Biome, type Reach } from './world/reach';
+import { walkFrom, ringOfHours, type Biome, type Reach } from './world/reach';
 import type { Region1State, SiteId } from './region1';
 
 /** The rule switch (features.ts). */
@@ -103,24 +103,8 @@ export function validCampSpot(x: unknown): x is CampSpotState {
 /** Where camp is now, with the switch on and camp made; null otherwise. */
 export const campSpotOf = (s: Pick<Region1State, 'campSpot'>): CampSpotState | null => s.campSpot ?? null;
 
-// ── Walking on the Reach ────────────────────────────────────────────────────
-// A walk from any square to every other (Dijkstra, world/reach.ts). A few milliseconds each, and the
-// app and the AI ask often, so the last few are kept.
-const walks = new Map<string, number[]>();
-function walkFrom(r: Reach, x: number, y: number): number[] {
-  if (x === r.camp.x && y === r.camp.y) return r.hours;
-  const key = `${r.seed}|${x},${y}`;
-  let w = walks.get(key);
-  if (!w) {
-    w = walkingHours(r.cells, r.w, r.h, { x, y });
-    if (walks.size >= 16) walks.delete(walks.keys().next().value as string);
-    walks.set(key, w);
-  }
-  return w;
-}
-
 /** Where the Warden is: the camp's square, or the Reach's camp (where the run starts) before one is made this way. */
-function whereYouAre(s: Run, r: Reach): { x: number; y: number } {
+export function whereYouAre(s: Pick<Region1State, 'campSpot'>, r: Reach): { x: number; y: number } {
   const at = s.campSpot ? parseSpotId(s.campSpot.at) : null;
   return at ? { x: at.x, y: at.y } : r.camp;
 }

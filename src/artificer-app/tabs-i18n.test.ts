@@ -55,7 +55,8 @@ const ENGLISH = [
 const ENGLISH_RE = new RegExp(`(?<![\\p{L}])(${ENGLISH.join('|')})(?![\\p{L}])`, 'giu');
 const englishIn = (html: string): string[] => { const text = shown(html); return [...text.matchAll(ENGLISH_RE)].map(m => text.slice(Math.max(0, m.index! - 40), m.index! + 40).replace(/\s+/g, ' ').trim()); };
 
-const FEATURES = ruleFeatures();
+// The rings as they were (#1752's `distance-not-rings` off): these tests pin the LAND tab's ring words; distance.test.ts has them as distances.
+const FEATURES = { ...ruleFeatures(), 'distance-not-rings': false };
 const pin = (place: string, kind: Pin['kind'], ring: 1 | 2 | 3, extra: Partial<Pin> = {}): Pin => ({ id: pinId(place, ring), place, kind, ring, day: 4, ...extra });
 
 /** A Warden with everything on show: talents known and hidden, quirks and fears, old wounds, a full pack, strain, pins, finds. */
@@ -259,8 +260,11 @@ describe('One LAND tab, organised by ring (#1730)', () => {
   });
 
   it('shows a ring out of reach as one line, shut', () => {
-    const html = landTab(fresh(), en);
-    expect(html).toMatch(/<div class="fold ringfold shut"><span class="ringhead" id="land-ring-2">FAR <span>\+3h<\/span><\/span> <span class="foldnote">Out of reach/);
+    // With distance, not rings (#1752, the default): named by how far it is, from where you are before camp.
+    const near = createRegion1({ world: { ...FULL_WORLD, features: { ...FEATURES, 'distance-not-rings': true } } }, undefined, { id: 'w-tabs-land' });
+    expect(landTab(near, en)).toMatch(/<div class="fold ringfold shut"><span class="ringhead" id="land-ring-2">HALF A DAY OUT <span>from where you are<\/span><\/span> <span class="foldnote">Out of reach — know the land nearer in first/);
+    // With that switch off, as before.
+    expect(landTab(fresh(), en)).toMatch(/<div class="fold ringfold shut"><span class="ringhead" id="land-ring-2">FAR <span>\+3h<\/span><\/span> <span class="foldnote">Out of reach/);
   });
 
   it('with the descriptive-map switch off, shows the old LAND tab and then the Reach map, as the two tabs did', () => {

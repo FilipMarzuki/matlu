@@ -225,6 +225,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Making camp is an action like any other, with the walk there and the setting up. Only places you have explored are offered, each a real place on the land: a cave in the high ground, the edge of a wood, the stream\'s bank, open heath. Your Intelligence, skills and Keen Eye decide how well you can read a place before you camp there.',
   },
   {
+    // A rules feature, though what you can reach and what a trip costs are untouched (the rings stay
+    // in the sim, distance-words.ts): it changes what the Warden, the AI and the API are told (the
+    // rings said as distances, the land told from camp once it's made) and the English the journal
+    // keeps, so a run from before it (absent: false) keeps its rings on replay.
+    id: 'distance-not-rings', name: 'Distance, not rings', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1752,
+    note: 'No more "rings": the land is told by how far it is. Close by, half a day out (there and back), a day out, and overnight away past that, measured from where you are until you make camp, and from camp after that, so the distances follow camp when it moves.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

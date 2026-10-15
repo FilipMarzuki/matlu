@@ -25,7 +25,7 @@ import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artif
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
-import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { actionName, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
@@ -96,7 +96,9 @@ function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T): string {
  * plan "scout, then gather" in one go. Land actions go to the ring picked in the tabs.
  */
 export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T }): string {
-  const { ring: focusRing, dev, t } = opts;
+  const { ring: focusRing, dev } = opts;
+  // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
+  const t = distanceT(a.sim, opts.t);
   const resolved = a.sim.outcome !== null;
   const tabs = `<div class="rings">${RINGS.map(r => {
     const open = reachable(preview.projected.explore, r);

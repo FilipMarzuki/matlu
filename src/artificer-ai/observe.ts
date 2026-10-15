@@ -35,6 +35,7 @@ import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { featureOn } from '../artificer/features';
+import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
@@ -50,7 +51,7 @@ import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
-import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
+import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst, type Pin } from '../artificer/pins';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, friendly } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
@@ -144,11 +145,12 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
     case 'wood': return `+${ty('timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb('timber')} firewood, +${ty('timber', 2, 1)} materials`;
     case 'quarry': return `+${ty('stone', 3, 1) + fb('stone')} stone`;
     case 'fish': return `about +${FISH_CATCH * RICHNESS[r]} food through the ice (needs thick lake ice: the deep cold)`;
-    case 'explore': return 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
+    case 'explore': return distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
+      : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
     case 'scout': return 'everything there at least suspected';
     case 'survey': return 'everything there observed';
     case 'track': return 'game observed';
-    case 'lookout': return 'ring +1 level, next ring comes into view';
+    case 'lookout': return distanceOn(s) ? 'the land there +1 level, the land further out comes into view' : 'ring +1 level, next ring comes into view';
     default: return '';
   }
 }
@@ -174,6 +176,9 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   camp: 'make camp at a place you know (option "spot"): the walk there, then 2h setting up; moving leaves your shelter behind',
   treat: 'tends your worst untreated injury (1h): a first-aid dressing, or improvised — a cut with 1 materials (or a hide), a sprain with 1 firewood + 1 materials, a hurt hand with 1 food',
 };
+
+/** The sled's hint with distances (#1752): the same rule, rings 1-2 and 3 said as how far out. */
+const SLED_HINT_DIST = 'stone, firewood and hides count half their weight on snow or up to half a day out (0.8 a day out); the sled adds 4 when taken (5 materials)';
 
 const haulWords = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${k}`).join(', ');
 
@@ -312,7 +317,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const pain = painOf(s);
   if (pain > 0) lines.push(`PAIN: ${PAIN_NAME[pain]}${pain >= 2 ? ` — work drains your mind ${PAIN_DRAIN[pain]}x${PAIN_HOURS[pain] > 1 ? ` and takes ${PAIN_HOURS[pain]}x as long` : ''}, and tonight will cost ${PAIN_NIGHT[pain]} Clarity` : ''}${(s.today.pain ?? 0) > restingPain(s.injuries) ? ' (worse for the work you did today)' : ''}`);
   // Lasting harms (#1392): what grave injuries left.
-  if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${HARM_WORDS[h]})`).join(' · ')}`);
+  if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${ringWordsFor(s, HARM_WORDS[h])})`).join(' · ')}`);
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''} · concepts open: ${FOCUS_OPEN(s).join(', ') || 'none'}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
@@ -322,13 +327,16 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`TECHNIQUES: ${known.length ? known.join(', ') : 'none yet'}${s.manuals.length ? ` | MANUALS: ${s.manuals.map(id => manualById(id)?.name ?? id).join(', ')}` : ''}`);
 
   lines.push('');
-  lines.push('THE LAND:');
+  // With distances (#1752): told from camp, or where you are before it, each with the number a land action's reply takes.
+  const dist = distanceOn(s);
+  lines.push(dist ? `THE LAND, by how far it is ${measuredFromCamp(s) ? 'from camp' : 'from where you are'} (a land action's "ring" field takes the number after @):` : 'THE LAND:');
   for (const r of RINGS) {
     const open = reachable(s.explore, r);
     // Supply (#1304): what the land still holds — trips draw it down, the season regrows it.
     const known = domainsOf(r).map(d => `${d} ${LEVEL_NAME[level(s.explore, r, d)]}${d === 'routes' ? '' : ` · ${supplyWord(s.explore.supply[r][d])}`}`).join(', ');
     const finds = domainsOf(r).filter(d => hasFind(s.explore, r, d)).map(d => FINDS[d]?.name).join(', ');
-    lines.push(`- ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
+    const name = dist ? `@${r} ${DISTANCE_AT[r]} (+${TRAVEL_HOURS[r]}h walking there and back)` : `ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)`;
+    lines.push(`- ${name}${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
   }
   // The land in words (#1686, `descriptive-map`): the AI, and the API that shows this same text,
   // gets what the Warden knows of the land as a scout would say it, the same lines the MAP tab shows.
@@ -349,8 +357,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const rings: Ring[] = def.ringed ? RINGS.filter(r => reachable(s.explore, r)) : [1];
     for (const r of rings) {
       const why = blockedReason(s, id, r);
-      const ringTag = def.ringed ? ` ring ${r}` : '';
-      const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
+      // With distances (#1752): the distance, and its number for the reply's field ("gather @2").
+      const ringTag = !def.ringed ? '' : distanceOn(s) ? ` @${r} ${DISTANCE_AT[r]}` : ` ring ${r}`;
+      const hint = def.ringed ? landHint(s, id, r) : id === 'sled' && distanceOn(s) ? SLED_HINT_DIST : (CAMP_HINT[id] ?? '');
       const odds = tripOdds(s, id, r);
       const danger = why ? null : dangerOf(s, id, r);
       // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
@@ -440,7 +449,7 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
     // On the caravan road (#1349) there are no rings, and marks are part of what you have.
     p.action === 'road'
       ? `ENCOUNTER — road day ${p.day}, on the caravan road. The day waits until you choose.`
-      : `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
+      : `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ${distanceOn(s) ? `${DISTANCE_AT[p.ring]} (@${p.ring})` : `ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}`}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
     ...notes.map(n => `NOTE: ${n}`),
     stepOf(t, p.step).text,
     // Your read and how you stand (#1365): how dangerous it looks to you — not what it is.
@@ -488,7 +497,8 @@ export function pinsLine(s: Region1State): string {
   const pins = s.pins ?? [];
   const room = pinCapacity(s), top = maxInterest(s.skills);
   const full = pins.length >= room ? ` — FULL (to remember another, forget one first; least interesting and oldest: ${letGoFirst(pins)!.id})` : '';
-  const each = pins.map(p => `${p.id} = ${placeName(p)}, ring ${p.ring}${p.feeling ? `, ${p.feeling}` : ''}${p.interest ? `, ${p.interest} star${p.interest > 1 ? 's' : ''}` : ''}: ${pinEffect(p)}`);
+  const where = (p: Pin): string => (distanceOn(s) ? DISTANCE_AT[p.ring] : `ring ${p.ring}`);
+  const each = pins.map(p => `${p.id} = ${placeName(p)}, ${where(p)}${p.feeling ? `, ${p.feeling}` : ''}${p.interest ? `, ${p.interest} star${p.interest > 1 ? 's' : ''}` : ''}: ${ringWordsFor(s, pinEffect(p))}`);
   return `PINS (memory ${pins.length}/${room}${top ? `, interest up to ${top} stars` : ', interest not yet'})${full}: ${each.length ? each.join(' · ') : 'none — places worth remembering turn up out on the land'}`;
 }
 
