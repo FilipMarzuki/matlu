@@ -110,6 +110,10 @@
   .siteopt .t { font-family: var(--display); font-size: 8px; letter-spacing: 1px; display: flex; gap: 6px; align-items: center; }
   .siteopt .d { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .siteopt .warm { float: right; color: var(--ice); font-family: var(--display); font-size: 7px; }
+  /* How good a place to camp you believe it is (#1756): ★ great in gold, ✓ good in green. */
+  .siteopt .rate { white-space: nowrap; }
+  .siteopt .rate.great, .act .t .cbadges { color: var(--gold); }
+  .siteopt .rate.good { color: var(--green); }
 
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
@@ -120,6 +124,8 @@
   .act:disabled { opacity: .38; cursor: not-allowed; }
   .act .t { font-family: var(--display); font-size: 8px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
   .act .t .h { margin-left: auto; color: var(--faint); font-size: 7px; }
+  /* The Make camp card's badges (#1756): one short run of text in the title row, so the card keeps its height. */
+  .act .t .cbadges { font-family: var(--body); font-size: 10px; letter-spacing: 0; white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
   /* The length in words (#1740, `time-words`): a line of its own under the name, in the body font. */
   .act .t:has(.tw) { flex-wrap: wrap; row-gap: 1px; }
   .act .t .h.tw { flex-basis: 100%; margin-left: 0; font-family: var(--body); font-size: 10px; letter-spacing: 0; }

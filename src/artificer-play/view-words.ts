@@ -39,7 +39,8 @@ import { landRings } from '../artificer-app/land-view';
 import { outlookBlock } from '../artificer-app/progress-view';
 import { logText } from '../artificer-app/journal-view';
 import { hrs } from '../artificer-app/html';
-import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, weatherLines, weatherWord } from '../artificer-app/sim-words';
+import { actionName, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, spotRated, weatherLines, weatherWord } from '../artificer-app/sim-words';
+import { knownSpot, siteRatingCounts } from '../artificer/camp-sites';
 import type { Phase } from './session';
 import { nowLine } from '../artificer-app/time-view';
 
@@ -117,9 +118,14 @@ function actionLines(s: Region1State, t: T): string[] {
       if (vis.status === 'hidden') continue;
       const q = queueId(id, ring);
       const what = vis.reason ? t('api.blocked', { why: simLine(vis.reason, t) }) : yieldText(id, s, ring, t);
-      out.push(`- ${actionName(id, t)}${def.ringed ? ` (${ringName(ring, t).toLowerCase()})` : ''} · ${hrs(queueHours(q, s), t)} h · ${what} [do: ${q}]`);
+      // The Make camp card's badges (#1756): how many places to camp you know rate great and good.
+      const counts = id === 'camp' ? siteRatingCounts(s) : null;
+      const badges = counts && (counts.great || counts.good) ? ` · ${t('campsite.badgesTip', { great: counts.great, good: counts.good })}` : '';
+      out.push(`- ${actionName(id, t)}${def.ringed ? ` (${ringName(ring, t).toLowerCase()})` : ''} · ${hrs(queueHours(q, s), t)} h · ${what}${badges} [do: ${q}]`);
       for (const g of def.options?.(s, {}) ?? []) {
-        out.push(`    ${optionGroupLabel(g, t)} "${g.key}": ${g.choices.map(c => `"${c.value}" = ${optionLabel(g, c, t)}`).join(' | ')}`);
+        // A place to camp says how good you believe it is (#1756), as its option does on the page.
+        const rated = (c: { value: string }): string => { const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined; const r = p ? spotRated(s, p, t) : ''; return r ? ` (${r})` : ''; };
+        out.push(`    ${optionGroupLabel(g, t)} "${g.key}": ${g.choices.map(c => `"${c.value}" = ${optionLabel(g, c, t)}${rated(c)}`).join(' | ')}`);
       }
     }
   }
