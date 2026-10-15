@@ -71,6 +71,7 @@ import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
 import { packForm, createForm } from './opening-view';
+import { LOOKS, LOOK_IDS, applyLook, installLooks, lookFromQuery, lookOfGame, shownLook, type LookId } from './looks';
 import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -475,6 +476,15 @@ const TABS: TabDef<Tab>[] = [
 let dev = devMode();
 /** The hidden truths (true trust, true skill levels): `?dev=truths`, and only while dev mode is on (#1578). */
 let truths = dev && devTruths();
+
+// ── Era looks (#1719) ─────────────────────────────────────────────────────────
+// The page's colours and ornaments, one of nine looks (looks.ts). Presentation only: the look is
+// worked out each time the page is drawn (`lookOfGame`), never saved. Dev mode can preview any look
+// (the picker in the features panel); `?look=<id>` previews one from the address too, in dev mode
+// or on a local dev server (`npm run dev`, for screenshots). The preview is this page's alone: a
+// reload without `?look` forgets it.
+installLooks();
+let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV);
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
 // open tab against what shows each time it draws (`tabToOpen`).
@@ -541,6 +551,7 @@ function drawPage(a: AppState): void {
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
+  applyLook(shownLook(lookOfGame(a), lookPreview));
   if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
@@ -680,7 +691,7 @@ function setDev(on: boolean): void {
   setDevMode(on);
   truths = on && devTruths('');
   roadUi.truths = truths;
-  if (!on) showFeatures = false;
+  if (!on) { showFeatures = false; lookPreview = null; }
   devGateOpen = false;
   devGateNote = '';
 }
@@ -722,9 +733,23 @@ function featuresPanel(a: AppState): string {
       <p class="mood">${esc(f.note)} <span class="faint">(${esc(t(f.kind === 'rules' ? 'dev.rules' : 'dev.looks'))}${now} · #${f.issue})</span></p></div>
       <button class="pill" data-feature="${esc(f.id)}" aria-pressed="${on}">${esc(t(on ? 'dev.featOn' : 'dev.featOff'))}</button></li>`;
   }).join('');
-  return `<section class="box features"><p class="eyebrow">${esc(t('head.features'))}</p><ul class="flist">${rows}</ul>
+  return `<section class="box features">${lookPicker(a)}<p class="eyebrow">${esc(t('head.features'))}</p><ul class="flist">${rows}</ul>
     <p class="mood">${t('dev.featuresNoteHtml')}</p>
     <p><button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button></p></section>`;
+}
+
+/**
+ * The look picker (dev mode, #1719): preview any of the nine looks on this page. It changes only
+ * what's drawn: the game, its save and its run log never see it. "The game's look" ends the preview.
+ */
+function lookPicker(a: AppState): string {
+  const game = lookOfGame(a);
+  const shown = shownLook(game, lookPreview);
+  const swatch = (id: LookId): string => `<i class="lookdot" style="background:${LOOKS[id].tokens.panel};border-color:${LOOKS[id].tokens.gold}"></i>`;
+  const pills = LOOK_IDS.map(id => `<button class="pill" data-lookpick="${id}" aria-pressed="${lookPreview === id}" title="${id}">${swatch(id)}${esc(t(`look.${id}`))}</button>`).join('');
+  const back = `<button class="pill" data-lookpick="game" aria-pressed="${lookPreview === null}">${esc(t('dev.lookGame', { look: t(`look.${game}`) }))}</button>`;
+  return `<div class="lookpick"><p class="eyebrow">${esc(t('dev.looksHead'))}</p><div class="lookpills">${back}${pills}</div>
+    <p class="mood">${esc(t('dev.lookNote', { look: t(`look.${shown}`) }))}</p></div>`;
 }
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
@@ -1227,6 +1252,8 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'features') { showFeatures = !showFeatures; render(state); }
   else if (d.cmd === 'devgate') { devGateOpen = !devGateOpen; devGateNote = ''; render(state); if (devGateOpen) root.querySelector<HTMLInputElement>('#devpw')?.focus(); }
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
+  // A look preview (#1719): presentation only, so it's fine mid-day too.
+  else if (d.lookpick) { lookPreview = d.lookpick === 'game' ? null : LOOK_IDS.find(id => id === d.lookpick) ?? null; render(state); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();

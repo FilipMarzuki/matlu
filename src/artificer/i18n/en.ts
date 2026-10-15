@@ -232,6 +232,20 @@ const core = {
   'dev.rules': 'rules: from the next new game',
   'dev.looks': 'looks: now',
   'dev.featuresNoteHtml': "Kept in this browser, and used by the text console too. Add <code>?dev=truths</code> to also see what the game hides: each skill's true level, each person's true trust, and the rule behind each thing in the pack. Dev mode is off for players and opens with the password behind the ⚙ in the help panel.",
+  // The look picker (#1719): preview any of the nine era looks.
+  'dev.looksHead': 'LOOK PREVIEW',
+  'dev.lookGame': "THE GAME'S LOOK ({look})",
+  'dev.lookNote': 'Showing: {look}. A preview only changes this page: the game, its save and its run log never see it.',
+  // The nine era looks (#1717): three eras, three steps each.
+  'look.scout-1': 'Field journal',
+  'look.scout-2': 'Cartographer',
+  'look.scout-3': 'Surveyor',
+  'look.steampunk-1': "Tinkerer's bench",
+  'look.steampunk-2': 'Brass engine',
+  'look.steampunk-3': 'Soot and steam',
+  'look.rune-1': 'Etched slate',
+  'look.rune-2': 'Waking runes',
+  'look.rune-3': 'Full rune tech',
 
   // ── The records box at the end of a run ────────────────────────────────────
   'records.working': 'Working out how this run compares…',
