@@ -65,8 +65,9 @@ import { meetingModal } from './caravan-view';
 import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
-import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { nowTotal, queueTimes, timerClock } from './time-view';
+import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
@@ -377,7 +378,10 @@ function queueBlock(a: AppState, preview: Preview): string {
       return `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(note)}">`
         + `<b>${esc(optionLabel(g, c, t))}</b><span>${esc(note)}</span></button>`;
     }).join('')}</div></div>`).join('')}</div>` : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
+    // The grip (#1743): drag it (mouse, touch or pen) or use the arrow keys on it to move the task.
+    // Only the grip takes the drag, so taps on the row's own buttons and scrolling the page still work.
+    const grip = a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
       + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
@@ -1387,6 +1391,103 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'roadday') { roadUi.person = null; play(roadEndDay(state), { endDay: true }); }
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
   else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
+});
+
+// ── Reordering the queue (#1743) ─────────────────────────────────────────────
+// Drag a task by its grip (⋮⋮) to a new place. Pointer Events give mouse, touch and pen one code
+// path (HTML5 drag-and-drop doesn't work on touch). Pointer capture keeps the moves coming to the
+// grip even when the finger leaves it, and `touch-action: none` on the grip alone (style.css)
+// stops the browser scrolling the page from there, while the rest of the row scrolls as usual.
+// The decisions (where it lands, the gap) are pure, in queue-drag.ts; this only moves pixels.
+
+/** A screen-reader line after a move: one live region kept outside `root`, so redraws don't replace it. */
+const queueLive = document.createElement('p');
+queueLive.className = 'sr-only';
+queueLive.setAttribute('aria-live', 'polite');
+document.body.appendChild(queueLive);
+
+/** Move a task and keep the page's own state in step: an open options menu goes with its task. */
+function moveTask(from: number, to: number, refocus: boolean): void {
+  const next = moveQueued(state, from, to);
+  if (next === state) return;
+  const open = [...expanded].map(i => followMove(i, from, to));
+  expanded.clear();
+  open.forEach(i => expanded.add(i));
+  const name = actionName(parseItem(state.queue[from]).id, t);
+  update(next);
+  queueLive.textContent = t('queue.moved', { name, n: to + 1, total: next.queue.length });
+  if (refocus) root.querySelector<HTMLElement>(`[data-grip="${to}"]`)?.focus();
+}
+
+interface QueueDrag {
+  pointerId: number; from: number; to: number; x0: number; y0: number;
+  grip: HTMLElement; li: HTMLElement; ol: HTMLElement; rows: HTMLElement[]; rects: RowRect[];
+  /** How far the other rows slide to open the gap: the dragged row's height plus the list's gap. */
+  step: number;
+  /** Past the threshold: until then a press is still a tap. */
+  active: boolean;
+}
+let queueDrag: QueueDrag | null = null;
+
+root.addEventListener('pointerdown', e => {
+  const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-grip]');
+  if (!grip || playing || queueDrag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const li = grip.closest<HTMLElement>('li[data-qi]');
+  const ol = li?.parentElement;
+  if (!li || !ol) return;
+  // No text selection or native drag from a mouse press on the grip.
+  e.preventDefault();
+  const rows = [...ol.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.dataset.qi !== undefined);
+  const rects = rows.map(r => { const b = r.getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; });
+  const from = Number(li.dataset.qi);
+  const gap = parseFloat(getComputedStyle(ol).rowGap) || 0;
+  grip.setPointerCapture(e.pointerId);
+  queueDrag = { pointerId: e.pointerId, from, to: from, x0: e.clientX, y0: e.clientY, grip, li, ol, rows, rects, step: rects[from].bottom - rects[from].top + gap, active: false };
+});
+
+root.addEventListener('pointermove', e => {
+  const g = queueDrag;
+  if (!g || e.pointerId !== g.pointerId) return;
+  if (!g.active) {
+    if (!pastThreshold(g.x0, g.y0, e.clientX, e.clientY)) return;
+    g.active = true;
+    g.li.classList.add('lifted');
+    g.ol.classList.add('sorting');
+  }
+  e.preventDefault();
+  const dy = e.clientY - g.y0;
+  g.li.style.transform = `translateY(${dy}px)`;
+  // Where the dragged row's middle is now decides where it lands.
+  const mid = (g.rects[g.from].top + g.rects[g.from].bottom) / 2 + dy;
+  g.to = dropIndex(mid, g.rects, g.from);
+  g.rows.forEach((r, i) => { if (i !== g.from) r.style.transform = `translateY(${gapShift(i, g.from, g.to, g.step)}px)`; });
+});
+
+function endQueueDrag(e: PointerEvent, drop: boolean): void {
+  const g = queueDrag;
+  if (!g || e.pointerId !== g.pointerId) return;
+  queueDrag = null;
+  if (g.grip.hasPointerCapture(e.pointerId)) g.grip.releasePointerCapture(e.pointerId);
+  g.rows.forEach(r => { r.style.transform = ''; });
+  g.li.classList.remove('lifted');
+  g.ol.classList.remove('sorting');
+  if (drop && g.active && g.to !== g.from && !playing) moveTask(g.from, g.to, false);
+}
+root.addEventListener('pointerup', e => endQueueDrag(e, true));
+root.addEventListener('pointercancel', e => endQueueDrag(e, false));
+root.addEventListener('lostpointercapture', e => endQueueDrag(e, false));
+
+// The keyboard (#1743): ↑/↓ on a focused grip, or Alt+↑/↓ anywhere in a queue row, moves the task.
+root.addEventListener('keydown', e => {
+  if (playing || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  const el = e.target as HTMLElement;
+  const onGrip = el.matches('[data-grip]');
+  if (!onGrip && !e.altKey) return;
+  const li = el.closest<HTMLElement>('.queue li[data-qi]');
+  if (!li || (onGrip && (e.ctrlKey || e.metaKey || e.shiftKey))) return;
+  e.preventDefault();
+  const from = Number(li.dataset.qi);
+  moveTask(from, from + (e.key === 'ArrowUp' ? -1 : 1), true);
 });
 
 // Ask anything (#1575): a free question to someone on the road, once per person per stay. It's

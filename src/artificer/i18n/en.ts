@@ -180,6 +180,10 @@ const core = {
   'queue.day': 'DAY {n}',
   'queue.options': 'Options',
   'queue.remove': 'Remove',
+  // Reordering the queue (#1743): the grip on each row, and what a screen reader hears after a move.
+  'queue.grip': 'Move {name}: drag, or use the up and down arrow keys',
+  'queue.gripTip': 'Drag to move',
+  'queue.moved': '{name} moved to place {n} of {total}',
   'queue.empty': 'Empty — tap actions to plan. A day is {hours} waking hours; the queue spills into the next day and you sleep between.',
   'queue.todayHours': 'Today',
   'queue.spans.one': 'Spans <b>{n}</b> day',
