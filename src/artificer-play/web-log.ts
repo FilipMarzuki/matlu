@@ -75,6 +75,28 @@ export function newLog(start: WebStart): WebLog {
 export interface Recorder {
   log: WebLog;
   measures: GameMeasures;
+  /**
+   * Played with dev mode on (#1735): true once dev mode was on while the run was still being played,
+   * absent otherwise. Beside the log, not in it: dev mode changes no move, so the replay (and the
+   * game id made from the log) is the same either way. Sent with the run, so its record says so.
+   */
+  dev?: true;
+}
+
+/**
+ * Mark a run as played in dev mode (#1735) if dev mode is on now and the run is this Warden's and
+ * not over yet. Dev mode turned on after the end doesn't mark a run that was played without it. A
+ * mark is never taken off: leaving dev mode doesn't unplay what was played in it. Hands back the
+ * same recorder when nothing changes.
+ */
+export function markDev<R extends Recorder>(rec: R | null, a: AppState, dev: boolean): R | null {
+  if (!rec || !dev || rec.dev || rec.log.start.id !== a.sim.character.id || runOver(a)) return rec;
+  return { ...rec, dev: true };
+}
+
+/** What the page sends to the records (POST /api/v1/runs/submit): the log, the claim, a name, and `dev` only if it was on. */
+export function submitBody(rec: Recorder, claim: Claim, name: string): { log: WebLog; claim: Claim; name: string; dev?: true } {
+  return { log: rec.log, claim, name, ...(rec.dev ? { dev: true as const } : {}) };
 }
 
 /**

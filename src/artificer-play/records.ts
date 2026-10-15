@@ -97,6 +97,8 @@ export interface RunDetail {
    * full spend); absent on older records, which read ×1.00 (`runDifficulty`).
    */
   difficulty?: number;
+  /** Played with the web page's dev mode on (#1735), so a board can leave it out; absent otherwise. */
+  dev?: true;
 }
 
 /** A record's difficulty multiplier (#1728): its own, or ×1.00 for one from before it (or not a number ≥ 1). */
