@@ -33,6 +33,7 @@ import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow,
 import { seedOf, streamFor } from './rng';
 import { canDrawMap, mapDrawnLine } from './descriptive-map';
 import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, ratingText, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
+import { buildsPerSiteOn, campHere, moveNotes, buildsText, weathered, weatherSteps, NOTE_TEXT, type SiteBuild, type KeptPit } from './camp-builds';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
@@ -243,6 +244,12 @@ export interface Region1State {
    * switch on. Absent: camp is a site kind alone, as before.
    */
   campSpot?: CampSpotState;
+  /**
+   * The camps you're away from (#1753, `camp-builds-per-site`), by spot id: the day you left and
+   * what's built there (the shelter, the cold pit and the raw food in it). The camp you're at stays
+   * in the fields above. Written only by Make camp with the switch on; absent when none.
+   */
+  siteBuilds?: Record<string, SiteBuild>;
   /**
    * How worked each patch is (#1668, `action-length`): deadfall, berries, a fishing spot… by
    * `${ring}:${patch}`, 0..1. Written only by a session of chosen length, so only with the switch
@@ -810,18 +817,63 @@ function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
     choices: knownSpots(s).map(p => {
       // How good a place you believe it is (#1756, `camp-site-ratings`): '' when poor or off.
       const rated = ratingText(s, p);
+      // What's built there, and what stays behind here (#1753, `camp-builds-per-site`); off, the shelter is left for good.
+      const kept = buildsPerSiteOn(s) ? moveNotes(s, p).map(n => ` · ${NOTE_TEXT[n.key].replace('{list}', buildsText(n.items ?? [])).replace('{n}', String(n.n ?? 0))}`).join('')
+        : !p.here && s.tier > 0 ? ' · leaves your shelter behind' : '';
       return {
         value: p.id, label: SITES[p.kind].name,
-        note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${!p.here && s.tier > 0 ? ' · leaves your shelter behind' : ''} · ${siteKnowledge(s, p).text}${rated ? ` · ${rated}` : ''}`,
+        note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${kept} · ${siteKnowledge(s, p).text}${rated ? ` · ${rated}` : ''}`,
         blocked: p.here ? "you're camped here already" : null,
       };
     }),
   }];
 }
 
+/**
+ * Keep the camp you're leaving (#1753, `camp-builds-per-site`) in `siteBuilds` by its spot id, and
+ * take out the record of the camp you're going to. The raw food the cold pit holds stays in it, out
+ * of your stores. Returns the destination's record, if it had one, and how much food was left in
+ * the pit. Mutates `next`.
+ */
+function keepCamp(next: Region1State, to: string): { back: SiteBuild | undefined; left: number } {
+  const builds = { ...(next.siteBuilds ?? {}) };
+  const from = next.campSpot?.at;
+  if (from) {
+    const here = campHere(next);
+    const pit: KeptPit | null = here.pit ? { food: here.pit.food, ...(here.pit.food > 0 && next.pitRot ? { rot: next.pitRot } : {}) } : null;
+    if (here.shelter || pit) builds[from] = { left: next.day, ...(here.shelter ? { shelter: here.shelter } : {}), ...(pit ? { pit } : {}) };
+    else delete builds[from];
+    if (pit?.food) next.stores.rawFood -= pit.food;
+  }
+  const back = builds[to];
+  delete builds[to];
+  if (Object.keys(builds).length) next.siteBuilds = builds;
+  else delete next.siteBuilds;
+  return { back, left: from ? builds[from]?.pit?.food ?? 0 : 0 };
+}
+
+/**
+ * The food in a cold pit you left on day `left`, back on `next.day`: it spent those nights in the pit,
+ * and spoils as it would have with you there (`nightSpoilage`, by the run's seeded weather: no draws).
+ */
+function pitWhileAway(next: Region1State, site: SiteId, pit: KeptPit, left: number): { food: number; rot: number; spoiled: number } {
+  let food = pit.food, rot = pit.rot ?? 0;
+  if (feelsTemperature(next)) {
+    for (let d = left; d < next.day && food > 0; d++) {
+      const sp = nightSpoilage({ site, coldPitAt: site, day: d, config: next.config, stores: { ...next.stores, rawFood: food }, pitRot: rot }, nightTemp(d, weatherOn(next, d), next.config.calendar));
+      food -= sp.spoiled;
+      rot = sp.pitRot ?? 0;
+    }
+  }
+  return { food, rot: food > 0 ? rot : 0, spoiled: pit.food - food };
+}
+
 /** Leave the current shelter and settle at `site` (on an already-cloned state). */
 function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
   const moved = next.site !== null && next.tier > 0;
+  // Each camp keeps what's built there (#1753): only with camp as an action, where camps have spot ids.
+  const keep = spot !== undefined && buildsPerSiteOn(next);
+  const { back, left } = keep ? keepCamp(next, spot) : { back: undefined, left: 0 };
   next.site = site;
   // Camp as an action (#1732): camp is a real place now, and you'll know it as it is from tonight.
   // A cold pit stays where it was dug, so a pit at the old spot doesn't follow you.
@@ -836,12 +888,34 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
   next.shelterGrade = null;
   next.shelter = { type: null, walls: null };
   say(next, `Chose the ${SITES[site].name.toLowerCase()} as your ground${moved ? ' — the old shelter is left behind' : ''}.`, 'action');
-  // The patrol's tarp (#1400) goes up wherever you camp: a crude lean-to roof, no tree felled.
-  if (hasKit(next, 'tarp')) {
+  if (left > 0) say(next, `You leave ${left} raw food in the cold pit.`, 'action');
+  if (back?.shelter) {
+    // The shelter you built here still stands, a grade worse for every WEATHER_DAYS away (never below crude).
+    const grade = weathered(back.shelter.grade, weatherSteps(next.day - back.left));
+    next.tier = back.shelter.tier;
+    next.shelterGrade = grade;
+    next.shelter = { type: back.shelter.type, walls: back.shelter.walls, ...(back.shelter.sited ? { sited: true } : {}) };
+    say(next, grade === back.shelter.grade ? 'Your shelter here still stands.' : 'Your shelter here still stands, a little weathered.', 'action');
+  } else if (hasKit(next, 'tarp')) {
+    // The patrol's tarp (#1400) goes up wherever you camp: a crude lean-to roof, no tree felled.
     next.tier = 1;
     next.shelterGrade = 'crude';
     next.shelter = { type: 'leanto', walls: null };
     say(next, 'You string the tarp between two trees and peg it down low — a roof, of sorts.', 'action');
+  }
+  if (back?.pit) {
+    // The cold pit you dug here, and the food you left in it: yours again, less what went bad meanwhile.
+    next.coldPitAt = site;
+    const p = pitWhileAway(next, site, back.pit, back.left);
+    if (p.spoiled > 0) {
+      addTally(next, { spoiled: p.spoiled });
+      say(next, `${p.spoiled} raw food in the cold pit went bad while you were away.`, 'hardship');
+    }
+    if (p.food > 0) {
+      next.stores.rawFood += p.food;
+      if (p.rot > 0 && featureOn(next.config.world.features, 'cold-pit-slows')) next.pitRot = p.rot;
+      say(next, `You take ${p.food} raw food back out of the cold pit.`, 'action');
+    } else if (!p.spoiled) say(next, 'The cold pit here is as you left it.', 'action');
   }
 }
 

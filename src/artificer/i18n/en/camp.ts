@@ -456,4 +456,15 @@ export const camp = {
   'campsite.rated.great': '★ great place to camp',
   'campsite.rated.good': '✓ good place to camp',
   'campsite.badgesTip': 'Places to camp you know, as you read them: {great} great (★), {good} good (✓)',
+  // What's built at each place to camp (#1753, `camp-builds-per-site`).
+  'campsite.build.leanto': 'lean-to',
+  'campsite.build.hut': 'brush hut',
+  'campsite.build.timber': 'timber walls',
+  'campsite.build.stone': 'stone-banked walls',
+  'campsite.build.pit': 'cold pit',
+  'campsite.build.pitFood': 'cold pit ({n} raw food)',
+  'campsite.builtHere': 'Built here: {list}',
+  'campsite.builtThere': 'built there: {list}',
+  'campsite.keeps': 'your camp here stays as it is',
+  'campsite.leavesFood': 'leaves {n} raw food in the cold pit',
 } as const satisfies Record<string, string>;
