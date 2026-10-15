@@ -825,6 +825,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
     next.campSpot = { at: spot, camped: next.campSpot?.camped.includes(spot) ? [...next.campSpot.camped] : [...(next.campSpot?.camped ?? []), spot] };
     if (next.coldPitAt) next.coldPitAt = null;
   }
+  // The pit's carried rot (#1757) belongs to the pit where it built up: leaving camp leaves it behind.
+  delete next.pitRot;
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -2311,6 +2313,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     // The pit is part of the camp, not something you carry.
     next.tools = next.tools.filter(t => t.item !== COLD_PIT_RECIPE.output.item);
     next.coldPitAt = next.site;
+    // A new pit starts with no rot carried over (#1757), even if one was left behind earlier today.
+    delete next.pitRot;
     say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold${featureOn(next.config.world.features, 'cold-pit-slows') ? ' and slows the rot' : ''}.`, 'action', at);
   } else if (result.kind === 'crafted') {
     say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : " Crude — it won't hold up through a winter.") : ''}`, 'action', at);

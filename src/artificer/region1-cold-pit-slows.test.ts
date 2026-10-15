@@ -99,6 +99,17 @@ describe('The cold pit slows spoilage (#1757)', () => {
     for (const world of [ON, OFF]) expect(JSON.stringify(play(world))).toBe(JSON.stringify(play(world)));
   });
 
+  // Review finding: the carried rot belongs to the pit it built up in, never a new one.
+  it('leaves the carried rot behind when camp moves, and starts a newly dug pit with none', () => {
+    const owing = pitCamp('cave', 3, 8, ON, { pitRot: 0.9 });
+    expect(chooseSite(owing, 'river').pitRot).toBeUndefined();
+    const dug = runAction(pitCamp('river', 3, 8, ON, { coldPitAt: null, pitRot: 0.9 }), 'coldPit');
+    expect(dug.coldPitAt).toBe('river');
+    expect(dug.pitRot).toBeUndefined();
+    // So a fresh pit's first mild night spoils nothing it wouldn't have from zero.
+    expect(nightSpoilage(dug, 8).spoiled).toBe(nightSpoilage({ ...dug, pitRot: undefined }, 8).spoiled);
+  });
+
   // 6. The carried rot is saved with the run, and only a well-formed one is kept.
   it('keeps the carried rot through a save, and drops a malformed one', () => {
     const s = { ...pitCamp('cave', 3, 8), pitRot: 0.4 };
