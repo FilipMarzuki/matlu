@@ -884,7 +884,10 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
 /* The icon's slot plate (#1719, #1693): a faint tile in the dark looks, so dark-drawn icons don't sink
    into slate; transparent on the parchment looks (#1749), where the icon sits right on the paper. */
-.iicon { background-color: var(--plate); border-radius: 4px; }
+/* A soft round pool of the plate colour, fading out before the slot's edge, so on the dark looks
+   a dark-drawn icon still stands out without sitting on a visible square (#1749). The paper looks
+   set `plate` transparent, so there it paints nothing. */
+.iicon { background-image: radial-gradient(closest-side, var(--plate) 45%, transparent); }
 /* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
 .r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
 .packitem:has(.iicon) { display: inline-flex; align-items: center; }
