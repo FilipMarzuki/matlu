@@ -56,6 +56,10 @@ export const stepOf = (id: LookId): 1 | 2 | 3 => Number(id.slice(id.indexOf('-')
  *
  * The status colours (`green`, `warn`, `danger`, `ice`, `lilac`, `amber`) are in every look too:
  * they're text on panels, so a light paper look needs darker ones.
+ *
+ * `plate` is fully transparent in the paper looks (#1749): the icons' dark outlines read on paper by
+ * themselves, and a tile behind them looked like a dirty square. The dark looks keep a faint plate,
+ * because some icons (the fire steel, the sleeping bag) are drawn dark and would sink into slate.
  */
 export const COLOR_TOKENS = [
   'bg', 'panel', 'sub', 'sub2', 'border', 'border2', 'ink', 'dim', 'faint', 'gold', 'teal',
@@ -107,47 +111,68 @@ const grid = 'repeating-linear-gradient(0deg, var(--grain) 0 1px, transparent 1p
 const woodGrain = 'repeating-linear-gradient(0deg, var(--grain) 0 2px, transparent 2px 9px, var(--grain) 9px 10px, transparent 10px 17px)';
 /** Slate: fine diagonal striation. */
 const slate = 'repeating-linear-gradient(45deg, var(--grain) 0 1px, transparent 1px 7px)';
+/**
+ * Aged parchment (#1749): a few faint warm stains at fixed spots (so every page load looks the same),
+ * a hint of fibre, and edges a shade darker, like an old map that has been handled. `rgb` is the stain
+ * colour as `r,g,b`; `a` scales every layer, and all of it stays barely visible behind the text.
+ */
+const parchment = (rgb: string, a: number): string => {
+  const c = (alpha: number): string => `rgba(${rgb},${+(alpha * a).toFixed(3)})`;
+  return [
+    // Fibre: fine, slightly slanted strands.
+    `repeating-linear-gradient(97deg, ${c(0.012)} 0 1px, transparent 1px 5px)`,
+    // Stains: large, soft and few.
+    `radial-gradient(520px 340px at 18% 22%, ${c(0.05)}, transparent 70%)`,
+    `radial-gradient(640px 420px at 82% 58%, ${c(0.04)}, transparent 70%)`,
+    `radial-gradient(380px 260px at 46% 88%, ${c(0.045)}, transparent 70%)`,
+    // The handled edges.
+    `radial-gradient(ellipse 120% 100% at 50% 40%, transparent 55%, ${c(0.10)})`,
+  ].join(', ');
+};
+/** A box's edges, a touch darker than its middle: the same wear, on each panel. */
+const wornEdge = (rgb: string, alpha: number): string => `radial-gradient(farthest-corner at 50% 45%, transparent 62%, rgba(${rgb},${alpha}))`;
+
 /** A soft light over the page, like the original dark look's two glows. */
 const glow = (a: string, b: string): string => `radial-gradient(1100px 520px at 70% -10%, ${a}, transparent), radial-gradient(900px 500px at 10% 110%, ${b}, transparent)`;
 
 /** The nine looks. Placeholders, readable (looks.test.ts checks AA contrast), refined by the era issues. */
 export const LOOKS: Readonly<Record<LookId, Look>> = {
-  // Field journal: pencil on parchment, muted greens.
+  // Field journal: pencil on aged paper, muted greens (#1749: a step darker and warmer than fresh cream).
   'scout-1': {
     scheme: 'light',
     tokens: {
-      bg: '#e6dec6', panel: '#f2ecdb', sub: '#ebe4cf', sub2: '#e2d9c0', border: '#c4b998', border2: '#aea283',
-      ink: '#2a2924', dim: '#55534a', faint: '#77735f', gold: '#45603a', teal: '#3f5f52',
-      amber: '#7d5418', green: '#35632c', warn: '#8a4f0c', danger: '#9e2f27', ice: '#2e5a73', lilac: '#62488a',
-      plate: '#d6ccb0', ornament: 'rgba(60,58,48,.30)', grain: 'rgba(60,58,48,.06)',
-      'page-texture': ruled,
-      'box-ornament': 'linear-gradient(90deg, transparent 0 7px, var(--grain) 7px 8px, transparent 8px)',
+      bg: '#e2d6bb', panel: '#efe5cd', sub: '#e8ddc3', sub2: '#ded1b4', border: '#c0ae8a', border2: '#a99672',
+      ink: '#2a2219', dim: '#554838', faint: '#756550', gold: '#465b34', teal: '#3c5a4c',
+      amber: '#7a5016', green: '#335f29', warn: '#864a0a', danger: '#9a2c24', ice: '#2c566e', lilac: '#5f4586',
+      plate: 'rgba(0,0,0,0)', ornament: 'rgba(72,52,28,.30)', grain: 'rgba(80,56,26,.065)',
+      'page-texture': `${ruled}, ${parchment('110,74,30', 1)}`,
+      'box-ornament': `linear-gradient(90deg, transparent 0 7px, var(--grain) 7px 8px, transparent 8px), ${wornEdge('110,74,30', 0.05)}`,
       'box-glow': 'none',
     },
   },
-  // Cartographer: inked lines, compass-rose corner marks, warmer paper.
+  // Cartographer: inked lines, compass-rose corner marks, warmer, older paper.
   'scout-2': {
     scheme: 'light',
     tokens: {
-      bg: '#e8d6b2', panel: '#f4e6c8', sub: '#eddcba', sub2: '#e4d0aa', border: '#a88b5c', border2: '#8d7046',
-      ink: '#231b11', dim: '#574631', faint: '#76613f', gold: '#6e4212', teal: '#2c5656',
-      amber: '#744a10', green: '#33602a', warn: '#7d4508', danger: '#9a2c22', ice: '#2b5670', lilac: '#5e4485',
-      plate: '#dcc79f', ornament: 'rgba(70,45,20,.55)', grain: 'rgba(90,60,25,.07)',
-      'page-texture': grid,
-      'box-ornament': cornerRules(true),
+      bg: '#e2cda5', panel: '#efdfbe', sub: '#e8d5b0', sub2: '#dfc8a0', border: '#a3855a', border2: '#876a42',
+      ink: '#22180d', dim: '#54422c', faint: '#715b39', gold: '#6a3f10', teal: '#2a5252',
+      amber: '#70470e', green: '#305c27', warn: '#784206', danger: '#93291f', ice: '#29526b', lilac: '#5a4181',
+      plate: 'rgba(0,0,0,0)', ornament: 'rgba(70,45,20,.55)', grain: 'rgba(90,60,25,.07)',
+      'page-texture': `${grid}, ${parchment('105,66,24', 1.1)}`,
+      'box-ornament': `${cornerRules(true)}, ${wornEdge('105,66,24', 0.06)}`,
       'box-glow': 'none',
     },
   },
-  // Surveyor: richer colour, the first hint of brass.
+  // Surveyor: richer colour on tanned, leathery paper, the first hint of brass.
   'scout-3': {
     scheme: 'light',
     tokens: {
-      bg: '#e1cea6', panel: '#f1e1bd', sub: '#e9d6ae', sub2: '#dfca9d', border: '#a08150', border2: '#86683a',
-      ink: '#21190e', dim: '#54432c', faint: '#735d38', gold: '#6a480c', teal: '#22594a',
-      amber: '#6e460c', green: '#2a5a24', warn: '#7a4206', danger: '#8c2519', ice: '#24546e', lilac: '#5a4283',
-      plate: '#d8c08e', ornament: 'rgba(150,108,30,.70)', grain: 'rgba(110,80,25,.07)',
-      'page-texture': grid,
-      'box-ornament': cornerRules(true),
+      bg: '#dbc59b', panel: '#ecd9b2', sub: '#e4cfa5', sub2: '#d9c294', border: '#9b7b4a', border2: '#806236',
+      ink: '#1f160b', dim: '#513f29', faint: '#6c5633', gold: '#66440b', teal: '#205546',
+      amber: '#6a430b', green: '#285622', warn: '#753f05', danger: '#872317', ice: '#22506a', lilac: '#563f7e',
+      plate: 'rgba(0,0,0,0)', ornament: 'rgba(150,108,30,.70)', grain: 'rgba(110,80,25,.07)',
+      'page-texture': `${grid}, ${parchment('100,62,20', 1.2)}`,
+      'box-ornament': `${cornerRules(true)}, ${wornEdge('100,62,20', 0.07)}`,
       'box-glow': 'inset 0 1px 0 rgba(170,125,40,.35)',
     },
   },
