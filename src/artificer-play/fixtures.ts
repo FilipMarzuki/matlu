@@ -8,6 +8,7 @@ import { createVitals } from '../artificer/vitality';
 import { peopleHere, villageOf, type RoadActionId } from '../artificer/road';
 import { scouted } from '../artificer/exploration';
 import { featureOn } from '../artificer/features';
+import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import {
   act, choose, carryOn, endTheDay, runQueuedDay, chooseFocus, chooseEating, settle, weighPin, meetCaravan, meetingChoose, rideCaravan, stayBehind,
   roadAct, roadChoose, roadEndDay, serialize as serializeApp, deserialize as deserializeApp, type AppState,
@@ -110,6 +111,11 @@ export function pagePlay(from: AppState, rec: Recorder, opts: { reload?: boolean
     }
     if (s.day !== day) { day = s.day; k = 0; }
     // Free settings now and then: a camp, a focus, the rations, a pin.
+    // With camp as an action (#1732) the page's camp card makes camp at a known place, as an action; else the free setting.
+    if (!s.site && campAsActionOn(s) && !once.has('site')) { once.add('site'); const item: QueueItem = { q: 'camp', opts: { spot: knownSpots(s)[0].id } }; tap(act(app, item), { do: item }); continue; }
+    // …and once a warmer place is known (a cave or a treeline) within a walk, moving there, once.
+    const warmer = campAsActionOn(s) && !once.has('move') ? knownSpots(s).find(p => !p.here && (p.kind === 'cave' || p.kind === 'tree') && p.hours < 3) : undefined;
+    if (warmer) { once.add('move'); const item: QueueItem = { q: 'camp', opts: { spot: warmer.id } }; tap(act(app, item), { do: item }); continue; }
     if (!s.site && scouted(s.explore, 1) && !once.has('site')) { once.add('site'); tap(settle(app, 'cave'), { set: { site: 'cave' } }); continue; }
     if (s.day === 3 && !once.has('focus')) { once.add('focus'); tap(chooseFocus(app, parseFocus('goal:larder')), { set: { focus: 'goal:larder' } }); continue; }
     if (s.day === 5 && !once.has('half')) { once.add('half'); tap(chooseEating(app, 'half'), { set: { eating: 'half' } }); continue; }

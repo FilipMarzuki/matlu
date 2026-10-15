@@ -210,6 +210,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No calendar and no thermometer at the start: the weather and the season are told in words ("cloudy and windy; you can see your breath in the morning; the first snow can\'t be far off"). Keep a tally of the days (the notebook, or a week of notches) and you know the day and about how long to the snow; once you\'ve seen the first snow, the season strip.',
   },
   {
+    // A rules feature: it changes what can happen in a run (camp is made by an action, at real places
+    // on the Reach that you've explored, and what you can tell of them), so a run from before it
+    // (absent: false) keeps the four sites and the free choice of them on replay.
+    id: 'camp-as-action', name: 'Make camp is an action, at places you know', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1732,
+    note: 'Making camp is an action like any other, with the walk there and the setting up. Only places you have explored are offered, each a real place on the land: a cave in the high ground, the edge of a wood, the stream\'s bank, open heath. Your Intelligence, skills and Keen Eye decide how well you can read a place before you camp there.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

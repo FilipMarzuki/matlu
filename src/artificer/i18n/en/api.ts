@@ -76,6 +76,7 @@ export const api = {
   'api.no.roadFeeds': 'On the road the caravan feeds you.',
   'api.no.site': 'A camp site is one of {ids}.',
   'api.no.campLeft': 'You left your camp behind.',
+  'api.no.campAction': 'Making camp is an action in this game: do "camp" with the "spot" option (one of the places to camp the view lists), e.g. { "do": { "q": "camp", "opts": { "spot": "<spot>" } } }.',
 
   // ── The MCP server's lines around a game in another language (mcp.ts) ──────
   'api.mcp.started': 'Game started. game_id: {id}\nPass this game_id to every other tool.',

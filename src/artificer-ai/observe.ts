@@ -36,6 +36,7 @@ import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { featureOn } from '../artificer/features';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
 import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
@@ -168,6 +169,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   experiment: 'try things with the materials at hand (option "with" picks one) -> work out a recipe you don\'t know yet; a focus on its concept or skill doubles the progress',
   tinker: 'rests body, spends mind',
   rest: 'recovers a little',
+  camp: 'make camp at a place you know (option "spot"): the walk there, then 2h setting up; moving leaves your shelter behind',
   treat: 'tends your worst untreated injury (1h): a first-aid dressing, or improvised — a cut with 1 materials (or a hide), a sprain with 1 firewood + 1 materials, a hurt hand with 1 food',
 };
 
@@ -257,7 +259,10 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const nights = (n: number): string => `${n} night${n === 1 ? '' : 's'}`;
   lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} (${o.fuelToThaw} needed to the thaw, tonight ${nightFuel(s)}) · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
 
-  lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  // Camp as an action (#1732): the camp is a real place, and where to camp is the camp action's choice.
+  const spot = campAsActionOn(s) ? knownSpots(s).find(p => p.here) : undefined;
+  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  if (campAsActionOn(s)) lines.push('Make camp is an action here: "camp", with its "spot" option, at one of the places to camp you know (each a real place, by direction and walking time from where you are, with what you can tell of it). Explore to find more. The "site" field does nothing in this game.');
   lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => toolLabel(x, s.taughtBy)).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
   // With the actions you don't know hidden (#1690), what's still to work out isn't named either, as in the app: only how many.

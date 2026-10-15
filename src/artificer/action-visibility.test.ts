@@ -107,7 +107,8 @@ describe('One Explore action at the start; its sub-actions unlock as you level (
       const s = warden(on);
       // Explore and Experiment don't exist; every other action reads as blockedReason does, nothing hidden.
       for (const v of actionVisibility(s)) {
-        if (v.id === 'explore' || v.id === 'experiment') { expect(v.status).toBe('hidden'); continue; }
+        // Make camp (#1732) has its own switch, off here too (a run from before it).
+        if (v.id === 'explore' || v.id === 'experiment' || v.id === 'camp') { expect(v.status).toBe('hidden'); continue; }
         expect(v.status).not.toBe('hidden');
         expect(v.reason).toBe(blockedReason(s, v.id, 1));
       }

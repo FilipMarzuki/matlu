@@ -105,14 +105,19 @@ function pick(body: Record<string, unknown>, i: number, r: () => number): Move {
   return rest[Math.floor(r() * rest.length)].move;
 }
 
+/** Camp as a free setting, as before #1732: the policy above settles that way. */
+const OLD_CAMP = { 'camp-as-action': false };
+
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());
 
 describe('An optional lang for API, MCP and console games (#1713)', () => {
   it('same game in both languages: two API games with one seed and the same moves keep equal states and outcomes, and only their text differs', async () => {
     const store = memoryStore();
-    const en = (await handle(post('/api/v1/games', { name: 'Vega' }), store, deps)).body;
-    const sv = (await handle(post('/api/v1/games', { name: 'Vega', lang: 'sv' }), store, deps)).body;
+    // The policy below settles with the free "site" setting, so these games keep it (#1732's switch off);
+    // Make camp as an action, in both languages, is camp-as-action.test.ts's and camp-i18n.test.ts's.
+    const en = (await handle(post('/api/v1/games', { name: 'Vega', features: OLD_CAMP }), store, deps)).body;
+    const sv = (await handle(post('/api/v1/games', { name: 'Vega', lang: 'sv', features: OLD_CAMP }), store, deps)).body;
     expect(sv.lang).toBe('sv');
     const ids = [String(en.id), String(sv.id)];
     let last: Record<string, unknown>[] = [en, sv];
@@ -154,7 +159,7 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
 
   it('a Swedish game: what it returns has no English-only words, and a later request still answers in Swedish', async () => {
     const store = memoryStore();
-    const start = await handle(post('/api/v1/games', { lang: 'sv' }), store, deps);
+    const start = await handle(post('/api/v1/games', { lang: 'sv', features: OLD_CAMP }), store, deps);
     expect(start.status).toBe(201);
     const id = String(start.body.id);
     const texts: string[] = [bodyText(start.body)];

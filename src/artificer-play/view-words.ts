@@ -56,6 +56,9 @@ function marker(attrs: string): string | null {
   if (option !== undefined) return `choose: ${option}`;
   const site = attr(attrs, 'data-site');
   if (site !== undefined) return `set site: ${site}`;
+  // A camp site's card (#1732): Make camp there, as the action with its spot.
+  const spot = attr(attrs, 'data-camp');
+  if (spot !== undefined) return `do: {"q":"camp","opts":{"spot":"${spot}"}}`;
   if (attr(attrs, 'data-cmd') === 'roadday') return 'endDay';
   return null;
 }
