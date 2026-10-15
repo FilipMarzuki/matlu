@@ -13,15 +13,26 @@
  */
 
 import type { Tool } from './crafting';
+import type { WeatherId } from './world';
+import { featureOn, type FeatureSwitches } from './features';
 
 export type KitId =
   | 'mora-knife' | 'fire-steel' | 'matches' | 'first-aid-kit' | 'water-bottle' | 'kasa' | 'thermos'
   | 'sleeping-bag' | 'sleeping-pad' | 'sit-pad' | 'wool-underlayer' | 'hat-mittens' | 'rain-gear' | 'spare-socks'
   | 'headlamp' | 'map-compass' | 'whistle' | 'cord' | 'tarp' | 'trangia' | 'weekend-food' | 'sweets'
-  | 'notebook' | 'toilet-paper' | 'phone' | 'comic' | 'pillow';
+  | 'notebook' | 'toilet-paper' | 'phone' | 'comic' | 'pillow'
+  // The odd things (#1727): funny, maybe useful, and weird.
+  | 'family-tent' | 'salsa' | 'hairdryer' | 'home-pillow' | 'dumbbells' | 'hammer' | 'big-bag-sweets' | 'rubber-boots' | 'flamingo' | 'rice'
+  | 'harmonica' | 'board-game' | 'binoculars' | 'duct-tape' | 'sewing-kit' | 'magnifying-glass' | 'notebook-pencils' | 'bird-book' | 'throat-sweets' | 'lots-of-socks'
+  | 'toy-duck' | 'garden-gnome' | 'snow-globe' | 'roller-skate' | 'alarm-clock' | 'dala-horse' | 'sock-puppet' | 'pickled-herring' | 'smooth-stones' | 'accordion';
 
-export type KitGroup = 'sleep' | 'fire-food' | 'clothes' | 'tools' | 'other';
-export const KIT_GROUPS: Readonly<Record<KitGroup, string>> = { sleep: 'Sleep', 'fire-food': 'Fire and food', clothes: 'Clothes', tools: 'Tools', other: 'Other' };
+/**
+ * The pack screen's sections, in the order they show. `personal` (#1727) is for the things from
+ * home that fit no other section: toys, keepsakes, a whole accordion. The English labels here are
+ * for the AI's packing turn; the screen reads `kitgroup.<id>` from the catalog.
+ */
+export type KitGroup = 'sleep' | 'fire-food' | 'clothes' | 'tools' | 'other' | 'personal';
+export const KIT_GROUPS: Readonly<Record<KitGroup, string>> = { sleep: 'Sleep', 'fire-food': 'Fire and food', clothes: 'Clothes', tools: 'Tools', other: 'Other', personal: 'Personal' };
 
 export interface KitItem {
   id: KitId;
@@ -71,7 +82,64 @@ export const KIT: readonly KitItem[] = [
   { id: 'toilet-paper', name: 'Toilet paper', sv: 'toalettpapper', weight: 0.1, group: 'other', does: 'You know what for.', effect: 'nothing, out here', note: 'In a plastic bag. Every scout brings it. Every scout.' },
   { id: 'phone', name: 'Phone', sv: 'mobil', weight: 0.2, group: 'other', does: 'To call home.', effect: 'nothing: no signal, and dead by the third day', note: 'You promised to call home on Saturday evening.' },
   { id: 'comic', name: 'Comic book', sv: 'serietidning', weight: 0.2, group: 'other', does: 'Something to read.', effect: 'once, resting on a rainy day: +3 Clarity', note: 'Bamse, read so many times the cover\'s coming off.' },
+  // The odd things (#1727): real stories of what scouts, kids and hikers have packed. Their `effect`
+  // is what they do with the `pack-extras` switch on; with it off, every one of them only weighs.
+  // "For later" marks an effect that needs a system the game doesn't have yet.
+  // Funny
+  { id: 'family-tent', name: 'Family-size tent', sv: 'familjetält', weight: 4.5, group: 'sleep', does: 'Room for six. You are one.', effect: 'cold nights cost 10% less (stacks with the wool)', note: 'Dad\'s camping tent, still in its bag from last summer. It\'s the size of a small house.' },
+  { id: 'home-pillow', name: 'Bed pillow from home', sv: 'huvudkudde', weight: 0.8, group: 'sleep', does: 'The real one, from your bed.', effect: '+1 Clarity every night', note: 'Not a camp pillow. The big soft one. It takes up half the pack.' },
+  { id: 'salsa', name: 'Big jar of salsa', sv: 'burk salsa', weight: 0.7, group: 'fire-food', does: 'For tacos. You have no tacos.', effect: 'once, the first night you eat: +2 Clarity', note: 'It was on the kitchen counter, and it seemed important.' },
+  { id: 'big-bag-sweets', name: 'Family pack of sweets', sv: 'jättepåse godis', weight: 1.0, group: 'fire-food', does: 'Only the green ones are left.', effect: 'nothing yet (a treat to trade with kids on the road is for later)', note: 'It was full when the bus left. Somebody sat next to you.' },
+  { id: 'rice', name: 'Bag of rice, no pot', sv: 'påse ris', weight: 1.0, group: 'fire-food', does: 'Dinner, eventually.', effect: 'nothing yet (food once you can cook it is for later)', note: 'A whole kilo. The pot is in somebody else\'s pack.' },
+  { id: 'rubber-boots', name: 'Rubber boots', sv: 'gummistövlar', weight: 1.8, group: 'clothes', does: 'Mum insisted.', effect: 'rain soaks you a quarter slower (stacks with rain gear)', note: 'Green, heavy, and they squeak with every step.' },
+  { id: 'hammer', name: 'Full-size hammer', sv: 'snickarhammare', weight: 0.7, group: 'tools', does: 'Instead of tent pegs.', effect: 'nothing yet (counting as a crude tool is for later: there are no hammers to count as)', note: 'From the toolbox in the garage. Pegs go in with a stone, but this felt more serious.' },
+  { id: 'hairdryer', name: 'Hairdryer', sv: 'hårtork', weight: 0.6, group: 'personal', does: 'Needs a socket.', effect: 'nothing, until there is power', note: 'Your sister\'s. She doesn\'t know yet.' },
+  { id: 'dumbbells', name: 'Two dumbbells', sv: 'två hantlar', weight: 4.0, group: 'personal', does: 'For staying in shape.', effect: 'half an hour of Strength exercise every night', note: 'Two kilos each. The leader looked at them for a long time and said nothing.' },
+  { id: 'flamingo', name: 'Inflatable flamingo', sv: 'uppblåsbar flamingo', weight: 0.4, group: 'personal', does: 'For the lake.', effect: 'nothing (it floats)', note: 'Pink, flat, and already named. There might be a lake.' },
+  // Maybe useful
+  { id: 'binoculars', name: 'Binoculars', sv: 'kikare', weight: 0.5, group: 'tools', does: 'For birds.', effect: 'scouting and looking out take 10% less time (stacks with the compass)', note: 'Grandpa\'s, in a leather case that smells of his car.' },
+  { id: 'duct-tape', name: 'Duct tape', sv: 'silvertejp', weight: 0.15, group: 'tools', does: 'Fixes things.', effect: 'once, a tool knocked in an accident is taped up instead of losing a grade or breaking', note: 'If it moves and it shouldn\'t, tape it. Half a roll, wound round a pencil stub.' },
+  { id: 'sewing-kit', name: 'Sewing kit', sv: 'sykit', weight: 0.1, group: 'tools', does: 'Grandma packed it.', effect: 'nothing yet (clothes and bedroll wearing slower is for later: nothing wears yet)', note: 'Needles, thread in five colours, and a button that isn\'t from anything.' },
+  { id: 'magnifying-glass', name: 'Magnifying glass', sv: 'förstoringsglas', weight: 0.1, group: 'tools', does: 'For looking at ants.', effect: 'on a clear day, the night\'s fire is lit in the sun: one firewood less for a fire that needs two or more', note: 'From the nature badge. Everything looks bigger and more interesting.' },
+  { id: 'bird-book', name: 'Bird book', sv: 'fågelbok', weight: 0.4, group: 'tools', does: 'Which bird is that?', effect: 'tracking and hunting take 10% less time', note: 'Every bird in the north, with pictures. You\'ve ticked off the magpie.' },
+  { id: 'throat-sweets', name: 'Hard sweets', sv: 'halstabletter', weight: 0.05, group: 'fire-food', does: 'For your throat.', effect: 'cold nights cost 5% less', note: 'Strong ones, in a tin that rattles. They make your eyes water.' },
+  { id: 'lots-of-socks', name: 'Lots of spare socks', sv: 'extra sockor', weight: 0.8, group: 'clothes', does: 'You can never have too many.', effect: 'dry socks after a soaking, as the spare wool socks (fewer blisters is for later)', note: 'Seven pairs, one for every day, and a spare pair for the spares.' },
+  { id: 'notebook-pencils', name: 'Squared notebook and pencils', sv: 'rutat block', weight: 0.3, group: 'other', does: 'For writing things down.', effect: 'something to draw your own map on, as the notebook is (#1686)', note: 'Squared pages, and a box of pencils in every colour.' },
+  { id: 'harmonica', name: 'Harmonica', sv: 'munspel', weight: 0.1, group: 'personal', does: 'Everyone will love it.', effect: 'nothing yet (better first impressions with villagers is for later)', note: 'You know one song. Most of one song.' },
+  { id: 'board-game', name: 'Board game', sv: 'sällskapsspel', weight: 0.9, group: 'personal', does: 'For when it rains.', effect: 'on a storm day: +2 Clarity at night', note: 'Half the pieces are missing, so you make up the rules.' },
+  // Weird
+  { id: 'pickled-herring', name: 'Jar of pickled herring', sv: 'burk sill', weight: 0.6, group: 'fire-food', does: 'For midsummer.', effect: '+1 food, packed (animals smelling it is for later)', note: 'Midsummer was in June. The lid is very, very tight.' },
+  { id: 'toy-duck', name: 'Toy duck', sv: 'leksaksanka', weight: 0.1, group: 'personal', does: 'Comes everywhere.', effect: 'nothing (journal lines about it are for later)', note: 'Yellow rubber, a bit chewed. He\'s been on every trip since you were three.' },
+  { id: 'garden-gnome', name: 'Garden gnome', sv: 'trädgårdstomte', weight: 1.5, group: 'personal', does: 'He wanted to come.', effect: 'nothing (villagers asking about him is for later)', note: 'From the flowerbed by the front door. Red hat, painted smile, heavier than he looks.' },
+  { id: 'snow-globe', name: 'Snow globe', sv: 'snöglob', weight: 0.5, group: 'personal', does: 'It\'s always winter inside.', effect: 'nothing', note: 'Shake it and a tiny red cottage gets snowed in.' },
+  { id: 'roller-skate', name: 'A single roller skate', sv: 'en rullskridsko', weight: 1.2, group: 'personal', does: 'The other one is at home.', effect: 'nothing', note: 'You meant to pack the pair. You found one under the bed, in a hurry.' },
+  { id: 'alarm-clock', name: 'Alarm clock', sv: 'väckarklocka', weight: 0.3, group: 'personal', does: 'So you don\'t oversleep.', effect: 'rings at dawn on the first morning; nothing else', note: 'The loud kind, with two bells on top. It ticks all night.' },
+  { id: 'dala-horse', name: 'Wooden dala horse', sv: 'dalahäst', weight: 0.2, group: 'personal', does: 'From Grandpa.', effect: 'nothing (becoming an heirloom on a later run is for later)', note: 'Red, with flowers painted on. He carved one for every grandchild.' },
+  { id: 'sock-puppet', name: 'Sock puppet', sv: 'strumpdocka', weight: 0.05, group: 'personal', does: 'His name is Sigge.', effect: 'nothing (making kids on the road laugh is for later)', note: 'Two button eyes and a great many opinions.' },
+  { id: 'smooth-stones', name: 'Ten smooth stones', sv: 'tio släta stenar', weight: 1.0, group: 'personal', does: 'They\'re good stones.', effect: 'nothing (throwing them is for later)', note: 'From the beach last summer. You couldn\'t leave them behind.' },
+  { id: 'accordion', name: 'Accordion', sv: 'dragspel', weight: 6.0, group: 'personal', does: 'You\'ve practised a little.', effect: 'nothing (what villagers think of it is for later)', note: 'Grandma\'s, in its case. It wheezes when you pick it up.' },
 ];
+
+/** The 30 odd things (#1727), in the order they were added: none is on the leader's list. */
+export const EXTRA_ITEMS: readonly KitId[] = KIT.slice(KIT.findIndex(k => k.id === 'family-tent')).map(k => k.id);
+
+/**
+ * The switch the odd things' hidden effects sit behind (#1727, features.ts). A rules switch: a run
+ * keeps it as it started, and a run from before it reads it as off, so its replay plays the same.
+ */
+export const PACK_EXTRAS = 'pack-extras';
+
+/** What the kit's rules read from a run: its pack, and (for the odd things) its world's switches. */
+export interface KitRun { kit?: KitState; config?: { world: { features?: FeatureSwitches } } }
+
+/** Are the odd things' effects on in this run? */
+export const extrasOn = (s: KitRun): boolean => featureOn(s.config?.world.features, PACK_EXTRAS);
+
+/** Did they pack this odd thing, and does it do anything in this run? With the switch off it's only weight. */
+export const hasExtra = (s: KitRun, id: KitId): boolean => extrasOn(s) && hasKit(s, id);
+
+/** Has a one-off odd thing (the salsa, the duct tape) been used up? */
+export const usedKit = (s: KitRun, id: KitId): boolean => s.kit?.used?.includes(id) ?? false;
 
 export const KIT_IDS = KIT.map(k => k.id) as KitId[];
 export const kitItem = (id: KitId): KitItem => KIT.find(k => k.id === id)!;
@@ -109,6 +177,11 @@ export interface KitState {
   stove: number;
   sweets: number;
   comic: number;
+  /**
+   * The odd things' one-offs that are used up (#1727): the salsa eaten, the duct tape spent.
+   * Optional, so a save from before it reads the same, and only ever holds items that were packed.
+   */
+  used?: KitId[];
 }
 
 /** What day 1 looks like with this pack. */
@@ -121,21 +194,24 @@ export interface PackStart {
 
 /** First-aid kit dressings; matches; headlamp hours; thermos drinks; stove meals. */
 export const KIT_DRESSINGS = 3, KIT_MATCHES = 5, KIT_LAMP_HOURS = 8, KIT_THERMOS = 2, KIT_STOVE = 4;
+/** The pickled herring's food, with the odd things' switch on (#1727). */
+export const HERRING_FOOD = 1;
 
 /**
  * Turn a pack into day 1: a sound backpack always (the pack itself), the knife, the bottle and
  * the bag as the tools they stand for, the food and cord into the stores, and the supplies that
- * run out.
+ * run out. With the odd things' switch on (`extras`, #1727), the pickled herring is food too.
  */
-export function startFromPack(ids: readonly KitId[]): PackStart {
+export function startFromPack(ids: readonly KitId[], extras = false): PackStart {
   const has = (id: KitId) => ids.includes(id);
+  const food = (has('weekend-food') ? 4 : 0) + (extras && has('pickled-herring') ? HERRING_FOOD : 0);
   const tools: Tool[] = [{ item: 'backpack', grade: 'sound' }];
   if (has('mora-knife')) tools.push({ item: 'stone-knife', grade: 'fine' });
   if (has('water-bottle')) tools.push({ item: 'waterskin', grade: 'sound' });
   if (has('sleeping-bag')) tools.push({ item: 'bedroll', grade: has('sleeping-pad') ? 'fine' : 'sound' });
   return {
     tools,
-    stores: { rations: has('weekend-food') ? 4 : 0, materials: has('cord') ? 2 : 0 },
+    stores: { rations: food, materials: has('cord') ? 2 : 0 },
     dressings: has('first-aid-kit') ? KIT_DRESSINGS : 0,
     kit: {
       items: [...ids],
@@ -150,17 +226,32 @@ export function startFromPack(ids: readonly KitId[]): PackStart {
 }
 
 /** Did they pack it? */
-export const hasKit = (s: { kit?: KitState }, id: KitId): boolean => s.kit?.items.includes(id) ?? false;
+export const hasKit = (s: KitRun, id: KitId): boolean => s.kit?.items.includes(id) ?? false;
 
 /** How much cold nights cost with the clothes and pad packed (the bag-and-pad pair is a fine bedroll instead). */
 export const WOOL_COLD = 0.85, PAD_COLD = 0.9;
-export const kitColdCost = (s: { kit?: KitState }): number =>
-  (hasKit(s, 'wool-underlayer') ? WOOL_COLD : 1) * (hasKit(s, 'sleeping-pad') && !hasKit(s, 'sleeping-bag') ? PAD_COLD : 1);
+/** …and with the odd things on (#1727): a family tent's spare room is a little warmer, and hard sweets soothe a cold throat. */
+export const TENT_COLD = 0.9, THROAT_SWEETS_COLD = 0.95;
+// Multipliers, so each thing takes its share off what's left and they stack without ever reaching zero.
+export const kitColdCost = (s: KitRun): number =>
+  (hasKit(s, 'wool-underlayer') ? WOOL_COLD : 1) * (hasKit(s, 'sleeping-pad') && !hasKit(s, 'sleeping-bag') ? PAD_COLD : 1)
+  * (hasExtra(s, 'family-tent') ? TENT_COLD : 1) * (hasExtra(s, 'throat-sweets') ? THROAT_SWEETS_COLD : 1);
 
 /** Scouting and surveying with a map and compass. */
 export const MAP_TIME = 0.8;
-export const kitTimeMult = (s: { kit?: KitState }, action: string): number =>
-  hasKit(s, 'map-compass') && (action === 'scout' || action === 'survey') ? MAP_TIME : 1;
+/** With the odd things on (#1727): binoculars for scouting and looking out, the bird book for tracking and hunting. */
+export const BINOCULARS_TIME = 0.9, BIRD_BOOK_TIME = 0.9;
+export const kitTimeMult = (s: KitRun, action: string): number =>
+  (hasKit(s, 'map-compass') && (action === 'scout' || action === 'survey') ? MAP_TIME : 1)
+  * (hasExtra(s, 'binoculars') && (action === 'scout' || action === 'lookout') ? BINOCULARS_TIME : 1)
+  * (hasExtra(s, 'bird-book') && (action === 'track' || action === 'hunt') ? BIRD_BOOK_TIME : 1);
+
+/**
+ * The firewood a night's fire needs, after the magnifying glass (#1727): on a clear day you light it
+ * in the last of the sun, so the kindling log is spared. A fire that needs only one still needs it.
+ */
+export const kitFireNeed = (s: KitRun & { weatherToday: WeatherId }, need: number): number =>
+  hasExtra(s, 'magnifying-glass') && s.weatherToday === 'clear' && need >= 2 ? need - 1 : need;
 
 /** The kit from a save: kept if it's well-formed, else dropped (an old or broken save just has no kit). */
 export function readKit(x: unknown): KitState | undefined {
@@ -168,7 +259,11 @@ export function readKit(x: unknown): KitState | undefined {
   const o = x as Record<string, unknown>;
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
   if (!Array.isArray(o.items) || !validPack(o.items as string[])) return undefined;
-  return { items: [...(o.items as KitId[])], matches: n(o.matches), lamp: n(o.lamp), thermos: n(o.thermos), stove: n(o.stove), sweets: n(o.sweets), comic: n(o.comic) };
+  const items = [...(o.items as KitId[])];
+  // What's used up (#1727): kept only if every entry is something that was packed; otherwise
+  // dropped, which reads as nothing used yet.
+  const used = Array.isArray(o.used) && o.used.every(id => items.includes(id as KitId)) && o.used.length > 0 ? [...(o.used as KitId[])] : undefined;
+  return { items, matches: n(o.matches), lamp: n(o.lamp), thermos: n(o.thermos), stove: n(o.stove), sweets: n(o.sweets), comic: n(o.comic), ...(used ? { used } : {}) };
 }
 
 /** What's left of the things that run out, in words (for the screen and the AI). */

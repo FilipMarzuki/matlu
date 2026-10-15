@@ -31,6 +31,7 @@ import { statEffects, DEFAULT_STATS, type StatId } from '../artificer/stats';
 import type { KitId } from '../artificer/kit';
 import type { RankName } from '../rank-names';
 import type { WeatherId } from '../artificer/world';
+import { weatherReport } from '../artificer/weather-words';
 import { campBiome, descriptiveMapOn, knownPlaces, mapNeedIds, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
 import { BIOME_NAME, YIELDS, ringOfHours, type Reach } from '../artificer/world/reach';
 import { TOPICS, TOPIC_KINDS } from '../artificer/topics';
@@ -612,6 +613,24 @@ export function placeLine(p: KnownPlace, t: T): string {
 export function landLines(s: Parameters<typeof knownPlaces>[0], t: T): string[] {
   if (!descriptiveMapOn(s)) return [];
   return [t(`map.camp.${campBiome(s)}`), ...knownPlaces(s).map(p => placeLine(p, t))];
+}
+
+/**
+ * The weather and the season in words (#1729, weather-words.ts): the sim's bands in the viewer's
+ * language, the same lines the AI reads in English. Empty with the switch off.
+ */
+export function weatherLines(s: Parameters<typeof weatherReport>[0], t: T): string[] {
+  const r = weatherReport(s);
+  if (r.view === 'numbers') return [];
+  return [
+    ...(r.sky ? [t(`wx.sky.${r.sky}`)] : []),
+    ...(r.felt ? [t(`wx.felt.${r.felt}`)] : []),
+    ...(r.ground ? [t(`wx.ground.${r.ground}`)] : []),
+    t(`wx.season.${r.season}`),
+    ...(r.tally ? [t(`wx.tally.${r.tally}`, { n: s.day })] : r.view === 'words' ? [t('wx.noTally')] : []),
+    ...(r.toSnow !== null ? [t(r.toSnow === 1 ? 'wx.toSnow.one' : 'wx.toSnow.other', { n: r.toSnow })] : []),
+    ...(r.toThaw !== null ? [t(r.toThaw === 1 ? 'wx.toThaw.one' : 'wx.toThaw.other', { n: r.toThaw })] : []),
+  ];
 }
 
 /** What's still needed to draw a map, as a phrase ("x and y"), or '' when nothing is. */

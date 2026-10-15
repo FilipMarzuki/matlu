@@ -36,6 +36,7 @@ import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { featureOn } from '../artificer/features';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
 import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
@@ -206,6 +207,13 @@ function toolLabel(t: Tool, taughtBy: readonly string[] | undefined): string {
   return `${t.item} (${t.grade}${holds ? `, holds ${holds}` : ''})`;
 }
 
+/** What the Warden knows of the calendar, for the WEATHER heading (#1729). */
+const WX_HOW: Readonly<Record<Exclude<SeasonView, 'numbers'>, string>> = {
+  words: 'no calendar, and you have lost count of the days',
+  tally: 'you keep count of the days',
+  strip: "you've seen a season turn, so you know the shape of the year",
+};
+
 /** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
 export function observe(s: Region1State, notes: readonly string[] = []): string {
   const cal = s.config.calendar;
@@ -214,11 +222,19 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const st = s.stores;
   const lines: string[] = [];
 
-  lines.push(`DAY ${s.day} — ${season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`}.`);
+  // The weather in words (#1729, `weather-words`): until the calendar is earned, the season as the
+  // Warden senses it instead of the day the snow falls. Once a season has turned, as before.
+  const wx = weatherReport(s);
+  const calendarKnown = wx.view === 'numbers' || wx.view === 'strip';
+  lines.push(`DAY ${s.day} — ${calendarKnown ? (season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`) : SEASON_SHORT[wx.season]}.`);
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
   // Learned planning (#1350): until the first level-up, one action per reply.
   if (!s.canPlan) lines.push("PLANNING: not yet — you take things one at a time. Put ONE action in the queue (only the first runs); you'll be asked again after it. An empty queue ends the day. The first time a skill levels up, you'll be able to plan whole days.");
   for (const n of notes) lines.push(`NOTE: ${n}`);
+  if (wx.view !== 'numbers') {
+    lines.push(`WEATHER (as you sense it: ${WX_HOW[wx.view]}, and there's no thermometer):`);
+    for (const l of wx.lines) lines.push(`  ${l}`);
+  }
   lines.push('');
   // Capacities and Condition round DOWN: 99.6 shown as "100" read as meeting a 100 threshold it doesn't (#1230).
   lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100`);
