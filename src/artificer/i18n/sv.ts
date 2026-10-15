@@ -256,6 +256,18 @@ const core: Catalog = {
   'dev.rules': 'regler: från nästa nya spel',
   'dev.looks': 'utseende: direkt',
   'dev.featuresNoteHtml': 'Sparas i den här webbläsaren och används av textkonsolen också. Lägg till <code>?dev=truths</code> för att också se det spelet döljer: varje färdighets riktiga nivå, hur mycket varje person verkligen litar på dig, och regeln bakom varje sak i packningen. Dev-läget är avstängt för spelare och öppnas med lösenordet bakom ⚙ i hjälpen.',
+  'dev.looksHead': 'FÖRHANDSVISA UTSEENDE',
+  'dev.lookGame': 'SPELETS UTSEENDE ({look})',
+  'dev.lookNote': 'Visas: {look}. En förhandsvisning ändrar bara den här sidan: spelet, sparfilen och rundans logg ser den aldrig.',
+  'look.scout-1': 'Fältdagbok',
+  'look.scout-2': 'Kartritare',
+  'look.scout-3': 'Lantmätare',
+  'look.steampunk-1': 'Mekarbänken',
+  'look.steampunk-2': 'Mässingsmaskinen',
+  'look.steampunk-3': 'Sot och ånga',
+  'look.rune-1': 'Etsad skiffer',
+  'look.rune-2': 'Vaknande runor',
+  'look.rune-3': 'Full runteknik',
 
   // ── Rekorden ───────────────────────────────────────────────────────────────
   'records.working': 'Räknar ut hur rundan står sig…',

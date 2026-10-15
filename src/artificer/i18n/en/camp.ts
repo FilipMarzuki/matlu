@@ -378,6 +378,8 @@ export const camp = {
   'end.neverReady': ' · never winter-ready',
   'end.camp': '{site}, shelter tier {n}',
   'end.noCamp': 'No camp',
+  // Difficulty (#1728): the multiplier the Warden was made with ({m} is "×1.30"), for a future high score.
+  'end.difficulty': 'Difficulty {m}: what you left unspent at creation',
   'end.tools.one': '{n} tool',
   'end.tools.other': '{n} tools',
   'end.recipes': '{n} recipes',
