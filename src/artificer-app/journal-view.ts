@@ -25,6 +25,7 @@ export const logText = (l: Pick<LogEntry, 'text'>, t: T): string => simLine(l.te
  * The newest `limit` lines, newest first, each with its day (`D12` at camp, `R3` on the road).
  * Empty when there are none (the caller says what an empty journal says).
  */
-export function journalItems(log: readonly LogEntry[], limit: number, dayMark: string, t: T): string {
-  return [...log].reverse().slice(0, limit).map(l => `<li class="${logClass(l)}"><span class="d">${dayMark}${l.day}</span>${esc(logText(l, t))}</li>`).join('');
+export function journalItems(log: readonly LogEntry[], limit: number, dayMark: string, t: T, extra: (l: LogEntry) => string = () => ''): string {
+  // `extra` adds HTML after a line (the camp journal's "See the land →" on a land trip, #1730).
+  return [...log].reverse().slice(0, limit).map(l => `<li class="${logClass(l)}"><span class="d">${dayMark}${l.day}</span>${esc(logText(l, t))}${extra(l)}</li>`).join('');
 }

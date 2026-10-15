@@ -195,6 +195,21 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
   },
   {
+    // A rules feature: it changes what the 30 odd things in the pack do (kit.ts `hasExtra`: a warmer
+    // night in the family tent, quicker scouting with binoculars, the duct tape's one repair…), so a
+    // run from before it (absent: false) plays them as weight only on replay. The items themselves
+    // are on the list either way: off, they're in the pack and weigh what they weigh, and that's all.
+    id: 'pack-extras', name: 'The odd things in the pack do something', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1727,
+    note: 'Some of the funny, maybe useful and weird things you can pack turn out to help a little: a family tent is warmer, binoculars find the way faster, duct tape mends a tool once, a magnifying glass lights the fire in the sun. Others are just heavy.',
+  },
+  {
+    // A rules feature, though the sim is untouched (weather-words.ts only reads state): it changes
+    // what the Warden and the AI are told (the weather and season in words, the calendar earned),
+    // so a run from before it (absent: false) keeps the strip and its numbers on replay.
+    id: 'weather-words', name: 'The weather in words', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1729,
+    note: 'No calendar and no thermometer at the start: the weather and the season are told in words ("cloudy and windy; you can see your breath in the morning; the first snow can\'t be far off"). Keep a tally of the days (the notebook, or a week of notches) and you know the day and about how long to the snow; once you\'ve seen the first snow, the season strip.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

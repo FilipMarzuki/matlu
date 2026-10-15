@@ -7,4 +7,5 @@
 - [matlu-palette.hex](./matlu-palette.hex) — Master colour palette (import into Aseprite)
 - [matlu-palette.png](./matlu-palette.png) — Visual palette swatch
 - [canon.md](./canon.md) — Every canon source: master or mirror, and how agents read and update it
+- [local-culture.md](./local-culture.md) — Local culture: nested styles (fashion, crafts, buildings, food, music, speech, manners) that drift with isolation, and why
 - [class-registry.md](./class-registry.md) — The Class registry: how Mistheim's [Classes] are listed and added

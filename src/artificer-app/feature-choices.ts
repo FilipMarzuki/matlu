@@ -144,6 +144,16 @@ export function tabToOpen<T extends string>(wanted: string | null, tabs: readonl
   return (shown.find(t => t.id === wanted) ?? shown[0]).id;
 }
 
+/** The game's tabs (main.ts draws them). The MAP tab is part of LAND now (#1730). */
+export type AppTab = 'plan' | 'camp' | 'land' | 'history' | 'warden' | 'progress';
+// `label` is the English name; the page draws each tab's label from the catalog (`tab.<id>`, #1704).
+export const APP_TABS: readonly TabDef<AppTab>[] = [
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
+];
+
+/** A kept tab id from before its tab was folded into another, as the tab it's in now: the old MAP tab opens LAND (#1730). */
+export const keptTab = (id: string | null): string | null => (id === 'map' ? 'land' : id);
+
 /**
  * An action card's body cost (#1688): which vitals it spends ("vigor + clarity"), or "restores". Only
  * dev mode shows it; players read their Vigor and Clarity from the bars and plan by hours. Null hides it.

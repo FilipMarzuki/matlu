@@ -26,7 +26,7 @@ import type { RunRecord } from '../artificer/legacy';
 import { previewQueue, type AppState } from './controller';
 import { introBeats, fillName } from './intro';
 import { packForm, createForm } from './opening-view';
-import { paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap } from './camp-blocks';
+import { paletteBlock, seasonStrip, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap } from './camp-blocks';
 import type { DayPlay, Moment } from './playback';
 
 const sv = makeT('sv');
@@ -108,6 +108,13 @@ describe('The opening and a day at camp, in Swedish (#1707)', () => {
       expect(englishIn(toolsBlock(s, sv))).toEqual([]);
       expect(englishIn(firstJournalLine(s, sv))).toEqual([]);
       expect(englishIn(describedMap(s, sv))).toEqual([]);
+    }
+    // The weather in words (#1729): at the start, with a tally, and once the strip is earned; in every weather.
+    const words = fresh({ features: { 'weather-words': true } });
+    for (const over of [{}, { day: 12 }, { day: 27, weatherToday: 'fog' as const }, { day: 33, weatherToday: 'snow' as const, snowDepth: 0.5 }, { day: 45, weatherToday: 'storm' as const, snowDepth: 0.9 }, { day: 58, weatherToday: 'wind' as const, snowDepth: 0.1 }, { day: 61 }]) {
+      const at = { ...words, ...over };
+      expect(englishIn(weatherBox(at, sv))).toEqual([]);
+      expect(englishIn(seasonChip(at, sv))).toEqual([]);
     }
     // A blizzard in midwinter: the banner and the weather's winter name.
     const storm = { ...camped(), day: 45, weatherToday: 'storm' as const };
