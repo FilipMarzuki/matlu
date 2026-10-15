@@ -292,7 +292,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
   // Each camp keeps what you built there (#1753): the camps you're away from, by spot id.
   const kept = keptCamps(s);
-  if (kept.length) lines.push(`BUILT AT OTHER PLACES: ${kept.map(c => `${c.id}: ${buildsText(c.items)}`).join('; ')} (still there when you camp there again; food in a cold pit stays in it)`);
+  if (kept.length) lines.push(`BUILT AT OTHER PLACES: ${kept.map(c => `${c.id}: ${buildsText(c.items)}`).join('; ')} (still there when you camp there again; food you leave in a cold pit stays in it)`);
   if (campAsActionOn(s)) lines.push('Make camp is an action here: "camp", with its "spot" option, at one of the places to camp you know (each a real place, by direction and walking time from where you are, with what you can tell of it). Explore to find more. The "site" field does nothing in this game.');
   lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => toolLabel(x, s.taughtBy)).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);

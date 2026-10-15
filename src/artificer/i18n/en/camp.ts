@@ -466,5 +466,14 @@ export const camp = {
   'campsite.builtHere': 'Built here: {list}',
   'campsite.builtThere': 'built there: {list}',
   'campsite.keeps': 'your camp here stays as it is',
-  'campsite.leavesFood': 'leaves {n} raw food in the cold pit',
+  // The cold pit's food when you move camp (#1753): Make camp's `pitFood` option, take it by default.
+  'opt.pitFood': 'Cold pit food',
+  'opt.pitFood.take': 'Take it',
+  'opt.pitFood.leave': 'Leave it in the pit',
+  'campsite.pitFood.take': 'you take your food with you',
+  'campsite.pitFood.leave': 'leaves {n} raw food in the cold pit at {site}',
+  'campsite.at.cave': 'the cave',
+  'campsite.at.tree': 'the treeline',
+  'campsite.at.river': 'the riverbank',
+  'campsite.at.hill': 'the hilltop',
 } as const satisfies Record<string, string>;

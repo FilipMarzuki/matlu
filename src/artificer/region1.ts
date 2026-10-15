@@ -33,7 +33,7 @@ import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow,
 import { seedOf, streamFor } from './rng';
 import { canDrawMap, mapDrawnLine } from './descriptive-map';
 import { campAsActionOn, knownSpot, knownSpots, defaultSpot, siteKnowledge, ratingText, CAMP_SETUP_HOURS, type CampSpotState } from './camp-sites';
-import { buildsPerSiteOn, campHere, moveNotes, buildsText, weathered, weatherSteps, NOTE_TEXT, type SiteBuild, type KeptPit } from './camp-builds';
+import { buildsPerSiteOn, campHere, moveNotes, buildsText, weathered, weatherSteps, pitFoodChoice, pitFoodOf, siteAtText, NOTE_TEXT, PIT_FOOD_CHOICES, PIT_FOOD_TEXT, type SiteBuild, type KeptPit, type PitFoodChoice } from './camp-builds';
 import { TECHNIQUES, MANUALS, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, focusGrade, reliability, focusLabel, focusInline, focusKey, isTopic, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { topicsOpen, type Acquaintance } from './topics';
@@ -813,17 +813,29 @@ function campGate(s: Region1State, opts: ActionOpts): string | null {
   return defaultSpot(s) ? null : 'you know no other place to camp yet — explore first';
 }
 
-/** The sites you know, as the action's one decision: each by name, direction and walking time, and what you can tell of it. */
+/**
+ * The sites you know, as the action's decision: each by name, direction and walking time, and what
+ * you can tell of it. With `camp-builds-per-site`, and a cold pit here with raw food for it, a second
+ * decision: take the pit's food with you (the default) or leave it in the pit (#1753).
+ */
 function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
   if (!campAsActionOn(s)) return [];
   const chosen = chosenSpot(s, opts);
+  const pit = pitFoodChoice(s);
+  const pitGroup: OptionGroup[] = pit ? [{
+    key: 'pitFood', label: PIT_FOOD_TEXT.label, value: pitFoodOf(opts),
+    choices: PIT_FOOD_CHOICES.map(c => ({
+      value: c, label: PIT_FOOD_TEXT[c].label, blocked: null,
+      note: PIT_FOOD_TEXT[c].note.replace('{n}', String(pit.n)).replace('{site}', siteAtText(pit.site)),
+    })),
+  }] : [];
   return [{
     key: 'spot', label: 'Where', value: chosen?.id ?? null,
     choices: knownSpots(s).map(p => {
       // How good a place you believe it is (#1756, `camp-site-ratings`): '' when poor or off.
       const rated = ratingText(s, p);
       // What's built there, and what stays behind here (#1753, `camp-builds-per-site`); off, the shelter is left for good.
-      const kept = buildsPerSiteOn(s) ? moveNotes(s, p).map(n => ` · ${NOTE_TEXT[n.key].replace('{list}', buildsText(n.items ?? [])).replace('{n}', String(n.n ?? 0))}`).join('')
+      const kept = buildsPerSiteOn(s) ? moveNotes(s, p).map(n => ` · ${NOTE_TEXT[n.key].replace('{list}', buildsText(n.items ?? []))}`).join('')
         : !p.here && s.tier > 0 ? ' · leaves your shelter behind' : '';
       return {
         value: p.id, label: SITES[p.kind].name,
@@ -831,21 +843,24 @@ function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
         blocked: p.here ? "you're camped here already" : null,
       };
     }),
-  }];
+  }, ...pitGroup];
 }
 
 /**
  * Keep the camp you're leaving (#1753, `camp-builds-per-site`) in `siteBuilds` by its spot id, and
- * take out the record of the camp you're going to. The raw food the cold pit holds stays in it, out
- * of your stores. Returns the destination's record, if it had one, and how much food was left in
- * the pit. Mutates `next`.
+ * take out the record of the camp you're going to. The pit's food comes with you (`take`, the
+ * default): the pit stays, empty, with no rot owed (rot is owed by food in the pit, and the open-air
+ * rate takes over for what you carry). With `leave`, the raw food the pit holds stays in it, out of
+ * your stores, with the rot it owes. Returns the destination's record, if it had one, and how much
+ * food was left in the pit. Mutates `next`.
  */
-function keepCamp(next: Region1State, to: string): { back: SiteBuild | undefined; left: number } {
+function keepCamp(next: Region1State, to: string, pitFood: PitFoodChoice): { back: SiteBuild | undefined; left: number } {
   const builds = { ...(next.siteBuilds ?? {}) };
   const from = next.campSpot?.at;
   if (from) {
     const here = campHere(next);
-    const pit: KeptPit | null = here.pit ? { food: here.pit.food, ...(here.pit.food > 0 && next.pitRot ? { rot: next.pitRot } : {}) } : null;
+    const stash = pitFood === 'leave' ? here.pit?.food ?? 0 : 0;
+    const pit: KeptPit | null = here.pit ? { food: stash, ...(stash > 0 && next.pitRot ? { rot: next.pitRot } : {}) } : null;
     if (here.shelter || pit) builds[from] = { left: next.day, ...(here.shelter ? { shelter: here.shelter } : {}), ...(pit ? { pit } : {}) };
     else delete builds[from];
     if (pit?.food) next.stores.rawFood -= pit.food;
@@ -873,12 +888,12 @@ function pitWhileAway(next: Region1State, site: SiteId, pit: KeptPit, left: numb
   return { food, rot: food > 0 ? rot : 0, spoiled: pit.food - food };
 }
 
-/** Leave the current shelter and settle at `site` (on an already-cloned state). */
-function moveCamp(next: Region1State, site: SiteId, spot?: string): void {
+/** Leave the current shelter and settle at `site` (on an already-cloned state); `pitFood`: what happens to the cold pit's food (#1753). */
+function moveCamp(next: Region1State, site: SiteId, spot?: string, pitFood: PitFoodChoice = 'take'): void {
   const moved = next.site !== null && next.tier > 0;
   // Each camp keeps what's built there (#1753): only with camp as an action, where camps have spot ids.
   const keep = spot !== undefined && buildsPerSiteOn(next);
-  const { back, left } = keep ? keepCamp(next, spot) : { back: undefined, left: 0 };
+  const { back, left } = keep ? keepCamp(next, spot, pitFood) : { back: undefined, left: 0 };
   next.site = site;
   // Camp as an action (#1732): camp is a real place now, and you'll know it as it is from tonight.
   // A cold pit stays where it was dug, so a pit at the old spot doesn't follow you.
@@ -1278,7 +1293,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     // moveCamp writes the journal's lines ("Chose the … as your ground", the tarp), so the action adds none.
     run: (s, _b, _r, o) => {
       const spot = chosenSpot(s, o);
-      if (spot) moveCamp(s, spot.kind, spot.id);
+      // The cold pit's food comes with you unless the entry says `pitFood: 'leave'` (#1753).
+      if (spot) moveCamp(s, spot.kind, spot.id, pitFoodOf(o));
       return '';
     },
   },

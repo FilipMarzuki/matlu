@@ -253,7 +253,7 @@ export const FEATURES: readonly FeatureDef[] = [
     // stays in the pit), so a run from before it (absent: false) leaves its builds behind on replay.
     // It needs `camp-as-action` (spot ids); without it, it does nothing.
     id: 'camp-builds-per-site', name: 'Each camp site keeps what you built there', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1753,
-    note: 'Moving camp no longer leaves your shelter and cold pit behind for good: each place you camp keeps what you built there, and it\'s there when you come back. A shelter left long weathers a little. The raw food in a cold pit stays in it when you go (and keeps spoiling slowly, as it would in the pit); it\'s yours again when you camp there.',
+    note: 'Moving camp no longer leaves your shelter and cold pit behind for good: each place you camp keeps what you built there, and it\'s there when you come back. A shelter left long weathers a little. The cold pit\'s food comes with you when you go, unless you choose to leave it in the pit: then it stays there (and keeps spoiling slowly, as it would in the pit), and it\'s yours again when you camp there.',
   },
   {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live

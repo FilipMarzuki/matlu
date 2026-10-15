@@ -18,9 +18,10 @@
  * it always has; `siteBuilds` holds only the camps you're away from. So a save from before the
  * switch needs nothing new: its builds are the current camp's.
  *
- * Food in a pit you've left (the rules this issue sets): what the pit holds, up to its capacity,
- * stays in it when you go; the rest of your raw food goes with you. It's out of your stores until you
- * camp there again, then it's back in them. While you're away it spoils as it would in the pit,
+ * Food in a pit you're leaving (the owner's rule): it comes with you by default, so you never lose
+ * food by moving. Make camp's `pitFood` option (`take`, the default, or `leave`) lets you stash it
+ * instead: then what the pit holds, up to its capacity, stays in it, and the rest of your raw food
+ * goes with you. Stashed food is out of your stores until you camp there again, then it's back in them. While you're away it spoils as it would in the pit,
  * worked out on your return night by night from the run's own seeded weather schedule (no draws: the
  * same seed and moves give the same pit). Nothing raids it.
  *
@@ -33,7 +34,7 @@
 import { featureOn } from './features';
 import { campAsActionOn, parseSpotId } from './camp-sites';
 import { GRADES, type Grade } from './crafting';
-import { coldPitHolds, type Region1State, type ShelterType, type WallMaterial } from './region1';
+import { coldPitHolds, SITES, type Region1State, type ShelterType, type WallMaterial } from './region1';
 
 /** The rule switch (features.ts). */
 export const CAMP_BUILDS_PER_SITE = 'camp-builds-per-site';
@@ -130,16 +131,16 @@ export const buildsText = (items: readonly BuildItem[]): string =>
 
 /** What the Make camp action's note says of a site's builds, in English (`campsite.<key>` on the page). */
 export const NOTE_TEXT: Readonly<Record<MoveNote['key'], string>> = {
-  builtThere: 'built there: {list}', keeps: 'your camp here stays as it is', leavesFood: 'leaves {n} raw food in the cold pit',
+  builtThere: 'built there: {list}', keeps: 'your camp here stays as it is',
 };
 
-/** One part of a Make camp option's note: what's built there, or (moving away) that this camp stays, and the food left in its pit. */
-export interface MoveNote { key: 'builtThere' | 'keeps' | 'leavesFood'; items?: BuildItem[]; n?: number }
+/** One part of a Make camp option's note: what's built there, or (moving away) that this camp stays. */
+export interface MoveNote { key: 'builtThere' | 'keeps'; items?: BuildItem[] }
 
 /**
  * What a Make camp option says of the builds (#1753): at another site, what's built there; and,
- * since going means leaving, that the camp here stays as it is, and how much raw food stays in its
- * pit. Nothing for the site you're at, or with the switch off.
+ * since going means leaving, that the camp here stays as it is. Nothing for the site you're at, or
+ * with the switch off. (What happens to the pit's food is the `pitFood` option's, below.)
  */
 export function moveNotes(s: Run, p: { id: string; here: boolean }): MoveNote[] {
   if (!buildsPerSiteOn(s) || p.here) return [];
@@ -148,9 +149,37 @@ export function moveNotes(s: Run, p: { id: string; here: boolean }): MoveNote[] 
   return [
     ...(there.length ? [{ key: 'builtThere' as const, items: there }] : []),
     ...(here.shelter || here.pit ? [{ key: 'keeps' as const }] : []),
-    ...(here.pit?.food ? [{ key: 'leavesFood' as const, n: here.pit.food }] : []),
   ];
 }
+
+// ── The cold pit's food when you move (Make camp's `pitFood` option) ────────
+
+/** Take the pit's food with you (the default: an AI or a player who never looks loses nothing), or leave it in the pit. */
+export type PitFoodChoice = 'take' | 'leave';
+/** The option's choices; the first is the default. */
+export const PIT_FOOD_CHOICES: readonly PitFoodChoice[] = ['take', 'leave'];
+/** What a Make camp entry does with the pit's food: `leave` only when chosen, anything else takes it. */
+export const pitFoodOf = (opts: Readonly<Record<string, string>>): PitFoodChoice => (opts.pitFood === 'leave' ? 'leave' : 'take');
+
+/** The option's English (the page says `opt.pitFood`, `opt.pitFood.*` and `campsite.pitFood.*`). */
+export const PIT_FOOD_TEXT = {
+  label: 'Cold pit food',
+  take: { label: 'Take it', note: 'you take your food with you' },
+  leave: { label: 'Leave it in the pit', note: 'leaves {n} raw food in the cold pit at {site}' },
+} as const;
+
+/**
+ * Whether there's a choice to make about the pit's food, and how much it is: the camp you're
+ * leaving has a cold pit and you have raw food for it (with the switch on). Null otherwise.
+ */
+export function pitFoodChoice(s: Run): { n: number; site: NonNullable<Run['site']> } | null {
+  if (!buildsPerSiteOn(s) || !s.campSpot || !s.site) return null;
+  const pit = campHere(s).pit;
+  return pit && pit.food > 0 ? { n: pit.food, site: s.site } : null;
+}
+
+/** The site you're leaving, in the English the note says it: "the treeline". */
+export const siteAtText = (site: NonNullable<Run['site']>): string => `the ${SITES[site].name.toLowerCase()}`;
 
 /** The camps you're away from that have something built, in spot-id order (plain string order): for the AI. */
 export const keptCamps = (s: Run): { id: string; items: BuildItem[] }[] =>

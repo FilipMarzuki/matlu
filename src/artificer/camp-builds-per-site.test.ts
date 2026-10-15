@@ -5,8 +5,10 @@
  *
  *   1. Back at A          — a cold pit and a shelter built at A are there again after a stay at B.
  *   2. Not at A           — a build at B isn't available while camped at A.
- *   3. Food in A's pit    — stays at A: left in the pit when you go, back in your stores when you
- *                           return; it spoils while you're away only as it would in the pit.
+ *   3. Food in A's pit    — comes with you by default (Make camp's `pitFood: take`), leaving an
+ *                           empty pit; with `pitFood: leave` it stays at A, back in your stores when
+ *                           you return, and it spoils while you're away only as it would in the pit.
+ *                           The option shows only with a pit and food; the AI and API default is take.
  *   4. An old save        — loads, and its builds belong to the current camp.
  *   5. Off or absent      — the game behaves as it did before the switch; the same seed, the same run.
  *   6. The save           — round-trips with the switch on; a malformed `siteBuilds` is dropped.
@@ -18,6 +20,7 @@ import { survey, createExploration } from './exploration';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { CAMP_AS_ACTION, knownSpots, campSpotOf } from './camp-sites';
 import { CAMP_BUILDS_PER_SITE, WEATHER_DAYS, buildsAt, buildsText, validSiteBuilds } from './camp-builds';
+import { apply, startGame, view } from '../artificer-play/session';
 import { nightTemp, weatherFor } from './weather';
 import { seedOf } from './rng';
 import { makeT } from './i18n';
@@ -36,6 +39,8 @@ const world = (builds: boolean | 'absent', extra: Partial<WorldConfig> = {}): Wo
   features: { [CAMP_AS_ACTION]: true, 'cold-pit-slows': true, ...(builds === 'absent' ? {} : { [CAMP_BUILDS_PER_SITE]: builds }) },
 });
 const camp = (spot: string): QueueItem => ({ q: 'camp', opts: { spot } });
+/** Make camp at `spot`, leaving the cold pit's food in the pit (#1753's `pitFood: leave`). */
+const campLeaving = (spot: string): QueueItem => ({ q: 'camp', opts: { spot, pitFood: 'leave' } });
 /** A fresh morning: the day's hours unspent, so the next move isn't cut short. */
 const morning = (s: Region1State): Region1State => ({ ...s, hoursToday: 0 });
 
@@ -99,9 +104,27 @@ describe('Each camp site keeps what you built there (#1753)', () => {
     expect(runAction(morning(atA), camp(b)).shelter.type).toBe('hut');
   });
 
-  it('3. food in A\'s cold pit stays at A: left when you go, back when you return', () => {
+  it('3. by default the pit\'s food comes with you, and A keeps an empty pit', () => {
     const { s, a, b } = campedAtA(true, 11);
     const atB = runAction(s, camp(b));
+    expect(atB.stores.rawFood).toBe(11);
+    expect(atB.siteBuilds?.[a]?.pit).toEqual({ food: 0 });
+    expect(atB.log.some(l => /raw food in the cold pit/.test(l.text))).toBe(false);
+    expect(buildsText(buildsAt(atB, a))).toBe('lean-to, timber walls, cold pit');
+    // The pit is still A's: back there, it's dug, and empty.
+    const back = runAction(morning(atB), camp(a));
+    expect(back.coldPitAt).toBe(back.site);
+    expect(back.stores.rawFood).toBe(11);
+    expect(back.pitRot).toBeUndefined();
+    expect(back.log.some(l => l.text === 'The cold pit here is as you left it.')).toBe(true);
+    // `take` said outright is the same move as no choice at all.
+    const said = runAction(s, { q: 'camp', opts: { spot: b, pitFood: 'take' } });
+    expect(JSON.stringify(said)).toBe(JSON.stringify(atB));
+  });
+
+  it('3a. with "leave", food in A\'s cold pit stays at A: left when you go, back when you return', () => {
+    const { s, a, b } = campedAtA(true, 11);
+    const atB = runAction(s, campLeaving(b));
     // The pit at A holds 8 (12 at the river); what it holds stays there, the rest goes with you.
     const held = Math.min(11, s.site === 'river' ? 12 : 8);
     expect(atB.stores.rawFood).toBe(11 - held);
@@ -117,7 +140,7 @@ describe('Each camp site keeps what you built there (#1753)', () => {
 
   it('3b. food left in a pit spoils while you\'re away exactly as it would in the pit, by the run\'s own weather', () => {
     const { s, a, b } = campedAtA(true, 8, { weather: 'seeded' });
-    const atB = runAction({ ...s, day: 3 }, camp(b));
+    const atB = runAction({ ...s, day: 3 }, campLeaving(b));
     const left = atB.siteBuilds![a].pit!.food;
     const days = 7;
     const back = runAction(morning({ ...atB, day: atB.day + days }), camp(a));
@@ -137,8 +160,47 @@ describe('Each camp site keeps what you built there (#1753)', () => {
     const keeps = campedAtA(true, 8, { weather: 'seeded' });
     const offWorld = { ...keeps.s.config.world, features: { ...keeps.s.config.world.features, 'cold-pit-slows': false } };
     const k0 = { ...keeps.s, day: 3, config: { ...keeps.s.config, world: offWorld } };
-    const kB = runAction(k0, camp(keeps.b));
+    const kB = runAction(k0, campLeaving(keeps.b));
     expect(runAction(morning({ ...kB, day: kB.day + days }), camp(keeps.a)).stores.rawFood).toBe(8);
+  });
+
+  it('3c. the pit\'s food is a choice only when the camp you\'re leaving has a cold pit and you have raw food', () => {
+    const { s, b } = campedAtA(true, 5);
+    const groups = ACTIONS.camp.options!(s, {});
+    expect(groups.map(g => g.key)).toEqual(['spot', 'pitFood']);
+    const g = groups[1];
+    expect(g.value).toBe('take');
+    expect(g.choices.map(c => c.value)).toEqual(['take', 'leave']);
+    const site = `the ${s.site === 'tree' ? 'treeline' : s.site === 'river' ? 'riverbank' : s.site === 'hill' ? 'hilltop' : 'cave'}`;
+    expect(g.choices[0].note).toBe('you take your food with you');
+    expect(g.choices[1].note).toBe(`leaves 5 raw food in the cold pit at ${site}`);
+    expect(ACTIONS.camp.options!(s, { pitFood: 'leave' })[1].value).toBe('leave');
+    // The page's English is the sim's, and the Swedish its own.
+    for (const c of g.choices) expect(choiceNote(s, g, c, en)).toBe(c.note);
+    expect(choiceNote(s, g, g.choices[1], sv)).toMatch(/^lämnar 5 mat i kylgropen vid /);
+    expect(choiceNote(s, g, g.choices[0], sv)).toBe('du tar med dig maten');
+    // No raw food, no pit, or the switch off or absent: no choice.
+    const keys = (x: Region1State): string[] => ACTIONS.camp.options!(x, {}).map(o => o.key);
+    expect(keys({ ...s, stores: { ...s.stores, rawFood: 0 } })).toEqual(['spot']);
+    expect(keys({ ...s, coldPitAt: null })).toEqual(['spot']);
+    expect(keys(campedAtA(false).s)).toEqual(['spot']);
+    expect(keys(campedAtA('absent').s)).toEqual(['spot']);
+    // Nor at B, where no pit was dug.
+    expect(keys(runAction(s, camp(b)))).toEqual(['spot']);
+  });
+
+  it('3d. the AI and the API see the choice, and their default is take: an AI that ignores it keeps its food', () => {
+    const { s, b } = campedAtA(true, 5);
+    // The AI's observation lists the option like any other.
+    expect(observe(s)).toContain('options "pitFood": take (Take it: you take your food with you) | leave (Leave it in the pit: leaves 5 raw food in the cold pit at');
+    // The API: a game whose camp has a pit and food; Make camp without the option keeps the food.
+    const g0 = startGame({ seed: 'pitfood' });
+    const g = { ...g0, app: { ...g0.app, sim: s } };
+    expect(view(g).text).toContain('"pitFood"');
+    const r = apply(g, { do: { q: 'camp', opts: { spot: b } } });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.game.app.sim.stores.rawFood).toBe(5);
+    expect(r.game.app.sim.siteBuilds?.[knownSpots(s).find(p => p.here)!.id]?.pit?.food).toBe(0);
   });
 
   it('4. a save from before the switch loads, and its builds belong to the current camp', () => {
@@ -209,16 +271,17 @@ describe('Each camp site keeps what you built there (#1753)', () => {
 
   it('7. the page, the AI and the API say what\'s built at each site, in English and Swedish', () => {
     const { s, a, b } = campedAtA();
-    const atB = runAction(s, camp(b));
+    const atB = runAction(s, campLeaving(b));
     // The Make camp option for A says what's there; the English note is the sim's own.
     const g = ACTIONS.camp.options!(atB, {})[0];
     const toA = g.choices.find(c => c.value === a)!;
     expect(toA.note).toContain('built there: lean-to, timber walls, cold pit (5 raw food)');
     expect(choiceNote(atB, g, toA, en)).toBe(toA.note);
     expect(choiceNote(atB, g, toA, sv)).toContain('vindskydd');
-    // Leaving A, the option says the camp stays and the food stays in the pit.
+    // Leaving A, the option says the camp stays (what happens to the pit's food is the pitFood option's).
     const toB = ACTIONS.camp.options!(s, {})[0].choices.find(c => c.value === b)!;
-    expect(toB.note).toContain('your camp here stays as it is · leaves 5 raw food in the cold pit');
+    expect(toB.note).toContain('your camp here stays as it is');
+    expect(toB.note).not.toContain('raw food in the cold pit');
     expect(toB.note).not.toContain('leaves your shelter behind');
     expect(choiceNote(s, ACTIONS.camp.options!(s, {})[0], toB, en)).toBe(toB.note);
     // The Camp tab's site cards and the LAND tab's ⛺ list.
