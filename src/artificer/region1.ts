@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exercise
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
-import { startFromPack, hasKit, kitColdCost, kitTimeMult, validPack, type KitId, type KitState } from './kit';
+import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitFireNeed, validPack, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, injuryView, KNOWS, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -300,7 +300,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const age = who.age ?? (legacy?.age !== undefined ? legacy.age + 1 : undefined);
   // The hike pack (#1400): chosen now, or what this character packed last time. None: today's bare start.
   const pack = who.pack ?? legacy?.pack;
-  const packed = pack ? startFromPack(pack) : null;
+  // The odd things' switch (#1727) is the world's, read as a run would read it.
+  const packed = pack ? startFromPack(pack, extrasOn({ config: { world: config.world ?? FULL_WORLD } })) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   // What this Warden packed, and what the last one left for them (#1455) — less anything the pack already matches or beats.
   const packTools: Tool[] = packed ? packed.tools.map(t => ({ ...t })) : [];
@@ -1964,7 +1965,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (id === 'study') next.today.absorbed = true;
   // Out in the rain, you get soaked (#1284).
   // Rain gear (#1400) keeps you dry twice as long.
-  if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + (workHours + travel) * (hasKit(next, 'rain-gear') ? RAIN_GEAR_WET : 1);
+  // Rubber boots (#1727, with the odd things on) keep your feet out of it, a quarter slower again.
+  if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + (workHours + travel) * (hasKit(next, 'rain-gear') ? RAIN_GEAR_WET : 1) * (hasExtra(next, 'rubber-boots') ? BOOTS_WET : 1);
   // Tough (#1263): pushing past empty costs less Condition — give back the part it spares.
   refundOverexertion(next, r.conditionLost + t.conditionLost, tf.overexertCondition);
 
@@ -2283,8 +2285,8 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
  */
 export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
   if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack)) return s;
-  const old = s.kit ? startFromPack(s.kit.items) : null;
-  const p = startFromPack(pack);
+  const old = s.kit ? startFromPack(s.kit.items, extrasOn(s)) : null;
+  const p = startFromPack(pack, extrasOn(s));
   const next = clone(s);
   // On the first morning, the tools are the pack's — and what the last Warden left (#1455), which no repacking touches.
   next.tools = [...p.tools.map(t => ({ ...t })), ...s.tools.filter(t => t.heirloom).map(t => ({ ...t }))];
@@ -2299,6 +2301,11 @@ export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
 /** What the kit adds: a notebook's insight, a sit pad's rest, a comic, rain gear, dry socks, and the night's comforts. */
 export const NOTEBOOK_INSIGHT = 0.1, SIT_PAD_VIGOR = 2, COMIC_CLARITY = 3, RAIN_GEAR_WET = 0.5, SOCKS_WET = 0.5;
 export const KASA_CLARITY = 1, THERMOS_CLARITY = 4, STOVE_CLARITY = 3, PILLOW_CLARITY = 2, SWEETS_CLARITY = 6, SWEETS_BELOW = 30;
+/**
+ * The odd things (#1727), with their switch on: rubber boots in the rain, the pillow from home every
+ * night, the salsa on one meal, the board game on a storm day, and the dumbbells' nightly half hour.
+ */
+export const BOOTS_WET = 0.75, HOME_PILLOW_CLARITY = 1, SALSA_CLARITY = 2, BOARD_GAME_CLARITY = 2, DUMBBELL_HOURS = 0.5;
 
 /** Close work at night (#1281) with the kit (#1400): by headlamp, while the battery lasts; else a fire the steel holds in the wind and a match helps light. */
 interface CloseWork { fire: number; clarity: number; grade: number; lamp: number; match: number }
@@ -2330,6 +2337,17 @@ function kitNight(next: Region1State, fireKept: boolean, cold: boolean): void {
   if (next.day === 1 && hasKit(next, 'pillow')) lift(PILLOW_CLARITY, "Your own pillow. It helps more than you'd have thought.");
   if (kit.sweets > 0 && next.vitals.clarity.current < SWEETS_BELOW) { kit.sweets = 0; lift(SWEETS_CLARITY, 'You eat the Saturday sweets, every one. For a while the world is bearable.'); }
   if (next.day === 2 && hasKit(next, 'phone')) say(next, 'Your phone dies in the night. There was never any signal out here anyway.', 'action');
+  // The odd things (#1727): each only with the switch on, and none of them rolls a die.
+  if (hasExtra(next, 'home-pillow')) lift(HOME_PILLOW_CLARITY, 'The pillow from home smells of your own bed.');
+  // Fed tonight (a full meal or a lean one): the salsa goes on it, once.
+  if (hasExtra(next, 'salsa') && !usedKit(next, 'salsa') && next.deprivation.hungry === 0) {
+    kit.used = [...(kit.used ?? []), 'salsa'];
+    lift(SALSA_CLARITY, 'You open the salsa. No tacos, but it makes supper something to look forward to.');
+  }
+  if (hasExtra(next, 'board-game') && next.weatherToday === 'storm') lift(BOARD_GAME_CLARITY, 'The storm howls. You play the board game against yourself, with rules you make up as you go.');
+  // A few lifts before sleep: exercise that tomorrow night's recovery banks, as a day's work is (#1414).
+  if (hasExtra(next, 'dumbbells')) exerciseStats(next, { str: DUMBBELL_HOURS });
+  if (next.day === 1 && hasExtra(next, 'alarm-clock')) say(next, 'The alarm clock rings at dawn, loud enough to wake the whole forest. You switch it off.', 'action');
   next.kit = kit;
 }
 
@@ -2355,6 +2373,13 @@ function applyAccident(next: Region1State, accident: Accident, before: Stores | 
   // A damaged tool (#1286): the tool the work leans on drops a grade, a crude one breaks. With no tool in it, the haul (or, at the bench, your hand) takes it.
   if (a.kind === 'damaged-tool') {
     const tool = toolInUse(next.tools, action);
+    // Duct tape (#1727, with the odd things on): once, the knocked tool is taped up and keeps its grade.
+    // The accident was already rolled, so this takes no draw: the run's dice are the same with or without it.
+    if (tool && hasExtra(next, 'duct-tape') && !usedKit(next, 'duct-tape')) {
+      next.kit = { ...next.kit!, used: [...(next.kit!.used ?? []), 'duct-tape'] };
+      say(next, `You go down hard, and your ${tool.item.replace(/-/g, ' ')} takes the fall — but a few turns of duct tape hold it together.`, 'hardship', at);
+      return;
+    }
     if (tool) {
       const d = damageTool(next.tools, tool.item);
       next.tools = d.tools;
@@ -2550,7 +2575,8 @@ export function endDay(s: Region1State): Region1State {
   // Wet through after hours in the rain (#1284): a miserable evening.
   if (next.weatherToday === 'rain' && (next.wetHours ?? 0) >= WET_HOURS) {
     // Dry socks to change into (#1400) take half the misery out of it.
-    const socks = hasKit(next, 'spare-socks');
+    // A whole stack of spare socks (#1727, with the odd things on) does the same.
+    const socks = hasKit(next, 'spare-socks') || hasExtra(next, 'lots-of-socks');
     next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - WET_CLARITY * (socks ? SOCKS_WET : 1));
     say(next, `Wet through and miserable after a day out in the rain${socks ? ' — at least there are dry socks' : ''}.`, 'hardship');
   }
@@ -2664,8 +2690,11 @@ export function endDay(s: Region1State): Region1State {
 function keepFire(next: Region1State, w: number): { kept: boolean; freeze: number } {
   if (!feelsTemperature(next)) return { kept: false, freeze: 0 };
   const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
-  const need = fireNeed(t, w);
-  if (need === 0) return { kept: false, freeze: 0 };
+  const full = fireNeed(t, w);
+  if (full === 0) return { kept: false, freeze: 0 };
+  // A clear day and a magnifying glass (#1727): the fire is lit in the last of the sun, sparing a log.
+  const need = kitFireNeed(next, full);
+  if (need < full) say(next, 'You light the evening fire with the magnifying glass while the sun is still out.', 'action');
   const burnt = Math.min(need, next.stores.firewood);
   next.stores.firewood -= burnt;
   if (burnt === need) {

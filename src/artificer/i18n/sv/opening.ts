@@ -46,6 +46,8 @@ export const openingSv: Record<keyof typeof opening, string> = {
   'kitgroup.clothes': 'Kläder',
   'kitgroup.tools': 'Verktyg',
   'kitgroup.other': 'Övrigt',
+  'kitgroup.personal': 'Personligt',
+  'pack.inGroup': '{n} packade',
 
   // ── Vem du är ──────────────────────────────────────────────────────────────
   'create.name': 'NAMN — skriv det',

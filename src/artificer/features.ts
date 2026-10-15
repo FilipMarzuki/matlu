@@ -194,6 +194,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'descriptive-map', name: 'Draw your own map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1686,
     note: 'There\'s no map of this world at the start: you know the land as a scout would tell it ("the stream is west, a quarter hour or so"), exact with the compass and rough without. Know home ground well and have something to draw on (the notebook, a hide, birch bark), and you draw a map of your own, showing only what you\'ve seen.',
   },
+  {
+    // A rules feature: it changes what the 30 odd things in the pack do (kit.ts `hasExtra`: a warmer
+    // night in the family tent, quicker scouting with binoculars, the duct tape's one repair…), so a
+    // run from before it (absent: false) plays them as weight only on replay. The items themselves
+    // are on the list either way: off, they're in the pack and weigh what they weigh, and that's all.
+    id: 'pack-extras', name: 'The odd things in the pack do something', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1727,
+    note: 'Some of the funny, maybe useful and weird things you can pack turn out to help a little: a family tent is warmer, binoculars find the way faster, duct tape mends a tool once, a magnifying glass lights the fire in the sun. Others are just heavy.',
+  },
 ];
 
 /** Switches by feature id. */

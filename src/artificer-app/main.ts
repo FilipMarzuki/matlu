@@ -32,7 +32,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { hasKit, SUGGESTED_PACK, validPack, type KitId } from '../artificer/kit';
+import { hasKit, SUGGESTED_PACK, validPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -70,7 +70,7 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
-import { packForm, createForm } from './opening-view';
+import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -1029,6 +1029,9 @@ let draft: Draft = blankDraft();
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
+// Which pack sections this viewer has opened or folded (#1727): a per-browser convenience, so
+// storage that's blocked or empty just means every section starts as its default.
+let packOpen: PackOpen = (() => { try { return readPackOpen(localStorage.getItem(PACK_OPEN_KEY)); } catch { return {}; } })();
 
 // The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
 // so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
@@ -1113,7 +1116,7 @@ function renderIntro(): void {
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
   const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name, t))}</p>`).join('')
-    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths) : '');
+    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen) : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -1139,10 +1142,19 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
+  // A pack section's heading (#1727): fold or open it, and remember that. preventDefault stops the
+  // browser toggling the <details> itself; the redraw sets `open` from packOpen instead.
+  if (btn?.dataset.kitgroup) {
+    e.preventDefault();
+    const g = btn.dataset.kitgroup as KitGroup;
+    packOpen = { ...packOpen, [g]: !sectionOpen(g, draftPack, packOpen) };
+    try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
+    renderIntro(); return;
+  }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
   if (btn?.dataset.kit) {
     const id = btn.dataset.kit as KitId;
