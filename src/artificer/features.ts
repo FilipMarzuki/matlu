@@ -225,6 +225,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Making camp is an action like any other, with the walk there and the setting up. Only places you have explored are offered, each a real place on the land: a cave in the high ground, the edge of a wood, the stream\'s bank, open heath. Your Intelligence, skills and Keen Eye decide how well you can read a place before you camp there.',
   },
   {
+    // A rules feature, though the sim is untouched (camp-sites.ts `siteRating` only reads state): it
+    // changes what the Warden and the AI are told (each place to camp rated great, good or poor from
+    // the Warden's reading of it, and the counts on the Make camp action), so a run from before it
+    // (absent: false) shows no ratings on replay.
+    id: 'camp-site-ratings', name: 'Places to camp rated great and good', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1756,
+    note: 'Each place to camp you know is rated from what you believe about it (its shelter from the wind, water, wood, dry ground and any danger you spotted): great, good or poor. The Make camp action shows how many great (★) and good (✓) places you know. A quick look can overrate a place; camping there shows what it\'s really like.',
+  },
+  {
     // A rules feature: it changes what spoils overnight (region1.ts `nightSpoilage`: the cold pit's
     // food rots too, slowly, its fraction carried in `pitRot`), so a run from before it (absent:
     // false) keeps a pit that stops the rot on replay.

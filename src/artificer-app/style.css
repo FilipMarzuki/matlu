@@ -110,6 +110,10 @@
   .siteopt .t { font-family: var(--display); font-size: 8px; letter-spacing: 1px; display: flex; gap: 6px; align-items: center; }
   .siteopt .d { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .siteopt .warm { float: right; color: var(--ice); font-family: var(--display); font-size: 7px; }
+  /* How good a place to camp you believe it is (#1756): ★ great in gold, ✓ good in green. */
+  .siteopt .rate { white-space: nowrap; }
+  .siteopt .rate.great, .act .t .cbadges { color: var(--gold); }
+  .siteopt .rate.good { color: var(--green); }
 
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
@@ -120,6 +124,8 @@
   .act:disabled { opacity: .38; cursor: not-allowed; }
   .act .t { font-family: var(--display); font-size: 8px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
   .act .t .h { margin-left: auto; color: var(--faint); font-size: 7px; }
+  /* The Make camp card's badges (#1756): one short run of text in the title row, so the card keeps its height. */
+  .act .t .cbadges { font-family: var(--body); font-size: 10px; letter-spacing: 0; white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
   /* The length in words (#1740, `time-words`): a line of its own under the name, in the body font. */
   .act .t:has(.tw) { flex-wrap: wrap; row-gap: 1px; }
   .act .t .h.tw { flex-basis: 100%; margin-left: 0; font-family: var(--body); font-size: 10px; letter-spacing: 0; }
@@ -465,6 +471,16 @@ body { min-height: 100vh; }
   .fchip:hover { border-color: var(--teal); }
   .fchip[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
   .lockbanner { margin: 0 0 8px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--danger); background: rgba(255,90,90,.08); color: var(--ink); font-size: 12px; }
+  /* The status bar's focus picker (#1758): laid over the page under the bar (the bar is sticky, so
+     it holds this absolute box), never pushing the tabs down; as wide as a phone allows. */
+  .focuspop { position: absolute; top: calc(100% + 6px); left: 8px; z-index: 30; width: min(440px, calc(100% - 16px)); max-height: min(70vh, 560px); overflow: auto; padding: 10px 12px 12px; border: 1px solid var(--teal); border-radius: 11px; background: var(--panel); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .focuspop .fphead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .focuspop .fphead .eyebrow { margin: 0; }
+  .fpclose { border: 1px solid var(--border); border-radius: 8px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 4px 9px; font-size: 12px; line-height: 1; }
+  .fpclose:hover { border-color: var(--teal); color: var(--ink); }
+  .fchip:disabled { opacity: .45; cursor: not-allowed; }
+  .fchip:disabled:hover { border-color: var(--border); }
+  .focuschip[aria-expanded="true"] { box-shadow: 0 0 0 1px var(--teal) inset; }
   .skill .sl.super { color: #c9a8ff; text-shadow: 0 0 8px rgba(160,120,255,.6); }
 
 /* Season strip, winter outlook and thaw summary (#1308) */
@@ -884,7 +900,10 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
 /* The icon's slot plate (#1719, #1693): a faint tile in the dark looks, so dark-drawn icons don't sink
    into slate; transparent on the parchment looks (#1749), where the icon sits right on the paper. */
-.iicon { background-color: var(--plate); border-radius: 4px; }
+/* A soft round pool of the plate colour, fading out before the slot's edge, so on the dark looks
+   a dark-drawn icon still stands out without sitting on a visible square (#1749). The paper looks
+   set `plate` transparent, so there it paints nothing. */
+.iicon { background-image: radial-gradient(closest-side, var(--plate) 45%, transparent); }
 /* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
 .r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
 .packitem:has(.iicon) { display: inline-flex; align-items: center; }

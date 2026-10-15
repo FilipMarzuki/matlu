@@ -27,7 +27,7 @@ import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { actionName, conceptName, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
-import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
+import { campAsActionOn, knownSpots, ratingBadges, siteRating, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
 import type { previewQueue, AppState } from './controller';
@@ -97,6 +97,18 @@ function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T): string {
  * why they can't be done. Gates are judged against the state *after* the queue so far, so you can
  * plan "scout, then gather" in one go. Land actions go to the ring picked in the tabs.
  */
+/**
+ * The Make camp card's badges (#1756, `camp-site-ratings`): how many places to camp you know that
+ * you believe great (★) and good (✓), "★ 1 · ✓ 3", from what you know now (the AI's observation
+ * says the same counts). Nothing until one rates good or better, so they pop up as you find sites.
+ * One short inline span in the card's title row, so the card keeps its height.
+ */
+export function campBadges(s: Sim, t: T): string {
+  const c = siteRatingCounts(s);
+  const text = ratingBadges(c);
+  return text ? `<span class="cbadges" title="${esc(t('campsite.badgesTip', { great: c.great, good: c.good }))}">${esc(text)}</span>` : '';
+}
+
 export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T }): string {
   const { ring: focusRing, dev, t } = opts;
   const resolved = a.sim.outcome !== null;
@@ -123,7 +135,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     const spends = vitalCostLabel(def, dev);
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
-      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
+      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
   }).join('')}</div></div>`).join('');
 }
@@ -298,8 +310,11 @@ export function spotsBlock(s: Sim, t: T): string {
   const spots = knownSpots(s).map(p => {
     const here = p.here ? campNow(s, t) : '';
     const tag = p.here ? ` · ${t('campsite.yours')}` : p.start ? ` · ${t('campsite.start')}` : '';
+    // How good you believe it is (#1756): ★ great or ✓ good beside the name; a poor one isn't marked.
+    const rating = siteRatingsOn(s) ? siteRating(s, p) : 'poor';
+    const rated = rating === 'poor' ? '' : `<span class="rate ${rating}">${esc(t(`campsite.rate.${rating}`))}</span>`;
     return `<button class="siteopt ${p.here ? 'chosen' : ''}" data-camp="${esc(p.id)}" ${p.here || s.outcome ? 'disabled' : ''}>`
-      + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[p.kind].warmth * 100) }))}</span></div>`
+      + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}${rated}<span class="warm" style="margin-left:auto">${esc(t('site.maxWarm', { n: Math.round(SITES[p.kind].warmth * 100) }))}</span></div>`
       + `<div class="d"><b>${esc(spotWhere(p, t) + tag)}</b></div>`
       + `<div class="d">${esc(spotReading(s, p, t) + here)}</div>`
       + (p.here ? '' : `<div class="d go">${esc(t('campsite.go'))}</div>`) + `</button>`;

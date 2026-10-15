@@ -436,4 +436,10 @@ export const campSv: Record<keyof typeof camp, string> = {
   'campsite.pick': 'Att slå läger är en handling: den läggs i planen som alla andra, med vägen dit. Utforska för att hitta fler lägerplatser.',
   'campsite.go': '⛺ SLÅ LÄGER HÄR',
   'head.campSpots': '⛺ LÄGERPLATSER — de du känner till',
+  // Hur bra lägerplats du tror att en plats är (#1756).
+  'campsite.rate.great': '★ UTMÄRKT',
+  'campsite.rate.good': '✓ BRA',
+  'campsite.rated.great': '★ utmärkt lägerplats',
+  'campsite.rated.good': '✓ bra lägerplats',
+  'campsite.badgesTip': 'Lägerplatser du känner till, som du bedömer dem: {great} utmärkta (★), {good} bra (✓)',
 };

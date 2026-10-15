@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -24,6 +24,7 @@ import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
+import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID } from './focus-popover';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -34,7 +35,7 @@ import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
 import { SUGGESTED_PACK, validPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
-import { DEFAULT_STATS, canRaise, canLower, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
+import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
@@ -77,7 +78,7 @@ import { esc, pct, band, portraitEl } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
-import { actionName, choiceNote, focusName, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { actionName, choiceNote, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -283,15 +284,10 @@ function loadBar(l: TripLoad): string {
     + `<span class="lword">${esc(word)}${esc(help)}</span></div>`;
 }
 
-/** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
-function focusChip(s: AppState['sim']): string {
-  const lock = survivalLockOf(s);
-  if (lock) return `<button class="focuschip locked" data-tab="warden" title="${esc(t('status.survivalTip'))}">${esc(t('status.focus'))} <b>${esc(t('status.survival'))}</b> <span>${esc(lockText(lock, t))}</span></button>`;
-  // Willpower moves the line where focus frays (#1256).
-  const below = statEffects(s.character.stats).unreliableBelow;
-  const frayed = s.focus && s.vitals.clarity.current < below;
-  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${esc(frayed ? t('status.frayedTip', { n: below }) : t('status.focusTip'))}">${esc(t('status.focus'))} <b>${esc(focusName(s.focus, t))}</b>${frayed ? ` <span>${esc(t('status.frayed'))}</span>` : ''}</button>`;
-}
+// The status bar's FOCUS chip and its picker (#1238, #1758) are drawn by focus-popover.ts.
+
+/** Whether the status bar's focus picker is open (#1758): the page's alone, never saved. */
+let focusPopOpen = false;
 
 /** The eating plan (#1305): tap to cycle full → half → none. */
 function eatingChip(s: AppState['sim']): string {
@@ -431,7 +427,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
-    ${focusChip(s)}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${focusChip(s, t, focusPopOpen)}${focusPopOpen ? focusPopover(s, t) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
     ${outlookTag(s, ready)}
   </div>`;
@@ -1301,6 +1297,50 @@ function keep(next: AppState): void {
   saveKept();
 }
 
+// ── The status bar's focus picker (#1758) ───────────────────────────────────
+
+/** The FOCUS chip on the page, if it's drawn. */
+const chipEl = (): HTMLElement | null => root.querySelector<HTMLElement>('[data-cmd="focuspop"]');
+/** What the keyboard can reach inside the open picker. */
+const popTargets = (): HTMLElement[] => [...root.querySelectorAll<HTMLElement>(`#${FOCUS_POP_ID} button:not([disabled])`)];
+
+/**
+ * Open or close the picker and redraw. Opening moves the keyboard into it (the current choice, or
+ * the first one, or the close button when they're locked); closing gives it back to the chip.
+ */
+function setFocusPop(open: boolean): void {
+  if (open === focusPopOpen) return;
+  focusPopOpen = open;
+  render(state);
+  if (open) {
+    const targets = popTargets();
+    (targets.find(b => b.getAttribute('aria-pressed') === 'true') ?? targets.find(b => b.matches('.fchip')) ?? targets[0])?.focus();
+  } else chipEl()?.focus();
+}
+
+// A tap outside the picker closes it (#1758). The tap still does what it was for (a tab, a button):
+// the root's handler has already acted on it by the time it bubbles up here.
+document.addEventListener('click', e => {
+  if (!focusPopOpen) return;
+  const target = e.target as HTMLElement;
+  if (target.closest(`#${FOCUS_POP_ID}, [data-cmd="focuspop"]`)) return;
+  focusPopOpen = focusPopAfter(true, 'outside');
+  render(state);
+});
+
+// Esc closes it, and Tab stays inside it while it's open (a light focus trap).
+document.addEventListener('keydown', e => {
+  if (!focusPopOpen || !root.querySelector(`#${FOCUS_POP_ID}`)) return;
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setFocusPop(focusPopAfter(true, 'escape')); return; }
+  if (e.key !== 'Tab') return;
+  const targets = popTargets();
+  if (!targets.length) return;
+  const i = targets.indexOf(document.activeElement as HTMLElement);
+  const next = e.shiftKey ? (i <= 0 ? targets.length - 1 : i - 1) : (i === -1 || i === targets.length - 1 ? 0 : i + 1);
+  e.preventDefault();
+  targets[next].focus();
+}, true);
+
 root.addEventListener('click', e => {
   // A building in a settlement (#1541), on its grid or in the key: show what it is.
   const bldg = (e.target as HTMLElement).closest<HTMLElement>('[data-bldg]');
@@ -1361,7 +1401,16 @@ root.addEventListener('click', e => {
   // (queueing, options, removing) are the page's own and aren't moves.
   else if (d.forget) play(forget(state, d.forget), { set: { forget: d.forget } });
   else if (d.interest) { const [id, n] = d.interest.split('|'); play(weighPin(state, id, Number(n) as 0 | 1 | 2 | 3), { set: { pin: d.interest } }); }
-  else if (d.focus) { const f = parseFocus(d.focus); play(chooseFocus(state, f), { set: { focus: focusKey(f) } }); }
+  // The status bar's focus picker (#1758): the chip toggles it, here on whatever tab is open.
+  else if (d.cmd === 'focuspop') { setFocusPop(focusPopAfter(focusPopOpen, 'chip')); }
+  else if (d.cmd === 'focuspopclose') { setFocusPop(focusPopAfter(focusPopOpen, 'escape')); }
+  else if (d.focus) {
+    // Chosen in the status bar's picker (#1758): it closes, and you stay on the tab you were on.
+    const fromPop = focusPopOpen && !!el.closest(`#${FOCUS_POP_ID}`);
+    if (fromPop) focusPopOpen = focusPopAfter(true, 'pick');
+    const f = parseFocus(d.focus); play(chooseFocus(state, f), { set: { focus: focusKey(f) } });
+    if (fromPop) chipEl()?.focus();
+  }
   else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; const plan = plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length]; play(chooseEating(state, plan), { set: { eating: plan } }); }
   // Before planning is learned (#1350), a tap does the thing now.
   else if (d.q) { const q = d.q as QueueId; if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q })); }
