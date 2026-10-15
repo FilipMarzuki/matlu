@@ -218,6 +218,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'No watch that keeps this world\'s time: the queue box says when in the day it is ("early morning, the sun just up"), how long each task takes ("part of the morning", "the afternoon and into the evening") and when you\'d be done ("around dusk"), following the day\'s real light, instead of hours.',
   },
   {
+    // A rules feature: it changes what spoils overnight (region1.ts `nightSpoilage`: the cold pit's
+    // food rots too, slowly, its fraction carried in `pitRot`), so a run from before it (absent:
+    // false) keeps a pit that stops the rot on replay.
+    id: 'cold-pit-slows', name: 'The cold pit slows the rot', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1757,
+    note: 'A cold pit keeps raw food cold and slows the rot, but doesn\'t stop it: food in the pit spoils at about a third of the open rate (a quarter at the river), faster on mild nights and slower in frost.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
