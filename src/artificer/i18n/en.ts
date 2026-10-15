@@ -29,6 +29,7 @@ import { history } from './en/history';
 import { tabs } from './en/tabs';
 import { lore } from './en/lore';
 import { api } from './en/api';
+import { weather } from './en/weather';
 
 /** The strings that live in this file rather than an area file under ./en/. */
 const core = {
@@ -102,7 +103,6 @@ const core = {
   'tab.plan': 'PLAN',
   'tab.camp': 'CAMP',
   'tab.land': 'LAND',
-  'tab.map': 'MAP',
   'tab.history': 'HISTORY',
   'tab.warden': 'WARDEN',
   'tab.progress': 'PROGRESS',
@@ -250,6 +250,12 @@ const core = {
   'look.rune-1': 'Etched slate',
   'look.rune-2': 'Waking runes',
   'look.rune-3': 'Full rune tech',
+  // The look switcher in the header (#1736): temporary, for reviewing the era looks.
+  'look.label': 'LOOK',
+  'look.switch': 'Era look (temporary, for reviewing the looks)',
+  'look.prev': 'Previous look',
+  'look.next': 'Next look',
+  'look.game': "The game's ({look})",
 
   // ── The records box at the end of a run ────────────────────────────────────
   'records.working': 'Working out how this run compares…',
@@ -274,7 +280,7 @@ const core = {
  * (#1714: the road's `end.died` hid the camp's). duplicates.test.ts checks with `duplicateKeys` that no
  * key is defined twice.
  */
-export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api };
+export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather };
 
 export const en = {
   ...core,
@@ -299,4 +305,6 @@ export const en = {
   ...tabs,
   ...lore,
   ...api,
+  // #1729: the weather and the season in words.
+  ...weather,
 } as const satisfies Record<string, string>;

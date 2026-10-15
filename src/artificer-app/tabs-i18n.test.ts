@@ -10,8 +10,12 @@
  * page said before they were drawn through the catalog (pins-ui.test.ts pins some of it).
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { makeT, numText, localNum } from '../artificer/i18n';
+import { isKey } from './sim-words';
+import { describeLand, mapMode } from '../artificer/descriptive-map';
+import { APP_TABS, keptTab, tabToOpen } from './feature-choices';
+import { foldOpen, resetFolds, setFold } from './fold';
 import { createRegion1, endDay, runAction, blockedReason, ACTIONS, type ActionId, type QueueItem, type Region1State } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { ruleFeatures } from '../artificer/features';
@@ -22,7 +26,8 @@ import { TECHNIQUES } from '../artificer/techniques';
 import { pinId, type Pin } from '../artificer/pins';
 import type { RunRecord } from '../artificer/legacy';
 import { wardenTab } from './warden-view';
-import { landTab } from './land-view';
+import { landRings, landTab, tripNews } from './land-view';
+import { landNews, landSeen } from './land-news';
 import { progressTab } from './progress-view';
 import { hrs } from './html';
 
@@ -45,6 +50,7 @@ const ENGLISH = [
   'insight', 'rank', 'concept', 'skills', 'self', 'assessed', 'typical', 'taught', 'easy', 'hard', 'manuals',
   'marks', 'contacts', 'dressing', 'dressings', 'matches', 'headlamp', 'thermos', 'sweets', 'comic', 'grows',
   'focus', 'clarity', 'goal', 'learns', 'practice', 'something', 'ask', 'people', 'wagon', 'survival', 'learning',
+  'new', 'see', 'key', 'chips', 'mean', 'map',
 ];
 const ENGLISH_RE = new RegExp(`(?<![\\p{L}])(${ENGLISH.join('|')})(?![\\p{L}])`, 'giu');
 const englishIn = (html: string): string[] => { const text = shown(html); return [...text.matchAll(ENGLISH_RE)].map(m => text.slice(Math.max(0, m.index! - 40), m.index! + 40).replace(/\s+/g, ' ').trim()); };
@@ -130,9 +136,150 @@ describe('The remaining tabs, in Swedish (#1711)', () => {
   it('keeps the English tabs saying what they said', () => {
     const s = rich();
     expect(shown(wardenTab({ sim: s }, en))).toContain("Aching back — strain 1.5. Tonight's recovery");
-    expect(shown(landTab(s, en, null))).toContain('Scout for the overview, survey to firm it up');
+    expect(shown(landTab(switchOff(s), en, null))).toContain('Scout for the overview, survey to firm it up');
+    expect(shown(landTab(s, en, null))).toContain('Scout for the overview and places further out');
     expect(shown(progressTab(s, records(), '', en))).toContain('Survived the winter');
     expect(englishIn(wardenTab({ sim: s }, en)).length).toBeGreaterThan(5);
+  });
+});
+
+/** The same rich Warden before a map (no surface to draw on), with one drawn (birch bark), and with the descriptive-map switch off. */
+const described = (): Region1State => ({ ...rich(), kit: { ...rich().kit!, items: rich().kit!.items.filter(k => k !== 'notebook') }, flags: { ...rich().flags, everWood: false, everHide: false } });
+const drawn = (): Region1State => ({ ...described(), flags: { ...described().flags, everWood: true } });
+const switchOff = (s: Region1State): Region1State => ({ ...s, config: { ...s.config, world: { ...s.config.world, features: { ...s.config.world.features, 'descriptive-map': false } } } });
+/** A fresh Warden: home ground unknown, the far rings out of reach. */
+const fresh = (): Region1State => createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-tabs-land' });
+
+describe('One LAND tab, organised by ring (#1730)', () => {
+  beforeEach(() => resetFolds());
+
+  it('has no MAP tab: the other tabs keep their order, and a kept MAP tab opens LAND', () => {
+    expect(APP_TABS.map(x => x.id)).toEqual(['plan', 'camp', 'land', 'history', 'warden', 'progress']);
+    expect(keptTab('map')).toBe('land');
+    expect(keptTab('warden')).toBe('warden');
+    expect(tabToOpen(keptTab('map'), APP_TABS, { dev: false, camp: true })).toBe('land');
+    expect(isKey('tab.map')).toBe(false);
+  });
+
+  it('draws the merged tab in Swedish with no English: fresh, described, drawn, played, every ring folded open or shut', () => {
+    expect(mapMode(described())).toBe('described');
+    expect(mapMode(drawn())).toBe('drawn');
+    for (const s of [fresh(), described(), drawn(), played(5), played(11)]) {
+      resetFolds();
+      expect(englishIn(landTab(s, sv))).toEqual([]);
+      for (const r of [1, 2, 3]) setFold(`land.ring.${r}`, true, null);
+      setFold('land.chipKey', true, null); setFold('land.mapKey', true, null);
+      expect(englishIn(landTab(s, sv))).toEqual([]);
+      // …with everything marked new (a viewer who last looked at a fresh Warden's land), and the trip card.
+      const news = landNews(s, landSeen(fresh()));
+      expect(englishIn(landTab(s, sv, null, { news }))).toEqual([]);
+      for (const r of [1, 2, 3] as const) expect(englishIn(tripNews(s, r, news, sv))).toEqual([]);
+    }
+    const html = shown(landTab(drawn(), sv));
+    expect(html).toContain('DIN KARTA');
+    expect(html).toContain('Teckenförklaring');
+    expect(html).toContain('Vad märkena betyder');
+  });
+
+  it('shows everything the old LAND tab showed: chips and supply, finds, the pass, every pin with its controls, the key', () => {
+    const base = described();
+    const s = { ...base, explore: { ...base.explore, finds: ['1:water', '2:timber'], known: { ...base.explore.known, 3: { ...base.explore.known[3], routes: 1 } } } } as Region1State;
+    const html = landTab(s, en);
+    const text = shown(html);
+    // Chips: knowledge levels with their tooltips, per ring.
+    expect(html).toMatch(/class="chip l2" title="Water: observed/);
+    expect(html).toContain('class="chip l1"');
+    // Finds and the pass.
+    expect(text).toContain('★ Clear spring');
+    expect(text).toContain('★ Deadfall');
+    expect(text).toContain('★ The pass');
+    // Every remembered place, under its ring, with forget controls and what it does.
+    for (const p of s.pins!) expect(html).toContain(`data-forget="${p.id}"`);
+    expect(text).toContain('+2 water and fish in this ring');
+    expect(text).toContain('You can hold');
+    expect(text).toContain('PINS — places you remember');
+    // The chips' key and how to learn more.
+    expect(html).toContain('<span class="chip l0">???</span> unknown');
+    expect(text).toContain('Scout for the overview and places further out');
+    expect(text).toContain('THE LAND — what you know, ring by ring');
+    // Each ring's heading, near ring open, the others shut.
+    for (const name of ['NEAR', 'FAR', 'DISTANT']) expect(text).toContain(name);
+    expect(html).toMatch(/data-fold="land\.ring\.1" open/);
+    expect(html).toMatch(/data-fold="land\.ring\.2">/);
+    // A pin in a shut ring still says it's there.
+    expect(html).toMatch(/data-fold="land\.ring\.2"><summary>.*📌 2/);
+  });
+
+  it('shows everything the old MAP tab showed: the camp line, every place in words, the intro, what a map still needs', () => {
+    const s = described();
+    const text = shown(landTab(s, en));
+    expect(text).toContain('THE LAND — what you know of it, from camp');
+    // Every line the description had (and the AI reads), each once: camp at the top, the places under their rings.
+    const lines = describeLand(s);
+    expect(lines.length).toBeGreaterThan(2);
+    for (const l of lines) expect(text.split(l).length - 1).toBe(1);
+    expect(text).toContain('the compass still points north');
+    expect(text).toContain('To draw a map of your own you need something to draw on');
+    // The camp line is at the top, above the rings.
+    expect(text.indexOf(lines[0])).toBeLessThan(text.indexOf('NEAR'));
+    // Without the compass, the other intro.
+    expect(shown(landTab({ ...s, kit: { ...s.kit!, items: s.kit!.items.filter(k => k !== 'map-compass') } }, en))).toContain('no compass to take a bearing by');
+  });
+
+  it('puts your drawn map at the top once drawn, its legend in a Key, and no "needs" line', () => {
+    const s = drawn();
+    const html = landTab(s, en);
+    const text = shown(html);
+    expect(text).toContain("YOUR MAP — drawn from what you've seen");
+    expect(html).toContain('<pre class="reachmap" aria-label="Your map:');
+    expect(html).toMatch(/data-cell="\d+,\d+"/);
+    expect(text).toContain('Tap a square to see what it is.');
+    expect(html).toMatch(/data-fold="land\.mapKey"><summary>Key<\/summary><div class="legend maplegend">/);
+    expect(text).toContain('settlement');
+    expect(text).toContain('Drawn true to the compass');
+    expect(text).not.toContain('To draw a map of your own');
+    expect(text.indexOf('YOUR MAP')).toBeLessThan(text.indexOf('THE LAND — what you know, ring by ring'));
+    for (const l of describeLand(s)) expect(text).toContain(l);
+  });
+
+  it('remembers a fold the viewer opened or shut, and starts from defaults when storage refuses', () => {
+    const kept: Record<string, string> = {};
+    const store = { getItem: (k: string) => kept[k] ?? null, setItem: (k: string, v: string) => { kept[k] = v; } };
+    setFold('land.ring.1', false, store);
+    setFold('land.ring.3', true, store);
+    resetFolds();
+    expect(foldOpen('land.ring.1', true, store)).toBe(false);
+    expect(foldOpen('land.ring.3', false, store)).toBe(true);
+    expect(foldOpen('land.ring.2', false, store)).toBe(false);
+    resetFolds();
+    const refusing = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+    expect(foldOpen('land.ring.1', true, refusing)).toBe(true);
+    expect(() => setFold('land.ring.1', false, refusing)).not.toThrow();
+    expect(foldOpen('land.ring.1', true, refusing)).toBe(false);
+  });
+
+  it('shows a ring out of reach as one line, shut', () => {
+    const html = landTab(fresh(), en);
+    expect(html).toMatch(/<div class="fold ringfold shut"><span class="ringhead" id="land-ring-2">FAR <span>\+3h<\/span><\/span> <span class="foldnote">Out of reach/);
+  });
+
+  it('with the descriptive-map switch off, shows the old LAND tab and then the Reach map, as the two tabs did', () => {
+    for (const base of [rich(), fresh()]) {
+      const s = switchOff(base);
+      expect(mapMode(s)).toBe('reach');
+      const html = landTab(s, en, 2);
+      const text = shown(html);
+      // The old LAND tab, unchanged, first.
+      expect(html.startsWith(`<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${landRings(s, en, 2)}`)).toBe(true);
+      expect(text).toContain('Scout for the overview, survey to firm it up');
+      expect(html).not.toContain('data-fold');
+      // Then the old grid.
+      expect(text.indexOf('THE REACH — a map of what you know')).toBeGreaterThan(text.indexOf('PINS — places you remember'));
+      expect(html).toContain('<pre class="reachmap" aria-label="Map of the Reach:');
+      expect(html).toContain('class="m-camp');
+      expect(text).toContain("You see what's within two hours of camp");
+      expect(englishIn(landTab(s, sv, 2))).toEqual([]);
+    }
   });
 });
 

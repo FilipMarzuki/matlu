@@ -393,6 +393,13 @@ body { min-height: 100vh; }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+  /* Each pack section folds (#1727): the heading is the tap target, with a ▸/▾ for its state. */
+  .kgroup > summary { cursor: pointer; list-style: none; padding: 4px 0; margin-top: 4px; user-select: none; }
+  .kgroup > summary::-webkit-details-marker { display: none; }
+  .kgroup > summary::before { content: '▸'; display: inline-block; width: 1.2em; color: var(--dim); }
+  .kgroup[open] > summary::before { content: '▾'; }
+  .kgroup > summary span { margin-left: 6px; font-family: var(--body); letter-spacing: 0; font-size: 11px; }
+  .kgroup[open] > .kchoices { margin-bottom: 4px; }
   .kchoice { display: grid; gap: 3px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); cursor: pointer; min-width: 0; }
   .kchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .kchoice:disabled { opacity: .4; cursor: default; }
@@ -471,6 +478,12 @@ body { min-height: 100vh; }
 .seasonstrip .wx { color: var(--ink); font-weight: 600; }
 .seasonstrip .wx.danger { color: var(--danger); }
 .seasonstrip .lockbanner { margin: 8px 0 0; }
+/* The weather in words (#1729): a few lines, as a scout would say them, until the strip is earned. */
+.wxwords .eyebrow { margin-bottom: 4px; }
+.wxwords p:not(.eyebrow) { margin: 0 0 2px; font-size: 13px; line-height: 1.45; color: var(--dim); }
+.wxwords .eyebrow + p { color: var(--ink); }
+.wxbox .seasonstrip { margin-top: 10px; }
+.wxbox .lockbanner { margin: 8px 0 0; }
 .pillar .fill.short { background: var(--warn); }
 .pillar .st.short { color: var(--warn); }
 .warnlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; color: var(--warn); font-size: 12px; }
@@ -883,8 +896,39 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .act .ingr span { display: inline-flex; align-items: center; gap: 3px; }
 .act .ingr b { color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 400; }
 
+/* Folds (#1730, fold.ts): the merged LAND tab's ring sections and keys. A plain <details>, so it
+   opens with a tap or the keyboard with no script; the marker is drawn here so it reads the same in
+   every browser. A ring out of reach is the same row with no marker and nothing to open. */
+.fold { border-top: 1px solid var(--border); }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "\25B8"; color: var(--gold); width: 10px; flex: none; }
+.fold[open] > summary::before { content: "\25BE"; }
+.fold > summary .ringhead, .fold.shut .ringhead { margin: 0; }
+.fold.shut { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0 8px 18px; }
+.fold .foldnote { font-size: 12px; color: var(--faint); }
+.ringfold[open] { padding-bottom: 8px; }
+.keyfold { margin-top: 12px; }
+.keyfold > summary { font-size: 12px; color: var(--dim); }
+.keyfold .legend { margin-top: 0; }
+/* What a land trip turned up (#1730, land-news.ts): a small "new" until the viewer has seen the tab,
+   and the link from the trip's line to its ring. */
+.newmark { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; vertical-align: middle; }
+.chip.new { border-color: var(--gold); }
+.landwords li.new { color: var(--gold); }
+.seeland { background: none; border: 0; padding: 0 2px; color: var(--teal); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tripnews { margin: 0 0 8px; }
+.tripnews .landwords { margin: 0 0 6px; }
+
 /* The look picker (dev mode, #1719): preview any of the nine era looks. */
 .lookpick { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .lookpills { display: flex; flex-wrap: wrap; gap: 6px; }
 .lookdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; flex: none; }
 .lookpick .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+/* The look switcher (#1736): temporary, for reviewing era looks. In the header's own row of
+   controls, so it never covers anything; compact, and it wraps with the header at phone width. */
+.lookswitch { gap: 3px; }
+.lookswitch .pill { padding: 6px 8px; }
+.lookswitch .lsname { margin-inline: 3px 2px; }
+.lookswitch select.pill { max-width: 15em; padding-block: 5px; appearance: auto; }

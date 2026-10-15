@@ -118,6 +118,13 @@ export const tabs = {
   'land.pass': 'The pass',
   'land.legendHtml': '<span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips',
   'land.howTo': 'Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.',
+  // The merged LAND tab (#1730): its closing line (land.howTo and the old MAP tab's line in one), and its two folded keys.
+  'land.learnMore': 'Scout for the overview and places further out, survey to firm it up and make the distances sure, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.',
+  'land.chipKey': 'What the chips mean',
+  'land.key': 'Key',
+  // What a land trip turned up (#1730): the mark until you've seen the tab, and the link from the trip's line.
+  'land.new': 'new',
+  'land.seeLand': 'See the land →',
   'pins.fx.fishing': '+{n} water and fish in this ring',
   'pins.fx.forage': '+{n} food gathered in this ring',
   'pins.fx.stone': '+{n} stone quarried in this ring',

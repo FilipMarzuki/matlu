@@ -49,6 +49,9 @@ export const opening = {
   'kitgroup.clothes': 'Clothes',
   'kitgroup.tools': 'Tools',
   'kitgroup.other': 'Other',
+  'kitgroup.personal': 'Personal',
+  // A section's line while it's folded (#1727): how many of its things are packed.
+  'pack.inGroup': '{n} packed',
 
   // ── Character creation ─────────────────────────────────────────────────────
   'create.name': 'NAME — write it',

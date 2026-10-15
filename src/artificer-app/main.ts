@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { drawnSight, mapMode } from '../artificer/descriptive-map';
+import { mapMode } from '../artificer/descriptive-map';
 import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, survivalLockOf, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, queueHours, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
@@ -25,14 +25,14 @@ import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
-import { generateReach, mapRows, sightFor, GLYPH, type Biome, type Reach } from '../artificer/world/reach';
+import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
 import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { hasKit, SUGGESTED_PACK, validPack, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, validPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -41,21 +41,24 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
-import { FEATURES, experimentalOn, featuresOf } from '../artificer/features';
+import { FEATURES, experimentalOn, featuresOf, uiFeatureOn } from '../artificer/features';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
 import { newLog, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
 import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { devMode, devTruths, devNeedsPassword, devUnlocks, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type TabDef, type TabView } from './feature-choices';
+import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { wardenTab } from './warden-view';
-import { landTab } from './land-view';
+import { landTab, seeLandLink, tripNews } from './land-view';
+import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
+import { drawnMapBlock, reachMapSection } from './map-view';
+import { setFold } from './fold';
 import { progressTab, outlookWarnings } from './progress-view';
 import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
@@ -69,10 +72,10 @@ import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artific
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, hrs, pct, band, portraitEl } from './html';
-import { ICON, haulWord, paletteBlock, seasonStrip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, describedMap, type Preview } from './camp-blocks';
-import { packForm, createForm } from './opening-view';
-import { LOOKS, LOOK_IDS, applyLook, installLooks, lookFromQuery, lookOfGame, shownLook, type LookId } from './looks';
-import { actionName, cellText, focusName, landLines, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
+import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
+import { actionName, focusName, lockText, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -159,7 +162,7 @@ function tellHistory(seed: number): void {
     chronicle = h;
     keepHistory(h);
     try { localStorage.setItem(CHRONICLE_KEY, JSON.stringify(h)); } catch { /* kept for this visit only */ }
-    if (tab === 'map' || tab === 'history') render(state);
+    if (tab === 'land' || tab === 'history') render(state);
   };
   // Without workers (or if one fails), tell it here after all: a pause beats no history. The
   // dynamic import keeps the engine out of the page's bundle either way.
@@ -178,7 +181,6 @@ function tellHistory(seed: number): void {
 // ── Settlements (#1541) ──────────────────────────────────────────────────────
 // One at each province's seat, drawn as '#' on the map where you can see it. Laying one out takes
 // a few milliseconds, so each is built the first time it's opened and kept for the run.
-const SEAT_GLYPH = '#';
 let settlementCache = new Map<string, Settlement>();
 let settlementSeed: number | null = null;
 function settlementFor(characterId: string, provinceId: string): Settlement {
@@ -191,7 +193,7 @@ function settlementFor(characterId: string, provinceId: string): Settlement {
   }
   return s;
 }
-/** The settlement open in the MAP tab (its province id), and the building last tapped in it. */
+/** The settlement open from the LAND tab's map (its province id), and the building last tapped in it. */
 let mapSettlement: string | null = null;
 let settlementPick: string | null = null;
 
@@ -217,7 +219,7 @@ function settlementView(a: AppState, provinceId: string): string {
     <p style="margin-top:12px"><button class="pill" data-settle="">${esc(t('btn.backToMap'))}</button></p></section>`;
 }
 
-/** Who holds a square's province, and what the province remembers (for the MAP tab's square info; history-view.ts, #1711). */
+/** Who holds a square's province, and what the province remembers (for the map's square info; history-view.ts, #1711). */
 function provinceInfo(a: AppState, x: number, y: number): string {
   const r = reachFor(a.sim.character.id);
   const provinces = provincesFor(a.sim.character.id);
@@ -226,45 +228,24 @@ function provinceInfo(a: AppState, x: number, y: number): string {
   return provinceInfoView(p.name, cultureName(p.culture), h ?? null, t);
 }
 
-/** The map's key, in the viewer's language. */
-const mapLegend = (): string => `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
-  .map(b => `<span><b class="m-${b}">${GLYPH[b]}</b> ${esc(t(`biome.${b}`).toLowerCase())}</span>`).join('')}<span><b class="m-camp">${GLYPH.camp}</b> ${esc(t('map.legend.camp'))}</span><span><b class="m-seat">#</b> ${esc(t('map.legend.seat'))}</span><span><b class="m-fog">${GLYPH.unknown}</b> ${esc(t('map.legend.unknown'))}</span></div>`;
-
-/** The MAP tab: the Reach as one character per square, what you can see of it, and a tapped square's details. */
-/** The world the MAP tab last drew: a new run is a new Reach, so its open settlement and tapped square go. */
+/** The world the LAND tab's map last drew: a new run is a new Reach, so its open settlement and tapped square go. */
 let mapSeed: number | null = null;
 
-function mapTab(a: AppState): string {
+/**
+ * The LAND tab (#1730, land-view.ts), with the map drawn from this page's cached Reach and the square
+ * last tapped (map-view.ts): the Reach map below the rings with the descriptive-map switch off, your
+ * own map at the top once drawn. A settlement entered from the map opens in its place.
+ */
+function landBody(a: AppState): string {
   const mode = mapMode(a.sim);
-  if (mode === 'described') return describedMap(a.sim, t);
+  const news = landNewsNow(a.sim);
+  if (mode === 'described') return landTab(a.sim, t, pinRing, { news });
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
   if (mapSettlement) return settlementView(a, mapSettlement);
-  const provinces = provincesFor(a.sim.character.id);
-  const seatAt = new Map(provinces.list.map(p => [p.seat.y * r.w + p.seat.x, p]));
-  // Your own drawn map (#1686) shows only what you've seen; with the switch off, the Reach map as before.
-  const sight = mode === 'drawn' ? drawnSight(a.sim) : sightFor(r, a.sim.explore);
-  const rows = mapRows(r, sight);
-  const grid = rows.map((row, y) => [...row].map((ch, x) => {
-    // Glimpsed squares (only suspected so far) draw dimmer than ones you've surveyed or worked.
-    const seen = sight(x, y);
-    const seat = seen > 0 && seatAt.has(y * r.w + x) && !(x === r.camp.x && y === r.camp.y);
-    const cls = x === r.camp.x && y === r.camp.y ? 'm-camp' : seat ? `m-seat${seen === 1 ? ' dim' : ''}` : seen > 0 ? `m-${r.cells[y * r.w + x].biome}${seen === 1 ? ' dim' : ''}` : 'm-fog';
-    const sel = mapCell?.x === x && mapCell?.y === y ? ' sel' : '';
-    return `<span class="${cls}${sel}" data-cell="${x},${y}">${esc(seat ? SEAT_GLYPH : ch)}</span>`;
-  }).join('')).join('\n');
-  const known = !!mapCell && sight(mapCell.x, mapCell.y) > 0;
-  const info = !mapCell ? t('map.tap')
-    : known ? cellText(r, mapCell.x, mapCell.y, t)
-    : t('map.unknown');
-  const seatHere = known && mapCell ? seatAt.get(mapCell.y * r.w + mapCell.x) : undefined;
-  const enter = seatHere ? `<p class="mapinfo">${t('map.standsHtml', { name: esc(seatHere.name) })} <button class="pill" data-settle="${seatHere.id}">${esc(t('btn.enter', { name: seatHere.name.toUpperCase() }))}</button></p>` : '';
-  const drawn = mode === 'drawn';
-  const words = drawn ? `<ul class="landwords">${landLines(a.sim, t).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
-  return `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.reachMap'))}</p>
-    <div class="mapwrap"><pre class="reachmap" aria-label="${esc(t('map.rows', { name: t(drawn ? 'map.yourMap' : 'map.reachMap'), rows: rows.length, w: r.w }))}">${grid}</pre></div>
-    <p class="mapinfo">${esc(info)}</p>${enter}${known && mapCell ? provinceInfo(a, mapCell.x, mapCell.y) : ''}${mapLegend()}${words}
-    <p class="mood">${esc(`${t('map.square')} ${t(drawn ? (hasKit(a.sim, 'map-compass') ? 'map.drawnCompass' : 'map.drawnNoCompass') : 'map.reachNote')}`)}</p></section>`;
+  const world = { reach: r, provinces: provincesFor(a.sim.character.id) };
+  const ui = { cell: mapCell, provinceInfo: (x: number, y: number) => provinceInfo(a, x, y) };
+  return landTab(a.sim, t, pinRing, { news, map: mode === 'drawn' ? drawnMapBlock(a.sim, t, ui, world) : reachMapSection(a.sim, t, ui, world) });
 }
 
 /** The HISTORY tab (#1540), in the viewer's language (history-view.ts, #1711): who holds the Reach now, and the chronicle. */
@@ -323,7 +304,35 @@ function eatingChip(s: AppState['sim']): string {
 function journal(a: AppState, limit: number): string {
   // The camp's line (#1691) is added as the journal is drawn, not by the sim: see camp-view.ts.
   // Each line in the viewer's language (#1709, journal-view.ts): the log itself stays the sim's English.
-  return journalItems(withCampLine(a.sim.log), limit, 'D', t) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
+  // A land trip's line links to its ring on the LAND tab (#1730).
+  const seeLand = (l: { text: string }): string => { const r = tripRing(l.text); return r ? ` ${seeLandLink(r, t)}` : ''; };
+  return journalItems(withCampLine(a.sim.log), limit, 'D', t, seeLand) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
+}
+
+/**
+ * In one-at-a-time play (#1730): what the land trip just made turned up in its ring (the new places
+ * and chips, against what the viewer last saw on the LAND tab), with the link there. A land trip
+ * that turned up nothing new still gets the link; any other line, nothing.
+ */
+function lastTripNews(a: AppState): string {
+  const s = a.sim;
+  // The trip's own line can be followed by others (a milestone, a find): the last line of work (it carries its hour) is the one.
+  const act = [...s.log].reverse().find(l => l.at);
+  const r = act && act.day === s.day ? tripRing(act.text) : null;
+  if (!r) return '';
+  return tripNews(s, r, landNews(s, storedSeen(s.character.id)), t) || `<p style="margin:0 0 8px">${seeLandLink(r, t)}</p>`;
+}
+
+/** What the LAND tab marks new on this visit (#1730): kept while the viewer stays on the tab, so a redraw doesn't clear it. */
+let landVisit: { id: string; news: LandNews } | null = null;
+
+/** What's new on the land for this visit to the tab; drawing it counts as the viewer having seen it. */
+function landNewsNow(s: AppState['sim']): LandNews {
+  const id = s.character.id;
+  const fresh = landNews(s, storedSeen(id));
+  landVisit = { id, news: landVisit?.id === id ? mergeNews(landVisit.news, fresh) : fresh };
+  storeSeen(id, landSeen(s));
+  return landVisit.news;
 }
 
 /**
@@ -337,7 +346,7 @@ function oneAtATime(a: AppState): string {
   return `<div class="queue onestep">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t('head.oneThing'))}</p>
       <p class="mood" style="margin:0 0 8px">${queueLocked(a) ? esc(t('queue.locked')) : ''} ${esc(t('queue.tapNow'))}</p>
-      ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>` : ''}
+      ${last ? `<p class="news ${last.kind}">${esc(logText(last, t))}</p>${lastTripNews(a)}` : ''}
       <div class="qtot"><span>${esc(t('queue.todayHours'))} <b>${hrs(s.hoursToday, t)} / ${DAY_HOURS}h</b></span>${spent ? `<span>${esc(t('queue.spent'))}</span>` : ''}</div>
       <div class="runbar"><button class="btn go" data-cmd="endday" ${s.outcome ? 'disabled' : ''}>${esc(t('btn.endDay'))}</button></div>
     </div>`;
@@ -393,15 +402,8 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where we are in the season, in a few words (for the header chip). */
-function phaseChip(a: AppState): string {
-  const cal = a.sim.config.calendar;
-  const d = a.sim.day;
-  if (seasonOf(d, cal) === 'autumn') { const n = cal.winterDay - d; return `<span class="phase">${esc(t(n === 1 ? 'top.autumn.one' : 'top.autumn.other', { n }))}</span>`; }
-  if (seasonOf(d, cal) === 'thaw') return `<span class="phase gold">${esc(t('top.thaw'))}</span>`;
-  const n = cal.thawDay - d;
-  return `<span class="phase ice">${esc(t(n === 1 ? 'top.winter.one' : 'top.winter.other', { n }))}</span>`;
-}
+/** Where we are in the season, in a few words (for the header chip): in words until the calendar is earned (#1729, camp-blocks.ts). */
+const phaseChip = (a: AppState): string => seasonChip(a.sim, t, { dev });
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
 function statusBar(a: AppState, preview: Preview): string {
@@ -463,11 +465,9 @@ function outlookTag(s: AppState['sim'], ready: boolean): string {
   return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="${esc(t('status.outlookTip'))}">${esc(t(short ? 'status.short' : 'status.holding'))}</button>`;
 }
 
-type Tab = 'plan' | 'camp' | 'land' | 'map' | 'history' | 'warden' | 'progress';
-// `label` is the English name; the page draws each tab's label from the catalog (`tab.<id>`, #1704).
-const TABS: TabDef<Tab>[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'map', label: 'MAP' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
-];
+// The tabs and their order live in feature-choices.ts (APP_TABS), so a test can check them (#1730).
+type Tab = AppTab;
+const TABS = APP_TABS;
 /**
  * Dev mode (#1688, #1735): off until the help panel's faint ⚙ turns it on (with the password, if the
  * build sets one; remembered in this browser), "Leave dev mode" shuts it, and "DEV" shows in the header
@@ -485,11 +485,21 @@ let truths = dev && devTruths();
 // or on a local dev server (`npm run dev`, for screenshots). The preview is this page's alone: a
 // reload without `?look` forgets it.
 installLooks();
-let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV);
+/** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
+const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
+// While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
+let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
+
+/** Show a look over the game's own (null: the game's), and keep it while the switcher is on. */
+function setLookPreview(id: LookId | null): void {
+  lookPreview = id;
+  if (switcherOn()) saveLookChoice(id);
+  render(state);
+}
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
 // open tab against what shows each time it draws (`tabToOpen`).
-let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
+let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
 let showHelp = false;
 
 /**
@@ -505,7 +515,7 @@ function beforeCamp(a: AppState): string {
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<section class="box seasonbox">${seasonStrip(a.sim, t)}</section><div class="plan">
+      return `<section class="box seasonbox">${weatherBox(a.sim, t, { dev })}</section><div class="plan">
         <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
@@ -518,9 +528,7 @@ function tabBody(a: AppState, preview: Preview): string {
         <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a.sim, t)}</section>
       </div>`;
     case 'land':
-      return landTab(a.sim, t, pinRing);
-    case 'map':
-      return mapTab(a);
+      return landBody(a);
     case 'history':
       return historyTab(a);
     case 'warden':
@@ -564,6 +572,9 @@ function drawPage(a: AppState): void {
   // earlier run opens PLAN until this run's camp is made, a kept HISTORY tab PLAN once dev mode is left.
   const view: TabView = { dev, camp: hasCamp(a.sim) };
   tab = tabToOpen(tab, TABS, view);
+  // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
+  if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
+  if (tab !== 'land') landVisit = null;
   root.innerHTML = `
     <header>
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
@@ -578,6 +589,7 @@ function drawPage(a: AppState): void {
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
+      ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
@@ -697,7 +709,7 @@ function setDev(on: boolean): void {
   noteDevRun();
   truths = on && devTruths('');
   roadUi.truths = truths;
-  if (!on) { showFeatures = false; lookPreview = null; }
+  if (!on) { showFeatures = false; if (!switcherOn()) lookPreview = null; }
   devGateOpen = false;
   devGateNote = '';
 }
@@ -761,6 +773,21 @@ function lookPicker(a: AppState): string {
     <p class="mood">${esc(t('dev.lookNote', { look: t(`look.${shown}`) }))}</p></div>`;
 }
 
+/**
+ * The look switcher (#1736): temporary, for reviewing era looks while the dev password isn't
+ * deployed. A compact control in the header: previous, a menu of the nine looks and the game's own,
+ * next. Kept in this browser, never in the save; off with the `look-switcher` ui feature.
+ */
+function lookSwitcher(a: AppState): string {
+  if (!switcherOn()) return '';
+  const game = lookOfGame(a);
+  const opt = (v: string, label: string, on: boolean): string => `<option value="${v}"${on ? ' selected' : ''}>${esc(label)}</option>`;
+  const options = opt('game', t('look.game', { look: t(`look.${game}`) }), lookPreview === null)
+    + LOOK_IDS.map(id => opt(id, `${id} · ${t(`look.${id}`)}`, lookPreview === id)).join('');
+  return `<span class="ctl lookswitch" role="group" aria-label="${esc(t('look.switch'))}" title="${esc(t('look.switch'))}">
+    <button class="pill" data-lookstep="-1" aria-label="${esc(t('look.prev'))}">‹</button><span class="lsname">${esc(t('look.label'))}</span><select class="pill" data-lookselect aria-label="${esc(t('look.switch'))}">${options}</select><button class="pill" data-lookstep="1" aria-label="${esc(t('look.next'))}">›</button></span>`;
+}
+
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
@@ -800,6 +827,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       ${devChip()}
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
+      ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
@@ -1081,6 +1109,9 @@ let draft: Draft = blankDraft();
 const draftValid = (): boolean => draft.name.trim().length > 0;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
+// Which pack sections this viewer has opened or folded (#1727): a per-browser convenience, so
+// storage that's blocked or empty just means every section starts as its default.
+let packOpen: PackOpen = (() => { try { return readPackOpen(localStorage.getItem(PACK_OPEN_KEY)); } catch { return {}; } })();
 
 // The draft survives a reload (#1266): the same Warden-to-be, with the same seeded offer —
 // so reloading the page can't re-roll the talents on offer, and nothing typed is lost.
@@ -1165,7 +1196,7 @@ function renderIntro(): void {
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
   const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name, t))}</p>`).join('')
-    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths) : '');
+    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen) : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -1191,10 +1222,19 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
+  // A pack section's heading (#1727): fold or open it, and remember that. preventDefault stops the
+  // browser toggling the <details> itself; the redraw sets `open` from packOpen instead.
+  if (btn?.dataset.kitgroup) {
+    e.preventDefault();
+    const g = btn.dataset.kitgroup as KitGroup;
+    packOpen = { ...packOpen, [g]: !sectionOpen(g, draftPack, packOpen) };
+    try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
+    renderIntro(); return;
+  }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
   if (btn?.dataset.kit) {
     const id = btn.dataset.kit as KitId;
@@ -1246,6 +1286,8 @@ function keep(next: AppState): void {
   // The moment a run resolves, it goes into the history (once).
   const h = recordRun(history, state, next);
   if (h.length !== history.length || h[0] !== history[0]) { history = h; saveHistory(history); }
+  // A land trip that turned something up opens its ring on the LAND tab (#1730), even if it was shut.
+  for (const r of ringsToOpen(state.sim, next.sim)) setFold(`land.ring.${r}`, true);
   state = next;
   save(state);
   saveKept();
@@ -1270,9 +1312,19 @@ root.addEventListener('click', e => {
   if (playing) {
     if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
     if (d.pbskip !== undefined) { skipTimer(); return; }
-    if (!d.tab && d.cmd !== 'help' && !d.lang) return;
+    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep) return; // the look switcher (#1736) only redraws
   }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
+  // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
+  // a queued day can run several trips, so the tab never changes on its own.
+  else if (d.seeland) {
+    const r = Number(d.seeland) as Ring;
+    tab = 'land';
+    try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ }
+    setFold(`land.ring.${r}`, true);
+    render(state);
+    root.querySelector(`#land-ring-${r}`)?.scrollIntoView({ block: 'start' });
+  }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   // The language switch in help (#1704): presentation only, so it's fine mid-day too.
   else if (d.lang) { const l = parseLang(d.lang); if (l) setLang(l); }
@@ -1281,12 +1333,18 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'devleave') { setDev(false); render(state); }
   else if (d.cmd === 'deventer') { setDev(true); render(state); }
   // A look preview (#1719): presentation only, so it's fine mid-day too.
-  else if (d.lookpick) { lookPreview = d.lookpick === 'game' ? null : LOOK_IDS.find(id => id === d.lookpick) ?? null; render(state); }
+  else if (d.lookpick) setLookPreview(LOOK_IDS.find(id => id === d.lookpick) ?? null);
+  // The look switcher's previous / next (#1736); focus stays on the button pressed, for the keyboard.
+  else if (d.lookstep) { setLookPreview(stepLook(lookPreview, d.lookstep === '-1' ? -1 : 1)); root.querySelector<HTMLElement>(`[data-lookstep="${d.lookstep}"]`)?.focus(); }
   else if (d.feature) {
     // Flip one switch (#1579); a rule feature takes effect at the next new game.
     const choices = loadChoices();
     const f = FEATURES.find(x => x.id === d.feature);
-    if (f) { saveChoices({ ...choices, [f.id]: !(typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default) }); render(state); }
+    if (f) {
+      saveChoices({ ...choices, [f.id]: !(typeof choices[f.id] === 'boolean' ? choices[f.id] : f.default) });
+      if (f.id === LOOK_SWITCHER_FEATURE && !switcherOn()) { saveLookChoice(null); lookPreview = null; }
+      render(state);
+    }
   }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
@@ -1502,11 +1560,26 @@ async function sendRun(): Promise<void> {
   render(state);
 }
 
+// The look switcher's menu (#1736): a choice from the list, by mouse or by the arrow keys.
+root.addEventListener('change', e => {
+  const sel = (e.target as HTMLElement).closest<HTMLSelectElement>('select[data-lookselect]');
+  if (!sel) return;
+  setLookPreview(LOOK_IDS.find(id => id === sel.value) ?? null);
+  root.querySelector<HTMLSelectElement>('select[data-lookselect]')?.focus();
+});
+
 // The nickname is kept as it's typed, so a redraw (the achievements coming in) doesn't lose it.
 root.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
   if (input.id === 'runname' && recordUi) recordUi.name = input.value;
 });
+
+// A fold opened or shut (#1730, fold.ts): remembered, so the next redraw writes it the same way.
+// `toggle` doesn't bubble, so it's caught on its way down (the third argument, capture).
+root.addEventListener('toggle', e => {
+  const d = e.target as HTMLDetailsElement;
+  if (d.dataset?.fold) setFold(d.dataset.fold, d.open);
+}, true);
 
 // ── The weekly world (#1559) ────────────────────────────────────────────────
 
