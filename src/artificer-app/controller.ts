@@ -19,6 +19,7 @@ import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
+import { difficultyRead } from '../artificer/difficulty';
 import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
 import { validExperiments } from '../artificer/experiment';
@@ -568,8 +569,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const tr = isObj(ch) ? partial(ch.trained) : undefined, exer = isObj(ch) ? partial(ch.exercise) : undefined;
   const pend = isObj(ch) ? partial(ch.pending) : undefined;
   const growth = { ...(tr ? { trained: tr } : {}), ...(exer ? { exercise: exer } : {}), ...(pend ? { pending: pend } : {}), ...(isObj(ch) && Number.isInteger(ch.wear) && (ch.wear as number) > 0 ? { wear: ch.wear as number } : {}) };
+  // Difficulty (#1728): kept if it's a multiplier above ×1.00; anything else (absent, old saves) reads ×1.00.
+  const difficulty = isObj(ch) && difficultyRead(ch.difficulty) > 1 ? { difficulty: difficultyRead(ch.difficulty) } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth, ...difficulty }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated — a concept
   // only if this Warden can still turn it over (#1478).

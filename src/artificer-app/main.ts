@@ -1026,7 +1026,9 @@ const STANDARD_PORTRAIT = 'loke';
 type Draft = { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats; age: number };
 const blankDraft = (): Draft => ({ id: newCharacterId(), name: '', portrait: STANDARD_PORTRAIT, talents: [], stats: { ...DEFAULT_STATS }, age: DEFAULT_AGE });
 let draft: Draft = blankDraft();
-const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
+// A name is all BEGIN needs (#1728): fewer talents than allowed, or none, is a choice — each pick
+// left unchosen adds to the difficulty multiplier, like a stat point left unspent.
+const draftValid = (): boolean => draft.name.trim().length > 0;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
 
