@@ -38,6 +38,7 @@ A new canon source gets a row here in the PR that adds it.
 | `docs/WORLD_LORE.md` | The nine corruption boundaries (Swedish) | **Master** for that early lore; partly superseded by `WORLD.md` | Repo file / PR |
 | `macro-world/setting-corewarden.md` | Core Warden's setting bible: the Wildkin kingdom, the Highfang, its threats | **Master** for the Wildkin core area alongside `WORLD.md` (which says the bible stays canon for the Wildkin) | Repo file / PR |
 | `docs/culture-lore.md` | How `peoples-lore.json` and `cultures-lore.json` are built and read | Documentation for the Artificer files below | Repo file / PR |
+| `docs/local-culture.md` | Design (#1739): how a culture's style varies by realm, region, province and village, and the reason for each difference | Design only. Its data file (proposed `macro-world/culture-styles.json`) gets its own row when it's added | Repo file / PR |
 
 ### Macro-world data (`macro-world/*.json`, `public/macro-world/*.json`) and Supabase
 
