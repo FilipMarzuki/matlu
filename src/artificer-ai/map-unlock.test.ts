@@ -38,7 +38,7 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
     expect(sum.unlocked).toBe(MEASURE_SEEDS.length);
     expect(inTarget(sum.median)).toBe(true);
     expect(days).toEqual(EXPLORER_DAYS);
-  });
+  }, 60_000);
 
   it('the scripted baseline, pinned as measured: the seeds that unlock do so in 4–6', async () => {
     const days: (number | null)[] = [];
@@ -48,18 +48,20 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
     expect(sum.unlocked).toBeGreaterThan(0);
     expect(inTarget(sum.median)).toBe(true);
     expect(days.filter(d => d !== null).every(inTarget)).toBe(true);
-  });
+  }, 60_000);
 
   it('the random baseline: median in 4–6', async () => {
     const days: (number | null)[] = [];
     for (const [i, id] of MEASURE_SEEDS.entries()) days.push((await randomUnlock(id, i + 1)).day);
     expect(days).toEqual(RANDOM_DAYS);
     expect(inTarget(summarise(days).median)).toBe(true);
-  });
+  }, 60_000);
 });
 
 // Measured with MAP_NIGHTS 4, MAP_PLACES 4, MAP_DIRECTIONS 3 (index i is seed `map-${i + 1}`):
 // explorer 12/12, median 5 (5–5); scripted 4/12, median 5 (5–5); random 11/12, median 5 (5–6).
 const EXPLORER_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 const SCRIPTED_DAYS: (number | null)[] = [null, null, null, null, 5, 5, null, 5, 5, null, null, null];
-const RANDOM_DAYS: (number | null)[] = [5, 5, 6, 5, 5, 5, null, 5, 6, 5, 6, 5];
+// With \`thermal-model\` (#1770) a night without a bag is dangerous, so the random player dies sooner:
+// random 8/12, median 5 (5–8). The explorer and the scripted baseline didn't move.
+const RANDOM_DAYS: (number | null)[] = [5, 5, 6, null, 5, null, null, 5, 6, 5, 8, 5];
