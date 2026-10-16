@@ -76,6 +76,9 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   explore: 'scouting',
   // Making camp (#1732) is camp craft: clearing the ground, laying the fire, rigging a windbreak.
   camp: 'fieldcraft',
+  // Drawing your map (#1797, `map-learning`) is a scout's work too: placing what you found by its
+  // bearing and walking time. Practised per hour like any scouting; the action exists only with the switch on.
+  drawmap: 'scouting',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',

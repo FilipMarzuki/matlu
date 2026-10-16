@@ -45,13 +45,17 @@ export const mapLearningOn = (s: Pick<Region1State, 'config'>): boolean => featu
 
 // ── The unlock ──────────────────────────────────────────────────────────────
 
+// Tuned in #1797 so a player who explores normally unlocks the map around day 4–6 (measured on the
+// baselines and an explorer, src/artificer-ai/map-unlock.test.ts): at 3 nights and 5 places every
+// explorer's map opened on day 4, held back only by the nights; at 4 and 4 it opens on day 5.
+
 /** Nights slept before you'd sit down to draw the land: a few, to know it. */
-export const MAP_NIGHTS = 3;
+export const MAP_NIGHTS = 4;
 /** Places found (seen, not just on the skyline; places to camp count too). */
-export const MAP_PLACES = 5;
+export const MAP_PLACES = 4;
 /** …and in this many directions, of the compass's eight points: a map needs more than one line out of camp. */
 export const MAP_DIRECTIONS = 3;
-/** Hours the Draw your map action takes, at camp. */
+/** Hours the Draw your map action takes, at camp: scouting work, practised as such (skills.ts, #1797). */
 export const MAP_DRAW_HOURS = 2;
 
 /** The first day's journal line (#1754): you look around; the land is directions and distances. */
