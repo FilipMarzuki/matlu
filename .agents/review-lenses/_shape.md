@@ -13,23 +13,48 @@ hard: this PR was routed to you because a mistake here is expensive.
   lens, test each row's **Wrong if…** against the diff, and look for
   assumptions in your area that the author relied on but didn't list. A
   stated decision is a claim to check, not a reason to look away.
-- **Your review gates the merge (#1481).** On a risk:high PR, any finding holds
-  the merge until a new commit, which is reviewed again. So a finding needs a
-  concrete way it goes wrong — no speculative ones, no style notes: a false
-  alarm costs a fix round, a missed bug in this area ships. Mention lesser
-  observations in your closing sentence, not as findings.
+- **Only high-severity findings gate the merge (#1481, #1780).** On a risk:high
+  PR, a **high** finding holds the merge until a new commit, which is reviewed
+  again. Medium and low findings are posted under a "not blocking" heading and
+  don't hold it. A false alarm costs a fix round; a missed bug in this area ships.
+
+## Severity
+
+- **high** — a realistic path to wrong saves, broken replays or determinism,
+  data loss, crashes or a security hole. It needs a concrete `fails when`: an
+  input or state someone can reach, and the wrong result it gives; and an
+  `evidence:` line naming the file and line it happens at (`src/a.ts:123` or
+  `src/a.ts:12-20`). A "high" missing either is counted as medium.
+- **medium** — a real weakness with no concrete failing path yet, or one that
+  needs an unlikely state to reach.
+- **low** — theoretical, stylistic, or a nice-to-have.
+
+Anything theoretical or stylistic is medium or low, never high. Check the
+runtime before calling something high: `Array.prototype.sort` is stable in
+every engine we ship on, for example, so a comparator that ties on equal items
+over input in a fixed order is not a determinism bug.
 
 ## Respond in exactly this shape
 
 ```
 FINDINGS: <n>
+
+### <one sentence: what is wrong>
+severity: high | medium | low
+fails when: <the concrete input or state, and what goes wrong: wrong output, lost save, broken hash, leaked secret...>
+evidence: path/to/file.ts:LINE
+
+### <the next finding, in the same four lines>
+...
+
+**What I checked:** <one sentence>
 ```
 
-then, for each finding (most severe first, at most 6):
+- Most severe first, at most 6 findings. `<n>` counts every finding, whatever
+  its severity.
+- The `severity:` line comes straight after the finding's `###` title, then
+  `fails when:` and `evidence:`, one line each. `evidence:` is a file and line
+  from the attached files or the diff, not a description.
+- If there are none, write `FINDINGS: 0` and the **What I checked** line.
 
-- **`path/to/file.ts:LINE`** — one sentence: what is wrong.
-  _Fails when:_ the concrete inputs or state, and what goes wrong (wrong output,
-  lost save, broken hash, leaked secret...).
-
-If there are none, write `FINDINGS: 0` and one sentence on what you checked.
-End with **What I checked** — one sentence. No preamble, no praise, under 400 words.
+No preamble, no praise, under 400 words.

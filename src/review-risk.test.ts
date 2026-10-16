@@ -117,7 +117,7 @@ describe('Review risk score (#1431)', () => {
       const ok = [agent(), second('approve')];
       expect(gate('high', ok).reason).toMatch(/waiting for the focused review \(saves\)/);
       expect(gate('high', [...ok, focused('saves', 0)]).reason).toMatch(/waiting for the focused review \(general\)/);
-      expect(gate('high', [...ok, focused('saves', 0), focused('general', 2)]).reason).toMatch(/focused review \(general\) has 2 finding/);
+      expect(gate('high', [...ok, focused('saves', 0), focused('general', 2)]).reason).toMatch(/focused review \(general\) has 2 high-severity finding/);
       expect(gate('high', [...ok, focused('saves', '?'), focused('general', 0)]).reason).toMatch(/no finding count/);
       expect(gate('high', [...ok, focused('saves', 0), focused('general', 0)]).merge).toBe(true);
       // A finding stays until a new commit, whatever a re-run says; a count replaces a '?'.

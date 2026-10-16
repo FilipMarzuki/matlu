@@ -12,6 +12,6 @@ export function reviewWithFallback(o: {
 }): Promise<(Reviewed & { weak: string | null }) | null>;
 export function claudeReview(o: { prompt: string; system: string; model?: string; key: string; fetch?: typeof fetch }): Promise<Reviewed>;
 export function reviewBody(o: {
-  focus?: string | null; usedModel: string; verdict: string; findings?: string; text?: string; weak?: string | null;
+  focus?: string | null; usedModel: string; verdict: string; findings?: string; high?: string | null; text?: string; weak?: string | null;
   key?: string | null; usage?: Usage; carried?: { from: string; url: string } | null;
 }): string;

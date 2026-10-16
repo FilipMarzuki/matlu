@@ -10,8 +10,14 @@
 //
 // With --focus <lens> it is a focused review instead (#1431): the prompt is
 // .agents/review-lenses/<lens>.md plus the findings shape in _shape.md, not the
-// general rules. The risk workflow runs one per lens on high-risk PRs; any
-// finding holds the merge.
+// general rules. The risk workflow runs one per lens on high-risk PRs.
+//
+// The severity gate (#1780, review-findings.mjs): both prompts ask for each finding as severity,
+// fails when and evidence. Only a high finding with a concrete failing scenario and a file:line
+// evidence holds the merge; a "high" missing either counts as medium. A second-opinion finding with
+// a `rule:` line (a must-pass breach) blocks whatever its grade. The markers carry `findings=N high=H`, and the second
+// opinion's verdict is approve unless a high finding is present. Medium and low findings are still
+// posted, under a "not blocking" heading.
 //
 // Paying for fewer reviews (#1654, review-cost.mjs): the request caps its output, the body's
 // footer and the run log say what it cost, and when this head's PR diff is byte-identical to the
@@ -34,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { skipReason, contextSection, noRoom, admit } from './review-context.mjs';
 import { reviewWithFallback, claudeReview, reviewBody, FALLBACK_MODEL } from './review-fallback.mjs';
 import { openRouterBody, openRouterUsage, usageLine, reviewKey, carryOver } from './review-cost.mjs';
+import { parseFindings, secondOpinionVerdict, renderFindings } from './review-findings.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -230,6 +237,8 @@ async function labelWeak() {
     const { parsed, review: earlier } = carry;
     const body = reviewBody({
       focus, usedModel: parsed.usedModel, verdict: parsed.verdict, findings: parsed.findings === null ? '?' : String(parsed.findings),
+      // The high count carries over too (#1780); an old-format review's stays absent, as it was.
+      high: parsed.high === null || (!focus && parsed.findings === null) ? null : String(parsed.high),
       weak: parsed.weak, key: parsed.key, carried: { from: carry.from, url: earlier.html_url ?? pr.html_url },
     });
     if (dryRun) { console.log(`--- dry run: would carry over the ${kind} review of ${carry.from.slice(0, 7)} (key ${parsed.key}) ---\n\n${body}`); return; }
@@ -258,14 +267,16 @@ async function labelWeak() {
   const { text, usedModel, weak, usage } = got;
   // What it cost (#1654), in the log here and the body's footer.
   console.log(`${kind} review by ${usedModel}: ${usageLine(usage)}`);
-  const findings = /FINDINGS:\s*(\d+)/i.exec(text)?.[1] ?? '?';
-  const verdict = focus
-    ? `${findings} finding(s)`
-    : /VERDICT:\s*(approve|request-changes)/i.exec(text)?.[1]?.toLowerCase() ?? 'unclear';
+  // The severity gate (#1780): count the findings and the high ones; only those hold the merge.
+  const graded = focus ? parseFindings(text) : secondOpinionVerdict(text);
+  const findings = graded.total === null ? '?' : String(graded.total);
+  const high = graded.high === null ? '?' : String(graded.high);
+  const verdict = focus ? `${findings} finding(s), ${high} high` : graded.verdict;
 
   // The merge gate reads line 1 and the marker on line 2 (#1481); a weak review says so below them.
   // The marker carries its key, so a later head with the same key can carry it over (#1654).
-  const body = reviewBody({ focus, usedModel, verdict, findings, text, weak, key: weak ? fallbackKey : primaryKey, usage });
+  // The text is regrouped under "Blocking" and "Not blocking" headings (renderFindings).
+  const body = reviewBody({ focus, usedModel, verdict, findings, high, text: renderFindings(text), weak, key: weak ? fallbackKey : primaryKey, usage });
 
   // COMMENT, never APPROVE / REQUEST_CHANGES: GitHub's review state stays the
   // review agent's; the merge gate (risk-score.mjs, #1481) reads this body's marker.
