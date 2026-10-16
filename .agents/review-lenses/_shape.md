@@ -22,8 +22,9 @@ hard: this PR was routed to you because a mistake here is expensive.
 
 - **high** — a realistic path to wrong saves, broken replays or determinism,
   data loss, crashes or a security hole. It needs a concrete `fails when`: an
-  input or state someone can reach, and the wrong result it gives. A "high"
-  with no concrete `fails when` is counted as medium.
+  input or state someone can reach, and the wrong result it gives; and an
+  `evidence:` line naming the file and line it happens at (`src/a.ts:123` or
+  `src/a.ts:12-20`). A "high" missing either is counted as medium.
 - **medium** — a real weakness with no concrete failing path yet, or one that
   needs an unlikely state to reach.
 - **low** — theoretical, stylistic, or a nice-to-have.
@@ -52,7 +53,8 @@ evidence: path/to/file.ts:LINE
 - Most severe first, at most 6 findings. `<n>` counts every finding, whatever
   its severity.
 - The `severity:` line comes straight after the finding's `###` title, then
-  `fails when:` and `evidence:`, one line each.
+  `fails when:` and `evidence:`, one line each. `evidence:` is a file and line
+  from the attached files or the diff, not a description.
 - If there are none, write `FINDINGS: 0` and the **What I checked** line.
 
 No preamble, no praise, under 400 words.

@@ -86,8 +86,8 @@ export function reviewBody({ focus, usedModel, verdict, findings = '?', high = n
     ? `<!-- focused lens=${focus} findings=${findings}${sev}${tag} -->`
     : `<!-- second-opinion verdict=${verdict}${sev ? ` findings=${findings}${sev}` : ''}${tag} -->`;
   const gates = focus
-    ? 'only a high-severity finding with a concrete failing scenario holds the merge (risk:high) until a new commit, which is reviewed again; medium and low ones are posted, not blocking'
-    : 'only a high-severity finding with a concrete failing scenario makes it request-changes, which holds the merge (risk:medium and high) until a new commit; medium and low ones are posted, not blocking';
+    ? 'only a high-severity finding with a concrete failing scenario and a file:line holds the merge (risk:high) until a new commit, which is reviewed again; medium and low ones are posted, not blocking'
+    : 'only a high-severity finding with a concrete failing scenario and a file:line, or a must-pass rule breach, makes it request-changes, which holds the merge (risk:medium and high) until a new commit; medium and low ones are posted, not blocking';
   const who = `${usedModel}${weak ? ', fallback' : ''}${carried ? ', carried over' : ''}`;
   const main = carried
     ? `Carried over from [the review of commit ${carried.from.slice(0, 7)}](${carried.url}): this commit's PR diff is byte-identical to the one that review read, for the same model and review instructions (key \`${key}\`), so no paid call was made. A change to any of them gets a fresh review.`

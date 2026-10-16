@@ -13,8 +13,9 @@
 // general rules. The risk workflow runs one per lens on high-risk PRs.
 //
 // The severity gate (#1780, review-findings.mjs): both prompts ask for each finding as severity,
-// fails when and evidence. Only a high finding with a concrete failing scenario holds the merge; a
-// "high" with no scenario counts as medium. The markers carry `findings=N high=H`, and the second
+// fails when and evidence. Only a high finding with a concrete failing scenario and a file:line
+// evidence holds the merge; a "high" missing either counts as medium. A second-opinion finding with
+// a `rule:` line (a must-pass breach) blocks whatever its grade. The markers carry `findings=N high=H`, and the second
 // opinion's verdict is approve unless a high finding is present. Medium and low findings are still
 // posted, under a "not blocking" heading.
 //
