@@ -24,7 +24,8 @@ import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
-import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID } from './focus-popover';
+import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
+import { GUIDE_FEATURE } from './survival-path';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -434,7 +435,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
-    ${focusChip(s, t, focusPopOpen)}${focusPopOpen ? focusPopover(s, t) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
     ${outlookTag(s, ready)}
   </div>`;
@@ -498,6 +499,8 @@ let truths = dev && devTruths();
 installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
+/** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
