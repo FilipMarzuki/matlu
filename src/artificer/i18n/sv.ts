@@ -22,6 +22,7 @@ import { distanceSv } from './sv/distance';
 import { maplearnSv } from './sv/maplearn';
 import { survivalSv } from './sv/survival';
 import { guideSv } from './sv/guide';
+import { backdropSv } from './sv/backdrop';
 
 /**
  * Swedish (#1704). Written as Swedish for kids and grown-ups, not word for word from the English:
@@ -307,7 +308,7 @@ const core: Catalog = {
 };
 
 /** Every area by name, as en.ts has them (`enAreas`): duplicates.test.ts checks that no key is defined in two. */
-export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv, timeSv, distanceSv, maplearnSv, guideSv, survivalSv };
+export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv, timeSv, distanceSv, maplearnSv, guideSv, survivalSv, backdropSv };
 
 export const sv: Catalog = {
   ...core,
@@ -335,4 +336,5 @@ export const sv: Catalog = {
   ...maplearnSv,
   ...survivalSv,
   ...guideSv,
+  ...backdropSv,
 };
