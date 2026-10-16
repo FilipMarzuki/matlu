@@ -279,7 +279,7 @@ export const FEATURES: readonly FeatureDef[] = [
     // Warden, the AI and the API are told of tonight, so a run from before it (absent: false) keeps
     // the warmth fraction on replay.
     id: 'thermal-model', name: 'Nights as a heat balance', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1770,
-    note: 'A night at camp is worked out the way cold-weather gear is rated: the air, wind and fire where you sleep against what you wear, sleep in and lie on. A cave stays about +4 °C all winter, still and damp, and its rock needs a good pad; wind on a hilltop makes the night colder than the air; walls and a fire inside them warm the air. A better sleeping bag or pad helps as much as its rating says.',
+    note: 'A night at camp is worked out the way cold-weather gear is rated: the air, wind and fire where you sleep against what you wear, sleep in and lie on. A cave stays about +4 °C all winter (each cave its own, within a degree), still and damp, and its rock needs a good pad; wind on a hilltop makes the night colder than the air; walls and a fire inside them warm the air. A better sleeping bag or pad helps as much as its rating says.',
   },
   {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live

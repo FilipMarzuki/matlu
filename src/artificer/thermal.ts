@@ -50,6 +50,7 @@ import { GRADE_WARMTH, type Region1State, type SiteId } from './region1';
 import { hasKit } from './kit';
 import type { Grade } from './crafting';
 import type { WeatherId } from './world';
+import { generator, seedOf } from './rng';
 
 /** The switch (features.ts). */
 export const THERMAL_MODEL = 'thermal-model';
@@ -207,9 +208,29 @@ export function windChillC(t: number, v10: number): number {
 /**
  * The cave's air (°C): the region's mean annual surface temperature. For the Reach (Nordic
  * forest, inland), +4 °C: central Sweden and southern Finland run about +2 to +6 °C. A constant
- * per region: deep enough in, a cave is the same in midwinter and early autumn.
+ * per region: deep enough in, a cave is the same in midwinter and early autumn. Each cave sits
+ * within `CAVE_SPREAD` of it (`caveTempC`).
  */
 export const CAVE_TEMP = 4;
+/** How far one cave can sit from `CAVE_TEMP` (°C): a little each way, as caves of one region do. */
+export const CAVE_SPREAD = 1;
+
+/** What names a cave: the run (its character, whose id seeds the world) and, with camp-as-action, the spot. */
+export type CaveRun = Pick<Region1State, 'character'> & Partial<Pick<Region1State, 'campSpot'>>;
+
+/**
+ * This cave's own air (°C): `CAVE_TEMP` plus a small fixed offset in [−1, +1], to one decimal.
+ * The offset is a hash of the cave's identity (the run's world seed, `seedOf(character.id)`, and the
+ * spot id, `cave@x,y`; without a spot, the run's one cave), read through its own generator, never the
+ * sim's streams: no draws, so the same cave is the same temperature every night of a run, and nothing
+ * else in the run moves. Each cave differs a little because each sits differently in the rock.
+ */
+export function caveTempC(s: CaveRun): number {
+  const id = s.campSpot?.at ?? 'cave';
+  const u = generator(seedOf(`${seedOf(s.character.id)}|cave-temp|${id}`))();
+  // u in [0, 1) → [−1, +1) → rounded to a tenth (so −1.0 … +1.0); `+ 0` turns a −0 into 0.
+  return CAVE_TEMP + Math.round((u * 2 - 1) * CAVE_SPREAD * 10) / 10 + 0;
+}
 /** Cave air is near saturation. */
 export const CAVE_RH = 95;
 
@@ -262,7 +283,7 @@ export const SITED_CUT = 0.5;
 export interface Ground { tempC: number; resistance: number }
 
 /** What a sleeper's environment reads: the parts of the run it needs. */
-export type ThermalRun = Pick<Region1State, 'site' | 'tier' | 'shelter' | 'shelterGrade' | 'tools' | 'kit' | 'day' | 'config' | 'wetHours' | 'weatherToday'>;
+export type ThermalRun = Pick<Region1State, 'site' | 'tier' | 'shelter' | 'shelterGrade' | 'tools' | 'kit' | 'day' | 'config' | 'wetHours' | 'weatherToday'> & CaveRun;
 
 /** Tonight as the sleeper meets it. */
 export interface SleeperEnv extends Climate {
@@ -292,14 +313,14 @@ const graded = (x: number, g: Grade | null): number => Math.min(1, x * GRADE_WAR
 /**
  * The air temperature at the sleeper, the wind that reaches them and the radiant gain (#1770).
  *
- * - **A cave**: the region's constant (`CAVE_TEMP`), still, humid air, the rock at the same
+ * - **A cave**: its own steady air (`caveTempC`: the region's +4 °C, give or take a degree), still, humid air, the rock at the same
  *   temperature underfoot and overhead. Mild in midwinter, cooler than outside on a warm night.
  * - **Elsewhere**: the night's air, the site's share of the wind (hilltop all, treeline a third),
  *   cut by the shelter (and by building where the wind doesn't reach), and the night sky's chill
  *   where no roof blocks it.
  * - **A fire** for the share of the night it burns adds radiant heat, more with a reflector or walls.
  */
-export function sleeperEnvironment(s: Pick<ThermalRun, 'site' | 'tier' | 'shelter' | 'shelterGrade' | 'day' | 'config'>, night: NightIn): SleeperEnv {
+export function sleeperEnvironment(s: Pick<ThermalRun, 'site' | 'tier' | 'shelter' | 'shelterGrade' | 'day' | 'config'> & CaveRun, night: NightIn): SleeperEnv {
   // No camp yet: you sleep where you stopped, on the forest floor among the trees (the Reach is forest).
   const site = s.site ?? 'tree';
   const wind10 = WIND_10M[night.weather];
@@ -309,10 +330,11 @@ export function sleeperEnvironment(s: Pick<ThermalRun, 'site' | 'tier' | 'shelte
   const fire = Math.max(0, Math.min(1, night.fire));
   const wet = night.weather === 'rain' || night.weather === 'fog' || night.weather === 'snow';
   if (site === 'cave') {
-    const air = CAVE_TEMP + (s.tier > 0 ? h.air / 2 : 0) + fire * CAVE_FIRE.fireAir;
+    const rock = caveTempC(s);
+    const air = rock + (s.tier > 0 ? h.air / 2 : 0) + fire * CAVE_FIRE.fireAir;
     return {
       airC: air, radiantC: air + fire * CAVE_FIRE.fireRadiant, windMs: wind10 * GROUND_WIND * SITE_WIND.cave * (1 - cut), rh: CAVE_RH,
-      outsideC: night.tempC, wind10, feelsC, ground: { tempC: CAVE_TEMP, resistance: 0 }, soaked: false,
+      outsideC: night.tempC, wind10, feelsC, ground: { tempC: rock, resistance: 0 }, soaked: false,
     };
   }
   const retained = GRADE_WARMTH[s.shelterGrade ?? 'sound'];

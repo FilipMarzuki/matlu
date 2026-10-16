@@ -12,6 +12,11 @@
  *   5. IREQ               — matches the ISO 11079 program within 0.05 clo.
  *   6. Off or absent      — built-warmth and the older behaviour unchanged; the same seed the same run.
  *
+ * And the owner's two decisions on the PR:
+ *   7. Each cave's own air — about +4 °C, a fixed offset in [−1, +1] from the cave's identity
+ *                           (no draws): within 3–5 °C, the same every call, two caves can differ.
+ *   8. No sleeping bag     — a cold night without one is dangerous (hypothermia risk).
+ *
  * Plus determinism (no draws), the words and the dev numbers.
  */
 
@@ -29,8 +34,8 @@ import { makeT } from './i18n';
 import { observe } from '../artificer-ai/observe';
 import { nightBlock } from '../artificer-app/camp-blocks';
 import {
-  THERMAL_MODEL, CAVE_TEMP, ASTM_R, BAG_RATING, PAD_R, TEST_CLOTHES, TEST_PAD_R, SLEEP_MET, NIGHT_WORDS,
-  ireq, windChillC, bagClo, effectiveClo, insulationHeld, sleeperEnvironment, thermalNight, nightQuality, thermalEffects,
+  THERMAL_MODEL, CAVE_TEMP, CAVE_SPREAD, ASTM_R, BAG_RATING, PAD_R, TEST_CLOTHES, TEST_PAD_R, SLEEP_MET, NIGHT_WORDS,
+  caveTempC, ireq, windChillC, bagClo, effectiveClo, insulationHeld, sleeperEnvironment, thermalNight, nightQuality, thermalEffects,
   type NightQuality,
 } from './thermal';
 
@@ -65,11 +70,11 @@ const midWind = nightTemp(MIDWINTER, 'wind', DEFAULT_CALENDAR);
 describe('A night at camp as a heat balance (#1770)', () => {
   it('1. given a midwinter night of −19 °C with wind, a cave with a pad of R ≥ 3 and a bag sleeps cool or better; on bare rock with no pad it is cold', () => {
     expect(mid).toBeCloseTo(-19, 0);
-    // The cave's air is the region's constant, whatever the night outside.
+    // The cave's air is its own steady temperature (about +4 °C), whatever the night outside.
     const cave = campAt('cave', true, { ...BAG_AND_PAD, weatherToday: 'wind' });
     const env = sleeperEnvironment(cave, { tempC: -19, weather: 'wind', fire: 0 });
-    expect(env.airC).toBe(CAVE_TEMP);
-    expect(env.ground.tempC).toBe(CAVE_TEMP);
+    expect(env.airC).toBe(caveTempC(cave));
+    expect(env.ground.tempC).toBe(caveTempC(cave));
     expect(env.ground.resistance).toBe(0); // bare rock
     // A pad of R 3 (a self-inflating mat) under the scout's three-season bag.
     const held = { ...insulationHeld(cave), padSI: 3 * ASTM_R };
@@ -83,7 +88,7 @@ describe('A night at camp as a heat balance (#1770)', () => {
     expect(insulationHeld(bare).padR).toBe(0);
     expect(thermalNight(bare, { tempC: -19, weather: 'wind', fire: 0 }).quality).toBe('cold');
     expect(coldInPlay(bare)).toBe(true);
-    // The cave asks for no fire at +4 °C: the woodpile is untouched.
+    // The cave asks for no fire at its steady +3 to +5 °C: the woodpile is untouched.
     expect(runDay(cave, []).state.stores.firewood).toBe(40);
   });
 
@@ -219,7 +224,8 @@ describe('A night at camp as a heat balance (#1770)', () => {
 
   it('determinism: pure arithmetic, no draws on the sim\'s streams', () => {
     const src = readFileSync(new URL('./thermal.ts', import.meta.url), 'utf8');
-    expect(src).not.toMatch(/from '\.\/rng'|Math\.random|streamFor/);
+    // The cave's offset hashes a string (rng.ts seedOf and its own generator); nothing reads the sim's streams.
+    expect(src).not.toMatch(/Math\.random|streamFor|fortuneAt/);
     const s = campAt('hill', true, { ...BAG_AND_PAD, weatherToday: 'wind' });
     const a = thermalNight(s, { tempC: -12.5, weather: 'wind', fire: 0.5 });
     const b = thermalNight(structuredClone(s), { tempC: -12.5, weather: 'wind', fire: 0.5 });
@@ -260,5 +266,64 @@ describe('A night at camp as a heat balance (#1770)', () => {
     expect(ai).toContain(`NIGHT AT CAMP (as it stands, with the fire the woodpile allows): ${NIGHT_WORDS[n.quality]} (insulation`);
     expect(ai).toMatch(/clo needed at least/);
     expect(ai).not.toContain('At the sleeper');
+  });
+
+  describe('7. each cave keeps its own air, about +4 °C (no draws)', () => {
+    /** A run's cave: who the run is (its world seed) and, with camp-as-action, which spot. */
+    const caveOf = (id: string, at?: string) => ({ character: { ...campAt('cave').character, id }, ...(at ? { campSpot: { at, camped: [at] } } : {}) });
+
+    it('given a cave, when its temperature is read again and again, on any night, then it is within 3–5 °C and the same each time', () => {
+      const cave = campAt('cave', true, BAG_AND_PAD);
+      const t = caveTempC(cave);
+      expect(t).toBeGreaterThanOrEqual(CAVE_TEMP - CAVE_SPREAD);
+      expect(t).toBeLessThanOrEqual(CAVE_TEMP + CAVE_SPREAD);
+      // The same cave, read again, on a copy, and as the sleeper meets it on a midwinter and an autumn night.
+      expect(caveTempC(cave)).toBe(t);
+      expect(caveTempC(structuredClone(cave))).toBe(t);
+      for (const night of [{ tempC: -19, weather: 'wind' as const, fire: 0 }, { tempC: 10, weather: 'overcast' as const, fire: 0 }]) {
+        for (const day of [2, MIDWINTER]) expect(sleeperEnvironment({ ...cave, day }, night).airC).toBe(t);
+      }
+      // Every cave of many runs and spots: within a degree of +4, in tenths.
+      for (let i = 0; i < 200; i++) {
+        const c = caveTempC(caveOf(`w-${i}`, `cave@${i % 17},${(i * 7) % 13}`));
+        expect(c).toBeGreaterThanOrEqual(3);
+        expect(c).toBeLessThanOrEqual(5);
+        expect(Math.abs(c * 10 - Math.round(c * 10))).toBeLessThan(1e-9);
+      }
+    });
+
+    it('given two different caves, when their temperatures are read, then they can differ', () => {
+      // Two spots in one run, and one spot in two runs.
+      expect(caveTempC(caveOf('w-astrid', 'cave@3,4'))).not.toBe(caveTempC(caveOf('w-astrid', 'cave@10,2')));
+      expect(caveTempC(caveOf('w-a', 'cave@3,4'))).not.toBe(caveTempC(caveOf('w-b', 'cave@3,4')));
+      // Over many caves, more than a handful of temperatures turn up.
+      const temps = new Set(Array.from({ length: 50 }, (_, i) => caveTempC(caveOf('w-astrid', `cave@${i},${i}`))));
+      expect(temps.size).toBeGreaterThan(5);
+    });
+
+    it('given a night in a cave, when the day is played twice, then it plays the same (nothing drawn)', () => {
+      const cave = campAt('cave', true, BAG_AND_PAD);
+      expect(runDay(structuredClone(cave), []).state).toEqual(runDay(structuredClone(cave), []).state);
+    });
+  });
+
+  it('8. given a cold night with no sleeping bag (or pad) and no fire, when it is slept through, then it is dangerous: the cold goes deep', () => {
+    const noBag: Partial<Region1State> = { kit: kit([]), tools: [], stores: { ...campAt('tree').stores, firewood: 0 } };
+    // Midwinter (−19 °C) at an open treeline camp, on the hilltop, and even in a cave's steady +3 to +5 °C.
+    for (const site of ['tree', 'hill', 'cave'] as const) {
+      const s = campAt(site, true, noBag);
+      expect(insulationHeld(s).bagClo).toBe(0);
+      const n = thermalNight(s, { tempC: mid, weather: 'clear', fire: 0 });
+      expect(n.quality).toBe('dangerous');
+      expect(n.debtWh).toBeGreaterThan(0);
+      expect(thermalEffects(n).freeze).toBeGreaterThan(0);
+    }
+    // In play: the sim says so, and it costs Condition.
+    const s = campAt('tree', true, noBag);
+    const after = runDay(s, []).state;
+    expect(after.log.slice(s.log.length).some(l => /Dangerously cold/.test(l.text))).toBe(true);
+    expect(after.vitals.condition).toBeLessThan(s.vitals.condition);
+    // A bag and pad lift the same night out of danger.
+    expect(thermalNight(campAt('tree', true, { ...noBag, ...BAG_AND_PAD }), { tempC: mid, weather: 'clear', fire: 0 }).quality).not.toBe('dangerous');
   });
 });

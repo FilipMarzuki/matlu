@@ -571,7 +571,7 @@ export function nightFuel(s: Region1State, day = s.day): number {
 /**
  * Firewood a night's fire asks (#1303): 1, plus 1 for every full 5 °C of frost, less in a warm
  * shelter (weather.ts fireNeed). With `thermal-model` (#1770) the frost is judged where you sleep
- * with no fire lit (thermal.ts sleeperEnvironment), so a cave's steady +4 °C asks for none and
+ * with no fire lit (thermal.ts sleeperEnvironment), so a cave's steady air (its own, about +4 °C) asks for none and
  * walls take a few degrees off; and above freezing a fire is lit anyway (1 firewood) if the night
  * would be cold or worse without one, as anyone would.
  */
