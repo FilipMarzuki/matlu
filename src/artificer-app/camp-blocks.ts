@@ -112,7 +112,7 @@ export function campBadges(s: Sim, t: T): string {
   return text ? `<span class="cbadges" title="${esc(t('campsite.badgesTip', { great: c.great, good: c.good }))}">${esc(text)}</span>` : '';
 }
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T; suggest?: ActionId | null }): string {
   const { ring: focusRing, dev } = opts;
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
   const t = distanceT(a.sim, opts.t);
@@ -138,7 +138,9 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     const greyed = !!why && !greyedTappable(preview.projected);
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
-    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
+    // The first-morning guide's suggestion (#1792, reveal.ts): it glows until a place to camp is known.
+    const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
+    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}" data-q="${q}"${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
