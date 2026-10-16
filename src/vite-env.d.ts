@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string;
   /** Optional; set in deploy (e.g. Vercel) for build metadata if you need it. */
   readonly VITE_GIT_SHA?: string;
+  /** When the Artificer was built (ISO time), for feedback reports (#1773); set by scripts/build-artificer.mjs. */
+  readonly VITE_BUILD_DATE?: string;
   /** Better Stack source token (Logs → your source → "Source token"). */
   readonly VITE_BETTERSTACK_DSN?: string;
   /** Matlu Codex URL — used for the in-game playtest feedback link. Defaults to production URL. */

@@ -2,7 +2,9 @@
  * The play API's games, kept in Supabase (#1555): tables `artificer_games` and
  * `artificer_play_usage` (supabase/migrations/20261010000000_artificer_games.sql), and the run
  * records of finished games, `artificer_runs` (#1558, 20261010220000_artificer_runs.sql), and the
- * free questions players ask, `artificer_questions` (#1575, 20261011050000_artificer_questions.sql).
+ * free questions players ask, `artificer_questions` (#1575, 20261011050000_artificer_questions.sql),
+ * and feedback reports from the 💬 panel, `artificer_feedback` (#1773, 20261016090000_artificer_feedback.sql),
+ * with their images in the private Storage bucket `artificer-feedback`.
  *
  * All have row-level security on and no policies, so the browser's publishable key can't read
  * or write them at all: only this server code can, with the service-role key. That matters because
@@ -14,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { GameRecord, GameStore } from './api';
 import { rankKey, type AiRun, type Run, type RunSummary, type StoredRun } from './records';
 import type { Question } from './questions';
+import { IMAGE_BUCKET, type Feedback } from './feedback';
 
 /** A row as Postgres has it: snake_case, moves as jsonb, and the move count kept for `update`. */
 interface Row {
@@ -120,6 +123,13 @@ export const questionToRow = (q: Question) => ({
   trust: Math.min(100, Math.max(0, Math.round(q.trust))), game_version: q.gameVersion, surface: q.surface,
 });
 
+const FEEDBACK = 'artificer_feedback';
+
+export const feedbackToRow = (f: Feedback) => ({
+  ref: f.ref, kind: f.kind, text: f.text, warden_id: f.wardenId, run_id: f.runId, context: f.context, picks: f.picks, save: f.save,
+  images: f.images, contact_email: f.contactEmail, surface: f.surface, build: f.build, ip_week_hash: f.ipWeekHash,
+});
+
 export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
   // A server has no user session to keep or refresh: each call is the service role.
   const db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -204,6 +214,27 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
     async insertQuestion(q) {
       const { error } = await db.from(QUESTIONS).insert(questionToRow(q));
       check(error, 'insert question');
+    },
+    async insertFeedback(f) {
+      const { error } = await db.from(FEEDBACK).insert(feedbackToRow(f));
+      if (!error) return true;
+      const code = (error as { code?: string }).code;
+      // 23505 is Postgres's unique violation: the ref is taken, and the caller draws another.
+      if (code === '23505') return false;
+      // Only the code goes to the function's log: Postgres's message and details can quote the
+      // row, and the row holds the email (#1773: it must never reach a log).
+      throw new Error(`insert feedback: Postgres error ${code ?? 'unknown'}`);
+    },
+    async uploadFeedbackImage(path, bytes, type) {
+      const { error } = await db.storage.from(IMAGE_BUCKET).upload(path, bytes, { contentType: type, upsert: false });
+      check(error, 'upload feedback image');
+    },
+    async countFeedbackSince(ipWeekHash, sinceIso) {
+      let q = db.from(FEEDBACK).select('id', { count: 'exact', head: true }).gte('created_at', sinceIso);
+      if (ipWeekHash !== null) q = q.eq('ip_week_hash', ipWeekHash);
+      const { count, error } = await q;
+      check(error, 'count feedback');
+      return count ?? 0;
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();
