@@ -114,6 +114,11 @@
   .siteopt .rate { white-space: nowrap; }
   .siteopt .rate.great, .act .t .cbadges { color: var(--gold); }
   .siteopt .rate.good { color: var(--green); }
+  /* The same badges on the LAND tab's places to camp and the map-drawing list (#1798, rating-badges.ts). */
+  .campspots .rate, .mapl-place .rate { white-space: nowrap; margin-left: 6px; font-family: var(--display); font-size: 9px; letter-spacing: 1px; }
+  .campspots .rate.great, .mapl-place .rate.great, .eyebrow .cbadges { color: var(--gold); }
+  .campspots .rate.good, .mapl-place .rate.good { color: var(--green); }
+  .eyebrow .cbadges { margin-left: 8px; font-family: var(--body); font-size: 11px; letter-spacing: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
