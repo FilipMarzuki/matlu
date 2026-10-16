@@ -7,7 +7,19 @@
     { "id": "sim-core", "label": "Artificer sim core", "weight": 3, "lens": "determinism",
       "paths": ["src/artificer/*.ts"], "exclude": ["**/*.test.ts"] },
     { "id": "saves", "label": "save format", "weight": 4, "lens": "saves",
-      "paths": ["src/artificer-app/controller.ts", "src/artificer/legacy.ts", "src/lib/*save*.ts", "src/lib/*Save*.ts"] },
+      "$comment": "paths: files wholly about saves, where any edit counts. content (#1781): files that only partly are, which count only when an added or removed line touches a pattern. `line` is a regex on the changed line, `within` on the top-level declaration it sits in; the capture groups name the match in the reason.",
+      "paths": ["src/artificer/legacy.ts", "src/lib/*save*.ts", "src/lib/*Save*.ts"],
+      "content": {
+        "paths": ["src/artificer-app/controller.ts", "src/artificer/*.ts"],
+        "exclude": ["**/*.test.ts"],
+        "patterns": [
+          { "$comment": "the save's version and storage keys", "line": "\\b(SAVE_VERSION|SAVE_KEY|HISTORY_KEY)\\b" },
+          { "$comment": "inside the save and history (de)serializers", "within": "^export (?:async )?function ((?:de)?serialize(?:History)?)\\b" },
+          { "$comment": "a save validator, defined, called or imported", "line": "\\b(valid[A-Z][\\w$]*)\\b" },
+          { "$comment": "inside a save validator", "within": "^(?:export )?(?:function|const) (valid[A-Z][\\w$]*)\\b" },
+          { "$comment": "a field added, removed or retyped in the saved state", "within": "^export interface (Region1State|AppState)\\b", "line": "^\\s*(?:readonly\\s+)?([A-Za-z_$][\\w$]*)\\??\\s*:" }
+        ]
+      } },
     { "id": "workflows", "label": "CI/CD workflows and scripts", "weight": 6,
       "paths": [".github/workflows/**", ".github/scripts/**", ".github/review-risk.json"] },
     { "id": "instructions", "label": "agent instructions", "weight": 3,

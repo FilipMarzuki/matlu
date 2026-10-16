@@ -10,7 +10,12 @@ name: DevCycle 3c — Risk review
 #   medium  + a second opinion from another model family (REVIEW_MODEL_MEDIUM)
 #             says approve
 #   high    + one focused pass per lens (determinism, saves, general) on a
-#             stronger model (REVIEW_MODEL_HIGH) finds nothing
+#             stronger model (REVIEW_MODEL_HIGH) finds nothing high-severity
+#
+# Severity gate (#1780): only a high finding with a concrete `fails when`
+# scenario blocks (markers `findings=N high=H`; an old marker with no `high=`
+# counts every finding as high). The second opinion approves unless it reports
+# one. Medium and low findings are posted under a "not blocking" heading.
 #
 # risk-score.mjs --gate checks this in every merge path, on the head commit only:
 # a new commit re-runs the reviews. When the paid reviews finish, this starts
@@ -108,6 +113,11 @@ jobs:
           if [ -z "$PR" ] && [ -n "$HEAD_SHA" ]; then
             PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number // empty')
           fi
+          # Only digits go on: later steps put this number into shell commands,
+          # so a crafted dispatch input must never reach them.
+          case "$PR" in
+            ''|*[!0-9]*) [ -n "$PR" ] && echo "::error::pr_number must be digits only" && exit 1; PR="" ;;
+          esac
           echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
 
       - name: Score, label and comment

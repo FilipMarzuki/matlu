@@ -1,0 +1,48 @@
+{
+  "pr": 1747,
+  "commit": "b2b45f83",
+  "$comment": "git show b2b45f83 (PR #1747): every changed file's line counts, and the diff text of the files a content rule reads",
+  "files": [
+    {
+      "filename": "src/artificer-app/controller.ts",
+      "additions": 18,
+      "deletions": 0,
+      "patch": "@@ -34,6 +34,7 @@ import { DEFAULT_AGE } from '../artificer/growing';\n import { BACKGROUNDS, type Background } from '../artificer/scout';\n import { skillLevel } from '../artificer/skills';\n import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';\n+import { moveQueueItem } from './queue-drag';\n \n export interface AppState {\n   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */\n@@ -253,6 +254,23 @@ export function dequeueAt(a: AppState, index: number): AppState {\n   return { ...a, queue: a.queue.filter((_, i) => i !== index) };\n }\n \n+/**\n+ * Move a planned task to another place in the queue (#1743): the task at `from` ends up at `to`.\n+ * Only the order changes, and the sim never sees anything but the order it's given, so a run with\n+ * the same seed and the same final order plays the same.\n+ *\n+ * Every entry in the queue is still a plan: whatever already ran today is in the sim (its hours in\n+ * `hoursToday`), not here, and while a day plays out on the timer the page takes no edits (#1669).\n+ * So any entry can move, but only when the queue is open at all — the same rule as `enqueue`: not\n+ * before planning is learned (`queueLocked`, #1350), not once the run is over, not on the road.\n+ * The same place, or an index out of range, gives the state back unchanged.\n+ */\n+export function moveQueued(a: AppState, from: number, to: number): AppState {\n+  if (a.sim.outcome || a.stage === 'road' || queueLocked(a)) return a;\n+  if (from === to || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= a.queue.length || to >= a.queue.length) return a;\n+  return { ...a, queue: moveQueueItem(a.queue, from, to) };\n+}\n+\n /**\n  * Choose an option on one queued action (e.g. the location of a build). The\n  * entry becomes `{ q, opts }`; other entries are untouched.\n"
+    },
+    {
+      "filename": "src/artificer-app/main.ts",
+      "additions": 103,
+      "deletions": 2
+    },
+    {
+      "filename": "src/artificer-app/queue-drag.test.ts",
+      "additions": 81,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer-app/queue-drag.ts",
+      "additions": 62,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer-app/queue-move.test.ts",
+      "additions": 62,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer-app/style.css",
+      "additions": 15,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/i18n/en.ts",
+      "additions": 4,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/i18n/sv.ts",
+      "additions": 4,
+      "deletions": 0
+    }
+  ]
+}

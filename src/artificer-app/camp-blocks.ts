@@ -27,6 +27,7 @@ import { difficultyRead, difficultyOfCharacter, difficultyLabel } from '../artif
 import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
+import { chevron } from './fold';
 import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots, ratingBadges, siteRating, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
@@ -111,7 +112,7 @@ export function campBadges(s: Sim, t: T): string {
   return text ? `<span class="cbadges" title="${esc(t('campsite.badgesTip', { great: c.great, good: c.good }))}">${esc(text)}</span>` : '';
 }
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T; suggest?: ActionId | null }): string {
   const { ring: focusRing, dev } = opts;
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
   const t = distanceT(a.sim, opts.t);
@@ -137,7 +138,9 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     const greyed = !!why && !greyedTappable(preview.projected);
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
-    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}" data-q="${q}" ${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
+    // The first-morning guide's suggestion (#1792, reveal.ts): it glows until a place to camp is known.
+    const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
+    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}" data-q="${q}"${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
@@ -192,27 +195,104 @@ export function seasonStrip(s: Sim, t: T): string {
     + '</div>';
 }
 
+/** One chip of the condensed weather box (#1788): an icon, a short word, and the full sentence it stands for. */
+export interface WeatherChip { id: 'sky' | 'felt' | 'ground' | 'season'; icon: string; text: string; full: string }
+
+const SEASON_ICON = { autumn: '🍂', winter: '❄', thaw: '💧' } as const;
+
+/**
+ * The condensed weather box's chips (#1788): the sky, the cold as felt, the snow underfoot (only
+ * when there is some) and the season, with the count to the snow or the thaw once one is known.
+ * They say only what the full box says (weather-words.ts gates it): words at the start, a rough
+ * count once the days are tallied, and degrees, snow cover and exact counts only in the numbers
+ * view (the switch off) or dev mode, where the full box shows them too. Each chip's `full` is the
+ * box's own sentence for it, for its tooltip and screen readers.
+ */
+export function weatherChips(s: Sim, t: T, opts: { dev?: boolean } = {}): WeatherChip[] {
+  const cal = s.config.calendar;
+  const r = weatherReport(s);
+  const numbers = r.view === 'numbers' || !!opts.dev;
+  const chips: WeatherChip[] = [];
+  if (r.sky) chips.push({ id: 'sky', icon: WEATHER_ICON[s.weatherToday], text: weatherWord(s.weatherToday, s.day, cal, t), full: t(`wx.sky.${r.sky}`) });
+  if (r.felt) {
+    const word = t(`wx.short.felt.${r.felt}`);
+    chips.push({ id: 'felt', icon: '🌡', text: numbers ? `${word} · ${Math.round(dayMean(s.day, cal))}°C` : word, full: t(`wx.felt.${r.felt}`) });
+  }
+  if (r.ground) {
+    const word = t(`wx.short.ground.${r.ground}`);
+    chips.push({ id: 'ground', icon: '❄', text: numbers ? `${word} · ${Math.round((s.snowDepth ?? 0) * 100)}%` : word, full: t(`wx.ground.${r.ground}`) });
+  }
+  const season = seasonOf(s.day, cal);
+  const icon = SEASON_ICON[season];
+  const seasonLine = t(`wx.season.${r.season}`);
+  if (numbers) {
+    // As the numbers view's header chip: the exact count to the snow in autumn, to the thaw in winter.
+    const n = season === 'autumn' ? cal.winterDay - s.day : season === 'winter' ? cal.thawDay - s.day : null;
+    const word = t(`wx.short.season.${r.season}`);
+    const toKey = season === 'autumn' ? 'wx.full.toSnow' : 'wx.full.toThaw';
+    chips.push(n === null
+      ? { id: 'season', icon, text: word, full: seasonLine }
+      : { id: 'season', icon, text: `${word} · ${t('wx.short.days', { n })}`, full: `${seasonLine} ${t(n === 1 ? `${toKey}.one` : `${toKey}.other`, { n })}` });
+    return chips;
+  }
+  // With the snow's count, "snow soon" would say it twice (as in the header chip): it's just late autumn.
+  const count = r.toSnow ?? r.toThaw;
+  const word = t(`wx.short.season.${r.season === 'snowSoon' && r.toSnow !== null ? 'late' : r.season}`);
+  const countLine = r.toSnow !== null ? t(r.toSnow === 1 ? 'wx.toSnow.one' : 'wx.toSnow.other', { n: r.toSnow })
+    : r.toThaw !== null ? t(r.toThaw === 1 ? 'wx.toThaw.one' : 'wx.toThaw.other', { n: r.toThaw }) : '';
+  chips.push({
+    id: 'season', icon,
+    text: count !== null ? `${word} · ${t('wx.short.about', { n: count })}` : word,
+    full: countLine ? `${seasonLine} ${countLine}` : seasonLine,
+  });
+  return chips;
+}
+
+/** How the weather box is folded (#1788, weather-fold.ts); without it, the box is drawn open with no toggle. */
+export interface WeatherFoldView { mode: 'intro' | 'open' | 'condensed'; hint: boolean }
+
+/** The fold's heading: a real button (keyboard and screen readers), its chevron turned when open. */
+const wxToggle = (t: T, open: boolean, icon: string): string =>
+  `<button type="button" class="eyebrow foldhead wxtoggle" data-wxfold aria-expanded="${open}">${chevron()}<span>${icon}${esc(t('wx.head'))}</span></button>`;
+
 /**
  * The weather box (#1729, switch `weather-words`): the weather and the season in words, and as
  * much of the calendar as the Warden has earned (weather-words.ts). In words at the start; with a
  * tally kept, the day and about how long to the snow; once a season has turned, the strip as well
  * (its bars and markers, never the hours of light or the degrees). Dev mode shows the strip with
  * its numbers alongside the words from day 1. With the switch off it's the season strip, as today.
+ *
+ * With `fold` (#1788) its heading opens and condenses it: `intro` is the first time's card, ending
+ * in "Got it"; `condensed` is one row of icon chips (weatherChips), with a hint until the box has
+ * been opened once. A blizzard's warning shows in every state.
  */
-export function weatherBox(s: Sim, t: T, opts: { dev?: boolean } = {}): string {
+export function weatherBox(s: Sim, t: T, opts: { dev?: boolean; fold?: WeatherFoldView } = {}): string {
   const view = seasonView(s);
-  if (view === 'numbers') return seasonStrip(s, t);
+  const fold = opts.fold;
   const seeded = s.config.world.weather === 'seeded';
   const blizzard = seeded && isBlizzard(s.weatherToday, s.day, s.config.calendar);
-  const words = `<div class="wxwords"><p class="eyebrow">${seeded ? `${WEATHER_ICON[s.weatherToday]} ` : ''}${esc(t('wx.head'))}</p>`
+  const banner = blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '';
+  const skyIcon = seeded && view !== 'numbers' ? `${WEATHER_ICON[s.weatherToday]} ` : '';
+  if (fold?.mode === 'condensed') {
+    // A tap anywhere on the row opens the box; the heading is the button keyboards and screen readers use.
+    const chips = weatherChips(s, t, opts).map(c => `<span class="wxchip" role="img" title="${esc(c.full)}" aria-label="${esc(c.full)}"><span aria-hidden="true">${c.icon}</span> ${esc(c.text)}</span>`).join('');
+    return `<div class="wxbox condensed"><div class="wxrow" data-wxfold>${wxToggle(t, false, '')}`
+      + `<span class="wxchips" role="group" aria-label="${esc(t('wx.chips'))}">${chips}</span>`
+      + (fold.hint ? `<span class="wxhint">${esc(t('wx.hint'))}</span>` : '')
+      + `</div>${banner}</div>`;
+  }
+  const head = !fold ? null : fold.mode === 'open' ? wxToggle(t, true, skyIcon) : `<p class="eyebrow">${skyIcon}${esc(t('wx.head'))}</p>`;
+  const ack = fold?.mode === 'intro' ? `<div class="wxackrow"><button type="button" class="btn go wxack" data-wxack>${esc(t('wx.ack'))}</button></div>` : '';
+  const cls = fold?.mode === 'intro' ? 'wxbox wxintro' : 'wxbox';
+  // The switch off: the season strip and its numbers, as before (under the fold's heading, if folding).
+  if (view === 'numbers') return head === null ? seasonStrip(s, t) : `<div class="${cls}">${head}${seasonStrip(s, t)}${ack}</div>`;
+  const words = `<div class="wxwords">${head ?? `<p class="eyebrow">${skyIcon}${esc(t('wx.head'))}</p>`}`
     + weatherLines(s, t).map(l => `<p>${esc(l)}</p>`).join('') + '</div>';
   const strip = opts.dev ? seasonStrip(s, t)
     : view === 'strip' ? `<div class="seasonstrip" aria-label="${esc(t('season.label'))}">${stripBars(s, t, false)}</div>`
       : '';
   // The dev strip carries its own blizzard banner.
-  return `<div class="wxbox">${words}${strip}`
-    + (blizzard && !opts.dev ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '')
-    + '</div>';
+  return `<div class="${cls}">${words}${strip}${opts.dev ? '' : banner}${ack}</div>`;
 }
 
 /**

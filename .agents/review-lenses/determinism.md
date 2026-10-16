@@ -20,3 +20,8 @@ every run. Golden hashes in tests pin that down. Look for anything that breaks i
 - State mutated in place where the code elsewhere treats it as immutable (a pure
   function that changes its argument breaks replays and counterfactual runs).
 - Shared module-level state (caches, counters) that leaks between runs.
+
+**High here means:** the same seed and the same actions give a different result
+(a replay or a golden hash breaks) on a path a real run takes. A tie that a
+stable sort keeps in a fixed order, or a stream change rebaselined in the same
+PR, is not high.

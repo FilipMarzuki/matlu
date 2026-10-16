@@ -288,6 +288,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'look-switcher', name: 'Look switcher', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1736,
     note: 'Temporary, for reviewing era looks: a small switcher in the header shows any of the nine looks (or the game\'s own). The choice is kept in this browser, never in the save.',
   },
+  {
+    // A ui feature (#1793, the guide epic #1791): the FOCUS chip and picker show the Survival path,
+    // read from the state (artificer-app/survival-path.ts), so it switches live and no run saves it.
+    // The play API, the console and AI players never see it.
+    id: 'guide', name: 'The guide', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1793,
+    note: 'The FOCUS chip shows the Survival path and its next step (find a camp site, make camp, a roof over you, food laid by, ready for winter), and its picker lists the steps with the goal focus that helps.',
+  },
 ];
 
 /** Switches by feature id. */
