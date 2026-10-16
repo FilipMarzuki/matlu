@@ -62,6 +62,7 @@ import { landTab, seeLandLink, tripNews } from './land-view';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
+import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
 import { progressTab, outlookWarnings } from './progress-view';
 import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
@@ -522,10 +523,22 @@ function beforeCamp(a: AppState): string {
     <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</div>`;
 }
 
+// How the weather box is folded (#1788, weather-fold.ts): the first time a big card, then a row of
+// icon chips the player can open. Per device, so it's read once here and kept in step with storage.
+let wxFold: WeatherFold = loadWeatherFold();
+/** Put focus back on the weather toggle after the redraw a keyboard tap caused (innerHTML drops it). */
+let wxRefocus = false;
+
+/** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
+function weatherSection(a: AppState): string {
+  const fold = weatherFoldState(wxFold);
+  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}">${weatherBox(a.sim, t, { dev, fold })}</section>`;
+}
+
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<section class="box seasonbox">${weatherBox(a.sim, t, { dev })}</section><div class="plan">
+      return `${weatherSection(a)}<div class="plan">
         <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
@@ -615,6 +628,8 @@ function drawPage(a: AppState): void {
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}`;
   root.classList.toggle('playing', !!playing);
+  // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
+  if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
   if (playing) {
     tickTimer(playing);
     // The newest line in view: lines arrive at the bottom of the timer's list.
@@ -1427,6 +1442,16 @@ root.addEventListener('click', e => {
   // A square on the map (#1539): show what it is.
   const square = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
   if (square?.dataset.cell) { const [x, y] = square.dataset.cell.split(',').map(Number); mapCell = { x, y }; render(state); return; }
+  // The weather box (#1788): "Got it" on the first time's card condenses it; the heading (or, when
+  // condensed, anywhere on its row) opens or condenses it. Presentation only, so it acts mid-playback too.
+  const wx = (e.target as HTMLElement).closest<HTMLElement>('[data-wxack], [data-wxfold]');
+  if (wx) {
+    wxFold = wx.dataset.wxack !== undefined ? ackWeather(wxFold) : toggleWeather(wxFold);
+    saveWeatherFold(wxFold);
+    wxRefocus = true;
+    render(state);
+    return;
+  }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;

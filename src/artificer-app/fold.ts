@@ -57,3 +57,13 @@ export const resetFolds = (): void => { folds = null; };
 export function fold(id: string, summary: string, body: string, byDefault: boolean, cls = ''): string {
   return `<details class="fold${cls ? ` ${cls}` : ''}" data-fold="${esc(id)}"${foldOpen(id, byDefault) ? ' open' : ''}><summary>${summary}</summary>${body}</details>`;
 }
+
+/**
+ * The fold's drawn chevron (#1788): a small SVG arrow in the text's own colour (`currentColor`),
+ * pointing right when shut; the stylesheet turns it 90° when its heading is open (`.foldhead` with
+ * `aria-expanded="true"`, or an open `<details>`). One shared mark, so a later change can restyle
+ * every fold at once. Hidden from screen readers: the heading's `aria-expanded` says the state.
+ */
+export const chevron = (): string =>
+  '<svg class="chev" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" focusable="false">'
+  + '<path d="M3.5 1.5 7 5 3.5 8.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
