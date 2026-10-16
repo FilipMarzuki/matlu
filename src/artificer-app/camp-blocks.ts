@@ -29,7 +29,8 @@ import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { chevron } from './fold';
 import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
-import { campAsActionOn, knownSpots, ratingBadges, siteRating, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
+import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
+import { campBadges, siteBadge } from './rating-badges';
 import { buildsAt } from '../artificer/camp-builds';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
@@ -100,17 +101,8 @@ function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T): string {
  * why they can't be done. Gates are judged against the state *after* the queue so far, so you can
  * plan "scout, then gather" in one go. Land actions go to the ring picked in the tabs.
  */
-/**
- * The Make camp card's badges (#1756, `camp-site-ratings`): how many places to camp you know that
- * you believe great (★) and good (✓), "★ 1 · ✓ 3", from what you know now (the AI's observation
- * says the same counts). Nothing until one rates good or better, so they pop up as you find sites.
- * One short inline span in the card's title row, so the card keeps its height.
- */
-export function campBadges(s: Sim, t: T): string {
-  const c = siteRatingCounts(s);
-  const text = ratingBadges(c);
-  return text ? `<span class="cbadges" title="${esc(t('campsite.badgesTip', { great: c.great, good: c.good }))}">${esc(text)}</span>` : '';
-}
+// The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
+export { campBadges } from './rating-badges';
 
 export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T; suggest?: ActionId | null }): string {
   const { ring: focusRing, dev } = opts;
@@ -430,8 +422,7 @@ export function spotsBlock(s: Sim, t: T): string {
     const here = p.here ? campNow(s, t) : '';
     const tag = p.here ? ` · ${t('campsite.yours')}` : p.start ? ` · ${t('campsite.start')}` : '';
     // How good you believe it is (#1756): ★ great or ✓ good beside the name; a poor one isn't marked.
-    const rating = siteRatingsOn(s) ? siteRating(s, p) : 'poor';
-    const rated = rating === 'poor' ? '' : `<span class="rate ${rating}">${esc(t(`campsite.rate.${rating}`))}</span>`;
+    const rated = siteBadge(s, p, t);
     const built = buildsAt(s, p.id);
     return `<button class="siteopt ${p.here ? 'chosen' : ''}" data-camp="${esc(p.id)}" ${p.here || s.outcome ? 'disabled' : ''}>`
       + `<div class="t">${esc(siteName(p.kind, t).toUpperCase())}${rated}${warmTag(s, p.kind, t)}</div>`

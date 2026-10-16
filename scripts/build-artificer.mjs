@@ -26,6 +26,7 @@
 import { build } from 'vite';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,11 +53,26 @@ export function referencedAssets() {
   return [...found].sort();
 }
 
+/**
+ * The commit and time this page was built from, for feedback reports (#1773): the 💬 panel attaches
+ * them so a report says which version it's about. Vercel names the commit in its build environment;
+ * a local build asks git; neither gives "unknown". The root build's vite.config.ts sets the same
+ * VITE_GIT_SHA, but this build doesn't read that config (configFile: false), so it says it here.
+ */
+function commitSha() {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
+  try { return execSync('git rev-parse --short HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'unknown'; }
+}
+
 await build({
   configFile: false,
   root,
   publicDir: false,
   logLevel: 'warn',
+  define: {
+    'import.meta.env.VITE_GIT_SHA': JSON.stringify(commitSha()),
+    'import.meta.env.VITE_BUILD_DATE': JSON.stringify(new Date().toISOString().slice(0, 16) + 'Z'),
+  },
   build: {
     outDir,
     emptyOutDir: true,

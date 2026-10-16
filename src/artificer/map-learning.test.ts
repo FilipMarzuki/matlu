@@ -3,7 +3,7 @@
  *
  *   1. Start       — given a new run, the land is directions and distances only, and the first
  *                     day's journal says you looked around, and the page shows what lay where; no map is drawn.
- *   2. Unlock      — given fewer than 3 nights, 5 places, 3 directions or nothing to draw on, the
+ *   2. Unlock      — given fewer than 4 nights, 4 places, 3 directions or nothing to draw on, the
  *                     session stays shut, and each missing condition is named; with all four, it opens.
  *   3. Placement   — given a place, its own square counts, and so does one near it; the wrong side
  *                     of camp or the wrong distance doesn't, with a hint from what the Warden knows.
@@ -17,10 +17,18 @@
  *                     there's no action and no first-day line.
  *   8. Determinism — the same run gives the same places, cells and judgements, and drawing the
  *                     map draws on no random stream: the rest of the day plays out the same.
+ *
+ * And #1797's follow-up:
+ *
+ *   9. Scouting    — given the switch on and a run that draws its map, when drawmap completes,
+ *                     Scouting practice rises by as much as two hours of scouting work.
+ *  10. Switch off  — given the switch off, drawmap can't be done and nothing changes: no practice.
+ *  (The unlock day the thresholds give is measured in src/artificer-ai/map-unlock.test.ts.)
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, ACTIONS, skillLockOf, blockedReason, type Region1State } from './region1';
+import { createRegion1, runAction, runDay, ACTIONS, skillLockOf, blockedReason, creditedPractice, type Region1State } from './region1';
+import { skillFor } from './skills';
 import { createExploration, survey, scout } from './exploration';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { GLYPH } from './world/reach';
@@ -92,7 +100,8 @@ describe('Learning the map (#1754)', () => {
   it('2. the session opens only after enough nights, places and directions, with something to draw on', () => {
     // The thresholds, on their own.
     const enough = { nights: MAP_NIGHTS, places: MAP_PLACES, directions: MAP_DIRECTIONS, surface: 'notebook' as const };
-    expect([MAP_NIGHTS, MAP_PLACES, MAP_DIRECTIONS]).toEqual([3, 5, 3]);
+    // Tuned in #1797 so a player who explores unlocks the map around day 4–6 (src/artificer-ai/map-unlock.test.ts).
+    expect([MAP_NIGHTS, MAP_PLACES, MAP_DIRECTIONS]).toEqual([4, 4, 3]);
     expect(needsOf(enough)).toEqual([]);
     expect(needsOf({ ...enough, nights: MAP_NIGHTS - 1 })).toEqual(['nights']);
     expect(needsOf({ ...enough, places: MAP_PLACES - 1 })).toEqual(['places']);
@@ -301,6 +310,36 @@ describe('Learning the map (#1754)', () => {
     expect(one.weatherToday).toBe(rested.weatherToday);
     expect(one.forecast).toEqual(rested.forecast);
     expect(one.stores).toEqual(rested.stores);
+  });
+
+  it('9. drawing the map trains Scouting: as much practice as two hours of scouting (#1797)', () => {
+    const s = ready();
+    const after = runAction(s, 'drawmap');
+    expect(after.mapLearned).toBe(true);
+    const gained = (after.skills.scouting ?? 0) - (s.skills.scouting ?? 0);
+    // Two hours of scouting work, credited as every scouting action's hours are (talents, manuals, youth).
+    expect(gained).toBeGreaterThan(0);
+    expect(s.manuals).toEqual([]);
+    expect(gained).toBeCloseTo(creditedPractice(s, 'scouting', 2, 'none'), 9);
+    expect(MAP_DRAW_HOURS).toBe(2);
+    // The same rate per hour as the rest of a scout's work: drawing the map is scouting work, like explore, survey and scout.
+    expect(skillFor('drawmap')).toBe('scouting');
+    expect(skillFor('drawmap')).toBe(skillFor('explore'));
+    // Only Scouting: no other skill moves.
+    for (const [k, v] of Object.entries(after.skills)) if (k !== 'scouting') expect(v).toBe(s.skills[k as keyof typeof s.skills]);
+    // Done once, so practised once: the action again changes nothing.
+    const again = runAction({ ...after, hoursToday: 0 }, 'drawmap');
+    expect(again.skills.scouting).toBe(after.skills.scouting);
+  });
+
+  it('10. with the switch off, drawmap can\'t be done and gives no practice (#1797)', () => {
+    for (const f of [{ ...ON, [MAP_LEARNING]: false }, (() => { const { [MAP_LEARNING]: _, ...rest } = ON; return rest; })()]) {
+      const s = ready(f);
+      expect(blockedReason(s, 'drawmap', 1)).not.toBeNull();
+      const after = runAction(s, 'drawmap');
+      expect(after.skills).toEqual(s.skills);
+      expect(after.mapLearned).toBeUndefined();
+    }
   });
 
   it('the English the page shows is the sim\'s own, word for word', () => {

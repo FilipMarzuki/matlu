@@ -27,6 +27,7 @@ import { esc } from './html';
 import { buildsWords, distanceT, mapNeedsText, placeLine, ringName, siteName, spotWhere } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
+import { campBadges, siteBadge } from './rating-badges';
 import { distanceOn, measuredFromCamp } from '../artificer/distance-words';
 import { timeWordsOn } from '../artificer/time-words';
 import { pinsList, pinsRoom, ringPinChip, ringPinRows, ringPins } from './pins-view';
@@ -122,6 +123,10 @@ function ringSection(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: 
  * The places to camp you know (#1732, `camp-as-action`), each marked ⛺: by name, direction and
  * walking time from where you are, your camp among them. Empty with the switch off. Making camp at
  * one is the Make camp action (or its card on the Camp tab).
+ *
+ * With `camp-site-ratings` on (#1798) each carries the badge it has under Make camp (★ GREAT, ✓ GOOD,
+ * nothing when poor) and the heading the same count ("★ 1 · ✓ 3"), from rating-badges.ts, so the
+ * two can't drift; with it off both are '' and the list is as it was.
  */
 export function campSpotsSection(s: Region1State, t: T): string {
   if (!campAsActionOn(s)) return '';
@@ -129,8 +134,8 @@ export function campSpotsSection(s: Region1State, t: T): string {
   const built = (id: string): string => { const b = buildsAt(s, id); return b.length ? ` · ${esc(buildsWords(b, t))}` : ''; };
   // Its natural shelter in a word (#1763, `built-warmth`): "sheltered", "exposed".
   const shelter = (kind: SiteId): string => (builtWarmthOn(s) ? ` · ${esc(t(`shelter.word.${kind}`))}` : '');
-  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b> — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}${built(p.id)}${shelter(p.kind)}</li>`).join('');
-  return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}</p><ul class="landwords campspots">${rows}</ul></section>`;
+  const rows = knownSpots(s).map(p => `<li${p.here ? ' class="here"' : ''}>⛺ <b>${esc(siteName(p.kind, t))}</b>${siteBadge(s, p, t)} — ${esc(spotWhere(p, t))}${p.here ? ` · ${esc(t('campsite.yours'))}` : p.start ? ` · ${esc(t('campsite.start'))}` : ''}${built(p.id)}${shelter(p.kind)}</li>`).join('');
+  return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}${campBadges(s, t)}</p><ul class="landwords campspots">${rows}</ul></section>`;
 }
 
 /** The merged LAND tab (#1730), with the descriptive-map switch on. `map` is your drawn map's block (map-view.ts). */
