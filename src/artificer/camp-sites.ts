@@ -398,7 +398,12 @@ function beliefOf(kind: SiteId, facts: readonly SiteFact[]): Belief {
   return b;
 }
 
-/** Points for how warm a shelter there can get (region1.ts `SITES`): the cave most, the riverbank and hilltop none. */
+/**
+ * Points for how warm a shelter there can get: the cave most, the riverbank and hilltop none. The
+ * same order as the ceilings (region1.ts `SITES`) and, with `built-warmth` (#1763), as the natural
+ * shelter (built-warmth.ts `NATURAL_SHELTER`: a lot, some, little, none); built-warmth.test.ts
+ * checks the ratings keep that order.
+ */
 const WARMTH_POINTS: Readonly<Record<SiteId, number>> = { cave: 2, tree: 1, river: 0, hill: 0 };
 /** Points at which a site is good, and great. */
 export const GOOD_FROM = 3, GREAT_FROM = 5;
