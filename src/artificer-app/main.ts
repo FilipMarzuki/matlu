@@ -80,7 +80,7 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, pct, band, portraitEl, tabLabel } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
-import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
+import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
@@ -1466,7 +1466,7 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
@@ -1476,6 +1476,12 @@ introEl.addEventListener('click', e => {
     e.preventDefault();
     const g = btn.dataset.kitgroup as KitGroup;
     packOpen = { ...packOpen, [g]: !sectionOpen(g, draftPack, packOpen) };
+    try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
+    renderIntro(); return;
+  }
+  // "Open all" / "Close all" above the sections (#1801): every section the other way, remembered the same way.
+  if (btn?.dataset.kitfold) {
+    packOpen = setAllSections(!allSectionsOpen(draftPack, packOpen));
     try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
     renderIntro(); return;
   }
