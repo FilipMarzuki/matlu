@@ -113,6 +113,11 @@ jobs:
           if [ -z "$PR" ] && [ -n "$HEAD_SHA" ]; then
             PR=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/pulls" --jq '.[0].number // empty')
           fi
+          # Only digits go on: later steps put this number into shell commands,
+          # so a crafted dispatch input must never reach them.
+          case "$PR" in
+            ''|*[!0-9]*) [ -n "$PR" ] && echo "::error::pr_number must be digits only" && exit 1; PR="" ;;
+          esac
           echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
 
       - name: Score, label and comment
