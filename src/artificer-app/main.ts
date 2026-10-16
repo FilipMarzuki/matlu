@@ -76,7 +76,7 @@ import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, pct, band, portraitEl } from './html';
+import { esc, pct, band, portraitEl, tabLabel } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
@@ -608,7 +608,7 @@ function drawPage(a: AppState): void {
     ${fresh || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}">${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -914,7 +914,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => { const l = tabLabel(id, r.character.name, t); return `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}"${l.attrs}>${l.label}</button>`; }).join('')}</nav>
     ${body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }

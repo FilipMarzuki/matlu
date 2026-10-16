@@ -5,7 +5,7 @@
  */
 
 import { portraitById, portraitStyle } from './portraits';
-import { localNum, type T } from '../artificer/i18n';
+import { localNum, type Key, type T } from '../artificer/i18n';
 
 /** Escape text for innerHTML — sim text is ours today, but a save could be edited. */
 export const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -23,4 +23,26 @@ export const band = (ratio: number): string => (ratio > 0.75 ? 'fresh' : ratio >
 export function portraitEl(id: string | null, size: number, cls = ''): string {
   const p = portraitById(id);
   return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
+}
+
+/**
+ * Every tab id the catalog names (`tab.<id>`): a conditional type pulls the id back out of each key.
+ * It goes through a type parameter (`K`) so it distributes over the union of keys one by one.
+ */
+type IdOf<K> = K extends `tab.${infer I}` ? I : never;
+type TabId = IdOf<Key>;
+
+/**
+ * A tab button's label (#1787): the catalog's name for the tab (`tab.<id>`), except the Warden's
+ * tab, which wears the Warden's own name exactly as the player wrote it ("bob" stays "bob", not
+ * uppercased like the other labels). "WARDEN" / "VÄKTAREN" shows only until there is a name. A long name is cut short by CSS (`.tabname`, an ellipsis), so
+ * `attrs` carries the full name as `title` and `aria-label`. Both parts come back escaped: a name
+ * is player text, and a save could be edited.
+ */
+export function tabLabel(id: TabId, wardenName: string | null | undefined, t: T): { attrs: string; label: string } {
+  const name = id === 'warden' ? (wardenName ?? '').trim() : '';
+  if (!name) return { attrs: '', label: esc(t(`tab.${id}`)) };
+  // No case change: the other labels are uppercase in the catalog itself (the tab row has no CSS
+  // text-transform), so the name keeps the case it was typed in.
+  return { attrs: ` title="${esc(name)}" aria-label="${esc(name)}"`, label: `<span class="tabname">${esc(name)}</span>` };
 }
