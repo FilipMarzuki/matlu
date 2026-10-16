@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { scoreRisk, loadRules, globToRegex, mergeGate, tierReviews, parseNumstatZ, type ChangedFile } from '../.github/scripts/risk-score.mjs';
+import { scoreRisk, loadRules, globToRegex, mergeGate, tierReviews, parseNumstatZ, contentHits, contentCovers, type ChangedFile, type RiskConfig } from '../.github/scripts/risk-score.mjs';
 
 const rules = loadRules();
 const files = (...names: string[]): ChangedFile[] => names.map(filename => ({ filename, additions: 10, deletions: 2 }));
@@ -184,5 +184,154 @@ describe('Local risk score from git diff (#1433)', () => {
 
   it('stops at a truncated rename record instead of inventing a path', () => {
     expect(parseNumstatZ('2\t0\tsrc/a.ts\0' + '1\t1\t\0src/old.ts\0')).toEqual([{ filename: 'src/a.ts', additions: 2, deletions: 0 }]);
+  });
+});
+
+/**
+ * #1781 — "save format" scores changes to the save's shape, not any edit to controller.ts. The
+ * fixtures are the merged commits of real PRs (src/review-risk-fixtures/pr-N.json: every file's
+ * line counts, and the diff text of the files the content rule reads).
+ */
+describe('Save format by the diff text (#1781)', () => {
+  const fixture = (pr: number): ChangedFile[] =>
+    (JSON.parse(readFileSync(join(__dirname, 'review-risk-fixtures', `pr-${pr}.json`), 'utf8')) as { files: ChangedFile[] }).files;
+  const saveReason = (r: { reasons: string[] }) => r.reasons.find(x => x.startsWith('save format (+4)'));
+  const savePatterns = rules.rules.find(r => r.id === 'saves')!.content!.patterns;
+  // The rules as they were before #1781: any edit to controller.ts was a save-format change.
+  const before = (): RiskConfig => {
+    const old = structuredClone(rules);
+    const saves = old.rules.find(r => r.id === 'saves')!;
+    saves.paths = ['src/artificer-app/controller.ts', ...saves.paths];
+    delete saves.content;
+    return old;
+  };
+  const controller = (patch: string): ChangedFile => ({ filename: 'src/artificer-app/controller.ts', additions: 5, deletions: 1, patch });
+  const tested: ChangedFile = { filename: 'src/artificer-app/controller.test.ts', additions: 10, deletions: 0 };
+
+  // Given a diff to controller.ts that adds only a moveQueued function, "save format" doesn't trigger.
+  it('does not count a controller.ts diff that only adds moveQueued', () => {
+    const patch = [
+      '@@ -253,6 +254,10 @@ export function dequeueAt(a: AppState, index: number): AppState {',
+      '   return { ...a, queue: a.queue.filter((_, i) => i !== index) };',
+      ' }',
+      ' ',
+      '+/** Move a planned task to another place in the queue. */',
+      '+export function moveQueued(a: AppState, from: number, to: number): AppState {',
+      '+  return { ...a, queue: moveQueueItem(a.queue, from, to) };',
+      '+}',
+      ' ',
+      ' /**',
+      '  * Choose an option on one queued action.',
+    ].join('\n');
+    const r = scoreRisk([controller(patch), tested], rules);
+    expect(saveReason(r)).toBeUndefined();
+    expect(r.tier).toBe('low');
+    // The real PR: its controller.ts diff adds moveQueued and an import, nothing of the save.
+    expect(saveReason(scoreRisk(fixture(1747), rules))).toBeUndefined();
+  });
+
+  // Given a diff that changes deserialize or adds a field to Region1State, it triggers, and the reason names the match.
+  it('counts an edit inside deserialize and names it', () => {
+    const patch = [
+      '@@ -615,6 +615,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {',
+      '   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;',
+      "+  // …and the cold pit's carried rot.",
+      "+  const pitRot = typeof sim.pitRot === 'number' ? sim.pitRot : undefined;",
+      "   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;",
+    ].join('\n');
+    const r = scoreRisk([controller(patch), tested], rules);
+    expect(saveReason(r)).toBe('save format (+4): src/artificer-app/controller.ts — deserialize');
+    expect(r).toMatchObject({ tier: 'medium', lenses: [] });
+  });
+
+  it('counts a field added to Region1State or AppState and names it', () => {
+    const patch = [
+      '@@ -230,6 +231,8 @@ export interface Region1State {',
+      '   coldPitAt?: SiteId | null;',
+      "+  /** The cold pit's carried rot (#1757). */",
+      '+  pitRot?: number;',
+      '   /**',
+    ].join('\n');
+    const r = scoreRisk([{ filename: 'src/artificer/region1.ts', additions: 2, deletions: 0, patch }, { filename: 'src/artificer/region1.test.ts', additions: 5, deletions: 0 }], rules);
+    expect(saveReason(r)).toBe('save format (+4): src/artificer/region1.ts — Region1State.pitRot');
+    expect(r.tier).toBe('high'); // with the sim core (+3)
+    expect(r.lenses).toContain('saves');
+    const app = '@@ -42,3 +42,4 @@ export interface AppState {\n   queue: QueueItem[];\n+  stayed?: boolean;\n }';
+    expect(saveReason(scoreRisk([controller(app)], rules))).toBe('save format (+4): src/artificer-app/controller.ts — AppState.stayed');
+    // A field in some other interface isn't the save's.
+    const other = '@@ -10,3 +10,4 @@ export interface QueueView {\n   label: string;\n+  hint?: string;\n }';
+    expect(saveReason(scoreRisk([controller(other)], rules))).toBeUndefined();
+  });
+
+  // Given a diff that changes SAVE_VERSION, it triggers.
+  it('counts a SAVE_VERSION change', () => {
+    const patch = [
+      '@@ -59,5 +59,5 @@ export interface AppState {',
+      ' }',
+      ' /** Bump the version (and the key) whenever the saved shape changes incompatibly. */',
+      '-export const SAVE_VERSION = 7;',
+      "-export const SAVE_KEY = 'artificer.region1.v7';",
+      '+export const SAVE_VERSION = 8;',
+      "+export const SAVE_KEY = 'artificer.region1.v8';",
+      ' ',
+    ].join('\n');
+    expect(saveReason(scoreRisk([controller(patch), tested], rules))).toBe('save format (+4): src/artificer-app/controller.ts — SAVE_VERSION, SAVE_KEY');
+  });
+
+  // Given the old fixtures (PRs #1748, #1757, #1753), each still scores high. Given #1747, it scores lower than before.
+  it('keeps the real save PRs high and scores the drag-reorder PR lower than before', () => {
+    const expected: Record<number, string[]> = {
+      1748: ['src/artificer-app/controller.ts — validCampSpot, deserialize', 'src/artificer/region1.ts — Region1State.campSpot'],
+      1757: ['src/artificer-app/controller.ts — deserialize', 'src/artificer/region1.ts — Region1State.pitRot'],
+      1753: ['src/artificer-app/controller.ts — validSiteBuilds, deserialize', 'src/artificer/region1.ts — Region1State.siteBuilds'],
+    };
+    for (const [pr, names] of Object.entries(expected)) {
+      const r = scoreRisk(fixture(Number(pr)), rules);
+      expect([pr, r.tier]).toEqual([pr, 'high']);
+      expect(r.lenses).toContain('saves');
+      for (const n of names) expect([pr, n, saveReason(r)?.includes(n)]).toEqual([pr, n, true]);
+    }
+    const old = scoreRisk(fixture(1747), before());
+    const now = scoreRisk(fixture(1747), rules);
+    expect(old).toMatchObject({ score: 4, tier: 'medium' });
+    expect(now.score).toBeLessThan(old.score);
+    expect(now.tier).toBe('low');
+  });
+
+  it('reads only added and removed lines, never the context around them', () => {
+    const patch = '@@ -60,4 +60,5 @@\n export const SAVE_VERSION = 7;\n \n+export function moveQueued() {}\n ';
+    expect(saveReason(scoreRisk([controller(patch)], rules))).toBeUndefined();
+  });
+
+  it('closes the enclosing declaration at a column-0 brace', () => {
+    // The hunk header names deserialize, but the added line comes after its closing brace.
+    const patch = '@@ -640,4 +640,5 @@ export function deserialize(raw: string): AppState | null {\n   return null;\n }\n \n+export const QUEUE_MAX = 12;';
+    expect(saveReason(scoreRisk([controller(patch)], rules))).toBeUndefined();
+  });
+
+  it('counts a save validator defined, changed or called in a covered file', () => {
+    const def = '@@ -1,2 +1,5 @@\n import x from "y";\n+export function validPitState(x: unknown): x is PitState {\n+  return typeof x === "object";\n+}';
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer/camp-builds.ts', patch: def }], rules))).toBe('save format (+4): src/artificer/camp-builds.ts — validPitState');
+    const body = '@@ -60,3 +60,3 @@ function validShelter(x: unknown): x is KeptShelter {\n-  return isObj(x);\n+  return isObj(x) && typeof x.type === "string";\n }';
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer/camp-builds.ts', patch: body }], rules))).toBe('save format (+4): src/artificer/camp-builds.ts — validShelter');
+    // withValidFeatures isn't a valid* validator by name.
+    const not = '@@ -1,1 +1,2 @@\n x\n+const w = withValidFeatures(c);';
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer/world.ts', patch: not }], rules))).toBeUndefined();
+  });
+
+  it('keeps the path fallback, skips tests, and counts a covered file whose diff is not shown', () => {
+    // Files wholly about saves: any edit counts.
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer/legacy.ts', patch: '@@ -1 +1 @@\n-// a\n+// b' }], rules))).toBe('save format (+4): src/artificer/legacy.ts');
+    // A test file isn't read for content, whatever it mentions.
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer-app/controller.test.ts', patch: '@@ -1 +1 @@\n+expect(SAVE_VERSION).toBe(8);' }], rules))).toBeUndefined();
+    // GitHub leaves `patch` out of very large diffs: the file counts, since nothing shows it's safe.
+    expect(saveReason(scoreRisk([{ filename: 'src/artificer-app/controller.ts', additions: 4000, deletions: 0 }], rules))).toBe('save format (+4): src/artificer-app/controller.ts — diff not shown');
+  });
+
+  it('reads a git diff with its file header, as --local passes it', () => {
+    const gitDiff = 'diff --git a/src/artificer-app/controller.ts b/src/artificer-app/controller.ts\nindex 1..2 100644\n--- a/src/artificer-app/controller.ts\n+++ b/src/artificer-app/controller.ts\n@@ -61,1 +61,1 @@\n-export const SAVE_VERSION = 7;\n+export const SAVE_VERSION = 8;\n';
+    expect(contentHits(gitDiff, savePatterns)).toEqual(['SAVE_VERSION']);
+    expect(contentCovers('src/artificer-app/controller.ts', rules.rules.find(r => r.id === 'saves')!.content)).toBe(true);
+    expect(contentCovers('src/artificer-app/main.ts', rules.rules.find(r => r.id === 'saves')!.content)).toBe(false);
   });
 });
