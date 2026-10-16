@@ -533,6 +533,18 @@ body { min-height: 100vh; }
 .wxackrow { margin-top: 14px; }
 .wxack { font-size: 11px; padding: 11px 22px; }
 @media (max-width: 520px) { .seasonbox.wxintrobox { padding: 16px 14px; } .wxintrobox .wxwords p:not(.eyebrow) { font-size: 15px; } }
+/* The first-morning guide (#1792, reveal.ts): the element appearing for the first time glows with a
+   soft gold border, and the scout's line sits beside it with an OK. Nothing over the page, nothing
+   blocking; under reduced motion the border stays still. The suggested action glows the same way. */
+[data-glow], .act.guide-suggest { border-radius: 10px; box-shadow: 0 0 0 2px var(--gold); animation: guide-glow 2.6s ease-in-out infinite; }
+.act.guide-suggest { border-color: var(--gold); }
+@keyframes guide-glow { 0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 0 rgba(255,224,102,0); } 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(255,224,102,.45); } }
+@media (prefers-reduced-motion: reduce) { [data-glow], .act.guide-suggest { animation: none; } }
+.guidetip { display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 10px 8px 12px; border: 1px solid var(--gold); border-radius: 8px; background: rgba(255,224,102,.08); text-align: left; }
+.guidetip p { margin: 0; flex: 1; color: var(--ink); font-size: 13px; line-height: 1.45; font-style: italic; }
+.wxintrobox .guidetip { margin: 0 0 12px; }
+.guidetip .guideok { flex: none; }
+.guidectl { flex-wrap: wrap; }
 .pillar .fill.short { background: var(--warn); }
 .pillar .st.short { color: var(--warn); }
 .warnlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; color: var(--warn); font-size: 12px; }
