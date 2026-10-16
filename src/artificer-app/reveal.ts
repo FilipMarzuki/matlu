@@ -31,10 +31,10 @@ import { visibilityOn, type ActionId, type Region1State } from '../artificer/reg
 import { campAsActionOn, knownSpots, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 
 /**
- * The ui switch (features.ts): the guide epic's one switch, `guide` (#1791; #1793's Survival path
- * shares it). Off, and the Plan screen is drawn as it was before the guide.
+ * The ui switch is the guide epic's one switch, `guide` (#1791), defined with #1793's Survival path
+ * (survival-path.ts `GUIDE_FEATURE`). Off, and the Plan screen is drawn as it was before the guide.
  */
-export const GUIDE_FEATURE = 'guide';
+export { GUIDE_FEATURE } from './survival-path';
 
 export type GuideId = 'weather' | 'vitals' | 'focus' | 'actions' | 'today' | 'queue' | 'runDay' | 'journal' | 'stores' | 'sites' | 'tools';
 

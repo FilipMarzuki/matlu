@@ -24,7 +24,8 @@ import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
-import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID } from './focus-popover';
+import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
+import { GUIDE_FEATURE } from './survival-path';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -82,7 +83,7 @@ import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBl
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
-import { GUIDE_FEATURE, REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
+import { REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
 // counts a visit without cookies or personal data. Only a production build on the real domain
@@ -430,7 +431,7 @@ function statusBar(a: AppState, preview: Preview): string {
   const g = guide;
   if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return '';
   const vitals = g.shows('vitals');
-  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen), 'focus')}${focusPopOpen ? focusPopover(s, t) : ''}` : '';
+  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
   const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}`;
   if (g.active) {
     const stores = g.shows('stores');
@@ -445,7 +446,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
     ${storesBar(a)}
-    ${focusChip(s, t, focusPopOpen)}${focusPopOpen ? focusPopover(s, t) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
     ${outlookTag(s, ready)}
   </div>`;
@@ -522,6 +523,8 @@ let truths = dev && devTruths();
 installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
+/** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
