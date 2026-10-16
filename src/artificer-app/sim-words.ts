@@ -46,6 +46,7 @@ import { allCultureLore } from '../artificer/culture-lore';
 import { knownSpot, parseSpotId, siteKnowledge, siteRating, siteRatingsOn, type CampSpot, type SiteFact } from '../artificer/camp-sites';
 import { buildsPerSiteOn, moveNotes, pitFoodChoice, type BuildItem } from '../artificer/camp-builds';
 import { distanceOn } from '../artificer/distance-words';
+import { builtWarmthOn } from '../artificer/built-warmth';
 
 /** Whether a string is a catalog key (for ids that may have no entry: a concept from the wider web, a modded tool). */
 export const isKey = (k: string): k is Key => Object.hasOwn(en, k);
@@ -673,13 +674,23 @@ export function spotRated(s: Parameters<typeof siteRating>[0], p: CampSpot, t: T
 export const buildsWords = (items: readonly BuildItem[], t: T): string =>
   items.map(i => (i.n ? t('campsite.build.pitFood', { n: i.n }) : t(`campsite.build.${i.key}`))).join(', ');
 
+/**
+ * A site's natural shelter and what building it needs (#1763, `built-warmth`), in the viewer's
+ * language: "sheltered: rock at your back · a bed and a fire make it warm" (built-warmth.ts siteShelterText).
+ */
+export const shelterWords = (site: SiteId, t: T): string => `${t(`shelter.word.${site}`)}: ${t(`shelter.why.${site}`)} · ${t(`shelter.needs.${site}`)}`;
+
+/** How warm a site can get, as an option note says it: its natural shelter with `built-warmth`, else its ceiling. */
+const siteWarmthWords = (s: Pick<Region1State, 'config'>, site: SiteId, t: T): string =>
+  (builtWarmthOn(s) ? shelterWords(site, t) : t('campsite.warm', { n: Math.round(SITES[site].warmth * 100) }));
+
 /** A camp site's note under the Make camp action, as the sim's English one says it (region1.ts campOptions). */
 export function spotNote(s: Region1State, p: CampSpot, t: T): string {
   const rated = spotRated(s, p, t);
   // What's built there and what stays here (#1753); with the switch off, the shelter is left behind for good.
   const kept = buildsPerSiteOn(s) ? moveNotes(s, p).map(n => t(`campsite.${n.key}`, { list: buildsWords(n.items ?? [], t) }))
     : !p.here && s.tier > 0 ? [t('campsite.leaves')] : [];
-  return [spotWhere(p, t), t('campsite.warm', { n: Math.round(SITES[p.kind].warmth * 100) }), ...kept, spotReading(s, p, t), ...(rated ? [rated] : [])].join(' · ');
+  return [spotWhere(p, t), siteWarmthWords(s, p.kind, t), ...kept, spotReading(s, p, t), ...(rated ? [rated] : [])].join(' · ');
 }
 
 /** A choice's note in the viewer's language: a camp site's from the state it would run in, any other read back from the sim's English. */
@@ -689,6 +700,12 @@ export function choiceNote(s: Region1State, g: OptionGroup, c: OptionChoice, t: 
   if (g.key === 'pitFood') {
     const pit = pitFoodChoice(s);
     if (pit) return c.value === 'leave' ? t('campsite.pitFood.leave', { n: pit.n, site: t(`campsite.at.${pit.site}`) }) : t('campsite.pitFood.take');
+  }
+  // A build's Location (camp as an action off) with `built-warmth` (#1763): the site's natural shelter, from the state (region1.ts buildOptions).
+  if (g.key === 'site' && builtWarmthOn(s) && c.value in SITES) {
+    const id = c.value as SiteId;
+    const tail = s.site && id !== s.site && s.tier > 0 ? [t('campsite.leaves')] : id === s.site ? [t('campsite.yourCampNote')] : [];
+    return [shelterWords(id, t), ...tail].join(' · ');
   }
   const p = g.key === 'spot' ? knownSpot(s, c.value) : undefined;
   return p ? spotNote(s, p, t) : simLine(c.note, t);

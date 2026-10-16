@@ -50,6 +50,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
+import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
@@ -518,9 +519,13 @@ function shelterFactor(s: Region1State): number {
   return WALL_TYPES[s.shelter.walls ?? 'timber'].factor;
 }
 
-/** Shelter warmth, 0..1 = site potential × the design built × how well it was built. */
+/**
+ * Shelter warmth, 0..1 = site potential × the design built × how well it was built. With
+ * `built-warmth` (#1763) the site gives a head start instead of a ceiling (built-warmth.ts).
+ */
 export function warmth(s: Region1State): number {
   if (!s.site) return 0;
+  if (builtWarmthOn(s)) return builtWarmth(s, GRADE_WARMTH, SHELTER_PIN_WARMTH);
   return Math.min(1, SITES[s.site].warmth * shelterFactor(s) * GRADE_WARMTH[s.shelterGrade ?? 'sound'] + (s.shelter.sited && s.tier > 0 ? SHELTER_PIN_WARMTH : 0));
 }
 
@@ -780,6 +785,16 @@ export function planBuild(s: Region1State, opts: ActionOpts): { site: SiteId | n
   return { site, moving, fromTier, recipe };
 }
 
+/**
+ * What a stage of shelter would do, for its option's note: the share of the site's ceiling it
+ * holds ("holds 65%"), or with `built-warmth` (#1763) how warm it would make camp there, soundly
+ * built ("about 80% warm here"), since the site no longer caps it.
+ */
+function stageNote(s: Region1State, site: SiteId | null, built: Pick<Region1State, 'tier' | 'shelter'>, factor: number): string {
+  if (!builtWarmthOn(s) || !site) return `holds ${Math.round(factor * 100)}%`;
+  return `about ${Math.round(warmth({ ...s, site, ...built, shelterGrade: 'sound' }) * 100)}% warm here`;
+}
+
 const costNote = (r: CraftRecipe): string => `${r.inputs.map(i => `${i.qty} ${i.item}`).join(' + ')} · ${r.timeBase}h`;
 
 /** Build shelter's decisions: where, and (per stage) what kind. Only real choices are returned. */
@@ -791,19 +806,20 @@ function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
     key: 'site', label: 'Location', value: plan.site,
     choices: (Object.keys(SITES) as SiteId[]).map(id => ({
       value: id, label: SITES[id].name,
-      note: `up to ${Math.round(SITES[id].warmth * 100)}% warm${s.site && id !== s.site && s.tier > 0 ? ' · leaves your shelter behind' : id === s.site ? ' · your camp' : ''}`,
+      // With `built-warmth` (#1763) a site is said by its natural shelter and what it needs, not a ceiling.
+      note: `${builtWarmthOn(s) ? siteShelterText(id) : `up to ${Math.round(SITES[id].warmth * 100)}% warm`}${s.site && id !== s.site && s.tier > 0 ? ' · leaves your shelter behind' : id === s.site ? ' · your camp' : ''}`,
       blocked: knowsLand ? null : 'scout first',
     })),
   });
   if (plan.fromTier === 0) {
     groups.push({
       key: 'type', label: 'Shelter type', value: isShelterType(opts.type) ? opts.type : 'leanto',
-      choices: (Object.keys(SHELTER_TYPES) as ShelterType[]).map(t => ({ value: t, label: SHELTER_TYPES[t].name, note: `${costNote(SHELTER_TYPES[t].recipe)} · holds ${Math.round(SHELTER_TYPES[t].factor * 100)}%`, blocked: knows(s, SHELTER_TYPES[t].recipe) ? null : 'not yet discovered' })),
+      choices: (Object.keys(SHELTER_TYPES) as ShelterType[]).map(t => ({ value: t, label: SHELTER_TYPES[t].name, note: `${costNote(SHELTER_TYPES[t].recipe)} · ${stageNote(s, plan.site, { tier: 1, shelter: { type: t, walls: null } }, SHELTER_TYPES[t].factor)}`, blocked: knows(s, SHELTER_TYPES[t].recipe) ? null : 'not yet discovered' })),
     });
   } else if (plan.fromTier === 1) {
     groups.push({
       key: 'walls', label: 'Wall material', value: isWall(opts.walls) ? opts.walls : 'timber',
-      choices: (Object.keys(WALL_TYPES) as WallMaterial[]).map(w => ({ value: w, label: WALL_TYPES[w].name, note: `${costNote(WALL_TYPES[w].recipe)} · holds ${Math.round(WALL_TYPES[w].factor * 100)}%`, blocked: knows(s, WALL_TYPES[w].recipe) ? null : 'not yet discovered' })),
+      choices: (Object.keys(WALL_TYPES) as WallMaterial[]).map(w => ({ value: w, label: WALL_TYPES[w].name, note: `${costNote(WALL_TYPES[w].recipe)} · ${stageNote(s, plan.site, { tier: 2, shelter: { ...s.shelter, walls: w } }, WALL_TYPES[w].factor)}`, blocked: knows(s, WALL_TYPES[w].recipe) ? null : 'not yet discovered' })),
     });
   }
   return groups.filter(g => g.choices.length > 1);
@@ -850,7 +866,7 @@ function campOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
         : !p.here && s.tier > 0 ? ' · leaves your shelter behind' : '';
       return {
         value: p.id, label: SITES[p.kind].name,
-        note: `${p.text} · up to ${Math.round(SITES[p.kind].warmth * 100)}% warm${kept} · ${siteKnowledge(s, p).text}${rated ? ` · ${rated}` : ''}`,
+        note: `${p.text} · ${builtWarmthOn(s) ? siteShelterText(p.kind) : `up to ${Math.round(SITES[p.kind].warmth * 100)}% warm`}${kept} · ${siteKnowledge(s, p).text}${rated ? ` · ${rated}` : ''}`,
         blocked: p.here ? "you're camped here already" : null,
       };
     }),
@@ -2848,7 +2864,7 @@ export function endDay(s: Region1State): Region1State {
   // A cold night (#1283): the frost decides how much shelter is enough — and rain with no roof is always cold (#1284).
   // (The flat world keeps the old rule.)
   const cold = feelsTemperature(next)
-    ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0)
+    ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0 && !naturalRoof(next))
     : w < 0.3 && next.tier < 2;
   // Cooped up (#1305): a day without going out, studying or crafting adds to the streak; any of them ends it.
   const cooped = feelsTemperature(next) && !next.today.outside && !next.today.absorbed;
