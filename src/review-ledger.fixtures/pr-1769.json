@@ -1,0 +1,98 @@
+{
+  "pr": {
+    "number": 1769,
+    "title": "Artificer: camp warmth comes from what you build; sites give a head start, not a ceiling (#1763)",
+    "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "created_at": "2026-10-15T15:19:15Z",
+    "labels": [
+      {
+        "name": "risk:medium"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "id": 6195608372,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "created_at": "2026-10-15T15:19:55Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769#issuecomment-6195608372",
+      "body": "<!-- risk-score -->\n**Review risk: medium** (score 4) — reviews: the review agent + a second opinion from another model family, which must approve.\n\n- Artificer sim core (+3): src/artificer/built-warmth.ts, src/artificer/camp-sites.ts, src/artificer/features.ts, +1 more\n- 507 lines changed (+1)\n\n_Rules: `.github/review-risk.json` (#1431)._"
+    },
+    {
+      "id": 6195692766,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "created_at": "2026-10-15T15:23:59Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769#issuecomment-6195692766",
+      "body": "A model review (second opinion: failure, focused: skipped) failed, so the merge gate is waiting for it. Re-run *DevCycle 3c — Risk review* with this PR number (Actions → workflow_dispatch)."
+    },
+    {
+      "id": 6196071670,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "created_at": "2026-10-15T15:42:21Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769#issuecomment-6196071670",
+      "body": "A model review (second opinion: failure, focused: skipped) failed, so the merge gate is waiting for it. Re-run *DevCycle 3c — Risk review* with this PR number (Actions → workflow_dispatch)."
+    },
+    {
+      "id": 6197974749,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "created_at": "2026-10-15T17:17:20Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769#issuecomment-6197974749",
+      "body": "A model review (second opinion: failure, focused: skipped) failed, so the merge gate is waiting for it. Re-run *DevCycle 3c — Risk review* with this PR number (Actions → workflow_dispatch)."
+    }
+  ],
+  "reviews": [
+    {
+      "id": 5535591441,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "state": "APPROVED",
+      "commit_id": "0cd52be595ec0339d09f9bc03cfb05a5e3faf955",
+      "submitted_at": "2026-10-15T15:24:03Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1769#pullrequestreview-5535591441",
+      "body": "LGTM — checked that the built-warmth math in built-warmth.ts matches the Design decisions table (gap-closing formula, windbreak/raised-floor reuse of existing build state, 10% bedroll bonus), the switch defaults to absent:false so old saves keep their ceilings exactly (covered by a test), the new en/sv i18n keys hook into the existing simLine template-matching translator (same pattern as opt.holds), and the acceptance tests in built-warmth.test.ts cover all 6 Given/When/Then scenarios from the PR body."
+    }
+  ],
+  "commits": [
+    {
+      "sha": "8ee15cbb45662c2805308f3e7c55350ee69c6be4",
+      "date": "2026-10-15T15:14:38Z",
+      "message": "Artificer: camp warmth comes from what you build; sites give a head start (#1763)",
+      "parents": 1,
+      "files": [
+        "src/artificer-ai/observe.ts",
+        "src/artificer-app/camp-blocks.ts",
+        "src/artificer-app/land-view.ts",
+        "src/artificer-app/sim-words.ts",
+        "src/artificer-play/features.test.ts",
+        "src/artificer-play/lang.test.ts",
+        "src/artificer/built-warmth.test.ts",
+        "src/artificer/built-warmth.ts",
+        "src/artificer/camp-sites.ts",
+        "src/artificer/features.test.ts",
+        "src/artificer/features.ts",
+        "src/artificer/i18n/en/camp.ts",
+        "src/artificer/i18n/sv/camp.ts",
+        "src/artificer/region1.ts"
+      ]
+    },
+    {
+      "sha": "0cd52be595ec0339d09f9bc03cfb05a5e3faf955",
+      "date": "2026-10-15T15:15:11Z",
+      "message": "Merge remote-tracking branch 'origin/main' into claude/1763-built-warmth",
+      "parents": 2,
+      "files": null
+    }
+  ]
+}

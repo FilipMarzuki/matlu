@@ -45,6 +45,7 @@
     "unit:story": "vitest run storytelling",
     "unit:mapgen": "vitest run mapgen",
     "unit:src": "vitest run src",
+    "review:ledger": "node .github/scripts/review-ledger.mjs",
     "ai:play": "tsx scripts/ai-play.ts",
     "ai:report": "tsx scripts/ai-report.ts",
     "ai:bench": "tsx scripts/ai-bench.ts",
