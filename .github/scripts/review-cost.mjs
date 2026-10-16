@@ -103,20 +103,24 @@ export function reviewKey({ diff, model, instructions }) {
  * anything else. Only lines 1 and 2 decide what it is, as at the merge gate (risk-score.mjs tierReviews).
  */
 export function parseReview(body = '') {
-  const so = /^## Second opinion \(([^)\n]*)\)\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: key=([0-9a-f]+))? -->/.exec(body);
-  const fo = so ? null : /^## Focused review — ([a-z][a-z0-9-]*) \(([^)\n]*)\)\n<!-- focused lens=\1 findings=(\d+|\?)(?: key=([0-9a-f]+))? -->/.exec(body);
+  // #1780: ` findings=N high=H` after the verdict or count; a marker without `high=` is the old shape,
+  // where every finding counts as high (as at the gate).
+  const so = /^## Second opinion \(([^)\n]*)\)\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: findings=(\d+|\?) high=(\d+|\?))?(?: key=([0-9a-f]+))? -->/.exec(body);
+  const fo = so ? null : /^## Focused review — ([a-z][a-z0-9-]*) \(([^)\n]*)\)\n<!-- focused lens=\1 findings=(\d+|\?)(?: high=(\d+|\?))?(?: key=([0-9a-f]+))? -->/.exec(body);
   if (!so && !fo) return null;
   const who = (so ? so[1] : fo[2]).split(', ')[0];
   const weak = /^<!-- weak-review reason=(.*?) -->$/m.exec(body)?.[1] ?? null;
   const from = /^<!-- carried-over from=([0-9a-f]+) -->$/m.exec(body)?.[1] ?? null;
+  const num = (v) => (v === undefined || v === '?' ? null : Number(v));
   if (so) {
     const verdict = so[2];
-    return { focus: null, verdict, findings: null, key: so[3] ?? null, usedModel: who, weak, from,
+    return { focus: null, verdict, findings: num(so[3]), high: num(so[4]), key: so[5] ?? null, usedModel: who, weak, from,
       pass: verdict === 'approve', blocks: verdict === 'request-changes' };
   }
-  const findings = fo[3] === '?' ? null : Number(fo[3]);
-  return { focus: fo[1], verdict: `${fo[3]} finding(s)`, findings, key: fo[4] ?? null, usedModel: who, weak, from,
-    pass: findings === 0, blocks: findings !== null && findings > 0 };
+  const findings = num(fo[3]);
+  const high = fo[4] === undefined ? findings : num(fo[4]);
+  return { focus: fo[1], verdict: `${fo[3]} finding(s)${fo[4] === undefined ? '' : `, ${fo[4]} high`}`, findings, high, key: fo[5] ?? null, usedModel: who, weak, from,
+    pass: findings !== null && high === 0, blocks: high !== null && high > 0 };
 }
 
 /**
@@ -125,8 +129,8 @@ export function parseReview(body = '') {
  * head's reviewKeys: the primary model's, and the fallback's (a weak review is keyed on the model
  * that wrote it, and carries over only as weak). Only our own reviews of the same kind count (a lens
  * never stands in for another, nor for the second opinion). It carries over when the latest such
- * review passed (approve, or 0 findings) under one of `keys`, and no review under those keys ever
- * blocked (request-changes, or a finding): a block is never washed out by re-running. An unclear
+ * review passed (approve, or no high finding, #1780) under one of `keys`, and no review under those keys ever
+ * blocked (request-changes, or a high finding): a block is never washed out by re-running. An unclear
  * or '?' review in between doesn't stop it, as a re-run may replace those at the gate too.
  *
  * Returns null (pay for a fresh review) or { review, parsed, from, onHead }: `from` is the commit

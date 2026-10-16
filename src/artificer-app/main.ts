@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -24,7 +24,8 @@ import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
-import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID } from './focus-popover';
+import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
+import { GUIDE_FEATURE } from './survival-path';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -62,6 +63,7 @@ import { landTab, seeLandLink, tripNews } from './land-view';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
+import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
 import { progressTab, outlookWarnings } from './progress-view';
 import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
@@ -76,14 +78,14 @@ import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, pct, band, portraitEl } from './html';
+import { esc, pct, band, portraitEl, tabLabel } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
 import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
-
+import { REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
 // counts a visit without cookies or personal data. Only a production build on the real domain
@@ -406,11 +408,11 @@ function queueBlock(a: AppState, preview: Preview): string {
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
       <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
       <div class="qtot"><span>${times.total}</span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
-      <div class="runbar">
+      <div class="runbar"${guide.mark('runDay')}>
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
-      </div>
+      </div>${guideTip('runDay')}
     </div>`;
 }
 
@@ -424,6 +426,37 @@ function statusBar(a: AppState, preview: Preview): string {
     const b = band(cap > 0 ? cur / cap : 0);
     return `<span class="mini"><span class="ml">${label}</span><span class="mt"><span class="mf ${b}" style="width:${pct(cur / max)}%"></span></span><span class="mv ${b}">${Math.round(cur)}</span></span>`;
   };
+  const ready = winterReady(s);
+  // The first-morning guide (#1792): with it on, each part arrives when it's of use (vitals and the
+  // FOCUS chip after the weather, the stores once something's gathered or the first night is behind
+  // you). With it off, or "I've played before", `guide` shows everything and marks nothing: as before.
+  const g = guide;
+  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return '';
+  const vitals = g.shows('vitals');
+  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
+  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}`;
+  if (g.active) {
+    const stores = g.shows('stores');
+    return `<div class="statusbar">
+    ${vitals ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
+    ${stores ? markFirst(storesBar(a), 'stores') : ''}
+    ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>` : ''}
+    ${g.shows('focus') ? outlookTag(s, ready) : ''}
+  </div>${tips}`;
+  }
+  return `<div class="statusbar">
+    <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
+    ${storesBar(a)}
+    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
+    ${outlookTag(s, ready)}
+  </div>`;
+}
+
+/** The status bar's compact stores (#1675): icon and count, no name beside it. */
+function storesBar(a: AppState): string {
+  const s = a.sim;
   const st = s.stores;
   // The compact stores (#1675): icon and count, no name beside it, so the icon carries the name as
   // its alt (and title, for a hover); the old emoji stays as the fallback.
@@ -431,14 +464,7 @@ function statusBar(a: AppState, preview: Preview): string {
     const img = itemIcon(id, { alt: name });
     return img ? img.replace('<img ', `<img title="${esc(name)}" `) : emoji;
   };
-  const ready = winterReady(s);
-  return `<div class="statusbar">
-    <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>
-    ${focusChip(s, t, focusPopOpen)}${focusPopOpen ? focusPopover(s, t) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
-    ${outlookTag(s, ready)}
-  </div>`;
+  return `<div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>`;
 }
 
 /** Pain (#1409): what you feel, always — sharper when you've worked through an injury. */
@@ -499,6 +525,8 @@ let truths = dev && devTruths();
 installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
+/** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
@@ -520,14 +548,142 @@ let showHelp = false;
  * shows later). Vitals and stores are always in the status bar.
  */
 function beforeCamp(a: AppState): string {
-  return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${sitesBlock(a.sim, t)}
+  const g = guide;
+  if (!g.active) {
+    return `<div class="camp-scene" style="margin-top:16px"><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${sitesBlock(a.sim, t)}
     <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</div>`;
+  }
+  // With the guide (#1792): the places to camp once a suitable one is known, the tools once you've made one.
+  const sites = g.shows('sites') ? `<div${g.mark('sites')}><p class="eyebrow">${esc(t('head.makeCamp'))}</p>${guideTip('sites')}${sitesBlock(a.sim, t)}</div>` : '';
+  const tools = g.shows('tools') ? `<div${g.mark('tools')}><p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${guideTip('tools')}${toolsBlock(a.sim, t)}</div>` : '';
+  return sites || tools ? `<div class="camp-scene" style="margin-top:16px">${sites}${tools}</div>` : '';
+}
+
+// ── The first-morning guide (#1792, reveal.ts) ──────────────────────────────
+// A box on the Plan screen isn't drawn until it can be used; the first time it appears it glows,
+// with the scout's line beside it, until "OK" or until it's used. What's been seen and shown is the
+// device's (`localStorage`, per run), never the save's. The switch is the `guide` ui
+// feature; off, or with "I've played before", the screen is drawn exactly as it was.
+
+/** How the page draws the guide this time: which elements show, which one glows, and the action it suggests. */
+interface GuideView {
+  /** The guide is at work (switch on, not "played before"): off, everything shows and nothing is marked. */
+  active: boolean;
+  shows: (id: GuideId) => boolean;
+  /** The one element whose line is showing now. */
+  tip: GuideId | null;
+  /** The element's attributes: what a tap on it dismisses (`data-reveal`), and the glow (`data-glow`). */
+  mark: (id: GuideId) => string;
+  /** The action that glows until a suitable place to camp is known. */
+  suggest: ActionId | null;
+  /** The weather is shown as the first morning's card: its line not seen yet in this run. */
+  weatherIntro: boolean;
+}
+
+const GUIDE_OFF: GuideView = { active: false, shows: () => true, tip: null, mark: () => '', suggest: null, weatherIntro: false };
+/** Set at the top of each draw (drawPage). */
+let guide: GuideView = GUIDE_OFF;
+/** The device's guide record (reveal.ts): read once, kept in step with storage. */
+let guideRec: GuideRecord = loadGuide();
+const guideSwitchOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE);
+
+/** Keep the record, if it changed. */
+function keepGuide(next: GuideRecord): void {
+  if (next === guideRec) return;
+  guideRec = next;
+  saveGuide(next);
+}
+
+/**
+ * The guide for this draw. A run it hasn't met before starts with "I've played before" on when the
+ * device has been through the guide (or has runs behind it from before the guide), or when the run
+ * is already under way: a save from before the switch shouldn't start hiding its boxes.
+ */
+function guideView(a: AppState): GuideView {
+  if (!guideSwitchOn() || a.stage === 'road') return GUIDE_OFF;
+  const s = a.sim;
+  keepGuide(guideFor(guideRec, s.character.id, guideRec.done || history.length > 0 || began(s)));
+  const run = guideRec.run!;
+  if (run.playedBefore) return GUIDE_OFF;
+  const ctx = { sim: s, queued: a.queue.length, weatherAcked: run.seen.includes('weather') };
+  let rec = markSeen(guideRec, usedNow(ctx));
+  const revealed = revealedNow(ctx, rec.run!.shown);
+  rec = markShown(rec, revealed);
+  if (guideFinished(s)) rec = markDone(rec);
+  keepGuide(rec);
+  const tip = activeTip(revealed, rec.run!.seen, false);
+  return {
+    active: true,
+    shows: id => revealed.has(id),
+    tip,
+    mark: id => ` data-reveal="${id}"${tip === id ? ' data-glow' : ''}`,
+    suggest: suitableSiteKnown(s) || s.outcome ? null : suggestedAction(s),
+    weatherIntro: !rec.run!.seen.includes('weather'),
+  };
+}
+
+/** The scout's line beside an element, while it's the one showing: "OK" dismisses it (the weather's card has its own button). */
+function guideTip(id: GuideId): string {
+  if (guide.tip !== id) return '';
+  const line = REVEALS.find(r => r.id === id)?.line;
+  if (!line) return '';
+  const ok = id === 'weather' ? '' : `<button class="pill guideok" data-guideok="${id}">${esc(t('guide.ok'))}</button>`;
+  return `<div class="guidetip" role="note" aria-label="${esc(t('guide.label'))}"><p>${esc(t(line))}</p>${ok}</div>`;
+}
+
+/** An element drawn elsewhere (the FOCUS chip, the stores): the guide's attributes go on its first tag. */
+const markFirst = (html: string, id: GuideId): string => html.replace(/^(\s*<[a-z]+)/i, `$1${guide.mark(id)}`);
+
+/** Lines seen: kept, and the page redrawn. Keyboard focus goes to the next line's OK, if one shows. */
+function guideSeen(ids: GuideId[]): void {
+  keepGuide(markSeen(guideRec, ids));
+  render(state);
+  root.querySelector<HTMLElement>('[data-guideok]')?.focus({ preventScroll: true });
+}
+
+/** Under the help (?), with the switch on: "I've played before" and "Show the guide again". */
+function guideControls(a: AppState): string {
+  if (!guideSwitchOn() || a.stage === 'road') return '';
+  const played = guideRec.run?.id === a.sim.character.id && guideRec.run.playedBefore;
+  return `<div class="langswitch guidectl"><span>${esc(t('guide.head'))}</span>`
+    + `<button class="pill" data-guide="played" aria-pressed="${played}" title="${esc(t('guide.playedBeforeTip'))}">${esc(t('guide.playedBefore'))}</button>`
+    + `<button class="pill" data-guide="again" title="${esc(t('guide.againTip'))}">${esc(t('guide.again'))}</button></div>`;
+}
+
+// How the weather box is folded (#1788, weather-fold.ts): the first time a big card, then a row of
+// icon chips the player can open. Per device, so it's read once here and kept in step with storage.
+let wxFold: WeatherFold = loadWeatherFold();
+/** Put focus back on the weather toggle after the redraw a keyboard tap caused (innerHTML drops it). */
+let wxRefocus = false;
+
+/** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
+function weatherSection(a: AppState): string {
+  // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
+  // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
+  const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
+  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${weatherBox(a.sim, t, { dev, fold })}</section>`;
+}
+
+/** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
+function guidedPlan(a: AppState, preview: Preview): string {
+  const g = guide;
+  const s = a.sim;
+  const actions = g.shows('actions')
+    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ring: focusRing, dev, t, suggest: g.suggest })}</section>`
+    : '';
+  const qid: GuideId = s.canPlan ? 'queue' : 'today';
+  const queue = g.shows(qid) ? `<div${g.mark(qid)}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
+  const log = g.shows('journal') ? `<div class="log"${g.mark('journal')}><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p>${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
+  const camp = hasCamp(s) ? '' : beforeCamp(a);
+  const side = queue || log || camp ? `<section class="box planside">${queue}${log}${camp}</section>` : '';
+  return actions || side ? `<div class="plan">${actions}${side}</div>` : '';
 }
 
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<section class="box seasonbox">${weatherBox(a.sim, t, { dev })}</section><div class="plan">
+      if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a)}<div class="plan">
         <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
@@ -570,12 +726,18 @@ function render(a: AppState): void {
   feedback.refresh();
 }
 
+/** How many times the page has been drawn: lets a handler tell whether a tap already redrew it. */
+let draws = 0;
+
 function drawPage(a: AppState): void {
+  draws += 1;
   t = distanceT(a.sim, baseT);
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
   applyLook(shownLook(lookOfGame(a), lookPreview));
+  // The first-morning guide (#1792): what this draw shows, worked out once for every block.
+  guide = guideView(a);
   if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
@@ -610,16 +772,18 @@ function drawPage(a: AppState): void {
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
-    ${fresh || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${devGate()}</div>` : ''}
+    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}">${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}`;
   root.classList.toggle('playing', !!playing);
+  // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
+  if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
   if (playing) {
     tickTimer(playing);
     // The newest line in view: lines arrive at the bottom of the timer's list.
@@ -920,7 +1084,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => { const l = tabLabel(id, r.character.name, t); return `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}"${l.attrs}>${l.label}</button>`; }).join('')}</nav>
     ${body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }
@@ -1464,10 +1628,26 @@ root.addEventListener('click', e => {
   // A square on the map (#1539): show what it is.
   const square = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
   if (square?.dataset.cell) { const [x, y] = square.dataset.cell.split(',').map(Number); mapCell = { x, y }; render(state); return; }
+  // The weather box (#1788): "Got it" on the first time's card condenses it; the heading (or, when
+  // condensed, anywhere on its row) opens or condenses it. Presentation only, so it acts mid-playback too.
+  const wx = (e.target as HTMLElement).closest<HTMLElement>('[data-wxack], [data-wxfold]');
+  if (wx) {
+    wxFold = wx.dataset.wxack !== undefined ? ackWeather(wxFold) : toggleWeather(wxFold);
+    saveWeatherFold(wxFold);
+    // With the guide (#1792), acknowledging the weather is the first morning's first step.
+    if (wx.dataset.wxack !== undefined && guide.active) keepGuide(markSeen(guideRec, ['weather']));
+    wxRefocus = true;
+    render(state);
+    return;
+  }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
   const d = el.dataset;
+  // The guide (#1792): a line's OK, and its controls under the help. Presentation only, so mid-day too.
+  if (d.guideok) { if (isGuideId(d.guideok)) guideSeen([d.guideok]); return; }
+  if (d.guide === 'played') { const on = !(guideRec.run?.playedBefore ?? false); keepGuide(setPlayedBefore(guideRec, on)); render(state); root.querySelector<HTMLElement>('[data-guide="played"]')?.focus(); return; }
+  if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
   // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
   if (d.cmd === 'feedback') { feedback.toggle(); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
@@ -1586,6 +1766,24 @@ root.addEventListener('click', e => {
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
   else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
 });
+
+// Using an element the guide revealed (#1792) counts as its line read: a tap anywhere inside it (an
+// action, the FOCUS chip, a place to camp, Run the day) dismisses its line, as "OK" would. Caught on
+// the way down (capture), so the tap's own redraw already leaves the line out; a tap that redraws
+// nothing (on the vitals, say) gets a redraw of its own.
+root.addEventListener('click', e => {
+  if (!guide.active) return;
+  const used: GuideId[] = [];
+  for (let n = (e.target as HTMLElement).closest<HTMLElement>('[data-reveal]'); n; n = n.parentElement?.closest<HTMLElement>('[data-reveal]') ?? null) {
+    if (isGuideId(n.dataset.reveal)) used.push(n.dataset.reveal);
+  }
+  const next = markSeen(guideRec, used);
+  if (next === guideRec) return;
+  const drawn = draws;
+  keepGuide(next);
+  // After the tap's own handler (a timeout, not a microtask: those run between listeners).
+  setTimeout(() => { if (draws === drawn) render(state); }, 0);
+}, true);
 
 // ── Reordering the queue (#1743) ─────────────────────────────────────────────
 // Drag a task by its grip (⋮⋮) to a new place. Pointer Events give mouse, touch and pen one code

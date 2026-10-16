@@ -74,13 +74,20 @@ export async function claudeReview({ prompt, system, model = FALLBACK_MODEL, key
  * ({ from, url }) makes the body that carry-over: the verdict of the review at `url`, first read on
  * commit `from`, re-posted with no paid call (a weak one stays weak). `usage` is a paid call's
  * tokens and cost, for the footer.
+ *
+ * #1780: `high` is how many of the `findings` are high severity (review-findings.mjs). It goes in
+ * the marker as `findings=N high=H`, and only H holds the merge; without it the marker keeps its
+ * old shape, which the gate reads as every finding high.
  */
-export function reviewBody({ focus, usedModel, verdict, findings = '?', text = '', weak = null, key = null, usage, carried = null }) {
+export function reviewBody({ focus, usedModel, verdict, findings = '?', high = null, text = '', weak = null, key = null, usage, carried = null }) {
   const tag = key ? ` key=${key}` : '';
-  const marker = focus ? `<!-- focused lens=${focus} findings=${findings}${tag} -->` : `<!-- second-opinion verdict=${verdict}${tag} -->`;
+  const sev = high === null || high === undefined ? '' : ` high=${high}`;
+  const marker = focus
+    ? `<!-- focused lens=${focus} findings=${findings}${sev}${tag} -->`
+    : `<!-- second-opinion verdict=${verdict}${sev ? ` findings=${findings}${sev}` : ''}${tag} -->`;
   const gates = focus
-    ? 'any finding holds the merge (risk:high) until a new commit, which is reviewed again'
-    : 'anything but approve holds the merge (risk:medium and high) until a new commit, which is reviewed again';
+    ? 'only a high-severity finding with a concrete failing scenario and a file:line holds the merge (risk:high) until a new commit, which is reviewed again; medium and low ones are posted, not blocking'
+    : 'only a high-severity finding with a concrete failing scenario and a file:line, or a must-pass rule breach, makes it request-changes, which holds the merge (risk:medium and high) until a new commit; medium and low ones are posted, not blocking';
   const who = `${usedModel}${weak ? ', fallback' : ''}${carried ? ', carried over' : ''}`;
   const main = carried
     ? `Carried over from [the review of commit ${carried.from.slice(0, 7)}](${carried.url}): this commit's PR diff is byte-identical to the one that review read, for the same model and review instructions (key \`${key}\`), so no paid call was made. A change to any of them gets a fresh review.`

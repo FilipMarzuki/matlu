@@ -42,7 +42,7 @@ export const IMAGE_BUCKET = 'artificer-feedback';
 /** An email's longest (RFC 5321's path limit). */
 export const EMAIL_CHARS = 254;
 /** Reports kept per hashed address per hour, and from everyone per day (the free tier's guard). */
-export const FEEDBACK_LIMITS = { perIpPerHour: 10, perDay: 1000 };
+export const FEEDBACK_LIMITS = { perIpPerHour: 10, perDay: 50 };
 /** The journal lines a report may carry, and each line's length. */
 export const JOURNAL_LINES = 10;
 const JOURNAL_CHARS = 400;

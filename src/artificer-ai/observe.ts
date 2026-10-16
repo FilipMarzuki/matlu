@@ -34,6 +34,8 @@ import { ASK_HOURS, tellsFor } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
+import type { SiteId } from '../artificer/region1';
+import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_WARMTH } from '../artificer/built-warmth';
 import { featureOn } from '../artificer/features';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
@@ -291,7 +293,13 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
 
   // Camp as an action (#1732): the camp is a real place, and where to camp is the camp action's choice.
   const spot = campAsActionOn(s) ? knownSpots(s).find(p => p.here) : undefined;
-  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  // With `built-warmth` (#1763) a site has no ceiling: it's said by its natural shelter and what building it needs.
+  const built = builtWarmthOn(s);
+  const siteNote = (k: SiteId): string => (built ? siteShelterText(k) : `max ${pct(SITES[k].warmth)}`);
+  const sites = built
+    ? `Sites by natural shelter: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${SHELTER_TEXT.word[k]}`).join(', ')} (a site gives a head start, not a ceiling: timber walls, soundly built, with a fire make any of them warm enough for midwinter; the hilltop's wind costs ${pct(WIND_EXPOSURE)} until walls are soundly built, the riverbank's damp ${pct(DAMP)} until a shelter is soundly built off the ground, and a bedroll adds ${pct(BED_WARMTH)})`
+    : `Sites: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}`;
+  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (${built ? `natural shelter: ${siteNote(s.site)}` : siteNote(s.site)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}${built ? `, ${pct(warmth(s))} warm` : ''}` : 'none yet'}. ${sites}. First shelter stage costs ${BUILD_COST[0]} materials.`);
   // Each camp keeps what you built there (#1753): the camps you're away from, by spot id.
   const kept = keptCamps(s);
   if (kept.length) lines.push(`BUILT AT OTHER PLACES: ${kept.map(c => `${c.id}: ${buildsText(c.items)}`).join('; ')} (still there when you camp there again; food you leave in a cold pit stays in it)`);
