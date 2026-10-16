@@ -82,6 +82,8 @@ import { esc, pct, band, portraitEl, tabLabel } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
+import { installFeedback } from './feedback-panel';
+import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
@@ -720,6 +722,8 @@ function resolvePanel(a: AppState): string {
  */
 function render(a: AppState): void {
   drawPage(playing ? shownNow(playing) : a);
+  // The feedback panel (#1773) sits outside the root: told the page changed, so what it would attach is current.
+  feedback.refresh();
 }
 
 /** How many times the page has been drawn: lets a handler tell whether a tap already redrew it. */
@@ -764,6 +768,7 @@ function drawPage(a: AppState): void {
       ${featuresButton()}
       ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
+      ${feedback.button(t)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
@@ -1072,6 +1077,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
       ${lookSwitcher(a)}
+      ${feedback.button(t)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
@@ -1109,6 +1115,37 @@ const root = document.getElementById('app') as HTMLElement;
 const saved = loadSaved();
 let state = saved ?? newGame(undefined, loadChoices());
 let history = loadHistory();
+
+// ── Feedback (#1773) ────────────────────────────────────────────────────────
+// The 💬 panel: docked on the right on a desktop, a bottom sheet on a phone, never blocking the
+// game (feedback-panel.ts). What it attaches is read from the page when it's shown or sent:
+// always the Warden's id and the run's record id, the rest only as the player leaves it ticked.
+const feedback = installFeedback({
+  t: () => t,
+  lang: () => lang,
+  attachable: () => {
+    const a = state;
+    const onRoad = a.stage === 'road' && !!a.road;
+    const name = (onRoad ? a.road!.character.name : a.sim.character.name) || undefined;
+    let save: unknown = null;
+    try { save = JSON.parse(serialize(a)) as unknown; } catch { /* nothing to attach */ }
+    return {
+      wardenId: a.sim.character.id,
+      runId: logFor(a)?.sent?.gameId ?? null,
+      build: { version: import.meta.env.VITE_GIT_SHA || 'dev', date: import.meta.env.VITE_BUILD_DATE || undefined, path: location.pathname },
+      where: {
+        seed: seedOf(a.sim.character.id), day: onRoad ? a.road!.day : a.sim.day, runNumber: runNumberFor(history, a.sim.character.id),
+        stage: onRoad ? 'road' : 'camp', tab: onRoad ? roadTab : tab, look: shownLook(lookOfGame(a), lookPreview), lang, dev,
+        features: Object.entries(featuresOf(a.sim.config.world.features)).filter(([, on]) => on).map(([id]) => id),
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        device: deviceOf(window.innerWidth, matchMedia('(pointer: coarse)').matches),
+      },
+      journal: onRoad ? lastJournal(a.road!.log, 'R') : lastJournal(a.sim.log),
+      save,
+      wardenName: name,
+    };
+  },
+});
 
 // ── The run's log, for the records (#1559) ──────────────────────────────────
 // The page runs the sim itself, so a run it sends to the records is checked by playing it again on
@@ -1611,6 +1648,8 @@ root.addEventListener('click', e => {
   if (d.guideok) { if (isGuideId(d.guideok)) guideSeen([d.guideok]); return; }
   if (d.guide === 'played') { const on = !(guideRec.run?.playedBefore ?? false); keepGuide(setPlayedBefore(guideRec, on)); render(state); root.querySelector<HTMLElement>('[data-guide="played"]')?.focus(); return; }
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
+  // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
+  if (d.cmd === 'feedback') { feedback.toggle(); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {
