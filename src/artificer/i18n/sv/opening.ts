@@ -47,7 +47,9 @@ export const openingSv: Record<keyof typeof opening, string> = {
   'kitgroup.tools': 'Verktyg',
   'kitgroup.other': 'Övrigt',
   'kitgroup.personal': 'Personligt',
-  'pack.inGroup': '{n} packade',
+  'pack.groupSum': '{n} av {m} packade · {kg} kg',
+  'pack.openAll': 'Öppna alla',
+  'pack.closeAll': 'Stäng alla',
 
   // ── Vem du är ──────────────────────────────────────────────────────────────
   'create.name': 'NAMN — skriv det',

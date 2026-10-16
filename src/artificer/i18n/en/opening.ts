@@ -50,8 +50,11 @@ export const opening = {
   'kitgroup.tools': 'Tools',
   'kitgroup.other': 'Other',
   'kitgroup.personal': 'Personal',
-  // A section's line while it's folded (#1727): how many of its things are packed.
-  'pack.inGroup': '{n} packed',
+  // A section heading's summary (#1801): how many of its things are packed, of how many, and their weight.
+  'pack.groupSum': '{n} of {m} packed · {kg} kg',
+  // The button above the sections (#1801): opens them all, or closes them all once they're all open.
+  'pack.openAll': 'Open all',
+  'pack.closeAll': 'Close all',
 
   // ── Character creation ─────────────────────────────────────────────────────
   'create.name': 'NAME — write it',
