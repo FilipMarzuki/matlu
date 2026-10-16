@@ -5,7 +5,7 @@
 // for the paths a PR touches, its size, and whether code changed without tests.
 // The tier decides which review models must agree before a merge (#1481) — low:
 // the review agent; medium: + the OpenRouter second opinion approves; high: + every
-// focused lens pass (a stronger model) finds nothing. People decide game design;
+// focused lens pass (a stronger model) finds nothing high-severity (#1780). People decide game design;
 // implementation merges on the models' reviews, never on a person's label.
 //
 // Usage:
@@ -122,8 +122,9 @@ export const loadRules = () => JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
  * - `second`: the second opinion — the worst verdict on this commit. A request-changes holds until
  *   a new commit, so re-running the reviewer can't wash it out; a re-run can replace an `unclear`
  *   or a failed run with a real verdict.
- * - `focused[lens]`: the most findings any focused review of that lens reported on this commit;
- *   null when none of them gave a count.
+ * - `focused[lens]`: the most high-severity findings any focused review of that lens reported on
+ *   this commit (#1780: `findings=N high=H` counts H; an old marker with no `high=` counts all N);
+ *   null when none of them gave a count. Medium and low findings don't hold the merge.
  * Verdicts are read only from the marker on line 2 of a body that starts with the
  * run-second-review.js header, so a review quoting a marker can't stand in for one.
  */
@@ -138,11 +139,14 @@ export function tierReviews(reviews, headSha) {
     const body = r.body ?? '';
     // ` key=<hash>` names the diff, model and instructions the review read (#1654), so a carried-over
     // verdict, re-posted on the head commit, reads exactly like a fresh one here.
-    const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: key=[0-9a-f]+)? -->/.exec(body);
+    // The verdict already applies the severity gate (#1780): approve unless a high finding is present.
+    const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: findings=(?:\d+|\?) high=(?:\d+|\?))?(?: key=[0-9a-f]+)? -->/.exec(body);
     if (so) { if (!out.second || rank[so[1]] > rank[out.second]) out.second = so[1]; continue; }
-    const fo = /^## Focused review — ([a-z][a-z0-9-]*)[^\n]*\n<!-- focused lens=\1 findings=(\d+|\?)(?: key=[0-9a-f]+)? -->/.exec(body);
+    const fo = /^## Focused review — ([a-z][a-z0-9-]*)[^\n]*\n<!-- focused lens=\1 findings=(\d+|\?)(?: high=(\d+|\?))?(?: key=[0-9a-f]+)? -->/.exec(body);
     if (!fo) continue;
-    const n = fo[2] === '?' ? null : Number(fo[2]);
+    // What blocks: the high count, or every finding for an old-format marker (#1780).
+    const blocking = fo[3] ?? fo[2];
+    const n = blocking === '?' ? null : Number(blocking);
     const had = out.focused[fo[1]];
     out.focused[fo[1]] = had === undefined ? n : n === null ? had : had === null ? n : Math.max(had, n);
   }
@@ -153,8 +157,9 @@ export function tierReviews(reviews, headSha) {
  * May a PR be merged now (pure, #1481)? The tier decides which models must agree on the head commit:
  * - low: CI passed, and the review agent approves;
  * - medium: + the second opinion approves;
- * - high: + every lens the tier runs has a focused review with 0 findings.
- * A request-changes, an unclear verdict, a finding or a missing review holds it; a new commit
+ * - high: + every lens the tier runs has a focused review with no high-severity finding.
+ * A request-changes, an unclear verdict, a high finding or a missing review holds it (#1780: a
+ * medium or low finding is posted but doesn't hold it); a new commit
  * re-runs the reviews. No person's label is involved. Returns { merge, reason }.
  */
 export function mergeGate({ tier, ciOk, open = true, sameRepo = true, lenses = [], reviews = { agent: null, second: null, focused: {} } }) {
@@ -170,9 +175,9 @@ export function mergeGate({ tier, ciOk, open = true, sameRepo = true, lenses = [
     const n = reviews.focused[lens];
     if (n === undefined) return { merge: false, reason: `risk:high — waiting for the focused review (${lens}) on the head commit` };
     if (n === null) return { merge: false, reason: `risk:high — the focused review (${lens}) gave no finding count; re-run it` };
-    if (n > 0) return { merge: false, reason: `risk:high — the focused review (${lens}) has ${n} finding(s)` };
+    if (n > 0) return { merge: false, reason: `risk:high — the focused review (${lens}) has ${n} high-severity finding(s)` };
   }
-  return { merge: true, reason: `risk:high, the review agent and the second opinion approve and ${lenses.length ? `the focused reviews (${lenses.join(', ')}) find nothing` : 'no lens applies'}` };
+  return { merge: true, reason: `risk:high, the review agent and the second opinion approve and ${lenses.length ? `the focused reviews (${lenses.join(', ')}) find nothing high` : 'no lens applies'}` };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -259,7 +264,7 @@ async function main() {
     const what = {
       low: 'the review agent',
       medium: 'the review agent + a second opinion from another model family, which must approve',
-      high: `the review agent + a second opinion, which must approve + focused passes (${result.lenses.join(', ')}) on a stronger model, which must find nothing`,
+      high: `the review agent + a second opinion, which must approve + focused passes (${result.lenses.join(', ')}) on a stronger model, which must find nothing high-severity`,
     }[result.tier];
     const body = [MARKER, `**Review risk: ${result.tier}** (score ${result.score}) — reviews: ${what}.`, '', ...result.reasons.map(r => `- ${r}`), '', '_Rules: `.github/review-risk.json` (#1431)._'].join('\n');
     const comments = await gh(`/issues/${prNumber}/comments?per_page=100`);

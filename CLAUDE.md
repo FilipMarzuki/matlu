@@ -313,14 +313,16 @@ No PR merges without a review pass, and the depth of review scales with the PR's
 | ---- | ---------- | ------- |
 | `risk:low` | docs, wiki, styles, game code with tests | self-review + *DevCycle 3 — Review* (the Claude review agent) approves |
 | `risk:medium` | agent instructions, sim code, large diffs | + a second opinion from another model family (`REVIEW_MODEL_MEDIUM`) says `approve` |
-| `risk:high` | seeded RNG / golden hashes, save format, CI workflows, build config, Supabase, paid-API scripts | + one focused review per lens (`.agents/review-lenses/`: determinism, saves, general) on a stronger model (`REVIEW_MODEL_HIGH`) finds nothing |
+| `risk:high` | seeded RNG / golden hashes, save format, CI workflows, build config, Supabase, paid-API scripts | + one focused review per lens (`.agents/review-lenses/`: determinism, saves, general) on a stronger model (`REVIEW_MODEL_HIGH`) finds nothing high-severity |
 
-The verdicts count on the head commit only, and the review agent must approve that commit too. A new commit re-runs the reviews. Re-running *DevCycle 3c* (`workflow_dispatch`, PR number) replaces an unclear or failed review, but a `request-changes` or a finding holds until a new commit.
+The verdicts count on the head commit only, and the review agent must approve that commit too. A new commit re-runs the reviews. Re-running *DevCycle 3c* (`workflow_dispatch`, PR number) replaces an unclear or failed review, but a `request-changes` or a high finding holds until a new commit.
+
+**Severity gate (#1780).** The paid reviews grade each finding `severity` / `fails when` / `evidence`. Only a **high** finding (a realistic path to wrong saves, broken replays or determinism, data loss, crashes or a security hole) with a concrete `fails when` blocks; a "high" with no scenario counts as medium. Markers read `findings=N high=H` and the gate blocks on H > 0 (an old marker with no `high=` counts every finding as high). The second opinion approves unless it reports a high finding. Medium and low findings are posted under a "not blocking" heading.
 
 "Merge it" means, in order:
 
 1. **Self-review.** Review the PR's own diff (e.g. the `/code-review` skill on the PR) for correctness bugs, missed edge cases, and gaps against the issue's acceptance criteria. Go deeper the higher the tier: for `risk:high`, check the matching lens file's list by hand too. Fix what's real in a new commit; say what was found and what was fixed or left (with why).
-2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. Marking ready starts *3c — Risk review*, which scores the PR, starts *DevCycle 3 — Review*, and runs the paid reviews its tier calls for. Fix blocking findings: a second opinion's `request-changes` or a focused review's finding holds the merge until a new commit.
+2. **Agent review.** Mark the PR ready for review — the review agents skip drafts. Marking ready starts *3c — Risk review*, which scores the PR, starts *DevCycle 3 — Review*, and runs the paid reviews its tier calls for. Fix blocking findings: a second opinion's `request-changes` or a focused review's high finding holds the merge until a new commit.
 3. **Merge.** *DevCycle 4 — Merge* merges once the Review agent approves and the gate passes; *3c* starts it again when the tier's reviews finish, and a review agent that *3c* started starts it when it finishes (#1582: GitHub fires no `workflow_run` for runs started with `GITHUB_TOKEN`). Every merge path runs the gate `node .github/scripts/risk-score.mjs --pr N --gate` (exit 3 = hold): CI passed on the head commit, and the tier's models agree on it.
 
 Never mark a PR ready and merge it in the same step — that skips the review agents entirely.

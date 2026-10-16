@@ -16,3 +16,9 @@ look past code style at what it can do when it runs:
 - **Agent instructions**: rules that contradict each other or existing rules,
   instructions that would let an agent merge, push or delete without a review.
 - **Backend**: RLS or policies widened, service keys reaching the browser.
+
+**High here means:** a secret can reach untrusted code, a paid call can run
+without a cap or from a fork, an agent can merge, push or delete without a
+review, a check that should fail red no longer can, or a policy lets the wrong
+role read or write. A permission wider than needed with no path to misuse is
+medium.

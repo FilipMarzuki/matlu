@@ -10,7 +10,12 @@ name: DevCycle 3c — Risk review
 #   medium  + a second opinion from another model family (REVIEW_MODEL_MEDIUM)
 #             says approve
 #   high    + one focused pass per lens (determinism, saves, general) on a
-#             stronger model (REVIEW_MODEL_HIGH) finds nothing
+#             stronger model (REVIEW_MODEL_HIGH) finds nothing high-severity
+#
+# Severity gate (#1780): only a high finding with a concrete `fails when`
+# scenario blocks (markers `findings=N high=H`; an old marker with no `high=`
+# counts every finding as high). The second opinion approves unless it reports
+# one. Medium and low findings are posted under a "not blocking" heading.
 #
 # risk-score.mjs --gate checks this in every merge path, on the head commit only:
 # a new commit re-runs the reviews. When the paid reviews finish, this starts

@@ -11,7 +11,7 @@ export function claudeUsage(u: unknown): Usage | undefined;
 export function usageLine(usage: Usage | undefined): string;
 export function reviewKey(o: { diff: string; model: string; instructions: string }): string;
 export interface ParsedReview {
-  focus: string | null; verdict: string; findings: number | null; key: string | null; usedModel: string;
+  focus: string | null; verdict: string; findings: number | null; high: number | null; key: string | null; usedModel: string;
   weak: string | null; from: string | null; pass: boolean; blocks: boolean;
 }
 export function parseReview(body?: string): ParsedReview | null;
