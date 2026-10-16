@@ -50,9 +50,63 @@ export function globToRegex(glob) {
 }
 const matchesAny = (file, globs = []) => globs.some(g => globToRegex(g).test(file));
 
+const compiled = new Map();
+const re = (src) => { if (!compiled.has(src)) compiled.set(src, new RegExp(src)); return compiled.get(src); };
+/** The first capture group that matched, else the whole match. */
+const captured = (m) => m.slice(1).find(g => g !== undefined) ?? m[0];
+
+/** Does a rule's `content` block cover this file, so its diff text is read (#1781)? */
+export const contentCovers = (file, content) => !!content && matchesAny(file, content.paths) && !matchesAny(file, content.exclude);
+
 /**
- * Score a PR's changed files (pure). `files`: [{ filename, additions, deletions }].
+ * What one file's diff touches, by a rule's content patterns (pure, #1781). `patch` is the unified
+ * diff of that file: the GitHub files API's `patch`, or `git diff` output (anything before the
+ * first `@@` is skipped). Only added and removed lines count, never the context around them.
+ *
+ * A pattern has `line` (a regex on the changed line) and/or `within` (a regex on the top-level
+ * declaration the line sits in). The declaration is the last line in the hunk that starts at
+ * column 0 with a letter, `$`, `_` or `@`, or, before there is one, the hunk header's context,
+ * where git names the enclosing function. A `}` at column 0 closes it. So an edit deep inside
+ * `deserialize` matches `within: "function (deserialize)"` though the line itself never names it.
+ *
+ * Returns the matched names in first-seen order: the `within` capture and the `line` capture joined
+ * by a dot (`Region1State.pitRot`), or whichever of them the pattern has.
+ */
+export function contentHits(patch, patterns) {
+  const found = new Set();
+  let inHunk = false;
+  let decl = null;
+  for (const raw of patch.split('\n')) {
+    if (raw.startsWith('@@')) { inHunk = true; decl = /^@@ [^@]*@@ ?(.*)$/.exec(raw)?.[1] || null; continue; }
+    if (!inHunk) continue;
+    if (raw.startsWith('diff --git ')) { inHunk = false; continue; } // a second file's header in `git diff` output
+    const c = raw[0];
+    if (c !== '+' && c !== '-' && c !== ' ') continue; // `\ No newline at end of file`
+    const text = raw.slice(1);
+    if (/^[A-Za-z_$@]/.test(text)) decl = text;
+    else if (text.startsWith('}')) { decl = null; if (c === ' ') continue; }
+    if (c === ' ') continue;
+    for (const p of patterns) {
+      const w = p.within ? (decl ? re(p.within).exec(decl) : null) : true;
+      if (!w) continue;
+      const l = p.line ? re(p.line).exec(text) : true;
+      if (!l) continue;
+      const name = [w === true ? null : captured(w), l === true ? null : captured(l)].filter(Boolean).join('.');
+      found.add(name || text.trim().slice(0, 40));
+    }
+  }
+  return [...found];
+}
+
+/**
+ * Score a PR's changed files (pure). `files`: [{ filename, additions, deletions, patch? }].
  * Returns the score, the tier, the reasons, and the lenses a high tier runs.
+ *
+ * A rule matches a file by its `paths` (any edit counts), or, for a file its `content` block
+ * covers, only when the file's diff touches one of `content.patterns` (#1781): adding a queue
+ * helper to controller.ts isn't a save-format change, an edit inside `deserialize` is. A covered
+ * file with no diff text counts (GitHub leaves `patch` out of very large diffs): nothing shows
+ * it's safe.
  */
 export function scoreRisk(files, config) {
   // A rename counts for both paths: moving rng.ts out of its folder still touches the RNG.
@@ -64,11 +118,20 @@ export function scoreRisk(files, config) {
 
   for (const rule of config.rules) {
     const hit = names.filter(n => matchesAny(n, rule.paths) && !matchesAny(n, rule.exclude));
+    if (rule.content) {
+      for (const f of files) {
+        if (hit.includes(f.filename) || !(contentCovers(f.filename, rule.content) || (f.previous_filename && contentCovers(f.previous_filename, rule.content)))) continue;
+        const what = typeof f.patch === 'string' ? contentHits(f.patch, rule.content.patterns) : ['diff not shown'];
+        if (what.length) hit.push(`${f.filename} — ${what.slice(0, 3).join(', ')}${what.length > 3 ? ` +${what.length - 3} more` : ''}`);
+      }
+    }
     if (!hit.length) continue;
     score += rule.weight;
     ruleHit = true;
     if (rule.lens) lenses.add(rule.lens);
-    reasons.push(`${rule.label} (+${rule.weight}): ${hit.slice(0, 3).join(', ')}${hit.length > 3 ? `, +${hit.length - 3} more` : ''}`);
+    // A content hit lists its own names with commas, so its files are kept apart with semicolons.
+    const sep = rule.content ? '; ' : ', ';
+    reasons.push(`${rule.label} (+${rule.weight}): ${hit.slice(0, 3).join(sep)}${hit.length > 3 ? `${sep}+${hit.length - 3} more` : ''}`);
   }
 
   const lines = files.reduce((n, f) => n + (f.additions ?? 0) + (f.deletions ?? 0), 0);
@@ -198,7 +261,18 @@ async function main() {
       console.error(`Could not diff ${base}...HEAD (see git's error above). If ${base} is missing, \`git fetch origin main\`; in a shallow clone with no merge base, \`git fetch --unshallow origin\`.`);
       process.exit(2);
     }
-    const result = scoreRisk(parseNumstatZ(out), loadRules());
+    const rules = loadRules();
+    const changed = parseNumstatZ(out);
+    // Content rules (#1781) read the diff text of the files they cover, as the PR files API's
+    // `patch` gives it: one `git diff` per covered file (both paths for a rename).
+    for (const f of changed) {
+      const paths = f.previous_filename ? [f.previous_filename, f.filename] : [f.filename];
+      if (!rules.rules.some(r => paths.some(p => contentCovers(p, r.content)))) continue;
+      try {
+        f.patch = execFileSync('git', ['diff', '-M', '--no-color', '--no-ext-diff', '-U3', `${base}...HEAD`, '--', ...paths], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      } catch { /* no patch: the rule counts the file, as for a PR diff GitHub doesn't show */ }
+    }
+    const result = scoreRisk(changed, rules);
     console.log(`risk:${result.tier} (score ${result.score}) — commits since ${base}`);
     for (const r of result.reasons) console.log(`  - ${r}`);
     if (result.lenses.length) console.log(`  lenses: ${result.lenses.join(', ')}`);
@@ -220,6 +294,7 @@ async function main() {
   };
 
   const pr = await gh(`/pulls/${prNumber}`);
+  // Each file comes with its `patch` (the diff text), which content rules read (#1781).
   const files = [];
   for (let page = 1; page <= 30; page++) {
     const batch = await gh(`/pulls/${prNumber}/files?per_page=100&page=${page}`);

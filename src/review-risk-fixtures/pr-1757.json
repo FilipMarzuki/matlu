@@ -1,0 +1,70 @@
+{
+  "pr": 1757,
+  "commit": "2418fa81",
+  "$comment": "git show 2418fa81 (PR #1757): every changed file's line counts, and the diff text of the files a content rule reads",
+  "files": [
+    {
+      "filename": "src/artificer-ai/observe.ts",
+      "additions": 8,
+      "deletions": 4
+    },
+    {
+      "filename": "src/artificer-app/camp-blocks.ts",
+      "additions": 5,
+      "deletions": 3
+    },
+    {
+      "filename": "src/artificer-app/controller.ts",
+      "additions": 3,
+      "deletions": 1,
+      "patch": "@@ -615,6 +615,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {\n   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;\n   // …and a cold pit only at a real site (#1295); none before it.\n   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;\n+  // …and the cold pit's carried rot (#1757): a fraction 0..1, only with `cold-pit-slows` on; else none owed.\n+  const pitRot = typeof sim.pitRot === 'number' && Number.isFinite(sim.pitRot) && sim.pitRot > 0 && sim.pitRot < 1 && featureOn(config.world.features, 'cold-pit-slows') ? sim.pitRot : undefined;\n   // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.\n   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;\n   // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.\n@@ -626,5 +628,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {\n   const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;\n   // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.\n   const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;\n-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };\n+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };\n }\n"
+    },
+    {
+      "filename": "src/artificer-play/features.test.ts",
+      "additions": 5,
+      "deletions": 5
+    },
+    {
+      "filename": "src/artificer/features.test.ts",
+      "additions": 6,
+      "deletions": 6
+    },
+    {
+      "filename": "src/artificer/features.ts",
+      "additions": 7,
+      "deletions": 0,
+      "patch": "@@ -232,6 +232,13 @@ export const FEATURES: readonly FeatureDef[] = [\n     id: 'camp-site-ratings', name: 'Places to camp rated great and good', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1756,\n     note: 'Each place to camp you know is rated from what you believe about it (its shelter from the wind, water, wood, dry ground and any danger you spotted): great, good or poor. The Make camp action shows how many great (★) and good (✓) places you know. A quick look can overrate a place; camping there shows what it\\'s really like.',\n   },\n+  {\n+    // A rules feature: it changes what spoils overnight (region1.ts `nightSpoilage`: the cold pit's\n+    // food rots too, slowly, its fraction carried in `pitRot`), so a run from before it (absent:\n+    // false) keeps a pit that stops the rot on replay.\n+    id: 'cold-pit-slows', name: 'The cold pit slows the rot', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1757,\n+    note: 'A cold pit keeps raw food cold and slows the rot, but doesn\\'t stop it: food in the pit spoils at about a third of the open rate (a quarter at the river), faster on mild nights and slower in frost.',\n+  },\n   {\n     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live\n     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the\n"
+    },
+    {
+      "filename": "src/artificer/i18n/en/camp.ts",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/i18n/en/journal.ts",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/i18n/sv/camp.ts",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/i18n/sv/journal.ts",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/region1-cold-pit-slows.test.ts",
+      "additions": 143,
+      "deletions": 0
+    },
+    {
+      "filename": "src/artificer/region1.ts",
+      "additions": 63,
+      "deletions": 6,
+      "patch": "@@ -231,6 +231,12 @@ export interface Region1State {\n   strain?: number;\n   /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */\n   coldPitAt?: SiteId | null;\n+  /**\n+   * The rot owed by the food in the cold pit (#1757, `cold-pit-slows`): a fraction of one raw food,\n+   * 0..1, carried from night to night until it adds up to a whole one that goes bad. Written only\n+   * with the switch on; dropped when nothing is in the pit. Absent: none owed.\n+   */\n+  pitRot?: number;\n   /**\n    * Where camp is on the Reach (#1732, `camp-as-action`): the spot's id (`river@12,20`) and every spot\n    * camped at, whose true traits you know. Written only by the Make camp action, so only with the\n@@ -708,7 +714,7 @@ export const GEAR_RECIPES: Readonly<Record<'basket' | 'backpack' | 'harness' | '\n   sled: { id: 'sled', name: 'Sled', inputs: [{ item: 'materials', qty: 5 }], output: { item: 'sled', qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['leverage'] },\n };\n \n-/** The cold pit (#1295): a stone-lined pit that keeps raw food from spoiling. Dug at camp, it stays there. */\n+/** The cold pit (#1295): a stone-lined pit that keeps raw food cold (and, with `cold-pit-slows`, #1757, slows the rot rather than stopping it). Dug at camp, it stays there. */\n export const COLD_PIT_RECIPE: CraftRecipe = { id: 'cold-pit', name: 'Cold pit', inputs: [{ item: 'stone', qty: 4 }, { item: 'materials', qty: 2 }], output: { item: 'cold-pit', qty: 1 }, tier: 0, station: null, timeBase: 4 };\n \n const shelterRecipe = (id: string, name: string, tier: number, inputs: CraftRecipe['inputs'], timeBase: number, vigorRate = -3.5): CraftRecipe =>\n@@ -823,6 +829,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string): void {\n     next.campSpot = { at: spot, camped: next.campSpot?.camped.includes(spot) ? [...next.campSpot.camped] : [...(next.campSpot?.camped ?? []), spot] };\n     if (next.coldPitAt) next.coldPitAt = null;\n   }\n+  // The pit's carried rot (#1757) belongs to the pit where it built up: leaving camp leaves it behind.\n+  delete next.pitRot;\n   next.siteDay = next.day;\n   next.tier = 0;\n   next.shelterGrade = null;\n@@ -2309,7 +2317,9 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re\n     // The pit is part of the camp, not something you carry.\n     next.tools = next.tools.filter(t => t.item !== COLD_PIT_RECIPE.output.item);\n     next.coldPitAt = next.site;\n-    say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold.`, 'action', at);\n+    // A new pit starts with no rot carried over (#1757), even if one was left behind earlier today.\n+    delete next.pitRot;\n+    say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold${featureOn(next.config.world.features, 'cold-pit-slows') ? ' and slows the rot' : ''}.`, 'action', at);\n   } else if (result.kind === 'crafted') {\n     say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : \" Crude — it won't hold up through a winter.\") : ''}`, 'action', at);\n   } else if (result.kind === 'failed') {\n@@ -2594,13 +2604,22 @@ export const coldPitHolds = (site: SiteId | null): number => (site === 'river' ?\n /** Raw food the snow keeps, once winter has come and while the nights stay at or below 2 °C. */\n export const SNOW_CACHE = 6;\n \n+/** Raw food the cold pit at this camp holds: none when there's no pit here. */\n+const pitCapacity = (s: Pick<Region1State, 'site' | 'coldPitAt'>): number => (s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0);\n+/** Raw food the snow keeps tonight, at night temperature `t`: only in winter, on a night at or below 2 °C. */\n+const snowCapacity = (s: Pick<Region1State, 'day' | 'config'>, t: number): number => (seasonOf(s.day, s.config.calendar) === 'winter' && t <= 2 ? SNOW_CACHE : 0);\n+\n /** Raw food kept cold tonight, at night temperature `t`: the pit at this camp, and the snow in winter. */\n export function coldCapacity(s: Pick<Region1State, 'site' | 'coldPitAt' | 'day' | 'config'>, t: number): number {\n-  const pit = s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0;\n-  const snow = seasonOf(s.day, s.config.calendar) === 'winter' && t <= 2 ? SNOW_CACHE : 0;\n-  return pit + snow;\n+  return pitCapacity(s) + snowCapacity(s, t);\n }\n \n+/**\n+ * With `cold-pit-slows` (#1757): the share of the open rate at which food in the cold pit still\n+ * spoils. A third; a quarter at the river, where the water runs cold past the pit.\n+ */\n+export const pitSlowing = (site: SiteId | null): number => (site === 'river' ? 0.25 : 1 / 3);\n+\n /** The share of exposed raw food that spoils in a night at `t` °C: a fifth when mild, half that near freezing, none in a hard frost. */\n export const spoilRate = (t: number): number => (t <= -5 ? 0 : t <= 2 ? 0.1 : 0.2);\n \n@@ -2615,6 +2634,39 @@ export function spoilage(rawFood: number, capacity: number, t: number): { kept:\n   return { kept, exposed, spoiled: Math.max(0, Math.ceil(exposed * spoilRate(t) - 1e-9)) };\n }\n \n+/** One night's spoilage at camp, with what the cold pit holds and the rot it carries to tomorrow. */\n+export interface NightSpoilage {\n+  kept: number;\n+  exposed: number;\n+  spoiled: number;\n+  /** Of the food kept, how much is in the pit (and so still slowly spoiling). 0 with the switch off. */\n+  inPit: number;\n+  /** The rot the pit's food owes after tonight (0..1). Only with `cold-pit-slows`. */\n+  pitRot?: number;\n+}\n+\n+/**\n+ * Tonight's spoilage at camp (pure). With `cold-pit-slows` off (or a run from before it), exactly\n+ * `spoilage`: what the pit and the snow hold keeps. With it on (#1757), the snow still keeps what\n+ * it holds (packed in snow, food stays frozen), but the food in the pit spoils too, at a share of\n+ * the open rate (`pitSlowing`), so mild nights speed it and frost slows it as for open food.\n+ *\n+ * Deterministic, with no draw: a third of a fifth of 8 is 0.53 of a food, so rather than round each\n+ * night up (which would rot one every night, nearly the open rate), the fraction is carried in\n+ * `pitRot`, and a whole food goes bad each time it adds up to one.\n+ */\n+export function nightSpoilage(s: Pick<Region1State, 'site' | 'coldPitAt' | 'day' | 'config' | 'stores' | 'pitRot'>, t: number): NightSpoilage {\n+  const base = spoilage(s.stores.rawFood, coldCapacity(s, t), t);\n+  if (!featureOn(s.config.world.features, 'cold-pit-slows')) return { ...base, inPit: 0 };\n+  // The snow fills first (it keeps for good); the pit takes the rest of what's kept.\n+  const inPit = Math.min(pitCapacity(s), Math.max(0, base.kept - snowCapacity(s, t)));\n+  if (inPit === 0) return { ...base, inPit, pitRot: 0 };\n+  const owed = (s.pitRot ?? 0) + inPit * spoilRate(t) * pitSlowing(s.site);\n+  // (The epsilon keeps float noise from leaving 0.9999… owed; the result is rounded so saves stay tidy.)\n+  const rot = Math.min(inPit, Math.floor(owed + 1e-9));\n+  return { ...base, spoiled: base.spoiled + rot, inPit, pitRot: Math.max(0, Math.round((owed - rot) * 1e6) / 1e6) };\n+}\n+\n /** Days before the thaw within which the spring caravan is near enough to find a collapsed Warden (#1323). */\n export const RESCUE_WITHIN = 3;\n \n@@ -2718,9 +2770,14 @@ export function endDay(s: Region1State): Region1State {\n   }\n \n   // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.\n+  // With `cold-pit-slows` (#1757), the pit's food spoils too, slowly, its rot carried night to night.\n   if (feelsTemperature(next)) {\n     const t = nightTemp(next.day, next.weatherToday, next.config.calendar);\n-    const { spoiled } = spoilage(next.stores.rawFood, coldCapacity(next, t), t);\n+    const { spoiled, pitRot } = nightSpoilage(next, t);\n+    if (pitRot !== undefined) {\n+      if (pitRot > 0) next.pitRot = pitRot;\n+      else delete next.pitRot;\n+    }\n     if (spoiled > 0) {\n       next.stores.rawFood -= spoiled;\n       addTally(next, { spoiled });\n"
+    }
+  ]
+}
