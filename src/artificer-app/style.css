@@ -1409,3 +1409,10 @@ header.tworow { display: block; }
 .notes .notestitle { color: var(--gold); margin: 0 0 6px; }
 .notes .notelist { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: none; overflow: visible; }
 .notes .notelist li { font-size: 12.5px; line-height: 1.45; color: var(--ink); font-style: italic; }
+
+/* Forecasts (#1827, `forecasts`): a craft's rough cost and its waste warning, and the queue's forecast of the day. */
+.act .ingr.fc b { font-style: italic; }
+.act .ingr .waste { color: var(--amber); font-style: italic; }
+.queue .forecast { margin: 0 0 9px; padding: 6px 8px; border-left: 2px solid var(--teal); background: rgba(77,212,240,.06); font-size: 11.5px; color: var(--ink); }
+.queue .forecast .fchead { display: block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--teal); margin-bottom: 3px; }
+.queue .forecast p { margin: 0 0 2px; font-style: italic; }

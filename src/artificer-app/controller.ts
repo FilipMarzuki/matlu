@@ -22,6 +22,7 @@ import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { difficultyRead } from '../artificer/difficulty';
 import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
 import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { FORECASTS } from '../artificer/forecasts';
 import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
 import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
@@ -642,6 +643,9 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const patches = validPatches(sim.patches) && Object.keys(sim.patches).length ? { ...sim.patches } : undefined;
   // Experiment progress (#1690): kept if well-formed, else dropped — as if none had been made yet.
   const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
+  // Familiarity (#1827): counts kept if well-formed (whole numbers above 0) and the switch is on, else dropped — as if nothing were done yet.
+  const familiar = isObj(sim.familiar) && featureOn(config.world.features, FORECASTS) && Object.values(sim.familiar).every(v => Number.isInteger(v) && (v as number) > 0) && Object.keys(sim.familiar).length
+    ? { ...(sim.familiar as Record<string, number>) } : undefined;
   // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.
   const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;
   // The map-drawing session done (#1754): only `true`, and only with `map-learning` on; anything else is dropped (not yet).
@@ -650,5 +654,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // dropped record reads as a save from before it, whose builds are the current camp's.
   const siteBuilds = campSpot && featureOn(config.world.features, CAMP_BUILDS_PER_SITE) && validSiteBuilds(sim.siteBuilds) && Object.keys(sim.siteBuilds).length
     ? JSON.parse(JSON.stringify(sim.siteBuilds)) as Region1State['siteBuilds'] : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, campSpot, siteBuilds, mapLearned, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

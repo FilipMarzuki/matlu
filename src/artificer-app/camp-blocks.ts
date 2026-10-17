@@ -14,9 +14,11 @@ import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
 import { huntingGearOn } from '../artificer/hunting-gear';
-import { visibilityOn, huntOddsOf, sinewOf, huntTool, trapCatchOf, ACTIONS, LOOSE_STONE_SITES, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
-import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
-import { modifiersFor } from '../artificer/crafting';
+import { visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
+import { yieldAmounts } from './yield-amounts';
+import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
+import { queueKeyOf } from '../artificer/forecasts';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
 import { daylightHours } from '../artificer/clock';
 import { featureOn } from '../artificer/features';
@@ -61,32 +63,26 @@ export const ICON: Record<ActionId, string> = {
   traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝',
 };
 
-/** Extra yield your tools give an action (shown in the hint). */
-const bonus = (s: Sim, id: ActionId): number => modifiersFor(s.tools, id).yieldAdd;
-/** +2 if you've made the find in this ring × domain. */
-const fb = (s: Sim, r: Ring, d: Domain): number => (hasFind(s.explore, r, d) ? 2 : 0);
-/** Shorthand: this trip's yield from what you know of the ring (mirrors region1.ts). */
-const ty = (s: Sim, r: Ring, d: Domain, base: number, per: number): number => tripYield(s.explore, r, d, base, per);
-
-/** One line of "what you get" per action, in the chosen ring. Numbers mirror region1.ts yields. */
+/**
+ * One line of "what you get" per action, in the chosen ring: the numbers (yield-amounts.ts, which
+ * mirror region1.ts yields), exact as they've always been. With `forecasts` (#1827) the card shows
+ * what the Warden knows instead (`cardYield`, forecast-words.ts); this stays the exact line.
+ */
 export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
+  const a = yieldAmounts(id, s, r);
   switch (id) {
-    case 'gather': return t(fb(s, r, 'forage') ? 'yield.gatherFiber' : 'yield.gather', { n: ty(s, r, 'forage', 3, 2) + bonus(s, 'gather') });
+    case 'gather': return t(hasFind(s.explore, r, 'forage') ? 'yield.gatherFiber' : 'yield.gather', { n: a!.n });
     case 'hunt': {
       // With `hunting-gear` (#1821): what the tool allows (a sling small game, a bow deer too) and the odds in words.
       const odds = huntOddsOf(s, 'hunt', r);
-      if (!odds) return t('yield.hunt', { n: ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game') });
-      return huntTool(s) === 'bow'
-        ? t('yield.huntBow', { n: ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game'), odds: t(`odds.hunt.${odds}`) })
-        : t('yield.huntSling', { n: ty(s, r, 'game', 3, 1) + bonus(s, 'hunt') + fb(s, r, 'game'), odds: t(`odds.hunt.${odds}`) });
+      if (!odds) return t('yield.hunt', { n: a!.n });
+      return t(huntTool(s) === 'bow' ? 'yield.huntBow' : 'yield.huntSling', { n: a!.n, odds: t(`odds.hunt.${odds}`) });
     }
-    case 'traps': return t('yield.traps', { n: trapCatchOf(s.explore, r), odds: t(`odds.hunt.${huntOddsOf(s, 'traps', r) ?? 'fair'}`) });
-    case 'water': return t('yield.water', { n: ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water') });
-    case 'wood': return t('yield.wood', { n: ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber'), m: ty(s, r, 'timber', 2, 1) });
-    case 'quarry': return t('yield.quarry', { n: ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone') });
-    // Loose stone (#1816): half of quarrying's, +1 camped by the river or on the hill, half a flint seam's find.
-    case 'gatherstone': return t('yield.quarry', { n: ty(s, r, 'stone', 1.5, 0.5) + (r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0) + fb(s, r, 'stone') / 2 });
-    case 'fish': return t('yield.fish', { n: FISH_CATCH * RICHNESS[r] });
+    case 'traps': return t('yield.traps', { n: a!.n, odds: t(`odds.hunt.${huntOddsOf(s, 'traps', r) ?? 'fair'}`) });
+    case 'water': return t('yield.water', { n: a!.n });
+    case 'wood': return t('yield.wood', { n: a!.n, m: a!.m ?? 0 });
+    case 'quarry': case 'gatherstone': return t('yield.quarry', { n: a!.n });
+    case 'fish': return t('yield.fish', { n: a!.n });
     case 'build': return s.tier < 2 ? t('yield.build', { n: s.tier + 1, m: BUILD_COST[s.tier as 0 | 1] }) : t('yield.winterized');
     // With `cold-pit-slows` (#1757) the pit slows the rot rather than stopping it, and says so.
     case 'coldPit': return t(featureOn(s.config.world.features, 'cold-pit-slows') ? 'yield.coldPitSlows' : 'yield.coldPit', { n: coldPitHolds(s.site) });
@@ -104,7 +100,12 @@ export const haulWord = (k: string, t: T): string =>
  * the action would use with its default options (cold gear: woven fiber; a build: the plan as it
  * stands), so a chosen option can change it; the queue row's options say what the choice costs.
  */
-function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T): string {
+function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T, fc?: CraftCard | null): string {
+  // With `forecasts` (#1827), until the recipe is made often enough: the amounts in rough words, and the waste warning.
+  if (fc?.rough) {
+    if (!fc.rough.length) return '';
+    return `<div class="ingr fc">${fc.rough.map(i => `<span>${itemIcon(i.item)}<b>${esc(t(`fc.qty.${i.level as 0 | 1 | 2}`))}</b> ${esc(haulWord(i.item, t))}</span>`).join('')}${fc.waste ? `<span class="waste">${esc(t('fc.waste'))}</span>` : ''}</div>`;
+  }
   const recipe = def.recipeFor?.(s, {}) ?? def.recipe;
   if (!recipe?.inputs.length) return '';
   return `<div class="ingr">${recipe.inputs.map(i => `<span>${itemIcon(i.item)}<b>${i.qty}</b> ${esc(haulWord(i.item, t))}</span>`).join('')}</div>`;
@@ -137,7 +138,7 @@ export interface DistanceOption {
  * preselected one: the distance remembered for this action if it's open, else the nearest open.
  * `remembered` is this Warden's choices (distance-defaults.ts). Pure, for the chooser and its tests.
  */
-export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T): DistanceOption[] {
+export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T, known: Sim = s, queueKey = ''): DistanceOption[] {
   const t = distanceT(s, tIn);
   const base = RINGS.map(r => {
     const reach = reachable(s.explore, r);
@@ -148,7 +149,8 @@ export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, 
     return {
       ring: r, q: queueId(id, r), reachable: reach, open: !greyed, why, greyed,
       travel: TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'),
-      yield: yieldText(id, s, r, t),
+      // With `forecasts` (#1827): what the Warden knows of it at this distance (`known`: the run as it is).
+      yield: cardYield(known, s, id, r, t, yieldText(id, s, r, t), queueKey),
     };
   });
   const pick = preselect(base, remembered[id]);
@@ -189,10 +191,12 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   // In words (#1740), the length gets a line of its own under the name.
   const tw = timeWordsShown(a.sim, dev);
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
+  // Forecasts (#1827): judged in the queue's projection, from what the Warden has really done (a.sim), seeded by the queue.
+  const qk = queueKeyOf(a.queue);
   return known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     // A land action is shown at the distance its chooser would preselect.
-    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t) : null;
+    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t, a.sim, qk) : null;
     const r: Ring = options?.find(o => o.chosen)?.ring ?? 1;
     const q = queueId(id, r);
     // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
@@ -208,10 +212,13 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     // A land action's tap opens its chooser (data-chooser); any other queues itself (data-q).
     const open = !!options && opts.chooser === id && !resolved && !greyed;
     const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
+    const exact = yieldText(id, preview.projected, r, t);
+    const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact, qk);
+    const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t, qk)?.text ?? exact;
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`
+      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(line)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t, craftFc)}</button>`
       + (open && options ? distanceChooser(a, preview, id, options, t, dev) : '');
   }).join('')}</div></div>`).join('');
 }

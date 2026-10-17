@@ -303,6 +303,12 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'You start with traps: set a line of snares where you have seen game, and by morning there may be a hare in one. Hunting actively needs a sling (small game) or later a bow (deer too, and better odds); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits in a comfortable load: then you stow it and hunt on. The odds are shown in words: good odds, fair odds, a long shot.',
   },
   {
+    // A rules feature (#1827): it changes what the Warden can read off a card, and adds a count of
+    // what they've done to the run (`familiar`), so a run from before it (absent: false) reads as it did.
+    id: 'forecasts', name: 'Forecasts from INT and experience', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1827,
+    note: 'What a task or craft will bring is learned by doing it: a task you have never done at that distance says you don\'t know, a few tries give a rough word, and enough tries (fewer with more INT) show the numbers. Crafts the same: never made, you\'re not sure you can; with practice, how likely it is, the grade and the cost in rough words; then the real odds, the grade and the exact cost. With INT 9 or more and everything in the queue tried before, the queue forecasts the day; with INT 13 and a week played, or three weeks at any INT, the days after it too. Rough words are sometimes a step off.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

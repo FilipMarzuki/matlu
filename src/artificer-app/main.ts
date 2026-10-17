@@ -88,6 +88,8 @@ import { esc, pct, band, wardenButton } from './html';
 import { weatherRow } from './weather-row';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { forecastBlock, taskCard } from './forecast-words';
+import { queueKeyOf } from '../artificer/forecasts';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -342,14 +344,15 @@ const haulText = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(
  * A trip's load bar (#1296): the fill is the bulk of what's carried, the end of the bar is the max you
  * can lift (a hard line), and a tick marks the comfortable load. Green comfortable, amber heavy, red staggering.
  */
-function loadBar(l: TripLoad): string {
+/** `guess`: with `forecasts` (#1827), what the Warden expects the trip to bring, in place of the exact haul. */
+function loadBar(l: TripLoad, guess?: string): string {
   const left = haulText(l.left);
   // Overload costs only on a walk home (#1292): near camp, a heavy load is just heavy.
   const word = left ? t('load.over', { left }) : t(l.ratio <= 1 ? 'load.ok' : !l.walk ? 'load.near' : l.ratio <= 1.5 ? 'load.heavy' : l.ratio <= 2 ? 'load.stagger' : 'load.barely');
   const cls = left ? 'over' : l.ratio <= 1 || !l.walk ? 'ok' : l.ratio <= 1.5 ? 'heavy' : 'stagger';
   const help = l.wouldHelp.length && (left || (l.ratio > 1 && l.walk)) ? t('load.help', { gear: gearName(l.wouldHelp[0]) }) : '';
   return `<div class="loadrow ${cls}" title="${esc(t('load.tip', { n: Math.round(l.cumbersome), max: Math.round(l.max), c: Math.round(l.comfortable) }))}">`
-    + `<span class="lhaul">↩ ${esc(haulText(l.haul))}</span>`
+    + `<span class="lhaul">↩ ${esc(guess ?? haulText(l.haul))}</span>`
     + `<span class="lbar"><span class="lfill" style="width:${pct(l.cumbersome / l.max)}%"></span><span class="lcomf" style="left:${pct(l.comfortable / l.max)}%"></span></span>`
     + `<span class="lword">${esc(word)}${esc(help)}</span></div>`;
 }
@@ -450,6 +453,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   // The queue beside the actions (#1826): each row also carries its compact words, which a narrow
   // column shows instead of the full ones (style.css, a container query on `.planq`). Off, as before.
   const compact = sideQueueOn();
+  // Forecasts (#1827): a trip not yet known at its distance shows the card's words on its load row, not the exact haul.
+  const qk = queueKeyOf(a.queue);
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -485,7 +490,7 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
+      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t, qk)?.text) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
@@ -496,6 +501,7 @@ function queueBlock(a: AppState, preview: Preview): string {
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
       <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
+      ${forecastBlock(a, preview, t)}
       <div class="qtot">${tot}</div>
       <div class="runbar"${guide.mark('runDay')}>
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
