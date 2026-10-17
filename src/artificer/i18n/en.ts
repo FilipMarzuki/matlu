@@ -171,7 +171,6 @@ const core = {
   'group.craft': 'CRAFT TOOLS',
   'group.carry': 'CARRYING GEAR',
   'group.think': 'THINK & RECOVER',
-  'group.ringNote': '· {ring} ring',
   // The focus picker's groups.
   'focus.goal': 'GOAL',
   'focus.skill': 'SKILL',

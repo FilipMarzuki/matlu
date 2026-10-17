@@ -52,7 +52,7 @@ function observedOnly(...domains: Domain[]): Exploration {
 }
 const camp = (spot: string): QueueItem => ({ q: 'camp', opts: { spot } });
 const app = (sim: Region1State): AppState => ({ ...makeWarden({ id: sim.character.id }), sim, queue: [] });
-const palette = (sim: Region1State, t = en): string => { const a = app(sim); return paletteBlock(a, previewQueue(a), { ring: 1, dev: false, t }); };
+const palette = (sim: Region1State, t = en): string => { const a = app(sim); return paletteBlock(a, previewQueue(a), { dev: false, t }); };
 /** The Make camp card alone, from the palette. */
 const campCard = (html: string): string => /<button class="act[^"]*" data-q="camp"[\s\S]*?<\/button>/.exec(html)?.[0] ?? '';
 const only = (s: Region1State, kind: CampSpot['kind']): CampSpot => {

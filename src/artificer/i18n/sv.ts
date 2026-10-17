@@ -197,7 +197,6 @@ const core: Catalog = {
   'group.craft': 'TILLVERKA VERKTYG',
   'group.carry': 'BÄRUTRUSTNING',
   'group.think': 'TÄNKA & VILA',
-  'group.ringNote': '· {ring} ringen',
   'focus.goal': 'MÅL',
   'focus.skill': 'FÄRDIGHET',
   'focus.concept': 'BEGREPP',
