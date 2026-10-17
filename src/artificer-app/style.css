@@ -1155,6 +1155,10 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .landfound > * + * { margin-top: 14px; }
 .landexplore { min-height: 40px; padding: 8px 14px; font-size: 9px; }
 .landexplore[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* What an area holds (#1847, land-icons.ts): small icons after its heading; dimmed when scarce. */
+.landicons { margin-left: 4px; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+.licon { cursor: help; }
+.licon.dim { opacity: 0.4; filter: grayscale(0.6); }
 .tripnews .landwords { margin: 0 0 6px; }
 
 /* The look picker (dev mode, #1719): preview any of the nine era looks. */

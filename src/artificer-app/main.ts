@@ -1764,7 +1764,8 @@ function advanceIntro(): void {
   if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); }
+  // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: introBeats(state.sim, t) }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }

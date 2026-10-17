@@ -37,6 +37,7 @@ import { mapSessionOpen } from '../artificer/map-learning';
 import { mapSessionInvite } from './map-session-view';
 import { NO_NEWS, chipKey, placeKey, type LandNews } from './land-news';
 import { assessmentTag, selfAssessment } from './land-assessment';
+import { landIcons } from './land-icons';
 import { visibilityOf } from '../artificer/action-visibility';
 
 /**
@@ -179,15 +180,15 @@ function foundLines(s: Region1State, r: Ring, places: PlaceLine[], t: T): PlaceL
 }
 
 /**
- * One area as found (#1836): its heading (with its self-assessment, #1835) folded over what you've
- * found there. An area you haven't looked at and found nothing in isn't shown at all; one you have
+ * One area as found (#1836): its heading (with its self-assessment, #1835, and the icons for what
+ * it holds, #1847) folded over what you've found there. An area you haven't looked at and found nothing in isn't shown at all; one you have
  * but found nothing in says so.
  */
 function foundRing(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: LandNews, assess: boolean): string {
   const lines = foundLines(s, r, places, t);
   const out = outOfReach(s, r);
   if (!lines.length && (out || selfAssessment(s.explore, r) === 0)) return '';
-  const summary = `<span class="ringhead" id="land-ring-${r}">${ringHead(s, r, t)}</span>${assessed(s, r, t, assess && !out)}${news.rings.includes(r) ? newMark(t) : ''}`;
+  const summary = `<span class="ringhead" id="land-ring-${r}">${ringHead(s, r, t)}</span>${assessed(s, r, t, assess && !out)}${landIcons(s, r, t)}${news.rings.includes(r) ? newMark(t) : ''}`;
   const body = lines.length ? words(lines, t) : `<p class="mood" style="margin:0">${esc(t('land.found.none'))}</p>`;
   return fold(`land.ring.${r}`, summary, body, r === 1 && !out, 'ringfold');
 }
@@ -226,13 +227,12 @@ function queuedExplores(queue: readonly QueueItem[], t: T): string {
   return `<p class="mood landqueued" style="margin:8px 0 0">${esc(t('land.found.queued', { what: rings.join(', ') }))} <button class="seeland" data-tab="plan">${esc(t('land.found.seePlan'))}</button></p>`;
 }
 
-/** Whether any place to camp is worth listing (#1836): one you've found, or your camp; not the start where you stand on day 1. */
-const campsFound = (s: Region1State): boolean => knownSpots(s).some(p => p.here || !p.start);
-
 /**
  * LAND as only what you've found (#1836, ui feature `land-found-only`): your map once drawn, the
- * places you've found area by area, the places to camp, and the invitation to explore with its
- * button. No knowledge chips, key, supply words or pin rows. Day 1, before you've been out at all,
+ * places you've found area by area, and the invitation to explore with its button. No knowledge
+ * chips, key, supply words or pin rows; no "what you know of it, from camp" box (its compass line is
+ * in the intro now, #1846) and no places to camp (they're chosen under Make camp on PLAN, with their
+ * badges; an area's ⛺ icon says a good one is there). Day 1, before you've been out at all,
  * it's only the invitation and the button (what's in sight from where you stand comes in with the
  * first look round).
  */
@@ -244,7 +244,6 @@ function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: Lan
   const boxes = [
     drawn ? `<section class="box"><p class="eyebrow">${esc(t('head.yourMap'))}</p>${map}</section>` : '',
     rings ? `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${rings}</section>` : '',
-    campsFound(s) ? campSpotsSection(s, t) : '',
     `<section class="box landinvite"><p class="mood" style="margin:0 0 8px">${esc(t('land.found.invite'))}</p>${exploreButton(s, t)}${queuedExplores(queue, t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>`,
   ];
   // Stacked by the stylesheet (`.landfound`), so whichever boxes there are sit 14px apart.

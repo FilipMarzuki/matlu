@@ -146,6 +146,10 @@ export const tabs = {
   'land.found.invite': 'To get to know the land better, explore your surroundings.',
   'land.found.queued': 'In your queue: {what}.',
   'land.found.seePlan': 'See the plan →',
+  // An area's icons on LAND (#1847): the ones a domain has no name for.
+  'land.icon.fish': 'Fish',
+  'land.icon.camp.good': 'A good place to camp',
+  'land.icon.camp.great': 'A great place to camp',
   'pins.fx.fishing': '+{n} water and fish in this ring',
   'pins.fx.forage': '+{n} food gathered in this ring',
   'pins.fx.stone': '+{n} stone quarried in this ring',
