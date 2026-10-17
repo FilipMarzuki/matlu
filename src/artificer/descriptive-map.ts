@@ -27,7 +27,7 @@ import type { Region1State } from './region1';
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -76,8 +76,9 @@ const HERE_LINE: Readonly<Record<Biome, string>> = {
  * standing in a meadow", "… from here"), not from a camp. With the switch off there's a camp from the
  * start, so this is never true and the words are as they were. Words only: no rule reads it.
  */
-export const noCampYet = (s: Pick<Region1State, 'config'> & Partial<Pick<Region1State, 'campSpot'>>): boolean =>
-  featureOn(s.config.world.features, 'camp-as-action') && !s.campSpot;
+export const noCampYet = (s: Pick<Region1State, 'config'> & Partial<Pick<Region1State, 'campSpot' | 'afield'>>): boolean =>
+  // Out on the land away from camp (#1839, `directed-explore`), the land is told from where you stand too.
+  featureOn(s.config.world.features, 'camp-as-action') && (!s.campSpot || !!s.afield);
 
 export interface KnownPlace {
   kind: PlaceKind;
@@ -137,6 +138,22 @@ function edgeHours(r: Reach, x: number, y: number, from: { x: number; y: number 
 export function landOrigin(s: Pick<Run, 'config' | 'campSpot'>, r: Reach): { x: number; y: number } {
   const m = distanceOn(s) && s.campSpot ? /@(\d+),(\d+)$/.exec(s.campSpot.at) : null;
   return m ? { x: Number(m[1]), y: Number(m[2]) } : r.camp;
+}
+
+/**
+ * Where the Warden stands (#1839): out on the land (`afield`, written only with `directed-explore`
+ * on), else where the land is told from. Read here by field, as directed-explore.ts builds on this module.
+ */
+const standing = (s: Pick<Run, 'config' | 'campSpot' | 'afield'>, r: Reach): { x: number; y: number } => s.afield ?? landOrigin(s, r);
+
+/**
+ * The squares seen by heading out one way (#1839), on top of what the rings show: observed (2), as
+ * the rings' knowledge would say of a surveyed ring. Without any, the sight is the rings' own.
+ */
+function withSeenOut(s: Pick<Run, 'seenOut'>, r: Reach, sight: Sight): Sight {
+  if (!s.seenOut?.length) return sight;
+  const seen = new Set(s.seenOut);
+  return (x, y) => (seen.has(y * r.w + x) ? Math.max(2, sight(x, y)) : sight(x, y));
 }
 
 /** A lake square is seen from its shore: open water has no ring of its own (its walking time is Infinity). */
@@ -210,10 +227,13 @@ export function knownPlaces(s: Run): KnownPlace[] {
   const r = reachOfRun(s);
   // Told from camp, or where you are before it (#1752): the walk from there, and what's in view and known
   // from there too, since the rings (what you know of the land) were always measured from camp.
-  const from = landOrigin(s, r);
-  const moved = from.x !== r.camp.x || from.y !== r.camp.y;
-  const walk = moved ? walkFrom(r, from.x, from.y) : r.hours;
-  const sight = withShores(r, sightFor(moved ? { ...r, hours: walk } : r, s.explore));
+  const home = landOrigin(s, r);
+  const moved = home.x !== r.camp.x || home.y !== r.camp.y;
+  // What the rings show is the land around camp (or the start); out on the land (#1839) the walks
+  // and bearings are from where you stand, and the squares you saw on the way are known too.
+  const sight = withShores(r, withSeenOut(s, r, sightFor(moved ? { ...r, hours: walkFrom(r, home.x, home.y) } : r, s.explore)));
+  const from = standing(s, r);
+  const walk = from.x !== r.camp.x || from.y !== r.camp.y ? walkFrom(r, from.x, from.y) : r.hours;
   const campKind = KIND_OF[r.cells[from.y * r.w + from.x].biome];
   const compass = hasKit(s, 'map-compass');
   const fromHere = noCampYet(s);
@@ -253,9 +273,9 @@ export function knownPlaces(s: Run): KnownPlace[] {
 }
 
 /** The ground camp stands on (the description's first line): where the land is told from (`landOrigin`). */
-export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run, 'config' | 'campSpot'>>): Biome {
+export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run, 'config' | 'campSpot' | 'afield'>>): Biome {
   const r = reachOfRun(s);
-  const from = s.config ? landOrigin({ config: s.config, campSpot: s.campSpot }, r) : r.camp;
+  const from = s.config ? standing({ config: s.config, campSpot: s.campSpot, afield: s.afield }, r) : r.camp;
   return r.cells[from.y * r.w + from.x].biome;
 }
 
@@ -342,7 +362,7 @@ export function mapDrawnLine(s: Run): string {
  */
 export function drawnSight(s: Run): Sight {
   const r = reachOfRun(s);
-  const base = sightFor(r, s.explore);
+  const base = withSeenOut(s, r, sightFor(r, s.explore));
   const compass = hasKit(s, 'map-compass');
   const placed: Sight = compass ? base : (x, y) => {
     const v = base(x, y);
