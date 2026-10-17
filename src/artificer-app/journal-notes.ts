@@ -56,3 +56,11 @@ export function howtoBody(o: { notes: boolean; lede: string }, t: T): string {
 
 /** Whether the notes show: as the player last set them, else open while the journal is still empty (a first morning). */
 export const notesShown = (chosen: boolean | null, journalEmpty: boolean): boolean => chosen ?? journalEmpty;
+
+/**
+ * Whether PLAN draws its journal box. Normally the guide decides (#1792), but when the player opens
+ * the notes from the ⚙ Menu the box shows even before the guide would bring it in: the owner chose
+ * that the Menu's How to play always reaches the notes, rather than a link to notes nobody can see.
+ */
+export const journalBoxShown = (guideShows: boolean, notesOn: boolean, chosen: boolean | null): boolean =>
+  guideShows || (notesOn && chosen === true);

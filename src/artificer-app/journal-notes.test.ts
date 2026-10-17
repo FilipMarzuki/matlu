@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeT } from '../artificer/i18n';
 import { FEATURES, featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
-import { NOTES_FEATURE, NOTE_KEYS, howtoBody, journalHead, notesButton, notesPage, notesShown } from './journal-notes';
+import { NOTES_FEATURE, NOTE_KEYS, howtoBody, journalBoxShown, journalHead, notesButton, notesPage, notesShown } from './journal-notes';
 import { headerControls, headerRows, menyPage, MENY_FEATURE, type HeaderParts } from './meny';
 
 const en = makeT('en');
@@ -100,6 +100,21 @@ describe('the notes (#1838)', () => {
     expect(notesShown(null, false)).toBe(false);
     expect(notesShown(false, true)).toBe(false);
     expect(notesShown(true, false)).toBe(true);
+  });
+});
+
+describe('the journal box on PLAN (#1838, the owner\'s choice)', () => {
+  it('follows the guide, except that opening the notes from the Menu shows it early', () => {
+    expect(journalBoxShown(true, true, null)).toBe(true);
+    expect(journalBoxShown(false, true, null)).toBe(false);
+    expect(journalBoxShown(false, true, false)).toBe(false);
+    expect(journalBoxShown(false, true, true)).toBe(true);
+    // With the notes switch off, only the guide decides.
+    expect(journalBoxShown(false, false, true)).toBe(false);
+  });
+  it('the road\'s journal heading carries the 📖 like every journal', () => {
+    const head = journalHead(en('head.roadJournal'), '', { on: true, open: false, winterDay: 31 }, en);
+    expect(head).toContain('data-cmd="notes"');
   });
 });
 

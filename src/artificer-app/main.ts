@@ -95,7 +95,7 @@ import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankN
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
 import { TWO_ROW_FEATURE, wardenRow, type VitalReading } from './vital-words';
-import { NOTES_FEATURE, howtoBody, journalHead, notesShown } from './journal-notes';
+import { NOTES_FEATURE, howtoBody, journalHead, notesShown, journalBoxShown } from './journal-notes';
 import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
 import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
 import { createAmbience } from './ambience';
@@ -966,7 +966,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
   // The notes opened on purpose (#1838) show the journal box even before the guide reveals it.
-  const log = g.shows('journal') || (notesOn() && notesChosen === true) ? `<div class="log"${g.mark('journal')}>${jHead(t('head.latest'), LATEST_STYLE, a, s.log.length === 0)}${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
+  const log = journalBoxShown(g.shows('journal'), notesOn(), notesChosen) ? `<div class="log"${g.mark('journal')}>${jHead(t('head.latest'), LATEST_STYLE, a, s.log.length === 0)}${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
   const strip = queue && sideQueueOn() ? stripBlock(a, preview) : '';
   return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t);
@@ -1384,6 +1384,7 @@ function renderRoad(a: AppState, r: RoadState): void {
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
+    // The road's journal carries the 📖 too (the owner: how to play is reachable from every journal).
     : roadTab === 'journal' ? `<section class="box">${jHead(t('head.roadJournal'), '', a, false)}<div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
   const meny = menyShown();
