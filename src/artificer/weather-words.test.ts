@@ -54,12 +54,11 @@ describe('The weather and the season in words; the calendar is earned (#1729)', 
     expect(r.felt).toBe('mild');
     expect(r.season).toBe('early');
     expect(r.toSnow).toBeNull();
-    // Sky and wind, the cold as felt, the season as sensed, and that you've lost count of the days.
+    // Sky and wind, the cold as felt, and the season as sensed (nothing about the date before a tally).
     expect(r.lines).toEqual([
       'Clear skies, hardly a breath of wind.',
       'Cool and fresh in the morning, mild by midday.',
       'The birches are just starting to turn; it feels like early autumn.',
-      "You've lost track of the date. You cut a notch in a stick each morning; give it a week and you'll trust the count.",
     ]);
     // In both languages, the box has no numbers, no hours, no degrees and no strip.
     for (const t of [en, sv]) {
