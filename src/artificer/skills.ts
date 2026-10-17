@@ -81,6 +81,8 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   drawmap: 'scouting',
   // Gathering stones (#1816, `stone-gathering`) is how a new Warden gets the Stonework that finds the cleave.
   gatherstone: 'stonework',
+  // Setting traps (#1821, `hunting-gear`) is how a new Warden gets the Hunting that opens the bow.
+  traps: 'hunting',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',
@@ -88,6 +90,8 @@ const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'trap-snare': 'hunting',
   'cold-gear': 'handcraft', 'hide-parka': 'handcraft', waterskin: 'handcraft', bedroll: 'handcraft',
   basket: 'handcraft', backpack: 'handcraft', harness: 'handcraft', sled: 'woodcraft',
+  // The hunting and fishing gear (#1821).
+  sling: 'hunting', bow: 'woodcraft', 'hook-line': 'fieldcraft',
 };
 
 /** The skill this work trains and draws on, or null (rest, study). A recipe, when there is one, decides. */

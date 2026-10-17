@@ -35,8 +35,12 @@ import type { Ring } from '../artificer/exploration';
 /** The game's default rules, with the map to learn: what a new game plays. */
 export const MAP_RULES = ruleFeatures({ [MAP_LEARNING]: true });
 
-/** Days a measured run plays at most: well past the target, so a slow unlock still shows. */
-export const MEASURE_DAYS = 15;
+/**
+ * Days a measured run plays at most: well past the target, so a slow unlock still shows. The harness
+ * wants a run resolved by then; with `hunting-gear` (#1821) one random run (map-3) lives to day 16,
+ * so the window is 20 (the unlock days, the first morning the session opens, don't depend on it).
+ */
+export const MEASURE_DAYS = 20;
 
 /** The seeds the measure uses (character ids; the random baseline's seed is the index + 1). */
 export const MEASURE_SEEDS: readonly string[] = Array.from({ length: 12 }, (_, i) => `map-${i + 1}`);

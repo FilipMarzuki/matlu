@@ -296,6 +296,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'While the day plays out, Stop ends the action running at that moment. On the walk out you turn back with nothing; water brings nothing until it\'s fetched; a hunt\'s kill comes when it comes, sometimes straight away: stopped after it you have the whole catch, before it nothing; wood, forage, stone and fish bring a share for the work done; exploring keeps what you\'d seen; on the walk back you have it all; at camp nothing is made or used up. The rest of the queue stays queued.',
   },
   {
+    // A rules feature: it changes what a Warden can do (a new "Set traps" action, region1.ts `traps`,
+    // that catches overnight; hunting hidden until a sling or bow, fishing until a hook and line; a
+    // hunt ending on its kill), so a run from before it (absent: false) hunts and fishes as it did.
+    id: 'hunting-gear', name: 'Traps first; hunting and fishing need gear', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1821,
+    note: 'You start with traps: set a line of snares where you have seen game, and by morning there may be a hare in one. Hunting actively needs a sling (small game) or later a bow (deer too, and better odds); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits in a comfortable load: then you stow it and hunt on. The odds are shown in words: good odds, fair odds, a long shot.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

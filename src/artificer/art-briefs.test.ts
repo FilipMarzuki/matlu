@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  REGION1_RECIPES, GEAR_RECIPES, COLD_PIT_RECIPE, COLD_GEAR_RECIPE, HIDE_PARKA_RECIPE, SHELTER_TYPES, WALL_TYPES,
+  REGION1_RECIPES, GEAR_RECIPES, HUNTING_RECIPES, COLD_PIT_RECIPE, COLD_GEAR_RECIPE, HIDE_PARKA_RECIPE, SHELTER_TYPES, WALL_TYPES,
   STARTING_RECIPES, DISCOVERIES, CRAFT_WORLD, type Stores,
 } from './region1';
 import { DEFAULT_EFFECTS } from './crafting';
@@ -32,7 +32,8 @@ const STORE_GOODS: Record<keyof Stores, true> = { rawFood: true, water: true, fi
 /** Every item id the Artificer has: store goods, recipe results, items with effects, the kit, the manuals. */
 function artificerItemIds(): string[] {
   const recipes = [
-    ...Object.values(REGION1_RECIPES), ...Object.values(GEAR_RECIPES), COLD_PIT_RECIPE, COLD_GEAR_RECIPE, HIDE_PARKA_RECIPE,
+    // The hunting gear (#1821) too: its bow takes sinew, an item of its own (kept beside the stores).
+    ...Object.values(REGION1_RECIPES), ...Object.values(GEAR_RECIPES), ...Object.values(HUNTING_RECIPES), COLD_PIT_RECIPE, COLD_GEAR_RECIPE, HIDE_PARKA_RECIPE,
     ...Object.values(SHELTER_TYPES).map(t => t.recipe), ...Object.values(WALL_TYPES).map(w => w.recipe),
   ];
   const ids = [

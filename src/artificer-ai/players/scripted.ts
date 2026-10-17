@@ -18,6 +18,7 @@ import { buyPrice } from '../../artificer/trade';
 import { canBeTaught, techniqueById } from '../../artificer/techniques';
 import { skillLevel } from '../../artificer/skills';
 import { encounterById, safestOption } from '../../artificer/encounters';
+import { shown } from '../../artificer/action-visibility';
 import { meetingOptions, safestMeetingOption } from '../../artificer/caravan-meeting';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
@@ -68,6 +69,30 @@ function blizzardDay(s: Region1State): Entry[] {
 function routineDay(s: Region1State): Entry[] {
   if (seasonOf(s.day, s.config.calendar) !== 'winter') return [...ROUTINE[s.day % ROUTINE.length]];
   return WINTER[s.day % WINTER.length].map(e => (e.action === 'fish' && !iceThick(s.day, s.config.calendar) ? a('hunt') : e));
+}
+
+/**
+ * Traps first; hunting and fishing need gear (#1821, `hunting-gear`): a hunt the Warden can't do yet
+ * becomes a sling made (once), else a line of traps (one per distance), else foraging; once the bow
+ * opens (Hunting enough, and the sinew from those catches) a hunt becomes the bow made; a fishing trip
+ * without a hook and line becomes one made, else foraging. With the switch off nothing is hidden and
+ * the plan is as it always was.
+ */
+function withGear(queue: Entry[], s: Region1State): Entry[] {
+  const used = new Set<string>();
+  const first = (action: string, ring = 1): Entry | null => {
+    const key = `${action}@${ring}`;
+    if (used.has(key) || !shown(s, action as ActionId) || blockedReason(s, action as ActionId, ring as Ring) !== null) return null;
+    used.add(key);
+    return a(action, ring);
+  };
+  return queue.map(e => {
+    // Once it knows hunting well enough and has the sinew (from the traps and sling hunts), a bow (once).
+    if (e.action === 'hunt' && shown(s, 'bow')) { const bow = first('bow'); if (bow) return bow; }
+    if (e.action === 'hunt' && !shown(s, 'hunt')) return first('sling') ?? first('traps', e.ring) ?? a('gather', e.ring);
+    if (e.action === 'fish' && !shown(s, 'fish')) return first('hookline') ?? a('gather', e.ring);
+    return e;
+  });
 }
 
 /** Half rations when the food won't reach the thaw at a meal a night; full again once it will (#1305). */
@@ -161,6 +186,7 @@ const scriptedPlanner = (): Player => {
           queue = [...(short ? [a('wood'), a('wood')] : []), a('build', 1, site ? { site } : {})];
         }
       }
+      queue = withGear(queue, s);
       return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, eating, queue }), usage: { cost: 0 } };
     },
     async decideRoad(_message, r) {

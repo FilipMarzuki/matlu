@@ -31,6 +31,7 @@ import { INSTINCT_LINE } from '../../panic';
 import { SPOOK_LINE, DISCOVERIES, GRADE_LINE, REGION1_MILESTONES } from '../../region1';
 import { FINDS } from '../../exploration';
 import { EXPLORE_UNLOCKS, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from '../../action-unlocks';
+import { HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK } from '../../hunting-gear';
 import { MANUALS } from '../../techniques';
 import { PIN_WORDS, PLACE_NAME } from '../../pins';
 import { WEATHER_STEPS } from '../../luck';
@@ -51,6 +52,9 @@ const derived = Object.fromEntries([
   ...EXPLORE_UNLOCKS.flatMap(u => [[`say.unlock.${u.action}`, u.line], [`w.unlock.${u.action}.verb`, u.verb], [`w.unlock.${u.action}.how`, u.how]]),
   // Quarrying before the cleave (#1816, `stone-gathering`): hidden, and the flint seam's note names gathering.
   ['w.unlock.quarry.verb', QUARRY_UNLOCK.verb], ['w.unlock.quarry.how', QUARRY_UNLOCK.how], ['w.find.stone.gather.note', STONE_GATHER_FIND_NOTE],
+  // Hunting, fishing and the bow before their gear or skill (#1821, `hunting-gear`): hidden, saying what opens them.
+  ['w.unlock.hunt.verb', HUNT_UNLOCK.verb], ['w.unlock.hunt.how', HUNT_UNLOCK.how], ['w.unlock.fish.verb', FISH_UNLOCK.verb], ['w.unlock.fish.how', FISH_UNLOCK.how],
+  ['w.unlock.bow.verb', BOW_UNLOCK.verb], ['w.unlock.bow.how', BOW_UNLOCK.how],
   ...MANUALS.flatMap(m => [[`say.manual.${m.id}`, `${m.found}.`], [`w.manual.${m.id}`, m.name.toLowerCase()]]),
   ...Object.entries(SKILLS).map(([id, s]) => [`w.felt.${id}`, s.felt]),
   ...STAT_IDS.map(id => [`w.gain.${id}`, GAIN_WORDS[id]]),
@@ -108,6 +112,7 @@ export const journal = {
   'w.luck.knew': 'you knew where to look',
   'w.luck.learned': "what you've learned paid off",
   'w.luck.light': 'the light was going',
+  'w.luck.bow': 'the bow reached game a sling never could',
   'w.load.heavy': 'with a heavy load',
   'w.load.staggering': 'staggering under the load',
   'w.load.barely': 'barely able to carry it',
@@ -167,6 +172,15 @@ export const journal = {
   'log.fish.none': 'Sat over a hole in the ice{where} and caught nothing.',
   'log.quarry': 'Broke out {n} stone{where}.',
   'log.gatherstone': 'Gathered {n} stone{where}.',
+  // Traps, and a hunt that ends on its kill or hunts on (#1821, `hunting-gear`).
+  'log.traps': 'Set a line of traps{where}: snares along the game trails, to check by morning.',
+  'log.traps.caught': 'By morning your traps{where} held small game — {n} raw food.',
+  'log.traps.none': 'By morning your traps{where} were empty.',
+  'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
+  'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
+  // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.
+  'log.sinew': '{line} Kept {n} sinew.',
+  'log.huntOn.none': 'The catch was light enough to stow, so you hunted on, but nothing more came.',
   'log.lookout': 'Climbed high{where} and looked out — the ground sharpens below.',
   'log.lookout.over': 'Climbed high{where} and looked out — the ground sharpens below, and you can see over the {ringword} ring.',
   'log.tomorrow': '{line} Tomorrow looks like {weather}.',
