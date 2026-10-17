@@ -73,7 +73,8 @@ function routineDay(s: Region1State): Entry[] {
 
 /**
  * Traps first; hunting and fishing need gear (#1821, `hunting-gear`): a hunt the Warden can't do yet
- * becomes a sling made (once), else a line of traps (one per distance), else foraging; a fishing trip
+ * becomes a sling made (once), else a line of traps (one per distance), else foraging; once the bow
+ * opens (Hunting enough, and the sinew from those catches) a hunt becomes the bow made; a fishing trip
  * without a hook and line becomes one made, else foraging. With the switch off nothing is hidden and
  * the plan is as it always was.
  */
@@ -86,6 +87,8 @@ function withGear(queue: Entry[], s: Region1State): Entry[] {
     return a(action, ring);
   };
   return queue.map(e => {
+    // Once it knows hunting well enough and has the sinew (from the traps and sling hunts), a bow (once).
+    if (e.action === 'hunt' && shown(s, 'bow')) { const bow = first('bow'); if (bow) return bow; }
     if (e.action === 'hunt' && !shown(s, 'hunt')) return first('sling') ?? first('traps', e.ring) ?? a('gather', e.ring);
     if (e.action === 'fish' && !shown(s, 'fish')) return first('hookline') ?? a('gather', e.ring);
     return e;

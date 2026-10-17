@@ -7,8 +7,8 @@
  *                        the sling, and Set traps is available once game has been seen.
  *   2. Overnight      — traps set where there's game bring a seeded small-game catch by morning
  *                        (sometimes none), the same for the same seed, and the game there thins.
- *   3. Sling, bow     — a sling opens Hunt (small game only); a bow opens deer too, with better odds
- *                        words than the sling.
+ *   3. Sling, bow     — a sling opens Hunt (small game only); a bow, which needs sinew from small
+ *                        game, opens deer too, with better odds words than the sling.
  *   4. Hook and line  — without one, Fish is hidden with a reason naming it; with one, it works as today.
  *   5. Kill ends it   — a deer hunt whose kill comes 40% into the work ends there; the day has the
  *                        leftover hours back.
@@ -18,6 +18,9 @@
  *                        show a number (en and sv).
  *   8. Switch off     — off or absent, hunting and fishing are as before and the same seed plays
  *                        the same run.
+ *   9. Sinew          — small-game catches (traps, sling hunts) yield sinew, a deer more; without
+ *                        enough the bow can't be made, with it it can (the owner: "the bow needs
+ *                        sinew or gut").
  */
 
 import { describe, it, expect } from 'vitest';
@@ -26,10 +29,10 @@ import { visibilityOf, shown } from './action-visibility';
 import { scout, survey, createExploration } from './exploration';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { killMoment } from './stop-action';
-import { huntScore, huntOdds, HUNT_ODDS, HUNT_ODDS_WORDS } from './hunting-gear';
+import { huntScore, huntOdds, HUNT_ODDS, HUNT_ODDS_WORDS, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from './hunting-gear';
 import { seedOf } from './rng';
 import { makeWarden } from '../artificer-app/controller';
-import { yieldText } from '../artificer-app/camp-blocks';
+import { yieldText, storesRow } from '../artificer-app/camp-blocks';
 import { observe } from '../artificer-ai/observe';
 import { simLine } from '../artificer-app/sim-words';
 import { makeT } from './i18n';
@@ -116,9 +119,14 @@ describe('Traps first; hunting and fishing need gear; a kill ends the hunt (#182
     expect(visibilityOf(sling, 'hunt', 1, { target: 'deer' }).reason).toMatch(/bow/);
     const deerOpt = ACTIONS.hunt.options!(sling, {})[0].choices.find(c => c.value === 'deer')!;
     expect(deerOpt.blocked).toMatch(/bow/);
-    // The bow itself is hidden until the Warden knows hunting well enough.
+    // The bow itself is hidden until the Warden knows hunting well enough…
     expect(visibilityOf(sling, 'bow').status).toBe('hidden');
-    expect(visibilityOf({ ...sling, skills: { ...sling.skills, hunting: 25 } }, 'bow').status).toBe('available');
+    expect(visibilityOf(sling, 'bow').reason).toMatch(/sinew/);
+    // …and its string is sinew, from small game: without it the card says so, with it the bow can be made.
+    const skilled = { ...sling, skills: { ...sling.skills, hunting: 25 } };
+    expect(visibilityOf(skilled, 'bow').status).toBe('greyed');
+    expect(visibilityOf(skilled, 'bow').reason).toBe('you need sinew — trap or hunt small game first');
+    expect(visibilityOf({ ...skilled, sinew: BOW_SINEW }, 'bow').status).toBe('available');
     // With a bow: deer, and better odds than the sling has on the same ground.
     const bow = withTool(warden(true, 'observed'), 'bow');
     const deer = runAction(bow, { q: 'hunt', opts: { target: 'deer' } });
@@ -217,8 +225,11 @@ describe('Traps first; hunting and fishing need gear; a kill ends the hunt (#182
       const hunted = runAction(s, 'hunt');
       expect(hunted.hoursToday).toBe(s.hoursToday + 5);
       expect(hunted.stores.hides).toBe(s.stores.hides + 1);
-      // Hunt cards show no odds words.
+      // Hunt cards show no odds words; no sinew is kept, shown or observed.
       expect(yieldText('hunt', s, 1, enT)).not.toMatch(/odds|long shot/);
+      expect(hunted.sinew).toBeUndefined();
+      expect(storesRow(hunted, enT)).not.toMatch(/Sinew/);
+      expect(observe(hunted)).not.toMatch(/sinew/);
     }
     // Off and absent play three seeded days (weather, luck) exactly as the sim did before #1821:
     // the journal's hash was taken on main before this change.
@@ -231,5 +242,39 @@ describe('Traps first; hunting and fishing need gear; a kill ends the hunt (#182
     };
     expect(play(false)).toBe(1186264256);
     expect(play('absent')).toBe(1186264256);
+  });
+
+  it('9. small-game catches yield sinew (a deer more); without it the bow cannot be made, with it it can', () => {
+    // A trap line that holds something (luck off: every line catches) gives sinew by morning, and says so.
+    const set = runAction(warden(true, 'suspected', 'w-sinew'), 'traps');
+    expect(set.sinew).toBeUndefined();
+    const morning = endDay(set);
+    expect(morning.sinew).toBe(SINEW_SMALL);
+    const line = morning.log.find(e => /By morning your traps/.test(e.text))!.text;
+    expect(line).toMatch(new RegExp(`Kept ${SINEW_SMALL} sinew`));
+    expect(simLine(line, svT)).toMatch(/senor/);
+    // A sling hunt that brings food gives sinew; a deer with a bow gives more.
+    const sling = withTool(warden(true, 'observed', 'w-sinew'), 'sling');
+    const small = runAction(sling, { q: 'hunt', opts: { target: 'small' } });
+    expect(small.stores.rawFood).toBeGreaterThan(sling.stores.rawFood);
+    expect(small.sinew).toBeGreaterThanOrEqual(SINEW_SMALL);
+    const bowed = withTool(warden(true, 'observed', 'w-sinew'), 'bow');
+    expect(runAction(bowed, { q: 'hunt', opts: { target: 'deer' } }).sinew).toBe(SINEW_DEER);
+    // It shows in the stores row (en and sv) and the AI's observation.
+    expect(storesRow(morning, enT)).toMatch(/Sinew <b>1<\/b>/);
+    expect(storesRow(morning, svT)).toMatch(/Senor <b>1<\/b>/);
+    expect(observe(morning)).toMatch(/· sinew 1/);
+    // The bow: refused without enough sinew, made with it, and the sinew is spent.
+    const ready: Region1State = { ...withTool(warden(true, 'observed', 'w-sinew'), 'sling'), skills: { hunting: 25 } } as Region1State;
+    const without = runAction({ ...ready, sinew: BOW_SINEW - 1 }, 'bow');
+    expect(without.tools.some(t => t.item === 'bow')).toBe(false);
+    expect(without.log.at(-1)?.kind).toBe('skip');
+    expect(without.log.at(-1)?.text).toMatch(/you need sinew/);
+    const made = runAction({ ...ready, sinew: BOW_SINEW }, 'bow');
+    expect(made.tools.some(t => t.item === 'bow')).toBe(true);
+    expect(made.sinew).toBe(0);
+    expect(made.stores.materials).toBe(ready.stores.materials - 3);
+    // A save from before sinew (no field) loads as none, and its next catch starts the count.
+    expect(endDay({ ...set, sinew: undefined }).sinew).toBe(SINEW_SMALL);
   });
 });

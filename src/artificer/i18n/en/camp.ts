@@ -100,6 +100,8 @@ export const camp = {
   'store.rations': 'Rations',
   'store.stone': 'Stone',
   'store.hides': 'Hides',
+  // Sinew (#1821, `hunting-gear`): shown only with the switch on.
+  'store.sinew': 'Sinew',
   'storeword.rawFood': 'food',
   'storeword.water': 'water',
   'storeword.firewood': 'firewood',
@@ -107,6 +109,7 @@ export const camp = {
   'storeword.rations': 'rations',
   'storeword.stone': 'stone',
   'storeword.hides': 'hides',
+  'storeword.sinew': 'sinew',
   // What a trip carries home, short (the load bar, a craft's ingredients).
   'haul.rawFood': 'food',
   'haul.rations': 'rations',
@@ -241,7 +244,7 @@ export const camp = {
   'yield.knife': 'hunt −15% vigor, quicker preserving',
   'yield.snare': '+1 food every night',
   'yield.sling': 'hunt small game · 2 mat',
-  'yield.bow': 'hunt deer too, and better odds · 4 mat',
+  'yield.bow': 'hunt deer too, and better odds · 3 mat + 2 sinew',
   'yield.hookline': 'fish through the ice · 1 mat',
   'yield.waterskin': '+1 water per trip · takes a hide',
   'yield.bedroll': '+6 clarity overnight',
@@ -275,6 +278,7 @@ export const camp = {
   'reason.needHide': 'you need a hide — hunt deer first',
   'reason.needBow': 'deer need a bow — a sling is for small game',
   'reason.trapsSet': 'your traps are already set there',
+  'reason.needSinew': 'you need sinew — trap or hunt small game first',
   'reason.unknownRecipe': "you haven't worked out how to make a {recipe} yet",
   'reason.haveTool': 'you already have a {grade} {recipe}',
   'reason.bench': 'needs a tier-{n} bench (yours is tier {m})',

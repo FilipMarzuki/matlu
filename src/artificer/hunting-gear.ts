@@ -75,7 +75,27 @@ export const huntOnFortune = (seed: number, day: number, key: number): number =>
 export const HUNT_UNLOCK = { verb: 'hunt actively', how: 'make a sling first, or later a bow' } as const;
 /** Fishing before a hook and line. */
 export const FISH_UNLOCK = { verb: 'fish without gear', how: 'make a hook and line first' } as const;
-/** The bow before the Warden knows hunting (or woodcraft) well enough. */
-export const BOW_UNLOCK = { verb: 'make a bow', how: 'set traps and hunt with a sling, and it will come' } as const;
+/** The bow before the Warden knows hunting (or woodcraft) well enough; its string is sinew, from the same small game. */
+export const BOW_UNLOCK = { verb: 'make a bow', how: 'set traps and hunt small game with a sling, for the skill and the sinew its string needs' } as const;
+
+/**
+ * Sinew (#1821, the owner: "the bow needs sinew or gut"): what a bowstring is made of, from the
+ * game itself. Each small-game catch (a trap line that held something, a sling hunt that brought
+ * food, a second catch hunting on) gives `SINEW_SMALL`; a deer gives `SINEW_DEER`. No draw of its
+ * own: a catch is already the luck, so the sinew follows from it, and an empty hunt gives none.
+ */
+export const SINEW_SMALL = 1;
+export const SINEW_DEER = 2;
+/**
+ * Sinew a bow takes: two catches' worth. Traps at fair odds catch about every other night, so a
+ * Warden who sets them from the first days has it in about four nights, sooner with sling hunts
+ * as well. That's about when the bow's Hunting level comes anyway, so the sinew rarely holds it
+ * back for long, but deer (and the bow's better odds) come after small game, not before.
+ */
+export const BOW_SINEW = 2;
+/** The bow's craft card when there's not enough sinew yet (`reason.needSinew`). */
+export const NEED_SINEW = 'you need sinew — trap or hunt small game first';
+/** The journal's sentence on the sinew a catch gave, appended to the catch's line. */
+export const sinewNote = (n: number): string => (n > 0 ? ` Kept ${n} sinew.` : '');
 /** The true levels that open the bow: Hunting Apprentice, or Woodcraft Adept. */
 export const BOW_LEVEL = { hunting: 2, woodcraft: 3 } as const;

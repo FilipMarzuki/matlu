@@ -178,6 +178,8 @@ export const journal = {
   'log.traps.none': 'By morning your traps{where} were empty.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
+  // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.
+  'log.sinew': '{line} Kept {n} sinew.',
   'log.huntOn.none': 'The catch was light enough to stow, so you hunted on, but nothing more came.',
   'log.lookout': 'Climbed high{where} and looked out — the ground sharpens below.',
   'log.lookout.over': 'Climbed high{where} and looked out — the ground sharpens below, and you can see over the {ringword} ring.',

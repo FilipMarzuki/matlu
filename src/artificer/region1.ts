@@ -51,7 +51,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
-import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, type HuntOdds, type HuntTool } from './hunting-gear';
+import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -195,6 +195,12 @@ export interface Region1State {
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
   /** Trap lines set today (#1821, `hunting-gear`), by distance: checked by morning, then gone. Absent when none. */
   traps?: Ring[];
+  /**
+   * Sinew (#1821, `hunting-gear`): from small game (a trap catch, a sling hunt) and deer, for the bow's
+   * string. Optional: absent in a run with the switch off and in saves from before it, and read as 0
+   * (`sinewOf`), so an old save loads unchanged and gets its first sinew from its next catch.
+   */
+  sinew?: number;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -713,6 +719,10 @@ export const stoneGatheringOn = (s: Pick<Region1State, 'config'>): boolean => fe
 const quarryLocked = (s: Region1State): boolean => stoneGatheringOn(s) && !s.techniques.includes(QUARRY_TECHNIQUE);
 /** Whether the Warden has this tool (an heirloom too). */
 const hasItem = (s: Pick<Region1State, 'tools'>, item: string): boolean => s.tools.some(t => t.item === item);
+/** Sinew the Warden has (#1821): 0 when the run or the save has none. */
+export const sinewOf = (s: Pick<Region1State, 'sinew'>): number => s.sinew ?? 0;
+/** Add sinew from a catch, and say how much (for `sinewNote`). Mutates `s`. */
+const addSinew = (s: Region1State, n: number): number => { s.sinew = sinewOf(s) + n; return n; };
 /** The ranged tool a Warden hunts with (#1821): the bow if they have one, else a sling, else none. */
 export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null => (hasItem(s, BOW) ? 'bow' : hasItem(s, SLING) ? 'sling' : null);
 /** Hunting is hidden (#1821) until a sling or a bow: only with `hunting-gear` on. */
@@ -831,7 +841,7 @@ export const GEAR_RECIPES: Readonly<Record<'basket' | 'backpack' | 'harness' | '
  */
 export const HUNTING_RECIPES: Readonly<Record<'sling' | 'bow' | 'hookline', CraftRecipe>> = {
   sling: { id: SLING, name: 'Sling', inputs: [{ item: 'materials', qty: 2 }], output: { item: SLING, qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['tension'] },
-  bow: { id: BOW, name: 'Bow', inputs: [{ item: 'materials', qty: 4 }], output: { item: BOW, qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['tension', 'leverage'] },
+  bow: { id: BOW, name: 'Bow', inputs: [{ item: 'materials', qty: 3 }, { item: 'sinew', qty: BOW_SINEW }], output: { item: BOW, qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['tension', 'leverage'] },
   hookline: { id: HOOK_LINE, name: 'Hook and line', inputs: [{ item: 'materials', qty: 1 }], output: { item: HOOK_LINE, qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['sharpening'] },
 };
 
@@ -1132,7 +1142,8 @@ function lengthOptions(id: LengthAction): (s: Region1State, opts: ActionOpts, ri
 /** View a Region 1 state as a crafter: stores are the inventory, the shelter is the bench. */
 function crafterOf(s: Region1State): CrafterState {
   return createCrafter(s.vitals, {
-    inventory: { ...s.stores },
+    // Sinew (#1821) is the crafter's too with `hunting-gear` on, for the bow's string; off, the inventory is as it was.
+    inventory: huntingGearOn(s) ? { ...s.stores, sinew: sinewOf(s) } : { ...s.stores },
     tools: s.tools,
     concepts: s.concepts,
     // Region 1's shelter is the first workbench (crafting design §6–7).
@@ -1296,7 +1307,10 @@ const gearCraft = (r: CraftRecipe): ActionDef => ({
   ...craftAction(r),
   gate: s => {
     const owned = s.tools.find(t => t.item === r.output.item && !t.heirloom && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
-    return owned ? `you already have a ${owned.grade} ${r.name.toLowerCase()}` : craftBlocker(crafterOf(s), r);
+    if (owned) return `you already have a ${owned.grade} ${r.name.toLowerCase()}`;
+    // The bow's string is sinew (#1821): said plainly, before the generic missing-input line.
+    const sinew = r.inputs.find(i => i.item === 'sinew')?.qty ?? 0;
+    return sinewOf(s) < sinew ? NEED_SINEW : craftBlocker(crafterOf(s), r);
   },
 });
 
@@ -1358,7 +1372,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       // An empty hunt brings no deer down, so no hide either.
       if (!small && n > 0) { s.stores.hides += 1; s.flags.everHide = true; }
       if (n === 0) return `Hunted ${small ? 'small game' : 'deer'}${where(r)} and took nothing.${note}`;
-      return small ? `Took small game${where(r)} — ${n} raw food.${note}` : `Brought down a deer${where(r)} — ${n} raw food and a hide.${note}`;
+      // Sinew from the catch (#1821, `hunting-gear`): no draw of its own, it follows from the kill.
+      const sinew = huntingGearOn(s) ? addSinew(s, small ? SINEW_SMALL : SINEW_DEER) : 0;
+      return (small ? `Took small game${where(r)} — ${n} raw food.${note}` : `Brought down a deer${where(r)} — ${n} raw food and a hide.${note}`) + sinewNote(sinew);
     },
   },
   water: {
@@ -2401,6 +2417,9 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
       keepShare(next, before, was, kept);
       // Traps (#1821) stopped before they were set aren't set.
       if (id === 'traps' && kept <= 0) next.traps = s.traps;
+      // Sinew (#1821) is the catch's: kept as the catch is, none from a hunt given up before its kill.
+      const sinewGot = sinewOf(next) - sinewOf(s);
+      if (sinewGot > 0) next.sinew = sinewOf(s) + Math.floor(sinewGot * kept + 1e-9);
       say(next, stopLine(def.name + where(ring), cut, kept, kind, hrs1(cut.kept)), 'action', at);
     }
     // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
@@ -2480,7 +2499,7 @@ function huntOn(next: Region1State, before: Stores, ring: Ring, at: LogEntry['at
   const chance = CATCH_CHANCE[trueHuntOdds(next, 'hunt', ring)];
   const more = huntOnFortune(seedOf(next.character.id), next.day, began) < chance ? Math.max(1, Math.round(first / 2)) : 0;
   if (more > 0) next.stores.rawFood += more;
-  say(next, more > 0 ? `The catch was light enough to stow, so you hunted on — and took more: ${more} raw food.` : 'The catch was light enough to stow, so you hunted on, but nothing more came.', 'action', at);
+  say(next, more > 0 ? `The catch was light enough to stow, so you hunted on — and took more: ${more} raw food.${sinewNote(addSinew(next, SINEW_SMALL))}` : 'The catch was light enough to stow, so you hunted on, but nothing more came.', 'action', at);
 }
 
 /**
@@ -2502,7 +2521,7 @@ function checkTraps(next: Region1State): void {
     next.flags.everFood = true;
     const e = { ...next.explore, supply: { ...next.explore.supply, [r]: { ...next.explore.supply[r], game: Math.max(0, Math.round((next.explore.supply[r].game - SUPPLY_DRAW.game) * 1000) / 1000) } } };
     next.explore = e;
-    say(next, `By morning your traps${where(r)} held small game — ${n} raw food.`, 'action');
+    say(next, `By morning your traps${where(r)} held small game — ${n} raw food.${sinewNote(addSinew(next, SINEW_SMALL))}`, 'action');
   }
 }
 
@@ -2722,6 +2741,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, sto
   }
   refundOverexertion(next, Math.max(0, before.condition - c.vitals.condition), tr.overexertCondition);
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
+  // The bow's sinew (#1821): spent from where it's kept, only by a recipe that takes it (craft() drops an emptied stack).
+  if (recipe.inputs.some(i => i.item === 'sinew')) next.sinew = c.inventory.sinew ?? 0;
   if (made.kind !== 'refused') spendCloseWork(next, night);
   next.tools = c.tools;
   next.concepts = c.concepts;
