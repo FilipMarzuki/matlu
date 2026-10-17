@@ -142,6 +142,9 @@ export const tabs = {
   'land.assess.next.detail': 'work it until you know its ground in detail.',
   'land.assess.next.detailOf': "you don't know its {what} in detail yet.",
   // LAND as only what you've found (#1836): an area with nothing found yet, and the closing invitation to explore.
+  // The start on LAND (#1853): the patrol leader's advice remembered on day 1, and its one button.
+  'land.start.note': 'You know almost nothing about this place yet. Your patrol leader always said: scout first. Find a good place for shelter, and a source of water.',
+  'land.start.go': 'Explore',
   'land.found.none': 'Nothing found there yet.',
   'land.found.invite': 'To get to know the land better, explore your surroundings.',
   'land.found.queued': 'In your queue: {what}.',
