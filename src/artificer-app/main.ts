@@ -22,7 +22,7 @@ import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
 import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
-import { introBeats, fillName, type Beat } from './intro';
+import { introBeats, introHtml, introWhere, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { GUIDE_FEATURE } from './survival-path';
@@ -1402,6 +1402,9 @@ let history = loadHistory();
 // The 💬 panel: docked on the right on a desktop, a bottom sheet on a phone, never blocking the
 // game (feedback-panel.ts). What it attaches is read from the page when it's shown or sent:
 // always the Warden's id and the run's record id, the rest only as the player leaves it ticked.
+// The intro beat showing (introWhere), or nothing outside the intro. Kept here, above the panel,
+// because the panel may read what it attaches as soon as it's installed (a draft left open).
+let introSpot: { stage: string; tab: string } | Record<string, never> = {};
 const feedback = installFeedback({
   t: () => t,
   lang: () => lang,
@@ -1417,7 +1420,10 @@ const feedback = installFeedback({
       build: { version: import.meta.env.VITE_GIT_SHA || 'dev', date: import.meta.env.VITE_BUILD_DATE || undefined, path: location.pathname },
       where: {
         seed: seedOf(a.sim.character.id), day: onRoad ? a.road!.day : a.sim.day, runNumber: runNumberFor(history, a.sim.character.id),
-        stage: onRoad ? 'road' : 'camp', tab: onRoad ? roadTab : tab, look: shownLook(lookOfGame(a), lookPreview), lang, dev,
+        stage: onRoad ? 'road' : 'camp', tab: onRoad ? roadTab : tab,
+        // During the intro (#1845): which beat, "intro: pack", so confusing screens can be found.
+        ...introSpot,
+        look: shownLook(lookOfGame(a), lookPreview), lang, dev,
         features: Object.entries(featuresOf(a.sim.config.world.features)).filter(([, on]) => on).map(([id]) => id),
         viewport: { w: window.innerWidth, h: window.innerHeight },
         device: deviceOf(window.innerWidth, matchMedia('(pointer: coarse)').matches),
@@ -1773,6 +1779,9 @@ function endIntro(): void {
   intro = null;
   introEl.hidden = true;
   introEl.innerHTML = '';
+  introSpot = {};
+  document.documentElement.classList.remove('intro-on');
+  feedback.refresh();
   // Persist now, so a reload after the intro doesn't play it again — and only now let the draft go:
   // until the game is saved, a reload must bring back the same Warden-to-be (#1266).
   save(state);
@@ -1798,23 +1807,19 @@ function renderIntro(): void {
   const b = intro.beats[intro.i];
   introEl.classList.toggle('settled', drawnBeat === intro.i);
   drawnBeat = intro.i;
-  const last = intro.i === intro.beats.length - 1;
-  // Each line fades in after the one before (--n drives the CSS animation delay).
-  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name, t))}</p>`).join('')
-    + (b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen) : '');
-  const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
   introEl.hidden = false;
-  introEl.innerHTML = `
-    <div class="portal ${b.portal ? 'open' : ''}" aria-hidden="true"></div>
-    <div class="beat ${b.kind}" aria-live="polite">${lines}</div>
-    <div class="introbar">
-      <span class="dots" aria-hidden="true">${dots}</span>
-      <span class="spacer"></span>
-      ${last ? '' : `<button class="pill" data-intro="skip">${esc(t('intro.skip'))}</button>`}
-      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${esc(t(last ? 'intro.begin' : b.kind === 'pack' ? 'intro.offWeGo' : 'intro.next'))}</button>
-    </div>`;
+  // The 💬 button rides along on every beat (#1845), and what the panel attaches says which beat.
+  introSpot = introWhere(b);
+  document.documentElement.classList.add('intro-on');
+  introEl.innerHTML = introHtml({
+    beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
+    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen) : '',
+    nextDisabled: b.kind === 'create' && !draftValid(),
+    feedback: feedback.button(t),
+  });
+  feedback.refresh();
   const beatEl = introEl.querySelector('.beat');
   if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
@@ -1827,6 +1832,8 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
+  // The 💬 button (#1845) opens the feedback panel beside the intro, and never counts as a tap to go on.
+  if (el.closest('[data-cmd="feedback"]')) { feedback.toggle(); return; }
   const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
@@ -1881,6 +1888,9 @@ introEl.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if (!intro) return;
+  // Keys meant for the feedback panel (typing a report, its buttons) or the 💬 button itself
+  // (#1845) don't drive the intro: Enter in the report must not skip a screen.
+  if ((e.target as HTMLElement).closest?.('.fbpanel, .fbpill, [data-cmd="feedback"]')) return;
   const typing = (e.target as HTMLElement).tagName === 'INPUT';
   if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
   else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
