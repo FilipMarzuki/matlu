@@ -388,8 +388,8 @@ export const camp = {
   'timer.skipped': 'skipped',
 
   // ── The closing card ───────────────────────────────────────────────────────
-  'end.complete': '❄ REGION 1 COMPLETE — RUN {n}',
-  'end.ended': '✝ RUN {n} ENDED',
+  'end.complete': '❄ REGION 1 COMPLETE',
+  'end.ended': '✝ YOUR WINTER ENDS HERE',
   'end.survived': 'YOU MADE IT TO THE THAW',
   'end.survived.body': 'The ice breaks on the streams and the light comes back. Whatever the winter took from you, you are still here — and the Reach knows your name.',
   'end.thrive': 'YOU RIDE OUT WITH THE CARAVAN',
@@ -403,7 +403,7 @@ export const camp = {
   'end.wintered': 'YOU WINTER OVER IN THE REACH',
   'end.wintered.body': 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.',
   'end.collapsed': 'THE CARAVAN FINDS YOU',
-  'end.collapsed.body': 'Worked past the end of yourself, your body simply stops — days before the thaw. The spring caravan, coming up the valley, finds you and carries you out, barely alive. You keep what you learned — and the lesson about limits.',
+  'end.collapsed.body': 'Worked past the end of yourself, your body simply stops — days before the thaw. The spring caravan, coming up the valley, finds you and carries you out, barely alive. You live — and you have learned something about limits.',
   'end.died': 'THE REACH TAKES YOU',
   'end.died.body': 'The Reach does not forgive: thirst, hunger, the cold, or a collapse with no one near but the wild. Your story ends here — what you learned dies with you. Another Warden will have to begin again.',
   'end.grim': 'A GRIM WINTER',

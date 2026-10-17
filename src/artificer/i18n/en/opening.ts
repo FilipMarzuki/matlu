@@ -62,7 +62,7 @@ export const opening = {
   'create.unchosen': 'Unchosen: {n} · difficulty {m}',
   'create.unknown': '…and something else in you, not yet known.',
   'create.age': 'AGE — how old you are, the weekend it began',
-  'create.grow': "You'll grow up over the runs, a year each; your stats grow with you.",
+  'create.grow': "You're young still: you start below the stats you'd grow up to, and they grow with use.",
   'create.stats': "STATS — who you'll grow up to be · spend {n} points",
   // Difficulty (#1728): points left unspent are a choice, worth a higher multiplier ({m} is "×1.30").
   'create.unspent': 'Unspent: {n} · difficulty {m}',

@@ -682,7 +682,7 @@ function menyView(a: AppState): string {
   const exp = experimentalOn(featuresOf(a.sim.config.world.features)).map(f => f.name);
   return menyPage({
     newgame: newGameBody({ asking: newGameAsk }, t),
-    profile: profileBody({ runs: history.length, runId: a.sim.character.id, copied: idCopied }, t),
+    profile: profileBody({ runId: a.sim.character.id, copied: idCopied }, t),
     language: langSwitch(false),
     guide: guideControls(a, false),
     // How to play (#1824): the old ? panel's text, with the two-row header (which has no ?).

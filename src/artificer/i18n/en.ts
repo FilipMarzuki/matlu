@@ -65,9 +65,9 @@ const core = {
   'top.newSave': '↺ NEW SAVE',
   'top.features': '🧪 FEATURES',
   'top.experiment': '🧪 EXPERIMENT',
-  'top.experimentTip': 'This run plays with experimental features: {names}. They may change, or go.',
+  'top.experimentTip': 'This game plays with experimental features: {names}. They may change, or go.',
   'top.dev': 'DEV',
-  'top.devTip': 'Dev mode is on: this page shows views for testing that players don\'t see. A run played with it on is marked as such in the records.',
+  'top.devTip': 'Dev mode is on: this page shows views for testing that players don\'t see. A game played with it on is marked as such in the records.',
   // The place has no name yet (#1810): the header calls it the wilderness until play names it.
   'top.titleHtml': '❄ THE <span class="mark">WILDERNESS</span>',
   'road.stopStart': 'The wilderness',
@@ -161,7 +161,7 @@ const core = {
   'head.season': 'THE SEASON',
   'head.outlook': 'WINTER OUTLOOK',
   'head.milestones': 'MILESTONES',
-  'head.pastRuns': 'PAST RUNS',
+  'head.pastRuns': 'PAST WARDENS',
   'head.journal': 'JOURNAL',
   'head.roadJournal': 'JOURNAL — THE ROAD',
   'head.roadLast': 'THE LAST OF THE ROAD',
@@ -274,20 +274,20 @@ const core = {
   'look.game': "The game's ({look})",
 
   // ── The records box at the end of a run ────────────────────────────────────
-  'records.working': 'Working out how this run compares…',
+  'records.working': 'Working out how this game compares…',
   'records.sent': 'In the records.',
   'records.compare': "See how it compares with everyone's ›",
   'records.nickname': 'Nickname',
   'records.nicknameLabel': 'Your nickname on the records',
   'records.send': 'SEND TO THE RECORDS',
   'records.sending': 'SENDING…',
-  'records.replayNote': 'The server plays your run again from the start before it counts. Only a nickname is kept, one word of letters.',
+  'records.replayNote': 'The server plays your game through from the start before it counts. Only a nickname is kept, one word of letters.',
   'records.unreachable': "The records can't be reached right now. Try again in a while.",
   'records.failed': 'Something went wrong ({status}). Try again in a while.',
 
   // ── This week's world ──────────────────────────────────────────────────────
   'weekly.unreachable': "This week's world can't be reached right now. Try again in a while.",
-  'weekly.leave': "Leave this run and start this week's world? This run can't be picked up again.",
+  'weekly.leave': "Leave this game and start this week's world, with a new Warden? This one can't be picked up again.",
 } as const satisfies Record<string, string>;
 
 /**
