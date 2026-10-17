@@ -66,10 +66,10 @@ import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf,
  * The rules and the response contract. Static on purpose: it goes in the
  * system prompt and is cached, so never interpolate anything per-run here.
  */
-export const RULES = `You are playing "Greywind Reach", the first region of the Artificer: a survival-crafting game played one day at a time.
+export const RULES = `You are playing the Artificer, a survival-crafting game played one day at a time, set in an unnamed valley.
 
 GOAL
-Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave Greywind Reach before spring.
+Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave the valley before spring.
 Freezing nights burn firewood: 1, plus 1 for every full 5 C of frost (a warm shelter burns up to a third less). A freezing night without enough fire costs Condition — about 8 at -5 C, 20 at -15 C, less with shelter and sound cold gear — and a few in a row kill. When the cold is deep (day mean below -5 C) the streams are frozen hard: fetching water means melting snow, 1 firewood a trip.
 A good winter needs a larder (raw food, then preserved rations, one a night), water, firewood, a warm shelter (a clear midwinter night is about -19 C and needs about 87% warmth not to be a cold night; a fire kept in all night adds 15%, so a 75%-warm shelter with a fire is enough. A cold night costs 4 Condition plus 3 for every 10% the shelter falls short, and heals nothing), and a body in good shape. The WINTER OUTLOOK line tells you how many nights your stores last.
 

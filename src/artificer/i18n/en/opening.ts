@@ -23,7 +23,7 @@ export const opening = {
   'intro.identify': 'IDENTIFY YOURSELF, ARTIFICER.',
   // `{name}` is left for fillName (intro.ts) to fill once the Warden has one.
   'intro.registered': 'Registered: {name}.',
-  'intro.region': 'Region: Greywind Reach.',
+  'intro.region': 'Region: the wilderness.',
   'intro.winter': 'Winter arrives in {n} days.',
   'intro.survive': 'Survive it until the thaw.',
   'intro.before': 'Someone was here before you.',

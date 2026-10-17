@@ -40,7 +40,7 @@ export const roadlogSv: Record<RoadlogKey, string> = {
   // ── Upp på vagnen, och vägens dagar ────────────────────────────────────────
   'log.road.said': '{who}: {say}',
   'log.road.you': 'Du: {say}',
-  'log.road.boarded': 'Du klättrar upp på sista vagnen medan Greywind Reach försvinner bakom er, och dalen är grön av {w}. Mistheim ligger {n} dagar längre ner längs vägen.',
+  'log.road.boarded': 'Du klättrar upp på sista vagnen medan vildmarken försvinner bakom er, och dalen är grön av {w}. Mistheim ligger {n} dagar längre ner längs vägen.',
   'log.road.ragged': 'Vintern tog mycket ur dig. Det kommer att dröja några dagar på vagnen innan du är dig själv igen.',
   'log.road.watch': 'Du ser vägen glida förbi.',
   'log.road.passDay': 'Du tillbringar dagen i {place}.',

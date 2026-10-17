@@ -333,8 +333,8 @@ export const camp = {
   // ── The queue ──────────────────────────────────────────────────────────────
   'queue.skips': 'skips: {why}',
   'queue.locked': "You're taking it one thing at a time — you haven't learned to plan ahead yet.",
-  'journal.firstExplore': "Day 1 in the Reach. Explore before anything else — you don't yet know where food, water or wood are.",
-  'journal.firstScout': "Day 1 in the Reach. Scout before anything else — you don't yet know where food, water or wood are.",
+  'journal.firstExplore': "Day 1 in the wilderness. Explore before anything else — you don't yet know where food, water or wood are.",
+  'journal.firstScout': "Day 1 in the wilderness. Scout before anything else — you don't yet know where food, water or wood are.",
 
   // A trip's load in the queue (#1296).
   'load.tip': 'Bulk {n} of {max} stones (comfortable {c})',

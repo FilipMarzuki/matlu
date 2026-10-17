@@ -320,8 +320,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   // ── Kön ────────────────────────────────────────────────────────────────────
   'queue.skips': 'hoppas över: {why}',
   'queue.locked': 'Du tar en sak i taget — du har inte lärt dig att planera framåt än.',
-  'journal.firstExplore': 'Dag 1 i Greywind Reach. Utforska innan du gör något annat — du vet inte än var det finns mat, vatten eller ved.',
-  'journal.firstScout': 'Dag 1 i Greywind Reach. Spana innan du gör något annat — du vet inte än var det finns mat, vatten eller ved.',
+  'journal.firstExplore': 'Dag 1 i vildmarken. Utforska innan du gör något annat — du vet inte än var det finns mat, vatten eller ved.',
+  'journal.firstScout': 'Dag 1 i vildmarken. Spana innan du gör något annat — du vet inte än var det finns mat, vatten eller ved.',
 
   // En turs börda i kön.
   'load.tip': 'Börda {n} av {max} stenar (bekvämt {c})',

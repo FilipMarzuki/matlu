@@ -14,7 +14,7 @@ import { knownSpots, siteRatingCounts } from '../artificer/camp-sites';
 import { makeWarden, act, choose, endTheDay, enqueue, previewQueue, runQueuedDay, type AppState } from './controller';
 import { APP_TABS, tabIsDev, tabToOpen, visibleTabs } from './feature-choices';
 import {
-  GUIDE_FEATURE, GUIDE_IDS, REVEALS, EMPTY_GUIDE, PROGRESS_DAY, TAB_GUIDE, activeTip, began, coldNightAhead, conceptBegun, firstTool, guideFinished, guideFor,
+  GUIDE_FEATURE, GUIDE_IDS, REVEALS, EMPTY_GUIDE, PROGRESS_DAY, TAB_GUIDE, activeTip, began, coldNightAhead, firstTool, guideFinished, guideFor,
   heldTabs, landKnown, markDone, markSeen, markShown, queueReach, readGuide, revealedNow, setPlayedBefore, showGuideAgain, skillCameEasier, snowStays,
   storesInPlay, suggestedAction, suitableSiteKnown, usedNow, loadGuide, saveGuide,
   type GuideCtx, type GuideId, type GuideRecord,
@@ -247,7 +247,7 @@ describe('the tabs (#1794)', () => {
     expect(tabsFor(ctx(a, false))).toEqual(['plan']);
     expect(tabsFor(ctx(a))).toEqual(['plan']);
     expect(heldTabs(TAB_IDS, () => true).size).toBe(0);
-    expect(visibleTabs(APP_TABS, { dev: false, camp: false }).map(d => d.id)).toEqual(['plan', 'land', 'warden', 'progress']);
+    expect(visibleTabs(APP_TABS, { dev: false, camp: false }).map(d => d.id)).toEqual(['plan', 'land', 'progress']);
   });
 
   it('CAMP once camp is made', () => {
@@ -269,17 +269,16 @@ describe('the tabs (#1794)', () => {
     expect(tabsFor(ctx(suspected))).toEqual(['plan', 'land']);
   });
 
-  it('the Warden’s tab once a skill comes easier or a concept is begun: the practice a Warden starts with doesn’t count', () => {
+  it('the guide never holds the Warden back (#1807): no Warden tab or rule; the skill tip (the header button’s glow) once a skill comes easier', () => {
     const a = fresh();
-    expect(Object.values(a.sim.skills).some(h => (h ?? 0) > 0)).toBe(true); // a scout's training
-    expect(rule('warden').shown(ctx(a))).toBe(false);
+    expect(GUIDE_IDS).not.toContain('warden');
+    expect(Object.values(TAB_GUIDE)).not.toContain('warden');
+    expect(heldTabs(['warden'], () => false).size).toBe(0);
+    expect(Object.values(a.sim.skills).some(h => (h ?? 0) > 0)).toBe(true); // a scout's training doesn't count
+    expect(rule('skill').shown(ctx(a))).toBe(false);
     expect(skillCameEasier(withLog(a, CAME_EASIER).sim)).toBe(true);
     expect(skillCameEasier(withLog(a, CAME_EASIER, 'action').sim)).toBe(false);
-    expect(rule('warden').shown(ctx(withLog(a, CAME_EASIER)))).toBe(true);
-    const id = Object.keys(a.sim.concepts)[0] ?? 'binding';
-    const begun: AppState = { ...a, sim: { ...a.sim, concepts: { ...a.sim.concepts, [id]: { rank: 0, insight: 0.5 } as never } } };
-    expect(conceptBegun(begun.sim)).toBe(true);
-    expect(tabsFor(ctx(begun))).toContain('warden');
+    expect(rule('skill').shown(ctx(withLog(a, CAME_EASIER)))).toBe(true);
   });
 
   it(`PROGRESS (and dev mode's HISTORY) from day ${PROGRESS_DAY}`, () => {
@@ -293,7 +292,7 @@ describe('the tabs (#1794)', () => {
   });
 
   it('dev mode shows held tabs early, tagged DEV; an open tab that’s held falls back to PLAN', () => {
-    const held = new Set(['land', 'warden', 'progress', 'history', 'camp']);
+    const held = new Set(['land', 'progress', 'history', 'camp']);
     expect(visibleTabs(APP_TABS, { dev: true, camp: false, held }).map(d => d.id)).toEqual(TAB_IDS);
     expect(tabIsDev(APP_TABS.find(d => d.id === 'land')!, { dev: true, camp: false, held })).toBe(true);
     expect(tabToOpen('land', APP_TABS, { dev: false, camp: false, held })).toBe('plan');
@@ -394,7 +393,7 @@ describe('a long run: tabs stay, each tip once (#1794)', () => {
       for (const id of now) had.add(id);
     });
     expect(end.sim.day).toBeGreaterThan(end.sim.config.calendar.winterDay);
-    expect([...had].sort()).toEqual(['camp', 'land', 'plan', 'progress', 'warden']);
+    expect([...had].sort()).toEqual(['camp', 'land', 'plan', 'progress']);
   });
 
   it('each line shows once, never with "I’ve played before", and comes back with "Show the guide again"', () => {
@@ -403,7 +402,7 @@ describe('a long run: tabs stay, each tip once (#1794)', () => {
     let last: GuideCtx | null = null;
     play(c => { record = step(record, c, said); last = c; });
     expect(new Set(said).size).toBe(said.length);
-    for (const id of ['cold', 'snow', 'skill', 'longQueue', 'camp', 'land', 'warden', 'progress'] as const) expect(said, id).toContain(id);
+    for (const id of ['cold', 'snow', 'skill', 'longQueue', 'camp', 'land', 'progress'] as const) expect(said, id).toContain(id);
     // Each in its moment: the tabs' lines in the order the run reached them, the snow's after the rest.
     expect(said.indexOf('camp')).toBeLessThan(said.indexOf('snow'));
 
@@ -415,7 +414,7 @@ describe('a long run: tabs stay, each tip once (#1794)', () => {
     // "Show the guide again": the lines of what has appeared come back, one at a time, in the registry's order.
     const again: GuideId[] = [];
     step(showGuideAgain(record), last!, again);
-    for (const id of ['snow', 'skill', 'camp', 'land', 'warden', 'progress'] as const) expect(again, id).toContain(id);
+    for (const id of ['snow', 'skill', 'camp', 'land', 'progress'] as const) expect(again, id).toContain(id);
     expect(again).toEqual(REVEALS.map(r => r.id).filter(id => again.includes(id)));
   });
 });
