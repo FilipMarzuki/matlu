@@ -59,6 +59,7 @@ import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
 import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst, type Pin } from '../artificer/pins';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, friendly } from '../artificer/trade';
 import { marketLine } from '../artificer/economy';
+import { stopOn, STOP_KINDS } from '../artificer/stop-action';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
@@ -421,6 +422,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     }
   }
 
+  // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.
+  if (stopOn(s)) lines.push(`STOPPING: an action can be stopped partway — {"plan": [...], "stop": {"action": N, "hours": h}} stops the plan's action N (from 0) h hours into it (walks included), {"do": ..., "stop": {"action": 0, "hours": h}} the one action; the day then pauses (no night) and you plan the rest. Stopped on the walk out you turn back with nothing, the walk back as long as you'd walked. At the work: ${STOP_KINDS.bit.join(', ')} keep a share of what the whole action would bring, in proportion to the work done (rounded down); ${STOP_KINDS.all.join(' and ')} keep nothing until the work is done, all of it after; a ${STOP_KINDS.kill.join(' or ')} is a game of chance: its kill can come at any moment of the work, sometimes straight away — stopped after it you keep the whole catch (a deer's hide too), before it nothing, and a hunt that was going to come up empty keeps nothing whenever you stop; ${STOP_KINDS.see.join(', ')} keep what you'd seen, in proportion to the time at the edge. On the walk back you have it all. Crafts, building and other camp work stopped make nothing and use nothing up. The hours, Vigor and Clarity are spent as far as you got.`);
   lines.push('');
   const done = REGION1_MILESTONES.filter(m => s.milestones.includes(m.id)).map(m => m.name);
   lines.push(`MILESTONES: ${done.length}/${REGION1_MILESTONES.length}${done.length ? ` (${done.join(', ')})` : ''}`);

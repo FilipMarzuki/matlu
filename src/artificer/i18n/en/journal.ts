@@ -242,6 +242,15 @@ export const journal = {
   'log.craftFailed.salvaged': 'The {recipe} came apart in your hands — materials wasted (salvaged {cost}). Too foggy for fine work.',
   'log.claimNot': "Can't stake a claim yet: {why}.",
   'log.skipped': '{head}{where}: skipped — {why}.',
+  // Stopped partway (#1815, stop-action.ts): what the action kept, by where it was stopped.
+  'log.stopOut': '{head}{where}: stopped on the way out and turned back — nothing to show for it.',
+  'log.stopNone': '{head}{where}: stopped before it was done — nothing to show for it.',
+  'log.stopSeen': '{head}{where}: stopped partway — you saw some of what was there.',
+  'log.stopPart': '{head}{where}: stopped after {h}h of the work — headed home with what you had.',
+  'log.stopCamp': '{head}: stopped — nothing made, and nothing used up.',
+  // A hunt stopped (#1815): before its moment of the kill, or after it.
+  'log.stopGaveUp': '{head}{where}: stopped — you gave up before anything came.',
+  'log.stopKilled': '{head}{where}: stopped — you had already brought it down, and headed home with all of it.',
   'log.choiceSkipped': 'Choice: skipped — there\'s no "{id}" here.',
   'log.milestone': 'Milestone — {w}',
   'log.heirloomTeaches': 'The {good} teaches you what its maker knew: {list}.',

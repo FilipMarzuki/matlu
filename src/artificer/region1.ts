@@ -50,6 +50,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
+import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -1846,11 +1847,12 @@ function whyBlocked(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts)
  * Run one action now. While an encounter waits for your choice (#1343), nothing runs; after
  * land work, an encounter may happen and pause the day.
  */
-export function runAction(s: Region1State, item: QueueItem): Region1State {
+export function runAction(s: Region1State, item: QueueItem, stop?: number): Region1State {
   if (s.pending) return s;
-  const next = runActionCore(s, item);
+  // `stop` (#1815, `stop-action`): cut the action short that many hours in, by its plan (stop-action.ts).
+  const next = runActionCore(s, item, stop);
   // Did a hidden talent make a difference (#1265)? Run the same work without it and compare.
-  if (hasHidden(s.character.talents)) noticeHidden(next, differenceOf(next, runActionCore(hiddenless(s), item)));
+  if (hasHidden(s.character.talents)) noticeHidden(next, differenceOf(next, runActionCore(hiddenless(s), item, stop)));
   maybeEncounter(s, next, item);
   return next;
 }
@@ -2186,7 +2188,7 @@ function teachFromTool(next: Region1State, actions: readonly string[]): void {
   }
 }
 
-function runActionCore(s: Region1State, item: QueueItem): Region1State {
+function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
   const { id, ring, opts } = parseItem(item);
@@ -2199,7 +2201,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // An heirloom's maker teaches the first time it's leaned on (#1456) — out on the land, and at the bench
   // or building too (#1469): crafts and builds go to runCraft below, so the lesson lands first.
   teachFromTool(next, recipe ? [id, 'craft'] : [id]);
-  if (recipe) return runCraft(next, id, recipe);
+  if (recipe) return runCraft(next, id, recipe, stop);
   // Your tools make the work cheaper, quicker or richer (crafting design §2) —
   // and your skill in the field makes it cheaper still, richer, and gets more from the tools (#1236).
   const mod = modifiersFor(next.tools, id);
@@ -2212,8 +2214,14 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // A session of chosen length (#1668) is its trips: the work at the site and a walk per trip.
   const session = sessionOf(s, item);
   const usual = actionHours(next, id, ring, opts);
-  const workHours = session ? session.plan.work : usual.work;
-  const travel = session ? session.plan.travel : usual.travel;
+  const planWork = session ? session.plan.work : usual.work;
+  const planTravel = session ? session.plan.travel : usual.travel;
+  // Stopped partway (#1815): the hours, Vigor and Clarity as far as you got, and the work that still counts.
+  // A hunt's kill (#1815) comes at its own moment in the work, rolled only when it's stopped: a stream of its own, keyed on the hour it began.
+  const kind = stopKindOf(id);
+  const cut = stop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop, kind, kind === 'kill' ? killMoment(seedOf(s.character.id), s.day, s.hoursToday) : 1);
+  const workHours = cut ? cut.work : planWork;
+  const travel = cut ? cut.travel : planTravel;
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -2224,7 +2232,8 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
   const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
   // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
-  const at = stampFor(next, workHours + travel);
+  // Judged on the plan's hours even when it's stopped (#1815): the same hour, the same light, the same luck.
+  const at = stampFor(next, planWork + planTravel);
   const wd = weatherDrain(next.weatherToday, id, !!def.ringed, ring);
   const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour) * wd, dt = darkTravelDrain(at.light);
   // Exhausted from yesterday's loads (#1293): everything drains more today.
@@ -2276,17 +2285,31 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   }
   const lost = exposure === 'lost';
   const before = { ...next.stores };
-  const said = def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP);
-  // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
-  if (said || id !== 'camp') say(next, said, 'action', at);
-  // A session (#1668): how its trips went, and what it left of the patches.
+  // The share of the work whose yield is kept, when stopped (#1815): 1 for the whole action.
+  let kept = cut ? (planWork > 0 ? cut.kept / planWork : 0) : 1;
+  if (cut && !def.ringed) {
+    // Stopped at camp: the time is spent and nothing is done.
+    say(next, `${def.name}: stopped — nothing made, and nothing used up.`, 'action', at);
+  } else {
+    const was = { explore: next.explore, flags: { ...next.flags } };
+    const said = def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP);
+    if (cut) {
+      // An empty hunt has no kill to keep, whenever it's stopped.
+      if (kind === 'kill' && cut.phase === 'work' && next.stores.rawFood <= before.rawFood) kept = 0;
+      keepShare(next, before, was, kept);
+      say(next, stopLine(def.name + where(ring), cut, kept, kind, hrs1(cut.kept)), 'action', at);
+    }
+    // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
+    else if (said || id !== 'camp') say(next, said, 'action', at);
+  }
+  // A session (#1668): how its trips went, and what it left of the patches (as far as it got, when stopped).
   if (session) {
-    next.patches = withPatches(next.patches, ring, session.plan.end);
-    say(next, sessionLine(session), 'action', at);
+    next.patches = withPatches(next.patches, ring, cut ? partOf(session.plan.end, Object.fromEntries(Object.keys(session.plan.end).map(p => [p, abundance(s.patches, ring, p as PatchId)])), kept) : session.plan.end);
+    if (!cut) say(next, sessionLine(session), 'action', at);
   }
   // What you can carry home (#1291): a trip's haul is what it added to the stores, and what won't fit stays out there.
-  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, session?.plan.trips.length ?? 1);
-  const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
+  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at, ring, travel / 2, TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, cut ? cut.trips : session?.plan.trips.length ?? 1);
+  const luckLine = !lost && kept > 0 && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   if (exposure) {
     next.vitals.condition = Math.max(0, next.vitals.condition - EXPOSURE_COST[exposure] * talentEffects(next.character.talents).coldCost);
@@ -2308,7 +2331,7 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   if (fright && fright.state !== 'calm') landPanic(next, fright, before, workHours, at);
   else if (fright && at.light < DUSK_LIGHT) faceFear(next, ['dark'], DARK_FADES, at);
   // First into a ring, you may find a manual someone left behind (#1243).
-  const manual = (id === 'scout' || id === 'explore') && !tooDarkToSee(id, at.light) && !blindInFog(next.weatherToday, id) ? MANUAL_BY_RING[ring] : undefined;
+  const manual = (id === 'scout' || id === 'explore') && !cut && !tooDarkToSee(id, at.light) && !blindInFog(next.weatherToday, id) ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
@@ -2317,11 +2340,45 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   // Knowing home ground well, with something to draw on, you draw your own map (#1686): said once,
   // on the trip that makes it possible (both only ever come true, so it can't happen twice).
   if (!canDrawMap(s) && canDrawMap(next)) say(next, mapDrawnLine(next), 'milestone', at);
-  if (def.ringed) revisit(next, ring, at);
+  // Turned back on the way out (#1815), you never reached the place.
+  if (def.ringed && cut?.phase !== 'out') revisit(next, ring, at);
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
+}
+
+/**
+ * What a stopped action keeps (#1815): of what the whole action brought (the stores, and what it
+ * taught of the land and drew from it), the share `f` of the work done. Each store's change is cut
+ * to that share, rounded down; the land's knowledge and supply move that share of the way. Nothing
+ * kept, nothing changed at all (the flags too: no first water, no first hunt). Mutates `next`.
+ */
+function keepShare(next: Region1State, before: Stores, was: { explore: Region1State['explore']; flags: Region1State['flags'] }, f: number): void {
+  for (const k of STORE_KEYS) {
+    const d = next.stores[k] - before[k];
+    next.stores[k] = before[k] + Math.sign(d) * Math.floor(Math.abs(d) * f + 1e-9);
+  }
+  if (f <= 0) { next.explore = was.explore; next.flags = was.flags; return; }
+  const e = next.explore;
+  type Grid = typeof e.known;
+  const grid = (to: Grid, from: Grid): Grid => Object.fromEntries(RINGS.map(r => [r, Object.fromEntries((Object.keys(to[r]) as Domain[]).map(d => [d, from[r][d] + (to[r][d] - from[r][d]) * f]))])) as unknown as Grid;
+  // A find comes with the detailed knowledge that earns it: only with the whole of the work.
+  next.explore = { ...e, known: grid(e.known, was.explore.known), supply: grid(e.supply, was.explore.supply), finds: f < 1 ? [...was.explore.finds] : e.finds };
+}
+
+/** Each patch's abundance the share `f` of the way from `start` to `end` (a session stopped partway, #1815). */
+const partOf = (end: Partial<Record<PatchId, number>>, start: Partial<Record<PatchId, number>>, f: number): Partial<Record<PatchId, number>> =>
+  Object.fromEntries((Object.keys(end) as PatchId[]).map(p => [p, (start[p] ?? 1) + ((end[p] ?? 1) - (start[p] ?? 1)) * f]));
+
+/** The journal's line on an action stopped partway (#1815). */
+function stopLine(head: string, cut: Cut, f: number, kind: ReturnType<typeof stopKindOf>, hours: string): string {
+  if (cut.phase === 'out' && f <= 0) return `${head}: stopped on the way out and turned back — nothing to show for it.`;
+  // A hunt (#1815): stopped before its moment of the kill, or after it.
+  if (kind === 'kill' && cut.phase === 'work') return f > 0 ? `${head}: stopped — you had already brought it down, and headed home with all of it.` : `${head}: stopped — you gave up before anything came.`;
+  if (f <= 0) return `${head}: stopped before it was done — nothing to show for it.`;
+  if (kind === 'see') return `${head}: stopped partway — you saw some of what was there.`;
+  return `${head}: stopped after ${hours}h of the work — headed home with what you had.`;
 }
 
 /**
@@ -2461,7 +2518,7 @@ export function tripLoad(s: Region1State, item: QueueItem): TripLoad | null {
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
-function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Region1State {
+function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, stop?: number): Region1State {
   const before = next.vitals;
   const tr = talentEffects(next.character.talents);
   const recipe = baseRecipe;
@@ -2482,6 +2539,19 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
+  // Stopped before it's done (#1815): the hours and the effort are spent, nothing is made, and the materials are kept.
+  if (stop !== undefined && stop < hours) {
+    const spent = Math.max(0, stop);
+    const w = applyActivity(next.vitals, { hours: spent, vigorRate: effort?.vigorRate ?? 0, clarityRate: effort?.clarityRate ?? 0 });
+    next.vitals = w.vitals;
+    next.today.loadVigor += w.loadVigor;
+    next.today.loadClarity += w.loadClarity;
+    next.today.pushedVigor ||= w.pushedVigor;
+    next.today.pushedClarity ||= w.pushedClarity;
+    next.hoursToday += spent;
+    say(next, `${ACTIONS[id].name}: stopped — nothing made, and nothing used up.`, 'action', at);
+    return next;
+  }
   const night = closeWork(next, at.light, hours);
   // Intelligence (#1256) lifts — or, below average, lowers — the grade. So does a focus on the
   // craft's skill or one of its concepts (#1490): better work, not faster (survival lock overrides it).
@@ -3459,20 +3529,22 @@ export function survivalLockOf(s: Region1State): string | null {
 /** The journal line when planning opens up (#1350). */
 export const PLANNING_UNLOCKED = 'Halfway through the work you catch yourself already thinking about the next job, and the one after. You can plan ahead now.';
 
-export function runDay(s: Region1State, queue: readonly QueueItem[]): { state: Region1State; remaining: QueueItem[] } {
+export function runDay(s: Region1State, queue: readonly QueueItem[], stop?: DayStop): { state: Region1State; remaining: QueueItem[] } {
   // A waiting encounter (#1343) holds the day: nothing runs, and the night doesn't come, until you choose.
   if (s.outcome || s.pending) return { state: s, remaining: [...queue] };
   let state = s;
   const remaining = [...queue];
+  // A stop (#1815): the plan's action `stop.action` is cut short, and the day pauses after it.
+  const cutAt = (i: number): number | undefined => (stop && stop.action === i ? stop.hours : undefined);
   // One thing at a time until planning is learned (#1350): only the first action runs today.
   if (!s.canPlan && remaining.length) {
-    state = runAction(state, remaining.shift() as QueueItem);
-    return { state: state.pending ? state : endDay(state), remaining };
+    state = runAction(state, remaining.shift() as QueueItem, cutAt(0));
+    return { state: state.pending || cutAt(0) !== undefined ? state : endDay(state), remaining };
   }
-  while (remaining.length > 0 && state.hoursToday < DAY_HOURS) {
-    state = runAction(state, remaining.shift() as QueueItem);
-    // An encounter pauses the day where it happened: the rest of the queue waits.
-    if (state.pending) return { state, remaining };
+  for (let i = 0; remaining.length > 0 && state.hoursToday < DAY_HOURS; i++) {
+    state = runAction(state, remaining.shift() as QueueItem, cutAt(i));
+    // An encounter pauses the day where it happened: the rest of the queue waits. So does a stop.
+    if (state.pending || cutAt(i) !== undefined) return { state, remaining };
   }
   return { state: endDay(state), remaining };
 }

@@ -14,9 +14,10 @@
  * gives (playback.test.ts).
  */
 
-import { DAY_HOURS, endDay, runAction, sessionOf, type QueueItem, type Region1State } from '../artificer/region1';
+import { DAY_HOURS, endDay, queueHours, runAction, sessionOf, type QueueItem, type Region1State } from '../artificer/region1';
 import { DAY_START } from '../artificer/clock';
-import { act, runQueuedDay, runWholeQueue, type AppState } from './controller';
+import { stopOn, type DayStop } from '../artificer/stop-action';
+import { act, runQueuedDay, runWholeQueue, stopQueuedDay, type AppState } from './controller';
 
 /** One leg of a trip session (#1668): walking out, working the patch, or walking back. */
 export interface Phase {
@@ -77,11 +78,31 @@ export function phasesOf(s: Region1State, item: QueueItem, took: number): Phase[
   return out.length ? out : null;
 }
 
-/** One action stepped, the way `runDay` steps it. */
-function stepOnce(sim: Region1State, item: QueueItem): PlayStep {
-  const next = runAction(sim, item);
+/** One action stepped, the way `runDay` steps it (cut `stop` hours in, #1815, when it was stopped). */
+function stepOnce(sim: Region1State, item: QueueItem, stop?: number): PlayStep {
+  const next = runAction(sim, item, stop);
   const hours = Math.max(0, next.hoursToday - sim.hoursToday);
-  return { item, start: sim.hoursToday, hours, logFrom: sim.log.length, sim: next, phases: phasesOf(sim, item, hours) };
+  return { item, start: sim.hoursToday, hours, logFrom: sim.log.length, sim: next, phases: stop === undefined ? phasesOf(sim, item, hours) : stoppedPhases(sim, item, stop, hours) };
+}
+
+/**
+ * The legs of a session stopped `stop` hours in (#1815): its plan's legs up to the stop, then the
+ * walk home for whatever the action took after it. Null for a usual action, as `phasesOf`.
+ */
+function stoppedPhases(s: Region1State, item: QueueItem, stop: number, took: number): Phase[] | null {
+  const plan = phasesOf(s, item, queueHours(item, s));
+  if (!plan) return null;
+  const out: Phase[] = [];
+  let at = Math.min(stop, took);
+  for (const ph of plan) {
+    if (at <= 0) break;
+    out.push({ ...ph, hours: Math.min(ph.hours, at) });
+    at -= ph.hours;
+  }
+  const last = out[out.length - 1] ?? plan[0];
+  const rest = took - out.reduce((x, p) => x + p.hours, 0);
+  if (rest > 1e-9) out.push({ kind: 'back', trip: last.trip, trips: last.trips, hours: rest });
+  return out.length ? out : null;
 }
 
 /**
@@ -108,23 +129,56 @@ function faithful(p: DayPlay): DayPlay {
  * before planning is learned, #1350), stopping where an encounter waits for the player (#1343).
  * `after` is the instant run's result when the caller already has it (the whole queue does).
  */
-export function playDay(a: AppState, after: AppState = runQueuedDay(a)): DayPlay {
+export function playDay(a: AppState, after: AppState = runQueuedDay(a), stop?: DayStop): DayPlay {
   const s = a.sim;
   if (after === a || s.outcome || s.pending) return { before: a, after, steps: [], night: false, fromQueue: true };
   const steps: PlayStep[] = [];
   let sim = s;
   const remaining = [...a.queue];
+  // A stop (#1815) cuts its action short, and the day pauses after it: no night.
+  const cutAt = (i: number): number | undefined => (stop && stop.action === i ? stop.hours : undefined);
+  let stopped = false;
   if (!s.canPlan) {
-    if (remaining.length) { const st = stepOnce(sim, remaining.shift() as QueueItem); steps.push(st); sim = st.sim; }
+    if (remaining.length) { const st = stepOnce(sim, remaining.shift() as QueueItem, cutAt(0)); steps.push(st); sim = st.sim; stopped = cutAt(0) !== undefined; }
   } else {
-    while (remaining.length > 0 && sim.hoursToday < DAY_HOURS) {
-      const st = stepOnce(sim, remaining.shift() as QueueItem);
+    for (let i = 0; remaining.length > 0 && sim.hoursToday < DAY_HOURS; i++) {
+      const st = stepOnce(sim, remaining.shift() as QueueItem, cutAt(i));
       steps.push(st);
       sim = st.sim;
-      if (sim.pending) break;
+      if (sim.pending || cutAt(i) !== undefined) { stopped = cutAt(i) !== undefined; break; }
     }
   }
-  return faithful({ before: a, after, steps, night: !sim.pending, fromQueue: true });
+  return faithful({ before: a, after, steps, night: !sim.pending && !stopped, fromQueue: true });
+}
+
+/** Today's queue with one action stopped partway (#1815): `stopQueuedDay`'s result, and the steps that got there. */
+export const playStopped = (a: AppState, stop: DayStop): DayPlay => playDay(a, stopQueuedDay(a, stop), stop);
+
+/** One thing done by hand (#1350), stopped `hours` in (#1815): `act`'s result, as a single step with no night. */
+export function playActStopped(a: AppState, item: QueueItem, hours: number): DayPlay {
+  const after = act(a, item, hours);
+  if (after === a) return { before: a, after, steps: [], night: false, fromQueue: false };
+  return faithful({ before: a, after, steps: [stepOnce(a.sim, item, hours)], night: false, fromQueue: false });
+}
+
+/**
+ * Where Stop (#1815) would cut the play at moment `m`: the step running, and the hours into it by
+ * its plan (the timer's bar is the share of the step done, so the same share of its planned
+ * hours). Null when there's nothing to stop: the switch off, the night, or a step that was refused.
+ */
+export function stopPoint(p: DayPlay, m: Moment): DayStop | null {
+  if (m.index < 0 || m.index >= p.steps.length || m.over) return null;
+  const st = p.steps[m.index];
+  const from = m.index > 0 ? p.steps[m.index - 1].sim : p.before.sim;
+  if (st.hours <= 0 || !stopOn(from)) return null;
+  // Rounded down to the minute, so the move in the log reads plainly and replays to the same number.
+  return { action: m.index, hours: Math.floor(m.frac * queueHours(st.item, from) * 60) / 60 };
+}
+
+/** Playback hours into a play at which its step `index` has run `hours` (by the step's own hours). */
+export function timeAt(p: DayPlay, index: number, hours: number): number {
+  const segs = segmentsOf(p);
+  return segs.slice(0, index).reduce((x, y) => x + y, 0) + Math.min(Math.max(0, hours), segs[index] ?? 0);
 }
 
 /** One thing done now, before planning is learned (#1350): `act`'s result, as a single step with no night. */

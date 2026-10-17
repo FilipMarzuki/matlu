@@ -19,7 +19,7 @@
  */
 
 import {
-  makeWarden, act, choose, endTheDay, runQueuedDay, meetingChoose, roadAct, roadChoose, roadEndDay, forget, weighPin, queueLocked,
+  makeWarden, act, choose, endTheDay, runQueuedDay, stopQueuedDay, meetingChoose, roadAct, roadChoose, roadEndDay, forget, weighPin, queueLocked,
   type AppState,
 } from '../artificer-app/controller';
 import { ACTIONS, repack, type QueueItem } from '../artificer/region1';
@@ -29,6 +29,7 @@ import { validStats } from '../artificer/stats';
 import { START_AGES } from '../artificer/growing';
 import { validPack } from '../artificer/kit';
 import { FEATURES, validFeatures } from '../artificer/features';
+import { stopRefusal } from '../artificer/stop-action';
 import { GRADES, type Tool } from '../artificer/crafting';
 import { advance, applySet, isRoadAction, phaseOf, view } from './session';
 import { measure, type GameMeasures } from './record-of';
@@ -139,12 +140,20 @@ export function stepWeb(a: AppState, m: WebMove): AppState | string {
   if ('endDay' in m) return m.endDay === true ? (phase === 'road' ? roadEndDay(a) : endTheDay(a)) : 'endDay is true.';
   if ('do' in m) {
     if (phase === 'road') return isStr(m.do) && isRoadAction(m.do) ? roadAct(a, m.do as Parameters<typeof roadAct>[1]) : `"${String(m.do)}" isn't a road action.`;
-    return validItem(m.do) ? act(a, m.do) : `There's no action "${JSON.stringify(m.do)}".`;
+    if (!validItem(m.do)) return `There's no action "${JSON.stringify(m.do)}".`;
+    // Stopped partway (#1815): only in a run with stop-action on, and only a stop the page could make.
+    if (m.stop !== undefined) { const no = stopRefusal(a.sim, m.stop, 1); if (no) return no; }
+    return act(a, m.do, m.stop?.hours);
   }
   if ('plan' in m) {
     if (phase !== 'day') return 'There\'s no planning on the road.';
     if (queueLocked(a)) return 'The Warden hadn\'t learned to plan yet.';
     if (!Array.isArray(m.plan) || m.plan.length > MAX_PLAN || !m.plan.every(validItem)) return 'That isn\'t a plan of actions.';
+    if (m.stop !== undefined) {
+      const no = stopRefusal(a.sim, m.stop, m.plan.length);
+      if (no) return no;
+      return stopQueuedDay({ ...a, queue: m.plan as QueueItem[] }, m.stop);
+    }
     return runQueuedDay({ ...a, queue: m.plan as QueueItem[] });
   }
   return 'That isn\'t a move the web game makes.';

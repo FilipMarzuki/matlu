@@ -289,6 +289,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'You start by picking loose stones off the ground, out of the riverbed and from the scree: lighter work than quarrying, about half the stone, more by the river or on the hill. It trains Stonework, and once you\'ve found the cleave (stone has seams) you can quarry stone as before.',
   },
   {
+    // A rules feature: a stop is a move in the run's log ("the queue's action N, stopped at hour h"),
+    // replayed by playing the day again from the morning with that action cut short (stop-action.ts),
+    // so a run from before it (absent: false) has no such move and plays as it always did.
+    id: 'stop-action', name: 'Stop an action partway', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1815,
+    note: 'While the day plays out, Stop ends the action running at that moment. On the walk out you turn back with nothing; water brings nothing until it\'s fetched; a hunt\'s kill comes when it comes, sometimes straight away: stopped after it you have the whole catch, before it nothing; wood, forage, stone and fish bring a share for the work done; exploring keeps what you\'d seen; on the walk back you have it all; at camp nothing is made or used up. The rest of the queue stays queued.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
