@@ -74,7 +74,7 @@ import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { nowTotal, queueTimes, timeWordsShown, timerClock } from './time-view';
 import { endWords, partShort } from '../artificer/time-words';
-import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout } from './plan-layout';
+import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
@@ -432,12 +432,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
-  // The compact total (#1826): the day's hours, and when today's plan ends if anything runs today.
-  const today = todayHours(a, preview);
-  const runsToday = preview.dayOffset.some((d, i) => d === 0 && !preview.warnings[i]);
-  const end = runsToday ? compactEnd(today, timeWordsShown(s, dev) ? partShort(endWords(s.day, today, s.config.calendar), t) : null) : null;
   const tot = compact
-    ? `<span class="qfull">${times.total}</span><span class="qfull">${spans}</span><span class="qct">${esc(compactTotal(today, end, t))}</span>`
+    ? `<span class="qfull">${times.total}</span><span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
     : `<span>${times.total}</span><span>${spans}</span>`;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
@@ -450,6 +446,30 @@ function queueBlock(a: AppState, preview: Preview): string {
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>${guideTip('runDay')}
     </div>`;
+}
+
+/** The compact total (#1826): the day's hours, and when today's plan ends if anything runs today. */
+function dayTotal(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  const today = todayHours(a, preview);
+  const runsToday = preview.dayOffset.some((d, i) => d === 0 && !preview.warnings[i]);
+  const end = runsToday ? compactEnd(today, timeWordsShown(s, dev) ? partShort(endWords(s.day, today, s.config.calendar), t) : null) : null;
+  return compactTotal(today, end, t);
+}
+
+/** The phone's strip unfolded (#1826): the page's own, like the weather's fold; a reload starts folded. */
+let stripOpen = false;
+
+/** The phone's frozen strip over the actions (#1826, plan-layout.ts queueStrip). */
+function stripBlock(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  if (!s.canPlan) {
+    return queueStrip({ items: [], note: t('head.oneThing'), total: compactTotal(s.hoursToday, null, t), open: stripOpen,
+      button: { cmd: 'endday', label: t('btn.endDay'), disabled: !!s.outcome } }, t);
+  }
+  const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
+  return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
+    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null } }, t);
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
@@ -816,7 +836,8 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
   const log = g.shows('journal') ? `<div class="log"${g.mark('journal')}><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p>${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
-  return planLayout({ actions, queue, journal: log, camp }, sideQueueOn(), t);
+  const strip = queue && sideQueueOn() ? stripBlock(a, preview) : '';
+  return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t);
 }
 
 function tabBody(a: AppState, preview: Preview): string {
@@ -828,6 +849,8 @@ function tabBody(a: AppState, preview: Preview): string {
         queue: queueBlock(a, preview),
         journal: `<div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>`,
         camp: hasCamp(a.sim) ? '' : beforeCamp(a),
+        strip: sideQueueOn() ? stripBlock(a, preview) : '',
+        stripOpen,
       }, sideQueueOn(), t)}`;
     case 'camp':
       return `<div class="cols">
@@ -1880,6 +1903,8 @@ root.addEventListener('click', e => {
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
   // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
   if (d.cmd === 'feedback') { feedback.toggle(); return; }
+  // The phone's queue strip (#1826): unfold or fold it. Presentation only, so mid-day too.
+  if (d.cmd === 'qstrip') { stripOpen = !stripOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="qstrip"]')?.focus({ preventScroll: true }); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {

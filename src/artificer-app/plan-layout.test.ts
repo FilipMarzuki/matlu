@@ -11,7 +11,7 @@ import { makeT, type Key } from '../artificer/i18n';
 import { DISTANCE_NOT_RINGS } from '../artificer/distance-words';
 import { ICON } from './camp-blocks';
 import { distanceT } from './sim-words';
-import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactItemText, compactTotal, planLayout, type PlanParts } from './plan-layout';
+import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactItemText, compactTotal, planLayout, queueStrip, type PlanParts } from './plan-layout';
 import type { ActionId } from '../artificer/region1';
 
 const en = makeT('en');
@@ -73,7 +73,7 @@ describe('the PLAN layout (#1826)', () => {
 
   it('on: before planning is learned, the one-at-a-time note sits where the queue would', () => {
     const note = '<div class="queue onestep"><i>ONE THING</i></div>';
-    expect(section(planLayout({ ...parts, queue: note }, true, en), 'planq')).toBe(note);
+    expect(section(planLayout({ ...parts, queue: note }, true, en), 'planq')).toBe(`<div class="planqfull">${note}</div>`);
   });
 
   it('says the column\'s name in Swedish', () => {
@@ -130,5 +130,45 @@ describe('the compact queue\'s words (#1826)', () => {
     expect(compactTotal(6, '12:00', sv)).toBe('6 / 14 h · slut 12:00');
     expect(compactTotal(2.5, null, en)).toBe('2.5 / 14h');
     expect(compactTotal(2.5, null, sv)).toBe('2,5 / 14 h');
+  });
+});
+
+describe('the phone\'s strip over the actions (#1826)', () => {
+  const items = [compactItem('water', 1, true, 2, ICON.water, en), compactItem('wood', 2, true, 4, ICON.wood, en)];
+  const strip = (open: boolean, t = en): string => queueStrip({ items, note: '', total: compactTotal(6, '12:00', t), open, button: { cmd: 'day', label: 'RUN THE DAY', disabled: false } }, t);
+
+  it('sits first in the frozen box, the whole queue after it; unfolded marks the box', () => {
+    const folded = planLayout({ ...parts, strip: strip(false), stripOpen: false }, true, en);
+    const q = section(folded, 'planq')!;
+    expect(q.indexOf('class="qstrip"')).toBe(5);
+    expect(q).toContain(`<div class="planqfull">${parts.queue}</div>`);
+    expect(folded).toContain('class="box planq"');
+    expect(planLayout({ ...parts, strip: strip(true), stripOpen: true }, true, en)).toContain('class="box planq stripopen"');
+    // Off, no strip, whatever is passed.
+    expect(planLayout({ ...parts, strip: strip(false) }, false, en)).not.toContain('qstrip');
+  });
+
+  it('folded: each task as a chip (icon, short name, hours), the total and its end, ▾ to unfold, and Run', () => {
+    const html = strip(false);
+    expect(html).toContain('data-cmd="qstrip" aria-expanded="false" title="Show the whole queue"');
+    expect(html.match(/class="qschip"/g)).toHaveLength(2);
+    expect(html).toContain('<span class="qci">🪵</span> Wood <b>4h</b>');
+    expect(html).toContain('6 / 14h · ends 12:00');
+    expect(html).toContain('▾');
+    expect(html).toContain('<button class="btn go" data-cmd="day">RUN THE DAY</button>');
+  });
+
+  it('unfolded: ▴ folds it again; in Swedish', () => {
+    const html = strip(true, sv);
+    expect(html).toContain('aria-expanded="true" title="Fäll ihop kön"');
+    expect(html).toContain('▴');
+    expect(html).toContain('6 / 14 h · slut 12:00');
+  });
+
+  it('with nothing queued, or before planning is learned, says its note, and End day can be disabled', () => {
+    const html = queueStrip({ items: [], note: sv('qc.empty'), total: compactTotal(0, null, sv), open: false, button: { cmd: 'endday', label: 'AVSLUTA', disabled: true } }, sv);
+    expect(html).toContain('<span class="qsnote">Inget i kön — tryck på en syssla</span>');
+    expect(html).toContain('data-cmd="endday" disabled');
+    expect(html).not.toContain('class="qschip"');
   });
 });

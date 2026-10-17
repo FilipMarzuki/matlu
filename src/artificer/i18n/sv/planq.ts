@@ -44,4 +44,7 @@ export const planqSv: Record<keyof typeof planq, string> = {
   'qc.ends': 'slut {when}',
   'qc.up': 'Flytta upp {name}',
   'qc.label': 'Kön',
+  'qc.unfold': 'Visa hela kön',
+  'qc.fold': 'Fäll ihop kön',
+  'qc.empty': 'Inget i kön — tryck på en syssla',
 };

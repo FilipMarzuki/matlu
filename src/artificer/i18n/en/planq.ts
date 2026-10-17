@@ -48,4 +48,8 @@ export const planq = {
   'qc.ends': 'ends {when}',
   'qc.up': 'Move {name} up',
   'qc.label': 'The queue',
+  // The phone's strip over the actions: tap to unfold the whole queue, tap again to fold it.
+  'qc.unfold': 'Show the whole queue',
+  'qc.fold': 'Fold the queue',
+  'qc.empty': 'Nothing queued — tap an action',
 };

@@ -1,8 +1,10 @@
 /**
- * The PLAN tab's layout (#1826, ui feature `side-queue`): the actions on the left and the queue on
- * the right on every width, phones included, with the queue's column frozen (CSS `position:
- * sticky`, style.css `.plan.sideq`) so it stays in view while the actions scroll. The latest
- * journal and the camp-site picker sit in their own box below, never in the frozen column.
+ * The PLAN tab's layout (#1826, ui feature `side-queue`): on a tablet or desktop the actions on the
+ * left and the queue on the right, the queue's column frozen (CSS `position: sticky`, style.css
+ * `.plan.sideq`) so it stays in view while the actions scroll. On a phone in portrait (under 700px)
+ * the queue is a frozen strip over the actions instead (queueStrip), which unfolds to the whole
+ * queue, and the actions take the full width. The latest journal and the camp-site picker sit in
+ * their own box below, never in the frozen part.
  *
  * With the switch off it draws exactly what the page drew before: the actions, then one side
  * column (`.planside`) with the queue, the journal and the site picker.
@@ -30,6 +32,10 @@ export interface PlanParts {
   journal: string;
   /** The camp-site picker and the tools, before camp is made. */
   camp: string;
+  /** The phone's folded strip over the actions (queueStrip); only drawn with the switch on. */
+  strip?: string;
+  /** The strip unfolded: the whole queue shows under it on a phone. */
+  stripOpen?: boolean;
 }
 
 /**
@@ -44,7 +50,12 @@ export function planLayout(p: PlanParts, sideQueue: boolean, t: T): string {
   }
   // The frozen column sits in a zone of its own (`.planqzone`), as tall as the actions: a sticky box
   // only travels inside its parent, so the box below starts where the actions end and is never covered.
-  const queue = p.queue ? `<div class="planqzone"><section class="box planq" aria-label="${esc(t('qc.label'))}">${p.queue}</section></div>` : '';
+  // On a phone (style.css, under 700px) the zone steps aside and the queue is a strip over the actions:
+  // the folded strip shows, and the whole queue (`.planqfull`) only once it's unfolded.
+  const open = p.stripOpen ? ' stripopen' : '';
+  const queue = p.queue
+    ? `<div class="planqzone"><section class="box planq${open}" aria-label="${esc(t('qc.label'))}">${p.strip ?? ''}<div class="planqfull">${p.queue}</div></section></div>`
+    : '';
   const more = p.journal || p.camp ? `<section class="box planmore">${p.journal}${p.camp}</section>` : '';
   if (!p.actions && !queue && !more) return '';
   return `<div class="plan sideq${queue ? '' : ' noq'}"><div class="planacts">${p.actions}</div>${queue}${more}</div>`;
@@ -86,6 +97,32 @@ const clock = (h: number): string => {
   const mins = Math.floor(h * 60 + 1e-6);
   return `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
+
+/** What the phone's strip holds: the tasks (none before planning is learned), a note in their place, the total and its button. */
+export interface StripParts {
+  items: readonly CompactItem[];
+  /** Said instead of the tasks when there are none ("Nothing queued", or one-at-a-time play's note). */
+  note: string;
+  /** The day's total and when it ends (compactTotal). */
+  total: string;
+  /** Run the day (or pass it), or End the day before planning is learned. */
+  button: { cmd: string; label: string; disabled: boolean };
+  open: boolean;
+}
+
+/**
+ * The phone's strip over the actions (#1826): the queue folded to chips (icon, short name, hours),
+ * the day's total and when it ends, and the Run / End day button. A tap on the chips (▾) unfolds
+ * the whole queue under it, where tasks are removed and moved; another tap folds it.
+ */
+export function queueStrip(p: StripParts, t: T): string {
+  const chips = p.items.length
+    ? p.items.map(c => `<span class="qschip"><span class="qci">${c.icon}</span> ${esc(c.name)} <b>${esc(c.hours)}</b></span>`).join('')
+    : `<span class="qsnote">${esc(p.note)}</span>`;
+  return `<div class="qstrip"><button class="qsbar" data-cmd="qstrip" aria-expanded="${p.open}" title="${esc(t(p.open ? 'qc.fold' : 'qc.unfold'))}">`
+    + `<span class="qschips">${chips}</span><span class="qstot">${esc(p.total)}</span><span class="qsfold" aria-hidden="true">${p.open ? '▴' : '▾'}</span></button>`
+    + `<button class="btn go" data-cmd="${p.button.cmd}"${p.button.disabled ? ' disabled' : ''}>${esc(p.button.label)}</button></div>`;
+}
 
 /** The day's total under the compact queue ("6 / 14h · ends 12:00"); without an end when nothing runs today. */
 export function compactTotal(today: number, end: string | null, t: T): string {

@@ -285,15 +285,16 @@
   .shours { margin-left: 0; }
 }
 /* ── The queue beside the actions (#1826, ui feature `side-queue`, plan-layout.ts) ──────────────
-   Two columns on every width: the actions left, the queue right (about 60/40 on a phone), and the
-   journal + camp-site picker in a box of their own. The queue's column is frozen just below the
-   sticky status bar: `--stick-top` is that bar's height, set by main.ts syncStickTop() (the default
-   here is the desktop bar's), so a change to the header or the bar moves the column with it. A
-   queue taller than the screen scrolls inside its column, with the Run bar pinned to its foot. */
+   Tablet and desktop: the actions left, the queue right, its column frozen just below the sticky
+   status bar. Phone in portrait (under 700px): the queue is a frozen strip over the actions, which
+   take the full width. The journal + camp-site picker are in a box of their own below, never frozen.
+   `--stick-top` is the status bar's height, set by main.ts syncStickTop() (the default here is the
+   desktop bar's), so a change to the header or the bar moves the frozen part with it. A queue
+   taller than the screen scrolls inside its frozen box, with the Run bar pinned to its foot. */
 :root { --stick-top: 64px; }
 /* The queue's zone is stretched to the actions' height (the row's), and the frozen queue travels
    inside it, so it stays in view the whole way down the actions. The box below starts where the
-   actions end: under the queue on desktop, across both columns on a phone. */
+   actions end: under the queue on desktop, across both columns on a tablet. */
 .plan.sideq { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "acts q" ". more"; align-items: stretch; }
 .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
 .plan.sideq > .planacts { grid-area: acts; min-width: 0; }
@@ -313,18 +314,34 @@
 /* The cards in the narrower column: their words wrap, nothing pokes out. */
 .plan.sideq .act { min-width: 0; overflow-wrap: anywhere; }
 .plan.sideq .act .t { flex-wrap: wrap; row-gap: 2px; }
-/* The compact queue's own parts, shown only when the column is narrow. */
-.queue .qc, .queue .qup, .queue .qct { display: none; }
-/* Narrower: about 60/40, and the box below spans both columns. */
+/* The compact queue's own parts, shown only when the column is narrow; the strip only on a phone. */
+.queue .qc, .queue .qup, .queue .qct, .qstrip { display: none; }
+/* A tablet: about 60/40, and the box below spans both columns. */
 @media (max-width: 900px) {
   .plan.sideq { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-areas: "acts q" "more more"; gap: 8px; }
   .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
 }
-@media (max-width: 520px) {
-  .plan.sideq > .planacts > .box, .plan.sideq .planq { padding: 9px; }
-  .plan.sideq .act { flex-basis: 100%; padding: 6px 7px; }
-  .plan.sideq .acts { gap: 5px; }
+/* A phone in portrait: one column, the queue's strip first. Its zone steps aside, so the strip is
+   the grid's own item and stays frozen the whole way down the plan; the actions scroll under it. */
+@media (max-width: 699px) {
+  .plan.sideq, .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "q" "acts" "more"; gap: 8px; }
+  .plan.sideq > .planqzone { display: contents; }
+  .plan.sideq .planq { grid-area: q; align-self: start; z-index: 4; padding: 7px 8px; box-shadow: 0 6px 14px rgba(0,0,0,.28); }
+  .plan.sideq .planq:not(.stripopen) > .planqfull { display: none; }
+  .plan.sideq .planq.stripopen > .planqfull { margin-top: 8px; }
+  .plan.sideq .qstrip { display: flex; align-items: center; gap: 8px; }
 }
+.qsbar { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border2); border-radius: 9px; background: var(--sub2); color: var(--ink); padding: 5px 8px; font-family: inherit; min-height: 44px; }
+.qsbar:hover, .qsbar:focus-visible { border-color: var(--teal); }
+.qschips { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 3px 4px; min-width: 0; max-height: 39px; overflow: hidden; } /* two rows of chips; the total says the rest */
+.qschip { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; font-size: 10.5px; line-height: 1.3; padding: 1px 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--sub); }
+.qschip b { font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
+.qsnote { font-size: 11px; color: var(--dim); font-style: italic; }
+.qstot { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.qsfold { margin-left: auto; color: var(--teal); font-size: 12px; }
+.qstrip > .btn.go { flex: 0 0 auto; align-self: stretch; padding: 8px 10px; max-width: 38%; white-space: normal; }
 /* A narrow queue column: each task in a few words on a line of its own (icon, short name, the
    distance, hours), its controls (grip, options, ▲, ×) on the line under it. */
 @container planq (max-width: 330px) {
