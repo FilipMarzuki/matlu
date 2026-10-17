@@ -35,4 +35,20 @@ export const meny = {
   'meny.developer': 'DEVELOPER',
   'meny.devNote': 'Dev mode is for testing; it never changes the game.',
   'meny.devOpen': 'DEV MODE…',
+  // How to play (#1824): the old ? panel, now a section of the Menu after the guide.
+  'meny.howTo': 'HOW TO PLAY',
+  // The two-row header's resources (#1824, artificer-app/vital-words.ts): a word for each level,
+  // full (0) to nearly gone (3). The word carries the meaning; the pill's border its colour.
+  'vital.word.vigor.0': 'Energized',
+  'vital.word.vigor.1': 'Steady',
+  'vital.word.vigor.2': 'Tired',
+  'vital.word.vigor.3': 'Exhausted',
+  'vital.word.clarity.0': 'Alert',
+  'vital.word.clarity.1': 'Clear',
+  'vital.word.clarity.2': 'Drowsy',
+  'vital.word.clarity.3': 'Foggy',
+  'vital.word.reserve.0': 'Well',
+  'vital.word.reserve.1': 'Worn',
+  'vital.word.reserve.2': 'Hurt',
+  'vital.word.reserve.3': 'Failing',
 } as const satisfies Record<string, string>;

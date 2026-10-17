@@ -80,7 +80,9 @@ import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artific
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, pct, band, wardenButton } from './html';
-import { ICON, haulWord, paletteBlock, weatherBox, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { weatherRow } from './weather-row';
+import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
+import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -88,7 +90,8 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { MENY_FEATURE, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, weeklyButton, type HeaderParts } from './meny';
+import { TWO_ROW_FEATURE, wardenRow, type VitalReading } from './vital-words';
+import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, weeklyButton, type HeaderParts } from './meny';
 import { REVEALS, TAB_GUIDE, activeTip, began, guideFinished, guideFor, heldTabs, isGuideId, queueReach, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -457,18 +460,18 @@ function statusBar(a: AppState, preview: Preview): string {
   if (g.active) {
     const stores = g.shows('stores');
     return `<div class="statusbar">
-    ${vitals ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
+    ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
     ${stores ? markFirst(storesBar(a), 'stores') : ''}
     ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
-    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>` : ''}
+    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
     ${g.shows('focus') ? outlookTag(s, ready) : ''}
   </div>${tips}`;
   }
   return `<div class="statusbar">
-    <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
+    ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
     ${storesBar(a)}
     ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
+    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -635,6 +638,8 @@ function menyView(a: AppState): string {
     profile: profileBody({ runs: history.length, runId: a.sim.character.id, copied: idCopied }, t),
     language: langSwitch(false),
     guide: guideControls(a, false),
+    // How to play (#1824): the old ? panel's text, with the two-row header (which has no ?).
+    howto: twoRowOn() ? `<p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>` : '',
     visual: `<div class="langswitch">${lookSwitcher(a, true)}</div>${backdropControls(true)}`,
     elsewhere: elsewhereBody(t),
     experiments: experimentsBody({ on: exp, dev, controls: `${featuresButton()}${featuresPanel(a)}` }, t),
@@ -649,6 +654,28 @@ function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'we
     ...p, dev: devChip(), weekly: weeklyButton(t), features: featuresButton(), look: lookSwitcher(a), reset: newSaveButton(t),
   }, on ? menyButton(menyShown(), t, dev ? devTag() : '') : '');
 }
+
+// ── The two-row header (#1824, vital-words.ts) ──────────────────────────────
+// A ui feature on top of the Menu: row 1 the place, the day, the ⚙ and feedback; row 2 the Warden
+// and the three resources as words (bars from day 8). Off (or with the Menu off), `header` above.
+const twoRowOn = (): boolean => menyOn() && uiFeatureOn(loadChoices(), TWO_ROW_FEATURE);
+
+/** The whole header, drawn one way or the other: `title` is the h1, `row2` what row 2's resources read. */
+function headerBlock(title: string, p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'weekly'>, a: AppState,
+  row2: { vitals: readonly VitalReading[]; day: number; shown: boolean; attrs?: string }): string {
+  if (!twoRowOn()) return `<header>\n      ${title}\n      <span class="spacer"></span>\n      ${header(p, a)}\n    </header>`;
+  return `<header class="tworow">\n    ${headerRows({
+    title, counters: p.counters, week: p.week, experiment: p.experiment, feedback: p.feedback,
+    row2: wardenRow({ warden: p.warden, ...row2 }, t),
+  }, menyButton(menyShown(), t, dev ? devTag() : '', true))}\n    </header>`;
+}
+
+/** The three resources as row 2 reads them: each against today's cap, the bars as wide as the old ones. */
+const vitalReadings = (s: AppState['sim']): VitalReading[] => [
+  { id: 'vigor', current: s.vitals.vigor.current, cap: s.vitals.vigor.cap, max: CAP_CEIL },
+  { id: 'clarity', current: s.vitals.clarity.current, cap: s.vitals.clarity.cap, max: CAP_CEIL },
+  { id: 'reserve', current: s.vitals.condition, cap: 100, max: 100 },
+];
 
 /**
  * Before camp is made (#1691) there's no CAMP tab, but choosing a site is how camp is made, so the
@@ -779,12 +806,32 @@ let wxFold: WeatherFold = loadWeatherFold();
 let wxRefocus = false;
 
 /** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
-function weatherSection(a: AppState): string {
+function weatherSection(a: AppState, preview: Preview): string {
   // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
   // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
   const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
+  // With the two-row header (#1825), after the first time's card the weather and the time of day
+  // share one row (weather-row.ts), which unfolds into the full box; the TODAY chip leaves the
+  // status bar. The first time's card is untouched: the guide's next steps wait on its "Got it".
+  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
   // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
-  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${weatherBox(a.sim, t, { dev, fold })}</section>`;
+  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${box}</section>`;
+}
+
+/** The weather and the time of day in one row (#1825), the full box under it while it's open. */
+function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
+  const s = a.sim;
+  const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
+  return weatherRow({
+    chips: weatherChips(s, t, { dev }),
+    // The TODAY chip's own text (the part of the day the plan ends in, or the hours): plain words and
+    // digits, so the row escapes it as text.
+    time: queueTimes(a, preview, t, dev).status,
+    open: fold.mode === 'open', hint: fold.hint,
+    banner: blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '',
+    // Open, the box as it's drawn unfolded, without its own heading's toggle (the row is the toggle).
+    details: weatherBox(s, t, { dev }),
+  }, t);
 }
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
@@ -805,8 +852,8 @@ function guidedPlan(a: AppState, preview: Preview): string {
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a)}<div class="plan">
+      if (guide.active) return `${weatherSection(a, preview)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a, preview)}<div class="plan">
         <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
@@ -881,17 +928,13 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   root.innerHTML = `
-    <header>
-      <h1>${t('top.titleHtml')}</h1>
-      <span class="spacer"></span>
-      ${header({
+    ${headerBlock(`<h1>${t('top.titleHtml')}</h1>`, {
         warden: wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t),
         counters: `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
         week: weekChip(a), experiment: '', playAi: playAiLink(t),
         help: `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
         feedback: feedback.button(t),
-      }, a)}
-    </header>
+      }, a, { vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') })}
     ${menyOn() ? '' : featuresPanel(a)}
     ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
     ${statusBar(a, preview)}
@@ -1204,16 +1247,12 @@ function renderRoad(a: AppState, r: RoadState): void {
   const meny = menyShown();
   const end = r.outcome ? `${roadEnd(r, t)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
   root.innerHTML = `
-    <header>
-      <h1>${t('top.roadTitleHtml')}</h1>
-      <span class="spacer"></span>
-      ${header({
+    ${headerBlock(`<h1>${t('top.roadTitleHtml')}</h1>`, {
         warden: wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden' && !meny, data: 'rtab' }, t),
         counters: `<span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>`,
         week: weekChip(a), experiment: experimentChip(a), playAi: '', help: '', feedback: feedback.button(t),
-      }, a)}
-    </header>
+      }, a, { vitals: [], day: r.day, shown: false })}
     ${menyOn() ? '' : featuresPanel(a)}
     ${routeStrip(r, t)}
     ${end}

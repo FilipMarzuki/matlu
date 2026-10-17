@@ -8,6 +8,11 @@
     --gold: #ffe066; --teal: #4dd4f0; --amber: #c8922a;
     --green: #88ff88; --warn: #ffaa33; --danger: #ff5a5a; --ice: #9fd8ff;
     --lilac: #c9b4ff;
+    /* The resources' four levels (#1824, vital-words.ts), full to nearly gone: borders drawn from
+       the status colours every era look sets (looks.ts), so they read on paper and on dark panels
+       alike. The second is a yellow-green between the good and the warning colour. */
+    --lv-0: var(--green); --lv-1: color-mix(in srgb, var(--green) 55%, var(--warn));
+    --lv-2: var(--warn); --lv-3: var(--danger);
     /* Era looks (#1719): these are the defaults, the look of a page with no look (the records page,
        play-with-ai). The game sets <html data-look="…"> and looks.ts sets every colour token above
        and these for that look. Only colours, images and shadows: a look never moves a box. */
@@ -1215,3 +1220,41 @@ html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), 
 .menysec .lookswitch .lsname { display: none; }
 .menyexp { margin: 0 0 8px; }
 .menyexp summary { cursor: pointer; display: list-item; padding: 14px 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+
+/* ── The two-row header (#1824, meny.ts headerRows, vital-words.ts) ─────────── */
+/* Row 1 (place, day, ⚙, feedback) never wraps: the title shrinks first, then the ⚙ drops its word. */
+header.tworow { display: block; }
+.hrow { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
+.hrow1 { flex-wrap: nowrap; }
+.hrow1 h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.hrow1 > :not(h1):not(.spacer) { flex: none; }
+.hrow2 { flex-wrap: wrap; margin-top: 8px; }
+.hrow2 .who { min-width: 0; max-width: 100%; }
+.hrow2 .who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hvitals { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vital { display: inline-flex; align-items: center; gap: 5px; }
+.vital .vl { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); }
+/* The word keeps the ink; its border carries the level's colour (and the word the meaning). */
+.vword { padding: 1px 8px; border: 1.5px solid var(--border2); border-radius: 999px; background: var(--sub); color: var(--ink); font: 600 11.5px var(--body); line-height: 1.5; white-space: nowrap; }
+.vword.lv-0 { border-color: var(--lv-0); } .vword.lv-1 { border-color: var(--lv-1); }
+.vword.lv-2 { border-color: var(--lv-2); } .vword.lv-3 { border-color: var(--lv-3); }
+/* From day 8 the old bar comes back beside the word. */
+.vital .mt { width: 52px; height: 7px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.vital .mf { display: block; height: 100%; }
+.vital .mf.fresh { background: var(--lv-0); } .vital .mf.ok { background: var(--lv-1); } .vital .mf.warn { background: var(--lv-2); } .vital .mf.low { background: var(--lv-3); }
+@media (max-width: 520px) {
+  .hrow { gap: 6px 8px; }
+  .hrow1 .menyword { display: none; }
+  .hrow1 .counter { gap: 4px; }
+  .vital .vl { display: none; }
+  .vital .mt { width: 36px; }
+}
+.menyword { margin-left: 5px; }
+/* Silkscreen draws the ⚙ tiny at the pills' 8px: bigger on its own, so the bare gear is an easy target. */
+.menygear { font-family: var(--body); font-size: 13px; line-height: 1; }
+
+/* ── The weather and the time of day in one row (#1825, weather-row.ts) ───── */
+.wxone .wxonerow { display: flex; width: 100%; gap: 8px; font: 600 13px var(--body); letter-spacing: 0; color: var(--ink); text-transform: none; }
+.wxone .wxonetext { min-width: 0; overflow-wrap: anywhere; }
+.wxone .wxhint { display: block; margin: 2px 0 0 18px; }
+.wxone .wxonedetails { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }

@@ -37,12 +37,16 @@ const parts = (t = en): HeaderParts => ({
 const MOVED = ['data-cmd="reset"', 'data-cmd="weekly"', 'href="/play-with-ai/"', 'data-cmd="features"', 'lookswitch', 'devchip'];
 
 describe('the meny ui feature (#1808)', () => {
-  it('is a ui feature, experimental, on by default, registered last, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after every rule feature, and no run saves it', () => {
     expect(featureById(MENY_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1808 });
     expect(uiFeatureOn({}, MENY_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [MENY_FEATURE]: false }, MENY_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(MENY_FEATURE);
-    expect(FEATURES.at(-1)?.id).toBe(MENY_FEATURE);
+    // The rule features' order is pinned elsewhere; the ui features come after them all (the
+    // two-row header, #1824, right after the Menu it builds on).
+    const at = FEATURES.findIndex(f => f.id === MENY_FEATURE);
+    expect(FEATURES.slice(at).every(f => f.kind === 'ui')).toBe(true);
+    expect(FEATURES[at + 1]?.id).toBe('two-row-header');
   });
 });
 
@@ -88,12 +92,12 @@ describe('the Menu page (#1808)', () => {
   const bodies = Object.fromEntries(MENY_SECTIONS.map(id => [id, `<i>${id}</i>`]));
 
   it('has its sections in the owner\'s order, each with its heading, and no Sound while there is no sound', () => {
-    expect(MENY_SECTIONS).toEqual(['newgame', 'profile', 'language', 'guide', 'visual', 'elsewhere', 'experiments', 'developer']);
+    expect(MENY_SECTIONS).toEqual(['newgame', 'profile', 'language', 'guide', 'howto', 'visual', 'elsewhere', 'experiments', 'developer']);
     const html = menyPage(bodies, en);
     const at = MENY_SECTIONS.map(id => html.indexOf(`data-meny="${id}"`));
     expect(at.every(i => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    for (const h of ['NEW GAME', 'PROFILE', 'LANGUAGE', 'GUIDE', 'LOOK', 'PLAY ELSEWHERE', 'EXPERIMENTS', 'DEVELOPER']) expect(html).toContain(`>${h}</h3>`);
+    for (const h of ['NEW GAME', 'PROFILE', 'LANGUAGE', 'GUIDE', 'HOW TO PLAY', 'LOOK', 'PLAY ELSEWHERE', 'EXPERIMENTS', 'DEVELOPER']) expect(html).toContain(`>${h}</h3>`);
     expect(html).not.toMatch(/sound/i);
     expect(html).toContain('data-cmd="menyclose"');
     expect(html).toContain('id="meny-title" tabindex="-1"');
@@ -101,7 +105,7 @@ describe('the Menu page (#1808)', () => {
 
   it('in Swedish', () => {
     const html = menyPage(bodies, sv);
-    for (const h of ['MENY', 'NYTT SPEL', 'PROFIL', 'SPRÅK', 'GUIDE', 'UTSEENDE', 'SPELA PÅ ANNAT SÄTT', 'EXPERIMENT', 'UTVECKLARE']) expect(html).toContain(`>${h}</h`);
+    for (const h of ['MENY', 'NYTT SPEL', 'PROFIL', 'SPRÅK', 'GUIDE', 'SÅ SPELAR DU', 'UTSEENDE', 'SPELA PÅ ANNAT SÄTT', 'EXPERIMENT', 'UTVECKLARE']) expect(html).toContain(`>${h}</h`);
   });
 
   it('leaves out a section with nothing in it (the guide on the road)', () => {

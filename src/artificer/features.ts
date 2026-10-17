@@ -323,6 +323,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'meny', name: 'The ⚙ Menu', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1808,
     note: 'The header keeps only the title, the Warden, the day and the ⚙ Menu (with help and feedback): new game, profile, language, guide, look, other ways to play, experiments and dev mode are on the Menu page.',
   },
+  {
+    // A ui feature (#1824): how the header is drawn (artificer-app/meny.ts `headerRows`,
+    // artificer-app/vital-words.ts), so it switches live and no run saves it. It builds on the Menu
+    // (help moves into it), so it shows only with `meny` on too. The play API, the console and AI
+    // players never see it. Off, the header is the one from #1808.
+    id: 'two-row-header', name: 'Two-row header', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1824,
+    note: 'The header is two rows: the place, the day, the ⚙ Menu and feedback; then the Warden and Vigor, Clarity and Condition as words (Energized, Drowsy, Hurt…) in a coloured border, with bars beside them from day 8. How to play moves into the Menu.',
+  },
 ];
 
 /** Switches by feature id. */
