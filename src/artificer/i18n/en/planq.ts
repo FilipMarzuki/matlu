@@ -1,0 +1,51 @@
+/**
+ * English for the queue beside the actions (#1826, ui feature `side-queue`): the compact queue a
+ * narrow column shows. Each action's short name, a distance as one short word, the day's total and
+ * when it ends, and the button that moves a task up. Spread into `en` (../en.ts).
+ */
+export const planq = {
+  'actshort.scout': 'Scout',
+  'actshort.survey': 'Survey',
+  'actshort.track': 'Track',
+  'actshort.gather': 'Food',
+  'actshort.hunt': 'Hunt',
+  'actshort.water': 'Water',
+  'actshort.wood': 'Wood',
+  'actshort.fish': 'Fish',
+  'actshort.quarry': 'Quarry',
+  'actshort.gatherstone': 'Stones',
+  'actshort.preserve': 'Preserve',
+  'actshort.build': 'Shelter',
+  'actshort.coldGear': 'Cold gear',
+  'actshort.coldPit': 'Cold pit',
+  'actshort.knife': 'Knife',
+  'actshort.basket': 'Basket',
+  'actshort.backpack': 'Backpack',
+  'actshort.harness': 'Harness',
+  'actshort.sled': 'Sled',
+  'actshort.snare': 'Snare',
+  'actshort.waterskin': 'Waterskin',
+  'actshort.bedroll': 'Bedroll',
+  'actshort.shovel': 'Shovel',
+  'actshort.lookout': 'Look out',
+  'actshort.study': 'Study',
+  'actshort.explore': 'Explore',
+  'actshort.experiment': 'Experiment',
+  'actshort.camp': 'Camp',
+  'actshort.tinker': 'Tinker',
+  'actshort.rest': 'Rest',
+  'actshort.treat': 'Treat',
+  'actshort.drawmap': 'Map',
+  // A distance in one word: the rings, and (`distance-not-rings`, sim-words.ts distanceT) the distances.
+  'ring.short.1': 'near',
+  'ring.short.2': 'far',
+  'ring.short.3': 'distant',
+  'ring.short.1.dist': 'close',
+  'ring.short.2.dist': '½ day',
+  'ring.short.3.dist': '1 day',
+  // The day's total under the compact queue, and when today's plan ends (a clock time or a part of the day).
+  'qc.total': '{h} / {max}h',
+  'qc.ends': 'ends {when}',
+  'qc.up': 'Move {name} up',
+  'qc.label': 'The queue',
+};

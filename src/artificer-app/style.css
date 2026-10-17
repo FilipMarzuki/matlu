@@ -284,6 +284,75 @@
   .planside { position: static; }
   .shours { margin-left: 0; }
 }
+/* ── The queue beside the actions (#1826, ui feature `side-queue`, plan-layout.ts) ──────────────
+   Two columns on every width: the actions left, the queue right (about 60/40 on a phone), and the
+   journal + camp-site picker in a box of their own. The queue's column is frozen just below the
+   sticky status bar: `--stick-top` is that bar's height, set by main.ts syncStickTop() (the default
+   here is the desktop bar's), so a change to the header or the bar moves the column with it. A
+   queue taller than the screen scrolls inside its column, with the Run bar pinned to its foot. */
+:root { --stick-top: 64px; }
+/* The queue's zone is stretched to the actions' height (the row's), and the frozen queue travels
+   inside it, so it stays in view the whole way down the actions. The box below starts where the
+   actions end: under the queue on desktop, across both columns on a phone. */
+.plan.sideq { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "acts q" ". more"; align-items: stretch; }
+.plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+.plan.sideq > .planacts { grid-area: acts; min-width: 0; }
+.plan.sideq > .planqzone { grid-area: q; min-width: 0; }
+.plan.sideq > .planmore { grid-area: more; min-width: 0; align-self: start; }
+.planq {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--stick-top));
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  overflow-y: auto; overscroll-behavior: contain;
+  container: planq / inline-size;
+}
+.planq .queue ol { max-height: none; overflow: visible; }
+.planq .runbar { position: sticky; bottom: 0; padding-block: 6px; background: var(--sub2); z-index: 1; }
+.planmore > .log:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.planmore > .camp-scene:first-child { margin-top: 0 !important; }
+/* The cards in the narrower column: their words wrap, nothing pokes out. */
+.plan.sideq .act { min-width: 0; overflow-wrap: anywhere; }
+.plan.sideq .act .t { flex-wrap: wrap; row-gap: 2px; }
+/* The compact queue's own parts, shown only when the column is narrow. */
+.queue .qc, .queue .qup, .queue .qct { display: none; }
+/* Narrower: about 60/40, and the box below spans both columns. */
+@media (max-width: 900px) {
+  .plan.sideq { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-areas: "acts q" "more more"; gap: 8px; }
+  .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+}
+@media (max-width: 520px) {
+  .plan.sideq > .planacts > .box, .plan.sideq .planq { padding: 9px; }
+  .plan.sideq .act { flex-basis: 100%; padding: 6px 7px; }
+  .plan.sideq .acts { gap: 5px; }
+}
+/* A narrow queue column: each task in a few words on a line of its own (icon, short name, the
+   distance, hours), its controls (grip, options, ▲, ×) on the line under it. */
+@container planq (max-width: 330px) {
+  .queue { padding: 6px; }
+  .queue > .eyebrow { font-size: 8px; letter-spacing: 1px; }
+  .queue .timenow { font-size: 10.5px; line-height: 1.35; }
+  .queue ol { gap: 4px; }
+  .queue li { padding: 4px 5px; font-size: 11px; }
+  .queue li .row { gap: 2px; flex-wrap: wrap; }
+  .queue li .n, .queue li .meta, .queue li .chosen, .queue li .why, .queue li .dayn.now, .queue .qfull,
+  .queue li .loadrow:not(.over) { display: none; }
+  .queue li .dayn { min-width: 0; }
+  .queue .qc { display: flex; order: -1; flex: 1 1 100%; align-items: baseline; flex-wrap: wrap; gap: 0 4px; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+  .queue .qc .qcn { font-family: var(--display); font-size: 8px; color: var(--ink); }
+  .queue .qc .qcd { font-size: 9.5px; color: var(--teal); }
+  .queue .qc .qch { margin-left: auto; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .queue .qup { display: inline-block; cursor: pointer; border: none; background: none; color: var(--faint); font-size: 10px; padding: 0 2px; min-height: 26px; min-width: 20px; }
+  .queue .qup:hover, .queue .qup:focus-visible { color: var(--gold); }
+  .planq .queue .grip, .planq .queue .tog { min-height: 26px; min-width: 20px; padding: 0 2px; margin: 0; }
+  .queue li .x { margin-left: auto; min-height: 26px; min-width: 20px; }
+  .queue .qct { display: inline; }
+  .queue .qtot { font-size: 10.5px; margin-bottom: 6px; }
+  .queue .runbar { gap: 4px; }
+  .queue .runbar .btn { flex: 1 1 auto; padding: 6px 5px; font-size: 7px; letter-spacing: .5px; }
+  .queue .runbar .btn.go { flex-basis: 100%; padding-block: 9px; font-size: 8px; }
+  .queue .opt span { display: none; }
+  .queue .optchoices { flex-wrap: wrap; }
+}
 .log ul.full { max-height: 70vh; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 11px; color: var(--faint); }
 /* Paint the whole viewport, even when a tab is shorter than the screen. */
