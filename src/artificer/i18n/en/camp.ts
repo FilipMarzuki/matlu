@@ -24,6 +24,11 @@ export const camp = {
   'ring.home': 'home ground',
   'ring.homeShort': 'home',
   'ring.lockedTip': 'Scout the ring inside it first',
+  // The distance chooser under a land action's card (#1814).
+  'ringpick.head': 'How far out?',
+  'ringpick.aria': '{action}: how far out',
+  'ringpick.last': 'last time',
+  'ringpick.close': 'Close',
 
   'act.scout': 'Scout',
   'act.survey': 'Survey',

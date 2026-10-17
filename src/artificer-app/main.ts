@@ -64,6 +64,7 @@ import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, trip
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
+import { defaultsFor, loadRingDefaults, rememberRing, saveRingDefaults } from './distance-defaults';
 import { progressTab, outlookWarnings } from './progress-view';
 import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
@@ -123,8 +124,24 @@ document.documentElement.lang = lang;
 /** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
 const expanded = new Set<number>();
 
-/** Which ring the palette's land actions aim at (UI-only; not saved). */
-let focusRing: Ring = 1;
+/**
+ * The palette's distance chooser (#1814): which land action's is open under its card, if any, and
+ * the distance each action was last aimed at, per Warden (distance-defaults.ts). The page redraws
+ * by replacing its HTML, so both live here (the defaults in `localStorage` too), not in the DOM.
+ */
+let ringPick: ActionId | null = null;
+let ringDefaults = loadRingDefaults();
+
+/** Shut the chooser; with `refocus`, the keyboard goes back to the card it opened from. */
+function closeRingPick(refocus: boolean): void {
+  const id = ringPick;
+  ringPick = null;
+  render(state);
+  if (refocus && id) root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus();
+}
+
+/** What the palette needs from the page: dev mode, the language, and this Warden's chooser state. */
+const paletteOpts = (s: AppState['sim']) => ({ dev, t, defaults: defaultsFor(ringDefaults, s.character.id), chooser: ringPick });
 
 /** The ring whose remembered places are listed on the land (#1380), if any. */
 let pinRing: Ring | null = null;
@@ -722,7 +739,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const g = guide;
   const s = a.sim;
   const actions = g.shows('actions')
-    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ring: focusRing, dev, t, suggest: g.suggest })}</section>`
+    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: g.suggest })}</section>`
     : '';
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
@@ -737,7 +754,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'plan':
       if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
       return `${weatherSection(a)}<div class="plan">
-        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
+        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
       </div>`;
@@ -1685,6 +1702,19 @@ document.addEventListener('keydown', e => {
   targets[next].focus();
 }, true);
 
+// The distance chooser (#1814): a tap anywhere else shuts it without queueing, and so does Esc.
+// The root's handler below has already acted on the tap (a chosen distance or ✕ shut it already).
+document.addEventListener('click', e => {
+  if (!ringPick) return;
+  if ((e.target as HTMLElement).closest('.ringpick, [data-chooser]')) return;
+  closeRingPick(false);
+});
+document.addEventListener('keydown', e => {
+  if (!ringPick || e.key !== 'Escape' || !root.querySelector('.ringpick')) return;
+  e.preventDefault();
+  closeRingPick(true);
+});
+
 root.addEventListener('click', e => {
   // A building in a settlement (#1541), on its grid or in the key: show what it is.
   const bldg = (e.target as HTMLElement).closest<HTMLElement>('[data-bldg]');
@@ -1760,7 +1790,25 @@ root.addEventListener('click', e => {
       render(state);
     }
   }
-  else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  // A land action's card (#1814) opens its distance chooser (or shuts it, tapped again); the
+  // preselected distance takes the keyboard's focus, so Enter queues it there.
+  else if (d.chooser) {
+    ringPick = ringPick === d.chooser ? null : d.chooser as ActionId;
+    render(state);
+    root.querySelector<HTMLElement>(ringPick ? '.ringpick .rpopt.on:not([disabled])' : `[data-chooser="${d.chooser}"]`)?.focus();
+  }
+  else if (d.cmd === 'ringclose') closeRingPick(true);
+  // A distance chosen: remembered for this action and Warden, then queued there, or (before
+  // planning is learned, #1350) done now, as any tap on an action.
+  else if (d.ringpick) {
+    const q = d.ringpick as QueueId;
+    const id = d.pickfor as ActionId;
+    ringDefaults = rememberRing(ringDefaults, state.sim.character.id, id, Number(d.pickring) as Ring);
+    saveRingDefaults(ringDefaults);
+    ringPick = null;
+    if (state.sim.canPlan) { update(enqueue(state, q)); root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus(); }
+    else playOut([playAct(state, q)], () => ({ do: q }));
+  }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
   else if (d.pinring) { const r = Number(d.pinring) as Ring; pinRing = pinRing === r ? null : r; render(state); }
   // Game moves go through play(), which writes them in the run's log (#1559); the plan's edits

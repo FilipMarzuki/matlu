@@ -74,7 +74,7 @@ describe('The dev-only list finds what dev mode draws (#1735)', () => {
       expect(devOnlyHits(packForm(['mora-knife', 'headlamp'], t, true)).join(' ')).toMatch(/rule of|pack\.rule/);
       expect(devOnlyHits(wardenTab(a, t, false))).toEqual([]);
       expect(devOnlyHits(packForm(['mora-knife', 'headlamp'], t, false))).toEqual([]);
-      const palette = (dev: boolean) => paletteBlock(a, previewQueue(a), { ring: 1, dev, t });
+      const palette = (dev: boolean) => paletteBlock(a, previewQueue(a), { dev, t });
       expect(devOnlyHits(palette(true)).join(' ')).toMatch(/vital cost/);
       expect(devOnlyHits(palette(false))).toEqual([]);
       for (const key of ['dev.on', 'dev.openNote', 'head.features', 'top.devTip'] as const) expect(devOnlyHits(t(key)).length).toBeGreaterThan(0);

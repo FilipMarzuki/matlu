@@ -13,7 +13,7 @@ import { builtWarmthOn } from '../artificer/built-warmth';
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
-import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
+import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
@@ -34,6 +34,7 @@ import { campBadges, siteBadge } from './rating-badges';
 import { buildsAt } from '../artificer/camp-builds';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
+import { preselect, type RingDefaults } from './distance-defaults';
 import type { previewQueue, AppState } from './controller';
 import type { DayPlay, Moment } from './playback';
 
@@ -97,30 +98,89 @@ function ingredients(def: (typeof ACTIONS)[ActionId], s: Sim, t: T): string {
 }
 
 /**
- * The actions area: ring tabs, then each group's actions with their hours and what they yield, or
- * why they can't be done. Gates are judged against the state *after* the queue so far, so you can
- * plan "scout, then gather" in one go. Land actions go to the ring picked in the tabs.
+ * One distance in an action's chooser (#1814): where it is, how far to walk, what it would bring,
+ * and whether it can be chosen now (`open`). An unreachable distance says why (`ring.lockedTip`, as
+ * the old tabs did); a reachable one blocked today says the action's own reason. `greyed` means it
+ * can't be tapped; `why` without `greyed` is a soft gate (the switch off: it would just be skipped).
+ */
+export interface DistanceOption {
+  ring: Ring;
+  q: QueueId;
+  reachable: boolean;
+  open: boolean;
+  why: string | null;
+  greyed: boolean;
+  /** The walk there and back ("+3h travel"), or home ground. */
+  travel: string;
+  /** What the action would bring there (`yieldText`). */
+  yield: string;
+  /** The one the chooser preselects, and whether that is the one remembered ("last time"). */
+  chosen: boolean;
+  last: boolean;
+}
+
+/**
+ * A ringed action's distances (#1814), judged against the state after the queue so far, with the
+ * preselected one: the distance remembered for this action if it's open, else the nearest open.
+ * `remembered` is this Warden's choices (distance-defaults.ts). Pure, for the chooser and its tests.
+ */
+export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T): DistanceOption[] {
+  const t = distanceT(s, tIn);
+  const base = RINGS.map(r => {
+    const reach = reachable(s.explore, r);
+    const vis = visibilityOf(s, id, r);
+    const gate = vis.reason ? simLine(vis.reason, t) : null;
+    const why = reach ? gate : t('ring.lockedTip');
+    const greyed = !reach || (!!gate && !greyedTappable(s));
+    return {
+      ring: r, q: queueId(id, r), reachable: reach, open: !greyed, why, greyed,
+      travel: TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'),
+      yield: yieldText(id, s, r, t),
+    };
+  });
+  const pick = preselect(base, remembered[id]);
+  return base.map(o => ({ ...o, chosen: o.ring === pick.ring, last: o.ring === pick.ring && pick.last }));
+}
+
+/** The chooser under a ringed action's card (#1814): its distances, the preselected one marked, and ✕. */
+function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: DistanceOption[], t: T, dev: boolean): string {
+  return `<div class="ringpick" role="group" aria-label="${esc(t('ringpick.aria', { action: actionName(id, t) }))}">`
+    + `<div class="rphead"><span>${esc(t('ringpick.head'))}</span><button class="rpx" data-cmd="ringclose" aria-label="${esc(t('ringpick.close'))}" title="${esc(t('ringpick.close'))}">✕</button></div>`
+    + `<div class="rpopts">${options.map(o => {
+      const soft = !!o.why && !o.greyed;
+      const title = o.why ? (o.greyed ? o.why : t('act.wouldSkip', { why: o.why })) : '';
+      return `<button class="rpopt${o.chosen ? ' on' : ''}${o.greyed ? ' locked' : ''}${soft ? ' soft' : ''}" data-ringpick="${o.q}" data-pickfor="${id}" data-pickring="${o.ring}"${o.greyed ? ' disabled' : ''} aria-pressed="${o.chosen}" title="${esc(title)}">`
+        + `<span class="rpn">${esc(ringName(o.ring, t).toUpperCase())}${o.last ? ` <span class="rplast">${esc(t('ringpick.last'))}</span>` : ''}</span>`
+        + `<span class="rpt">${esc(o.travel)}${o.reachable ? ` · ${esc(actionTime(a, preview, queueHours(o.q, preview.projected), t, dev))}` : ''}</span>`
+        + `<span class="y">${o.why ? `<span class="gate">${esc(o.why)}</span>` : `<span class="yield">${esc(o.yield)}</span>`}</span></button>`;
+    }).join('')}</div></div>`;
+}
+
+/**
+ * The actions area: each group's actions with their hours and what they yield, or why they can't
+ * be done. Gates are judged against the state *after* the queue so far, so you can plan "scout,
+ * then gather" in one go. An action done out on the land (`ringed`) opens its distance chooser
+ * when tapped (#1814; `chooser` is the one open, `defaults` this Warden's remembered distances);
+ * its card shows it at the distance the chooser would preselect. The others queue on one tap.
  */
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; dev: boolean; t: T; suggest?: ActionId | null }): string {
-  const { ring: focusRing, dev } = opts;
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null }): string {
+  const { dev } = opts;
+  const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
   const t = distanceT(a.sim, opts.t);
   const resolved = a.sim.outcome !== null;
-  const tabs = `<div class="rings">${RINGS.map(r => {
-    const open = reachable(preview.projected.explore, r);
-    return `<button class="ringtab ${focusRing === r ? 'on' : ''} ${open ? '' : 'locked'}" data-ring="${r}" title="${open ? '' : esc(t('ring.lockedTip'))}">`
-      + `${esc(ringName(r, t).toUpperCase())}<span>${esc(TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'))}</span></button>`;
-  }).join('')}</div>`;
   // A group with nothing the Warden knows how to do yet (#1690) isn't shown at all.
   // In words (#1740), the length gets a line of its own under the name.
   const tw = timeWordsShown(a.sim, dev);
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
-  return tabs + known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}${g.key === 'explore' || g.key === 'provision' ? ` <span class="ringnote">${esc(t('group.ringNote', { ring: ringName(focusRing, t).toLowerCase() }))}</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
+  return known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
-    const r: Ring = def.ringed ? focusRing : 1;
+    // A land action is shown at the distance its chooser would preselect.
+    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t) : null;
+    const r: Ring = options?.find(o => o.chosen)?.ring ?? 1;
     const q = queueId(id, r);
     // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
     // With the switch off a blocked action stays tappable, as before: it would just be skipped.
@@ -132,10 +192,14 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { ring: Ring; 
     const spends = vitalCostLabel(def, dev);
     // The first-morning guide's suggestion (#1792, reveal.ts): it glows until a place to camp is known.
     const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
-    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}" data-q="${q}"${resolved || greyed ? 'disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
+    // A land action's tap opens its chooser (data-chooser); any other queues itself (data-q).
+    const open = !!options && opts.chooser === id && !resolved && !greyed;
+    const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
+    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`;
+      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(yieldText(id, preview.projected, r, t))}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t)}</button>`
+      + (open && options ? distanceChooser(a, preview, id, options, t, dev) : '');
   }).join('')}</div></div>`).join('');
 }
 

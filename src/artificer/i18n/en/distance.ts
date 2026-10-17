@@ -31,7 +31,6 @@ export const distance = {
 
   // ── Headings, notes and tips ─────────────────────────────────────────────
   'head.land.dist': 'THE LAND — what you know, by how far it is',
-  'group.ringNote.dist': '· {ring}',
   'yield.explore.dist': 'look around: new ground further out at least suspected, known ground a little clearer',
   'yield.lookout.dist': 'the land +1 level · see over the land further out',
   'land.outOfReach.dist': 'Out of reach — know the land nearer in first.',

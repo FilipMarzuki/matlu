@@ -20,6 +20,11 @@ export const campSv: Record<keyof typeof camp, string> = {
   'ring.home': 'hemmamark',
   'ring.homeShort': 'hemma',
   'ring.lockedTip': 'Lär känna ringen innanför först',
+  // Avståndsväljaren under en sysslas kort ute i marken (#1814).
+  'ringpick.head': 'Hur långt ut?',
+  'ringpick.aria': '{action}: hur långt ut',
+  'ringpick.last': 'senast',
+  'ringpick.close': 'Stäng',
 
   'act.scout': 'Spana',
   'act.survey': 'Kartlägg',

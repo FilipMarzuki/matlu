@@ -22,7 +22,6 @@ export const distanceSv: Record<keyof typeof distance, string> = {
   'map.cell.beyond.dist': 'en övernattning bort',
 
   'head.land.dist': 'LANDET — det du vet, efter hur långt bort det är',
-  'group.ringNote.dist': '· {ring}',
   'yield.explore.dist': 'se dig omkring: ny mark längre ut åtminstone anad, känd mark lite tydligare',
   'yield.lookout.dist': 'marken +1 nivå · se ut över marken längre ut',
   'land.outOfReach.dist': 'Utom räckhåll — lär känna marken närmare först.',

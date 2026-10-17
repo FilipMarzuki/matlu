@@ -35,10 +35,10 @@ const app = (sim: Region1State): AppState => ({ ...makeWarden({ id: 'w-astrid' }
 describe('Drawing your map on the page (#1754)', () => {
   it('the action sits with the thinking work, opens with the session, and is greyed with why before', () => {
     expect(GROUPS.find(g => g.key === 'think')?.ids).toContain('drawmap');
-    const open = paletteBlock(app(ready()), previewQueue(app(ready())), { ring: 1, dev: false, t: sv });
+    const open = paletteBlock(app(ready()), previewQueue(app(ready())), { dev: false, t: sv });
     expect(open).toContain('data-q="drawmap"');
     expect(open).toContain('RITA DIN KARTA');
-    const shut = paletteBlock(app(ready(2)), previewQueue(app(ready(2))), { ring: 1, dev: false, t: sv });
+    const shut = paletteBlock(app(ready(2)), previewQueue(app(ready(2))), { dev: false, t: sv });
     expect(shut).toMatch(/class="act soft [^"]*" data-q="drawmap"/);
     expect(shut).toContain('inte än');
   });
