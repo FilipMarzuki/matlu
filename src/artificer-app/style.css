@@ -8,6 +8,11 @@
     --gold: #ffe066; --teal: #4dd4f0; --amber: #c8922a;
     --green: #88ff88; --warn: #ffaa33; --danger: #ff5a5a; --ice: #9fd8ff;
     --lilac: #c9b4ff;
+    /* The resources' four levels (#1824, vital-words.ts), full to nearly gone: borders drawn from
+       the status colours every era look sets (looks.ts), so they read on paper and on dark panels
+       alike. The second is a yellow-green between the good and the warning colour. */
+    --lv-0: var(--green); --lv-1: color-mix(in srgb, var(--green) 55%, var(--warn));
+    --lv-2: var(--warn); --lv-3: var(--danger);
     /* Era looks (#1719): these are the defaults, the look of a page with no look (the records page,
        play-with-ai). The game sets <html data-look="…"> and looks.ts sets every colour token above
        and these for that look. Only colours, images and shadows: a look never moves a box. */
@@ -283,6 +288,92 @@
   .plan, .cols { grid-template-columns: 1fr; }
   .planside { position: static; }
   .shours { margin-left: 0; }
+}
+/* ── The queue beside the actions (#1826, ui feature `side-queue`, plan-layout.ts) ──────────────
+   Tablet and desktop: the actions left, the queue right, its column frozen just below the sticky
+   status bar. Phone in portrait (under 700px): the queue is a frozen strip over the actions, which
+   take the full width. The journal + camp-site picker are in a box of their own below, never frozen.
+   `--stick-top` is the status bar's height, set by main.ts syncStickTop() (the default here is the
+   desktop bar's), so a change to the header or the bar moves the frozen part with it. A queue
+   taller than the screen scrolls inside its frozen box, with the Run bar pinned to its foot. */
+:root { --stick-top: 64px; }
+/* The queue's zone is stretched to the actions' height (the row's), and the frozen queue travels
+   inside it, so it stays in view the whole way down the actions. The box below starts where the
+   actions end: under the queue on desktop, across both columns on a tablet. */
+.plan.sideq { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "acts q" ". more"; align-items: stretch; }
+.plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+.plan.sideq > .planacts { grid-area: acts; min-width: 0; }
+.plan.sideq > .planqzone { grid-area: q; min-width: 0; }
+.plan.sideq > .planmore { grid-area: more; min-width: 0; align-self: start; }
+.planq {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--stick-top));
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  overflow-y: auto; overscroll-behavior: contain;
+  container: planq / inline-size;
+}
+.planq .queue ol { max-height: none; overflow: visible; }
+.planq .runbar { position: sticky; bottom: 0; padding-block: 6px; background: var(--sub2); z-index: 1; }
+.planmore > .log:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.planmore > .camp-scene:first-child { margin-top: 0 !important; }
+/* The cards in the narrower column: their words wrap, nothing pokes out. */
+.plan.sideq .act { min-width: 0; overflow-wrap: anywhere; }
+.plan.sideq .act .t { flex-wrap: wrap; row-gap: 2px; }
+/* The compact queue's own parts, shown only when the column is narrow; the strip only on a phone. */
+.queue .qc, .queue .qup, .queue .qct, .qstrip { display: none; }
+/* A tablet: about 60/40, and the box below spans both columns. */
+@media (max-width: 900px) {
+  .plan.sideq { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-areas: "acts q" "more more"; gap: 8px; }
+  .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+}
+/* A phone in portrait: one column, the queue's strip first. Its zone steps aside, so the strip is
+   the grid's own item and stays frozen the whole way down the plan; the actions scroll under it. */
+@media (max-width: 699px) {
+  .plan.sideq, .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "q" "acts" "more"; gap: 8px; }
+  .plan.sideq > .planqzone { display: contents; }
+  .plan.sideq .planq { grid-area: q; align-self: start; z-index: 4; padding: 7px 8px; box-shadow: 0 6px 14px rgba(0,0,0,.28); }
+  .plan.sideq .planq:not(.stripopen) > .planqfull { display: none; }
+  .plan.sideq .planq.stripopen > .planqfull { margin-top: 8px; }
+  .plan.sideq .qstrip { display: flex; align-items: center; gap: 8px; }
+}
+.qsbar { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border2); border-radius: 9px; background: var(--sub2); color: var(--ink); padding: 5px 8px; font-family: inherit; min-height: 44px; }
+.qsbar:hover, .qsbar:focus-visible { border-color: var(--teal); }
+.qschips { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 3px 4px; min-width: 0; max-height: 39px; overflow: hidden; } /* two rows of chips; the total says the rest */
+.qschip { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; font-size: 10.5px; line-height: 1.3; padding: 1px 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--sub); }
+.qschip b { font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
+.qsnote { font-size: 11px; color: var(--dim); font-style: italic; }
+.qstot { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.qsfold { margin-left: auto; color: var(--teal); font-size: 12px; }
+.qstrip > .btn.go { flex: 0 0 auto; align-self: stretch; padding: 8px 10px; max-width: 38%; white-space: normal; }
+/* A narrow queue column: each task in a few words on a line of its own (icon, short name, the
+   distance, hours), its controls (grip, options, ▲, ×) on the line under it. */
+@container planq (max-width: 330px) {
+  .queue { padding: 6px; }
+  .queue > .eyebrow { font-size: 8px; letter-spacing: 1px; }
+  .queue .timenow { font-size: 10.5px; line-height: 1.35; }
+  .queue ol { gap: 4px; }
+  .queue li { padding: 4px 5px; font-size: 11px; }
+  .queue li .row { gap: 2px; flex-wrap: wrap; }
+  .queue li .n, .queue li .meta, .queue li .chosen, .queue li .why, .queue li .dayn.now, .queue .qfull,
+  .queue li .loadrow:not(.over) { display: none; }
+  .queue li .dayn { min-width: 0; }
+  .queue .qc { display: flex; order: -1; flex: 1 1 100%; align-items: baseline; flex-wrap: wrap; gap: 0 4px; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+  .queue .qc .qcn { font-family: var(--display); font-size: 8px; color: var(--ink); }
+  .queue .qc .qcd { font-size: 9.5px; color: var(--teal); }
+  .queue .qc .qch { margin-left: auto; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .queue .qup { display: inline-block; cursor: pointer; border: none; background: none; color: var(--faint); font-size: 10px; padding: 0 2px; min-height: 26px; min-width: 20px; }
+  .queue .qup:hover, .queue .qup:focus-visible { color: var(--gold); }
+  .planq .queue .grip, .planq .queue .tog { min-height: 26px; min-width: 20px; padding: 0 2px; margin: 0; }
+  .queue li .x { margin-left: auto; min-height: 26px; min-width: 20px; }
+  .queue .qct { display: inline; }
+  .queue .qtot { font-size: 10.5px; margin-bottom: 6px; }
+  .queue .runbar { gap: 4px; }
+  .queue .runbar .btn { flex: 1 1 auto; padding: 6px 5px; font-size: 7px; letter-spacing: .5px; }
+  .queue .runbar .btn.go { flex-basis: 100%; padding-block: 9px; font-size: 8px; }
+  .queue .opt span { display: none; }
+  .queue .optchoices { flex-wrap: wrap; }
 }
 .log ul.full { max-height: 70vh; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 11px; color: var(--faint); }
@@ -1210,8 +1301,52 @@ html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), 
 .menyconfirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--amber); border-radius: 7px; }
 .menyconfirm p { flex-basis: 100%; margin: 0; }
 .menyid code { overflow-wrap: anywhere; word-break: break-all; }
+/* Sound (#1828): the volume slider takes the row's room beside the switch. */
+.menysec .pill[data-sound="toggle"][aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.menyvol { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+.menyvol input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--gold); }
 .menysec .lookswitch select.pill { max-width: min(15em, 52vw); }
 /* The section names the look already. */
 .menysec .lookswitch .lsname { display: none; }
 .menyexp { margin: 0 0 8px; }
 .menyexp summary { cursor: pointer; display: list-item; padding: 14px 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+
+/* ── The two-row header (#1824, meny.ts headerRows, vital-words.ts) ─────────── */
+/* Row 1 (place, day, ⚙, feedback) never wraps: the title shrinks first, then the ⚙ drops its word. */
+header.tworow { display: block; }
+.hrow { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
+.hrow1 { flex-wrap: nowrap; }
+.hrow1 h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.hrow1 > :not(h1):not(.spacer) { flex: none; }
+.hrow2 { flex-wrap: wrap; margin-top: 8px; }
+/* On the Reach row 2 is the sticky status bar's top line (main.ts statusBar), so the resources stay in view. */
+.statusbar > .hrow2 { flex: 1 1 100%; margin: 0; }
+.hrow2 .who { min-width: 0; max-width: 100%; }
+.hrow2 .who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hvitals { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vital { display: inline-flex; align-items: center; gap: 5px; }
+.vital .vl { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); }
+/* The word keeps the ink; its border carries the level's colour (and the word the meaning). */
+.vword { padding: 1px 8px; border: 1.5px solid var(--border2); border-radius: 999px; background: var(--sub); color: var(--ink); font: 600 11.5px var(--body); line-height: 1.5; white-space: nowrap; }
+.vword.lv-0 { border-color: var(--lv-0); } .vword.lv-1 { border-color: var(--lv-1); }
+.vword.lv-2 { border-color: var(--lv-2); } .vword.lv-3 { border-color: var(--lv-3); }
+/* From day 8 the old bar comes back beside the word. */
+.vital .mt { width: 52px; height: 7px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.vital .mf { display: block; height: 100%; }
+.vital .mf.fresh { background: var(--lv-0); } .vital .mf.ok { background: var(--lv-1); } .vital .mf.warn { background: var(--lv-2); } .vital .mf.low { background: var(--lv-3); }
+@media (max-width: 520px) {
+  .hrow { gap: 6px 8px; }
+  .hrow1 .menyword { display: none; }
+  .hrow1 .counter { gap: 4px; }
+  .vital .vl { display: none; }
+  .vital .mt { width: 36px; }
+}
+.menyword { margin-left: 5px; }
+/* Silkscreen draws the ⚙ tiny at the pills' 8px: bigger on its own, so the bare gear is an easy target. */
+.menygear { font-family: var(--body); font-size: 13px; line-height: 1; }
+
+/* ── The weather and the time of day in one row (#1825, weather-row.ts) ───── */
+.wxone .wxonerow { display: flex; width: 100%; gap: 8px; font: 600 13px var(--body); letter-spacing: 0; color: var(--ink); text-transform: none; }
+.wxone .wxonetext { min-width: 0; overflow-wrap: anywhere; }
+.wxone .wxhint { display: block; margin: 2px 0 0 18px; }
+.wxone .wxonedetails { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }

@@ -51,9 +51,28 @@ export function headerControls(menyOn: boolean, p: HeaderParts, meny: string): s
   return order.filter(Boolean).join('\n      ');
 }
 
-/** The ⚙ that opens and shuts the Menu: expanded (and gold, like an open tab) while it shows. */
-export function menyButton(open: boolean, t: T, devTag = ''): string {
-  return `<span class="ctl"><button class="pill menybtn${open ? ' on' : ''}" data-cmd="meny" aria-expanded="${open}" aria-controls="meny" aria-label="${esc(t('meny.buttonLabel'))}">${esc(t('meny.button'))}${devTag}</button></span>`;
+/**
+ * The two-row header (#1824, ui switch `two-row-header`, which builds on the Menu): row 1 is the
+ * place (the title; on the road the road's title), the day (and the week's chip, the road's 🧪),
+ * the ⚙ and last the feedback, on one line; row 2 is the Warden and the three resources
+ * (`wardenRow`, vital-words.ts). Help (?) has moved into the Menu as How to play, and the ⚙ draws
+ * its word so that a narrow screen can drop it (`menyButton`'s `short`).
+ */
+export function headerRows(p: { title: string; counters: string; week: string; experiment: string; feedback: string; row2: string }, meny: string): string {
+  const row1 = [p.title, p.counters, p.week, p.experiment, `<span class="spacer"></span>`, meny, p.feedback].filter(Boolean).join('\n      ');
+  return `<div class="hrow hrow1">${row1}</div>\n    ${p.row2}`;
+}
+
+/**
+ * The ⚙ that opens and shuts the Menu: expanded (and gold, like an open tab) while it shows. With
+ * `short` (the two-row header), the word after the ⚙ is its own span, hidden on a narrow screen;
+ * the aria-label names the button either way.
+ */
+export function menyButton(open: boolean, t: T, devTag = '', short = false): string {
+  const label = t('meny.button');
+  const gear = label.startsWith('⚙') ? '⚙' : '';
+  const text = short && gear ? `<span class="menygear" aria-hidden="true">${gear}</span><span class="menyword">${esc(label.slice(gear.length).trim())}</span>` : esc(label);
+  return `<span class="ctl"><button class="pill menybtn${open ? ' on' : ''}" data-cmd="meny" aria-expanded="${open}" aria-controls="meny" aria-label="${esc(t('meny.buttonLabel'))}">${text}${devTag}</button></span>`;
 }
 
 /** The controls that move into the Menu, drawn the same wherever they are. */
@@ -73,15 +92,16 @@ export const helpExtras = (menyOn: boolean, extras: readonly string[]): string =
 // ── The page ─────────────────────────────────────────────────────────────────
 
 /**
- * The sections, in the owner's order. Sound comes between the look and the other ways to play once
- * the game has sound; until then there's no section for it (#1808: "only once sound exists").
+ * The sections, in the owner's order. How to play (the old ? panel) comes after the guide, with the
+ * two-row header (#1824); Sound (#1828) comes between the look and the other ways to play. A section
+ * whose ui switch is off gets an empty body and isn't drawn.
  */
-export const MENY_SECTIONS = ['newgame', 'profile', 'language', 'guide', 'visual', 'elsewhere', 'experiments', 'developer'] as const;
+export const MENY_SECTIONS = ['newgame', 'profile', 'language', 'guide', 'howto', 'visual', 'sound', 'elsewhere', 'experiments', 'developer'] as const;
 export type MenySection = (typeof MENY_SECTIONS)[number];
 
 const TITLES: Record<MenySection, Key> = {
-  newgame: 'meny.newGame', profile: 'meny.profile', language: 'meny.language', guide: 'meny.guide',
-  visual: 'meny.visual', elsewhere: 'meny.elsewhere', experiments: 'meny.experiments', developer: 'meny.developer',
+  newgame: 'meny.newGame', profile: 'meny.profile', language: 'meny.language', guide: 'meny.guide', howto: 'meny.howTo',
+  visual: 'meny.visual', sound: 'meny.sound', elsewhere: 'meny.elsewhere', experiments: 'meny.experiments', developer: 'meny.developer',
 };
 
 /**
@@ -117,6 +137,18 @@ export function profileBody(o: { runs: number; runId: string; copied: boolean },
   return `<p class="mood">${esc(t('meny.runs', { n: o.runs }))}</p>`
     + `<p class="mood menyid">${esc(t('meny.runId'))} <code>${esc(o.runId)}</code> <button class="pill" data-cmd="copyid">${esc(t('meny.copy'))}</button>${o.copied ? ` <span class="faint" role="status">${esc(t('meny.copied'))}</span>` : ''}</p>`
     + `<div class="menyrow"><a class="pill" href="/records/">${esc(t('meny.records'))}</a></div>`;
+}
+
+/**
+ * Sound (#1828): what it is, the on/off switch (pressed while on) and the volume, 0–100. The
+ * switch is the gesture that lets the browser start the audio; the slider shows only while it's on.
+ */
+export function soundBody(o: { on: boolean; volume: number }, t: T): string {
+  const vol = Math.round(Math.min(1, Math.max(0, o.volume)) * 100);
+  return `<p class="mood">${esc(t('meny.soundNote'))}</p>`
+    + `<div class="menyrow"><button class="pill" data-sound="toggle" aria-pressed="${o.on}" title="${esc(t('meny.soundTip'))}">${esc(t(o.on ? 'meny.soundOn' : 'meny.soundOff'))}</button>`
+    + (o.on ? `<label class="menyvol">${esc(t('meny.volume'))} <input type="range" min="0" max="100" step="5" value="${vol}" data-sound="volume" aria-label="${esc(t('meny.volume'))}"></label>` : '')
+    + '</div>';
 }
 
 /** Other ways to play: with your AI, and the text console. */
