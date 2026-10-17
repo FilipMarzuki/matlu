@@ -669,6 +669,12 @@ body { min-height: 100vh; }
 .guidetip p { margin: 0; flex: 1; color: var(--ink); font-size: 13px; line-height: 1.45; font-style: italic; }
 .wxintrobox .guidetip { margin: 0 0 12px; }
 .guidetip .guideok { flex: none; }
+/* The first meal's note (#1848): a small card at the top of PLAN, the morning after the first night. */
+.rationsnote { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; margin: 0 0 14px; border-color: var(--gold); }
+.rationsnote .eyebrow { grid-column: 1 / -1; margin-bottom: 4px; }
+.rationsnote .rnline { grid-column: 1; margin: 0; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.rationsnote .rnwhere { grid-column: 1; margin: 4px 0 0; color: var(--dim); font-size: 13px; line-height: 1.45; font-style: italic; }
+.rationsnote .guideok { grid-column: 2; grid-row: 2 / span 2; }
 .guidectl { flex-wrap: wrap; }
 .pillar .fill.short { background: var(--warn); }
 .pillar .st.short { color: var(--warn); }

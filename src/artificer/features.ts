@@ -366,6 +366,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'land-found-only', name: 'LAND shows what you\'ve found', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1836,
     note: 'LAND lists only the places you\'ve found, area by area, and the places to camp, without the knowledge chips, their key or the pin rows; at the bottom a button explores your surroundings.',
   },
+  {
+    // A ui feature (#1848): where the eating plan's setting is drawn (artificer-app/rations-view.ts),
+    // read from the state, so it switches live and no run saves it. The play API, the console and AI
+    // players never see it, and the eating rules are unchanged. Off, the RATIONS chip stays in the status bar.
+    id: 'rations-warden', name: 'Rations with the Warden', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1848,
+    note: 'The RATIONS chip leaves the status bar. Until the first evening meal there is no setting; the morning after, a note says how that meal went (just right, too much, too little) and that the setting is now with the Warden; from then on it is a Rations row in the Warden\'s view.',
+  },
 ];
 
 /** Switches by feature id. */

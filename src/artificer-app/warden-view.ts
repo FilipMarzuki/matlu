@@ -96,8 +96,11 @@ export function focusBlock(s: Region1State, t: T, road?: RoadState, opts: FocusB
     <div class="fchips" style="margin-top:6px">${chip('none', t('focus.none'), t('warden.focus.noneTip'))}</div>`;
 }
 
-/** The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts. */
-export function wardenTab(a: WardenOf, t: T, truths = false): string {
+/**
+ * The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts.
+ * `rations` is the eating plan's row (#1848, rations-view.ts), drawn under carrying once it lives here; '' leaves it out.
+ */
+export function wardenTab(a: WardenOf, t: T, truths = false, rations = ''): string {
   const c = a.sim.character;
   // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
   const hidden = c.talents.filter(x => !x.known).length;
@@ -112,7 +115,7 @@ export function wardenTab(a: WardenOf, t: T, truths = false): string {
       <p class="wrank">${esc(t('head.rank'))}: ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t).toUpperCase())} <span>· ${esc(plural(t, 'warden.conceptRanks', ranks))}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">${esc(t('head.focus'))}</p>${focusBlock(a.sim, t, a.stage === 'road' ? a.road : undefined)}
       <p class="eyebrow" style="margin-top:16px">${esc(c.age !== undefined ? t(isYoung(c.age) ? 'head.statsAge' : 'head.statsGrown', { age: c.age }) : t('head.stats'))}</p>${statsBlock(c.stats, t, c.adult)}
-      <p class="eyebrow" style="margin-top:16px">${esc(t('head.carrying'))}</p>${carryingBlock(a.sim, t)}
+      <p class="eyebrow" style="margin-top:16px">${esc(t('head.carrying'))}</p>${carryingBlock(a.sim, t)}${rations}
       ${packBlock(a.sim, t, truths)}
       ${harmsBlock(a.sim, t)}
       <p class="eyebrow" style="margin-top:16px">${esc(t('head.talents'))}</p><div class="traits">${talents}</div>

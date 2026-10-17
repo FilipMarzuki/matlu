@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId, type EatingPlan } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -59,6 +59,7 @@ import { encounterModal, type EncounterAfter } from './encounter-view';
 import { mapSessionModal, newSessionUi, lookAroundLand, type MapSessionUi } from './map-session-view';
 import { mapSessionOpen, placeOn, unplaced, moveCell, NEW_SESSION, type MapSession } from '../artificer/map-learning';
 import { wardenTab } from './warden-view';
+import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
@@ -329,12 +330,30 @@ function loadBar(l: TripLoad): string {
 /** Whether the status bar's focus picker is open (#1758): the page's alone, never saved. */
 let focusPopOpen = false;
 
-/** The eating plan (#1305): tap to cycle full → half → none. */
-function eatingChip(s: AppState['sim']): string {
-  const plan = s.eating ?? 'full';
-  const label = t(plan === 'full' ? 'status.full' : plan === 'half' ? 'status.half' : 'status.none');
-  const tip = t(plan === 'full' ? 'status.fullTip' : plan === 'half' ? 'status.halfTip' : 'status.noneTip');
-  return `<button class="focuschip ${plan === 'full' ? 'none' : ''}" data-cmd="eat" title="${esc(t('status.tapToChange', { tip }))}">${esc(t('status.rations'))} <b>${esc(label)}</b></button>`;
+// The eating plan's chip (#1305) and its row in the Warden's view (#1848) are drawn by rations-view.ts.
+
+/** Rations with the Warden (#1848): a ui feature, on unless switched off in the features panel. */
+const rationsOn = (): boolean => uiFeatureOn(loadChoices(), RATIONS_FEATURE);
+/** The status bar's RATIONS chip: only with the switch off, as before #1848. */
+const statusEating = (s: AppState['sim']): string => (rationsPlace(s, rationsOn()) === 'status' ? eatingChip(s, t) : '');
+/** The Warden view's Rations row: with the switch on, once the first evening meal is behind you. */
+const wardenRations = (s: AppState['sim']): string => (rationsPlace(s, rationsOn()) === 'warden' ? rationsRow(s, t) : '');
+
+/** The first meal's note (#1848) dismissed, per run: this device's, never the save's. */
+const rationsNoteKey = (id: string): string => `artificer.rationsNote.${id}`;
+function rationsNoteDismissed(id: string): boolean {
+  try { return localStorage.getItem(rationsNoteKey(id)) === '1'; } catch { return false; }
+}
+/** Session fallback when storage is blocked, so OK still hides the note until a reload. */
+const rationsNoteGone = new Set<string>();
+function dismissRationsNote(id: string): void {
+  rationsNoteGone.add(id);
+  try { localStorage.setItem(rationsNoteKey(id), '1'); } catch { /* storage blocked: this page remembers it */ }
+}
+/** The note at the top of PLAN, the morning after the first night, until OK. */
+function rationsNoteBlock(a: AppState): string {
+  const id = a.sim.character.id;
+  return rationsNoteDue(a.sim, rationsOn(), rationsNoteGone.has(id) || rationsNoteDismissed(id)) ? rationsNote(a.sim, t) : '';
 }
 
 // The WARDEN tab is drawn by warden-view.ts (#1711).
@@ -510,7 +529,7 @@ function statusBar(a: AppState, preview: Preview, row2 = ''): string {
     return `<div class="statusbar">${row2}
     ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
     ${stores ? markFirst(storesBar(a), 'stores') : ''}
-    ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
+    ${focus}${stores ? statusEating(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
     ${g.shows('focus') ? outlookTag(s, ready) : ''}
   </div>${tips}`;
@@ -518,7 +537,7 @@ function statusBar(a: AppState, preview: Preview, row2 = ''): string {
   return `<div class="statusbar">${row2}
     ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
     ${storesBar(a)}
-    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
     ${outlookTag(s, ready)}
   </div>`;
@@ -923,8 +942,9 @@ function guidedPlan(a: AppState, preview: Preview): string {
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      if (guide.active) return `${weatherSection(a, preview)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a, preview)}${planLayout({
+      // The first meal's note (#1848) sits under the weather, at the top of the day's plan.
+      if (guide.active) return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${planLayout({
         actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
         queue: queueBlock(a, preview),
         journal: `<div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>`,
@@ -944,7 +964,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'history':
       return historyTab(a);
     case 'warden':
-      return wardenTab(a, t, truths);
+      return wardenTab(a, t, truths, wardenRations(a.sim));
     case 'progress':
       return progressTab(a.sim, history, journal(a, 200), t);
   }
@@ -2081,7 +2101,10 @@ root.addEventListener('click', e => {
     const f = parseFocus(d.focus); play(chooseFocus(state, f), { set: { focus: focusKey(f) } });
     if (fromPop) chipEl()?.focus();
   }
-  else if (d.cmd === 'eat') { const plans = ['full', 'half', 'none'] as const; const plan = plans[(plans.indexOf(state.sim.eating ?? 'full') + 1) % plans.length]; play(chooseEating(state, plan), { set: { eating: plan } }); }
+  else if (d.cmd === 'eat') { const plan = EATING_PLANS[(EATING_PLANS.indexOf(state.sim.eating ?? 'full') + 1) % EATING_PLANS.length]; play(chooseEating(state, plan), { set: { eating: plan } }); }
+  // The Warden view's Rations row (#1848): a plan chosen outright, the same move as the chip's.
+  else if (d.eat && (EATING_PLANS as readonly string[]).includes(d.eat)) { const plan = d.eat as EatingPlan; play(chooseEating(state, plan), { set: { eating: plan } }); }
+  else if (d.cmd === 'rationsok') { dismissRationsNote(state.sim.character.id); render(state); }
   // Before planning is learned (#1350), a tap does the thing now.
   else if (d.q) { const q = d.q as QueueId; if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q })); }
   else if (d.cmd === 'endday') play(endTheDay(state), { endDay: true });
