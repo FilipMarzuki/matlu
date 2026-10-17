@@ -106,11 +106,22 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   await gear.click();
   await expect(gear).toHaveAttribute('aria-expanded', 'true');
   // Every section but the guide's, which this test has switched off. How to play (#1824) is one of
-  // them, and the header has no ? any more.
+  // them, now a link to the Warden's notes in the journal (#1838), and the header has no ? any more.
   await expect(page.locator('#meny [data-meny]')).toHaveCount(9);
   await expect(page.locator('#meny [data-meny="guide"]')).toHaveCount(0);
-  await expect(page.locator('#meny [data-meny="howto"]')).toContainText('winter is coming');
+  await expect(page.locator('#meny [data-meny="howto"] [data-cmd="notesopen"]')).toBeVisible();
+  await expect(page.locator('#meny [data-meny="howto"]')).not.toContainText('winter is coming');
   await expect(page.locator('header [data-cmd="help"]')).toHaveCount(0);
+  await expect(page.locator('header')).not.toContainText('?');
+  // The link shuts the Menu and opens the notes in the journal; the 📖 shuts them again.
+  await page.locator('#meny [data-cmd="notesopen"]').click();
+  await expect(page.locator('#meny')).toHaveCount(0);
+  await expect(page.locator('#notes')).toContainText('MY NOTES');
+  await expect(page.locator('#notes')).toContainText(/The snow comes on day \d+/);
+  await expect(page.locator('#notes')).toContainText('Water matters most');
+  await page.locator('.jhead [data-cmd="notes"]').first().click();
+  await expect(page.locator('#notes')).toHaveCount(0);
+  await gear.click();
   await page.keyboard.press('Escape');
   await expect(page.locator('#meny')).toHaveCount(0);
   await expect(gear).toBeFocused();

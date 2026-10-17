@@ -373,6 +373,21 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'rations-warden', name: 'Rations with the Warden', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1848,
     note: 'The RATIONS chip leaves the status bar. Until the first evening meal there is no setting; the morning after, a note says how that meal went (just right, too much, too little) and that the setting is now with the Warden; from then on it is a Rations row in the Warden\'s view.',
   },
+  {
+    // A ui feature (#1838): where how to play is drawn (artificer-app/journal-notes.ts), so it
+    // switches live and no run saves it. It builds on the Menu (whose How to play section becomes a
+    // link to the notes), so it shows only with `meny` on too. The play API, the console and AI
+    // players never see it. Off, the journal and the Menu are as #1824 left them.
+    id: 'journal-notes', name: 'How to play in the journal', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1838,
+    note: 'How to play is the Warden\'s own notes at the front of the journal, opened from the 📖 on the journal\'s heading; the ⚙ Menu\'s How to play links there, and the header has no ?.',
+  },
+  {
+    // A ui feature (#1853): which view the page opens on after the intro (artificer-app/start-land.ts),
+    // so it switches live and no run saves it. The play API, the console and AI players never see it.
+    // Off, a new Warden starts on PLAN as before, and LAND's day-1 Explore button is #1836's.
+    id: 'start-on-land', name: 'Start on LAND', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1853,
+    note: 'A new Warden starts on LAND after the intro, with the patrol leader\'s advice (scout first: find shelter and water) and an Explore button that goes to PLAN with Explore highlighted and its distance chooser open.',
+  },
 ];
 
 /** Switches by feature id. */

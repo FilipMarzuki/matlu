@@ -61,6 +61,7 @@ import { mapSessionOpen, placeOn, unplaced, moveCell, NEW_SESSION, type MapSessi
 import { wardenTab } from './warden-view';
 import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
+import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
@@ -95,6 +96,7 @@ import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankN
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
 import { TWO_ROW_FEATURE, wardenRow, type VitalReading } from './vital-words';
+import { NOTES_FEATURE, howtoBody, journalHead, notesShown, journalBoxShown } from './journal-notes';
 import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
 import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
 import { createAmbience } from './ambience';
@@ -152,7 +154,32 @@ function closeRingPick(refocus: boolean): void {
 }
 
 /** What the palette needs from the page: dev mode, the language, and this Warden's chooser state. */
-const paletteOpts = (s: AppState['sim']) => ({ dev, t, defaults: defaultsFor(ringDefaults, s.character.id), chooser: ringPick });
+const paletteOpts = (s: AppState['sim']) => {
+  // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
+  const own = defaultsFor(ringDefaults, s.character.id);
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null };
+};
+
+// ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
+// A ui feature: a new Warden's first view after the intro is LAND, with the patrol leader's advice
+// and an Explore button that goes to PLAN with Explore highlighted and its chooser open. The page's
+// own state, like the chooser's: nothing in the save.
+const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
+/** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
+const startClaimed = new Set<string>();
+/** This run started on LAND: claimed now, or on an earlier visit. */
+const startedOnLand = (id: string): boolean => startClaimed.has(id) || startLandUsed(id);
+/**
+ * Explore was tapped on the note and waits for PLAN's actions to show: at once, or (with the guide
+ * at work) once the first morning's weather card has had its "Got it".
+ */
+let startPending = false;
+/** Explore glows (and its chooser preselects the nearest distance) until the chooser shuts or the tab changes. */
+let startHl = false;
+/** The draw that opened the chooser for the start: scroll it into view and focus its distance. */
+let startScroll = false;
+/** The tap that opened it mustn't shut it again (the document's "tap elsewhere" handler runs after). */
+let startPickTap = false;
 
 /** The ring whose remembered places are listed on the land (#1380), if any. */
 let pinRing: Ring | null = null;
@@ -282,7 +309,9 @@ function landBody(a: AppState): string {
   const mode = mapMode(a.sim);
   // How LAND is drawn (#1835, #1836): ui features, the viewer's own, so they switch live.
   const news = landNewsNow(a.sim);
-  const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue };
+  const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue,
+    // The start's note on day 1 (#1853): its Explore button stands in for #1836's.
+    startNote: startLandOn() ? startNoteBlock(a.sim, t) : '' };
   if (mode === 'described') return landTab(a.sim, t, pinRing, look);
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
@@ -708,7 +737,8 @@ function menyView(a: AppState): string {
     language: langSwitch(false),
     guide: guideControls(a, false),
     // How to play (#1824): the old ? panel's text, with the two-row header (which has no ?).
-    howto: twoRowOn() ? `<p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>` : '',
+    // With the journal's notes (#1838), a link to them instead: one copy of the text, in the journal.
+    howto: howtoBody({ notes: notesOn(), lede: twoRowOn() ? `<p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>` : '' }, t),
     visual: `<div class="langswitch">${lookSwitcher(a, true)}</div>${backdropControls(true)}`,
     sound: soundOn() ? soundBody(sound.prefs, t) : '',
     elsewhere: elsewhereBody(t),
@@ -747,6 +777,36 @@ function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'we
 // A ui feature on top of the Menu: row 1 the place, the day, the ⚙ and feedback; row 2 the Warden
 // and the three resources as words (bars from day 8). Off (or with the Menu off), `header` above.
 const twoRowOn = (): boolean => menyOn() && uiFeatureOn(loadChoices(), TWO_ROW_FEATURE);
+
+// ── How to play in the journal (#1838, journal-notes.ts) ────────────────────
+// A ui feature on top of the Menu: the Warden's own notes at the front of the journal, behind the
+// 📖 on each journal box's heading, and no ? in the header. Whether they show is the page's alone:
+// null until the player taps the 📖, which means "open while the journal is still empty".
+const notesOn = (): boolean => menyOn() && uiFeatureOn(loadChoices(), NOTES_FEATURE);
+let notesChosen: boolean | null = null;
+/** A journal box's heading (and the notes under it while they show), for the run on screen. */
+const jHead = (label: string, style: string, a: AppState, journalEmpty: boolean): string =>
+  journalHead(label, style, { on: notesOn(), open: notesShown(notesChosen, journalEmpty), winterDay: a.sim.config.calendar.winterDay }, t);
+const LATEST_STYLE = 'color:var(--faint);margin-bottom:7px';
+
+/**
+ * The 📖 (or the Menu's link, `fromMeny`): the notes open or shut. From the Menu they open, the
+ * Menu shuts, and the journal they're in comes into view: PLAN's LATEST at camp, the road's JOURNAL.
+ */
+function openNotes(fromMeny: boolean): void {
+  const onRoad = state.stage === 'road' && !!state.road;
+  const wasOpen = notesShown(notesChosen, !onRoad && state.sim.log.length === 0);
+  notesChosen = fromMeny ? true : !wasOpen;
+  if (fromMeny) {
+    menyOpen = false;
+    if (onRoad) roadTab = 'journal';
+    else if (tab !== 'plan' && tab !== 'progress') { tab = 'plan'; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } }
+  }
+  render(state);
+  const head = root.querySelector<HTMLElement>(notesChosen ? '#notes-title' : '[data-cmd="notes"]');
+  head?.focus({ preventScroll: true });
+  if (notesChosen) root.querySelector('#notes')?.scrollIntoView({ block: 'nearest' });
+}
 
 /**
  * The whole header, drawn one way or the other: `title` is the h1, `row2` the Warden's row when it
@@ -838,6 +898,8 @@ function guideView(a: AppState, preview: Preview): GuideView {
   const queueDays = queueReach(preview.dayOffset);
   const ctx = { sim: s, queued: a.queue.length, weatherAcked: run.seen.includes('weather'), queueDays };
   let rec = markSeen(guideRec, usedNow(ctx));
+  // A run that started on LAND (#1853) has its LAND tab from the start, kept, and its line read (you've been there).
+  if (startedOnLand(s.character.id)) rec = markShown(markSeen(rec, ['land']), ['land']);
   const revealed = revealedNow(ctx, rec.run!.shown);
   rec = markShown(rec, revealed);
   if (guideFinished(s)) rec = markDone(rec);
@@ -929,11 +991,12 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const g = guide;
   const s = a.sim;
   const actions = g.shows('actions')
-    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: g.suggest })}</section>`
+    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: startHl ? startTarget().highlight : g.suggest })}</section>`
     : '';
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
-  const log = g.shows('journal') ? `<div class="log"${g.mark('journal')}><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p>${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
+  // The notes opened on purpose (#1838) show the journal box even before the guide reveals it.
+  const log = journalBoxShown(g.shows('journal'), notesOn(), notesChosen) ? `<div class="log"${g.mark('journal')}>${jHead(t('head.latest'), LATEST_STYLE, a, s.log.length === 0)}${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
   const strip = queue && sideQueueOn() ? stripBlock(a, preview) : '';
   return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t);
@@ -947,7 +1010,7 @@ function tabBody(a: AppState, preview: Preview): string {
       return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${planLayout({
         actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
         queue: queueBlock(a, preview),
-        journal: `<div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>`,
+        journal: `<div class="log">${jHead(t('head.latest'), LATEST_STYLE, a, a.sim.log.length === 0)}<ul>${journal(a, 6)}</ul></div>`,
         camp: hasCamp(a.sim) ? '' : beforeCamp(a),
         strip: sideQueueOn() ? stripBlock(a, preview) : '',
         stripOpen,
@@ -966,7 +1029,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'warden':
       return wardenTab(a, t, truths, wardenRations(a.sim));
     case 'progress':
-      return progressTab(a.sim, history, journal(a, 200), t);
+      return progressTab(a.sim, history, journal(a, 200), t, jHead(t('head.journal'), LATEST_STYLE, a, a.sim.log.length === 0));
   }
 }
 
@@ -1018,6 +1081,19 @@ function drawPage(a: AppState): void {
   const view: TabView = { dev, camp: hasCamp(a.sim), held: guide.active ? heldTabs(TABS.map(d => d.id), guide.shows) : undefined };
   // The Warden's view (#1807) is no tab in the row: nothing holds it back, so a kept one stays open.
   tab = viewToOpen(tab, TABS, view);
+  // The start's Explore (#1853): the highlight ends with the chooser or the tab; a pending tap opens
+  // the chooser once PLAN's actions are drawn (with the guide, after the weather card's "Got it").
+  if (startHl && (tab !== 'plan' || (startTarget().chooser !== null && ringPick !== startTarget().chooser))) startHl = false;
+  if (startPending && tab !== 'plan') startPending = false;
+  if (startPending && !menyShown() && !a.sim.outcome && (!guide.active || guide.shows('actions'))) {
+    const to = startTarget();
+    startPending = false;
+    startHl = true;
+    ringPick = to.chooser;
+    startScroll = true;
+    startPickTap = true;
+    setTimeout(() => { startPickTap = false; }, 0);
+  }
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
@@ -1028,11 +1104,12 @@ function drawPage(a: AppState): void {
         warden: reachWarden,
         counters: `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
         week: weekChip(a), experiment: '', playAi: playAiLink(t),
-        help: `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
+        // No ? with the journal's notes (#1838): how to play is the 📖 on the journal.
+        help: notesOn() ? '' : `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
         feedback: feedback.button(t),
       }, a, '')}
     ${menyOn() ? '' : featuresPanel(a)}
-    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
+    ${!notesOn() && ((fresh && !guide.active) || showHelp) ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
     ${statusBar(a, preview, twoRowOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '')}
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
@@ -1051,6 +1128,12 @@ function drawPage(a: AppState): void {
     if (lines) lines.scrollTop = lines.scrollHeight;
   }
   syncStickTop();
+  if (startScroll) {
+    startScroll = false;
+    const card = root.querySelector<HTMLElement>(`[data-chooser="${startTarget().highlight}"], .act.guide-suggest`);
+    card?.scrollIntoView({ block: 'center' });
+    root.querySelector<HTMLElement>('.ringpick .rpopt.on:not([disabled])')?.focus({ preventScroll: true });
+  }
 }
 
 /**
@@ -1350,7 +1433,8 @@ function renderRoad(a: AppState, r: RoadState): void {
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
-    : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
+    // The road's journal carries the 📖 too (the owner: how to play is reachable from every journal).
+    : roadTab === 'journal' ? `<section class="box">${jHead(t('head.roadJournal'), '', a, false)}<div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
   const meny = menyShown();
   const roadWarden = wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden' && !meny, data: 'rtab' }, t);
@@ -1786,6 +1870,12 @@ function endIntro(): void {
   // until the game is saved, a reload must bring back the same Warden-to-be (#1266).
   save(state);
   clearDraft();
+  // A new Warden's first view (#1853): LAND, once per run, and only before anything has been done.
+  if (startLandOn() && !began(state.sim) && claimStartLand(state.sim.character.id, startClaimed)) {
+    tab = 'land';
+    try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ }
+    render(state);
+  }
 }
 
 function advanceIntro(): void {
@@ -1961,7 +2051,7 @@ document.addEventListener('keydown', e => {
 // The distance chooser (#1814): a tap anywhere else shuts it without queueing, and so does Esc.
 // The root's handler below has already acted on the tap (a chosen distance or ✕ shut it already).
 document.addEventListener('click', e => {
-  if (!ringPick) return;
+  if (!ringPick || startPickTap) return;
   if ((e.target as HTMLElement).closest('.ringpick, [data-chooser]')) return;
   closeRingPick(false);
 });
@@ -2025,12 +2115,15 @@ root.addEventListener('click', e => {
     if (d.pbskip !== undefined) { skipTimer(); return; }
     if (d.pbstop !== undefined) { stopTimer(); return; }
     // The look switcher (#1736) only redraws; the ⚙ Menu (#1808) opens, shuts and copies, which change nothing in the game.
-    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep && d.cmd !== 'meny' && d.cmd !== 'menyclose' && d.cmd !== 'copyid') return;
+    if (!d.tab && !d.seeland && d.cmd !== 'help' && d.cmd !== 'notes' && d.cmd !== 'notesopen' && !d.lang && !d.lookstep && d.cmd !== 'meny' && d.cmd !== 'menyclose' && d.cmd !== 'copyid') return;
   }
   // Drawing your map (#1754): the session's own taps, and the action's button opens the session first.
   if (d.mapsel || d.mapcell || d.cmd === 'mapsession' || d.cmd === 'mapdraw' || d.cmd === 'mapclose' || (d.q === 'drawmap' && mapSessionOpen(state.sim))) { mapTap(d); return; }
   // The ⚙ Menu (#1808): open or shut it, and its own buttons.
   if (d.cmd === 'meny' || d.cmd === 'menyclose') { setMeny(d.cmd === 'meny' ? !menyOpen : false); return; }
+  // The journal's notes (#1838): the 📖 opens and shuts them; the Menu's link shuts the Menu and
+  // opens them in the journal. Presentation only, so mid-day too.
+  if (d.cmd === 'notes' || d.cmd === 'notesopen') { openNotes(d.cmd === 'notesopen'); return; }
   if (d.cmd === 'newgame' || d.cmd === 'newgameno') {
     newGameAsk = d.cmd === 'newgame';
     render(state);
@@ -2044,6 +2137,17 @@ root.addEventListener('click', e => {
   }
   // A tab (or the Warden's button) leaves the Menu for that view.
   if (d.tab || d.rtab) menyOpen = false;
+  // The start note's Explore (#1853): PLAN, with Explore highlighted and its chooser open (drawPage).
+  // Before the guide's weather card is acknowledged it waits: the card is at the top, scrolled to.
+  if (d.startexplore) {
+    menyOpen = false;
+    tab = startTarget().tab;
+    try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ }
+    startPending = true;
+    render(state);
+    if (startPending) window.scrollTo({ top: 0 });
+    return;
+  }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.
