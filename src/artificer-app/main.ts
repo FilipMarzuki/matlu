@@ -90,7 +90,10 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { MENY_FEATURE, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, weeklyButton, type HeaderParts } from './meny';
+import { MENY_FEATURE, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
+import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
+import { createAmbience } from './ambience';
+import { SoundSwitch } from './sound';
 import { REVEALS, TAB_GUIDE, activeTip, began, guideFinished, guideFor, heldTabs, isGuideId, queueReach, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -674,10 +677,29 @@ function menyView(a: AppState): string {
     language: langSwitch(false),
     guide: guideControls(a, false),
     visual: `<div class="langswitch">${lookSwitcher(a, true)}</div>${backdropControls(true)}`,
+    sound: soundOn() ? soundBody(sound.prefs, t) : '',
     elsewhere: elsewhereBody(t),
     experiments: experimentsBody({ on: exp, dev, controls: `${featuresButton()}${featuresPanel(a)}` }, t),
     developer: menyDevGate(),
   }, t);
+}
+
+// ── Ambient sound (#1828, ambience-mix.ts, ambience.ts, sound.ts) ─────────────
+// A ui feature: the Menu's Sound section. The engine is made only from a gesture (the Sound on
+// toggle, or the first tap for a player who left it on); a redraw only hands it the new mix.
+const soundOn = (): boolean => uiFeatureOn(loadChoices(), AMBIENCE_FEATURE);
+const sound = new SoundSwitch(createAmbience);
+document.addEventListener('click', () => { if (soundOn()) sound.gesture(); }, true);
+document.addEventListener('keydown', () => { if (soundOn()) sound.gesture(); }, true);
+/** The time of day and the trip's leg the sound was last mixed for, while a day plays out. */
+let soundAt = '';
+
+/** The mix for what the page shows: while a day plays out, its clock and whether you're out on the land. */
+function updateSound(a: AppState): void {
+  if (!soundOn()) { sound.silence(); return; }
+  if (!sound.built) return;
+  const pl = playing;
+  sound.update(mixFor(inputFor(a, { ui: backdropUi(), out: pl ? isOut(pl.plays[pl.day], momentOf(pl)) : false, volume: sound.prefs.volume })));
 }
 
 /** The header's controls after the title, with the Menu on or off (meny.ts says which go where). */
@@ -902,6 +924,7 @@ function drawPage(a: AppState): void {
   applyLook(shownLook(lookOfGame(a), lookPreview));
   // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).
   drawBackdrop(a);
+  updateSound(a);
   if (a.stage === 'road' && a.road) { guide = GUIDE_OFF; renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The first-morning guide (#1792): what this draw shows, worked out once for every block.
@@ -1584,6 +1607,11 @@ function tickTimer(pl: Playing): void {
     const now: BdTime = m.index >= p.steps.length ? 'dusk' : timeAt(p.before.sim.day, m.clock, p.before.sim.config.calendar);
     if (now !== backdropTime) drawBackdrop(shownNow(pl));
   }
+  // The sound follows the clock and the walk out and back (#1828): mixed again only when either changes.
+  if (sound.built) {
+    const at = `${m.index}|${m.phase?.kind ?? ''}|${m.index >= p.steps.length ? 'dusk' : timeAt(p.before.sim.day, m.clock, p.before.sim.config.calendar)}`;
+    if (at !== soundAt) { soundAt = at; updateSound(shownNow(pl)); }
+  }
   const phase = document.getElementById('pb-phase');
   const text = phaseText(p, m, t, dev);
   if (phase && phase.textContent !== text) phase.textContent = text;
@@ -1900,6 +1928,8 @@ root.addEventListener('click', e => {
   if (d.guide === 'played') { const on = !(guideRec.run?.playedBefore ?? false); keepGuide(setPlayedBefore(guideRec, on)); render(state); root.querySelector<HTMLElement>('[data-guide="played"]')?.focus(); return; }
   // The backdrop's "Keep it still" (#1802): presentation only, so mid-day too.
   if (d.backdrop === 'still') { backdropStill = !backdropStill; saveStill(backdropStill); backdrop.setStill(backdropStill); render(state); root.querySelector<HTMLElement>('[data-backdrop="still"]')?.focus(); return; }
+  // Sound (#1828): presentation only, so mid-day too. Turning it on is the gesture that starts the audio.
+  if (d.sound === 'toggle') { sound.toggle(); render(state); root.querySelector<HTMLElement>('[data-sound="toggle"]')?.focus(); return; }
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
   // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
   if (d.cmd === 'feedback') { feedback.toggle(); return; }
@@ -2340,6 +2370,8 @@ root.addEventListener('change', e => {
 root.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
   if (input.id === 'runname' && recordUi) recordUi.name = input.value;
+  // The volume (#1828): kept, and the mix follows, without a redraw (that would drop the slider mid-drag).
+  if (input.dataset.sound === 'volume') { sound.setVolume(Number(input.value) / 100); updateSound(playing ? shownNow(playing) : state); }
 });
 
 // A fold opened or shut (#1730, fold.ts): remembered, so the next redraw writes it the same way.

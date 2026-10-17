@@ -73,15 +73,15 @@ export const helpExtras = (menyOn: boolean, extras: readonly string[]): string =
 // ── The page ─────────────────────────────────────────────────────────────────
 
 /**
- * The sections, in the owner's order. Sound comes between the look and the other ways to play once
- * the game has sound; until then there's no section for it (#1808: "only once sound exists").
+ * The sections, in the owner's order. Sound (#1828) comes between the look and the other ways to
+ * play; with its ui switch (`ambience`) off, its body is empty and it isn't drawn.
  */
-export const MENY_SECTIONS = ['newgame', 'profile', 'language', 'guide', 'visual', 'elsewhere', 'experiments', 'developer'] as const;
+export const MENY_SECTIONS = ['newgame', 'profile', 'language', 'guide', 'visual', 'sound', 'elsewhere', 'experiments', 'developer'] as const;
 export type MenySection = (typeof MENY_SECTIONS)[number];
 
 const TITLES: Record<MenySection, Key> = {
   newgame: 'meny.newGame', profile: 'meny.profile', language: 'meny.language', guide: 'meny.guide',
-  visual: 'meny.visual', elsewhere: 'meny.elsewhere', experiments: 'meny.experiments', developer: 'meny.developer',
+  visual: 'meny.visual', sound: 'meny.sound', elsewhere: 'meny.elsewhere', experiments: 'meny.experiments', developer: 'meny.developer',
 };
 
 /**
@@ -117,6 +117,18 @@ export function newGameBody(o: { asking: boolean }, t: T): string {
 export function profileBody(o: { runId: string; copied: boolean }, t: T): string {
   return `<p class="mood menyid">${esc(t('meny.runId'))} <code>${esc(o.runId)}</code> <button class="pill" data-cmd="copyid">${esc(t('meny.copy'))}</button>${o.copied ? ` <span class="faint" role="status">${esc(t('meny.copied'))}</span>` : ''}</p>`
     + `<div class="menyrow"><a class="pill" href="/records/">${esc(t('meny.records'))}</a></div>`;
+}
+
+/**
+ * Sound (#1828): what it is, the on/off switch (pressed while on) and the volume, 0–100. The
+ * switch is the gesture that lets the browser start the audio; the slider shows only while it's on.
+ */
+export function soundBody(o: { on: boolean; volume: number }, t: T): string {
+  const vol = Math.round(Math.min(1, Math.max(0, o.volume)) * 100);
+  return `<p class="mood">${esc(t('meny.soundNote'))}</p>`
+    + `<div class="menyrow"><button class="pill" data-sound="toggle" aria-pressed="${o.on}" title="${esc(t('meny.soundTip'))}">${esc(t(o.on ? 'meny.soundOn' : 'meny.soundOff'))}</button>`
+    + (o.on ? `<label class="menyvol">${esc(t('meny.volume'))} <input type="range" min="0" max="100" step="5" value="${vol}" data-sound="volume" aria-label="${esc(t('meny.volume'))}"></label>` : '')
+    + '</div>';
 }
 
 /** Other ways to play: with your AI, and the text console. */

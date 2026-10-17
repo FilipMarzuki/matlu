@@ -105,7 +105,7 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   await gear.click();
   await expect(gear).toHaveAttribute('aria-expanded', 'true');
   // Every section but the guide's, which this test has switched off.
-  await expect(page.locator('#meny [data-meny]')).toHaveCount(7);
+  await expect(page.locator('#meny [data-meny]')).toHaveCount(8);
   await expect(page.locator('#meny [data-meny="guide"]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.locator('#meny')).toHaveCount(0);
