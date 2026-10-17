@@ -184,10 +184,11 @@ function foundLines(s: Region1State, r: Ring, places: PlaceLine[], t: T): PlaceL
  * it holds, #1847) folded over what you've found there. An area you haven't looked at and found nothing in isn't shown at all; one you have
  * but found nothing in says so.
  */
-function foundRing(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: LandNews, assess: boolean): string {
+function foundRing(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: LandNews, assess: boolean, always = false): string {
   const lines = foundLines(s, r, places, t);
   const out = outOfReach(s, r);
-  if (!lines.length && (out || selfAssessment(s.explore, r) === 0)) return '';
+  // `always`: the near area on the start's first view (#1853), "Unknown" and all.
+  if (!lines.length && (out || selfAssessment(s.explore, r) === 0) && !always) return '';
   const summary = `<span class="ringhead" id="land-ring-${r}">${ringHead(s, r, t)}</span>${assessed(s, r, t, assess && !out)}${landIcons(s, r, t)}${news.rings.includes(r) ? newMark(t) : ''}`;
   const body = lines.length ? words(lines, t) : `<p class="mood" style="margin:0">${esc(t('land.found.none'))}</p>`;
   return fold(`land.ring.${r}`, summary, body, r === 1 && !out, 'ringfold');
@@ -236,15 +237,22 @@ function queuedExplores(queue: readonly QueueItem[], t: T): string {
  * it's only the invitation and the button (what's in sight from where you stand comes in with the
  * first look round).
  */
-function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, assess: boolean, queue: readonly QueueItem[]): string {
+function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, assess: boolean, queue: readonly QueueItem[], start = ''): string {
   const places = placesByRing(s, t, news);
   // Before you've been out at all, what you see from where you stand isn't a find yet: only the invitation.
+  // With the start's note (#1853) the near area shows anyway, with what's in sight and how well you know it.
   const lookedAround = RINGS.some(r => selfAssessment(s.explore, r) > 0);
-  const rings = lookedAround ? RINGS.map(r => foundRing(s, r, places[r], t, news, assess)).join('') : '';
+  const rings = lookedAround || start ? RINGS.map(r => foundRing(s, r, places[r], t, news, assess, !!start && r === 1)).join('') : '';
+  const extra = `${queuedExplores(queue, t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}`;
   const boxes = [
+    // The start's note (#1853) leads, and its button is the one: the invitation's own Explore button
+    // (#1836) gives way to it, so there's one way to explore on day 1, by PLAN.
+    start,
     drawn ? `<section class="box"><p class="eyebrow">${esc(t('head.yourMap'))}</p>${map}</section>` : '',
     rings ? `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${rings}</section>` : '',
-    `<section class="box landinvite"><p class="mood" style="margin:0 0 8px">${esc(t('land.found.invite'))}</p>${exploreButton(s, t)}${queuedExplores(queue, t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>`,
+    start
+      ? (extra ? `<section class="box landinvite">${extra}</section>` : '')
+      : `<section class="box landinvite"><p class="mood" style="margin:0 0 8px">${esc(t('land.found.invite'))}</p>${exploreButton(s, t)}${extra}</section>`,
   ];
   // Stacked by the stylesheet (`.landfound`), so whichever boxes there are sit 14px apart.
   return `<div class="landfound">${boxes.join('')}</div>`;
@@ -263,6 +271,8 @@ export interface LandOpts {
   foundOnly?: boolean;
   /** The plan as it stands, so LAND can say an Explore its button queued is waiting there (#1836). */
   queue?: readonly QueueItem[];
+  /** The start's note at the top (#1853, start-land.ts `startNoteBlock`); '' or absent for none. */
+  startNote?: string;
 }
 
 /**
@@ -274,9 +284,12 @@ export function landTab(s: Region1State, t: T, pinRing: Ring | null = null, opts
   t = distanceT(s, t);
   const mode = mapMode(s);
   const drawn = mode === 'drawn' ? opts.map ?? drawnMapBlock(s, t) : '';
-  if (mode !== 'reach' && opts.foundOnly) return foundLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess, opts.queue ?? []);
-  if (mode !== 'reach') return mergedLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess);
-  return `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${landRings(s, t, pinRing)}${landLegend(t)}
+  const start = opts.startNote ?? '';
+  if (mode !== 'reach' && opts.foundOnly) return foundLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess, opts.queue ?? [], start);
+  // Without found-only, the note simply leads (#1853): those views have no Explore button to replace.
+  const lead = start ? `<div style="margin-bottom:14px">${start}</div>` : '';
+  if (mode !== 'reach') return lead + mergedLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess);
+  return `${lead}<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${landRings(s, t, pinRing)}${landLegend(t)}
         <p class="mood">${esc(t('land.howTo'))}</p></section>
         ${campSpotsSection(s, t)}<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(s, t)}</section>
         <div style="margin-top:14px">${opts.map ?? reachMapSection(s, t)}</div>`;

@@ -61,6 +61,7 @@ import { mapSessionOpen, placeOn, unplaced, moveCell, NEW_SESSION, type MapSessi
 import { wardenTab } from './warden-view';
 import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
+import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
@@ -153,7 +154,32 @@ function closeRingPick(refocus: boolean): void {
 }
 
 /** What the palette needs from the page: dev mode, the language, and this Warden's chooser state. */
-const paletteOpts = (s: AppState['sim']) => ({ dev, t, defaults: defaultsFor(ringDefaults, s.character.id), chooser: ringPick });
+const paletteOpts = (s: AppState['sim']) => {
+  // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
+  const own = defaultsFor(ringDefaults, s.character.id);
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null };
+};
+
+// ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
+// A ui feature: a new Warden's first view after the intro is LAND, with the patrol leader's advice
+// and an Explore button that goes to PLAN with Explore highlighted and its chooser open. The page's
+// own state, like the chooser's: nothing in the save.
+const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
+/** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
+const startClaimed = new Set<string>();
+/** This run started on LAND: claimed now, or on an earlier visit. */
+const startedOnLand = (id: string): boolean => startClaimed.has(id) || startLandUsed(id);
+/**
+ * Explore was tapped on the note and waits for PLAN's actions to show: at once, or (with the guide
+ * at work) once the first morning's weather card has had its "Got it".
+ */
+let startPending = false;
+/** Explore glows (and its chooser preselects the nearest distance) until the chooser shuts or the tab changes. */
+let startHl = false;
+/** The draw that opened the chooser for the start: scroll it into view and focus its distance. */
+let startScroll = false;
+/** The tap that opened it mustn't shut it again (the document's "tap elsewhere" handler runs after). */
+let startPickTap = false;
 
 /** The ring whose remembered places are listed on the land (#1380), if any. */
 let pinRing: Ring | null = null;
@@ -283,7 +309,9 @@ function landBody(a: AppState): string {
   const mode = mapMode(a.sim);
   // How LAND is drawn (#1835, #1836): ui features, the viewer's own, so they switch live.
   const news = landNewsNow(a.sim);
-  const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue };
+  const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue,
+    // The start's note on day 1 (#1853): its Explore button stands in for #1836's.
+    startNote: startLandOn() ? startNoteBlock(a.sim, t) : '' };
   if (mode === 'described') return landTab(a.sim, t, pinRing, look);
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
@@ -870,6 +898,8 @@ function guideView(a: AppState, preview: Preview): GuideView {
   const queueDays = queueReach(preview.dayOffset);
   const ctx = { sim: s, queued: a.queue.length, weatherAcked: run.seen.includes('weather'), queueDays };
   let rec = markSeen(guideRec, usedNow(ctx));
+  // A run that started on LAND (#1853) has its LAND tab from the start, kept, and its line read (you've been there).
+  if (startedOnLand(s.character.id)) rec = markShown(markSeen(rec, ['land']), ['land']);
   const revealed = revealedNow(ctx, rec.run!.shown);
   rec = markShown(rec, revealed);
   if (guideFinished(s)) rec = markDone(rec);
@@ -961,7 +991,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const g = guide;
   const s = a.sim;
   const actions = g.shows('actions')
-    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: g.suggest })}</section>`
+    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: startHl ? startTarget().highlight : g.suggest })}</section>`
     : '';
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
@@ -1051,6 +1081,19 @@ function drawPage(a: AppState): void {
   const view: TabView = { dev, camp: hasCamp(a.sim), held: guide.active ? heldTabs(TABS.map(d => d.id), guide.shows) : undefined };
   // The Warden's view (#1807) is no tab in the row: nothing holds it back, so a kept one stays open.
   tab = viewToOpen(tab, TABS, view);
+  // The start's Explore (#1853): the highlight ends with the chooser or the tab; a pending tap opens
+  // the chooser once PLAN's actions are drawn (with the guide, after the weather card's "Got it").
+  if (startHl && (tab !== 'plan' || (startTarget().chooser !== null && ringPick !== startTarget().chooser))) startHl = false;
+  if (startPending && tab !== 'plan') startPending = false;
+  if (startPending && !menyShown() && !a.sim.outcome && (!guide.active || guide.shows('actions'))) {
+    const to = startTarget();
+    startPending = false;
+    startHl = true;
+    ringPick = to.chooser;
+    startScroll = true;
+    startPickTap = true;
+    setTimeout(() => { startPickTap = false; }, 0);
+  }
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
@@ -1085,6 +1128,12 @@ function drawPage(a: AppState): void {
     if (lines) lines.scrollTop = lines.scrollHeight;
   }
   syncStickTop();
+  if (startScroll) {
+    startScroll = false;
+    const card = root.querySelector<HTMLElement>(`[data-chooser="${startTarget().highlight}"], .act.guide-suggest`);
+    card?.scrollIntoView({ block: 'center' });
+    root.querySelector<HTMLElement>('.ringpick .rpopt.on:not([disabled])')?.focus({ preventScroll: true });
+  }
 }
 
 /**
@@ -1821,6 +1870,12 @@ function endIntro(): void {
   // until the game is saved, a reload must bring back the same Warden-to-be (#1266).
   save(state);
   clearDraft();
+  // A new Warden's first view (#1853): LAND, once per run, and only before anything has been done.
+  if (startLandOn() && !began(state.sim) && claimStartLand(state.sim.character.id, startClaimed)) {
+    tab = 'land';
+    try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ }
+    render(state);
+  }
 }
 
 function advanceIntro(): void {
@@ -1996,7 +2051,7 @@ document.addEventListener('keydown', e => {
 // The distance chooser (#1814): a tap anywhere else shuts it without queueing, and so does Esc.
 // The root's handler below has already acted on the tap (a chosen distance or ✕ shut it already).
 document.addEventListener('click', e => {
-  if (!ringPick) return;
+  if (!ringPick || startPickTap) return;
   if ((e.target as HTMLElement).closest('.ringpick, [data-chooser]')) return;
   closeRingPick(false);
 });
@@ -2082,6 +2137,17 @@ root.addEventListener('click', e => {
   }
   // A tab (or the Warden's button) leaves the Menu for that view.
   if (d.tab || d.rtab) menyOpen = false;
+  // The start note's Explore (#1853): PLAN, with Explore highlighted and its chooser open (drawPage).
+  // Before the guide's weather card is acknowledged it waits: the card is at the top, scrolled to.
+  if (d.startexplore) {
+    menyOpen = false;
+    tab = startTarget().tab;
+    try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ }
+    startPending = true;
+    render(state);
+    if (startPending) window.scrollTo({ top: 0 });
+    return;
+  }
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.
