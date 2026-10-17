@@ -14,7 +14,7 @@
  */
 
 import {
-  makeWarden, act, choose, carryOn, endTheDay, runQueuedDay, chooseFocus, chooseEating, settle, queueLocked,
+  makeWarden, act, choose, carryOn, endTheDay, runQueuedDay, stopQueuedDay, chooseFocus, chooseEating, settle, queueLocked,
   meetCaravan, meetingChoose, rideCaravan, stayBehind, roadAct, roadChoose, roadEndDay, newCharacterId,
   serialize as serializeApp, deserialize as deserializeApp, type AppState,
 } from '../artificer-app/controller';
@@ -30,6 +30,7 @@ import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { playFacts } from '../artificer/history-in-play';
 import { cleanQuestion, QUESTION_NOTICE } from './questions';
 import { featureById, featureOn, featuresOf, type FeatureSwitches } from '../artificer/features';
+import { stopRefusal, type DayStop } from '../artificer/stop-action';
 import { campAsActionOn } from '../artificer/camp-sites';
 import { respondedOn } from '../artificer/journal';
 import { chosenLength, lengthRefusal } from '../artificer/action-length';
@@ -65,6 +66,9 @@ export interface Game {
  *   one it takes its usual length.
  * - `{ endDay }` end the day: the night passes.
  * - `{ plan }` a whole day's actions in one go, once the Warden has learned to plan.
+ * - With `stop-action` (#1815), `{ plan, stop: { action, hours } }` stops the plan's action `action`
+ *   (from 0) `hours` into it, and `{ do, stop: { action: 0, hours } }` the one action: it keeps what
+ *   it had got by then (stop-action.ts), and the day pauses after it, with no night.
  * - `{ choose }` an option in an encounter or the caravan meeting.
  * - `{ set }` what the mind works on (`focus`, a key like `"goal:larder"` or `"none"`), how to
  *   eat (`eating`) or where to camp (`site`). Free: no hours.
@@ -73,9 +77,9 @@ export interface Game {
  *   `question:<person>:<topic>`, so the words never enter the game, only the topic they matched.
  */
 export type Move =
-  | { do: QueueItem | RoadActionId | string }
+  | { do: QueueItem | RoadActionId | string; stop?: DayStop }
   | { endDay: true }
-  | { plan: (QueueItem | string)[] }
+  | { plan: (QueueItem | string)[]; stop?: DayStop }
   | { choose: string }
   | { set: { focus?: string; eating?: string; site?: string } }
   | { ask: { person: string; question: string } };
@@ -248,7 +252,11 @@ export function apply(g: Game, move: Move): ApplyResult {
       const item = actionItem(move.do);
       const why = actionRefusal(before.sim, item);
       if (why) return refuse(why);
-      next = act(before, item as QueueItem);
+      if (move.stop !== undefined) {
+        const no = stopRefusal(before.sim, move.stop, 1);
+        if (no) return refuse(no);
+      }
+      next = act(before, item as QueueItem, move.stop?.hours);
     } else if ('plan' in move) {
       const locked = queueLocked(before);
       if (locked) return refuse(`${locked} Do one thing at a time with { do }.`);
@@ -259,7 +267,11 @@ export function apply(g: Game, move: Move): ApplyResult {
         const why = actionRefusal(before.sim, item, { syntaxOnly: true });
         if (why) return refuse(`In the plan: ${why}`);
       }
-      next = runQueuedDay({ ...before, queue: plan as QueueItem[] });
+      if (move.stop !== undefined) {
+        const no = stopRefusal(before.sim, move.stop, plan.length);
+        if (no) return refuse(no);
+      }
+      next = move.stop !== undefined ? stopQueuedDay({ ...before, queue: plan as QueueItem[] }, move.stop) : runQueuedDay({ ...before, queue: plan as QueueItem[] });
     } else return refuse('Nothing needs an answer now: do an action, end the day, or plan the day.');
   }
 

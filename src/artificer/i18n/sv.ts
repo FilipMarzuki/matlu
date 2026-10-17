@@ -241,6 +241,8 @@ const core: Catalog = {
   'timer.speed': 'Hastighet',
   'timer.skip': '⏭ HOPPA ÖVER',
   'timer.skipTip': 'Gör klart direkt (Esc)',
+  'timer.stop': '⏹ AVBRYT',
+  'timer.stopTip': 'Avbryt det här nu: behåll det du har, och låt resten av kön ligga kvar',
   'timer.action': 'Den här sysslan',
 
   // ── Inledningens knappar ───────────────────────────────────────────────────

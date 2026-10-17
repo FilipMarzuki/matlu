@@ -706,9 +706,10 @@ function rulesBody(): Record<string, unknown> {
     roadRules: ROAD_RULES,
     moves: {
       do: 'One action now: "explore", "gather@2" (ring 2), or { "q": "build", "opts": { … } }. On the road: "rest", "talk:<person id>", "sell:<item>" …',
-      length: 'With the "action-length" feature, gathering (gather, wood, quarry, fish, water) can take a length: { "q": "wood@2", "hours": 3 } (1–14 hours or "day", walks included, played as trips out and back) or { "q": "wood", "until": 10 } (until the stores hold 10). In do and in plan. Without one, the usual length.',
+      length: 'With the "action-length" feature, gathering (gather, wood, quarry, fish, water, and gatherstone with "stone-gathering") can take a length: { "q": "wood@2", "hours": 3 } (1–14 hours or "day", walks included, played as trips out and back) or { "q": "wood", "until": 10 } (until the stores hold 10). In do and in plan. Without one, the usual length.',
       endDay: 'true: end the day; the night passes.',
       plan: 'A whole day\'s actions in order, once the Warden has learned to plan.',
+      stop: 'With the "stop-action" feature (#1815): { "plan": […], "stop": { "action": 1, "hours": 2.5 } } stops the plan\'s action 1 (from 0) 2.5 hours into it (walks included), and { "do": …, "stop": { "action": 0, "hours": 1 } } the one action. It keeps what it had got by then (on the walk out nothing; water and a hunt nothing until done; wood, forage, stone and fish a share for the work done; exploring what was seen; crafts and camp work nothing made, nothing used), and the day pauses after it, with no night. The view\'s STOPPING line says the same.',
       choose: 'An option id in an encounter or the caravan meeting.',
       set: '{ "focus": "goal:larder" | "none", "eating": "full" | "half" | "none", "site": "cave" | … }: free, no hours.',
       ask: '{ "person": "<person id>", "question": "…" }: on the road, a question in your own words, once per person per stay (up to 200 characters). Questions are kept, with nothing about you, to improve the game.',

@@ -30,7 +30,7 @@ import { GAIN_WORDS, STAT_IDS } from '../../stats';
 import { INSTINCT_LINE } from '../../panic';
 import { SPOOK_LINE, DISCOVERIES, GRADE_LINE, REGION1_MILESTONES } from '../../region1';
 import { FINDS } from '../../exploration';
-import { EXPLORE_UNLOCKS } from '../../action-unlocks';
+import { EXPLORE_UNLOCKS, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from '../../action-unlocks';
 import { MANUALS } from '../../techniques';
 import { PIN_WORDS, PLACE_NAME } from '../../pins';
 import { WEATHER_STEPS } from '../../luck';
@@ -49,6 +49,8 @@ const derived = Object.fromEntries([
   ...Object.entries(INSTINCT_LINE).map(([r, l]) => [`say.instinct.${r}`, l]),
   ...Object.entries(SPOOK_LINE).map(([r, l]) => [`say.spook.${r}`, l]),
   ...EXPLORE_UNLOCKS.flatMap(u => [[`say.unlock.${u.action}`, u.line], [`w.unlock.${u.action}.verb`, u.verb], [`w.unlock.${u.action}.how`, u.how]]),
+  // Quarrying before the cleave (#1816, `stone-gathering`): hidden, and the flint seam's note names gathering.
+  ['w.unlock.quarry.verb', QUARRY_UNLOCK.verb], ['w.unlock.quarry.how', QUARRY_UNLOCK.how], ['w.find.stone.gather.note', STONE_GATHER_FIND_NOTE],
   ...MANUALS.flatMap(m => [[`say.manual.${m.id}`, `${m.found}.`], [`w.manual.${m.id}`, m.name.toLowerCase()]]),
   ...Object.entries(SKILLS).map(([id, s]) => [`w.felt.${id}`, s.felt]),
   ...STAT_IDS.map(id => [`w.gain.${id}`, GAIN_WORDS[id]]),
@@ -164,6 +166,7 @@ export const journal = {
   'log.fish': 'Fished through the ice{where} — {n} raw food.',
   'log.fish.none': 'Sat over a hole in the ice{where} and caught nothing.',
   'log.quarry': 'Broke out {n} stone{where}.',
+  'log.gatherstone': 'Gathered {n} stone{where}.',
   'log.lookout': 'Climbed high{where} and looked out — the ground sharpens below.',
   'log.lookout.over': 'Climbed high{where} and looked out — the ground sharpens below, and you can see over the {ringword} ring.',
   'log.tomorrow': '{line} Tomorrow looks like {weather}.',
@@ -239,6 +242,15 @@ export const journal = {
   'log.craftFailed.salvaged': 'The {recipe} came apart in your hands — materials wasted (salvaged {cost}). Too foggy for fine work.',
   'log.claimNot': "Can't stake a claim yet: {why}.",
   'log.skipped': '{head}{where}: skipped — {why}.',
+  // Stopped partway (#1815, stop-action.ts): what the action kept, by where it was stopped.
+  'log.stopOut': '{head}{where}: stopped on the way out and turned back — nothing to show for it.',
+  'log.stopNone': '{head}{where}: stopped before it was done — nothing to show for it.',
+  'log.stopSeen': '{head}{where}: stopped partway — you saw some of what was there.',
+  'log.stopPart': '{head}{where}: stopped after {h}h of the work — headed home with what you had.',
+  'log.stopCamp': '{head}: stopped — nothing made, and nothing used up.',
+  // A hunt stopped (#1815): before its moment of the kill, or after it.
+  'log.stopGaveUp': '{head}{where}: stopped — you gave up before anything came.',
+  'log.stopKilled': '{head}{where}: stopped — you had already brought it down, and headed home with all of it.',
   'log.choiceSkipped': 'Choice: skipped — there\'s no "{id}" here.',
   'log.milestone': 'Milestone — {w}',
   'log.heirloomTeaches': 'The {good} teaches you what its maker knew: {list}.',
