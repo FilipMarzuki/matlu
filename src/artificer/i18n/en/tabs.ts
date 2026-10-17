@@ -52,7 +52,7 @@ export const tabs = {
   'warden.lock': '⚠ SURVIVAL HAS TAKEN OVER — {why}. Water, food, wood and shelter work goes better; learning waits until it passes.',
   'warden.lockRoad': '⚠ SURVIVAL HAS TAKEN OVER — {why}. Learning waits until it passes.',
   'warden.discovered': 'discovered',
-  'warden.lastStand': 'last stand used this run',
+  'warden.lastStand': 'last stand already used',
   'warden.hiddenGift': 'A hidden gift',
   'warden.hiddenGiftNote': 'Something in you not yet known. Watch for signs in the journal.',
   'warden.noTalents': 'No talents — a quick-start Warden. Start a fresh Warden to choose two.',
@@ -192,8 +192,8 @@ export const tabs = {
   'progress.fuelShort.other': 'Firewood lasts {n} nights — about {m} more wood to see the winter out.',
   'progress.tooCold': 'The shelter is too cold for a clear midwinter night, even with the fire in. Walls, bedding or cold gear.',
   'progress.enough': 'Enough laid by to reach the thaw, if nothing goes wrong.',
-  'progress.noRuns': 'No finished runs yet. Live through the winter to the thaw, and it will be recorded here.',
-  'progress.run': 'RUN {n}',
+  'progress.noRuns': 'No finished winters yet. Live through the winter to the thaw, and it will be recorded here.',
+  'progress.run': 'WARDEN {n}',
   'progress.kind.arrived': 'Reached Mistheim',
   'progress.kind.survived': 'Survived the winter',
   'progress.kind.thrive': 'Thrived — caravan',
@@ -211,7 +211,7 @@ export const tabs = {
   'progress.best': '★ BEST',
 
   // ── HISTORY, and a province's history on the MAP ───────────────────────────
-  'history.telling': 'The old ones are still telling it. It takes a few seconds, once per run.',
+  'history.telling': 'The old ones are still telling it. It takes a few seconds, once per game.',
   'history.introHtml': "Years are the Reach's own count, from when its oldest houses first held land. It is now year {year}. {told} of {logged} remembered deeds are worth the telling. {mark} marks news from a region's countryside: famine, plague, a house losing its last seat.",
   'history.yourCamp': 'your camp',
   'history.emptySeat': 'empty seat',

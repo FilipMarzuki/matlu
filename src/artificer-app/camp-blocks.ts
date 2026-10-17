@@ -28,7 +28,7 @@ import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { chevron } from './fold';
-import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { actionName, buildsWords, conceptName, distanceT, gradeWord, landDescribedHead, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { campBadges, siteBadge } from './rating-badges';
 import { buildsAt } from '../artificer/camp-builds';
@@ -607,7 +607,7 @@ export function outcomeCard(a: AppState, run: RunRecord | undefined, t: T): stri
       <li>${esc([run.site ? t('end.camp', { site: siteName(run.site, t), n: run.tier }) + (run.shelterGrade ? ` (${gradeWord(run.shelterGrade, t)})` : '') : t('end.noCamp'), t(run.tools.length === 1 ? 'end.tools.one' : 'end.tools.other', { n: run.tools.length }), t('end.recipes', { n: run.recipes }), t('end.milestones', { n: run.milestones })].join(' · '))}</li>
       ${hard}
     </ul>` : mult > 1 ? `<ul class="runfacts">${hard}</ul>` : '';
-  const head = o.choice === 'collapse' ? t('end.ended', { n: run?.run ?? '' }) : t('end.complete', { n: run?.run ?? '' });
+  const head = o.choice === 'collapse' ? t('end.ended') : t('end.complete');
   return `<h3>${esc(head)}</h3><div class="outcome"><span class="head">${esc(t(`end.${o.kind}`))}</span>${esc(t(`end.${o.kind}.body`))}</div>${o.kind === 'survived' ? thawSummary(a, t) : ''}${facts}`;
 }
 
@@ -617,7 +617,7 @@ export function outcomeCard(a: AppState, run: RunRecord | undefined, t: T): stri
 export function describedMap(s: Sim, t: T): string {
   const lines = landLines(s, t).map(l => `<li>${esc(l)}</li>`).join('');
   const needs = mapNeedsText(s, t);
-  return `<section class="box"><p class="eyebrow">${esc(t('head.landDescribed'))}</p>
+  return `<section class="box"><p class="eyebrow">${esc(landDescribedHead(s, t))}</p>
     <p class="mapinfo">${esc(t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro'))}</p>
     <ul class="landwords">${lines}</ul>
     <p class="mood">${esc(t('map.exploreMore') + (needs ? t('map.needs', { needs }) : ''))}</p></section>`;

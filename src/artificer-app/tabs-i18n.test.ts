@@ -131,7 +131,7 @@ describe('The remaining tabs, in Swedish (#1711)', () => {
       expect(englishIn(progressTab(s, [], '', sv))).toEqual([]);
       expect(englishIn(progressTab(s, records(), '', sv))).toEqual([]);
     }
-    expect(shown(progressTab(rich(), records(), '', sv))).toContain('RUNDA 1');
+    expect(shown(progressTab(rich(), records(), '', sv))).toContain('VÄKTARE 1');
   });
 
   it('keeps the English tabs saying what they said', () => {
@@ -215,7 +215,8 @@ describe('One LAND tab, organised by ring (#1730)', () => {
   it('shows everything the old MAP tab showed: the camp line, every place in words, the intro, what a map still needs', () => {
     const s = described();
     const text = shown(landTab(s, en));
-    expect(text).toContain('THE LAND — what you know of it, from camp');
+    // No camp has been made in this state (camp as an action, #1732), so it's told from where you stand (#1834).
+    expect(text).toContain('THE LAND — what you know of it, from here');
     // Every line the description had (and the AI reads), each once: camp at the top, the places under their rings.
     const lines = describeLand(s);
     expect(lines.length).toBeGreaterThan(2);

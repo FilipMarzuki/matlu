@@ -124,14 +124,14 @@ describe('the Menu page (#1808)', () => {
     expect(sure).toContain('data-cmd="newgameno"');
   });
 
-  it('Profile: runs played, this run\'s id to copy (escaped), and the Records', () => {
-    const html = profileBody({ runs: 4, runId: 'w-<x>', copied: false }, en);
-    expect(html).toContain('Runs played in this browser: 4');
+  it('Profile: this game\'s id to copy (escaped), and the Records; no count of games played (#1837)', () => {
+    const html = profileBody({ runId: 'w-<x>', copied: false }, en);
+    expect(html).not.toMatch(/played/i);
     expect(html).toContain('w-&#60;x&#62;');
     expect(html).toContain('data-cmd="copyid"');
     expect(html).toContain('href="/records/"');
     expect(html).not.toContain('Copied');
-    expect(profileBody({ runs: 0, runId: 'w', copied: true }, sv)).toContain('Kopierat');
+    expect(profileBody({ runId: 'w', copied: true }, sv)).toContain('Kopierat');
   });
 
   it('Sound (#1828): off by default with no slider; on, pressed, with the volume; en and sv', () => {
@@ -160,13 +160,13 @@ describe('the Menu page (#1808)', () => {
     expect(html).toContain('href="/console/"');
   });
 
-  it('Experiments say what they are and whether this run has any on; their switches are dev mode\'s', () => {
+  it('Experiments say what they are and whether this game has any on; their switches are dev mode\'s', () => {
     const none = experimentsBody({ on: [], dev: false, controls: '<b>switches</b>' }, en);
     expect(none).toContain('marked 🧪 in the Records');
-    expect(none).toContain('This run has no experiments on.');
+    expect(none).toContain('This game has no experiments on.');
     expect(none).not.toContain('switches');
     const some = experimentsBody({ on: ['Referrals', 'Ties'], dev: true, controls: '<b>switches</b>' }, en);
-    expect(some).toContain('This run has 2 experiments on.');
+    expect(some).toContain('This game has 2 experiments on.');
     expect(some).toContain('<summary>Which ones</summary><p class="mood">Referrals, Ties</p>');
     expect(some).toContain('switches');
   });

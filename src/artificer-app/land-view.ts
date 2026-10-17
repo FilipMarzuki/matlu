@@ -20,11 +20,11 @@ import type { SiteId } from '../artificer/region1';
 import type { Key, T } from '../artificer/i18n';
 import { RINGS, TRAVEL_HOURS, FINDS, domainsOf, level, reachable, hasFind, supplyWord, type Ring } from '../artificer/exploration';
 import { parseItem, queueId, routeKnown, type QueueItem, type Region1State } from '../artificer/region1';
-import { campBiome, knownPlaces, mapMode } from '../artificer/descriptive-map';
+import { knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
 import { esc } from './html';
-import { actionName, buildsWords, distanceT, mapNeedsText, placeLine, ringName, simLine, siteName, spotWhere } from './sim-words';
+import { actionName, buildsWords, distanceT, landDescribedHead, mapNeedsText, placeLine, ringName, simLine, siteName, spotWhere, whereLine } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
 import { campBadges, siteBadge } from './rating-badges';
@@ -151,9 +151,10 @@ export function campSpotsSection(s: Region1State, t: T): string {
 function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, assess = false): string {
   const places = placesByRing(s, t, news);
   const needs = drawn ? '' : mapNeedsText(s, t);
-  const top = `<section class="box"><p class="eyebrow">${esc(t(drawn ? 'head.yourMap' : 'head.landDescribed'))}</p>
+  // Before you've made camp (#1834) the heading and the first line say where you stand, not where camp is.
+  const top = `<section class="box"><p class="eyebrow">${esc(drawn ? t('head.yourMap') : landDescribedHead(s, t))}</p>
     ${drawn ? map : `<p class="mapinfo">${esc(t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro'))}</p>`}
-    ${words([{ text: t(`map.camp.${campBiome(s)}`), fresh: false }], t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>${campSpotsSection(s, t)}`;
+    ${words([{ text: whereLine(s, t), fresh: false }], t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>${campSpotsSection(s, t)}`;
   const pins = s.pins?.length ? pinsRoom(s, t) : `${pinsRoom(s, t)}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return `${top}
     <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.land'))}</p>${RINGS.map(r => ringSection(s, r, places[r], t, news, assess)).join('')}

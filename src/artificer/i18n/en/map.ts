@@ -18,6 +18,17 @@ export const map = {
   'map.camp.scree': 'Camp is on scree.',
   'map.camp.fell': 'Camp is on the fell.',
   'map.camp.snow': 'Camp is on the snow.',
+  // Where you stand, before you've made camp (#1834, `camp-as-action`): the first line instead.
+  'map.here.meadow': "You're standing in a meadow.",
+  'map.here.heath': "You're standing on open heath.",
+  'map.here.birch': "You're standing among birches.",
+  'map.here.pine': "You're standing in the pines.",
+  'map.here.marsh': "You're standing on boggy ground.",
+  'map.here.river': "You're standing by the stream.",
+  'map.here.lake': "You're standing by the lake.",
+  'map.here.scree': "You're standing on scree.",
+  'map.here.fell': "You're standing on the fell.",
+  'map.here.snow': "You're standing on the snow.",
   // How a scout starts the sentence for each kind of place.
   'map.place.stream': 'The stream is',
   'map.place.lake': "There's a lake",
@@ -27,6 +38,8 @@ export const map = {
   'map.place.open': 'Open ground starts',
   'map.place.high': 'Higher ground rises',
   'map.seen': '{place} {dir}, {time}.',
+  // …and before camp is made (#1834): the walk is from where you stand.
+  'map.seenHere': '{place} {dir}, {time} from here.',
   'map.horizon': "{place} {dir}; you haven't been.",
   // Bearings: eight points with the compass, four rough ones without.
   'map.dir.0': 'due north',

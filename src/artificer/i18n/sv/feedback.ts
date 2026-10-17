@@ -34,7 +34,7 @@ export const feedbackSv: Record<keyof typeof feedback, string> = {
   'fb.imageMax': 'Det är redan {max} bilder.',
   'fb.imagesNote': 'Bilderna förminskas här och tappar sin dolda information (till exempel var ett foto togs) innan de skickas.',
   'fb.alsoSent': 'Skickas också (tryck för att se)',
-  'fb.alwaysSent': 'Skickas alltid: din väktares id ({warden}) och rundans id ({run}).',
+  'fb.alwaysSent': 'Skickas alltid: din väktares id ({warden}) och spelets id ({run}).',
   'fb.runNone': 'inte i rekorden än',
   'fb.part.build': 'spelets version',
   'fb.part.where': 'var du är i spelet',
