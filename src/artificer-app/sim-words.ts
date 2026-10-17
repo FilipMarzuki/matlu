@@ -729,7 +729,8 @@ export function weatherLines(s: Parameters<typeof weatherReport>[0], t: T): stri
     ...(r.felt ? [t(`wx.felt.${r.felt}`)] : []),
     ...(r.ground ? [t(`wx.ground.${r.ground}`)] : []),
     t(`wx.season.${r.season}`),
-    ...(r.tally ? [t(`wx.tally.${r.tally}`, { n: s.day })] : r.view === 'words' ? [t('wx.noTally')] : []),
+    // Before a tally, nothing about the date (the owner, #1729 follow-up): the lost-count line is left out for now.
+    ...(r.tally ? [t(`wx.tally.${r.tally}`, { n: s.day })] : []),
     ...(r.toSnow !== null ? [t(r.toSnow === 1 ? 'wx.toSnow.one' : 'wx.toSnow.other', { n: r.toSnow })] : []),
     ...(r.toThaw !== null ? [t(r.toThaw === 1 ? 'wx.toThaw.one' : 'wx.toThaw.other', { n: r.toThaw })] : []),
   ];

@@ -31,7 +31,6 @@ export const weatherSv: Record<keyof typeof weather, string> = {
   'wx.season.lateWinter': 'Dagarna blir längre igen, men kylan håller i sig.',
   'wx.season.thawSoon': 'Solen värmer lite mitt på dagen. Tövädret kan inte vara långt borta.',
   'wx.season.thaw': 'Snön smälter; tövädret har kommit.',
-  'wx.noTally': 'Du har tappat räkningen på dagarna. Du skär en skåra i en pinne varje morgon; om en vecka eller så litar du på räkningen.',
   'wx.tally.notebook': 'Dag {n}, enligt anteckningsboken.',
   'wx.tally.notches': 'Dag {n}, enligt skårorna i pinnen.',
   'wx.toSnow.one': 'Ungefär en dag till den första snön.',

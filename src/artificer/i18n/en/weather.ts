@@ -42,7 +42,6 @@ export const weather = {
   'wx.season.thawSoon': "The sun has some warmth in it at midday. The thaw can't be far off.",
   'wx.season.thaw': 'The snow is going; the thaw has come.',
   // Counting the days.
-  'wx.noTally': "You've lost track of the date. You cut a notch in a stick each morning; give it a week and you'll trust the count.",
   'wx.tally.notebook': 'Day {n}, by the notebook.',
   'wx.tally.notches': 'Day {n}, by the notches on your stick.',
   'wx.toSnow.one': 'About a day to the first snow.',

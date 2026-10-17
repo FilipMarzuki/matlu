@@ -177,7 +177,6 @@ const SEASON_TEXT: Readonly<Record<SeasonWord, string>> = {
   thawSoon: 'The sun has some warmth in it at midday. The thaw can\'t be far off.',
   thaw: 'The snow is going; the thaw has come.',
 };
-const NO_TALLY = 'You\'ve lost track of the date. You cut a notch in a stick each morning; give it a week and you\'ll trust the count.';
 const TALLY_TEXT: Readonly<Record<TallyHow, (n: number) => string>> = {
   notebook: n => `Day ${n}, by the notebook.`,
   notches: n => `Day ${n}, by the notches on your stick.`,
@@ -203,7 +202,7 @@ export function weatherReport(s: Run): WeatherReport {
     ...(felt ? [FELT_TEXT[felt]] : []),
     ...(ground ? [GROUND_TEXT[ground]] : []),
     SEASON_TEXT[season],
-    ...(tally ? [TALLY_TEXT[tally](s.day)] : view === 'words' ? [NO_TALLY] : []),
+    ...(tally ? [TALLY_TEXT[tally](s.day)] : []),
     ...(toSnow !== null ? [toSnowText(toSnow)] : []),
     ...(toThaw !== null ? [toThawText(toThaw)] : []),
   ];
