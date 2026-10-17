@@ -82,7 +82,9 @@ import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artific
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, pct, band, wardenButton } from './html';
-import { ICON, haulWord, paletteBlock, weatherBox, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { weatherRow } from './weather-row';
+import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
+import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -90,7 +92,8 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { MENY_FEATURE, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
+import { TWO_ROW_FEATURE, wardenRow, type VitalReading } from './vital-words';
+import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
 import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
 import { createAmbience } from './ambience';
 import { SoundSwitch } from './sound';
@@ -476,7 +479,12 @@ function stripBlock(a: AppState, preview: Preview): string {
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
-function statusBar(a: AppState, preview: Preview): string {
+/**
+ * Always-visible summary. With the two-row header (#1824), `row2` (the Warden and the three
+ * resources) is the sticky bar's top line, so the resources stay in view while the page scrolls, as
+ * the bars did, and the frozen queue (#1826, `syncStickTop`) still stops right under it.
+ */
+function statusBar(a: AppState, preview: Preview, row2 = ''): string {
   const s = a.sim;
   const mini = (label: string, cur: number, cap: number, max: number): string => {
     const b = band(cap > 0 ? cur / cap : 0);
@@ -487,7 +495,8 @@ function statusBar(a: AppState, preview: Preview): string {
   // FOCUS chip after the weather, the stores once something's gathered or the first night is behind
   // you). With it off, or "I've played before", `guide` shows everything and marks nothing: as before.
   const g = guide;
-  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return '';
+  // The Warden's button shows from the start (#1818), so with the two rows the bar is never empty.
+  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return row2 ? `<div class="statusbar">${row2}</div>` : '';
   const vitals = g.shows('vitals');
   const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
   // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
@@ -495,19 +504,19 @@ function statusBar(a: AppState, preview: Preview): string {
   const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
   if (g.active) {
     const stores = g.shows('stores');
-    return `<div class="statusbar">
-    ${vitals ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
+    return `<div class="statusbar">${row2}
+    ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
     ${stores ? markFirst(storesBar(a), 'stores') : ''}
     ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
-    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>` : ''}
+    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
     ${g.shows('focus') ? outlookTag(s, ready) : ''}
   </div>${tips}`;
   }
-  return `<div class="statusbar">
-    <div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>
+  return `<div class="statusbar">${row2}
+    ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
     ${storesBar(a)}
     ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${eatingChip(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
-    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
+    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
     ${outlookTag(s, ready)}
   </div>`;
 }
@@ -676,6 +685,8 @@ function menyView(a: AppState): string {
     profile: profileBody({ runs: history.length, runId: a.sim.character.id, copied: idCopied }, t),
     language: langSwitch(false),
     guide: guideControls(a, false),
+    // How to play (#1824): the old ? panel's text, with the two-row header (which has no ?).
+    howto: twoRowOn() ? `<p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>` : '',
     visual: `<div class="langswitch">${lookSwitcher(a, true)}</div>${backdropControls(true)}`,
     sound: soundOn() ? soundBody(sound.prefs, t) : '',
     elsewhere: elsewhereBody(t),
@@ -709,6 +720,30 @@ function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'we
     ...p, dev: devChip(), weekly: weeklyButton(t), features: featuresButton(), look: lookSwitcher(a), reset: newSaveButton(t),
   }, on ? menyButton(menyShown(), t, dev ? devTag() : '') : '');
 }
+
+// ── The two-row header (#1824, vital-words.ts) ──────────────────────────────
+// A ui feature on top of the Menu: row 1 the place, the day, the ⚙ and feedback; row 2 the Warden
+// and the three resources as words (bars from day 8). Off (or with the Menu off), `header` above.
+const twoRowOn = (): boolean => menyOn() && uiFeatureOn(loadChoices(), TWO_ROW_FEATURE);
+
+/**
+ * The whole header, drawn one way or the other: `title` is the h1, `row2` the Warden's row when it
+ * goes in the header (the road's, with no status bar) and '' when the status bar carries it (the Reach).
+ */
+function headerBlock(title: string, p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'weekly'>, a: AppState, row2: string): string {
+  if (!twoRowOn()) return `<header>\n      ${title}\n      <span class="spacer"></span>\n      ${header(p, a)}\n    </header>`;
+  return `<header class="tworow">\n    ${headerRows({
+    title, counters: p.counters, week: p.week, experiment: p.experiment, feedback: p.feedback,
+    row2,
+  }, menyButton(menyShown(), t, dev ? devTag() : '', true))}\n    </header>`;
+}
+
+/** The three resources as row 2 reads them: each against today's cap, the bars as wide as the old ones. */
+const vitalReadings = (s: AppState['sim']): VitalReading[] => [
+  { id: 'vigor', current: s.vitals.vigor.current, cap: s.vitals.vigor.cap, max: CAP_CEIL },
+  { id: 'clarity', current: s.vitals.clarity.current, cap: s.vitals.clarity.cap, max: CAP_CEIL },
+  { id: 'reserve', current: s.vitals.condition, cap: 100, max: 100 },
+];
 
 /**
  * Before camp is made (#1691) there's no CAMP tab, but choosing a site is how camp is made, so the
@@ -839,12 +874,32 @@ let wxFold: WeatherFold = loadWeatherFold();
 let wxRefocus = false;
 
 /** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
-function weatherSection(a: AppState): string {
+function weatherSection(a: AppState, preview: Preview): string {
   // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
   // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
   const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
+  // With the two-row header (#1825), after the first time's card the weather and the time of day
+  // share one row (weather-row.ts), which unfolds into the full box; the TODAY chip leaves the
+  // status bar. The first time's card is untouched: the guide's next steps wait on its "Got it".
+  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
   // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
-  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${weatherBox(a.sim, t, { dev, fold })}</section>`;
+  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${box}</section>`;
+}
+
+/** The weather and the time of day in one row (#1825), the full box under it while it's open. */
+function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
+  const s = a.sim;
+  const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
+  return weatherRow({
+    chips: weatherChips(s, t, { dev }),
+    // The TODAY chip's own text (the part of the day the plan ends in, or the hours): plain words and
+    // digits, so the row escapes it as text.
+    time: queueTimes(a, preview, t, dev).status,
+    open: fold.mode === 'open', hint: fold.hint,
+    banner: blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '',
+    // Open, the box as it's drawn unfolded, without its own heading's toggle (the row is the toggle).
+    details: weatherBox(s, t, { dev }),
+  }, t);
 }
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
@@ -865,8 +920,8 @@ function guidedPlan(a: AppState, preview: Preview): string {
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a)}${planLayout({
+      if (guide.active) return `${weatherSection(a, preview)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a, preview)}${planLayout({
         actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
         queue: queueBlock(a, preview),
         journal: `<div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>`,
@@ -944,21 +999,18 @@ function drawPage(a: AppState): void {
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
+  const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
   root.innerHTML = `
-    <header>
-      <h1>${t('top.titleHtml')}</h1>
-      <span class="spacer"></span>
-      ${header({
-        warden: wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t),
+    ${headerBlock(`<h1>${t('top.titleHtml')}</h1>`, {
+        warden: reachWarden,
         counters: `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
         week: weekChip(a), experiment: '', playAi: playAiLink(t),
         help: `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
         feedback: feedback.button(t),
-      }, a)}
-    </header>
+      }, a, '')}
     ${menyOn() ? '' : featuresPanel(a)}
     ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
-    ${statusBar(a, preview)}
+    ${statusBar(a, preview, twoRowOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '')}
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
@@ -1278,18 +1330,15 @@ function renderRoad(a: AppState, r: RoadState): void {
     : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
   const meny = menyShown();
+  const roadWarden = wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden' && !meny, data: 'rtab' }, t);
   const end = r.outcome ? `${roadEnd(r, t)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
   root.innerHTML = `
-    <header>
-      <h1>${t('top.roadTitleHtml')}</h1>
-      <span class="spacer"></span>
-      ${header({
-        warden: wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden' && !meny, data: 'rtab' }, t),
+    ${headerBlock(`<h1>${t('top.roadTitleHtml')}</h1>`, {
+        warden: roadWarden,
         counters: `<span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>`,
         week: weekChip(a), experiment: experimentChip(a), playAi: '', help: '', feedback: feedback.button(t),
-      }, a)}
-    </header>
+      }, a, twoRowOn() ? wardenRow({ warden: roadWarden, vitals: [], day: r.day, shown: false }, t) : '')}
     ${menyOn() ? '' : featuresPanel(a)}
     ${routeStrip(r, t)}
     ${end}

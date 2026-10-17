@@ -20,11 +20,11 @@ const calm: AmbienceInput = {
 const at = (more: Partial<AmbienceInput>) => mixFor({ ...calm, ...more });
 
 describe('the ambience ui feature (#1828)', () => {
-  it('is a ui feature, experimental, on by default, registered last, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after the queue beside the actions, and no run saves it', () => {
     expect(featureById(AMBIENCE_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1828 });
     expect(uiFeatureOn({}, AMBIENCE_FEATURE)).toBe(true);
     expect(Object.keys(ruleFeatures())).not.toContain(AMBIENCE_FEATURE);
-    expect(FEATURES.at(-1)?.id).toBe(AMBIENCE_FEATURE);
+    expect(FEATURES.findIndex(f => f.id === AMBIENCE_FEATURE)).toBeGreaterThan(FEATURES.findIndex(f => f.id === 'side-queue'));
   });
 });
 

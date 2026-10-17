@@ -61,7 +61,8 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
   // The Warden's view, through the header's icon and name (#1807; no Warden tab in the row):
   // the two chosen talents, and the dashed hidden-gift card.
   await expect(page.locator('.tabbtn[data-tab="warden"]')).toHaveCount(0);
-  const who = page.locator('header .who[data-tab="warden"]');
+  // With the two-row header (#1824) the button leads the sticky status bar's top row.
+  const who = page.locator('.who[data-tab="warden"]');
   await expect(who).toHaveAttribute('aria-pressed', 'false');
   await who.click();
   await expect(who).toHaveAttribute('aria-pressed', 'true');
@@ -104,9 +105,12 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   const gear = page.locator('header [data-cmd="meny"]');
   await gear.click();
   await expect(gear).toHaveAttribute('aria-expanded', 'true');
-  // Every section but the guide's, which this test has switched off.
-  await expect(page.locator('#meny [data-meny]')).toHaveCount(8);
+  // Every section but the guide's, which this test has switched off. How to play (#1824) is one of
+  // them, and the header has no ? any more.
+  await expect(page.locator('#meny [data-meny]')).toHaveCount(9);
   await expect(page.locator('#meny [data-meny="guide"]')).toHaveCount(0);
+  await expect(page.locator('#meny [data-meny="howto"]')).toContainText('winter is coming');
+  await expect(page.locator('header [data-cmd="help"]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.locator('#meny')).toHaveCount(0);
   await expect(gear).toBeFocused();

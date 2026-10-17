@@ -337,6 +337,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'ambience', name: 'Ambient sound', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1828,
     note: 'A Sound section in the ⚙ Menu: ambient sound made in the browser (wind, rain, snow, the fire, a stream, drips in a cave, distant thunder) that follows the weather, the time of day, where you camp and how worn your mind is. Off until you turn it on.',
   },
+  {
+    // A ui feature (#1824): how the header is drawn (artificer-app/meny.ts `headerRows`,
+    // artificer-app/vital-words.ts), so it switches live and no run saves it. It builds on the Menu
+    // (help moves into it), so it shows only with `meny` on too. The play API, the console and AI
+    // players never see it. Off, the header is the one from #1808.
+    id: 'two-row-header', name: 'Two-row header', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1824,
+    note: 'The header is two rows: the place, the day, the ⚙ Menu and feedback; then the Warden and Vigor, Clarity and Condition as words (Energized, Drowsy, Hurt…) in a coloured border, with bars beside them from day 8. How to play moves into the Menu.',
+  },
 ];
 
 /** Switches by feature id. */
