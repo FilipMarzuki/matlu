@@ -466,6 +466,7 @@ export const journalSv: Record<JournalKey, string> = {
   'log.awake': 'Du ligger vaken länge och lyssnar på mörkret.',
   'log.sleepless': 'En sömnlös natt: varje ljud där ute är något som kommer.',
   'log.coldNight': 'En kall, sönderbruten natt — kylan biter.',
+  'log.dangerousNight': 'Farligt kallt: du ligger och huttrar, och kylan går djupt.',
   'log.lastStand': 'Allt i dig säger stopp. Du vägrar. Du vaknar, på något sätt — Reserv 1. Det var din enda nåd.',
   'log.kasa': 'En varm dryck ur kåsan vid elden.',
   'log.thermos': 'Varm svartvinbärssaft ur termosen — fortfarande varm, på något sätt.',

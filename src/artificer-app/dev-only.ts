@@ -24,6 +24,8 @@ export const DEV_ONLY_KEYS: readonly Key[] = [
   'dev.enter', 'dev.openNote', 'dev.featOn', 'dev.featOff', 'dev.thisRun', 'dev.runOn', 'dev.runOff', 'dev.rules', 'dev.looks',
   'dev.featuresNoteHtml', 'dev.looksHead', 'dev.lookGame', 'dev.lookNote',
   'warden.truth', 'warden.truthTip', 'road.true', 'road.trueTip', 'pack.rule', 'pack.ruleTip',
+  // Tonight's heat balance in numbers (#1770): the page shows words, dev mode the numbers.
+  'night.dev',
 ];
 
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

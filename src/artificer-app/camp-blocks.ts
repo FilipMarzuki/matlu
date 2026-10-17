@@ -13,7 +13,7 @@ import { builtWarmthOn } from '../artificer/built-warmth';
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
-import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
+import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
@@ -383,9 +383,34 @@ const upper1 = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1);
 const shelterLine = (s: Sim, site: SiteId, t: T): string =>
   (builtWarmthOn(s) ? `<div class="d shelterwords">${esc(`${upper1(t(`shelter.why.${site}`))}: ${t(`shelter.needs.${site}`)}.`)}</div>` : '');
 
+/** How warm camp is, in a few words: tonight's quality with `thermal-model` (#1770), else the warmth fraction. */
+const warmWords = (s: Sim, t: T): string => {
+  const n = tonightThermal(s);
+  return n ? t(`night.q.${n.quality}`) : t('site.warm', { n: Math.round(warmth(s) * 100) });
+};
+
 /** Where camp is now, as it stands: the shelter, how warm, the cold pit. */
 const campNow = (s: Sim, t: T): string =>
-  ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) })] : [])].join(' · ')}.`;
+  ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), warmWords(s, t), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) })] : [])].join(' · ')}.`;
+
+/**
+ * Tonight at camp as a heat balance (#1770, `thermal-model`): the night's quality in words, and in
+ * dev mode the numbers behind them (the air and wind at the sleeper, IREQ, the insulation held).
+ * Empty with the switch off or before there's a camp.
+ */
+export function nightBlock(s: Sim, t: T, opts: { dev?: boolean } = {}): string {
+  const n = tonightThermal(s);
+  if (!n) return '';
+  const f1 = (x: number): string => numText(x, t, 1);
+  const nums = opts.dev
+    ? `<p class="mood devnums" style="margin:2px 0 0;font-family:var(--mono, monospace);font-size:12px">${esc(t('night.dev', {
+      temp: f1(n.env.airC), radiant: f1(n.env.radiantC), wind: f1(n.env.windMs), feels: f1(n.env.feelsC),
+      min: f1(n.required.min), neutral: f1(n.required.neutral), limit: f1(n.required.limit), held: f1(n.heldClo),
+      clothes: f1(n.held.clothingClo), bag: f1(n.held.bagClo), pad: f1(n.held.padR),
+    }))}</p>`
+    : '';
+  return `<p class="mood nightwords ${n.quality}" style="margin:6px 0 0">${esc(t(`night.look.${n.quality}`))}</p>${nums}`;
+}
 
 /**
  * Camp as an action (#1732): the places to camp you know, each a real place on the Reach, with
@@ -416,7 +441,7 @@ export function sitesBlock(s: Sim, t: T): string {
   if (campAsActionOn(s)) return spotsBlock(s, t);
   const sites = (Object.keys(SITES) as SiteId[]).map(id => {
     const here = s.site === id
-      ? ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), t('site.warm', { n: Math.round(warmth(s) * 100) }), ...(s.coldPitAt === id ? [t('site.pit', { n: coldPitHolds(id) })] : [])].join(' · ')}.`
+      ? ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), warmWords(s, t), ...(s.coldPitAt === id ? [t('site.pit', { n: coldPitHolds(id) })] : [])].join(' · ')}.`
       : '';
     return `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
       + `<div class="t">${esc(siteName(id, t).toUpperCase())}${warmTag(s, id, t)}</div>`

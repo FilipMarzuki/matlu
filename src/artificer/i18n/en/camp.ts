@@ -127,6 +127,17 @@ export const camp = {
   'site.maxWarm': 'MAX {n}% WARM',
   'site.shelter': 'Shelter tier {tier}/2',
   'site.warm': '{n}% warm',
+  // Tonight as a heat balance (#1770, `thermal-model`): thermal.ts nightQuality, in words.
+  'night.q.warm': 'a warm night',
+  'night.q.cool': 'a cool night',
+  'night.q.cold': 'a cold night',
+  'night.q.dangerous': 'dangerously cold',
+  'night.look.warm': 'Tonight looks warm: you will sleep well.',
+  'night.look.cool': 'Tonight looks cool: you will sleep, a little cold.',
+  'night.look.cold': 'Tonight looks cold: a broken night, and nothing heals.',
+  'night.look.dangerous': 'Tonight looks dangerously cold: the cold could do real harm.',
+  // Dev mode only (dev-only.ts): the numbers behind the words.
+  'night.dev': 'At the sleeper {temp} °C, radiant {radiant} °C, wind {wind} m/s (feels {feels} °C outside) · IREQ {min}–{neutral} clo, limit {limit} · held {held} clo (clothes {clothes}, bag {bag}, pad R {pad})',
   'site.pit': 'cold pit ({n} raw food)',
   'site.pick': 'Pick camp here, or choose a location on a queued build.',
   'site.scoutFirst': 'Scout first to find somewhere to settle.',
