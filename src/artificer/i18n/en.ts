@@ -137,6 +137,8 @@ const core = {
   'head.land': 'THE LAND — what you know, ring by ring',
   'head.pins': 'PINS — places you remember',
   'head.landDescribed': 'THE LAND — what you know of it, from camp',
+  // Before you've made camp (#1834, `camp-as-action`): told from where you stand.
+  'head.landDescribedHere': 'THE LAND — what you know of it, from here',
   'head.yourMap': "YOUR MAP — drawn from what you've seen",
   'head.reachMap': 'THE REACH — a map of what you know',
   'head.history': 'THE REACH — its history',

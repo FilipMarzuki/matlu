@@ -32,7 +32,7 @@ import type { KitId } from '../artificer/kit';
 import type { RankName } from '../rank-names';
 import type { WeatherId } from '../artificer/world';
 import { weatherReport } from '../artificer/weather-words';
-import { campBiome, descriptiveMapOn, knownPlaces, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
+import { campBiome, descriptiveMapOn, knownPlaces, noCampYet, type KnownPlace, type TimeWord } from '../artificer/descriptive-map';
 import { mapLearningOn, mapNeedsFor, mapProgress, MAP_NIGHTS, MAP_PLACES, MAP_DIRECTIONS } from '../artificer/map-learning';
 import { BIOME_NAME, YIELDS, ringOfHours, type Reach } from '../artificer/world/reach';
 import { TOPICS, TOPIC_KINDS } from '../artificer/topics';
@@ -643,7 +643,8 @@ const timeText = (w: TimeWord, t: T): string => ('n' in w ? t(`map.time.${w.band
 export function placeLine(p: KnownPlace, t: T): string {
   const place = t(`map.place.${p.kind}`);
   const dir = p.dir.exact ? t(`map.dir.${p.dir.i}` as Key) : t(`map.vague.${p.dir.i}` as Key);
-  return p.horizon ? t('map.horizon', { place, dir }) : t('map.seen', { place, dir, time: timeText(p.time, t) });
+  // Before camp is made (#1834) the walk is from where you stand: "… 15 minutes from here".
+  return p.horizon ? t('map.horizon', { place, dir }) : t(p.fromHere ? 'map.seenHere' : 'map.seen', { place, dir, time: timeText(p.time, t) });
 }
 
 // ── Camp sites (#1732, camp-sites.ts) ───────────────────────────────────────
@@ -711,10 +712,19 @@ export function choiceNote(s: Region1State, g: OptionGroup, c: OptionChoice, t: 
   return p ? spotNote(s, p, t) : simLine(c.note, t);
 }
 
-/** What you know of the land, as lines (descriptive-map.ts describeLand): where camp is, then each place. */
+/**
+ * The description's first line: where camp is ("Camp is in a meadow."), or, before you've made camp
+ * with `camp-as-action` on (#1834), where you stand ("You're standing in a meadow.").
+ */
+export const whereLine = (s: Parameters<typeof knownPlaces>[0], t: T): string => t(`map.${noCampYet(s) ? 'here' : 'camp'}.${campBiome(s)}`);
+
+/** The LAND description's heading: "from camp", or "from here" before there's a camp (#1834). */
+export const landDescribedHead = (s: Parameters<typeof noCampYet>[0], t: T): string => t(noCampYet(s) ? 'head.landDescribedHere' : 'head.landDescribed');
+
+/** What you know of the land, as lines (descriptive-map.ts describeLand): where camp is (or you are), then each place. */
 export function landLines(s: Parameters<typeof knownPlaces>[0], t: T): string[] {
   if (!descriptiveMapOn(s)) return [];
-  return [t(`map.camp.${campBiome(s)}`), ...knownPlaces(s).map(p => placeLine(p, t))];
+  return [whereLine(s, t), ...knownPlaces(s).map(p => placeLine(p, t))];
 }
 
 /**

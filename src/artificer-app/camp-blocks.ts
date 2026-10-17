@@ -28,7 +28,7 @@ import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { chevron } from './fold';
-import { actionName, buildsWords, conceptName, distanceT, gradeWord, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
+import { actionName, buildsWords, conceptName, distanceT, gradeWord, landDescribedHead, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { campBadges, siteBadge } from './rating-badges';
 import { buildsAt } from '../artificer/camp-builds';
@@ -617,7 +617,7 @@ export function outcomeCard(a: AppState, run: RunRecord | undefined, t: T): stri
 export function describedMap(s: Sim, t: T): string {
   const lines = landLines(s, t).map(l => `<li>${esc(l)}</li>`).join('');
   const needs = mapNeedsText(s, t);
-  return `<section class="box"><p class="eyebrow">${esc(t('head.landDescribed'))}</p>
+  return `<section class="box"><p class="eyebrow">${esc(landDescribedHead(s, t))}</p>
     <p class="mapinfo">${esc(t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro'))}</p>
     <ul class="landwords">${lines}</ul>
     <p class="mood">${esc(t('map.exploreMore') + (needs ? t('map.needs', { needs }) : ''))}</p></section>`;

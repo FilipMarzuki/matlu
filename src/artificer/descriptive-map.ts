@@ -64,6 +64,20 @@ const CAMP_LINE: Readonly<Record<Biome, string>> = {
   meadow: 'Camp is in a meadow.', heath: 'Camp is on open heath.', birch: 'Camp is among birches.', pine: 'Camp is in the pines.',
   marsh: 'Camp is on boggy ground.', river: 'Camp is by the stream.', lake: 'Camp is by the lake.', scree: 'Camp is on scree.', fell: 'Camp is on the fell.', snow: 'Camp is on the snow.',
 };
+/** Where you stand, as the first line before there's a camp (#1834): the same ground, said of you. */
+const HERE_LINE: Readonly<Record<Biome, string>> = {
+  meadow: "You're standing in a meadow.", heath: "You're standing on open heath.", birch: "You're standing among birches.", pine: "You're standing in the pines.",
+  marsh: "You're standing on boggy ground.", river: "You're standing by the stream.", lake: "You're standing by the lake.", scree: "You're standing on scree.", fell: "You're standing on the fell.", snow: "You're standing on the snow.",
+};
+
+/**
+ * No camp yet (#1834): with camp as an action (#1732, `camp-as-action`) the Warden starts with no
+ * camp, until Make camp sets `campSpot`. Until then the land is told from where you stand ("You're
+ * standing in a meadow", "… from here"), not from a camp. With the switch off there's a camp from the
+ * start, so this is never true and the words are as they were. Words only: no rule reads it.
+ */
+export const noCampYet = (s: Pick<Region1State, 'config'> & Partial<Pick<Region1State, 'campSpot'>>): boolean =>
+  featureOn(s.config.world.features, 'camp-as-action') && !s.campSpot;
 
 export interface KnownPlace {
   kind: PlaceKind;
@@ -80,6 +94,8 @@ export interface KnownPlace {
   horizon: boolean;
   /** As a scout would say it. */
   text: string;
+  /** Said from where you stand, before there's a camp (#1834): its walking time ends "from here". */
+  fromHere: boolean;
   /**
    * The same words as parts (#1707), for the page to say in the viewer's language: the bearing as
    * an index (of eight points with the compass, of four without) and the walking time as a band.
@@ -200,6 +216,7 @@ export function knownPlaces(s: Run): KnownPlace[] {
   const sight = withShores(r, sightFor(moved ? { ...r, hours: walk } : r, s.explore));
   const campKind = KIND_OF[r.cells[from.y * r.w + from.x].biome];
   const compass = hasKit(s, 'map-compass');
+  const fromHere = noCampYet(s);
   const nearest = new Map<PlaceKind, { i: number; hours: number; seen: boolean }>();
   for (let i = 0; i < r.cells.length; i++) {
     const x = i % r.w, y = Math.floor(i / r.w);
@@ -226,9 +243,9 @@ export function knownPlaces(s: Run): KnownPlace[] {
     // Surveying sharpens it: knowing that ring's ground for this kind of place (observed or better) gives a sure walking time.
     const exactTime = compass || level(s.explore, ring, DOMAIN_OF[kind]) >= 2;
     const dir = directionWords(bearing, compass);
-    const text = p.seen ? `${SUBJECT[kind]} ${dir}, ${timeWords(p.hours, exactTime)}.` : `${SUBJECT[kind]} ${dir}; you haven't been.`;
+    const text = p.seen ? `${SUBJECT[kind]} ${dir}, ${timeWords(p.hours, exactTime)}${fromHere ? ' from here' : ''}.` : `${SUBJECT[kind]} ${dir}; you haven't been.`;
     out.push({
-      kind, at: { x, y }, hours: p.hours, bearing, exactBearing: compass, exactTime: p.seen && exactTime, horizon: !p.seen, text,
+      kind, at: { x, y }, hours: p.hours, bearing, exactBearing: compass, exactTime: p.seen && exactTime, horizon: !p.seen, text, fromHere,
       dir: { exact: compass, i: directionIndex(bearing, compass) }, time: timeWord(p.hours, exactTime),
     });
   }
@@ -242,10 +259,10 @@ export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run,
   return r.cells[from.y * r.w + from.x].biome;
 }
 
-/** What you know of the land, as lines: where camp is, then each place. Empty with the switch off. */
+/** What you know of the land, as lines: where camp is (where you stand, before there's a camp), then each place. Empty with the switch off. */
 export function describeLand(s: Run): string[] {
   if (!descriptiveMapOn(s)) return [];
-  return [CAMP_LINE[campBiome(s)], ...knownPlaces(s).map(p => p.text)];
+  return [(noCampYet(s) ? HERE_LINE : CAMP_LINE)[campBiome(s)], ...knownPlaces(s).map(p => p.text)];
 }
 
 // ── Drawing your own map ────────────────────────────────────────────────────
