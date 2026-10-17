@@ -35,7 +35,6 @@ const EN = makeT('en');
 
 /** The intro's beats for a Warden about to start `s`, in the language `t` speaks. */
 export function introBeats(s: Region1State, t: T = EN): Beat[] {
-  const daysToSnow = s.config.calendar.winterDay - s.day;
   const rank = rankName(artificerRank(s, CRAFT_WORLD.concepts), t).toUpperCase();
   // What the last Warden left (#1455): one run each, and the tools pass on.
   const left = s.tools.filter(x => x.heirloom).map(x => t('intro.heirloom', { grade: gradeWord(x.grade, t), item: recipeName(x.item, t).toLowerCase() })).join(', ');
@@ -50,7 +49,8 @@ export function introBeats(s: Region1State, t: T = EN): Beat[] {
     { kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
     { kind: 'create', lines: [t('intro.identify')] },
     // `{name}` stays in the line: fillName fills it once the Warden has one.
-    { kind: 'voice', lines: [t('intro.registered'), t('intro.region'), t('intro.winter', { n: daysToSnow }), t('intro.survive')] },
+    // Just the name and the one thing that matters (the owner, #1830).
+    { kind: 'voice', lines: [t('intro.registered'), t('intro.winter')] },
     ...(left ? [{ kind: 'voice' as const, lines: [t('intro.before'), t('intro.left', { list: left })] }] : []),
     { kind: 'title', lines: [t('intro.close1'), t('intro.close2'), t('intro.close3')] },
   ];

@@ -31,12 +31,15 @@ const section = (html: string, name: string): string | null => {
 };
 
 describe('the side-queue ui feature (#1826)', () => {
-  it('is a ui feature, experimental, on by default, registered last, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after the Menu, and no run saves it', () => {
     expect(featureById(SIDE_QUEUE_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1826 });
     expect(uiFeatureOn({}, SIDE_QUEUE_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [SIDE_QUEUE_FEATURE]: false }, SIDE_QUEUE_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(SIDE_QUEUE_FEATURE);
-    expect(FEATURES.at(-1)?.id).toBe(SIDE_QUEUE_FEATURE);
+    // After the Menu; the two-row header (#1824) came after it, and only ui features follow it.
+    const at = FEATURES.findIndex(f => f.id === SIDE_QUEUE_FEATURE);
+    expect(at).toBeGreaterThan(FEATURES.findIndex(f => f.id === 'meny'));
+    expect(FEATURES.slice(at).every(f => f.kind === 'ui')).toBe(true);
   });
 });
 
