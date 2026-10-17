@@ -401,10 +401,24 @@ body { min-height: 100vh; }
   .intro {
     position: fixed; inset: 0; z-index: 50;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    /* Room at the top for the 💬 corner (#1845) and at the bottom for the bar, so a tall beat
+       (create, pack: at most 100vh−140px) never runs under either, even when the panel's sheet
+       shortens the overlay on a phone. */
+    padding: calc(56px + env(safe-area-inset-top, 0px)) 16px calc(72px + env(safe-area-inset-bottom, 0px));
     background: radial-gradient(800px 520px at 50% 45%, #15122b, #05050b 70%);
+    /* The intro keeps the default night colours whatever the era look (looks.ts sets the tokens on
+       .intro), but `color` would still be inherited, already worked out, from the body's look: dark
+       ink on a paper look. Set it here, so text without its own colour reads light (#1844). */
+    color: var(--ink);
     cursor: pointer; overflow: hidden;
   }
+  /* The 💬 button on every beat (#1845): its own top-right corner, above the beat and clear of the
+     bottom bar's Skip / Next. The overlay's top padding keeps every beat below it. */
+  .introfb { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 2; }
+  .introfb .fbbtn { min-height: 36px; padding: 6px 12px; font-size: 9px; background: var(--panel); border-color: var(--border2); }
+  .introfb .fbbtn:hover, .introfb .fbbtn[aria-pressed="true"] { border-color: var(--teal); }
+  /* The panel's minimized pill sits beside the 💬 at the top during the intro, not over Next at the bottom. */
+  html.intro-on .fbpill { top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; right: 64px; }
   .intro[hidden] { display: none; }
   .intro .portal {
     position: absolute; left: 50%; top: 42%; width: min(70vmin, 420px); aspect-ratio: 1; max-width: 100%;
@@ -443,7 +457,7 @@ body { min-height: 100vh; }
 
   @media (prefers-reduced-motion: reduce) {
     .intro .portal { animation: none; transition: none; }
-    .intro .beat p { animation: none !important; opacity: 1; }
+    .intro .beat p, .intro .beat .packq { animation: none !important; opacity: 1; }
   }
 
   /* Skills (#1236): name, level pips, level name, progress to the next level */
@@ -509,6 +523,17 @@ body { min-height: 100vh; }
   .harms li span { color: var(--dim); }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
+  /* "What will you pack?" (#1844): the intro's strongest heading. Large display type in the gold
+     accent (about 14:1 on the night sky, intro.test.ts checks AA), on its own soft panel, centred,
+     and pinned to the top of the beat so the question stays in view while the pack scrolls under it. */
+  .intro .beat .packq {
+    position: sticky; top: 0; z-index: 1; justify-self: center; margin: 0 0 4px; padding: 10px 22px;
+    font-family: var(--display); font-weight: 700; font-size: clamp(22px, 6vw, 36px); line-height: 1.15; letter-spacing: 2px;
+    color: var(--gold); text-align: center; text-wrap: balance;
+    text-shadow: 0 0 18px rgba(255,224,102,.35), 0 2px 0 #05050b;
+    background: rgba(13,14,26,.92); border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    opacity: 0; animation: line-in .7s ease forwards; animation-delay: calc(var(--n) * 650ms + 150ms);
+  }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
   /* Each pack section folds (#1727). The whole heading is one band (#1801): at least 48px tall, a
      background on hover and press, the shared chevron (.foldhead/.chev, below, turns it when the
@@ -571,7 +596,7 @@ body { min-height: 100vh; }
   .who.on b { color: var(--gold); }
   .who .portrait { border-radius: 50%; }
   /* Re-drawing the same intro screen (a creation pick) shows it as-is, without replaying the fade-in. */
-  .intro.settled .beat p, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }
+  .intro.settled .beat p, .intro.settled .beat .packq, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }
 
   /* ── Focus (#1238): status chip, picker chips, lock banner ── */
   .focuschip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--teal); background: rgba(77,212,240,.07); color: var(--dim); font-family: var(--display); font-size: 8px; letter-spacing: 1px; cursor: pointer; }
@@ -1276,6 +1301,9 @@ html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), 
   html.fb-sheet-peek body { padding-bottom: 56px; }
   html.fb-sheet-half body { padding-bottom: 50vh; padding-bottom: 50dvh; }
   html.fb-docked .timer { bottom: var(--fb-sheet, 0px); }
+  /* The intro stops above the sheet too (#1845), so its Skip / Next stay reachable while writing. */
+  html.fb-sheet-peek .intro { bottom: 56px; }
+  html.fb-sheet-half .intro { bottom: 50vh; bottom: 50dvh; }
   /* Scrolling to something (focus, scrollIntoView) stops it above the sheet, not under it. */
   html.fb-sheet-peek { --fb-sheet: 56px; scroll-padding-bottom: 56px; }
   html.fb-sheet-half { --fb-sheet: 50dvh; scroll-padding-bottom: 50dvh; }
