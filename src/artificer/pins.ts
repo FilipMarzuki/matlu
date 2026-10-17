@@ -72,7 +72,7 @@ export function maxInterest(skills: SkillPractice): 0 | 2 | 3 {
 }
 
 /** The work a kind of place makes richer, in its ring. */
-const PIN_WORK: Partial<Record<PinKind, readonly string[]>> = { fishing: ['fish', 'water'], forage: ['gather'], stone: ['quarry'] };
+const PIN_WORK: Partial<Record<PinKind, readonly string[]>> = { fishing: ['fish', 'water'], forage: ['gather'], stone: ['quarry', 'gatherstone'] };
 
 /** Extra haul for this work in this ring, from the places you remember there: +1 each, +2 at ★★★. */
 export function pinYield(pins: readonly Pin[] | undefined, action: string, ring: Ring): number {
@@ -125,7 +125,7 @@ export function tripPinNote(pins: readonly Pin[] | undefined, action: string, ri
   const notes: string[] = [];
   for (const p of here) {
     const extra = pinYield([p], action, ring);
-    if (extra) notes.push(`${placeName(p)}: +${extra} ${action === 'quarry' ? 'stone' : action === 'gather' ? 'food' : action === 'fish' ? 'fish' : 'water'}`);
+    if (extra) notes.push(`${placeName(p)}: +${extra} ${action === 'quarry' || action === 'gatherstone' ? 'stone' : action === 'gather' ? 'food' : action === 'fish' ? 'fish' : 'water'}`);
     else if (p.feeling === 'peaceful' || p.feeling === 'eerie') notes.push(`${placeName(p)}: ${p.feeling === 'peaceful' ? 'calmer' : 'uneasy'}`);
   }
   return notes.length ? `📌 ${notes.join(' · ')}` : null;

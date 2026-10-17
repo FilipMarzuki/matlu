@@ -28,7 +28,7 @@ export function pinNoteText(pins: readonly Pin[] | undefined, action: string, ri
   const notes: string[] = [];
   for (const p of (pins ?? []).filter(x => x.ring === ring)) {
     const extra = pinYield([p], action, ring);
-    const what = action === 'quarry' ? t('storeword.stone') : action === 'gather' ? t('storeword.rawFood') : action === 'fish' ? t('queue.pin.fish') : t('storeword.water');
+    const what = action === 'quarry' || action === 'gatherstone' ? t('storeword.stone') : action === 'gather' ? t('storeword.rawFood') : action === 'fish' ? t('queue.pin.fish') : t('storeword.water');
     if (extra) notes.push(t('queue.pin.yield', { place: placeText(p, t), n: extra, what }));
     else if (p.feeling === 'peaceful' || p.feeling === 'eerie') notes.push(t(p.feeling === 'peaceful' ? 'queue.pin.calmer' : 'queue.pin.uneasy', { place: placeText(p, t) }));
   }

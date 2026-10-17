@@ -222,7 +222,7 @@ export const iceThick = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean
 // ── Weather on the work (#1284) ─────────────────────────────────────────────
 
 /** Rain makes these slower: wet wood, slick stone, sodden forage. */
-const RAIN_SLOW: readonly ActionId[] = ['gather', 'wood', 'quarry'];
+const RAIN_SLOW: readonly ActionId[] = ['gather', 'wood', 'quarry', 'gatherstone'];
 /** How much longer work takes in this weather. */
 export const weatherHours = (w: WeatherId, action: ActionId): number => (w === 'rain' && RAIN_SLOW.includes(action) ? 1.25 : 1);
 

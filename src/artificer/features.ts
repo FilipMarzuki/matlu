@@ -282,6 +282,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'A night at camp is worked out the way cold-weather gear is rated: the air, wind and fire where you sleep against what you wear, sleep in and lie on. A cave stays about +4 °C all winter (each cave its own, within a degree), still and damp, and its rock needs a good pad; wind on a hilltop makes the night colder than the air; walls and a fire inside them warm the air. A better sleeping bag or pad helps as much as its rating says.',
   },
   {
+    // A rules feature: it changes what a Warden can do (a lighter "Gather stones" action, region1.ts
+    // `gatherstone`, and "Quarry stone" hidden until they know the cleave, techniques.ts), so a run
+    // from before it (absent: false) keeps quarrying from day one on replay.
+    id: 'stone-gathering', name: 'Gather stones before you quarry', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1816,
+    note: 'You start by picking loose stones off the ground, out of the riverbed and from the scree: lighter work than quarrying, about half the stone, more by the river or on the hill. It trains Stonework, and once you\'ve found the cleave (stone has seams) you can quarry stone as before.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

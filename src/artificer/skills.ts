@@ -79,6 +79,8 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   // Drawing your map (#1797, `map-learning`) is a scout's work too: placing what you found by its
   // bearing and walking time. Practised per hour like any scouting; the action exists only with the switch on.
   drawmap: 'scouting',
+  // Gathering stones (#1816, `stone-gathering`) is how a new Warden gets the Stonework that finds the cleave.
+  gatherstone: 'stonework',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',

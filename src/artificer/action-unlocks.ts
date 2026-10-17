@@ -77,3 +77,14 @@ export const openSubActions = (w: Learner): SubActionUnlock[] => EXPLORE_UNLOCKS
 /** The sub-actions `after` has open that `before` didn't: each gets its journal line once. */
 export const newlyOpen = (before: Learner, after: Learner): SubActionUnlock[] =>
   EXPLORE_UNLOCKS.filter(u => !subActionOpen(u, before) && subActionOpen(u, after));
+
+// ── Gather stones first, quarry later (#1816, switch `stone-gathering`) ─────
+
+/** The rule switch (features.ts). */
+export const STONE_GATHERING = 'stone-gathering';
+/** The stonework technique that opens quarrying (techniques.ts "Finding the cleave"). */
+export const QUARRY_TECHNIQUE = 'cleave';
+/** Quarrying's "hide" reason, in the words `reason.unlock` reads back (i18n/en/journal.ts derives them). */
+export const QUARRY_UNLOCK = { verb: 'quarry stone', how: 'gather stones, and you\'ll find the cleave' } as const;
+/** The find note a flint seam has while gathering is the only stone work you know (exploration.ts FINDS has quarrying's). */
+export const STONE_GATHER_FIND_NOTE = 'gathering stones brings +1 stone';

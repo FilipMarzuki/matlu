@@ -52,7 +52,7 @@ import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
-import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
+import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
@@ -634,10 +634,12 @@ export type ActionId =
   // Making camp is an action (#1732): only with the `camp-as-action` switch on.
   | 'camp'
   // Drawing your map from what you've found (#1754): only with the `map-learning` switch on.
-  | 'drawmap';
+  | 'drawmap'
+  // Picking up loose stone (#1816): only with the `stone-gathering` switch on.
+  | 'gatherstone';
 
 /** Actions that happen out on the land, in a chosen ring. */
-export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore';
+export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore' | 'gatherstone';
 /**
  * A queue entry: an action, optionally aimed at a ring (`wood@2`). A bare id
  * means the near ring, so plans written before rings existed still read right.
@@ -699,6 +701,10 @@ interface ActionDef {
 
 /** Learning your actions as you go (#1689, #1690): the run's switch. */
 export const visibilityOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, ACTION_VISIBILITY);
+/** Gather stones first, quarry once you know the cleave (#1816): the run's switch. */
+export const stoneGatheringOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, STONE_GATHERING);
+/** Quarrying is hidden (#1816) until the cleave is known: only with `stone-gathering` on. */
+const quarryLocked = (s: Region1State): boolean => stoneGatheringOn(s) && !s.techniques.includes(QUARRY_TECHNIQUE);
 /** How the land gets known: by scouting, or (with the switch on) by exploring. */
 const scoutVerb = (s: Region1State): string => (visibilityOn(s) ? 'explore' : 'scout');
 
@@ -729,7 +735,9 @@ function workLand(s: Region1State, ring: Ring, d: Domain, amount = 1): string {
   const w = work(s.explore, ring, d, amount);
   s.explore = w.exploration;
   const f = w.found ? FINDS[w.found] : undefined;
-  return f ? ` You know this ground well now — found a ${f.name.toLowerCase()} (${f.note}).` : '';
+  // Before the cleave (#1816) a flint seam's note names the stone work you have: gathering.
+  const note = w.found === 'stone' && quarryLocked(s) ? STONE_GATHER_FIND_NOTE : f?.note;
+  return f ? ` You know this ground well now — found a ${f.name.toLowerCase()} (${note}).` : '';
 }
 /**
  * A trip's haul (#1304): what the ground and the Warden bring together, taken
@@ -748,6 +756,10 @@ const ONE_TRIP: RunScale = { yieldOf: () => 1, amount: 1 };
 
 /** What an ordinary day of ice fishing brings in, near camp (#1315). */
 export const FISH_CATCH = 3;
+/** Gathering stones (#1816): a little shorter than quarrying's 5 hours. */
+const GATHER_STONE_HOURS = 4;
+/** Camp sites where loose stone lies near camp (#1816): the riverbed's cobbles, the hill's scree. */
+export const LOOSE_STONE_SITES: readonly SiteId[] = ['river', 'hill'];
 /** +2 from a find already made here. */
 const findBonus = (s: Region1State, ring: Ring, d: Domain): number => (hasFind(s.explore, ring, d) ? 2 : 0);
 
@@ -1183,6 +1195,9 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   if (id === 'camp') return campAsActionOn(s) ? null : "camp isn't part of this game's rules";
   if (id === 'drawmap') return mapLearningOn(s) && descriptiveMapOn(s) ? null : "drawmap isn't part of this game's rules";
   if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
+  // Gather stones first, quarry once you know the cleave (#1816): its own switch, whatever `action-visibility` says.
+  if (id === 'gatherstone') return stoneGatheringOn(s) ? null : `${id} isn't part of this game's rules`;
+  if (id === 'quarry' && quarryLocked(s)) return `you don't know how to ${QUARRY_UNLOCK.verb} yet — ${QUARRY_UNLOCK.how} (${SKILLS.stonework.name})`;
   if (!visibilityOn(s)) return null;
   const sub = subActionLock(id, s);
   if (sub) return ringWordsFor(s, sub);
@@ -1325,6 +1340,21 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const note = workLand(s, r, 'stone', sc.amount);
       s.stores.stone += n;
       return `Broke out ${n} stone${where(r)}.${note}${dimNote(light)}`;
+    },
+  },
+  // Picking loose stone off the ground, out of the riverbed and the scree (#1816, `stone-gathering`):
+  // lighter and a little shorter than quarrying, and about half its stone at the same place. More
+  // where loose stone lies: camped on the riverbank or the hill, the near ground gives +1 (as a
+  // treeline camp does for wood). A known flint seam gives half its find; the luck, the supply and
+  // the stone patch are quarrying's, so it draws on nothing new.
+  gatherstone: {
+    name: 'Gather stones', hours: GATHER_STONE_HOURS, vigorRate: -3, clarityRate: -0.5, ringed: true, gate: reach, options: lengthOptions('gatherstone'),
+    run: (s, b, r, _o, light, luck, sc) => {
+      const loose = r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0;
+      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 1.5, 0.5) + loose + findBonus(s, r, 'stone') / 2 + b, luck * sc.yieldOf('stone')), darkYieldMult('gatherstone', light));
+      const note = workLand(s, r, 'stone', sc.amount);
+      s.stores.stone += n;
+      return `Gathered ${n} stone${where(r)}.${note}${dimNote(light)}`;
     },
   },
   preserve: {
