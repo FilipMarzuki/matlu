@@ -1,0 +1,38 @@
+/**
+ * English for the ⚙ Menu (#1808, artificer-app/meny.ts, ui switch `meny`): the page behind the
+ * header's gear that gathers what used to crowd the header and the help panel.
+ */
+export const meny = {
+  'meny.button': '⚙ MENU',
+  'meny.buttonLabel': 'Menu',
+  'meny.title': 'MENU',
+  'meny.back': '← BACK TO THE GAME',
+  'meny.newGame': 'NEW GAME',
+  'meny.start': 'START A NEW GAME',
+  'meny.startTip': 'A new Warden, in a new world. If this run is over, they find what it left.',
+  'meny.confirm': 'Start a new game? This Warden\'s run ends here.',
+  'meny.confirmYes': 'YES, START A NEW GAME',
+  'meny.confirmNo': 'KEEP PLAYING',
+  'meny.weekly': '📅 PLAY THIS WEEK\'S WORLD',
+  'meny.profile': 'PROFILE',
+  'meny.runs': 'Runs played in this browser: {n}',
+  'meny.runId': 'This run\'s id (quote it in feedback):',
+  'meny.copy': 'COPY',
+  'meny.copied': 'Copied',
+  'meny.records': 'THE RECORDS',
+  'meny.language': 'LANGUAGE',
+  'meny.guide': 'GUIDE',
+  'meny.visual': 'LOOK',
+  'meny.elsewhere': 'PLAY ELSEWHERE',
+  'meny.console': 'THE TEXT CONSOLE',
+  'meny.consoleTip': 'Play the same game as text, typed commands and all',
+  'meny.experiments': 'EXPERIMENTS',
+  'meny.expNote': 'Rules being tried out. A run with any of them on is marked 🧪 in the Records, so it isn\'t ranked against standard runs.',
+  'meny.expOn': 'This run has {n} experiments on.',
+  'meny.expWhich': 'Which ones',
+  'meny.expNone': 'This run has no experiments on.',
+  'meny.expDev': 'Switching them is for dev mode (see Developer, below).',
+  'meny.developer': 'DEVELOPER',
+  'meny.devNote': 'Dev mode is for testing; it never changes the game.',
+  'meny.devOpen': 'DEV MODE…',
+} as const satisfies Record<string, string>;

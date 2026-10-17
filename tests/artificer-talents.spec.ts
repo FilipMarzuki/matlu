@@ -98,8 +98,22 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
     }
     await page.locator('[data-intro="next"]').click();
   }
-  // A new save: make a second Warden, half-way, then reload.
-  await page.locator('[data-cmd="reset"]').first().click();
+  // A new save, from the ⚙ Menu (#1808): it asks on the page first. Esc shuts the Menu and the
+  // focus goes back to the ⚙; then New game, confirmed, makes a second Warden, half-way, then reload.
+  await expect(page.locator('header [data-cmd="reset"]')).toHaveCount(0);
+  const gear = page.locator('header [data-cmd="meny"]');
+  await gear.click();
+  await expect(gear).toHaveAttribute('aria-expanded', 'true');
+  // Every section but the guide's, which this test has switched off.
+  await expect(page.locator('#meny [data-meny]')).toHaveCount(7);
+  await expect(page.locator('#meny [data-meny="guide"]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#meny')).toHaveCount(0);
+  await expect(gear).toBeFocused();
+  await gear.click();
+  await page.locator('#meny [data-cmd="newgame"]').click();
+  await expect(page.locator('#meny .menyconfirm')).toBeVisible();
+  await page.locator('#meny [data-cmd="reset"]').click();
   await toCreation(page);
   const offer = await offerOf(page);
   await page.locator('#wname').fill('Second');
