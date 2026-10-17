@@ -1152,6 +1152,19 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .landwords li.new { color: var(--gold); }
 .seeland { background: none; border: 0; padding: 0 2px; color: var(--teal); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .tripnews { margin: 0 0 8px; }
+/* How well you know an area (#1835, land-assessment.ts): a small word after the ring's heading, its
+   tooltip saying what would raise it. Brighter as you know the area better. */
+.assess { font-size: 12px; color: var(--faint); font-style: italic; cursor: help; }
+.assess.a2, .assess.a3 { color: var(--dim); }
+.assess.a4, .assess.a5 { color: var(--gold); }
+/* LAND as only what you've found (#1836): its boxes stacked, whichever there are, and the Explore button. */
+.landfound > * + * { margin-top: 14px; }
+.landexplore { min-height: 40px; padding: 8px 14px; font-size: 9px; }
+.landexplore[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* What an area holds (#1847, land-icons.ts): small icons after its heading; dimmed when scarce. */
+.landicons { margin-left: 4px; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+.licon { cursor: help; }
+.licon.dim { opacity: 0.4; filter: grayscale(0.6); }
 .tripnews .landwords { margin: 0 0 6px; }
 
 /* The look picker (dev mode, #1719): preview any of the nine era looks. */
