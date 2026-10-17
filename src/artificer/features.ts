@@ -345,6 +345,20 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'two-row-header', name: 'Two-row header', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1824,
     note: 'The header is two rows: the place, the day, the ⚙ Menu and feedback; then the Warden and Vigor, Clarity and Condition as words (Energized, Drowsy, Hurt…) in a coloured border, with bars beside them from day 8. How to play moves into the Menu.',
   },
+  {
+    // A ui feature (#1835): a word on LAND read from what the run already knows of each area
+    // (artificer-app/land-assessment.ts), so it switches live and no run saves it. The play API, the
+    // console and AI players never see it. Off, the ring headings are exactly as before.
+    id: 'land-self-assessment', name: 'How well you know each area', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1835,
+    note: 'On LAND each area\'s heading says how well you feel you know it, from Unknown and A hunch up to Could work it blindfolded, with a tooltip of what would raise it.',
+  },
+  {
+    // A ui feature (#1836): how LAND is drawn (artificer-app/land-view.ts foundLand), so it switches
+    // live and no run saves it. The play API, the console and AI players never see it. Off, LAND is
+    // exactly as before.
+    id: 'land-found-only', name: 'LAND shows what you\'ve found', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1836,
+    note: 'LAND lists only the places you\'ve found, area by area, and the places to camp, without the knowledge chips, their key or the pin rows; at the bottom a button explores your surroundings.',
+  },
 ];
 
 /** Switches by feature id. */
