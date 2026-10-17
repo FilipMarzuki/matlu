@@ -303,6 +303,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'You start with traps: set a line of snares where you have seen game, and by morning there may be a hare in one. Hunting actively needs a sling (small game) or later a bow (deer too, and better odds); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits in a comfortable load: then you stow it and hunt on. The odds are shown in words: good odds, fair odds, a long shot.',
   },
   {
+    // A rules feature (#1823, with #1859's protection rating): it counts the raw meat at camp (`meat`,
+    // `meatStored`), draws thefts on long absences and at night from streams of its own, and adds
+    // Store the meat, so a run from before it (absent: false) keeps its meat untouched as it did.
+    id: 'camp-scavengers', name: 'Meat at camp draws animals', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1823,
+    note: 'Raw meat from hunting and traps left at camp can draw animals: on a long trip away a fox or ravens may take some, and at night too, unless a fire burns (asleep at camp, the risk is halved). Store the meat (hung with cord or under a stone cache) keeps it safe; smoked or dried rations are always safe. Rarely, at night, wolves or a bear take all the meat lying out, and the fright costs Clarity. How well the meat is protected is said in a word: lies open, fairly safe, well protected, secure.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

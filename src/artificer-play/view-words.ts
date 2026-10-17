@@ -30,7 +30,7 @@ import { encounterById, optionsFor } from '../artificer/encounters';
 import { featureOn } from '../artificer/features';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import type { AppState } from '../artificer-app/controller';
-import { coldBlock, firstJournalLine, moodLine, outcomeCard, sitesBlock, toolsBlock, yieldText } from '../artificer-app/camp-blocks';
+import { coldBlock, meatBlock, firstJournalLine, moodLine, outcomeCard, sitesBlock, toolsBlock, yieldText } from '../artificer-app/camp-blocks';
 import { hasCamp, withCampLine } from '../artificer-app/camp-view';
 import { encounterModal } from '../artificer-app/encounter-view';
 import { meetingModal } from '../artificer-app/caravan-view';
@@ -168,6 +168,8 @@ function dayText(a: AppState, t: T): string {
     head('head.stores', t),
     storesLine(s, t),
     htmlText(coldBlock(s, t)),
+    // The meat at camp and how well it's protected (#1823): only with `camp-scavengers` on and meat there.
+    ...(meatBlock(s, t) ? [htmlText(meatBlock(s, t))] : []),
     '',
     head('head.tools', t),
     htmlText(toolsBlock(s, t)),

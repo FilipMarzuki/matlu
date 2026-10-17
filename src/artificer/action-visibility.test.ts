@@ -107,8 +107,8 @@ describe('One Explore action at the start; its sub-actions unlock as you level (
       const s = warden(on);
       // Explore and Experiment don't exist; every other action reads as blockedReason does, nothing hidden.
       for (const v of actionVisibility(s)) {
-        // Make camp (#1732), Draw your map (#1754), Gather stones (#1816) and the traps and hunting gear (#1821) have their own switches, off here too (a run from before them).
-        if (v.id === 'explore' || v.id === 'experiment' || v.id === 'camp' || v.id === 'drawmap' || v.id === 'gatherstone' || v.id === 'traps' || v.id === 'sling' || v.id === 'bow' || v.id === 'hookline') { expect(v.status).toBe('hidden'); continue; }
+        // Make camp (#1732), Draw your map (#1754), Gather stones (#1816), the traps and hunting gear (#1821) and Store the meat (#1823) have their own switches, off here too (a run from before them).
+        if (v.id === 'explore' || v.id === 'experiment' || v.id === 'camp' || v.id === 'drawmap' || v.id === 'gatherstone' || v.id === 'traps' || v.id === 'sling' || v.id === 'bow' || v.id === 'hookline' || v.id === 'storemeat') { expect(v.status).toBe('hidden'); continue; }
         expect(v.status).not.toBe('hidden');
         expect(v.reason).toBe(blockedReason(s, v.id, 1));
       }

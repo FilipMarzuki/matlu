@@ -176,6 +176,14 @@ export const journal = {
   'log.traps': 'Set a line of traps{where}: snares along the game trails, to check by morning.',
   'log.traps.caught': 'By morning your traps{where} held small game — {n} raw food.',
   'log.traps.none': 'By morning your traps{where} were empty.',
+  // Meat at camp (#1823, `camp-scavengers`): storing it, and what animals took of it.
+  'log.storemeat.cache': 'Put {n} raw meat under a cairn of heavy stones, out of reach.',
+  'log.storemeat.hung': 'Hung {n} raw meat high in a tree with cord, out of reach.',
+  'log.meat.foxAway': 'While you were away, a fox got at the meat: {n} raw food gone, and its tracks all round camp.',
+  'log.meat.ravens': 'While you were away, ravens got at the meat: {n} raw food gone, and their tracks all round camp.',
+  'log.meat.foxNight': 'A fox got at the meat in the night: {n} raw food gone, and its tracks all round camp by morning.',
+  'log.meat.wolves': 'Wolves came into camp in the night. You lay still while they tore at the meat, and by first light all of it was gone.',
+  'log.meat.bear': 'A bear came into camp in the night. You lay frozen while it ate, and by first light all the meat was gone.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
   // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.
