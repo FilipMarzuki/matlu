@@ -324,6 +324,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'The header keeps only the title, the Warden, the day and the ⚙ Menu (with help and feedback): new game, profile, language, guide, look, other ways to play, experiments and dev mode are on the Menu page.',
   },
   {
+    // A ui feature (#1826): where the PLAN tab puts the queue (artificer-app/plan-layout.ts), so it
+    // switches live and no run saves it. The play API, the console and AI players never see it.
+    // Off, the PLAN tab is laid out exactly as before.
+    id: 'side-queue', name: 'The queue beside the actions', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1826,
+    note: 'On PLAN the queue stays beside the actions on every screen, phones too, and stays in view while you scroll through the actions. On a narrow screen it is compact: each task\'s icon, short name and hours, the day\'s total and when it ends. The latest journal and the camp-site picker sit below.',
+  },
+  {
     // A ui feature (#1828): the Menu's Sound section and the ambience it plays (artificer-app/ambience*.ts),
     // read from what the page shows, so it switches live and no run saves it. The sound itself stays
     // off until the player turns it on. The play API, the console and AI players never hear it.

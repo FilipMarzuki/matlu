@@ -37,13 +37,16 @@ const parts = (t = en): HeaderParts => ({
 const MOVED = ['data-cmd="reset"', 'data-cmd="weekly"', 'href="/play-with-ai/"', 'data-cmd="features"', 'lookswitch', 'devchip'];
 
 describe('the meny ui feature (#1808)', () => {
-  it('is a ui feature, experimental, on by default, registered before the ambient sound, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after the ui features before it, and no run saves it', () => {
     expect(featureById(MENY_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1808 });
     expect(uiFeatureOn({}, MENY_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [MENY_FEATURE]: false }, MENY_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(MENY_FEATURE);
-    // The ui features after it (#1828's ambient sound) come later; it's the last before them.
-    expect(FEATURES.findIndex(f => f.id === MENY_FEATURE)).toBe(FEATURES.findIndex(f => f.id === 'ambience') - 1);
+    // The ui features after it (the queue beside the actions, #1826; the ambient sound, #1828) come later; the ones before stay before.
+    const at = (id: string): number => FEATURES.findIndex(f => f.id === id);
+    expect(at(MENY_FEATURE)).toBeGreaterThan(at('backdrop'));
+    expect(at(MENY_FEATURE)).toBeLessThan(at('side-queue'));
+    expect(at('side-queue')).toBeLessThan(at('ambience'));
   });
 });
 

@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -71,8 +71,10 @@ import { meetingModal } from './caravan-view';
 import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
-import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
-import { nowTotal, queueTimes, timerClock } from './time-view';
+import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { nowTotal, queueTimes, timeWordsShown, timerClock } from './time-view';
+import { endWords, partShort } from '../artificer/time-words';
+import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
@@ -391,6 +393,9 @@ function queueBlock(a: AppState, preview: Preview): string {
   const fresh = s.log.some(l => l.text === PLANNING_UNLOCKED && l.day >= s.day - 1);
   // The hours, or the time of day in words (#1740, `time-words`, time-view.ts).
   const times = queueTimes(a, preview, t, dev);
+  // The queue beside the actions (#1826): each row also carries its compact words, which a narrow
+  // column shows instead of the full ones (style.css, a container query on `.planq`). Off, as before.
+  const compact = sideQueueOn();
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -410,7 +415,10 @@ function queueBlock(a: AppState, preview: Preview): string {
     // The grip (#1743): drag it (mouse, touch or pen) or use the arrow keys on it to move the task.
     // Only the grip takes the drag, so taps on the row's own buttons and scrolling the page still work.
     const grip = a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>`
+    // Compact (#1826): its words, and ▲ to move it up by a tap (the grip still drags).
+    const qc = compact ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t))
+      + (i > 0 ? `<button class="qup" data-qup="${i}" aria-label="${esc(t('qc.up', { name: actionName(id, t) }))}">▲</button>` : '') : '';
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>${qc}`
       + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
@@ -426,17 +434,45 @@ function queueBlock(a: AppState, preview: Preview): string {
       + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
+  const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
+  const tot = compact
+    ? `<span class="qfull">${times.total}</span><span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
+    : `<span>${times.total}</span><span>${spans}</span>`;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
       <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
-      <div class="qtot"><span>${times.total}</span><span>${t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days })}</span></div>
+      <div class="qtot">${tot}</div>
       <div class="runbar"${guide.mark('runDay')}>
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>${guideTip('runDay')}
     </div>`;
+}
+
+/** The compact total (#1826): the day's hours, and when today's plan ends if anything runs today. */
+function dayTotal(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  const today = todayHours(a, preview);
+  const runsToday = preview.dayOffset.some((d, i) => d === 0 && !preview.warnings[i]);
+  const end = runsToday ? compactEnd(today, timeWordsShown(s, dev) ? partShort(endWords(s.day, today, s.config.calendar), t) : null) : null;
+  return compactTotal(today, end, t);
+}
+
+/** The phone's strip unfolded (#1826): the page's own, like the weather's fold; a reload starts folded. */
+let stripOpen = false;
+
+/** The phone's frozen strip over the actions (#1826, plan-layout.ts queueStrip). */
+function stripBlock(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  if (!s.canPlan) {
+    return queueStrip({ items: [], note: t('head.oneThing'), total: compactTotal(s.hoursToday, null, t), open: stripOpen,
+      button: { cmd: 'endday', label: t('btn.endDay'), disabled: !!s.outcome } }, t);
+  }
+  const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
+  return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
+    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null } }, t);
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
@@ -614,6 +650,8 @@ let showHelp = false;
 // behind the ⚙, drawn in place of the tab body. Whether it's open is the page's alone, like the
 // weather's fold: a redraw (innerHTML) keeps it, a reload starts shut.
 const menyOn = (): boolean => uiFeatureOn(loadChoices(), MENY_FEATURE);
+/** The queue beside the actions, frozen while they scroll (#1826, plan-layout.ts): a ui feature, so it switches live. */
+const sideQueueOn = (): boolean => uiFeatureOn(loadChoices(), SIDE_QUEUE_FEATURE);
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -820,19 +858,22 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
   const log = g.shows('journal') ? `<div class="log"${g.mark('journal')}><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p>${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
-  const side = queue || log || camp ? `<section class="box planside">${queue}${log}${camp}</section>` : '';
-  return actions || side ? `<div class="plan">${actions}${side}</div>` : '';
+  const strip = queue && sideQueueOn() ? stripBlock(a, preview) : '';
+  return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t);
 }
 
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
       if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a)}<div class="plan">
-        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>
-        <section class="box planside">${queueBlock(a, preview)}
-          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
-      </div>`;
+      return `${weatherSection(a)}${planLayout({
+        actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
+        queue: queueBlock(a, preview),
+        journal: `<div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>`,
+        camp: hasCamp(a.sim) ? '' : beforeCamp(a),
+        strip: sideQueueOn() ? stripBlock(a, preview) : '',
+        stripOpen,
+      }, sideQueueOn(), t)}`;
     case 'camp':
       return `<div class="cols">
         <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a.sim, t)}
@@ -934,7 +975,19 @@ function drawPage(a: AppState): void {
     const lines = root.querySelector<HTMLElement>('.timer .tlog');
     if (lines) lines.scrollTop = lines.scrollHeight;
   }
+  syncStickTop();
 }
+
+/**
+ * Where the PLAN tab's frozen queue column stops (#1826): just under the sticky status bar, whose
+ * height changes as it wraps. Measured here, the one place that sets `--stick-top` (style.css has
+ * its default), so whatever the header and the bar become, the column follows.
+ */
+function syncStickTop(): void {
+  const bar = root.querySelector<HTMLElement>('.statusbar');
+  document.documentElement.style.setProperty('--stick-top', `${(bar?.offsetHeight ?? 0) + 8}px`);
+}
+window.addEventListener('resize', syncStickTop);
 
 /** The encounter just answered (#1347), shown in the modal until you carry on. */
 let encounterAfter: EncounterAfter | null = null;
@@ -1880,6 +1933,8 @@ root.addEventListener('click', e => {
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
   // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
   if (d.cmd === 'feedback') { feedback.toggle(); return; }
+  // The phone's queue strip (#1826): unfold or fold it. Presentation only, so mid-day too.
+  if (d.cmd === 'qstrip') { stripOpen = !stripOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="qstrip"]')?.focus({ preventScroll: true }); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {
@@ -1981,6 +2036,12 @@ root.addEventListener('click', e => {
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
   else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
   else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
+  // The compact queue's ▲ (#1826): a tap moves the task up one place, as ↑ on its grip does.
+  else if (d.qup !== undefined) {
+    const i = Number(d.qup);
+    moveTask(i, i - 1, false);
+    (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
+  }
   // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
   else if (d.camp) { const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
