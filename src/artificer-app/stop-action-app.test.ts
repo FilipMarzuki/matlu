@@ -10,8 +10,10 @@ import { enqueue, makeWarden, stopQueuedDay, type AppState } from './controller'
 import { playDay, playStopped, replayedEnd, stopPoint, momentAt, timeAt } from './playback';
 import { simLine } from './sim-words';
 import { makeT } from '../artificer/i18n';
-import { chooseSite, runAction, type QueueItem } from '../artificer/region1';
+import { chooseSite, queueHours, runAction, type QueueItem } from '../artificer/region1';
 import { stepWeb } from '../artificer-play/web-run';
+import { killMoment } from '../artificer/stop-action';
+import { seedOf } from '../artificer/rng';
 
 function ready(id: string, features: Record<string, boolean> = {}): AppState {
   const a = makeWarden({ id }, undefined, { 'action-visibility': false, ...features });
@@ -51,6 +53,22 @@ describe('Stop on the timer (#1815)', () => {
     const stop = { action: 1, hours: 1.5 };
     const kept = playStopped(a, stop).after;
     expect(stepWeb({ ...a, queue: [] }, { plan: a.queue, stop })).toEqual(kept);
+  });
+
+  it('a hunt stopped on the timer, before or after its kill, plays out to the instant stop, and reads in Swedish', () => {
+    const sv = makeT('sv');
+    const hunt: QueueItem = { q: 'hunt', opts: { target: 'small' } } as QueueItem;
+    const a = queued(ready('w-stop-hunt'), [hunt, 'gather']);
+    const kill = killMoment(seedOf(a.sim.character.id), a.sim.day, a.sim.hoursToday) * queueHours(hunt, a.sim);
+    const eps = Math.min(0.05, kill / 2);
+    for (const [hours, said] of [[kill - eps, /gave up/], [kill + eps, /already brought it down/]] as const) {
+      const p = playStopped(a, { action: 0, hours });
+      // Faithful: the timer has its steps (it shows nothing step by step when it disagrees with the sim).
+      expect(p.steps.length).toBe(1);
+      expect(replayedEnd(p)).toEqual(p.after.sim);
+      const line = p.after.sim.log.slice(a.sim.log.length).find(l => said.test(l.text))!.text;
+      expect(simLine(line, sv)).not.toBe(line);
+    }
   });
 
   it('says a stop in Swedish', () => {

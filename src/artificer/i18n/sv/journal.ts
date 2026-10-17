@@ -371,6 +371,8 @@ export const journalSv: Record<JournalKey, string> = {
   'log.stopSeen': '{head}{where}: avbröts halvvägs — du såg en del av det som fanns där.',
   'log.stopPart': '{head}{where}: avbröts efter {h} h arbete — du gick hem med det du hade.',
   'log.stopCamp': '{head}: avbröts — inget gjordes, och inget gick åt.',
+  'log.stopGaveUp': '{head}{where}: avbröts — du gav upp innan något kom.',
+  'log.stopKilled': '{head}{where}: avbröts — du hade redan fällt bytet och gick hem med alltihop.',
   'log.choiceSkipped': 'Val: hoppas över — det finns inget "{id}" här.',
   'log.milestone': 'Milstolpe — {w}',
   'log.heirloomTeaches': '{good} lär dig det som den som gjorde den kunde: {list}.',

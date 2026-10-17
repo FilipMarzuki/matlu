@@ -9,14 +9,20 @@
  *   5. A stop                                   — the rest of the queue stays queued (and no night).
  *   6. The same seed and moves with a stop      — the same run; with `stop-action` off or absent nothing changes.
  * The design's other rules:
- *   7. All-at-once work stopped before it happened keeps nothing; exploring keeps what was seen by then.
+ *   7. All-at-once work (water) stopped before it was done keeps nothing; exploring keeps what was seen by then.
  *   8. Stopped on the walk back, the action is as it would have been.
+ * A hunt is a game of chance (the owner, on #1815): its kill comes at a moment of its own in the work.
+ *   9. A hunt with a kill, stopped after its moment   — the whole catch (food, and the deer's hide).
+ *  10. Stopped before it                             — nothing.
+ *  11. The moment                                     — the same for the same seed, day and start; spread over days, some early.
+ *  12. A hunt not stopped                             — exactly as before the moment existed.
  */
 
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, runDay, chooseSite, queueHours, type QueueItem, type Region1State } from './region1';
 import { FEATURES, featureOn } from './features';
-import { cutTrips, stopProblem, STOP_ACTION } from './stop-action';
+import { cutTrips, killMoment, stopProblem, STOP_ACTION } from './stop-action';
+import { seedOf } from './rng';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { TRAVEL_HOURS } from './exploration';
 import { act, makeWarden, runQueuedDay, stopQueuedDay, serialize, type AppState } from '../artificer-app/controller';
@@ -156,11 +162,11 @@ describe('Stop an action while it plays out (#1815)', () => {
 });
 
 describe('What a stop keeps, by kind of work (#1815)', () => {
-  it('7. a hunt stopped before the kill keeps nothing; exploring keeps what was seen by then', () => {
+  it('7. water stopped before it was fetched keeps nothing; exploring keeps what was seen by then', () => {
     const s = warden();
-    const huntWork = queueHours({ q: 'hunt', opts: { target: 'small' } } as QueueItem, s);
-    const hunted = runAction(s, { q: 'hunt', opts: { target: 'small' } } as QueueItem, huntWork / 2);
-    expect(gained(s, hunted, 'rawFood')).toBe(0);
+    const work = queueHours('water@2', s) - TRAVEL_HOURS[2];
+    const fetched = runAction(s, 'water@2', OUT + work / 2);
+    expect(gained(s, fetched, 'water')).toBe(0);
     // Exploring the distant ring halfway: half the learning (the walk out first).
     const t = runAction(warden(), 'scout@3');
     const fresh = warden();
@@ -177,6 +183,8 @@ describe('What a stop keeps, by kind of work (#1815)', () => {
   });
 
   it('cuts trips by their legs, and checks a stop move', () => {
+    expect(cutTrips([{ travel: 2, work: 4 }], 2, 'kill', 0.5)).toMatchObject({ work: 1, kept: 0, phase: 'work' });
+    expect(cutTrips([{ travel: 2, work: 4 }], 3, 'kill', 0.5)).toMatchObject({ work: 2, kept: 4, phase: 'work' });
     const trips = [{ travel: 3, work: 4 }, { travel: 3, work: 4 }];
     expect(cutTrips(trips, 1, 'bit')).toMatchObject({ work: 0, travel: 2, kept: 0, phase: 'out' });
     expect(cutTrips(trips, 3.5, 'bit')).toMatchObject({ work: 2, travel: 3, kept: 2, phase: 'work' });
@@ -187,5 +195,65 @@ describe('What a stop keeps, by kind of work (#1815)', () => {
     expect(stopProblem({ action: 2, hours: 1 }, 2)).not.toBeNull();
     expect(stopProblem({ action: 0, hours: -1 }, 2)).not.toBeNull();
     expect(stopProblem('soon', 2)).not.toBeNull();
+  });
+});
+
+describe('A hunt is a game of chance (#1815)', () => {
+  const DEER: QueueItem = { q: 'hunt@2', opts: { target: 'deer' } } as QueueItem;
+  /** Given a hunt's plan in the far ring: its walk out, its work, and when its kill comes. */
+  const plan = (s: Region1State) => {
+    const out = TRAVEL_HOURS[2] / 2;
+    const work = queueHours(DEER, s) - TRAVEL_HOURS[2];
+    const kill = killMoment(seedOf(s.character.id), s.day, s.hoursToday) * work;
+    return { out, work, kill, eps: Math.min(0.05, kill / 2) };
+  };
+  /** A Warden who has tracked deer in the far ring. */
+  const hunter = (): Region1State => { const s = runAction(warden(), 'track@2'); return { ...s, hoursToday: 0 }; };
+
+  it('9. a hunt with a kill, stopped after its moment of the kill, keeps the whole catch', () => {
+    const s = hunter();
+    const full = runAction(s, DEER);
+    expect(gained(s, full, 'rawFood')).toBeGreaterThan(0);
+    const { out, kill, eps } = plan(s);
+    const stopped = runAction(s, DEER, out + kill + eps);
+    expect(gained(s, stopped, 'rawFood')).toBe(gained(s, full, 'rawFood'));
+    expect(gained(s, stopped, 'hides')).toBe(1);
+    expect(stopped.log.slice(s.log.length).some(l => /already brought it down/.test(l.text))).toBe(true);
+    // Home sooner than the whole hunt: the walk out, the work up to the stop, the walk back.
+    expect(used(s, stopped)).toBeLessThan(used(s, full));
+  });
+
+  it('10. stopped before its moment of the kill, a hunt keeps nothing', () => {
+    const s = hunter();
+    const { out, kill, eps } = plan(s);
+    const stopped = runAction(s, DEER, out + kill - eps);
+    expect(gained(s, stopped, 'rawFood')).toBe(0);
+    expect(gained(s, stopped, 'hides')).toBe(0);
+    expect(stopped.log.slice(s.log.length).some(l => /gave up before anything came/.test(l.text))).toBe(true);
+    // On the walk out, nothing either; on the walk back, everything.
+    expect(gained(s, runAction(s, DEER, out / 2), 'rawFood')).toBe(0);
+    expect(runAction(s, DEER, queueHours(DEER, s) - 0.1)).toEqual(runAction(s, DEER));
+  });
+
+  it('11. the moment of the kill is the same for the same seed, day and start, and spread across days (some early)', () => {
+    const seed = seedOf('w-stop');
+    expect(killMoment(seed, 4, 2)).toBe(killMoment(seed, 4, 2));
+    const days = Array.from({ length: 200 }, (_, d) => killMoment(seed, d + 1, 0));
+    for (const k of days) { expect(k).toBeGreaterThan(0); expect(k).toBeLessThanOrEqual(1); }
+    expect(new Set(days).size).toBeGreaterThan(150);
+    const early = days.filter(k => k <= 0.25).length;
+    expect(early).toBeGreaterThan(20);
+    expect(early).toBeLessThan(80);
+  });
+
+  it('12. a hunt not stopped is the hunt it always was: its full hours, and the same catch', () => {
+    const s = hunter();
+    const full = runAction(s, DEER);
+    // (A deer is a heavy load home, #1292: the walk back can run a little over the plan.)
+    expect(used(s, full)).toBeGreaterThanOrEqual(queueHours(DEER, s) - 1e-9);
+    // With the switch off, the very same state (the moment is only read when a hunt is stopped).
+    const strip = (x: Region1State): unknown => ({ ...x, config: { ...x.config, world: { ...x.config.world, features: undefined } } });
+    const off = { ...s, config: { ...s.config, world: { ...s.config.world, features: { [STOP_ACTION]: false } } } };
+    expect(strip(runAction(off, DEER))).toEqual(strip(full));
   });
 });

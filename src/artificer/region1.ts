@@ -50,7 +50,7 @@ import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, cre
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
-import { cutTrips, stopKindOf, type Cut, type DayStop } from './stop-action';
+import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen } from './action-unlocks';
@@ -2187,7 +2187,9 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const planWork = session ? session.plan.work : usual.work;
   const planTravel = session ? session.plan.travel : usual.travel;
   // Stopped partway (#1815): the hours, Vigor and Clarity as far as you got, and the work that still counts.
-  const cut = stop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop, stopKindOf(id));
+  // A hunt's kill (#1815) comes at its own moment in the work, rolled only when it's stopped: a stream of its own, keyed on the hour it began.
+  const kind = stopKindOf(id);
+  const cut = stop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop, kind, kind === 'kill' ? killMoment(seedOf(s.character.id), s.day, s.hoursToday) : 1);
   const workHours = cut ? cut.work : planWork;
   const travel = cut ? cut.travel : planTravel;
   const td = talentDrain(next.character.talents, id);
@@ -2254,7 +2256,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const lost = exposure === 'lost';
   const before = { ...next.stores };
   // The share of the work whose yield is kept, when stopped (#1815): 1 for the whole action.
-  const kept = cut ? (planWork > 0 ? cut.kept / planWork : 0) : 1;
+  let kept = cut ? (planWork > 0 ? cut.kept / planWork : 0) : 1;
   if (cut && !def.ringed) {
     // Stopped at camp: the time is spent and nothing is done.
     say(next, `${def.name}: stopped — nothing made, and nothing used up.`, 'action', at);
@@ -2262,8 +2264,10 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     const was = { explore: next.explore, flags: { ...next.flags } };
     const said = def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP);
     if (cut) {
+      // An empty hunt has no kill to keep, whenever it's stopped.
+      if (kind === 'kill' && cut.phase === 'work' && next.stores.rawFood <= before.rawFood) kept = 0;
       keepShare(next, before, was, kept);
-      say(next, stopLine(def.name + where(ring), cut, kept, stopKindOf(id), hrs1(cut.kept)), 'action', at);
+      say(next, stopLine(def.name + where(ring), cut, kept, kind, hrs1(cut.kept)), 'action', at);
     }
     // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
     else if (said || id !== 'camp') say(next, said, 'action', at);
@@ -2340,6 +2344,8 @@ const partOf = (end: Partial<Record<PatchId, number>>, start: Partial<Record<Pat
 /** The journal's line on an action stopped partway (#1815). */
 function stopLine(head: string, cut: Cut, f: number, kind: ReturnType<typeof stopKindOf>, hours: string): string {
   if (cut.phase === 'out' && f <= 0) return `${head}: stopped on the way out and turned back — nothing to show for it.`;
+  // A hunt (#1815): stopped before its moment of the kill, or after it.
+  if (kind === 'kill' && cut.phase === 'work') return f > 0 ? `${head}: stopped — you had already brought it down, and headed home with all of it.` : `${head}: stopped — you gave up before anything came.`;
   if (f <= 0) return `${head}: stopped before it was done — nothing to show for it.`;
   if (kind === 'see') return `${head}: stopped partway — you saw some of what was there.`;
   return `${head}: stopped after ${hours}h of the work — headed home with what you had.`;
