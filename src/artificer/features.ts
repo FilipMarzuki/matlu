@@ -316,6 +316,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'backdrop', name: 'A living backdrop', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1802,
     note: 'Behind the boxes, a murky scene of the woods: the season, today\'s weather, the time of day and the place you camp, with the edges darkening when you\'re worn down, going red-dark before a frightening night and frosting over in the cold. The boxes keep their look.',
   },
+  {
+    // A ui feature (#1808): where the page's controls are drawn (artificer-app/meny.ts), so it
+    // switches live and no run saves it. The play API, the console and AI players never see it.
+    // Off, the header and the help panel are exactly as before.
+    id: 'meny', name: 'The ⚙ Menu', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1808,
+    note: 'The header keeps only the title, the Warden, the day and the ⚙ Menu (with help and feedback): new game, profile, language, guide, look, other ways to play, experiments and dev mode are on the Menu page.',
+  },
 ];
 
 /** Switches by feature id. */

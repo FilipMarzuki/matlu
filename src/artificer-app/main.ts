@@ -88,6 +88,7 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
+import { MENY_FEATURE, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, weeklyButton, type HeaderParts } from './meny';
 import { REVEALS, TAB_GUIDE, activeTip, began, guideFinished, guideFor, heldTabs, isGuideId, queueReach, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -575,8 +576,18 @@ function drawBackdrop(a: AppState): void {
   backdrop.show(scene);
 }
 
-/** Under the help (?), with the switch on: keep the backdrop still (a slow tablet). */
-function backdropControls(): string {
+/**
+ * Under the help (?), with the switch on: keep the backdrop still (a slow tablet). In the Menu
+ * (#1808, `inMeny`) the backdrop's own switch comes first, so it can be turned on there again.
+ */
+function backdropControls(inMeny = false): string {
+  if (inMeny) {
+    const on = backdropOn();
+    return `<div class="langswitch"><span>${esc(t('backdrop.head'))}</span>`
+      + `<button class="pill" data-feature="${BACKDROP_FEATURE}" aria-pressed="${on}">${esc(t(on ? 'dev.featOn' : 'dev.featOff'))}</button>`
+      + (on ? `<button class="pill" data-backdrop="still" aria-pressed="${backdropStill}" title="${esc(t('backdrop.stillTip'))}">${esc(t('backdrop.still'))}</button>` : '')
+      + '</div>';
+  }
   if (!backdropOn()) return '';
   return `<div class="langswitch"><span>${esc(t('backdrop.head'))}</span>`
     + `<button class="pill" data-backdrop="still" aria-pressed="${backdropStill}" title="${esc(t('backdrop.stillTip'))}">${esc(t('backdrop.still'))}</button></div>`;
@@ -594,6 +605,50 @@ function setLookPreview(id: LookId | null): void {
 // A kept `warden` opens the Warden's view (#1807): it's no tab in the row now, but the header button opens it.
 let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (t === 'warden' || TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
 let showHelp = false;
+
+// ── The ⚙ Menu (#1808, meny.ts) ─────────────────────────────────────────────
+// A ui feature: on, the header's extra controls and the help panel's settings live on one page
+// behind the ⚙, drawn in place of the tab body. Whether it's open is the page's alone, like the
+// weather's fold: a redraw (innerHTML) keeps it, a reload starts shut.
+const menyOn = (): boolean => uiFeatureOn(loadChoices(), MENY_FEATURE);
+let menyOpen = false;
+/** "Start a new game" tapped: the Menu asks on the page before the run ends. */
+let newGameAsk = false;
+/** The run's id was copied (shown beside the button until the Menu shuts). */
+let idCopied = false;
+const menyShown = (): boolean => menyOpen && menyOn();
+
+function setMeny(open: boolean): void {
+  menyOpen = open;
+  newGameAsk = false;
+  idCopied = false;
+  render(state);
+  // Into the page's heading on the way in; back to the ⚙ on the way out (the redraw drops focus).
+  root.querySelector<HTMLElement>(open ? '#meny-title' : '[data-cmd="meny"]')?.focus({ preventScroll: !open });
+}
+
+/** The Menu's page, on the Reach or the road. */
+function menyView(a: AppState): string {
+  const exp = experimentalOn(featuresOf(a.sim.config.world.features)).map(f => f.name);
+  return menyPage({
+    newgame: newGameBody({ asking: newGameAsk }, t),
+    profile: profileBody({ runs: history.length, runId: a.sim.character.id, copied: idCopied }, t),
+    language: langSwitch(false),
+    guide: guideControls(a, false),
+    visual: `<div class="langswitch">${lookSwitcher(a, true)}</div>${backdropControls(true)}`,
+    elsewhere: elsewhereBody(t),
+    experiments: experimentsBody({ on: exp, dev, controls: `${featuresButton()}${featuresPanel(a)}` }, t),
+    developer: menyDevGate(),
+  }, t);
+}
+
+/** The header's controls after the title, with the Menu on or off (meny.ts says which go where). */
+function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'weekly'>, a: AppState): string {
+  const on = menyOn();
+  return headerControls(on, {
+    ...p, dev: devChip(), weekly: weeklyButton(t), features: featuresButton(), look: lookSwitcher(a), reset: newSaveButton(t),
+  }, on ? menyButton(menyShown(), t, dev ? devTag() : '') : '');
+}
 
 /**
  * Before camp is made (#1691) there's no CAMP tab, but choosing a site is how camp is made, so the
@@ -708,11 +763,11 @@ function guideSeen(ids: GuideId[]): void {
   root.querySelector<HTMLElement>('[data-guideok]')?.focus({ preventScroll: true });
 }
 
-/** Under the help (?), with the switch on: "I've played before" and "Show the guide again". */
-function guideControls(a: AppState): string {
+/** Under the help (?), with the switch on: "I've played before" and "Show the guide again". In the Menu (#1808) its section names it. */
+function guideControls(a: AppState, label = true): string {
   if (!guideSwitchOn() || a.stage === 'road') return '';
   const played = guideRec.run?.id === a.sim.character.id && guideRec.run.playedBefore;
-  return `<div class="langswitch guidectl"><span>${esc(t('guide.head'))}</span>`
+  return `<div class="langswitch guidectl">${label ? `<span>${esc(t('guide.head'))}</span>` : ''}`
     + `<button class="pill" data-guide="played" aria-pressed="${played}" title="${esc(t('guide.playedBeforeTip'))}">${esc(t('guide.playedBefore'))}</button>`
     + `<button class="pill" data-guide="again" title="${esc(t('guide.againTip'))}">${esc(t('guide.again'))}</button></div>`;
 }
@@ -824,28 +879,25 @@ function drawPage(a: AppState): void {
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
+  const meny = menyShown();
   root.innerHTML = `
     <header>
       <h1>${t('top.titleHtml')}</h1>
       <span class="spacer"></span>
-      ${wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden', data: 'tab', attrs: guide.mark('skill') }, t)}
-      <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
-      ${weekChip(a)}
-      ${devChip()}
-      <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
-      <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
-      ${featuresButton()}
-      ${lookSwitcher(a)}
-      <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
-      ${feedback.button(t)}
-      <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
+      ${header({
+        warden: wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t),
+        counters: `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
+        week: weekChip(a), experiment: '', playAi: playAiLink(t),
+        help: `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
+        feedback: feedback.button(t),
+      }, a)}
     </header>
-    ${featuresPanel(a)}
-    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${backdropControls()}${devGate()}</div>` : ''}
+    ${menyOn() ? '' : featuresPanel(a)}
+    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
-    ${tabBody(a, preview)}
+    ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
@@ -967,12 +1019,27 @@ function devGate(): string {
   return `${icon}<div class="devgate">${body}</div>`;
 }
 
+/**
+ * The dev gate in the Menu (#1808): the same gate as the help panel's faint ⚙, as a plain button
+ * here, since the Menu is where settings are looked for. In dev mode, the way out shows at once.
+ */
+function menyDevGate(): string {
+  if (dev) return `<p class="mood">${esc(t('dev.on'))}</p><div class="menyrow"><button class="pill" data-cmd="devleave">${esc(t('dev.leave'))}</button></div>`;
+  const open = `<p class="mood">${esc(t('meny.devNote'))}</p><div class="menyrow"><button class="pill" data-cmd="devgate" aria-expanded="${devGateOpen}">${esc(t('meny.devOpen'))}</button></div>`;
+  if (!devGateOpen) return open;
+  const body = !devNeedsPassword(DEV_PASSWORD_HASH)
+    ? `<span class="faint">${esc(t('dev.openNote'))}</span> <button class="pill" data-cmd="deventer">${esc(t('dev.enter'))}</button>`
+    : `<form class="devform" data-devform><input id="devpw" type="password" autocomplete="off" aria-label="${esc(t('dev.password'))}" placeholder="${esc(t('dev.placeholder'))}">
+      <button class="pill" type="submit">${esc(t('dev.unlock'))}</button>${devGateNote ? ` <span class="faint">${esc(t(devGateNote))}</span>` : ''}</form>`;
+  return `${open}<div class="devgate">${body}</div>`;
+}
+
 // ── Language: the switch in help, and the picker before anything else (#1704) ──
 
 /** The help panel's language switch: each language named in itself, so it's findable whatever is showing. */
-function langSwitch(): string {
+function langSwitch(label = true): string {
   const pills = LANGS.map(l => `<button class="pill" data-lang="${l}" lang="${l}" aria-pressed="${lang === l}">${esc(makeT(l)('lang.name'))}</button>`).join('');
-  return `<div class="langswitch"><span>${esc(t('help.language'))}</span>${pills}</div>`;
+  return `<div class="langswitch">${label ? `<span>${esc(t('help.language'))}</span>` : ''}${pills}</div>`;
 }
 
 /**
@@ -1096,8 +1163,9 @@ function lookPicker(a: AppState): string {
  * deployed. A compact control in the header: previous, a menu of the nine looks and the game's own,
  * next. Kept in this browser, never in the save; off with the `look-switcher` ui feature.
  */
-function lookSwitcher(a: AppState): string {
-  if (!switcherOn()) return '';
+function lookSwitcher(a: AppState, always = false): string {
+  // In the Menu (#1808) the era look is always there to choose; it's kept in this browser while the switcher's switch is on, as before.
+  if (!switcherOn() && !always) return '';
   const game = lookOfGame(a);
   const opt = (v: string, label: string, on: boolean): string => `<option value="${v}"${on ? ' selected' : ''}>${esc(label)}</option>`;
   const options = opt('game', t('look.game', { look: t(`look.${game}`) }), lookPreview === null)
@@ -1133,29 +1201,25 @@ function renderRoad(a: AppState, r: RoadState): void {
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
     : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">${esc(t('head.roadJournal'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
+  const meny = menyShown();
   const end = r.outcome ? `${roadEnd(r, t)}<section class="box">${recordBox(a)}</section><div class="runbar" style="margin:12px 0"><button class="btn go" data-cmd="reset" title="${esc(t('btn.newWardenTip'))}">${esc(t('btn.newWarden'))}</button></div>` : '';
   root.innerHTML = `
     <header>
       <h1>${t('top.roadTitleHtml')}</h1>
       <span class="spacer"></span>
-      ${wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden', data: 'rtab' }, t)}
-      <span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
-      <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
-      ${weekChip(a)}
-      ${experimentChip(a)}
-      ${devChip()}
-      <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
-      ${featuresButton()}
-      ${lookSwitcher(a)}
-      ${feedback.button(t)}
-      <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
+      ${header({
+        warden: wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden' && !meny, data: 'rtab' }, t),
+        counters: `<span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
+      <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>`,
+        week: weekChip(a), experiment: experimentChip(a), playAi: '', help: '', feedback: feedback.button(t),
+      }, a)}
     </header>
-    ${featuresPanel(a)}
+    ${menyOn() ? '' : featuresPanel(a)}
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
     <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
-    ${body}
+    ${meny ? menyView(a) : body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }
 
@@ -1743,6 +1807,15 @@ document.addEventListener('keydown', e => {
   closeRingPick(true);
 });
 
+// The ⚙ Menu (#1808): Esc shuts it and puts focus back on the ⚙, unless something drawn over it
+// (the map session, the distance chooser, the focus picker) takes the Esc first. An Esc inside the
+// feedback panel never gets here (the panel stops it).
+document.addEventListener('keydown', e => {
+  if (!menyShown() || e.key !== 'Escape' || e.defaultPrevented || mapUi || ringPick || focusPopOpen) return;
+  e.preventDefault();
+  setMeny(false);
+});
+
 root.addEventListener('click', e => {
   // A building in a settlement (#1541), on its grid or in the key: show what it is.
   const bldg = (e.target as HTMLElement).closest<HTMLElement>('[data-bldg]');
@@ -1783,10 +1856,26 @@ root.addEventListener('click', e => {
     if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
     if (d.pbskip !== undefined) { skipTimer(); return; }
     if (d.pbstop !== undefined) { stopTimer(); return; }
-    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep) return; // the look switcher (#1736) only redraws
+    // The look switcher (#1736) only redraws; the ⚙ Menu (#1808) opens, shuts and copies, which change nothing in the game.
+    if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep && d.cmd !== 'meny' && d.cmd !== 'menyclose' && d.cmd !== 'copyid') return;
   }
   // Drawing your map (#1754): the session's own taps, and the action's button opens the session first.
   if (d.mapsel || d.mapcell || d.cmd === 'mapsession' || d.cmd === 'mapdraw' || d.cmd === 'mapclose' || (d.q === 'drawmap' && mapSessionOpen(state.sim))) { mapTap(d); return; }
+  // The ⚙ Menu (#1808): open or shut it, and its own buttons.
+  if (d.cmd === 'meny' || d.cmd === 'menyclose') { setMeny(d.cmd === 'meny' ? !menyOpen : false); return; }
+  if (d.cmd === 'newgame' || d.cmd === 'newgameno') {
+    newGameAsk = d.cmd === 'newgame';
+    render(state);
+    root.querySelector<HTMLElement>(newGameAsk ? '.menyconfirm [data-cmd="reset"]' : '[data-cmd="newgame"]')?.focus();
+    return;
+  }
+  if (d.cmd === 'copyid') {
+    const id = state.sim.character.id;
+    void navigator.clipboard?.writeText(id).then(() => { idCopied = true; render(state); root.querySelector<HTMLElement>('[data-cmd="copyid"]')?.focus(); }, () => undefined);
+    return;
+  }
+  // A tab (or the Warden's button) leaves the Menu for that view.
+  if (d.tab || d.rtab) menyOpen = false;
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.
@@ -1871,8 +1960,9 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') playOut(playWholeQueue(state), p => ({ plan: p.before.queue }));
   else if (d.cmd === 'clear') update(clearQueue(state));
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
-  else if (d.cmd === 'reset') { newWarden(); clearDraft(); startIntro(); }
-  else if (d.cmd === 'weekly') void startWeekly();
+  else if (d.cmd === 'reset') { menyOpen = false; newGameAsk = false; newWarden(); clearDraft(); startIntro(); }
+  // This week's world shuts the Menu once it has started (it keeps its own question, #1559).
+  else if (d.cmd === 'weekly') void startWeekly().then(started => { if (started && menyOpen) { menyOpen = false; render(state); } });
   // Encounters (#1347): choose an option, then carry on with the day.
   // A road encounter (#1349): the same modal, answered on the road state.
   else if (d.choose && state.stage === 'road' && state.road?.pending) {

@@ -1189,3 +1189,29 @@ html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), 
   html.fb-sheet-peek { --fb-sheet: 56px; scroll-padding-bottom: 56px; }
   html.fb-sheet-half { --fb-sheet: 50dvh; scroll-padding-bottom: 50dvh; }
 }
+
+/* ── The ⚙ Menu (#1808) ────────────────────────────────────────────────────────
+   A page in place of the tab body, like the Warden's view: one column of sections, tap targets of
+   44px, and nothing wider than a phone (the run's id wraps). The ⚙ wears an open tab's gold while
+   it shows. */
+.menybtn.on { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.06); }
+.meny { margin-top: 10px; display: grid; gap: 4px; min-width: 0; }
+.menyhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.menyhead h2 { margin: 0; font-size: 12px; }
+.menyhead h2:focus { outline: none; }
+.menyhead h2:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.menysec { padding: 12px 0 4px; border-top: 1px solid var(--border); min-width: 0; }
+.menysec > .eyebrow { margin: 0 0 10px; }
+.menysec .pill, .menysec .btn { min-height: 44px; }
+.menysec .langswitch { margin-bottom: 8px; }
+.menysec .mood { margin: 0 0 8px; }
+.menysec .features { margin-top: 10px; }
+.menyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.menyconfirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--amber); border-radius: 7px; }
+.menyconfirm p { flex-basis: 100%; margin: 0; }
+.menyid code { overflow-wrap: anywhere; word-break: break-all; }
+.menysec .lookswitch select.pill { max-width: min(15em, 52vw); }
+/* The section names the look already. */
+.menysec .lookswitch .lsname { display: none; }
+.menyexp { margin: 0 0 8px; }
+.menyexp summary { cursor: pointer; display: list-item; padding: 14px 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
