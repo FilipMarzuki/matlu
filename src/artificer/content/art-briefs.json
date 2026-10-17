@@ -7,6 +7,7 @@
     "materials": { "tier": 0, "brief": "A bundle of crafting stuff bound with fibre: straight sticks, a hank of plant fibre and a flint flake; browns and straw yellow; the knot at the binding.", "icon": "/assets/sprites/icons/items/materials.png" },
     "rations": { "tier": 0, "brief": "A cloth-wrapped travel ration tied crosswise with string; oatmeal cloth, dark twine; a strip of dried meat poking out at one end.", "icon": "/assets/sprites/icons/items/item-ration.png" },
     "stone": { "tier": 0, "brief": "A pile of grey quarried stones, flat-faced and angular; cool greys, lit on the top edges; one stone shows a fresh pale split face.", "icon": "/assets/sprites/icons/items/item-stone.png" },
+    "sinew": { "tier": 0, "brief": "A small bundle of dried sinew strands twisted into a hank and tied off; pale amber and cream; the fine fibres fraying at one end." },
     "hides": { "tier": 0, "brief": "A raw deer hide spread roughly square with leg tabs; tawny fur side, cream flesh side; a white patch of fur at one edge.", "icon": "/assets/sprites/icons/items/item-hide-raw.png" },
 
     "stone-knife": { "tier": 1, "brief": "A short knife, a knapped flint blade lashed into a wooden handle; grey flint, brown wood, tan sinew wrapping; the flaked scallops along the edge.", "icon": "/assets/sprites/icons/items/stone-knife.png" },
@@ -20,6 +21,9 @@
     "basket": { "tier": 1, "brief": "A round woven basket with one arched handle; straw and willow tones; the over-under weave clearly visible.", "icon": "/assets/sprites/icons/items/basket.png" },
     "backpack": { "tier": 1, "brief": "A hide pack on a frame of sticks, its flap tied down; brown leather on pale wood; the frame's sticks poking out above the flap.", "icon": "/assets/sprites/icons/items/backpack.png" },
     "harness": { "tier": 1, "brief": "A pulling harness of hide straps crossing in an X; dark leather, tan rawhide; the wooden toggle where the straps meet.", "icon": "/assets/sprites/icons/items/harness.png" },
+    "sling": { "tier": 1, "brief": "A sling: two long cords of twisted fibre and a small leather stone pouch between them; straw-brown cord, tan pouch; a round pebble in the pouch." },
+    "bow": { "tier": 1, "brief": "A simple self bow of one bent stave with a taut cord string; pale ash wood, darker grip wrapped in cord; a nocked arrow with a stone tip." },
+    "hook-line": { "tier": 1, "brief": "A carved bone hook tied to a coil of thin cord; off-white bone, straw-brown line; the barb of the hook catching the light." },
     "sled": { "tier": 1, "brief": "A low wooden sled, two runners with lashed crosspieces; pale wood, tan lashings; the runners' curled-up front tips.", "icon": "/assets/sprites/icons/items/sled.png" },
     "cold-gear": { "tier": 1, "brief": "Layered winter clothes folded in a stack: a woven hooded tunic over fur leggings; oatmeal wool, brown fur; the fur trim round the hood.", "icon": "/assets/sprites/icons/items/cold-gear.png" },
     "hide-parka": { "tier": 1, "brief": "A hooded parka of stitched hides with the fur turned in; tawny leather, cream fur at the hood and cuffs; the stitched seam down the front.", "icon": "/assets/sprites/icons/items/hide-parka.png" },

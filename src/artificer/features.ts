@@ -296,6 +296,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'While the day plays out, Stop ends the action running at that moment. On the walk out you turn back with nothing; water brings nothing until it\'s fetched; a hunt\'s kill comes when it comes, sometimes straight away: stopped after it you have the whole catch, before it nothing; wood, forage, stone and fish bring a share for the work done; exploring keeps what you\'d seen; on the walk back you have it all; at camp nothing is made or used up. The rest of the queue stays queued.',
   },
   {
+    // A rules feature: it changes what a Warden can do (a new "Set traps" action, region1.ts `traps`,
+    // that catches overnight; hunting hidden until a sling or bow, fishing until a hook and line; a
+    // hunt ending on its kill), so a run from before it (absent: false) hunts and fishes as it did.
+    id: 'hunting-gear', name: 'Traps first; hunting and fishing need gear', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1821,
+    note: 'You start with traps: set a line of snares where you have seen game, and by morning there may be a hare in one. Hunting actively needs a sling (small game) or later a bow (deer too, and better odds); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits in a comfortable load: then you stow it and hunt on. The odds are shown in words: good odds, fair odds, a long shot.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
@@ -358,6 +365,13 @@ export const FEATURES: readonly FeatureDef[] = [
     // exactly as before.
     id: 'land-found-only', name: 'LAND shows what you\'ve found', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1836,
     note: 'LAND lists only the places you\'ve found, area by area, and the places to camp, without the knowledge chips, their key or the pin rows; at the bottom a button explores your surroundings.',
+  },
+  {
+    // A ui feature (#1848): where the eating plan's setting is drawn (artificer-app/rations-view.ts),
+    // read from the state, so it switches live and no run saves it. The play API, the console and AI
+    // players never see it, and the eating rules are unchanged. Off, the RATIONS chip stays in the status bar.
+    id: 'rations-warden', name: 'Rations with the Warden', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1848,
+    note: 'The RATIONS chip leaves the status bar. Until the first evening meal there is no setting; the morning after, a note says how that meal went (just right, too much, too little) and that the setting is now with the Warden; from then on it is a Rations row in the Warden\'s view.',
   },
   {
     // A ui feature (#1838): where how to play is drawn (artificer-app/journal-notes.ts), so it

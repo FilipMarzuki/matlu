@@ -13,7 +13,8 @@ import { builtWarmthOn } from '../artificer/built-warmth';
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
-import { visibilityOn, ACTIONS, LOOSE_STONE_SITES, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { huntingGearOn } from '../artificer/hunting-gear';
+import { visibilityOn, huntOddsOf, sinewOf, huntTool, trapCatchOf, ACTIONS, LOOSE_STONE_SITES, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
@@ -46,9 +47,9 @@ export type Preview = ReturnType<typeof previewQueue>;
 /** The action palette's groups: `key` names the heading in the catalog (`group.*`). */
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
-  { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve'] },
+  { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve'] },
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
-  { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
+  { key: 'craft', ids: ['knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
   { key: 'think', ids: ['study', 'experiment', 'drawmap', 'tinker', 'rest', 'treat'] },
 ];
@@ -57,6 +58,7 @@ export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
+  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -70,7 +72,15 @@ const ty = (s: Sim, r: Ring, d: Domain, base: number, per: number): number => tr
 export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
   switch (id) {
     case 'gather': return t(fb(s, r, 'forage') ? 'yield.gatherFiber' : 'yield.gather', { n: ty(s, r, 'forage', 3, 2) + bonus(s, 'gather') });
-    case 'hunt': return t('yield.hunt', { n: ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game') });
+    case 'hunt': {
+      // With `hunting-gear` (#1821): what the tool allows (a sling small game, a bow deer too) and the odds in words.
+      const odds = huntOddsOf(s, 'hunt', r);
+      if (!odds) return t('yield.hunt', { n: ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game') });
+      return huntTool(s) === 'bow'
+        ? t('yield.huntBow', { n: ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game'), odds: t(`odds.hunt.${odds}`) })
+        : t('yield.huntSling', { n: ty(s, r, 'game', 3, 1) + bonus(s, 'hunt') + fb(s, r, 'game'), odds: t(`odds.hunt.${odds}`) });
+    }
+    case 'traps': return t('yield.traps', { n: trapCatchOf(s.explore, r), odds: t(`odds.hunt.${huntOddsOf(s, 'traps', r) ?? 'fair'}`) });
     case 'water': return t('yield.water', { n: ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water') });
     case 'wood': return t('yield.wood', { n: ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber'), m: ty(s, r, 'timber', 2, 1) });
     case 'quarry': return t('yield.quarry', { n: ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone') });
@@ -86,7 +96,8 @@ export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
 
 /** What a trip carries home, short (a craft's ingredients, the load bar). */
 export const haulWord = (k: string, t: T): string =>
-  (['rawFood', 'rations', 'water', 'firewood', 'materials', 'stone', 'hides'] as (keyof Haul)[]).includes(k as keyof Haul) ? t(`haul.${k as keyof Haul}`) : k;
+  // Sinew (#1821) isn't a hauled store: the bow's ingredient chip names it by its store word.
+  k === 'sinew' ? t('storeword.sinew') : (['rawFood', 'rations', 'water', 'firewood', 'materials', 'stone', 'hides'] as (keyof Haul)[]).includes(k as keyof Haul) ? t(`haul.${k as keyof Haul}`) : k;
 
 /**
  * A craft's ingredients (#1675) as icon chips under its card: "[icon] 2 mat". The recipe is the one
@@ -405,8 +416,9 @@ export function vitalsBlock(s: Sim, t: T): string {
     </div><p class="mood">${esc(moodLine(s, t))}</p>`;
 }
 
-type StoreKey = keyof Sim['stores'];
-const STORE_EMOJI: Record<StoreKey, string> = { rawFood: '🍖', water: '💧', firewood: '🪵', materials: '🪨', rations: '🧂', stone: '⛰️', hides: '🦌' };
+/** A chip in the stores row: a store, or sinew (#1821, `hunting-gear`), kept beside them on the sim. */
+type StoreKey = keyof Sim['stores'] | 'sinew';
+const STORE_EMOJI: Record<StoreKey, string> = { rawFood: '🍖', water: '💧', firewood: '🪵', materials: '🪨', rations: '🧂', stone: '⛰️', hides: '🦌', sinew: '🧵' };
 
 /**
  * A store chip: the good's 32 px icon (#1675), or its old emoji until it has one, the name as text
@@ -421,7 +433,9 @@ export function storesRow(s: Sim, t: T): string {
   // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
   const streak = (n: number, word: string): string => (n ? ` <span class="streak">${esc(word)} ×${n}</span>` : '');
   return `<div class="res">${storeChip('rawFood', st.rawFood, t, st.rawFood < 1, streak(s.deprivation.hungry, t('status.hungry')))}${storeChip('water', st.water, t, st.water < 1, streak(s.deprivation.thirsty, t('status.thirsty')))}`
-    + `${storeChip('firewood', st.firewood, t)}${storeChip('materials', st.materials, t)}${storeChip('rations', st.rations, t)}${storeChip('stone', st.stone, t)}${storeChip('hides', st.hides, t)}</div>`;
+    + `${storeChip('firewood', st.firewood, t)}${storeChip('materials', st.materials, t)}${storeChip('rations', st.rations, t)}${storeChip('stone', st.stone, t)}${storeChip('hides', st.hides, t)}`
+    // Sinew (#1821) only with `hunting-gear` on: off, the row is as it always was.
+    + `${huntingGearOn(s) ? storeChip('sinew', sinewOf(s), t) : ''}</div>`;
 }
 
 /** The CAMP tab's cold storage (#1296): raw food kept cold or exposed, and what tonight will cost. */

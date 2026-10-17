@@ -13,7 +13,7 @@
  *   its work hours (`killMoment`: sometimes straight away, sometimes at the very end). Stopped
  *   after it you have the whole catch (the food, and a deer's hide); before it, nothing. Whether
  *   there is a kill at all is the hunt's luck, as ever: an empty hunt has none, whenever you stop.
- *   A hunt not stopped still takes its planned hours (ending it on the kill is #1821);
+ *   A hunt not stopped takes its planned hours; with `hunting-gear` (#1821) it ends on its kill, hunting-gear.ts;
  * - **at the work, a bit at a time** (wood, forage, quarried or gathered stone, fish): a share in proportion to the work done, rounded down;
  * - **exploring** (scout, survey, track, look out, explore): what you'd seen by then, in proportion;
  * - **walking back**: you have it all already; the walk simply finishes;
@@ -53,6 +53,8 @@ export type StopKind = 'bit' | 'all' | 'kill' | 'see' | 'camp';
 const KIND: Readonly<Record<string, StopKind>> = {
   gather: 'bit', wood: 'bit', quarry: 'bit', gatherstone: 'bit', fish: 'bit',
   water: 'all', hunt: 'kill',
+  // Traps (#1821, `hunting-gear`): a line not finished isn't set.
+  traps: 'all',
   scout: 'see', survey: 'see', track: 'see', lookout: 'see', explore: 'see',
 };
 

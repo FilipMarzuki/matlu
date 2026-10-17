@@ -66,4 +66,7 @@ const SCRIPTED_DAYS: (number | null)[] = [null, null, null, null, 5, 5, null, 5,
 // random 8/12, median 5 (5–8). The explorer and the scripted baseline didn't move.
 // With `stone-gathering` (#1816) the random player has Gather stones where it had Quarry stone, so it
 // picks differently: random 8/12, median 5 (5–7).
-const RANDOM_DAYS: (number | null)[] = [5, 5, 5, 6, 5, 5, 7, null, null, null, 5, null];
+// With `hunting-gear` (#1821) the random player has Set traps and the gear crafts where it had Hunt
+// and Ice fishing, so it picks differently again: random 9/12, median 5 (5–6). (The window is now 20
+// days, MEASURE_DAYS: one random run lives to day 16.) The explorer and the scripted baseline didn't move.
+const RANDOM_DAYS: (number | null)[] = [null, 5, 5, 5, 5, 5, 5, null, 5, 5, 6, null];
