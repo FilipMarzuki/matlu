@@ -5,7 +5,7 @@
  */
 
 import { portraitById, portraitStyle } from './portraits';
-import { localNum, type Key, type T } from '../artificer/i18n';
+import { localNum, type T } from '../artificer/i18n';
 
 /** Escape text for innerHTML — sim text is ours today, but a save could be edited. */
 export const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -26,23 +26,16 @@ export function portraitEl(id: string | null, size: number, cls = ''): string {
 }
 
 /**
- * Every tab id the catalog names (`tab.<id>`): a conditional type pulls the id back out of each key.
- * It goes through a type parameter (`K`) so it distributes over the union of keys one by one.
+ * The header's icon and name (#1807): the one way into the Warden's view, on the Reach (`data-tab`)
+ * and on the road (`data-rtab`). The tab row has no Warden tab any more. It shows as soon as the
+ * Warden exists, so an unnamed Warden (creation allows a blank name) gets "Your Warden" instead of
+ * a name, and a button is never missing. `open` says whether the Warden's view is the one showing:
+ * the button is then pressed (`aria-pressed`, and the `on` style, like an open tab). `attrs` is
+ * extra attributes the caller adds (the guide's glow for the "skill comes easier" tip). The name is
+ * player text, and a save could be edited, so it's escaped.
  */
-type IdOf<K> = K extends `tab.${infer I}` ? I : never;
-type TabId = IdOf<Key>;
-
-/**
- * A tab button's label (#1787): the catalog's name for the tab (`tab.<id>`), except the Warden's
- * tab, which wears the Warden's own name exactly as the player wrote it ("bob" stays "bob", not
- * uppercased like the other labels). "WARDEN" / "VÄKTAREN" shows only until there is a name. A long name is cut short by CSS (`.tabname`, an ellipsis), so
- * `attrs` carries the full name as `title` and `aria-label`. Both parts come back escaped: a name
- * is player text, and a save could be edited.
- */
-export function tabLabel(id: TabId, wardenName: string | null | undefined, t: T): { attrs: string; label: string } {
-  const name = id === 'warden' ? (wardenName ?? '').trim() : '';
-  if (!name) return { attrs: '', label: esc(t(`tab.${id}`)) };
-  // No case change: the other labels are uppercase in the catalog itself (the tab row has no CSS
-  // text-transform), so the name keeps the case it was typed in.
-  return { attrs: ` title="${esc(name)}" aria-label="${esc(name)}"`, label: `<span class="tabname">${esc(name)}</span>` };
+export function wardenButton(w: { name: string | null | undefined; portrait: string | null; rank: string; open: boolean; data: 'tab' | 'rtab'; attrs?: string }, t: T): string {
+  const name = (w.name ?? '').trim() || t('top.yourWarden');
+  return `<button class="who${w.open ? ' on' : ''}" data-${w.data}="warden" aria-pressed="${w.open}"${w.attrs ?? ''} title="${esc(t('top.yourWarden'))}">`
+    + `${portraitEl(w.portrait, 26)}<span><b>${esc(name)}</b> · ${esc(w.rank)}</span></button>`;
 }

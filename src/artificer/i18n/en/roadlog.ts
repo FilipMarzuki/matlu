@@ -53,7 +53,7 @@ export const roadlog = {
   // ── Onto the wagon, and the days of the road ───────────────────────────────
   'log.road.said': '{who}: {say}',
   'log.road.you': 'You: {say}',
-  'log.road.boarded': 'You climb onto the last wagon as Greywind Reach falls behind, the valley green with {w}. Mistheim is {n} days down the road.',
+  'log.road.boarded': 'You climb onto the last wagon as the wilderness falls behind, the valley green with {w}. Mistheim is {n} days down the road.',
   'log.road.ragged': "The winter took a lot out of you. It'll be days on the wagon before you're right.",
   'log.road.watch': 'You watch the road go by.',
   'log.road.passDay': 'You pass the day in {place}.',

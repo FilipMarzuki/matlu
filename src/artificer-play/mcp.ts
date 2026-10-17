@@ -50,7 +50,7 @@ export async function mcpFetch(request: Request, opts: McpOptions): Promise<Resp
 }
 
 const INSTRUCTIONS = [
-  'You are playing "Greywind Reach", the first region of the Artificer: a Warden alone in a mountain valley',
+  'You are playing the Artificer: a Warden alone in an unnamed mountain valley,',
   'with 30 days of autumn to prepare for a 60-night winter. Survive to the thaw; then a caravan may take you on.',
   'Start with new_game and keep its game_id: every other tool needs it. look shows everything you know and the',
   'moves open now; act makes one move and answers with what changed. Call rules once for how the world works.',
@@ -58,7 +58,7 @@ const INSTRUCTIONS = [
 
 function buildServer(opts: McpOptions, request: Request): McpServer {
   const server = new McpServer(
-    { name: 'artificer', title: 'The Artificer: Greywind Reach', version: GAME_VERSION },
+    { name: 'artificer', title: 'The Artificer', version: GAME_VERSION },
     { instructions: INSTRUCTIONS },
   );
   // Every call says it comes from MCP, so the games it starts are recorded as played here (#1558).
@@ -69,7 +69,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
   server.registerTool('new_game', {
     title: 'Start a game',
-    description: 'Start a new game of Greywind Reach, on a fresh world or (weekly: true) this week\'s shared one. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
+    description: 'Start a new game of the Artificer, on a fresh world or (weekly: true) this week\'s shared one. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
     inputSchema: z.object({
       name: z.string().max(24).optional().describe("Your Warden's name, shown on the records (default: Warden)."),
       model: z.string().max(64).optional().describe('Which AI model is playing, if you know. Shown on the records as self-reported.'),
@@ -151,7 +151,7 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
   server.registerTool('rules', {
     title: 'Read the rules',
-    description: 'How Greywind Reach works: seasons, the body, stores, building, the land in rings, the caravan and the road. Read it once at the start.',
+    description: 'How the Artificer works: seasons, the body, stores, building, the land in rings, the caravan and the road. Read it once at the start.',
     inputSchema: z.object({}),
     annotations: { readOnlyHint: true },
   }, async () => {

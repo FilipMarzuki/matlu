@@ -156,7 +156,7 @@ describe('One LAND tab, organised by ring (#1730)', () => {
   beforeEach(() => resetFolds());
 
   it('has no MAP tab: the other tabs keep their order, and a kept MAP tab opens LAND', () => {
-    expect(APP_TABS.map(x => x.id)).toEqual(['plan', 'camp', 'land', 'history', 'warden', 'progress']);
+    expect(APP_TABS.map(x => x.id)).toEqual(['plan', 'camp', 'land', 'history', 'progress']); // the Warden is the header's (#1807)
     expect(keptTab('map')).toBe('land');
     expect(keptTab('warden')).toBe('warden');
     expect(tabToOpen(keptTab('map'), APP_TABS, { dev: false, camp: true })).toBe('land');

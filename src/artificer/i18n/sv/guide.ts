@@ -15,7 +15,6 @@ export const guideSv: Record<keyof typeof guide, string> = {
   'guide.line.tools': 'Det du har gjort, och det du lärde dig av att göra det.',
   'guide.line.camp': 'Lägret är slaget. Allt om det finns här nu: elden, förråden, skyddet du bygger.',
   'guide.line.land': 'Det du vet om landet omkring dig. Varje tur ut lägger till något.',
-  'guide.line.warden': 'Det är du. Det du har övat, och det du har börjat förstå, samlas här.',
   'guide.line.progress': 'Några dagar har gått. Här ser du hur året går, och vad vintern ännu kommer att kräva.',
   'guide.line.injury': 'Du är skadad. Behandla det innan det blir värre, och ta det försiktigt några dagar.',
   'guide.line.lock': 'Något har gått riktigt illa: överlevnaden tar alla dina tankar nu. Ordna det, så kommer fokuset tillbaka.',

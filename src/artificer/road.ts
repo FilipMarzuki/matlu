@@ -246,7 +246,7 @@ export function createRoad(from: Region1State, boarding?: Boarding): RoadState {
     s.fare = boarding.fare;
     s.owesHelp = boarding.owesHelp;
   }
-  say(s, `You climb onto the last wagon as Greywind Reach falls behind, the valley green with ${ROAD_SEASON}. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
+  say(s, `You climb onto the last wagon as the wilderness falls behind, the valley green with ${ROAD_SEASON}. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
   if (ragged) say(s, "The winter took a lot out of you. It'll be days on the wagon before you're right.", 'hardship');
   return s;
 }

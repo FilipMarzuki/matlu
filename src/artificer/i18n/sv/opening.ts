@@ -21,7 +21,7 @@ export const openingSv: Record<keyof typeof opening, string> = {
   'intro.rank': 'RANG: {rank}',
   'intro.identify': 'IDENTIFIERA DIG, ARTIFICER.',
   'intro.registered': 'Registrerad: {name}.',
-  'intro.region': 'Region: Greywind Reach.',
+  'intro.region': 'Region: vildmarken.',
   'intro.winter': 'Vintern kommer om {n} dagar.',
   'intro.survive': 'Överlev den, ända till tövädret.',
   'intro.before': 'Någon har varit här före dig.',

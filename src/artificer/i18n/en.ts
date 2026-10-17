@@ -53,10 +53,9 @@ const core = {
 
   // ── The header ─────────────────────────────────────────────────────────────
   'top.yourWarden': 'Your Warden',
-  'top.run': 'RUN',
   'top.day': 'DAY',
   'top.playAi': 'PLAY WITH YOUR AI',
-  'top.playAiTip': 'Let your AI play Greywind Reach',
+  'top.playAiTip': 'Let your AI play the Artificer',
   'top.week': '📅 THIS WEEK',
   'top.weekTip': "This week's world: the one everyone, people and AIs, plays this week",
   'top.weekChipTip': "This week's world ({week}): everyone, people and AIs, plays this one until Monday 00:00 UTC",
@@ -67,6 +66,9 @@ const core = {
   'top.experimentTip': 'This run plays with experimental features: {names}. They may change, or go.',
   'top.dev': 'DEV',
   'top.devTip': 'Dev mode is on: this page shows views for testing that players don\'t see. A run played with it on is marked as such in the records.',
+  // The place has no name yet (#1810): the header calls it the wilderness until play names it.
+  'top.titleHtml': '❄ THE <span class="mark">WILDERNESS</span>',
+  'road.stopStart': 'The wilderness',
   'top.roadTitleHtml': '🛞 THE CARAVAN <span class="mark">ROAD</span>',
   'top.marks': 'MARKS',
   'top.roadDay': 'ROAD DAY',
@@ -112,7 +114,6 @@ const core = {
   'tab.camp': 'CAMP',
   'tab.land': 'LAND',
   'tab.history': 'HISTORY',
-  'tab.warden': 'WARDEN',
   'tab.progress': 'PROGRESS',
   'tab.road': 'ROAD',
   'tab.quests': 'QUESTS',

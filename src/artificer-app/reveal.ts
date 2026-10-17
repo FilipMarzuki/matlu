@@ -22,9 +22,10 @@
  * - **"I've played before"** shows everything with no lines, as the screen is without the guide. It's
  *   on by default for a new Warden once this device has been through the guide once.
  *
- * - **The tabs and the tips (#1794)** are in the same registry. A tab (CAMP, LAND, the Warden's,
- *   PROGRESS with HISTORY) is an element like the boxes: not drawn until there's something to do
- *   there (`heldTabs`), then kept. A just-in-time tip (the first injury, a cold night, the snow...)
+ * - **The tabs and the tips (#1794)** are in the same registry. A tab (CAMP, LAND, PROGRESS with
+ *   HISTORY) is an element like the boxes: not drawn until there's something to do there
+ *   (`heldTabs`), then kept. The Warden's view is no tab (#1807): the header's icon and name opens
+ *   it, there from the first screen, and the guide never holds it back ("skill" makes it glow). A just-in-time tip (the first injury, a cold night, the snow...)
  *   is `tipOnly`: its part of the screen is drawn anyway, and its line shows once, the moment it
  *   matters. A Warden who has played before sees none of them; "Show the guide again" brings them back.
  *
@@ -46,7 +47,7 @@ export { GUIDE_FEATURE } from './survival-path';
 
 export type GuideId = 'weather' | 'vitals' | 'focus' | 'actions' | 'today' | 'queue' | 'runDay' | 'journal' | 'stores' | 'sites' | 'tools'
   // The tabs (#1794): each once there's something to do there.
-  | 'camp' | 'land' | 'warden' | 'progress'
+  | 'camp' | 'land' | 'progress'
   // The just-in-time tips for the rest of the run (#1794): lines on parts that are drawn anyway.
   | 'injury' | 'lock' | 'cold' | 'snow' | 'skill' | 'longQueue';
 
@@ -132,8 +133,6 @@ export function landKnown(s: Sim): boolean {
 export const SKILL_UP = / comes easier\.$/;
 export const skillCameEasier = (s: Pick<Region1State, 'log'>): boolean => s.log.some(l => l.kind === 'milestone' && SKILL_UP.test(l.text));
 
-/** A concept begun or grasped: what the Warden tab lists (warden-view.ts). */
-export const conceptBegun = (s: Pick<Region1State, 'concepts'>): boolean => Object.values(s.concepts).some(p => p.rank > 0 || p.insight > 0);
 
 /** HISTORY and PROGRESS show from this day on: a few days in, there's a story and a year to look back on. */
 export const PROGRESS_DAY = 4;
@@ -174,14 +173,13 @@ export const REVEALS: readonly Revealable[] = [
   // The tabs: each hidden until there's something to do there, and then kept.
   { id: 'camp', shown: c => camped(c.sim), line: 'guide.line.camp' },
   { id: 'land', shown: c => afterWeather(c) && landKnown(c.sim), line: 'guide.line.land' },
-  { id: 'warden', shown: c => afterWeather(c) && (skillCameEasier(c.sim) || conceptBegun(c.sim)), line: 'guide.line.warden' },
   { id: 'skill', shown: c => skillCameEasier(c.sim), line: 'guide.line.skill', tipOnly: true },
   { id: 'progress', shown: c => c.sim.day >= PROGRESS_DAY, line: 'guide.line.progress' },
   { id: 'longQueue', shown: c => c.sim.canPlan && (c.queueDays ?? 0) > 1, line: 'guide.line.longQueue', tipOnly: true },
 ];
 
 /** Which guide element each tab is (#1794): HISTORY (dev mode's) comes with PROGRESS; PLAN is always there. */
-export const TAB_GUIDE: Readonly<Record<string, GuideId>> = { camp: 'camp', land: 'land', warden: 'warden', history: 'progress', progress: 'progress' };
+export const TAB_GUIDE: Readonly<Record<string, GuideId>> = { camp: 'camp', land: 'land', history: 'progress', progress: 'progress' };
 
 /**
  * The tabs the guide holds back now (#1794): those whose element hasn't been revealed. Empty when

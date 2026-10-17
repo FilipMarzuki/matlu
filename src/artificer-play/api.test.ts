@@ -98,7 +98,8 @@ describe('The play API (#1555)', () => {
     const store = memoryStore();
     const rules = await handle(get('/api/v1/rules'), store, deps);
     expect(rules.status).toBe(200);
-    expect(JSON.stringify(rules.body)).toContain('Greywind Reach');
+    expect(JSON.stringify(rules.body)).toContain('an unnamed valley');
+    expect(JSON.stringify(rules.body)).not.toContain('Greywind');
     const big = { method: 'POST', path: '/api/v1/games', body: 'x'.repeat(LIMITS.bodyBytes + 1), ip: '203.0.113.7' };
     expect((await handle(big, store, deps)).status).toBe(413);
     const { id } = (await handle(post('/api/v1/games', {}), store, deps)).body as { id: string };

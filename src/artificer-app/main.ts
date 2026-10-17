@@ -50,7 +50,7 @@ import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
+import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, viewToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
@@ -78,8 +78,8 @@ import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, pct, band, portraitEl, tabLabel } from './html';
-import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { esc, pct, band, wardenButton } from './html';
+import { ICON, haulWord, paletteBlock, weatherBox, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -418,9 +418,6 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where we are in the season, in a few words (for the header chip): in words until the calendar is earned (#1729, camp-blocks.ts). */
-const phaseChip = (a: AppState): string => seasonChip(a.sim, t, { dev });
-
 /** Always-visible summary: body, key stores, today's hours, readiness. */
 function statusBar(a: AppState, preview: Preview): string {
   const s = a.sim;
@@ -576,8 +573,9 @@ function setLookPreview(id: LookId | null): void {
 }
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
-// open tab against what shows each time it draws (`tabToOpen`).
-let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
+// open tab against what shows each time it draws (`viewToOpen`).
+// A kept `warden` opens the Warden's view (#1807): it's no tab in the row now, but the header button opens it.
+let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (t === 'warden' || TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
 let showHelp = false;
 
 /**
@@ -684,7 +682,7 @@ const markFirst = (html: string, ...ids: GuideId[]): string => html.replace(/^(\
 /** The just-in-time tips (#1794), whose lines show under the status bar on every tab. */
 const JIT_TIPS: readonly GuideId[] = ['injury', 'lock', 'cold', 'snow', 'skill', 'longQueue'];
 /** The tabs' lines (#1794) show under the tab bar. */
-const TAB_TIPS: readonly GuideId[] = ['camp', 'land', 'warden', 'progress'];
+const TAB_TIPS: readonly GuideId[] = ['camp', 'land', 'progress'];
 
 /** Lines seen: kept, and the page redrawn. Keyboard focus goes to the next line's OK, if one shows. */
 function guideSeen(ids: GuideId[]): void {
@@ -804,20 +802,18 @@ function drawPage(a: AppState): void {
   // earlier run opens PLAN until this run's camp is made, a kept HISTORY tab PLAN once dev mode is left.
   // With the guide at work (#1794), a tab shows once there's something to do there (reveal.ts).
   const view: TabView = { dev, camp: hasCamp(a.sim), held: guide.active ? heldTabs(TABS.map(d => d.id), guide.shows) : undefined };
-  tab = tabToOpen(tab, TABS, view);
+  // The Warden's view (#1807) is no tab in the row: nothing holds it back, so a kept one stays open.
+  tab = viewToOpen(tab, TABS, view);
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
   root.innerHTML = `
     <header>
-      <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
-      ${phaseChip(a)}
+      <h1>${t('top.titleHtml')}</h1>
       <span class="spacer"></span>
-      ${a.sim.character.name ? `<button class="who" data-tab="warden"${guide.mark('skill')} title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
-      <span class="counter ctl">${esc(t('top.run'))} <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
+      ${wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden', data: 'tab', attrs: guide.mark('skill') }, t)}
       <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
-      ${experimentChip(a)}
       ${devChip()}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
@@ -831,7 +827,7 @@ function drawPage(a: AppState): void {
     ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${backdropControls()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}${gid ? guide.mark(gid) : ''}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -1095,9 +1091,10 @@ function lookSwitcher(a: AppState): string {
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
+// The Warden's view is opened from the header's icon and name (#1807), not from the tab row.
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
 // Labels come from the catalog (`tab.<id>`).
-const ROAD_TABS: readonly RoadTab[] = ['road', 'quests', 'warden', 'journal'];
+const ROAD_TABS: readonly Exclude<RoadTab, 'warden'>[] = ['road', 'quests', 'journal'];
 let roadTab: RoadTab = 'road';
 // Dev mode (#1579) shows each person's true trust beside how they seem (#1578).
 const roadUi: RoadUi = { person: null, truths };
@@ -1124,7 +1121,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     <header>
       <h1>${t('top.roadTitleHtml')}</h1>
       <span class="spacer"></span>
-      ${r.character.name ? `<button class="who" data-rtab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${esc(rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
+      ${wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden', data: 'rtab' }, t)}
       <span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
       ${weekChip(a)}
@@ -1140,7 +1137,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => { const l = tabLabel(id, r.character.name, t); return `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}"${l.attrs}>${l.label}</button>`; }).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
     ${body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }

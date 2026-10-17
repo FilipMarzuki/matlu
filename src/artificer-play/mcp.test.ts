@@ -97,7 +97,7 @@ describe('The Artificer over MCP (#1556)', () => {
     const nope = await client.callTool({ name: 'look', arguments: { game_id: '00000000-0000-0000-0000-000000000000' } });
     expect(isError(nope)).toBe(true);
     expect(textOf(nope)).toMatch(/404/);
-    expect(textOf(await client.callTool({ name: 'rules', arguments: {} }))).toContain('Greywind Reach');
+    expect(textOf(await client.callTool({ name: 'rules', arguments: {} }))).toContain('an unnamed valley');
     await client.close();
   });
 

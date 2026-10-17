@@ -265,7 +265,7 @@ td.good { color: var(--good); font-weight: 600; } td.bad { color: var(--bad); }
 </style>
 <div class="wrap">
   <h1>Artificer AI Progression</h1>
-  <p class="lede">How different models progress through Greywind Reach, day by day: what they learn, build, explore and stockpile, and when key moments land. Each line is one model, averaged over its runs. A day's value is the state at the end of that day; day 0 is the start.</p>
+  <p class="lede">How different models progress through the Artificer, day by day: what they learn, build, explore and stockpile, and when key moments land. Each line is one model, averaged over its runs. A day's value is the state at the end of that day; day 0 is the start.</p>
   <p class="meta" id="meta"></p>
   <div class="legend" id="legend" aria-label="Models (tap to hide or show)"></div>
 

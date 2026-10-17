@@ -191,7 +191,7 @@ function chip(label: string, onTap: () => void): HTMLButtonElement {
 function welcome(): void {
   statusEl.textContent = '';
   print(
-    'Greywind Reach, as text. A Warden alone in a mountain valley, thirty days of autumn to make ready for a sixty-night winter.\n' +
+    'The Artificer, as text. A Warden alone in an unnamed mountain valley, thirty days of autumn to make ready for a sixty-night winter.\n' +
       'Type "new" to begin (or "new" and a name), "new weekly" for this week\'s world, the one everyone plays, and "help" for the commands.',
     'note',
   );
