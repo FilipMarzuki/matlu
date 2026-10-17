@@ -80,12 +80,14 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
 import { esc, pct, band, portraitEl, tabLabel } from './html';
 import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
-import { packForm, createForm, sectionOpen, readPackOpen, PACK_OPEN_KEY, type PackOpen } from './opening-view';
+import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
+import { installFeedback } from './feedback-panel';
+import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { REVEALS, activeTip, began, guideFinished, guideFor, isGuideId, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
+import { REVEALS, TAB_GUIDE, activeTip, began, guideFinished, guideFor, heldTabs, isGuideId, queueReach, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
 // counts a visit without cookies or personal data. Only a production build on the real domain
@@ -433,14 +435,16 @@ function statusBar(a: AppState, preview: Preview): string {
   const g = guide;
   if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return '';
   const vitals = g.shows('vitals');
-  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
-  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}`;
+  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
+  // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
+  // (an injury's chip, the weather) may be on another tab, or gone again (the injury healed).
+  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
   if (g.active) {
     const stores = g.shows('stores');
     return `<div class="statusbar">
     ${vitals ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
     ${stores ? markFirst(storesBar(a), 'stores') : ''}
-    ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${focus}${stores ? eatingChip(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>` : ''}
     ${g.shows('focus') ? outlookTag(s, ready) : ''}
   </div>${tips}`;
@@ -606,8 +610,12 @@ interface GuideView {
   shows: (id: GuideId) => boolean;
   /** The one element whose line is showing now. */
   tip: GuideId | null;
-  /** The element's attributes: what a tap on it dismisses (`data-reveal`), and the glow (`data-glow`). */
-  mark: (id: GuideId) => string;
+  /**
+   * The element's attributes: what a tap on it dismisses (`data-reveal`, space-separated when one
+   * part carries several, as the FOCUS chip does the survival lock's tip), and the glow (`data-glow`).
+   * Only the ids revealed now: a part drawn anyway (a chip) isn't marked before its tip is due.
+   */
+  mark: (...ids: GuideId[]) => string;
   /** The action that glows until a suitable place to camp is known. */
   suggest: ActionId | null;
   /** The weather is shown as the first morning's card: its line not seen yet in this run. */
@@ -633,13 +641,15 @@ function keepGuide(next: GuideRecord): void {
  * device has been through the guide (or has runs behind it from before the guide), or when the run
  * is already under way: a save from before the switch shouldn't start hiding its boxes.
  */
-function guideView(a: AppState): GuideView {
+function guideView(a: AppState, preview: Preview): GuideView {
   if (!guideSwitchOn() || a.stage === 'road') return GUIDE_OFF;
   const s = a.sim;
   keepGuide(guideFor(guideRec, s.character.id, guideRec.done || history.length > 0 || began(s)));
   const run = guideRec.run!;
   if (run.playedBefore) return GUIDE_OFF;
-  const ctx = { sim: s, queued: a.queue.length, weatherAcked: run.seen.includes('weather') };
+  // How many days the queue reaches into (#1794): the preview says which day each entry runs on.
+  const queueDays = queueReach(preview.dayOffset);
+  const ctx = { sim: s, queued: a.queue.length, weatherAcked: run.seen.includes('weather'), queueDays };
   let rec = markSeen(guideRec, usedNow(ctx));
   const revealed = revealedNow(ctx, rec.run!.shown);
   rec = markShown(rec, revealed);
@@ -650,7 +660,10 @@ function guideView(a: AppState): GuideView {
     active: true,
     shows: id => revealed.has(id),
     tip,
-    mark: id => ` data-reveal="${id}"${tip === id ? ' data-glow' : ''}`,
+    mark: (...ids) => {
+      const on = ids.filter(id => revealed.has(id));
+      return on.length ? ` data-reveal="${on.join(' ')}"${tip !== null && on.includes(tip) ? ' data-glow' : ''}` : '';
+    },
     suggest: suitableSiteKnown(s) || s.outcome ? null : suggestedAction(s),
     weatherIntro: !rec.run!.seen.includes('weather'),
   };
@@ -666,7 +679,12 @@ function guideTip(id: GuideId): string {
 }
 
 /** An element drawn elsewhere (the FOCUS chip, the stores): the guide's attributes go on its first tag. */
-const markFirst = (html: string, id: GuideId): string => html.replace(/^(\s*<[a-z]+)/i, `$1${guide.mark(id)}`);
+const markFirst = (html: string, ...ids: GuideId[]): string => html.replace(/^(\s*<[a-z]+)/i, `$1${guide.mark(...ids)}`);
+
+/** The just-in-time tips (#1794), whose lines show under the status bar on every tab. */
+const JIT_TIPS: readonly GuideId[] = ['injury', 'lock', 'cold', 'snow', 'skill', 'longQueue'];
+/** The tabs' lines (#1794) show under the tab bar. */
+const TAB_TIPS: readonly GuideId[] = ['camp', 'land', 'warden', 'progress'];
 
 /** Lines seen: kept, and the page redrawn. Keyboard focus goes to the next line's OK, if one shows. */
 function guideSeen(ids: GuideId[]): void {
@@ -695,7 +713,8 @@ function weatherSection(a: AppState): string {
   // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
   // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
   const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
-  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${weatherBox(a.sim, t, { dev, fold })}</section>`;
+  // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
+  return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${weatherBox(a.sim, t, { dev, fold })}</section>`;
 }
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
@@ -706,7 +725,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
     ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ring: focusRing, dev, t, suggest: g.suggest })}</section>`
     : '';
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
-  const queue = g.shows(qid) ? `<div${g.mark(qid)}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
+  const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
   const log = g.shows('journal') ? `<div class="log"${g.mark('journal')}><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p>${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
   const side = queue || log || camp ? `<section class="box planside">${queue}${log}${camp}</section>` : '';
@@ -725,7 +744,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'camp':
       return `<div class="cols">
         <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a.sim, t)}
-          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim, t)}${coldBlock(a.sim, t)}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim, t)}${markFirst(coldBlock(a.sim, t), 'cold')}
           <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</section>
         <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a.sim, t)}</section>
       </div>`;
@@ -756,6 +775,8 @@ function resolvePanel(a: AppState): string {
  */
 function render(a: AppState): void {
   drawPage(playing ? shownNow(playing) : a);
+  // The feedback panel (#1773) sits outside the root: told the page changed, so what it would attach is current.
+  feedback.refresh();
 }
 
 /** How many times the page has been drawn: lets a handler tell whether a tap already redrew it. */
@@ -770,10 +791,10 @@ function drawPage(a: AppState): void {
   applyLook(shownLook(lookOfGame(a), lookPreview));
   // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).
   drawBackdrop(a);
-  // The first-morning guide (#1792): what this draw shows, worked out once for every block.
-  guide = guideView(a);
-  if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
+  if (a.stage === 'road' && a.road) { guide = GUIDE_OFF; renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
+  // The first-morning guide (#1792): what this draw shows, worked out once for every block.
+  guide = guideView(a, preview);
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
   root.classList.toggle('winter', winter);
@@ -781,7 +802,8 @@ function drawPage(a: AppState): void {
   const fresh = a.sim.log.length === 0;
   // Which tabs show (#1688, #1691), and the open one settled against them: a CAMP tab kept from an
   // earlier run opens PLAN until this run's camp is made, a kept HISTORY tab PLAN once dev mode is left.
-  const view: TabView = { dev, camp: hasCamp(a.sim) };
+  // With the guide at work (#1794), a tab shows once there's something to do there (reveal.ts).
+  const view: TabView = { dev, camp: hasCamp(a.sim), held: guide.active ? heldTabs(TABS.map(d => d.id), guide.shows) : undefined };
   tab = tabToOpen(tab, TABS, view);
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
@@ -791,7 +813,7 @@ function drawPage(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
-      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
+      ${a.sim.character.name ? `<button class="who" data-tab="warden"${guide.mark('skill')} title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
       <span class="counter ctl">${esc(t('top.run'))} <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
@@ -802,13 +824,14 @@ function drawPage(a: AppState): void {
       ${featuresButton()}
       ${lookSwitcher(a)}
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>
+      ${feedback.button(t)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
     ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${backdropControls()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}${gid ? guide.mark(gid) : ''}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -1110,6 +1133,7 @@ function renderRoad(a: AppState, r: RoadState): void {
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
       ${featuresButton()}
       ${lookSwitcher(a)}
+      ${feedback.button(t)}
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
@@ -1147,6 +1171,37 @@ const root = document.getElementById('app') as HTMLElement;
 const saved = loadSaved();
 let state = saved ?? newGame(undefined, loadChoices());
 let history = loadHistory();
+
+// ── Feedback (#1773) ────────────────────────────────────────────────────────
+// The 💬 panel: docked on the right on a desktop, a bottom sheet on a phone, never blocking the
+// game (feedback-panel.ts). What it attaches is read from the page when it's shown or sent:
+// always the Warden's id and the run's record id, the rest only as the player leaves it ticked.
+const feedback = installFeedback({
+  t: () => t,
+  lang: () => lang,
+  attachable: () => {
+    const a = state;
+    const onRoad = a.stage === 'road' && !!a.road;
+    const name = (onRoad ? a.road!.character.name : a.sim.character.name) || undefined;
+    let save: unknown = null;
+    try { save = JSON.parse(serialize(a)) as unknown; } catch { /* nothing to attach */ }
+    return {
+      wardenId: a.sim.character.id,
+      runId: logFor(a)?.sent?.gameId ?? null,
+      build: { version: import.meta.env.VITE_GIT_SHA || 'dev', date: import.meta.env.VITE_BUILD_DATE || undefined, path: location.pathname },
+      where: {
+        seed: seedOf(a.sim.character.id), day: onRoad ? a.road!.day : a.sim.day, runNumber: runNumberFor(history, a.sim.character.id),
+        stage: onRoad ? 'road' : 'camp', tab: onRoad ? roadTab : tab, look: shownLook(lookOfGame(a), lookPreview), lang, dev,
+        features: Object.entries(featuresOf(a.sim.config.world.features)).filter(([, on]) => on).map(([id]) => id),
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        device: deviceOf(window.innerWidth, matchMedia('(pointer: coarse)').matches),
+      },
+      journal: onRoad ? lastJournal(a.road!.log, 'R') : lastJournal(a.sim.log),
+      save,
+      wardenName: name,
+    };
+  },
+});
 
 // ── The run's log, for the records (#1559) ──────────────────────────────────
 // The page runs the sim itself, so a run it sends to the records is checked by playing it again on
@@ -1509,7 +1564,7 @@ function renderIntro(): void {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
@@ -1519,6 +1574,12 @@ introEl.addEventListener('click', e => {
     e.preventDefault();
     const g = btn.dataset.kitgroup as KitGroup;
     packOpen = { ...packOpen, [g]: !sectionOpen(g, draftPack, packOpen) };
+    try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
+    renderIntro(); return;
+  }
+  // "Open all" / "Close all" above the sections (#1801): every section the other way, remembered the same way.
+  if (btn?.dataset.kitfold) {
+    packOpen = setAllSections(!allSectionsOpen(draftPack, packOpen));
     try { localStorage.setItem(PACK_OPEN_KEY, JSON.stringify(packOpen)); } catch { /* this visit only */ }
     renderIntro(); return;
   }
@@ -1656,6 +1717,8 @@ root.addEventListener('click', e => {
   // The backdrop's "Keep it still" (#1802): presentation only, so mid-day too.
   if (d.backdrop === 'still') { backdropStill = !backdropStill; saveStill(backdropStill); backdrop.setStill(backdropStill); render(state); root.querySelector<HTMLElement>('[data-backdrop="still"]')?.focus(); return; }
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
+  // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
+  if (d.cmd === 'feedback') { feedback.toggle(); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {
@@ -1781,7 +1844,7 @@ root.addEventListener('click', e => {
   if (!guide.active) return;
   const used: GuideId[] = [];
   for (let n = (e.target as HTMLElement).closest<HTMLElement>('[data-reveal]'); n; n = n.parentElement?.closest<HTMLElement>('[data-reveal]') ?? null) {
-    if (isGuideId(n.dataset.reveal)) used.push(n.dataset.reveal);
+    for (const id of (n.dataset.reveal ?? '').split(' ')) if (isGuideId(id)) used.push(id);
   }
   const next = markSeen(guideRec, used);
   if (next === guideRec) return;

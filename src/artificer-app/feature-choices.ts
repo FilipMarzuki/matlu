@@ -137,19 +137,24 @@ export async function devUnlocks(typed: string, expectedHex: string | undefined)
  */
 export interface TabDef<T extends string> { id: T; label: string; dev?: boolean; needsCamp?: boolean }
 
-/** What decides which tabs show: dev mode, and whether the Warden has made camp yet. */
-export interface TabView { dev: boolean; camp: boolean }
+/**
+ * What decides which tabs show: dev mode, whether the Warden has made camp yet, and the tabs the
+ * first-morning guide holds back until there's something to do there (#1794, reveal.ts `heldTabs`;
+ * none with the guide off or "I've played before"). Dev mode shows held tabs early, as it does CAMP.
+ */
+export interface TabView { dev: boolean; camp: boolean; held?: ReadonlySet<string> }
 
 /** Whether a tab shows now. */
 export function tabShown<T extends string>(t: TabDef<T>, v: TabView): boolean {
   if (t.dev && !v.dev) return false;
   if (t.needsCamp && !v.camp && !v.dev) return false;
+  if (v.held?.has(t.id) && !v.dev) return false;
   return true;
 }
 
 /** Whether a shown tab wears the DEV tag: it shows only because dev mode is on. */
 export function tabIsDev<T extends string>(t: TabDef<T>, v: TabView): boolean {
-  return !!t.dev || (!!t.needsCamp && !v.camp);
+  return !!t.dev || (!!t.needsCamp && !v.camp) || !!v.held?.has(t.id);
 }
 
 /** The tabs to draw, in order. */

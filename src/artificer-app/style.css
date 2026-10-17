@@ -114,6 +114,11 @@
   .siteopt .rate { white-space: nowrap; }
   .siteopt .rate.great, .act .t .cbadges { color: var(--gold); }
   .siteopt .rate.good { color: var(--green); }
+  /* The same badges on the LAND tab's places to camp and the map-drawing list (#1798, rating-badges.ts). */
+  .campspots .rate, .mapl-place .rate { white-space: nowrap; margin-left: 6px; font-family: var(--display); font-size: 9px; letter-spacing: 1px; }
+  .campspots .rate.great, .mapl-place .rate.great, .eyebrow .cbadges { color: var(--gold); }
+  .campspots .rate.good, .mapl-place .rate.good { color: var(--green); }
+  .eyebrow .cbadges { margin-left: 8px; font-family: var(--body); font-size: 11px; letter-spacing: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
@@ -407,13 +412,17 @@ body { min-height: 100vh; }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
-  /* Each pack section folds (#1727): the heading is the tap target, with a ▸/▾ for its state. */
-  .kgroup > summary { cursor: pointer; list-style: none; padding: 4px 0; margin-top: 4px; user-select: none; }
+  /* Each pack section folds (#1727). The whole heading is one band (#1801): at least 48px tall, a
+     background on hover and press, the shared chevron (.foldhead/.chev, below, turns it when the
+     <details> is open), the name, and the section's summary pushed to the right. */
+  .kfolds { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .kgroup > summary.foldhead { display: flex; width: 100%; min-height: 48px; gap: 8px; padding: 6px 10px; margin-top: 4px; border-radius: 8px; list-style: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   .kgroup > summary::-webkit-details-marker { display: none; }
-  .kgroup > summary::before { content: '▸'; display: inline-block; width: 1.2em; color: var(--dim); }
-  .kgroup[open] > summary::before { content: '▾'; }
-  .kgroup > summary span { margin-left: 6px; font-family: var(--body); letter-spacing: 0; font-size: 11px; }
-  .kgroup[open] > .kchoices { margin-bottom: 4px; }
+  .kgroup > summary .kname { font-weight: 400; }
+  .kgroup > summary .ksum { margin-left: auto; text-align: right; font-family: var(--body); letter-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .kgroup > summary:hover { background: var(--sub); }
+  .kgroup > summary:active { background: var(--sub2); }
+  .kgroup[open] > .kchoices { margin: 4px 0 6px; }
   .kchoice { display: grid; gap: 3px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); cursor: pointer; min-width: 0; }
   .kchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .kchoice:disabled { opacity: .4; cursor: default; }
@@ -1090,3 +1099,81 @@ html.backdrop #app > header, html.backdrop #app > .ledewrap, html.backdrop #app 
 html.backdrop .statusbar { background: var(--panel); }
 html.backdrop .resolve { background: linear-gradient(rgba(255,224,102,.05), rgba(255,224,102,.05)), var(--bg); }
 html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), rgba(159,216,255,.05)), var(--bg); }
+
+/* ── The 💬 feedback panel (#1773) ─────────────────────────────────────────────
+   Docked, never an overlay: on a desktop it takes a column on the right and the page narrows
+   (html.fb-docked pads the body), so every game button stays clickable beside it. At phone width
+   it's a bottom sheet (peek, half, full) and the page is padded clear of it. No backdrop. */
+.fbbtn .fblabel { margin-left: 2px; }
+@media (max-width: 720px) { .fbbtn .fblabel { display: none; } }
+.fbpanel { position: fixed; z-index: 60; display: flex; flex-direction: column; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--border2); box-shadow: -8px 0 28px rgba(0,0,0,.35); font-family: var(--body); }
+.fbpanel[hidden], .fbpill[hidden] { display: none; }
+.fbpanel.fbdrop { outline: 2px dashed var(--teal); outline-offset: -6px; }
+.fbhead { display: flex; align-items: center; gap: 6px; padding: 10px 10px 8px 14px; border-bottom: 1px solid var(--border); }
+.fbtitle { flex: 1 1 auto; margin: 0; font-family: var(--display); font-size: 10px; letter-spacing: 2px; color: var(--teal); font-weight: 400; }
+.fbicon { min-width: 32px; min-height: 32px; border: 1px solid var(--border); border-radius: 7px; background: var(--sub); color: var(--ink); cursor: pointer; font-size: 14px; line-height: 1; }
+.fbicon:hover, .fbicon:focus-visible { border-color: var(--teal); }
+.fbicon[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
+.fbgrab { display: none; }
+.fbsheet { display: none; gap: 4px; }
+.fbbody { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px 16px; display: grid; gap: 10px; align-content: start; }
+.fbkinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbkind { font-size: 9px; padding: 8px 12px; }
+.fbkind[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.08); }
+.fbtext { width: 100%; min-height: 120px; resize: vertical; padding: 9px 10px; border: 1px solid var(--border2); border-radius: 9px;
+  background: var(--sub2); color: var(--ink); font: 13px/1.45 var(--body); }
+.fbtext:focus, .fbemail input:focus { outline: none; border-color: var(--teal); }
+.fbrow { display: flex; align-items: center; gap: 8px; }
+.fbrow .pill[disabled] { opacity: .45; cursor: default; }
+.fbcount { margin-left: auto; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.fbthumbs { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.fbthumbs:empty { display: none; }
+.fbthumbs li { position: relative; }
+.fbthumbs img { display: block; width: 84px; height: 64px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border2); }
+.fbthumbs .fbrm { position: absolute; top: -8px; right: -8px; min-width: 26px; min-height: 26px; border-radius: 50%; font-size: 13px; }
+.fbnote { margin: 0; font-size: 11px; color: var(--dim); line-height: 1.45; }
+.fbnote:empty, .fbnote[hidden] { display: none; }
+.fbctx summary { cursor: pointer; font-size: 11.5px; color: var(--dim); }
+.fbticks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.fbticks label { display: flex; gap: 7px; align-items: baseline; font-size: 12px; cursor: pointer; }
+.fbval { margin: 2px 0 0 22px; font-size: 10.5px; color: var(--faint); white-space: pre-line; overflow-wrap: anywhere; }
+.fbval:empty { display: none; }
+.fbemail { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
+.fbemail input { padding: 8px 10px; border: 1px solid var(--border2); border-radius: 8px; background: var(--sub2); color: var(--ink); font: 13px var(--body); }
+.fbsend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fbstatus { font-size: 11.5px; color: var(--dim); }
+.fblink { justify-self: start; border: 0; background: none; padding: 0; color: var(--faint); font: 11px var(--body); text-decoration: underline; cursor: pointer; }
+.fbpill { position: fixed; z-index: 60; right: 16px; bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding: 10px 14px; border-radius: 999px;
+  border: 1px solid var(--teal); background: var(--panel); color: var(--ink); font-family: var(--display); font-size: 9px; letter-spacing: 1px;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+
+/* Desktop: a column on the right; the page and the game's own fixed layers stop at its edge. */
+@media (min-width: 721px) {
+  .fbpanel { top: 0; right: 0; bottom: 0; width: 340px; border-width: 0 0 0 1px; }
+  html.fb-docked body { padding-right: 340px; }
+  html.fb-docked .enc-backdrop, html.fb-docked .intro { right: 340px; }
+  html.fb-docked .timer { right: 340px; }
+}
+
+/* Phone: a bottom sheet. Peek is the 56px bar; half and full show the form. The page is padded by
+   the sheet's height at peek and half, so the game above it can still be scrolled and played. */
+@media (max-width: 720px) {
+  .fbpanel { left: 0; right: 0; bottom: 0; border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -8px 28px rgba(0,0,0,.45);
+    padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .fbpanel[data-sheet="peek"] { height: 56px; }
+  .fbpanel[data-sheet="half"] { height: 50vh; height: 50dvh; }
+  .fbpanel[data-sheet="full"] { height: calc(100vh - 32px); height: calc(100dvh - 32px); }
+  .fbpanel[data-sheet="peek"] .fbbody, .fbpanel[data-sheet="peek"] .fbtitle { display: none; }
+  .fbhead { min-height: 54px; padding: 8px 8px 8px 10px; }
+  .fbsheet { display: inline-flex; }
+  .fbpanel[data-sheet="peek"] .fbgrab { display: block; flex: 1 1 auto; text-align: left; min-height: 38px; border: 0; background: none; color: var(--ink);
+    font-family: var(--display); font-size: 10px; letter-spacing: 1px; cursor: pointer; }
+  .fbpanel[data-sheet="peek"] .fbgrab::before { content: "💬 "; }
+  html.fb-sheet-peek body { padding-bottom: 56px; }
+  html.fb-sheet-half body { padding-bottom: 50vh; padding-bottom: 50dvh; }
+  html.fb-docked .timer { bottom: var(--fb-sheet, 0px); }
+  /* Scrolling to something (focus, scrollIntoView) stops it above the sheet, not under it. */
+  html.fb-sheet-peek { --fb-sheet: 56px; scroll-padding-bottom: 56px; }
+  html.fb-sheet-half { --fb-sheet: 50dvh; scroll-padding-bottom: 50dvh; }
+}

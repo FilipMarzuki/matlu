@@ -18,7 +18,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handle, memoryStore, LIMITS, SUBMIT_PATH, type ApiDeps, type GameStore } from './api';
+import { bodyLimitFor, handle, memoryStore, type ApiDeps, type GameStore } from './api';
 import { mcpFetch } from './mcp';
 import { supabaseStore } from './supabase-store';
 
@@ -60,8 +60,9 @@ export function makeHandler(env: Env = process.env, deps?: Partial<ApiDeps>, giv
       if (store === undefined) store = storeFromEnv(env);
       if (!store) return send(503, { error: 'The play API isn\'t set up on this server yet.' });
       const mcp = isMcp(req.url ?? '/');
-      // A web run's log (#1559) is a whole run's moves: the one request allowed to be big.
-      const limit = mcp ? MCP_BODY_BYTES : pathOf(req.url ?? '/').replace(/\/+$/, '') === SUBMIT_PATH ? LIMITS.submitBodyBytes : LIMITS.bodyBytes;
+      // A web run's log (#1559) is a whole run's moves, and a feedback report (#1773) may carry a
+      // save: the two requests allowed to be big, each with its own limit (api.ts bodyLimitFor).
+      const limit = mcp ? MCP_BODY_BYTES : bodyLimitFor(pathOf(req.url ?? '/'));
       const body = await readBody(req, limit);
       if (body === null) return send(413, { error: `The body is over ${limit} bytes.` });
       const apiDeps: ApiDeps = {

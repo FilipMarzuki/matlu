@@ -23,6 +23,8 @@ import {
 import { directionIndex } from '../artificer/descriptive-map';
 import { esc } from './html';
 import { landLines } from './sim-words';
+import { siteBadge } from './rating-badges';
+import type { SiteId } from '../artificer/region1';
 
 /** What the session shows: where things are placed, the place picked, the keyboard's square, and the last word on a placement. */
 export interface MapSessionUi {
@@ -58,6 +60,9 @@ export function hintText(hint: Hint, p: MapPlace, t: T): string {
 /** The direction of a square from camp, in the words the Warden uses (exact with the compass). */
 const cellDir = (c: Cell, exact: boolean, t: T): string => dirText({ exact, i: directionIndex(cellBearing(c), exact) }, t);
 
+/** A place to camp's rating badge (#1798, `camp-site-ratings`), as the LAND tab and Make camp show it; '' for any other place. */
+const spotBadge = (s: Region1State, p: MapPlace, t: T): string => (p.spot ? siteBadge(s, { kind: p.kind as SiteId, x: p.x, y: p.y }, t) : '');
+
 /** The session's modal. Empty when there's no session. */
 export function mapSessionModal(s: Region1State, ui: MapSessionUi | null, t: T): string {
   if (!ui) return '';
@@ -69,7 +74,7 @@ export function mapSessionModal(s: Region1State, ui: MapSessionUi | null, t: T):
     const at = ui.session.placed[p.id];
     const on = ui.selected === p.id;
     return `<li><button class="mapl-place${on ? ' on' : ''}${at ? ' placed' : ''}" data-mapsel="${esc(p.id)}" aria-pressed="${on}" ${at ? 'disabled' : ''}>`
-      + `<span class="mk" aria-hidden="true">${placeMark(p)}</span> <b>${esc(placeName(p, t))}</b>${p.spot ? ` <span class="faint">⛺ ${esc(t('mapl.spot'))}</span>` : ''}`
+      + `<span class="mk" aria-hidden="true">${placeMark(p)}</span> <b>${esc(placeName(p, t))}</b>${p.spot ? ` <span class="faint">⛺ ${esc(t('mapl.spot'))}</span>${spotBadge(s, p, t)}` : ''}`
       + `${at ? ` <span class="mapl-ok">✓ ${esc(t('mapl.placed'))}</span>` : ''}`
       // What the Warden knows of it: the direction and walking time the LAND tab says, all there is to go by.
       + `<span class="mapl-where">${esc(t('campsite.where', { dir: dirText(p.dir, t), time: timeText(p.time, t) }))}</span></button></li>`;

@@ -22,13 +22,21 @@
  * - **"I've played before"** shows everything with no lines, as the screen is without the guide. It's
  *   on by default for a new Warden once this device has been through the guide once.
  *
+ * - **The tabs and the tips (#1794)** are in the same registry. A tab (CAMP, LAND, the Warden's,
+ *   PROGRESS with HISTORY) is an element like the boxes: not drawn until there's something to do
+ *   there (`heldTabs`), then kept. A just-in-time tip (the first injury, a cold night, the snow...)
+ *   is `tipOnly`: its part of the screen is drawn anyway, and its line shows once, the moment it
+ *   matters. A Warden who has played before sees none of them; "Show the guide again" brings them back.
+ *
  * The play API, the console and AI players never see any of this: it's only how the page draws.
  */
 
 import type { Key } from '../artificer/i18n';
-import { scouted } from '../artificer/exploration';
-import { visibilityOn, type ActionId, type Region1State } from '../artificer/region1';
+import { RINGS, domainsOf, level, scouted } from '../artificer/exploration';
+import { nightFuel, survivalLockOf, visibilityOn, type ActionId, type Region1State } from '../artificer/region1';
 import { campAsActionOn, knownSpots, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
+import { canDrawMap } from '../artificer/descriptive-map';
+import { seasonOf } from '../artificer/winter';
 
 /**
  * The ui switch is the guide epic's one switch, `guide` (#1791), defined with #1793's Survival path
@@ -36,7 +44,11 @@ import { campAsActionOn, knownSpots, siteRatingCounts, siteRatingsOn } from '../
  */
 export { GUIDE_FEATURE } from './survival-path';
 
-export type GuideId = 'weather' | 'vitals' | 'focus' | 'actions' | 'today' | 'queue' | 'runDay' | 'journal' | 'stores' | 'sites' | 'tools';
+export type GuideId = 'weather' | 'vitals' | 'focus' | 'actions' | 'today' | 'queue' | 'runDay' | 'journal' | 'stores' | 'sites' | 'tools'
+  // The tabs (#1794): each once there's something to do there.
+  | 'camp' | 'land' | 'warden' | 'progress'
+  // The just-in-time tips for the rest of the run (#1794): lines on parts that are drawn anyway.
+  | 'injury' | 'lock' | 'cold' | 'snow' | 'skill' | 'longQueue';
 
 type Sim = Region1State;
 
@@ -45,6 +57,8 @@ export interface GuideCtx {
   sim: Sim;
   queued: number;
   weatherAcked: boolean;
+  /** How many days the queue reaches into (main.ts: from the queue's preview); 0 or 1 is today alone. */
+  queueDays?: number;
 }
 
 export interface Revealable {
@@ -97,6 +111,42 @@ export const suggestedAction = (s: Pick<Region1State, 'config'>): ActionId => (v
 
 const afterWeather = (c: GuideCtx): boolean => c.weatherAcked || began(c.sim);
 
+// ── The tabs' and the tips' rules (#1794) ─────────────────────────────────────
+
+/**
+ * Something learned of the land by going out: a place to camp found besides where you started, any
+ * ground at least suspected (an explore, a scout, work out there), or the map ready to draw. What's
+ * merely in sight from where you start doesn't count: that's there on the first morning.
+ */
+export function landKnown(s: Sim): boolean {
+  if (canDrawMap(s)) return true;
+  if (RINGS.some(r => domainsOf(r).some(d => level(s.explore, r, d) >= 1))) return true;
+  return campAsActionOn(s) && knownSpots(s).some(p => !p.start);
+}
+
+/**
+ * A skill has come easier in this run: the journal's line when practice raises a skill's level
+ * (region1.ts `practiceSkill`, "… — woodcraft comes easier."). The practice hours alone won't do,
+ * since a Warden starts with some (a scout's training, a chosen talent).
+ */
+export const SKILL_UP = / comes easier\.$/;
+export const skillCameEasier = (s: Pick<Region1State, 'log'>): boolean => s.log.some(l => l.kind === 'milestone' && SKILL_UP.test(l.text));
+
+/** A concept begun or grasped: what the Warden tab lists (warden-view.ts). */
+export const conceptBegun = (s: Pick<Region1State, 'concepts'>): boolean => Object.values(s.concepts).some(p => p.rank > 0 || p.insight > 0);
+
+/** HISTORY and PROGRESS show from this day on: a few days in, there's a story and a year to look back on. */
+export const PROGRESS_DAY = 4;
+
+/** Tonight is a freezing night: it will want a fire (region1.ts `nightFuel`; none in a world without temperature). */
+export const coldNightAhead = (s: Sim): boolean => s.outcome === null && nightFuel(s) > 0;
+
+/** How many days a queue reaches into, from the day each entry runs on (controller.ts `previewQueue`'s `dayOffset`). */
+export const queueReach = (dayOffset: readonly number[]): number => (dayOffset.length ? Math.max(0, ...dayOffset) + 1 : 0);
+
+/** The snow has come to stay: winter (or after it) by the calendar. */
+export const snowStays = (s: Pick<Region1State, 'day' | 'config'>): boolean => seasonOf(s.day, s.config.calendar) !== 'autumn';
+
 /** The Plan screen's elements, in the order the first morning reveals them (and their lines are due). */
 export const REVEALS: readonly Revealable[] = [
   { id: 'weather', shown: () => true, line: 'guide.line.weather', used: c => c.weatherAcked },
@@ -111,8 +161,35 @@ export const REVEALS: readonly Revealable[] = [
   { id: 'stores', shown: c => storesInPlay(c.sim), line: 'guide.line.stores' },
   // After the weather too: where the run starts can itself rate good, and an earlier Warden can leave tools.
   { id: 'sites', shown: c => afterWeather(c) && suitableSiteKnown(c.sim), line: 'guide.line.sites', used: c => camped(c.sim) },
-  { id: 'tools', shown: c => afterWeather(c) && firstTool(c.sim), line: 'guide.line.tools' },
+  // Once camp is made the tools live on the CAMP tab, where this line isn't drawn: it counts as seen.
+  { id: 'tools', shown: c => afterWeather(c) && firstTool(c.sim), line: 'guide.line.tools', used: c => camped(c.sim) },
+  // ── For the rest of the run (#1794) ──
+  // The tips first when they're urgent: each is a line on a part the screen already draws (a chip,
+  // the weather), due the moment it matters. `shown` may turn off again (an injury heals), so they're
+  // `tipOnly`: they hide nothing, and the record's `shown` keeps the line due until it's read.
+  { id: 'injury', shown: c => (c.sim.injuries ?? []).length > 0, line: 'guide.line.injury', tipOnly: true },
+  { id: 'lock', shown: c => survivalLockOf(c.sim) !== null, line: 'guide.line.lock', tipOnly: true },
+  { id: 'cold', shown: c => began(c.sim) && coldNightAhead(c.sim), line: 'guide.line.cold', tipOnly: true },
+  { id: 'snow', shown: c => snowStays(c.sim), line: 'guide.line.snow', tipOnly: true },
+  // The tabs: each hidden until there's something to do there, and then kept.
+  { id: 'camp', shown: c => camped(c.sim), line: 'guide.line.camp' },
+  { id: 'land', shown: c => afterWeather(c) && landKnown(c.sim), line: 'guide.line.land' },
+  { id: 'warden', shown: c => afterWeather(c) && (skillCameEasier(c.sim) || conceptBegun(c.sim)), line: 'guide.line.warden' },
+  { id: 'skill', shown: c => skillCameEasier(c.sim), line: 'guide.line.skill', tipOnly: true },
+  { id: 'progress', shown: c => c.sim.day >= PROGRESS_DAY, line: 'guide.line.progress' },
+  { id: 'longQueue', shown: c => c.sim.canPlan && (c.queueDays ?? 0) > 1, line: 'guide.line.longQueue', tipOnly: true },
 ];
+
+/** Which guide element each tab is (#1794): HISTORY (dev mode's) comes with PROGRESS; PLAN is always there. */
+export const TAB_GUIDE: Readonly<Record<string, GuideId>> = { camp: 'camp', land: 'land', warden: 'warden', history: 'progress', progress: 'progress' };
+
+/**
+ * The tabs the guide holds back now (#1794): those whose element hasn't been revealed. Empty when
+ * the guide isn't at work, so the tab bar is as it was.
+ */
+export function heldTabs(tabs: readonly string[], shows: (id: GuideId) => boolean): Set<string> {
+  return new Set(tabs.filter(t => TAB_GUIDE[t] !== undefined && !shows(TAB_GUIDE[t])));
+}
 
 export const GUIDE_IDS: readonly GuideId[] = REVEALS.map(r => r.id);
 export const isGuideId = (x: unknown): x is GuideId => typeof x === 'string' && (GUIDE_IDS as readonly string[]).includes(x);

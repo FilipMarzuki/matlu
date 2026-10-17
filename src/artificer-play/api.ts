@@ -14,6 +14,7 @@
  *   POST /api/v1/runs/submit         a web-game run, replayed before it counts (#1559) { log, claim, name?, dev? } → 201 | 422 why
  *   GET  /api/v1/weekly              this week's world: its week and seed (#1559) → 200
  *   POST /api/v1/questions           keep a free question asked in the web game (#1575) → 201 | 429
+ *   POST /api/v1/feedback            keep a bug report or idea from the 💬 panel (#1773) { kind, text, wardenId, runId?, context?, picks?, save?, images?, email? } → 201 { ref } | 400 | 413 | 429
  *   GET  /api/v1/rules               the rules text        → 200
  *
  * Nothing here knows about Vercel or Supabase: `handle` takes a request, a store and a clock, and
@@ -44,6 +45,7 @@ import { claimMismatch, claimOf, type WebLog } from './web-log';
 import { currentRun } from '../artificer-app/controller';
 import { heirloomsOf } from '../artificer/legacy';
 import { cleanQuestion, type Question } from './questions';
+import { checkFeedback, makeRef, FEEDBACK_BODY_BYTES, FEEDBACK_LIMITS, IMAGE_TYPES, type Feedback, type ImageType } from './feedback';
 import { knowsAbout } from '../artificer/free-questions';
 import { isQuestionTopic } from '../artificer/knowledge-questions';
 import { personById } from '../artificer/villages';
@@ -114,6 +116,15 @@ export interface GameStore {
   aiRuns(limits: { bench: number; outside: number }): Promise<AiRun[]>;
   /** Keep a free question (#1575), already cleaned. */
   insertQuestion(q: Question): Promise<void>;
+  /**
+   * Keep a feedback report (#1773), already checked and cleaned. False if its `ref` is taken (the
+   * table's unique key), so the caller can draw another.
+   */
+  insertFeedback(f: Feedback): Promise<boolean>;
+  /** Reports kept since this time (ISO): from one weekly address hash, or from everyone (null). */
+  countFeedbackSince(ipWeekHash: string | null, sinceIso: string): Promise<number>;
+  /** Put a report's image in the private bucket (`artificer-feedback`) at this path. */
+  uploadFeedbackImage(path: string, bytes: Uint8Array, type: ImageType): Promise<void>;
 }
 
 export interface ApiRequest {
@@ -146,6 +157,8 @@ export interface ApiDeps {
    * Changing it changes the world mid-week, so it's set once.
    */
   weeklySalt?: string;
+  /** A feedback report's reference (#1773). Random unless a test pins it. */
+  newRef?: () => string;
 }
 
 /**
@@ -165,10 +178,21 @@ export const LIMITS = {
   // A web run's log (#1559): its start and every move of a whole run, a few hundred of them, so far
   // more than one move's body. Its moves are capped by movesPerGame, like any game's.
   submitBodyBytes: 262_144,
+  // A feedback report (#1773): the text, the context, the save if ticked, and up to three images.
+  feedbackBodyBytes: FEEDBACK_BODY_BYTES,
+  feedbackPerIpPerHour: FEEDBACK_LIMITS.perIpPerHour, feedbackPerDay: FEEDBACK_LIMITS.perDay,
 };
 
 /** Where a web run is sent (#1559): its body may be bigger than any other request's. */
 export const SUBMIT_PATH = '/api/v1/runs/submit';
+/** Where a feedback report is sent (#1773): its body may hold a save and images, so it has its own limit. */
+export const FEEDBACK_PATH = '/api/v1/feedback';
+
+/** The body limit for a path: the two big requests have their own. */
+export function bodyLimitFor(path: string, limits: Pick<typeof LIMITS, 'bodyBytes' | 'submitBodyBytes' | 'feedbackBodyBytes'> = LIMITS): number {
+  const p = path.replace(/\/+$/, '');
+  return p === SUBMIT_PATH ? limits.submitBodyBytes : p === FEEDBACK_PATH ? limits.feedbackBodyBytes : limits.bodyBytes;
+}
 
 /** The web game's client name (src/artificer-app/main.ts): its runs are played by people, in the browser. */
 export const WEB_CLIENT = 'artificer-web';
@@ -204,7 +228,7 @@ export function isWeeklyWorld(id: string, salt = ''): boolean {
 const defaultDeps: ApiDeps = { now: () => Date.now(), newId: () => crypto.randomUUID() };
 
 export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = defaultDeps, limits = LIMITS): Promise<ApiResponse> {
-  const maxBody = req.path.replace(/\/+$/, '') === SUBMIT_PATH ? limits.submitBodyBytes : limits.bodyBytes;
+  const maxBody = bodyLimitFor(req.path, limits);
   if ((req.body?.length ?? 0) > maxBody) return fail(413, `The body is over ${maxBody} bytes.`);
   const parts = req.path.replace(/\/+$/, '').split('/').filter(Boolean); // ['api', 'v1', ...]
   if (parts[0] !== 'api' || parts[1] !== 'v1') return fail(404, 'Not found.');
@@ -268,6 +292,8 @@ export async function handle(req: ApiRequest, store: GameStore, deps: ApiDeps = 
     if (!(await keepQuestion(store, q, req.ip, deps, limits))) return fail(429, 'Enough questions for today. They\'ll be kept again tomorrow.');
     return { status: 201, body: { kept: true } };
   }
+  // POST /api/v1/feedback: a bug report or an idea from the 💬 panel (#1773).
+  if (req.method === 'POST' && resource === 'feedback' && !id) return keepFeedback(req, store, deps, limits);
   // POST /api/v1/runs/submit: a web-game run, replayed here before it counts (#1559).
   if (req.method === 'POST' && resource === 'runs' && id === 'submit' && !sub) return submitWebRun(req, store, deps, limits);
   if (resource !== 'games') return fail(404, 'Not found.');
@@ -547,13 +573,63 @@ async function keepQuestion(store: GameStore, q: Question, ip: string, deps: Api
   return true;
 }
 
+/**
+ * Keep a feedback report (#1773): checked and cleaned (feedback.ts), within the limits (10 an hour
+ * from one address, a cap on everyone's a day), its images put in the private bucket first, under a
+ * fresh reference the player can quote.
+ *
+ * The address is kept only as a hash salted with the server's secret and the ISO week, so even the
+ * hash changes every Monday: reports from one address can be told apart for an hour's limit, never
+ * followed from week to week. The email, if given, goes only into its own column: the answer is the
+ * reference and nothing else, and no error here ever quotes the body.
+ */
+async function keepFeedback(req: ApiRequest, store: GameStore, deps: ApiDeps, limits: typeof LIMITS): Promise<ApiResponse> {
+  const body = parseBody(req.body);
+  if (body === undefined) return fail(400, 'The body must be JSON.');
+  const checked = checkFeedback(body);
+  if (!checked.ok) return fail(400, checked.error);
+  const ipWeekHash = feedbackKeyOf(req.ip, isoWeek(deps.now()), deps.salt);
+  const hourAgo = new Date(deps.now() - 3600_000).toISOString();
+  if ((await store.countFeedbackSince(ipWeekHash, hourAgo)) >= limits.feedbackPerIpPerHour) {
+    return fail(429, `That's ${limits.feedbackPerIpPerHour} reports in the last hour. Thank you! Try again in a while.`);
+  }
+  if ((await store.countFeedbackSince(null, new Date(deps.now() - 24 * 3600_000).toISOString())) >= limits.feedbackPerDay) {
+    return fail(429, 'We have all the reports we can read today. Try again tomorrow.');
+  }
+  const build = typeof checked.body.context.build?.version === 'string' ? checked.body.context.build.version : 'unknown';
+  const surface = req.surface === 'mcp' ? 'mcp' : req.surface === 'api' ? 'api' : 'web';
+  // Images first, under random names in a folder per day: the row can then keep where they are. A
+  // report that fails after this leaves its images behind unlinked, which costs only storage.
+  const day = new Date(deps.now()).toISOString().slice(0, 10);
+  const images: string[] = [];
+  for (const img of checked.body.images) {
+    const path = `${day}/${deps.newId()}.${IMAGE_TYPES[img.type]}`;
+    await store.uploadFeedbackImage(path, img.bytes, img.type);
+    images.push(path);
+  }
+  const newRef = deps.newRef ?? (() => makeRef());
+  // A repeat reference is rare (one in ~920 000 per report); a few draws make a clash all but impossible.
+  for (let tries = 0; tries < 5; tries++) {
+    const ref = newRef();
+    if (await store.insertFeedback({ ...checked.body, images, ref, surface, build, ipWeekHash })) return { status: 201, body: { ref } };
+  }
+  return fail(503, 'Couldn\'t file that just now. Try again in a moment.');
+}
+
+/** The weekly address hash a report is kept under (#1773): salt, week and address, so it changes every week. */
+export function feedbackKeyOf(ip: string, week: string, salt = ''): string {
+  return createHash('sha256').update(`${salt}|feedback|${week}|${ip}`).digest('hex').slice(0, 32);
+}
+
 /** A record's source key for an API game (artificer_runs.source_key). */
 export const sourceOf = (gameId: string): string => `game:${gameId}`;
 
-/** An in-memory store, for tests and local play. */
-export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs: Map<string, StoredRun>; questions: Question[] } {
+/** An in-memory store, for tests and local play. `now` stamps feedback reports, so a test can move the hour on. */
+export function memoryStore(now: () => number = () => Date.now()): GameStore & { rows: Map<string, GameRecord>; runs: Map<string, StoredRun>; questions: Question[]; feedback: (Feedback & { createdAt: string })[]; images: Map<string, { bytes: Uint8Array; type: ImageType }> } {
   const rows = new Map<string, GameRecord>();
   const questions: Question[] = [];
+  const feedback: (Feedback & { createdAt: string })[] = [];
+  const images = new Map<string, { bytes: Uint8Array; type: ImageType }>();
   const moves = new Map<string, number>();
   const runs = new Map<string, StoredRun>();
   let written = 0;
@@ -564,7 +640,16 @@ export function memoryStore(): GameStore & { rows: Map<string, GameRecord>; runs
     rows,
     runs,
     questions,
+    feedback,
+    images,
+    uploadFeedbackImage: async (path, bytes, type) => { images.set(path, { bytes: bytes.slice(), type }); },
     insertQuestion: async q => { questions.push(structuredClone(q)); },
+    insertFeedback: async f => {
+      if (feedback.some(x => x.ref === f.ref)) return false;
+      feedback.push({ ...structuredClone(f), createdAt: new Date(now()).toISOString() });
+      return true;
+    },
+    countFeedbackSince: async (hash, since) => feedback.filter(f => (hash === null || f.ipWeekHash === hash) && f.createdAt >= since).length,
     insert: async g => { rows.set(g.id, structuredClone(g)); },
     get: async id => (rows.has(id) ? structuredClone(rows.get(id)!) : null),
     update: async (g, movesBefore) => {
