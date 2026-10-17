@@ -13,7 +13,7 @@ import { builtWarmthOn } from '../artificer/built-warmth';
 import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
-import { visibilityOn, ACTIONS, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { visibilityOn, ACTIONS, LOOSE_STONE_SITES, SITES, BUILD_COST, FISH_CATCH, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, RICHNESS, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
@@ -46,7 +46,7 @@ export type Preview = ReturnType<typeof previewQueue>;
 /** The action palette's groups: `key` names the heading in the catalog (`group.*`). */
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
-  { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
+  { key: 'provision', ids: ['gather', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve'] },
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
@@ -55,7 +55,7 @@ export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry
 
 export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
-  wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
+  wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
@@ -74,6 +74,8 @@ export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
     case 'water': return t('yield.water', { n: ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water') });
     case 'wood': return t('yield.wood', { n: ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber'), m: ty(s, r, 'timber', 2, 1) });
     case 'quarry': return t('yield.quarry', { n: ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone') });
+    // Loose stone (#1816): half of quarrying's, +1 camped by the river or on the hill, half a flint seam's find.
+    case 'gatherstone': return t('yield.quarry', { n: ty(s, r, 'stone', 1.5, 0.5) + (r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0) + fb(s, r, 'stone') / 2 });
     case 'fish': return t('yield.fish', { n: FISH_CATCH * RICHNESS[r] });
     case 'build': return s.tier < 2 ? t('yield.build', { n: s.tier + 1, m: BUILD_COST[s.tier as 0 | 1] }) : t('yield.winterized');
     // With `cold-pit-slows` (#1757) the pit slows the rot rather than stopping it, and says so.

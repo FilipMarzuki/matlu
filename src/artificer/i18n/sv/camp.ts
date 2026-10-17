@@ -35,6 +35,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'act.wood': 'Samla ved',
   'act.fish': 'Pimpla',
   'act.quarry': 'Bryt sten',
+  'act.gatherstone': 'Samla sten',
   'act.preserve': 'Konservera mat',
   'act.build': 'Bygg skydd',
   'act.coldGear': 'Gör köldkläder',

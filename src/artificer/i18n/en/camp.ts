@@ -39,6 +39,7 @@ export const camp = {
   'act.wood': 'Gather wood',
   'act.fish': 'Ice fishing',
   'act.quarry': 'Quarry stone',
+  'act.gatherstone': 'Gather stones',
   'act.preserve': 'Preserve food',
   'act.build': 'Build shelter',
   'act.coldGear': 'Craft cold gear',
