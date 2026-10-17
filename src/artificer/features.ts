@@ -345,6 +345,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'two-row-header', name: 'Two-row header', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1824,
     note: 'The header is two rows: the place, the day, the ⚙ Menu and feedback; then the Warden and Vigor, Clarity and Condition as words (Energized, Drowsy, Hurt…) in a coloured border, with bars beside them from day 8. How to play moves into the Menu.',
   },
+  {
+    // A ui feature (#1838): where how to play is drawn (artificer-app/journal-notes.ts), so it
+    // switches live and no run saves it. It builds on the Menu (whose How to play section becomes a
+    // link to the notes), so it shows only with `meny` on too. The play API, the console and AI
+    // players never see it. Off, the journal and the Menu are as #1824 left them.
+    id: 'journal-notes', name: 'How to play in the journal', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1838,
+    note: 'How to play is the Warden\'s own notes at the front of the journal, opened from the 📖 on the journal\'s heading; the ⚙ Menu\'s How to play links there, and the header has no ?.',
+  },
 ];
 
 /** Switches by feature id. */
