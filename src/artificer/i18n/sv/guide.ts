@@ -3,7 +3,7 @@ import type { guide } from '../en/guide';
 /** Första morgonens guide på svenska (#1792, `guide`): scoutens repliker och guidens knappar under hjälpen (?). */
 export const guideSv: Record<keyof typeof guide, string> = {
   'guide.line.weather': 'Det första du gör varje morgon: titta på himlen. Ledaren säger alltid att vädret bestämmer vad dagen kan bli.',
-  'guide.line.vitals': 'Din kropp och ditt huvud. Båda tar slut när du jobbar, och kylan tär på dem om natten.',
+  'guide.line.vitals': 'Där tog det på krafterna. Kropp och huvud tar slut när du jobbar, och kylan tär på dem om natten.',
   'guide.line.focus': 'Det du har i tankarna. Här ute går det först att hålla sig vid liv.',
   'guide.line.actions': 'Börja med den som lyser: lär känna landet och leta efter ett torrt ställe att sova på.',
   'guide.line.today': 'En sak i taget än så länge. När du har gjort nog, avsluta dagen.',

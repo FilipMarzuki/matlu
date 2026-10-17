@@ -6,7 +6,7 @@
 export const guide = {
   // ── The lines, one per element (reveal.ts REVEALS) ─────────────────────────
   'guide.line.weather': "First thing, every morning: look at the sky. The leader always says the weather decides what the day can be.",
-  'guide.line.vitals': "Your body and your head. Both run down with work, and the cold eats at them at night.",
+  'guide.line.vitals': "That took something out of you. Body and head run down with work, and the cold eats at them at night.",
   'guide.line.focus': "What your mind is on. Out here, staying alive comes first.",
   'guide.line.actions': "Start with the one that's glowing: get to know the land, and look for a dry place to sleep.",
   'guide.line.today': "One thing at a time for now. When you've done enough, end the day.",
