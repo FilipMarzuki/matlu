@@ -295,6 +295,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'guide', name: 'The guide', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1793,
     note: 'The FOCUS chip shows the Survival path and its next step (find a camp site, make camp, a roof over you, food laid by, ready for winter), and its picker lists the steps with the goal focus that helps.',
   },
+  {
+    // A ui feature (#1802): the page behind the boxes is drawn from the state (artificer-app/backdrop.ts),
+    // saying no more than the weather box, so it switches live and no run saves it. The play API, the
+    // console and AI players never see it. Off, the page is exactly as before.
+    id: 'backdrop', name: 'A living backdrop', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1802,
+    note: 'Behind the boxes, a murky scene of the woods: the season, today\'s weather, the time of day and the place you camp, with the edges darkening when you\'re worn down, going red-dark before a frightening night and frosting over in the cold. The boxes keep their look.',
+  },
 ];
 
 /** Switches by feature id. */

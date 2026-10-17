@@ -85,6 +85,8 @@ import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLo
 import { installFeedback } from './feedback-panel';
 import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
+import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
+import { createBackdrop } from './backdrop-view';
 import { REVEALS, TAB_GUIDE, activeTip, began, guideFinished, guideFor, heldTabs, isGuideId, queueReach, loadGuide, markDone, markSeen, markShown, revealedNow, saveGuide, setPlayedBefore, showGuideAgain, suggestedAction, suitableSiteKnown, usedNow, type GuideId, type GuideRecord } from './reveal';
 // Vercel Web Analytics (#1565): page views, referrers and devices for artificer.corewarden.app.
 // `inject()` adds Vercel's small script (served by Vercel at /_vercel/insights/script.js), which
@@ -532,6 +534,40 @@ const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATUR
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
+// ── The living backdrop (#1802) ───────────────────────────────────────────────
+// The page behind the boxes: the season, today's weather, the time of day, the place and the
+// Warden's mood, drawn on a canvas from the state (backdrop.ts says what, backdrop-view.ts draws
+// it). A ui feature: off, there's no canvas and the page is exactly as before. Whether it moves is
+// the viewer's ("Keep it still" under ?, kept in this browser), and reduced motion always stills it.
+const backdropOn = (): boolean => uiFeatureOn(loadChoices(), BACKDROP_FEATURE);
+const backdrop = createBackdrop();
+let backdropStill = loadStill();
+backdrop.setStill(backdropStill);
+/** The time of day the backdrop was last drawn at, so the timer's frames redraw it only when that changes. */
+let backdropTime: BdTime | null = null;
+
+/** While a day plays on the timer, its clock (and whether its night has come); otherwise the Plan screen's night. */
+function backdropUi(): BackdropUi {
+  const pl = playing;
+  if (!pl) return NO_UI;
+  const m = momentOf(pl);
+  return { clock: m.clock, night: m.index >= pl.plays[pl.day].steps.length };
+}
+
+function drawBackdrop(a: AppState): void {
+  if (!backdropOn()) { backdropTime = null; backdrop.show(null); return; }
+  const scene = sceneFor(a, backdropUi());
+  backdropTime = scene.time;
+  backdrop.show(scene);
+}
+
+/** Under the help (?), with the switch on: keep the backdrop still (a slow tablet). */
+function backdropControls(): string {
+  if (!backdropOn()) return '';
+  return `<div class="langswitch"><span>${esc(t('backdrop.head'))}</span>`
+    + `<button class="pill" data-backdrop="still" aria-pressed="${backdropStill}" title="${esc(t('backdrop.stillTip'))}">${esc(t('backdrop.still'))}</button></div>`;
+}
+
 /** Show a look over the game's own (null: the game's), and keep it while the switcher is on. */
 function setLookPreview(id: LookId | null): void {
   lookPreview = id;
@@ -753,6 +789,8 @@ function drawPage(a: AppState): void {
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
   applyLook(shownLook(lookOfGame(a), lookPreview));
+  // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).
+  drawBackdrop(a);
   if (a.stage === 'road' && a.road) { guide = GUIDE_OFF; renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The first-morning guide (#1792): what this draw shows, worked out once for every block.
@@ -790,7 +828,7 @@ function drawPage(a: AppState): void {
       <span class="ctl"><button class="pill" data-cmd="reset">${esc(t('top.newSave'))}</button></span>
     </header>
     ${featuresPanel(a)}
-    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${devGate()}</div>` : ''}
+    ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${backdropControls()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}${gid ? guide.mark(gid) : ''}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
@@ -1379,6 +1417,11 @@ function tickTimer(pl: Playing): void {
   }
   const strip = document.getElementById('pb-day');
   if (strip) strip.style.width = `${Math.min(100, Math.max(0, ((m.clock - DAY_START) / DAY_HOURS) * 100))}%`;
+  // The backdrop lightens through the day (#1802): redrawn only when the part of the day changes.
+  if (backdropTime !== null) {
+    const now: BdTime = m.index >= p.steps.length ? 'dusk' : timeAt(p.before.sim.day, m.clock, p.before.sim.config.calendar);
+    if (now !== backdropTime) drawBackdrop(shownNow(pl));
+  }
   const phase = document.getElementById('pb-phase');
   const text = phaseText(p, m, t, dev);
   if (phase && phase.textContent !== text) phase.textContent = text;
@@ -1671,6 +1714,8 @@ root.addEventListener('click', e => {
   // The guide (#1792): a line's OK, and its controls under the help. Presentation only, so mid-day too.
   if (d.guideok) { if (isGuideId(d.guideok)) guideSeen([d.guideok]); return; }
   if (d.guide === 'played') { const on = !(guideRec.run?.playedBefore ?? false); keepGuide(setPlayedBefore(guideRec, on)); render(state); root.querySelector<HTMLElement>('[data-guide="played"]')?.focus(); return; }
+  // The backdrop's "Keep it still" (#1802): presentation only, so mid-day too.
+  if (d.backdrop === 'still') { backdropStill = !backdropStill; saveStill(backdropStill); backdrop.setStill(backdropStill); render(state); root.querySelector<HTMLElement>('[data-backdrop="still"]')?.focus(); return; }
   if (d.guide === 'again') { keepGuide(showGuideAgain(guideRec)); render(state); root.querySelector<HTMLElement>('[data-guide="again"]')?.focus(); return; }
   // The 💬 button (#1773) works at any time, mid-day too: it only opens the panel beside the game.
   if (d.cmd === 'feedback') { feedback.toggle(); return; }

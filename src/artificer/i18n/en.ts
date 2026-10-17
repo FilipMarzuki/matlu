@@ -36,6 +36,7 @@ import { maplearn } from './en/maplearn';
 import { survival } from './en/survival';
 import { guide } from './en/guide';
 import { feedback } from './en/feedback';
+import { backdrop } from './en/backdrop';
 
 /** The strings that live in this file rather than an area file under ./en/. */
 const core = {
@@ -291,7 +292,7 @@ const core = {
  * (#1714: the road's `end.died` hid the camp's). duplicates.test.ts checks with `duplicateKeys` that no
  * key is defined twice.
  */
-export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather, time, distance, maplearn, guide, survival, feedback };
+export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather, time, distance, maplearn, guide, survival, feedback, backdrop };
 
 export const en = {
   ...core,
@@ -329,4 +330,6 @@ export const en = {
   ...guide,
   // #1773: the feedback panel.
   ...feedback,
+  // #1802: the living backdrop's control under the help.
+  ...backdrop,
 } as const satisfies Record<string, string>;
