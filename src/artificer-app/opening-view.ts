@@ -7,7 +7,7 @@
  * screens comes from the catalog.
  */
 
-import type { T } from '../artificer/i18n';
+import { numText, type T } from '../artificer/i18n';
 import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, type KitGroup, type KitId } from '../artificer/kit';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
 import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
@@ -15,6 +15,7 @@ import { grownStats, START_AGES } from '../artificer/growing';
 import { difficultyOf, difficultyLabel, unchosenPicks, unspentPoints } from '../artificer/difficulty';
 import { itemIcon } from './item-icons';
 import { esc, portraitEl } from './html';
+import { chevron } from './fold';
 import { kitName, statNoteText } from './sim-words';
 
 /** What the creation screen is choosing (main.ts keeps it, and saves it as it changes). */
@@ -53,6 +54,29 @@ export function readPackOpen(raw: string | null): PackOpen {
 }
 
 /**
+ * A pack section's summary, on the right of its heading (#1801): how many of its things are packed,
+ * of how many, and what the packed ones weigh, the number written the viewer's way ("2.3 kg",
+ * "2,3 kg"). Summed the way `packWeight` sums the whole pack, so the sections add up to its total.
+ */
+export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T): string {
+  const items = KIT.filter(k => k.group === g);
+  const packed = items.filter(k => pack.includes(k.id)).map(k => k.id);
+  return t('pack.groupSum', { n: packed.length, m: items.length, kg: numText(packWeight(packed), t) });
+}
+
+/** Is every pack section open? Then the button above them closes them all; otherwise it opens them all (#1801). */
+export const allSectionsOpen = (pack: readonly KitId[], open: PackOpen = {}): boolean =>
+  (Object.keys(KIT_GROUPS) as KitGroup[]).every(g => sectionOpen(g, pack, open));
+
+/** The "Open all" / "Close all" button's label, following the sections' state (#1801). */
+export const openAllLabel = (pack: readonly KitId[], t: T, open: PackOpen = {}): string =>
+  t(allSectionsOpen(pack, open) ? 'pack.closeAll' : 'pack.openAll');
+
+/** Every section opened, or every one folded: what the "Open all" / "Close all" button sets (#1801). */
+export const setAllSections = (to: boolean): PackOpen =>
+  Object.fromEntries((Object.keys(KIT_GROUPS) as KitGroup[]).map(g => [g, to])) as PackOpen;
+
+/**
  * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
  * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
  * The weight bar and the leader's list stay at the bottom.
@@ -77,14 +101,17 @@ export function packForm(pack: readonly KitId[], t: T, truths = false, open: Pac
         + `<span class="kdoes">${esc(t(`kit.${k.id}.does`))}</span><span class="knote">${esc(t(`kit.${k.id}.note`))}</span>`
         + `${truths ? `<span class="devtruth" title="${esc(t('pack.ruleTip'))}">${esc(t('pack.rule', { rule: k.effect }))}</span>` : ''}</button>`;
     }).join('');
-    const packedHere = KIT.filter(k => k.group === g && pack.includes(k.id)).length;
+    // The heading is one band (#1801): the shared chevron (fold.ts, as the weather box has), the
+    // name, and the section's summary on the right. Still a <summary>, so main.ts's toggle works.
     return `<details class="kgroup" data-group="${g}"${sectionOpen(g, pack, open) ? ' open' : ''}>`
-      + `<summary class="clabel" data-kitgroup="${g}">${esc(t(`kitgroup.${g}`).toUpperCase())} <span>${esc(t('pack.inGroup', { n: packedHere }))}</span></summary>`
+      + `<summary class="clabel foldhead" data-kitgroup="${g}">${chevron()}<b class="kname">${esc(t(`kitgroup.${g}`).toUpperCase())}</b>`
+      + `<span class="ksum">${esc(groupSummary(g, pack, t))}</span></summary>`
       + `<div class="kchoices">${items}</div></details>`;
   }).join('');
   const fill = Math.min(100, (kg / PACK_CAPACITY) * 100);
   return `<form class="create pack" onsubmit="return false">
     <p class="mood" style="margin:0">${esc(t('pack.free', { kg: PACK_CAPACITY }))}</p>
+    <div class="kfolds"><button type="button" class="pill" data-kitfold="all">${esc(openAllLabel(pack, t, open))}</button></div>
     ${groups}
     <div class="kfoot">
       <div class="kbar" role="meter" aria-label="${esc(t('pack.weight'))}" aria-valuemin="0" aria-valuemax="${PACK_CAPACITY}" aria-valuenow="${kg}"><span style="width:${fill}%"></span></div>

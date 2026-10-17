@@ -11,11 +11,13 @@ import { sv } from '../artificer/i18n/sv';
 import { FEATURES, uiFeatureOn } from '../artificer/features';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { knownSpots, siteRatingCounts } from '../artificer/camp-sites';
-import { makeWarden, act, choose, endTheDay, enqueue, runQueuedDay, type AppState } from './controller';
+import { makeWarden, act, choose, endTheDay, enqueue, previewQueue, runQueuedDay, type AppState } from './controller';
+import { APP_TABS, tabIsDev, tabToOpen, visibleTabs } from './feature-choices';
 import {
-  GUIDE_FEATURE, GUIDE_IDS, REVEALS, EMPTY_GUIDE, activeTip, began, firstTool, guideFinished, guideFor, markDone, markSeen, markShown,
-  readGuide, revealedNow, setPlayedBefore, showGuideAgain, storesInPlay, suggestedAction, suitableSiteKnown, usedNow, loadGuide, saveGuide,
-  type GuideCtx, type GuideId,
+  GUIDE_FEATURE, GUIDE_IDS, REVEALS, EMPTY_GUIDE, PROGRESS_DAY, TAB_GUIDE, activeTip, began, coldNightAhead, conceptBegun, firstTool, guideFinished, guideFor,
+  heldTabs, landKnown, markDone, markSeen, markShown, queueReach, readGuide, revealedNow, setPlayedBefore, showGuideAgain, skillCameEasier, snowStays,
+  storesInPlay, suggestedAction, suitableSiteKnown, usedNow, loadGuide, saveGuide,
+  type GuideCtx, type GuideId, type GuideRecord,
 } from './reveal';
 
 // A Warden whose starting place rates poor (most do), so a place to camp has to be found.
@@ -222,5 +224,196 @@ describe('the device’s record (#1792)', () => {
     const rec = markSeen(guideFor(EMPTY_GUIDE, 'w-a', false), ['weather']);
     saveGuide(rec, mem);
     expect(loadGuide(mem)).toEqual(rec);
+  });
+});
+
+// ── The tabs and the just-in-time tips (#1794) ────────────────────────────────
+
+const TAB_IDS = APP_TABS.map(d => d.id);
+const TIP_IDS = ['injury', 'lock', 'cold', 'snow', 'skill', 'longQueue'] as const;
+const shownIn = (c: GuideCtx, sticky: readonly string[] = []) => { const r = revealedNow(c, sticky); return (id: GuideId) => r.has(id); };
+/** The tabs drawn for a state with the guide at work (not in dev mode). */
+const tabsFor = (c: GuideCtx, sticky: readonly string[] = []): string[] =>
+  visibleTabs(APP_TABS, { dev: false, camp: c.sim.site !== null, held: heldTabs(TAB_IDS, shownIn(c, sticky)) }).map(d => d.id);
+const withLog = (a: AppState, text: string, kind: 'milestone' | 'action' = 'milestone'): AppState => ({ ...a, sim: { ...a.sim, log: [...a.sim.log, { day: a.sim.day, text, kind }] } });
+const onDay = (a: AppState, day: number): AppState => ({ ...a, sim: { ...a.sim, day } });
+const CAME_EASIER = 'The axe finds the grain more easily now — woodcraft comes easier.';
+
+describe('the tabs (#1794)', () => {
+  it('a fresh run with the guide shows PLAN alone; with nothing held (the guide off) the tabs are as before', () => {
+    const a = fresh();
+    expect(tabsFor(ctx(a, false))).toEqual(['plan']);
+    expect(tabsFor(ctx(a))).toEqual(['plan']);
+    expect(heldTabs(TAB_IDS, () => true).size).toBe(0);
+    expect(visibleTabs(APP_TABS, { dev: false, camp: false }).map(d => d.id)).toEqual(['plan', 'land', 'warden', 'progress']);
+  });
+
+  it('CAMP once camp is made', () => {
+    const a = fresh();
+    expect(rule('camp').shown(ctx(a))).toBe(false);
+    const camped = act(a, { q: 'camp', opts: { spot: knownSpots(a.sim)[0].id } });
+    expect(rule('camp').shown(ctx(camped))).toBe(true);
+    expect(tabsFor(ctx(camped))).toContain('camp');
+  });
+
+  it('LAND once ground out there is at least suspected (or a place to camp found, or the map drawable): not for what’s in sight on the first morning', () => {
+    const a = fresh();
+    expect(landKnown(a.sim)).toBe(false);
+    const k = a.sim.explore.known;
+    const suspected: AppState = { ...a, sim: { ...a.sim, explore: { ...a.sim.explore, known: { ...k, 1: { ...k[1], water: 1 } } } } };
+    expect(landKnown(suspected.sim)).toBe(true);
+    expect(rule('land').shown(ctx(suspected))).toBe(true);
+    expect(rule('land').shown(ctx(suspected, false))).toBe(false); // after the weather, like the rest
+    expect(tabsFor(ctx(suspected))).toEqual(['plan', 'land']);
+  });
+
+  it('the Warden’s tab once a skill comes easier or a concept is begun: the practice a Warden starts with doesn’t count', () => {
+    const a = fresh();
+    expect(Object.values(a.sim.skills).some(h => (h ?? 0) > 0)).toBe(true); // a scout's training
+    expect(rule('warden').shown(ctx(a))).toBe(false);
+    expect(skillCameEasier(withLog(a, CAME_EASIER).sim)).toBe(true);
+    expect(skillCameEasier(withLog(a, CAME_EASIER, 'action').sim)).toBe(false);
+    expect(rule('warden').shown(ctx(withLog(a, CAME_EASIER)))).toBe(true);
+    const id = Object.keys(a.sim.concepts)[0] ?? 'binding';
+    const begun: AppState = { ...a, sim: { ...a.sim, concepts: { ...a.sim.concepts, [id]: { rank: 0, insight: 0.5 } as never } } };
+    expect(conceptBegun(begun.sim)).toBe(true);
+    expect(tabsFor(ctx(begun))).toContain('warden');
+  });
+
+  it(`PROGRESS (and dev mode's HISTORY) from day ${PROGRESS_DAY}`, () => {
+    const a = fresh();
+    expect(rule('progress').shown(ctx(onDay(a, PROGRESS_DAY - 1)))).toBe(false);
+    expect(rule('progress').shown(ctx(onDay(a, PROGRESS_DAY)))).toBe(true);
+    expect(TAB_GUIDE.history).toBe('progress');
+    const held = heldTabs(TAB_IDS, shownIn(ctx(onDay(a, PROGRESS_DAY - 1))));
+    expect(held.has('history') && held.has('progress')).toBe(true);
+    expect(tabsFor(ctx(onDay(a, PROGRESS_DAY)))).toContain('progress');
+  });
+
+  it('dev mode shows held tabs early, tagged DEV; an open tab that’s held falls back to PLAN', () => {
+    const held = new Set(['land', 'warden', 'progress', 'history', 'camp']);
+    expect(visibleTabs(APP_TABS, { dev: true, camp: false, held }).map(d => d.id)).toEqual(TAB_IDS);
+    expect(tabIsDev(APP_TABS.find(d => d.id === 'land')!, { dev: true, camp: false, held })).toBe(true);
+    expect(tabToOpen('land', APP_TABS, { dev: false, camp: false, held })).toBe('plan');
+    expect(tabToOpen('land', APP_TABS, { dev: false, camp: false })).toBe('land');
+  });
+});
+
+describe('the just-in-time tips’ rules (#1794)', () => {
+  it('none on a fresh run, and none of them hides anything', () => {
+    const r = revealedNow(ctx(fresh()));
+    for (const id of TIP_IDS) {
+      expect(r.has(id), id).toBe(false);
+      expect(rule(id).tipOnly, id).toBe(true);
+    }
+  });
+
+  it('the first injury, the survival lock, the snow, and a skill come easier', () => {
+    const a = fresh();
+    expect(rule('injury').shown(ctx({ ...a, sim: { ...a.sim, injuries: [{ kind: 'sprain' } as never] } }))).toBe(true);
+    expect(rule('lock').shown(ctx({ ...a, sim: { ...a.sim, deprivation: { hungry: 0, thirsty: 1 } } }))).toBe(true);
+    const winter = a.sim.config.calendar.winterDay;
+    expect(snowStays(onDay(a, winter - 1).sim)).toBe(false);
+    expect(rule('snow').shown(ctx(onDay(a, winter)))).toBe(true);
+    expect(rule('skill').shown(ctx(withLog(a, CAME_EASIER)))).toBe(true);
+  });
+
+  it('a cold night ahead: tonight wants a fire (once the run is under way)', () => {
+    const a = fresh();
+    expect(coldNightAhead(a.sim)).toBe(false);
+    const deep = a.sim.config.calendar.winterDay + 10;
+    const going = onDay(act(a, suggestedAction(a.sim)), deep);
+    expect(coldNightAhead(going.sim)).toBe(true);
+    expect(rule('cold').shown(ctx(going))).toBe(true);
+  });
+
+  it('the queue reaching past today, from its preview', () => {
+    expect(queueReach([])).toBe(0);
+    expect(queueReach([0, 0])).toBe(1);
+    expect(queueReach([0, 0, 1])).toBe(2);
+    const a = fresh();
+    let p: AppState = { ...a, sim: { ...a.sim, canPlan: true } };
+    for (let i = 0; i < 8; i++) p = enqueue(p, 'explore');
+    const days = queueReach(previewQueue(p).dayOffset);
+    expect(days).toBeGreaterThan(1);
+    expect(rule('longQueue').shown({ ...ctx(p), queueDays: days })).toBe(true);
+    expect(rule('longQueue').shown({ ...ctx(p), queueDays: 1 })).toBe(false);
+  });
+});
+
+/** One draw of the page's guide, as main.ts `guideView` works it out, with the player tapping OK on each line as it shows. */
+function step(rec: GuideRecord, c: GuideCtx, said: GuideId[]): GuideRecord {
+  let r = markSeen(rec, usedNow(c));
+  const revealed = revealedNow(c, r.run!.shown);
+  r = markShown(r, revealed);
+  for (let tip = activeTip(revealed, r.run!.seen, r.run!.playedBefore); tip; tip = activeTip(revealed, r.run!.seen, r.run!.playedBefore)) {
+    said.push(tip);
+    r = markSeen(r, [tip]);
+  }
+  return r;
+}
+
+describe('a long run: tabs stay, each tip once (#1794)', () => {
+  /**
+   * A first week played (by hand, then by plan: a long queue every third day, camp once a suitable
+   * place is known), then the calendar run on into the winter from where it got to. The sim's
+   * survival isn't what's tested here; the days ahead are what the tips need.
+   */
+  function play(onEach: (c: GuideCtx) => void): AppState {
+    let a = fresh();
+    const look = () => onEach({ ...ctx(a), queueDays: queueReach(previewQueue(a).dayOffset) });
+    look();
+    for (let day = 0; day < 6 && !a.sim.outcome; day++) {
+      if (!a.sim.canPlan) {
+        for (const q of ['explore', 'water', 'explore', 'gather'] as const) { a = settleEncounter(act(a, q)); look(); }
+        a = settleEncounter(endTheDay(a));
+        look();
+        continue;
+      }
+      const good = suitableSiteKnown(a.sim) && a.sim.site === null ? knownSpots(a.sim).find(p => !p.start) : undefined;
+      if (good) a = enqueue(a, { q: 'camp', opts: { spot: good.id } });
+      const work = day % 3 === 0 ? ['explore', 'wood', 'water', 'gather', 'wood', 'explore', 'wood'] as const : ['wood', 'water', 'gather'] as const;
+      for (const q of work) a = enqueue(a, q);
+      look();
+      a = settleEncounter(runQueuedDay(a));
+      look();
+    }
+    expect(a.sim.outcome).toBeNull();
+    const winter = a.sim.config.calendar.winterDay;
+    for (let d = a.sim.day + 1; d <= winter + 12; d++) { a = { ...onDay(a, d), queue: [] }; look(); }
+    return a;
+  }
+
+  it('no tab that has appeared disappears, by the rules alone, and every tab appears', () => {
+    const had = new Set<string>();
+    const end = play(c => {
+      const now = tabsFor(c);
+      for (const id of had) expect(now, `${id} on day ${c.sim.day}`).toContain(id);
+      for (const id of now) had.add(id);
+    });
+    expect(end.sim.day).toBeGreaterThan(end.sim.config.calendar.winterDay);
+    expect([...had].sort()).toEqual(['camp', 'land', 'plan', 'progress', 'warden']);
+  });
+
+  it('each line shows once, never with "I’ve played before", and comes back with "Show the guide again"', () => {
+    const said: GuideId[] = [];
+    let record = guideFor(EMPTY_GUIDE, 'w-probe-1', false);
+    let last: GuideCtx | null = null;
+    play(c => { record = step(record, c, said); last = c; });
+    expect(new Set(said).size).toBe(said.length);
+    for (const id of ['cold', 'snow', 'skill', 'longQueue', 'camp', 'land', 'warden', 'progress'] as const) expect(said, id).toContain(id);
+    // Each in its moment: the tabs' lines in the order the run reached them, the snow's after the rest.
+    expect(said.indexOf('camp')).toBeLessThan(said.indexOf('snow'));
+
+    const quiet: GuideId[] = [];
+    let played = guideFor(EMPTY_GUIDE, 'w-probe-1', true);
+    play(c => { played = step(played, c, quiet); });
+    expect(quiet).toEqual([]);
+
+    // "Show the guide again": the lines of what has appeared come back, one at a time, in the registry's order.
+    const again: GuideId[] = [];
+    step(showGuideAgain(record), last!, again);
+    for (const id of ['snow', 'skill', 'camp', 'land', 'warden', 'progress'] as const) expect(again, id).toContain(id);
+    expect(again).toEqual(REVEALS.map(r => r.id).filter(id => again.includes(id)));
   });
 });

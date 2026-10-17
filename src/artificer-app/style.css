@@ -412,13 +412,17 @@ body { min-height: 100vh; }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
-  /* Each pack section folds (#1727): the heading is the tap target, with a ▸/▾ for its state. */
-  .kgroup > summary { cursor: pointer; list-style: none; padding: 4px 0; margin-top: 4px; user-select: none; }
+  /* Each pack section folds (#1727). The whole heading is one band (#1801): at least 48px tall, a
+     background on hover and press, the shared chevron (.foldhead/.chev, below, turns it when the
+     <details> is open), the name, and the section's summary pushed to the right. */
+  .kfolds { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .kgroup > summary.foldhead { display: flex; width: 100%; min-height: 48px; gap: 8px; padding: 6px 10px; margin-top: 4px; border-radius: 8px; list-style: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   .kgroup > summary::-webkit-details-marker { display: none; }
-  .kgroup > summary::before { content: '▸'; display: inline-block; width: 1.2em; color: var(--dim); }
-  .kgroup[open] > summary::before { content: '▾'; }
-  .kgroup > summary span { margin-left: 6px; font-family: var(--body); letter-spacing: 0; font-size: 11px; }
-  .kgroup[open] > .kchoices { margin-bottom: 4px; }
+  .kgroup > summary .kname { font-weight: 400; }
+  .kgroup > summary .ksum { margin-left: auto; text-align: right; font-family: var(--body); letter-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .kgroup > summary:hover { background: var(--sub); }
+  .kgroup > summary:active { background: var(--sub2); }
+  .kgroup[open] > .kchoices { margin: 4px 0 6px; }
   .kchoice { display: grid; gap: 3px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); cursor: pointer; min-width: 0; }
   .kchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .kchoice:disabled { opacity: .4; cursor: default; }
