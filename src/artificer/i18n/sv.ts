@@ -93,9 +93,9 @@ const core: Catalog = {
   'top.newSave': '↺ NYTT SPEL',
   'top.features': '🧪 FUNKTIONER',
   'top.experiment': '🧪 EXPERIMENT',
-  'top.experimentTip': 'Den här rundan provar experimentella funktioner: {names}. De kan ändras eller försvinna.',
+  'top.experimentTip': 'Det här spelet provar experimentella funktioner: {names}. De kan ändras eller försvinna.',
   'top.dev': 'DEV',
-  'top.devTip': 'Dev-läget är på: sidan visar vyer för att testa, som spelare inte ser. En runda som spelas med det på märks så i rekorden.',
+  'top.devTip': 'Dev-läget är på: sidan visar vyer för att testa, som spelare inte ser. Ett spel som spelas med det på märks så i rekorden.',
   'top.titleHtml': '❄ <span class="mark">VILDMARKEN</span>',
   'road.stopStart': 'Vildmarken',
   'top.roadTitleHtml': '🛞 KARAVAN<span class="mark">VÄGEN</span>',
@@ -187,7 +187,7 @@ const core: Catalog = {
   'head.season': 'ÅRSTIDEN',
   'head.outlook': 'HUR VINTERN SER UT',
   'head.milestones': 'MILSTOLPAR',
-  'head.pastRuns': 'TIDIGARE RUNDOR',
+  'head.pastRuns': 'TIDIGARE VÄKTARE',
   'head.journal': 'DAGBOK',
   'head.roadJournal': 'DAGBOK — VÄGEN',
   'head.roadLast': 'DET SISTA AV VÄGEN',
@@ -295,20 +295,20 @@ const core: Catalog = {
   'look.game': 'Spelets ({look})',
 
   // ── Rekorden ───────────────────────────────────────────────────────────────
-  'records.working': 'Räknar ut hur rundan står sig…',
+  'records.working': 'Räknar ut hur spelet står sig…',
   'records.sent': 'Med i rekorden.',
   'records.compare': 'Se hur den står sig mot alla andras ›',
   'records.nickname': 'Smeknamn',
   'records.nicknameLabel': 'Ditt smeknamn i rekorden',
   'records.send': 'SKICKA TILL REKORDEN',
   'records.sending': 'SKICKAR…',
-  'records.replayNote': 'Servern spelar om din runda från början innan den räknas. Bara ett smeknamn sparas, ett ord med bokstäver.',
+  'records.replayNote': 'Servern spelar igenom ditt spel från början innan det räknas. Bara ett smeknamn sparas, ett ord med bokstäver.',
   'records.unreachable': 'Det går inte att nå rekorden just nu. Försök igen om en stund.',
   'records.failed': 'Något gick fel ({status}). Försök igen om en stund.',
 
   // ── Veckans värld ──────────────────────────────────────────────────────────
   'weekly.unreachable': 'Det går inte att nå veckans värld just nu. Försök igen om en stund.',
-  'weekly.leave': 'Lämna den här rundan och börja på veckans värld? Den här rundan går inte att ta upp igen.',
+  'weekly.leave': 'Lämna det här spelet och börja på veckans värld, med en ny väktare? Det här spelet går inte att ta upp igen.',
 };
 
 /** Every area by name, as en.ts has them (`enAreas`): duplicates.test.ts checks that no key is defined in two. */

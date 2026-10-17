@@ -607,7 +607,7 @@ export function outcomeCard(a: AppState, run: RunRecord | undefined, t: T): stri
       <li>${esc([run.site ? t('end.camp', { site: siteName(run.site, t), n: run.tier }) + (run.shelterGrade ? ` (${gradeWord(run.shelterGrade, t)})` : '') : t('end.noCamp'), t(run.tools.length === 1 ? 'end.tools.one' : 'end.tools.other', { n: run.tools.length }), t('end.recipes', { n: run.recipes }), t('end.milestones', { n: run.milestones })].join(' · '))}</li>
       ${hard}
     </ul>` : mult > 1 ? `<ul class="runfacts">${hard}</ul>` : '';
-  const head = o.choice === 'collapse' ? t('end.ended', { n: run?.run ?? '' }) : t('end.complete', { n: run?.run ?? '' });
+  const head = o.choice === 'collapse' ? t('end.ended') : t('end.complete');
   return `<h3>${esc(head)}</h3><div class="outcome"><span class="head">${esc(t(`end.${o.kind}`))}</span>${esc(t(`end.${o.kind}.body`))}</div>${o.kind === 'survived' ? thawSummary(a, t) : ''}${facts}`;
 }
 

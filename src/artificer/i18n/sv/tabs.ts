@@ -85,7 +85,7 @@ export const tabsSv: Record<TabsKey, string> = {
   'warden.lock': '⚠ ÖVERLEVNADEN HAR TAGIT ÖVER — {why}. Arbete med vatten, mat, ved och skydd går bättre; lärandet får vänta tills det går över.',
   'warden.lockRoad': '⚠ ÖVERLEVNADEN HAR TAGIT ÖVER — {why}. Lärandet får vänta tills det går över.',
   'warden.discovered': 'upptäckt',
-  'warden.lastStand': 'sista kraftansträngningen använd den här rundan',
+  'warden.lastStand': 'sista kraftansträngningen redan använd',
   'warden.hiddenGift': 'En dold gåva',
   'warden.hiddenGiftNote': 'Något i dig som du inte känner till än. Håll utkik efter tecken i journalen.',
   'warden.noTalents': 'Inga talanger — en snabbstartad väktare. Börja med en ny väktare för att välja två.',
@@ -202,8 +202,8 @@ export const tabsSv: Record<TabsKey, string> = {
   'progress.fuelShort.other': 'Veden räcker {n} nätter — ungefär {m} ved till behövs för att klara vintern.',
   'progress.tooCold': 'Skyddet är för kallt för en klar midvinternatt, även med elden tänd. Väggar, bäddar eller vinterkläder.',
   'progress.enough': 'Tillräckligt upplagt för att nå tövädret, om inget går fel.',
-  'progress.noRuns': 'Inga avslutade rundor än. Lev vintern igenom till tövädret, så skrivs det in här.',
-  'progress.run': 'RUNDA {n}',
+  'progress.noRuns': 'Inga avslutade vintrar än. Lev vintern igenom till tövädret, så skrivs det in här.',
+  'progress.run': 'VÄKTARE {n}',
   'progress.kind.arrived': 'Nådde Mistheim',
   'progress.kind.survived': 'Överlevde vintern',
   'progress.kind.thrive': 'Klarade sig gott — karavanen',
@@ -221,7 +221,7 @@ export const tabsSv: Record<TabsKey, string> = {
   'progress.best': '★ BÄST',
 
   // ── HISTORIA, och en provins historia på KARTAN ────────────────────────────
-  'history.telling': 'De gamla håller fortfarande på att berätta. Det tar några sekunder, en gång per runda.',
+  'history.telling': 'De gamla håller fortfarande på att berätta. Det tar några sekunder, en gång per spel.',
   'history.introHtml': 'Åren räknas som Reach räknar dem, från när de äldsta ätterna först höll land. Nu är det år {year}. {told} av {logged} ihågkomna dåd är värda att berätta. {mark} märker nyheter från en bygds landsbygd: svält, pest, en ätt som förlorar sitt sista säte.',
   'history.yourCamp': 'ditt läger',
   'history.emptySeat': 'tomt säte',

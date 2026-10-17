@@ -35,7 +35,7 @@ export const feedback = {
   'fb.imageMax': 'That is {max} images already.',
   'fb.imagesNote': 'Images are made smaller here and lose their hidden data (such as where a photo was taken) before they are sent.',
   'fb.alsoSent': 'Also sent (tap to see)',
-  'fb.alwaysSent': 'Always sent: your Warden id ({warden}) and run id ({run}).',
+  'fb.alwaysSent': 'Always sent: your Warden id ({warden}) and game id ({run}).',
   'fb.runNone': 'not in the records yet',
   'fb.part.build': 'the game version',
   'fb.part.where': 'where you are in the game',

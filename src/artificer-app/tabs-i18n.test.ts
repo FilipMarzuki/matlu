@@ -131,7 +131,7 @@ describe('The remaining tabs, in Swedish (#1711)', () => {
       expect(englishIn(progressTab(s, [], '', sv))).toEqual([]);
       expect(englishIn(progressTab(s, records(), '', sv))).toEqual([]);
     }
-    expect(shown(progressTab(rich(), records(), '', sv))).toContain('RUNDA 1');
+    expect(shown(progressTab(rich(), records(), '', sv))).toContain('VÄKTARE 1');
   });
 
   it('keeps the English tabs saying what they said', () => {

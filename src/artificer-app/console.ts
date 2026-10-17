@@ -153,10 +153,10 @@ function show(g: GameBody, full: boolean): void {
   // Achievements (#1559): the earned ones, worked out by the API against everyone's records.
   if (g.achievements) {
     const earned = achievementLines(g.achievements);
-    print(earned.length ? `Achievements:\n${earned.map(l => `  ★ ${l}`).join('\n')}` : 'No achievements this run. The Records page says what each one takes.', 'note');
+    print(earned.length ? `Achievements:\n${earned.map(l => `  ★ ${l}`).join('\n')}` : 'No achievements this game. The Records page says what each one takes.', 'note');
   }
-  if (g.record) printLink('See how this run compares with everyone\'s: the Records page', g.record);
-  print('The run is over. Type "new" for another, or tap NEW GAME.', 'note');
+  if (g.record) printLink('See how this game compares with everyone\'s: the Records page', g.record);
+  print('This Warden\'s story is over. Type "new" to begin with a new Warden, or tap NEW GAME.', 'note');
 }
 
 /** A log line that's a link (to a page on this site). */

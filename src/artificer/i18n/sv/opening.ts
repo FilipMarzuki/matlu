@@ -58,7 +58,7 @@ export const openingSv: Record<keyof typeof opening, string> = {
   'create.unchosen': 'Ovalda: {n} · svårighetsgrad {m}',
   'create.unknown': '…och något mer i dig, som du inte känner till än.',
   'create.age': 'ÅLDER — hur gammal du var helgen då allt började',
-  'create.grow': 'Du växer upp under rundorna, ett år per runda, och dina egenskaper växer med dig.',
+  'create.grow': 'Du är fortfarande ung: du börjar under egenskaperna du skulle växa upp till, och de växer när du använder dem.',
   'create.stats': 'EGENSKAPER — den du växer upp till · fördela {n} poäng',
   'create.unspent': 'Oanvända: {n} · svårighetsgrad {m}',
   'create.rules': ' · över 13 kostar 2 · sänk en till 7 för att få fler',

@@ -110,12 +110,12 @@ export function newGameBody(o: { asking: boolean }, t: T): string {
 }
 
 /**
- * Profile: what the game keeps about the player today, read-only. The runs played in this browser,
- * this run's id (what feedback attaches, so it can be quoted), and the Records.
+ * Profile: what the game keeps about the player today, read-only. This game's id (what feedback
+ * attaches, so it can be quoted), and the Records. No count of games played (#1837): a game is
+ * one Warden's one life, so the Profile doesn't number them.
  */
-export function profileBody(o: { runs: number; runId: string; copied: boolean }, t: T): string {
-  return `<p class="mood">${esc(t('meny.runs', { n: o.runs }))}</p>`
-    + `<p class="mood menyid">${esc(t('meny.runId'))} <code>${esc(o.runId)}</code> <button class="pill" data-cmd="copyid">${esc(t('meny.copy'))}</button>${o.copied ? ` <span class="faint" role="status">${esc(t('meny.copied'))}</span>` : ''}</p>`
+export function profileBody(o: { runId: string; copied: boolean }, t: T): string {
+  return `<p class="mood menyid">${esc(t('meny.runId'))} <code>${esc(o.runId)}</code> <button class="pill" data-cmd="copyid">${esc(t('meny.copy'))}</button>${o.copied ? ` <span class="faint" role="status">${esc(t('meny.copied'))}</span>` : ''}</p>`
     + `<div class="menyrow"><a class="pill" href="/records/">${esc(t('meny.records'))}</a></div>`;
 }
 

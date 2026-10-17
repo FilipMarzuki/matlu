@@ -375,8 +375,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   'timer.skipped': 'hoppades över',
 
   // ── Slutkortet ─────────────────────────────────────────────────────────────
-  'end.complete': '❄ REGION 1 KLAR — RUNDA {n}',
-  'end.ended': '✝ RUNDA {n} SLUT',
+  'end.complete': '❄ REGION 1 KLAR',
+  'end.ended': '✝ DIN VINTER SLUTAR HÄR',
   'end.survived': 'DU KLARADE DIG TILL TÖVÄDRET',
   'end.survived.body': 'Isen bryts på bäckarna och ljuset kommer tillbaka. Vad vintern än tog från dig, så är du kvar — och Reach vet vad du heter.',
   'end.thrive': 'DU RIDER UT MED KARAVANEN',
@@ -390,7 +390,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'end.wintered': 'DU ÖVERVINTRAR I REACH',
   'end.wintered.body': 'Snön stänger in Reach, men ditt skydd håller värmen, skafferiet räcker och elden slocknar aldrig. När tövädret kommer är Reach ditt.',
   'end.collapsed': 'KARAVANEN HITTAR DIG',
-  'end.collapsed.body': 'Du har slitit långt bortom vad du orkar, och kroppen stannar helt enkelt — några dagar före tövädret. Vårkaravanen, på väg upp genom dalen, hittar dig och bär ut dig, knappt vid liv. Du behåller det du lärt dig — och läxan om gränser.',
+  'end.collapsed.body': 'Du har slitit långt bortom vad du orkar, och kroppen stannar helt enkelt — några dagar före tövädret. Vårkaravanen, på väg upp genom dalen, hittar dig och bär ut dig, knappt vid liv. Du lever — och du har lärt dig något om gränser.',
   'end.died': 'REACH TAR DIG',
   'end.died.body': 'Reach förlåter inte: törst, hunger, kylan, eller en kollaps med ingen i närheten utom vildmarken. Din berättelse slutar här — det du lärde dig dör med dig. En annan väktare får börja om från början.',
   'end.grim': 'EN BISTER VINTER',
