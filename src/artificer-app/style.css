@@ -1301,6 +1301,10 @@ html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), 
 .menyconfirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--amber); border-radius: 7px; }
 .menyconfirm p { flex-basis: 100%; margin: 0; }
 .menyid code { overflow-wrap: anywhere; word-break: break-all; }
+/* Sound (#1828): the volume slider takes the row's room beside the switch. */
+.menysec .pill[data-sound="toggle"][aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.menyvol { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+.menyvol input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--gold); }
 .menysec .lookswitch select.pill { max-width: min(15em, 52vw); }
 /* The section names the look already. */
 .menysec .lookswitch .lsname { display: none; }

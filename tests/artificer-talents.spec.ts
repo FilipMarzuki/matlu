@@ -107,7 +107,7 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   await expect(gear).toHaveAttribute('aria-expanded', 'true');
   // Every section but the guide's, which this test has switched off. How to play (#1824) is one of
   // them, and the header has no ? any more.
-  await expect(page.locator('#meny [data-meny]')).toHaveCount(8);
+  await expect(page.locator('#meny [data-meny]')).toHaveCount(9);
   await expect(page.locator('#meny [data-meny="guide"]')).toHaveCount(0);
   await expect(page.locator('#meny [data-meny="howto"]')).toContainText('winter is coming');
   await expect(page.locator('header [data-cmd="help"]')).toHaveCount(0);

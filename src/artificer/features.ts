@@ -331,6 +331,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'On PLAN the queue stays beside the actions on every screen, phones too, and stays in view while you scroll through the actions. On a narrow screen it is compact: each task\'s icon, short name and hours, the day\'s total and when it ends. The latest journal and the camp-site picker sit below.',
   },
   {
+    // A ui feature (#1828): the Menu's Sound section and the ambience it plays (artificer-app/ambience*.ts),
+    // read from what the page shows, so it switches live and no run saves it. The sound itself stays
+    // off until the player turns it on. The play API, the console and AI players never hear it.
+    id: 'ambience', name: 'Ambient sound', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1828,
+    note: 'A Sound section in the ⚙ Menu: ambient sound made in the browser (wind, rain, snow, the fire, a stream, drips in a cave, distant thunder) that follows the weather, the time of day, where you camp and how worn your mind is. Off until you turn it on.',
+  },
+  {
     // A ui feature (#1824): how the header is drawn (artificer-app/meny.ts `headerRows`,
     // artificer-app/vital-words.ts), so it switches live and no run saves it. It builds on the Menu
     // (help moves into it), so it shows only with `meny` on too. The play API, the console and AI

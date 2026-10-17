@@ -23,12 +23,12 @@ const reading = (id: VitalId, current: number, cap = 100): VitalReading => ({ id
 const full: VitalReading[] = [reading('vigor', 90), reading('clarity', 90), reading('reserve', 90)];
 
 describe('the switch (#1824)', () => {
-  it('is a ui feature, experimental, on by default, last, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, after the Menu, and no run saves it', () => {
     expect(featureById(TWO_ROW_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1824 });
     expect(uiFeatureOn({}, TWO_ROW_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [TWO_ROW_FEATURE]: false }, TWO_ROW_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(TWO_ROW_FEATURE);
-    expect(FEATURES.at(-1)?.id).toBe(TWO_ROW_FEATURE);
+    expect(FEATURES.findIndex(f => f.id === TWO_ROW_FEATURE)).toBeGreaterThan(FEATURES.findIndex(f => f.id === 'meny'));
   });
 });
 
