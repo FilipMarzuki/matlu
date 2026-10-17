@@ -24,6 +24,11 @@ export const planq = {
   'actshort.harness': 'Harness',
   'actshort.sled': 'Sled',
   'actshort.snare': 'Snare',
+  // Traps and the hunting gear (#1821, `hunting-gear`).
+  'actshort.traps': 'Traps',
+  'actshort.sling': 'Sling',
+  'actshort.bow': 'Bow',
+  'actshort.hookline': 'Hook',
   'actshort.waterskin': 'Waterskin',
   'actshort.bedroll': 'Bedroll',
   'actshort.shovel': 'Shovel',
