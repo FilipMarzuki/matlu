@@ -18,7 +18,7 @@ const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `
 
 const stars = (n: number): string => '★'.repeat(n);
 /** A place you remember, by name ("the deep pool"), in the viewer's language. */
-const placeText = (p: Pin, t: T): string => wordText(placeName(p), t) ?? placeName(p);
+export const placeText = (p: Pin, t: T): string => wordText(placeName(p), t) ?? placeName(p);
 
 /** "Memory: 2 of 3" — and, when it's full, the place you'd let go first (a suggestion). */
 export function memoryLine(s: Region1State, t: T = makeT('en')): string {

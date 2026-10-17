@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1 } from '../artificer/region1';
+import { createRegion1, repack } from '../artificer/region1';
+import { makeT } from '../artificer/i18n';
 import { introBeats, artificerRank, conceptRanks, fillName } from './intro';
 
 describe('Arrival intro', () => {
@@ -36,6 +37,24 @@ describe('Arrival intro', () => {
     const pack = introBeats(createRegion1()).find(b => b.kind === 'pack')!;
     expect(pack.lines.join(' ')).not.toMatch(/before any of this/i);
     expect(pack.lines.join(' ')).not.toMatch(/What did you pack/);
+  });
+
+  // The compass line (#1846) moved here from the top of LAND: after the stone, before the voice.
+  it('gives your bearings after the stone, by what you packed, en and sv', () => {
+    const packed = repack(createRegion1(), ['map-compass']);
+    const bare = repack(createRegion1(), []);
+    for (const lang of ['en', 'sv'] as const) {
+      const t = makeT(lang);
+      const beats = introBeats(packed, t);
+      const stone = beats.findIndex(b => b.lines[0] === t('intro.stone1'));
+      expect(beats[stone].lines).toEqual([t('intro.stone1'), t('intro.stone2'), t('map.compassIntro')]);
+      expect(beats[stone + 1].lines[0]).toBe(t('intro.arrival'));
+      expect(beats.findIndex(b => b.portal)).toBeLessThan(stone);
+      expect(beats.findIndex(b => b.kind === 'create')).toBeGreaterThan(stone);
+      expect(introBeats(bare, t)[stone].lines.at(-1)).toBe(t('map.noCompassIntro'));
+    }
+    expect(introBeats(packed).flatMap(b => b.lines)).toContain("The map in your pack shows somewhere else entirely; this world isn't on it. But the compass still points north, so you know your bearings.");
+    expect(introBeats(packed, makeT('sv')).flatMap(b => b.lines)).toContain('Kartan i packningen visar en helt annan plats; den här världen finns inte på den. Men kompassen pekar fortfarande mot norr, så du vet väderstrecken.');
   });
 
   it('ranks a Warden by concept mastery', () => {
