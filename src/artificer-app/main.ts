@@ -59,7 +59,7 @@ import { encounterModal, type EncounterAfter } from './encounter-view';
 import { mapSessionModal, newSessionUi, lookAroundLand, type MapSessionUi } from './map-session-view';
 import { mapSessionOpen, placeOn, unplaced, moveCell, NEW_SESSION, type MapSession } from '../artificer/map-learning';
 import { wardenTab } from './warden-view';
-import { landTab, seeLandLink, tripNews } from './land-view';
+import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
@@ -74,6 +74,7 @@ import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { nowTotal, queueTimes, timeWordsShown, timerClock } from './time-view';
 import { endWords, partShort } from '../artificer/time-words';
+import { LAND_ASSESS_FEATURE } from './land-assessment';
 import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
@@ -278,14 +279,16 @@ let mapSeed: number | null = null;
  */
 function landBody(a: AppState): string {
   const mode = mapMode(a.sim);
+  // How LAND is drawn (#1835, #1836): ui features, the viewer's own, so they switch live.
   const news = landNewsNow(a.sim);
-  if (mode === 'described') return landTab(a.sim, t, pinRing, { news });
+  const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue };
+  if (mode === 'described') return landTab(a.sim, t, pinRing, look);
   const r = reachFor(a.sim.character.id);
   if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
   if (mapSettlement) return settlementView(a, mapSettlement);
   const world = { reach: r, provinces: provincesFor(a.sim.character.id) };
   const ui = { cell: mapCell, provinceInfo: (x: number, y: number) => provinceInfo(a, x, y) };
-  return landTab(a.sim, t, pinRing, { news, map: mode === 'drawn' ? drawnMapBlock(a.sim, t, ui, world) : reachMapSection(a.sim, t, ui, world) });
+  return landTab(a.sim, t, pinRing, { ...look, map: mode === 'drawn' ? drawnMapBlock(a.sim, t, ui, world) : reachMapSection(a.sim, t, ui, world) });
 }
 
 /** The HISTORY tab (#1540), in the viewer's language (history-view.ts, #1711): who holds the Reach now, and the chronicle. */
@@ -1770,7 +1773,8 @@ function advanceIntro(): void {
   if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); }
+  // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: introBeats(state.sim, t) }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }

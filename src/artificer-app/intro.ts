@@ -13,6 +13,7 @@
 import { CRAFT_WORLD, type Region1State } from '../artificer/region1';
 import { artificerRank } from '../artificer/rank';
 import { makeT, type T } from '../artificer/i18n';
+import { hasKit } from '../artificer/kit';
 import { gradeWord, rankName, recipeName } from './sim-words';
 import { esc } from './html';
 
@@ -53,7 +54,10 @@ export function introBeats(s: Region1State, t: T = EN): Beat[] {
     { id: 'hike', kind: 'narration', lines: [t('intro.hike1'), t('intro.hike2'), t('intro.hike3')] },
     { id: 'pack', kind: 'pack', lines: [t('intro.pack')] },
     { id: 'portal', kind: 'narration', portal: true, lines: [t('intro.seam1'), t('intro.seam2')] },
-    { id: 'stone', kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2')] },
+    // Then your bearings (#1846): the map in your pack is of somewhere else, but the compass works.
+    // It was the top of LAND; the land tab now shows only what you've found. Said by what you packed
+    // (main.ts tells the beats again once the pack is chosen), in the words LAND used.
+    { id: 'stone', kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2'), t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro')] },
     { id: 'arrival', kind: 'voice', lines: [t('intro.arrival'), t('intro.scanning'), t('intro.threshold')] },
     { id: 'class', kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
     { id: 'create', kind: 'create', lines: [t('intro.identify')] },
