@@ -58,7 +58,9 @@ describe('Stop on the timer (#1815)', () => {
   it('a hunt stopped on the timer, before or after its kill, plays out to the instant stop, and reads in Swedish', () => {
     const sv = makeT('sv');
     const hunt: QueueItem = { q: 'hunt', opts: { target: 'small' } } as QueueItem;
-    const a = queued(ready('w-stop-hunt'), [hunt, 'gather']);
+    // Hunting needs a sling with `hunting-gear` (#1821).
+    const r = ready('w-stop-hunt');
+    const a = queued({ ...r, sim: { ...r.sim, tools: [...r.sim.tools, { item: 'sling', grade: 'sound' }] } }, [hunt, 'gather']);
     const kill = killMoment(seedOf(a.sim.character.id), a.sim.day, a.sim.hoursToday) * queueHours(hunt, a.sim);
     const eps = Math.min(0.05, kill / 2);
     for (const [hours, said] of [[kill - eps, /gave up/], [kill + eps, /already brought it down/]] as const) {

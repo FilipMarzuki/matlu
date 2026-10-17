@@ -44,13 +44,14 @@ import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDe
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type PendingEncounter } from './encounters';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
-import { createExploration, scout, survey, track, lookout, explore as exploreRing, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { createExploration, scout, survey, track, lookout, explore as exploreRing, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, supplyWord, hasFind, RICHNESS, SUPPLY_DRAW, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
+import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, type HuntOdds, type HuntTool } from './hunting-gear';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -192,6 +193,8 @@ export interface Region1State {
   /** Places you remember (#1378). They belong to this run: a new run starts with none. */
   pins?: Pin[];
   overnight?: { stores: Partial<Record<keyof Stores, number>>; text: string }[];
+  /** Trap lines set today (#1821, `hunting-gear`), by distance: checked by morning, then gone. Absent when none. */
+  traps?: Ring[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -637,10 +640,12 @@ export type ActionId =
   // Drawing your map from what you've found (#1754): only with the `map-learning` switch on.
   | 'drawmap'
   // Picking up loose stone (#1816): only with the `stone-gathering` switch on.
-  | 'gatherstone';
+  | 'gatherstone'
+  // Traps, and the gear active hunting and fishing need (#1821): only with the `hunting-gear` switch on.
+  | 'traps' | 'sling' | 'bow' | 'hookline';
 
 /** Actions that happen out on the land, in a chosen ring. */
-export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore' | 'gatherstone';
+export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore' | 'gatherstone' | 'traps';
 /**
  * A queue entry: an action, optionally aimed at a ring (`wood@2`). A bare id
  * means the near ring, so plans written before rings existed still read right.
@@ -706,6 +711,38 @@ export const visibilityOn = (s: Pick<Region1State, 'config'>): boolean => featur
 export const stoneGatheringOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, STONE_GATHERING);
 /** Quarrying is hidden (#1816) until the cleave is known: only with `stone-gathering` on. */
 const quarryLocked = (s: Region1State): boolean => stoneGatheringOn(s) && !s.techniques.includes(QUARRY_TECHNIQUE);
+/** Whether the Warden has this tool (an heirloom too). */
+const hasItem = (s: Pick<Region1State, 'tools'>, item: string): boolean => s.tools.some(t => t.item === item);
+/** The ranged tool a Warden hunts with (#1821): the bow if they have one, else a sling, else none. */
+export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null => (hasItem(s, BOW) ? 'bow' : hasItem(s, SLING) ? 'sling' : null);
+/** Hunting is hidden (#1821) until a sling or a bow: only with `hunting-gear` on. */
+const huntLocked = (s: Region1State): boolean => huntingGearOn(s) && huntTool(s) === null;
+/** Fishing is hidden (#1821) until a hook and line: only with `hunting-gear` on. */
+const fishLocked = (s: Region1State): boolean => huntingGearOn(s) && !hasItem(s, HOOK_LINE);
+/** Knowing hunting (or woodcraft) well enough to make a bow (#1821). */
+const bowReady = (s: Region1State): boolean => skillLevel(s.skills, 'hunting') >= BOW_LEVEL.hunting || skillLevel(s.skills, 'woodcraft') >= BOW_LEVEL.woodcraft;
+/** A hunt's quarry: as chosen, else deer — or small game, with `hunting-gear` and no bow (#1821). */
+const huntTarget = (s: Region1State | undefined, o: ActionOpts): string => o.target ?? (s && huntingGearOn(s) && huntTool(s) !== 'bow' ? 'small' : 'deer');
+/** The method a hunt or a trap line uses, for its odds (#1821). */
+const methodOf = (s: Region1State, id: 'hunt' | 'traps'): HuntTool => (id === 'traps' ? 'traps' : huntTool(s) ?? 'sling');
+/** The odds of a hunt or a trap line there, from the true Hunting level: what the sim plays by. */
+const trueHuntOdds = (s: Region1State, id: 'hunt' | 'traps', ring: Ring): HuntOdds =>
+  huntOdds(huntScore(level(s.explore, ring, 'game'), methodOf(s, id), skillLevel(s.skills, 'hunting'), supplyWord(s.explore.supply[ring].game)));
+/**
+ * The odds of a hunt or a trap line there, in a word (#1821): good odds, fair odds, a long shot —
+ * for the page's cards and the AI. From what you know of the game there, the tool and the Hunting
+ * level the Warden *thinks* they have (#1241), as the trip odds are. Null with the switch off.
+ */
+export function huntOddsOf(s: Region1State, id: 'hunt' | 'traps', ring: Ring): HuntOdds | null {
+  if (!huntingGearOn(s)) return null;
+  return huntOdds(huntScore(level(s.explore, ring, 'game'), methodOf(s, id), perceivedLevel(s.skills, 'hunting'), supplyWord(s.explore.supply[ring].game)));
+}
+/** A small-game catch from a trap line there (#1821): a couple of hares near camp, more further out, less where the game is thin. */
+export const trapCatchOf = (e: Exploration, ring: Ring): number => Math.max(1, Math.round(landYield(e, ring, 'game', 2, 0.5) * supplyFactor(e, ring, 'game')));
+/** Setting a line of traps (#1821): light work along the trails, and a little cord. */
+const TRAP_HOURS = 2;
+const TRAP_CORD = 1;
+
 /** How the land gets known: by scouting, or (with the switch on) by exploring. */
 const scoutVerb = (s: Region1State): string => (visibilityOn(s) ? 'explore' : 'scout');
 
@@ -785,6 +822,17 @@ export const GEAR_RECIPES: Readonly<Record<'basket' | 'backpack' | 'harness' | '
   backpack: { id: 'backpack', name: 'Backpack', inputs: [{ item: 'hides', qty: 1 }, { item: 'materials', qty: 2 }], output: { item: 'backpack', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['sealing'] },
   harness: { id: 'harness', name: 'Harness', inputs: [{ item: 'hides', qty: 1 }, { item: 'materials', qty: 1 }], output: { item: 'harness', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['tension'] },
   sled: { id: 'sled', name: 'Sled', inputs: [{ item: 'materials', qty: 5 }], output: { item: 'sled', qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['leverage'] },
+};
+
+/**
+ * The gear active hunting and fishing need (#1821, `hunting-gear`): a sling (cord and a stone pouch,
+ * an early craft), a bow (wood and cord, once you know hunting well enough), a hook and line (a bone
+ * or wood hook on a cord). Known from the start with the switch on, the bow hidden until its level.
+ */
+export const HUNTING_RECIPES: Readonly<Record<'sling' | 'bow' | 'hookline', CraftRecipe>> = {
+  sling: { id: SLING, name: 'Sling', inputs: [{ item: 'materials', qty: 2 }], output: { item: SLING, qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['tension'] },
+  bow: { id: BOW, name: 'Bow', inputs: [{ item: 'materials', qty: 4 }], output: { item: BOW, qty: 1 }, tier: 0, station: null, timeBase: 5, concepts: ['tension', 'leverage'] },
+  hookline: { id: HOOK_LINE, name: 'Hook and line', inputs: [{ item: 'materials', qty: 1 }], output: { item: HOOK_LINE, qty: 1 }, tier: 0, station: null, timeBase: 2, concepts: ['sharpening'] },
 };
 
 /** The cold pit (#1295): a stone-lined pit that keeps raw food cold (and, with `cold-pit-slows`, #1757, slows the rot rather than stopping it). Dug at camp, it stays there. */
@@ -1023,6 +1071,8 @@ const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'sto
 export const CRAFT_WORLD = craftWorld([], conceptsRegistry.concepts as ConceptDef[], {
   ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] },
   basket: { unlock: ['carry'] }, backpack: { unlock: ['carry'] }, harness: { unlock: ['carry'] }, sled: { unlock: ['carry'] },
+  // The hunting and fishing gear (#1821): what it opens is region1's (`huntTool`, `fishLocked`); the entries make them tools.
+  [SLING]: { unlock: ['hunt-small'] }, [BOW]: { unlock: ['hunt-small', 'hunt-deer'] }, [HOOK_LINE]: { unlock: ['fish-line'] },
 });
 
 /** Sound cold gear: you have some, and it isn't crude (crude gear won't hold up through a winter). */
@@ -1199,6 +1249,13 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   // Gather stones first, quarry once you know the cleave (#1816): its own switch, whatever `action-visibility` says.
   if (id === 'gatherstone') return stoneGatheringOn(s) ? null : `${id} isn't part of this game's rules`;
   if (id === 'quarry' && quarryLocked(s)) return `you don't know how to ${QUARRY_UNLOCK.verb} yet — ${QUARRY_UNLOCK.how} (${SKILLS.stonework.name})`;
+  // Traps first; hunting needs a sling or a bow, fishing a hook and line (#1821): its own switch, whatever `action-visibility` says.
+  if (id === 'traps' || id === 'sling' || id === 'bow' || id === 'hookline') {
+    if (!huntingGearOn(s)) return `${id} isn't part of this game's rules`;
+    return id === 'bow' && !bowReady(s) ? `you don't know how to ${BOW_UNLOCK.verb} yet — ${BOW_UNLOCK.how} (${SKILLS.hunting.name})` : null;
+  }
+  if (id === 'hunt' && huntLocked(s)) return `you don't know how to ${HUNT_UNLOCK.verb} yet — ${HUNT_UNLOCK.how} (${SKILLS.hunting.name})`;
+  if (id === 'fish' && fishLocked(s)) return `you don't know how to ${FISH_UNLOCK.verb} yet — ${FISH_UNLOCK.how} (${SKILLS[skillFor('fish') ?? 'fieldcraft'].name})`;
   if (!visibilityOn(s)) return null;
   const sub = subActionLock(id, s);
   if (sub) return ringWordsFor(s, sub);
@@ -1229,6 +1286,18 @@ const craftGate = (r: CraftRecipe, extra?: (s: Region1State) => string | null) =
 const craftAction = (r: CraftRecipe, extra?: (s: Region1State) => string | null): ActionDef => ({
   name: `Craft ${r.name.toLowerCase()}`, hours: r.timeBase, vigorRate: 0, clarityRate: 0,
   gate: craftGate(r, extra), recipe: r, run: () => '',
+});
+
+/**
+ * A craft of hunting or fishing gear (#1821): known with the switch on, so no recipe to work out
+ * (`skillLockOf` hides the bow until its level); otherwise as any craft — one good one is enough.
+ */
+const gearCraft = (r: CraftRecipe): ActionDef => ({
+  ...craftAction(r),
+  gate: s => {
+    const owned = s.tools.find(t => t.item === r.output.item && !t.heirloom && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
+    return owned ? `you already have a ${owned.grade} ${r.name.toLowerCase()}` : craftBlocker(crafterOf(s), r);
+  },
 });
 
 export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
@@ -1271,16 +1340,18 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   hunt: {
     name: 'Hunt', hours: 5, vigorRate: -4, clarityRate: -2, ringed: true,
     // Deer need tracking (game observed); small game only needs to be known to be about.
-    gate: (s, r, o) => reach(s, r) ?? (o.target === 'small'
+    // With `hunting-gear` (#1821) a sling takes small game only: deer need a bow (and small game is the sling's default).
+    gate: (s, r, o) => reach(s, r) ?? (huntTarget(s, o) === 'small'
       ? (level(s.explore, r, 'game') >= 1 ? null : `you haven't seen any game${where(r) || ' nearby'}`)
-      : (level(s.explore, r, 'game') >= 2 ? null : `no game tracked${where(r) || ' nearby'} yet`)),
-    variant: o => (o.target === 'small' ? { hours: 3, vigorRate: -2.5, clarityRate: -1.5 } : {}),
-    options: (_s, o) => [choiceGroup('target', 'Quarry', o.target ?? 'deer', [
-      { value: 'deer', label: 'Deer', note: '5h · ~7 food + a hide · needs tracking', blocked: null },
+      : huntingGearOn(s) && huntTool(s) !== 'bow' ? 'deer need a bow — a sling is for small game'
+        : (level(s.explore, r, 'game') >= 2 ? null : `no game tracked${where(r) || ' nearby'} yet`)),
+    variant: (o, s) => (huntTarget(s, o) === 'small' ? { hours: 3, vigorRate: -2.5, clarityRate: -1.5 } : {}),
+    options: (s, o) => [choiceGroup('target', 'Quarry', huntTarget(s, o), [
+      { value: 'deer', label: 'Deer', note: '5h · ~7 food + a hide · needs tracking', blocked: huntingGearOn(s) && huntTool(s) !== 'bow' ? 'needs a bow' : null },
       { value: 'small', label: 'Small game', note: '3h · ~3 food · lighter · no tracking needed', blocked: null },
     ])],
     run: (s, b, r, o, _light, luck) => {
-      const small = o.target === 'small';
+      const small = huntTarget(s, o) === 'small';
       const n = haul(s, r, 'game', (small ? landYield(s.explore, r, 'game', 3, 1) : landYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game'), luck);
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
@@ -1437,6 +1508,25 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   harness: craftAction(GEAR_RECIPES.harness, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
   sled: craftAction(GEAR_RECIPES.sled),
   snare: craftAction(REGION1_RECIPES.snare),
+  // Traps first (#1821, `hunting-gear`): a line of snares along the trails where you've seen game,
+  // light work and a little cord. It catches overnight with no more work: by morning there may be
+  // small game in it (endDay, `checkTraps`). Setting it works the game there as a hunt does.
+  traps: {
+    name: 'Set traps', hours: TRAP_HOURS, vigorRate: -2, clarityRate: -1, ringed: true,
+    gate: (s, r) => reach(s, r)
+      ?? (level(s.explore, r, 'game') >= 1 ? null : `you haven't seen any game${where(r) || ' nearby'}`)
+      ?? ((s.traps ?? []).includes(r) ? 'your traps are already set there' : null)
+      ?? (s.stores.materials >= TRAP_CORD ? null : `needs ${TRAP_CORD} materials (have ${s.stores.materials})`),
+    run: (s, _b, r) => {
+      s.stores.materials -= TRAP_CORD;
+      const note = workLand(s, r, 'game');
+      s.traps = [...(s.traps ?? []), r];
+      return `Set a line of traps${where(r)}: snares along the game trails, to check by morning.${note}`;
+    },
+  },
+  sling: gearCraft(HUNTING_RECIPES.sling),
+  bow: gearCraft(HUNTING_RECIPES.bow),
+  hookline: gearCraft(HUNTING_RECIPES.hookline),
   waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
   shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
@@ -2216,12 +2306,6 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const usual = actionHours(next, id, ring, opts);
   const planWork = session ? session.plan.work : usual.work;
   const planTravel = session ? session.plan.travel : usual.travel;
-  // Stopped partway (#1815): the hours, Vigor and Clarity as far as you got, and the work that still counts.
-  // A hunt's kill (#1815) comes at its own moment in the work, rolled only when it's stopped: a stream of its own, keyed on the hour it began.
-  const kind = stopKindOf(id);
-  const cut = stop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop, kind, kind === 'kill' ? killMoment(seedOf(s.character.id), s.day, s.hoursToday) : 1);
-  const workHours = cut ? cut.work : planWork;
-  const travel = cut ? cut.travel : planTravel;
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -2247,6 +2331,28 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const sprain = injuryCost(next.injuries, 'sprain');
   // A stiff knee from an old injury (#1392): the walk out costs more, for good.
   const knee = def.ringed && next.character.harms?.includes('stiff-knee') ? STIFF_KNEE_COST : 1;
+  // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
+  // …and places you remember in that ring (#1379): a fishing spot, a berry thicket, good stone.
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0) + (def.ringed ? pinYield(next.pins, id, ring) : 0);
+  // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
+  const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
+  // Out in a blizzard (#1315): the white decides how you come back — if you do.
+  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) + (knowsTheCold(next.character) ? 1 : 0) + (hasKit(next, 'hat-mittens') ? 1 : 0) - (ring - 1)) : null;
+  // (Worked out before the hours are, since a hunt's kill can end it early, #1821: all pure, nothing drawn twice.)
+  const lost = exposure === 'lost';
+  const luckMult = lost ? 0 : luck ? BAND_MULT[luck.band] : 1;
+  // Stopped partway (#1815): the hours, Vigor and Clarity as far as you got, and the work that still counts.
+  // A hunt's kill (#1815) comes at its own moment in the work, rolled only when it's stopped: a stream of its own, keyed on the hour it began.
+  const kind = stopKindOf(id);
+  const killAt = kind === 'kill' ? killMoment(seedOf(s.character.id), s.day, s.hoursToday) : 1;
+  // A kill ends the hunt (#1821, `hunting-gear`): you walk home with it at its moment, the hours left over
+  // yours, unless the catch keeps you within a comfortable load — then you stow it and hunt on. A deer
+  // never fits. The same moment a stop reads (#1815), so the hunt is cut there as a stop after the kill is.
+  const hunt = id === 'hunt' && stop === undefined && huntingGearOn(next) && luckMult > 0 ? huntEnding(next, ring, opts, bonus, luckMult) : null;
+  const atStop = hunt === 'ends' ? planTravel / 2 + killAt * planWork : stop;
+  const cut = atStop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], atStop, kind, killAt);
+  const workHours = cut ? cut.work : planWork;
+  const travel = cut ? cut.travel : planTravel;
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy * PAIN_DRAIN[pain] });
   next.vitals = t.vitals;
@@ -2270,20 +2376,12 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Tough (#1263): pushing past empty costs less Condition — give back the part it spares.
   refundOverexertion(next, r.conditionLost + t.conditionLost, tf.overexertCondition);
 
-  // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
-  // …and places you remember in that ring (#1379): a fishing spot, a berry thicket, good stone.
-  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0) + (def.ringed ? pinYield(next.pins, id, ring) : 0);
-  // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
-  const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
-  // Out in a blizzard (#1315): the white decides how you come back — if you do.
-  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) + (knowsTheCold(next.character) ? 1 : 0) + (hasKit(next, 'hat-mittens') ? 1 : 0) - (ring - 1)) : null;
   if (exposure === 'killed') {
     next.vitals.condition = 0;
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
     say(next, `You went out into the blizzard${where(ring)} and lost the way back. They find you at the thaw.`, 'outcome', at);
     return next;
   }
-  const lost = exposure === 'lost';
   const before = { ...next.stores };
   // The share of the work whose yield is kept, when stopped (#1815): 1 for the whole action.
   let kept = cut ? (planWork > 0 ? cut.kept / planWork : 0) : 1;
@@ -2292,15 +2390,23 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     say(next, `${def.name}: stopped — nothing made, and nothing used up.`, 'action', at);
   } else {
     const was = { explore: next.explore, flags: { ...next.flags } };
-    const said = def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1, session ? scaleOf(session) : ONE_TRIP);
-    if (cut) {
+    const said = def.run(next, bonus, ring, opts, at.light, luckMult, session ? scaleOf(session) : ONE_TRIP);
+    if (hunt === 'ends') {
+      // Ended on its kill (#1821): the catch whole, and the walk home from there.
+      say(next, said, 'action', at);
+      say(next, `The kill came ${hrs1(killAt * planWork)}h into the hunt: you headed home with it, and the rest of the time is yours.`, 'action', at);
+    } else if (cut) {
       // An empty hunt has no kill to keep, whenever it's stopped.
       if (kind === 'kill' && cut.phase === 'work' && next.stores.rawFood <= before.rawFood) kept = 0;
       keepShare(next, before, was, kept);
+      // Traps (#1821) stopped before they were set aren't set.
+      if (id === 'traps' && kept <= 0) next.traps = s.traps;
       say(next, stopLine(def.name + where(ring), cut, kept, kind, hrs1(cut.kept)), 'action', at);
     }
     // Make camp (#1732) has its say in moveCamp; every other action's line is said here, as always.
     else if (said || id !== 'camp') say(next, said, 'action', at);
+    // Stowed and hunted on (#1821): the rest of the planned hours, with another chance at a catch.
+    if (hunt === 'on') huntOn(next, before, ring, at, s.hoursToday);
   }
   // A session (#1668): how its trips went, and what it left of the patches (as far as it got, when stopped).
   if (session) {
@@ -2346,6 +2452,58 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
+}
+
+/**
+ * How a hunt with a kill goes on (#1821, `hunting-gear`): `ends` at its kill, or `on` — the catch
+ * stowed within a comfortable load (load.ts, with your gear: a backpack makes room) and the hunt
+ * going on to its planned hours. A deer never fits: you carry it home. The catch is worked out as
+ * the hunt's `run` will (the same land, bonus and luck), so nothing is drawn for it.
+ */
+function huntEnding(s: Region1State, ring: Ring, opts: ActionOpts, bonus: number, luckMult: number): 'ends' | 'on' {
+  if (huntTarget(s, opts) !== 'small') return 'ends';
+  const n = haul(s, ring, 'game', landYield(s.explore, ring, 'game', 3, 1) + bonus + findBonus(s, ring, 'game'), luckMult);
+  const catchLoad: Haul = { rawFood: n };
+  const snow = (s.snowDepth ?? 0) > 0 || s.weatherToday === 'snow';
+  const gear = bestGear(s.tools, { ring, snow }, catchLoad, s.character.stats);
+  return cumbersome(catchLoad, gear) <= comfortableLoad(s.character.stats) + 1e-9 ? 'on' : 'ends';
+}
+
+/**
+ * Hunting on with the catch stowed (#1821): the rest of the planned hours bring another chance at
+ * small game, at the hunt's odds (the true Hunting level), half the first catch again. Its own
+ * string-keyed stream, keyed on the hour the hunt began. Mutates `next`.
+ */
+function huntOn(next: Region1State, before: Stores, ring: Ring, at: LogEntry['at'], began: number): void {
+  const first = next.stores.rawFood - before.rawFood;
+  if (first <= 0) return;
+  const chance = CATCH_CHANCE[trueHuntOdds(next, 'hunt', ring)];
+  const more = huntOnFortune(seedOf(next.character.id), next.day, began) < chance ? Math.max(1, Math.round(first / 2)) : 0;
+  if (more > 0) next.stores.rawFood += more;
+  say(next, more > 0 ? `The catch was light enough to stow, so you hunted on — and took more: ${more} raw food.` : 'The catch was light enough to stow, so you hunted on, but nothing more came.', 'action', at);
+}
+
+/**
+ * The night's trap lines (#1821, `hunting-gear`), checked by morning: each one set today has a
+ * seeded chance of small game, at its odds there (the true Hunting level), from a stream of its own
+ * keyed on the day and the distance. A catch thins the game there again. Then the lines are gone:
+ * set them again for another night. With luck off (the flat world) every line catches. Mutates `next`.
+ */
+function checkTraps(next: Region1State): void {
+  const lines = next.traps;
+  if (!lines?.length) return;
+  next.traps = undefined;
+  for (const r of lines) {
+    const chance = CATCH_CHANCE[trueHuntOdds(next, 'traps', r)];
+    const caught = next.config.world.luck === false || trapFortune(seedOf(next.character.id), next.day, r) < chance;
+    if (!caught) { say(next, `By morning your traps${where(r)} were empty.`, 'action'); continue; }
+    const n = trapCatchOf(next.explore, r);
+    next.stores.rawFood += n;
+    next.flags.everFood = true;
+    const e = { ...next.explore, supply: { ...next.explore.supply, [r]: { ...next.explore.supply[r], game: Math.max(0, Math.round((next.explore.supply[r].game - SUPPLY_DRAW.game) * 1000) / 1000) } } };
+    next.explore = e;
+    say(next, `By morning your traps${where(r)} held small game — ${n} raw food.`, 'action');
+  }
 }
 
 /**
@@ -3073,6 +3231,8 @@ export function endDay(s: Region1State): Region1State {
   // The day's snow lies, settles or melts (#1315).
   if (feelsTemperature(next)) next.snowDepth = nextSnowDepth(next.snowDepth ?? 0, next.weatherToday, next.day, next.config.calendar);
 
+  // The trap lines set today (#1821): checked by morning, before the new day begins.
+  checkTraps(next);
   next.day += 1;
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
@@ -3147,9 +3307,15 @@ function tripLuck(s: Region1State, id: ActionId, ring: Ring, at: { hour: number;
   const domain = ACTION_DOMAIN[id];
   if (!domain || s.config.world.luck === false) return null;
   const shifts = luckShifts({ domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain], skillLevel, technique, light: at.light, blizzard: inBlizzard(s, id) });
+  // A bow (#1821, `hunting-gear`) raises a hunt's odds: it reaches game a sling never could.
+  if (bowLifts(s, id)) shifts.push(BOW_SHIFT);
   const steps = shifts.reduce((n, x) => n + x.steps, 0);
   return { band: bandFor(haulFortune(seedOf(s.character.id), s.day, at.hour), steps), shifts };
 }
+
+/** A bow's lift on a hunt's odds (#1821): one step, only with `hunting-gear` on. */
+const BOW_SHIFT: Shift = { steps: 1, why: 'the bow reached game a sling never could' };
+const bowLifts = (s: Region1State, id: ActionId): boolean => id === 'hunt' && huntingGearOn(s) && huntTool(s) === 'bow';
 
 /** Out in a winter blizzard today, on ringed work (#1315). Never in the flat world. */
 const inBlizzard = (s: Region1State, id: ActionId): boolean =>
@@ -3179,7 +3345,7 @@ export function tripOdds(s: Region1State, id: ActionId, ring: Ring): 'good' | 'f
   return oddsWord(luckSteps({
     domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain],
     skillLevel: skill ? perceivedLevel(s.skills, skill) : 0, technique: te.yield > 0 || te.drain < 1, light, blizzard: inBlizzard(s, id),
-  }));
+  }) + (bowLifts(s, id) ? BOW_SHIFT.steps : 0));
 }
 
 // ── Rationing and cabin fever (#1305) ───────────────────────────────────────
