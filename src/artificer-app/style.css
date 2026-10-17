@@ -1397,3 +1397,15 @@ header.tworow { display: block; }
 .wxone .wxonetext { min-width: 0; overflow-wrap: anywhere; }
 .wxone .wxhint { display: block; margin: 2px 0 0 18px; }
 .wxone .wxonedetails { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* ── How to play in the journal (#1838, journal-notes.ts) ───────────────── */
+/* The 📖 sits on the journal's heading: small, but a full finger-sized target. */
+.eyebrow.jhead { display: flex; align-items: center; gap: 6px; }
+.noteslink { min-width: 32px; min-height: 32px; margin: -8px 0 -8px auto; padding: 0 6px; border: 1px solid transparent; border-radius: 8px; background: none; color: inherit; font: 15px/1 var(--body); cursor: pointer; }
+.noteslink:hover, .noteslink:focus-visible { border-color: var(--border2); }
+.noteslink.on { border-color: var(--gold); background: rgba(255,224,102,.08); }
+/* The notes: the Warden's own hand, at the front of the journal. */
+.notes { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 8px; background: rgba(255,224,102,.04); }
+.notes .notestitle { color: var(--gold); margin: 0 0 6px; }
+.notes .notelist { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: none; overflow: visible; }
+.notes .notelist li { font-size: 12.5px; line-height: 1.45; color: var(--ink); font-style: italic; }
