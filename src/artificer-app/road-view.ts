@@ -67,7 +67,8 @@ function act(r: RoadState, id: string, label: string, hours: number, t: T, opts:
  */
 export function routeStrip(r: RoadState, t: T = EN): string {
   const villages = ROUTE.filter(l => l.kind === 'village');
-  const stops = ['Greywind Reach', ...villages.map(v => (v.kind === 'village' ? v.name : '')), 'Mistheim'];
+  // The place has no name yet (#1810).
+  const stops = [t('road.stopStart'), ...villages.map(v => (v.kind === 'village' ? v.name : '')), 'Mistheim'];
   // Where the wagon is: stop i, or between stops i and i+1 (travel leg).
   const villageIdx = (leg: number): number => ROUTE.slice(0, leg + 1).filter(l => l.kind === 'village').length;
   const leg = legOf(r);

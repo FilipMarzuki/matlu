@@ -23,7 +23,7 @@
 import type { Ring } from './exploration';
 
 /** The actions that get a length: those whose yield is per hour. Building, crafting, scouting and the hunt stay fixed. */
-export const LENGTH_ACTIONS = ['gather', 'wood', 'quarry', 'fish', 'water'] as const;
+export const LENGTH_ACTIONS = ['gather', 'wood', 'quarry', 'fish', 'water', 'gatherstone'] as const;
 export type LengthAction = typeof LENGTH_ACTIONS[number];
 export const hasLength = (id: string): id is LengthAction => (LENGTH_ACTIONS as readonly string[]).includes(id);
 
@@ -61,6 +61,8 @@ export const ACTION_PATCHES: Readonly<Record<LengthAction, Readonly<Record<strin
   quarry: { stone: 'stone' },
   fish: { rawFood: 'fishing' },
   water: { water: 'spring' },
+  // Loose stone (#1816) is the same stone quarrying works.
+  gatherstone: { stone: 'stone' },
 };
 
 /** The patch a session is about (what "until N" counts and what thinning stops): the action's main store. */
@@ -70,6 +72,7 @@ export const MAIN: Readonly<Record<LengthAction, { store: 'rawFood' | 'firewood'
   quarry: { store: 'stone', patch: 'stone' },
   fish: { store: 'rawFood', patch: 'fishing' },
   water: { store: 'water', patch: 'spring' },
+  gatherstone: { store: 'stone', patch: 'stone' },
 };
 
 /** The patches an action works, main first. */

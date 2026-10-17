@@ -14,7 +14,7 @@
  *   after it you have the whole catch (the food, and a deer's hide); before it, nothing. Whether
  *   there is a kill at all is the hunt's luck, as ever: an empty hunt has none, whenever you stop.
  *   A hunt not stopped still takes its planned hours (ending it on the kill is #1821);
- * - **at the work, a bit at a time** (wood, forage, stone, fish): a share in proportion to the work done, rounded down;
+ * - **at the work, a bit at a time** (wood, forage, quarried or gathered stone, fish): a share in proportion to the work done, rounded down;
  * - **exploring** (scout, survey, track, look out, explore): what you'd seen by then, in proportion;
  * - **walking back**: you have it all already; the walk simply finishes;
  * - **at camp** (a craft, a build, rest, study…): the hours are spent, nothing is made, nothing used up.
@@ -51,7 +51,7 @@ export type StopKind = 'bit' | 'all' | 'kill' | 'see' | 'camp';
 
 /** Each land action's kind; everything else is work at camp. */
 const KIND: Readonly<Record<string, StopKind>> = {
-  gather: 'bit', wood: 'bit', quarry: 'bit', fish: 'bit',
+  gather: 'bit', wood: 'bit', quarry: 'bit', gatherstone: 'bit', fish: 'bit',
   water: 'all', hunt: 'kill',
   scout: 'see', survey: 'see', track: 'see', lookout: 'see', explore: 'see',
 };

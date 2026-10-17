@@ -24,6 +24,11 @@ export const camp = {
   'ring.home': 'home ground',
   'ring.homeShort': 'home',
   'ring.lockedTip': 'Scout the ring inside it first',
+  // The distance chooser under a land action's card (#1814).
+  'ringpick.head': 'How far out?',
+  'ringpick.aria': '{action}: how far out',
+  'ringpick.last': 'last time',
+  'ringpick.close': 'Close',
 
   'act.scout': 'Scout',
   'act.survey': 'Survey',
@@ -34,6 +39,7 @@ export const camp = {
   'act.wood': 'Gather wood',
   'act.fish': 'Ice fishing',
   'act.quarry': 'Quarry stone',
+  'act.gatherstone': 'Gather stones',
   'act.preserve': 'Preserve food',
   'act.build': 'Build shelter',
   'act.coldGear': 'Craft cold gear',
@@ -328,8 +334,8 @@ export const camp = {
   // ── The queue ──────────────────────────────────────────────────────────────
   'queue.skips': 'skips: {why}',
   'queue.locked': "You're taking it one thing at a time — you haven't learned to plan ahead yet.",
-  'journal.firstExplore': "Day 1 in the Reach. Explore before anything else — you don't yet know where food, water or wood are.",
-  'journal.firstScout': "Day 1 in the Reach. Scout before anything else — you don't yet know where food, water or wood are.",
+  'journal.firstExplore': "Day 1 in the wilderness. Explore before anything else — you don't yet know where food, water or wood are.",
+  'journal.firstScout': "Day 1 in the wilderness. Scout before anything else — you don't yet know where food, water or wood are.",
 
   // A trip's load in the queue (#1296).
   'load.tip': 'Bulk {n} of {max} stones (comfortable {c})',

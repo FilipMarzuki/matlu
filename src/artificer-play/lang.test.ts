@@ -115,9 +115,10 @@ const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false, 'thermal-mode
 /**
  * …and the map drawn by itself, as before #1754: the policy picks among the moves open, so a
  * Draw your map move would send this seeded year down another path, longer than the loop allows.
- * Learning the map in both languages is map-learning-app.test.ts's.
+ * Learning the map in both languages is map-learning-app.test.ts's. Quarrying from the first day
+ * too, as before #1816: Gather stones in the moves would send the year down another path as well.
  */
-const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false };
+const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());

@@ -19,7 +19,6 @@ export const guide = {
   // ── The tabs, the first time each shows (#1794) ──
   'guide.line.camp': "Camp's made. All of it lives here now: the fire, the stores, the shelter you build.",
   'guide.line.land': "What you know of the land around you. Every trip out adds to it.",
-  'guide.line.warden': "That's you. What you've practised, and what you've begun to understand, gathers here.",
   'guide.line.progress': "A few days in. Here's how the year is going, and what winter will still ask of you.",
   // ── Just-in-time tips for the rest of the run (#1794) ──
   'guide.line.injury': "You're hurt. Treat it before it gets worse, and go easy on it for a few days.",

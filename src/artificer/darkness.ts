@@ -21,7 +21,8 @@ export const SEE_BELOW = 0.5;
 
 /** How much of a trip's haul you bring back in this light. */
 export function darkYieldMult(action: ActionId, light: number): number {
-  if (action === 'gather') return 0.5 + 0.5 * light;
+  // Loose stone (#1816) is found by eye, as forage is: the dark hides it.
+  if (action === 'gather' || action === 'gatherstone') return 0.5 + 0.5 * light;
   if (action === 'wood' || action === 'quarry') return 0.75 + 0.25 * light;
   return 1;
 }

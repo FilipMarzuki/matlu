@@ -39,7 +39,7 @@ export const TALENT_PICKS = 2;
 export const OFFER_SIZE = 4;
 
 /** Work that leans on the body — Hardy lightens it. */
-export const PHYSICAL_ACTIONS: readonly ActionId[] = ['wood', 'quarry', 'build', 'hunt', 'gather', 'water'];
+export const PHYSICAL_ACTIONS: readonly ActionId[] = ['wood', 'quarry', 'build', 'hunt', 'gather', 'water', 'gatherstone'];
 
 export interface TalentDef {
   name: string;

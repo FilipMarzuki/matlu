@@ -50,7 +50,7 @@ import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
 import type { Tool } from '../artificer/crafting';
-import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, tabToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
+import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, viewToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
 import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
@@ -64,6 +64,7 @@ import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, trip
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
+import { defaultsFor, loadRingDefaults, rememberRing, saveRingDefaults } from './distance-defaults';
 import { progressTab, outlookWarnings } from './progress-view';
 import { historyTab as historyView, provinceInfo as provinceInfoView } from './history-view';
 import { meetingModal } from './caravan-view';
@@ -78,8 +79,8 @@ import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { itemIcon } from './item-icons';
-import { esc, pct, band, portraitEl, tabLabel } from './html';
-import { ICON, haulWord, paletteBlock, weatherBox, seasonChip, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { esc, pct, band, wardenButton } from './html';
+import { ICON, haulWord, paletteBlock, weatherBox, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -123,8 +124,24 @@ document.documentElement.lang = lang;
 /** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
 const expanded = new Set<number>();
 
-/** Which ring the palette's land actions aim at (UI-only; not saved). */
-let focusRing: Ring = 1;
+/**
+ * The palette's distance chooser (#1814): which land action's is open under its card, if any, and
+ * the distance each action was last aimed at, per Warden (distance-defaults.ts). The page redraws
+ * by replacing its HTML, so both live here (the defaults in `localStorage` too), not in the DOM.
+ */
+let ringPick: ActionId | null = null;
+let ringDefaults = loadRingDefaults();
+
+/** Shut the chooser; with `refocus`, the keyboard goes back to the card it opened from. */
+function closeRingPick(refocus: boolean): void {
+  const id = ringPick;
+  ringPick = null;
+  render(state);
+  if (refocus && id) root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus();
+}
+
+/** What the palette needs from the page: dev mode, the language, and this Warden's chooser state. */
+const paletteOpts = (s: AppState['sim']) => ({ dev, t, defaults: defaultsFor(ringDefaults, s.character.id), chooser: ringPick });
 
 /** The ring whose remembered places are listed on the land (#1380), if any. */
 let pinRing: Ring | null = null;
@@ -418,9 +435,6 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where we are in the season, in a few words (for the header chip): in words until the calendar is earned (#1729, camp-blocks.ts). */
-const phaseChip = (a: AppState): string => seasonChip(a.sim, t, { dev });
-
 /** Always-visible summary: body, key stores, today's hours, readiness. */
 function statusBar(a: AppState, preview: Preview): string {
   const s = a.sim;
@@ -576,8 +590,9 @@ function setLookPreview(id: LookId | null): void {
 }
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 // Which tabs show depends on the run too (no CAMP tab before camp, #1691), so drawPage settles the
-// open tab against what shows each time it draws (`tabToOpen`).
-let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
+// open tab against what shows each time it draws (`viewToOpen`).
+// A kept `warden` opens the Warden's view (#1807): it's no tab in the row now, but the header button opens it.
+let tab: Tab = (() => { try { const t = keptTab(localStorage.getItem('artificer.tab')); return (t === 'warden' || TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
 let showHelp = false;
 
 /**
@@ -684,7 +699,7 @@ const markFirst = (html: string, ...ids: GuideId[]): string => html.replace(/^(\
 /** The just-in-time tips (#1794), whose lines show under the status bar on every tab. */
 const JIT_TIPS: readonly GuideId[] = ['injury', 'lock', 'cold', 'snow', 'skill', 'longQueue'];
 /** The tabs' lines (#1794) show under the tab bar. */
-const TAB_TIPS: readonly GuideId[] = ['camp', 'land', 'warden', 'progress'];
+const TAB_TIPS: readonly GuideId[] = ['camp', 'land', 'progress'];
 
 /** Lines seen: kept, and the page redrawn. Keyboard focus goes to the next line's OK, if one shows. */
 function guideSeen(ids: GuideId[]): void {
@@ -722,7 +737,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const g = guide;
   const s = a.sim;
   const actions = g.shows('actions')
-    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ring: focusRing, dev, t, suggest: g.suggest })}</section>`
+    ? `<section class="box"${g.mark('actions')}><p class="eyebrow">${esc(t(s.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${guideTip('actions')}${paletteBlock(a, preview, { ...paletteOpts(s), suggest: g.suggest })}</section>`
     : '';
   const qid: GuideId = s.canPlan ? 'queue' : 'today';
   const queue = g.shows(qid) ? `<div${g.mark(qid, 'longQueue')}>${guideTip(qid)}${queueBlock(a, preview)}</div>` : '';
@@ -737,7 +752,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'plan':
       if (guide.active) return `${weatherSection(a)}${guidedPlan(a, preview)}`;
       return `${weatherSection(a)}<div class="plan">
-        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, { ring: focusRing, dev, t })}</section>
+        <section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.latest'))}</p><ul>${journal(a, 6)}</ul></div>${hasCamp(a.sim) ? '' : beforeCamp(a)}</section>
       </div>`;
@@ -804,20 +819,18 @@ function drawPage(a: AppState): void {
   // earlier run opens PLAN until this run's camp is made, a kept HISTORY tab PLAN once dev mode is left.
   // With the guide at work (#1794), a tab shows once there's something to do there (reveal.ts).
   const view: TabView = { dev, camp: hasCamp(a.sim), held: guide.active ? heldTabs(TABS.map(d => d.id), guide.shows) : undefined };
-  tab = tabToOpen(tab, TABS, view);
+  // The Warden's view (#1807) is no tab in the row: nothing holds it back, so a kept one stays open.
+  tab = viewToOpen(tab, TABS, view);
   // What's new on the land is judged against what the viewer last saw (#1730): a run's first draw sets that baseline, and leaving the LAND tab ends a visit's marks.
   if (!storedSeen(a.sim.character.id)) storeSeen(a.sim.character.id, landSeen(a.sim));
   if (tab !== 'land') landVisit = null;
   root.innerHTML = `
     <header>
-      <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
-      ${phaseChip(a)}
+      <h1>${t('top.titleHtml')}</h1>
       <span class="spacer"></span>
-      ${a.sim.character.name ? `<button class="who" data-tab="warden"${guide.mark('skill')} title="${esc(t('top.yourWarden'))}">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
-      <span class="counter ctl">${esc(t('top.run'))} <b>${runNumberFor(history, a.sim.character.id) - (state.sim.outcome ? 1 : 0)}</b></span>
+      ${wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden', data: 'tab', attrs: guide.mark('skill') }, t)}
       <span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
       ${weekChip(a)}
-      ${experimentChip(a)}
       ${devChip()}
       <span class="ctl"><a class="pill" href="/play-with-ai/" title="${esc(t('top.playAiTip'))}">${esc(t('top.playAi'))}</a></span>
       <span class="ctl"><button class="pill" data-cmd="weekly" title="${esc(t('top.weekTip'))}">${esc(t('top.week'))}</button></span>
@@ -831,7 +844,7 @@ function drawPage(a: AppState): void {
     ${(fresh && !guide.active) || showHelp ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${langSwitch()}${guideControls(a)}${backdropControls()}${devGate()}</div>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const l = tabLabel(d.id, a.sim.character.name, t); const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${l.attrs}${gid ? guide.mark(gid) : ''}>${l.label}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
     ${tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -1095,9 +1108,10 @@ function lookSwitcher(a: AppState): string {
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
+// The Warden's view is opened from the header's icon and name (#1807), not from the tab row.
 type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
 // Labels come from the catalog (`tab.<id>`).
-const ROAD_TABS: readonly RoadTab[] = ['road', 'quests', 'warden', 'journal'];
+const ROAD_TABS: readonly Exclude<RoadTab, 'warden'>[] = ['road', 'quests', 'journal'];
 let roadTab: RoadTab = 'road';
 // Dev mode (#1579) shows each person's true trust beside how they seem (#1578).
 const roadUi: RoadUi = { person: null, truths };
@@ -1124,7 +1138,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     <header>
       <h1>${t('top.roadTitleHtml')}</h1>
       <span class="spacer"></span>
-      ${r.character.name ? `<button class="who" data-rtab="warden" title="${esc(t('top.yourWarden'))}">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${esc(rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t))}</span></button>` : ''}
+      ${wardenButton({ name: r.character.name, portrait: r.character.portrait, rank: rankName(artificerRank(wardenOnRoad(a, r).sim, CRAFT_WORLD.concepts), t), open: roadTab === 'warden', data: 'rtab' }, t)}
       <span class="counter ctl">${esc(t('top.marks'))} <b>${r.marks}</b></span>
       <span class="counter ctl">${esc(t('top.roadDay'))} <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
       ${weekChip(a)}
@@ -1140,7 +1154,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => { const l = tabLabel(id, r.character.name, t); return `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}"${l.attrs}>${l.label}</button>`; }).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
     ${body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }
@@ -1716,6 +1730,19 @@ document.addEventListener('keydown', e => {
   targets[next].focus();
 }, true);
 
+// The distance chooser (#1814): a tap anywhere else shuts it without queueing, and so does Esc.
+// The root's handler below has already acted on the tap (a chosen distance or ✕ shut it already).
+document.addEventListener('click', e => {
+  if (!ringPick) return;
+  if ((e.target as HTMLElement).closest('.ringpick, [data-chooser]')) return;
+  closeRingPick(false);
+});
+document.addEventListener('keydown', e => {
+  if (!ringPick || e.key !== 'Escape' || !root.querySelector('.ringpick')) return;
+  e.preventDefault();
+  closeRingPick(true);
+});
+
 root.addEventListener('click', e => {
   // A building in a settlement (#1541), on its grid or in the key: show what it is.
   const bldg = (e.target as HTMLElement).closest<HTMLElement>('[data-bldg]');
@@ -1792,7 +1819,25 @@ root.addEventListener('click', e => {
       render(state);
     }
   }
-  else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  // A land action's card (#1814) opens its distance chooser (or shuts it, tapped again); the
+  // preselected distance takes the keyboard's focus, so Enter queues it there.
+  else if (d.chooser) {
+    ringPick = ringPick === d.chooser ? null : d.chooser as ActionId;
+    render(state);
+    root.querySelector<HTMLElement>(ringPick ? '.ringpick .rpopt.on:not([disabled])' : `[data-chooser="${d.chooser}"]`)?.focus();
+  }
+  else if (d.cmd === 'ringclose') closeRingPick(true);
+  // A distance chosen: remembered for this action and Warden, then queued there, or (before
+  // planning is learned, #1350) done now, as any tap on an action.
+  else if (d.ringpick) {
+    const q = d.ringpick as QueueId;
+    const id = d.pickfor as ActionId;
+    ringDefaults = rememberRing(ringDefaults, state.sim.character.id, id, Number(d.pickring) as Ring);
+    saveRingDefaults(ringDefaults);
+    ringPick = null;
+    if (state.sim.canPlan) { update(enqueue(state, q)); root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus(); }
+    else playOut([playAct(state, q)], () => ({ do: q }));
+  }
   // Pins (#1380): list a ring's places, let one go, or weigh it.
   else if (d.pinring) { const r = Number(d.pinring) as Ring; pinRing = pinRing === r ? null : r; render(state); }
   // Game moves go through play(), which writes them in the run's log (#1559); the plan's edits

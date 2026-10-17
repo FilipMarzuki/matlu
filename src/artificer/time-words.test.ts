@@ -62,7 +62,7 @@ describe('The time of day in words (#1740)', () => {
       expect(q.now).toBe(t('time.now.early.grey'));
       for (const text of [q.now!, ...q.rows, textOf(q.total), q.status, q.empty, textOf(nowTotal(s, t, false))]) expect(text).not.toMatch(NUMBERS);
       // The action buttons too: every length in words.
-      const palette = paletteBlock(a, previewQueue(a), { ring: 1, dev: false, t });
+      const palette = paletteBlock(a, previewQueue(a), { dev: false, t });
       expect([...palette.matchAll(/<span class="h">([^<]*)<\/span>/g)].map(m => m[1]).filter(x => NUMBERS.test(x))).toEqual([]);
     }
     expect(queueTimes(app(s), previewQueue(app(s)), en, false).now).toBe('Early morning, the first grey light.');
@@ -162,7 +162,7 @@ describe('The time of day in words (#1740)', () => {
     expect(timerClock(s, 8.5, en, true)).toBe('08:30');
     expect(timerLength(s, 0, 4, en, true)).toBe('4h');
     expect(actionTime(a, preview, 4, en, true)).toBe('4H');
-    expect(paletteBlock(a, preview, { ring: 1, dev: true, t: en })).toMatch(/<span class="h">\d+(\.\d)?H<\/span>/);
+    expect(paletteBlock(a, preview, { dev: true, t: en })).toMatch(/<span class="h">\d+(\.\d)?H<\/span>/);
   });
 
   it('7. with the switch off, or a run from before it, hours show exactly as today', () => {
@@ -188,8 +188,8 @@ describe('The time of day in words (#1740)', () => {
       expect(phaseText(play(s), moment, en)).toBe('4h');
       expect(observe(s)).not.toContain('TIME OF DAY');
       // The palette is the same, off or absent, with its hours.
-      expect(paletteBlock(a, preview, { ring: 1, dev: false, t: en })).toBe(paletteBlock(app(warden({ hoursToday: 3 }, false), a.queue), previewQueue(app(warden({ hoursToday: 3 }, false), a.queue)), { ring: 1, dev: false, t: en }));
-      expect(paletteBlock(a, preview, { ring: 1, dev: false, t: en })).toMatch(/<span class="h">\d+(\.\d)?H<\/span>/);
+      expect(paletteBlock(a, preview, { dev: false, t: en })).toBe(paletteBlock(app(warden({ hoursToday: 3 }, false), a.queue), previewQueue(app(warden({ hoursToday: 3 }, false), a.queue)), { dev: false, t: en }));
+      expect(paletteBlock(a, preview, { dev: false, t: en })).toMatch(/<span class="h">\d+(\.\d)?H<\/span>/);
     }
     // Switched on, the same pieces are in words.
     const s = warden({ hoursToday: 3 });

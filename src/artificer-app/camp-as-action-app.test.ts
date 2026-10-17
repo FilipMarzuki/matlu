@@ -73,9 +73,9 @@ describe('Make camp on the page (#1732)', () => {
   it('the action sits with the building actions, named in both languages', () => {
     expect(GROUPS.find(g => g.key === 'build')?.ids[0]).toBe('camp');
     const a = app(explored());
-    const html = paletteBlock(a, previewQueue(a), { ring: 1, dev: false, t: sv });
+    const html = paletteBlock(a, previewQueue(a), { dev: false, t: sv });
     expect(html).toContain('data-q="camp"');
     expect(html).toContain('SLÅ LÄGER');
-    expect(paletteBlock(app(explored(false)), previewQueue(app(explored(false))), { ring: 1, dev: false, t: en })).not.toContain('data-q="camp"');
+    expect(paletteBlock(app(explored(false)), previewQueue(app(explored(false))), { dev: false, t: en })).not.toContain('data-q="camp"');
   });
 });

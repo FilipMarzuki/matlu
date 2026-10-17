@@ -22,9 +22,8 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
 
   await page.goto('/artificer.html');
   // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
-  // The first-morning guide (#1791) holds the WARDEN tab back on a fresh device; this test is
-  // about talents, not the guide, so it plays with the guide switched off.
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false })); });
+  // The guide stays on: the header's Warden button is there from the first screen (#1807).
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
 
   await toCreation(page);
@@ -59,13 +58,26 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
     await page.locator('[data-intro="next"]').click();
   }
 
-  // The WARDEN tab: the two chosen talents, and the dashed hidden-gift card.
-  await page.locator('.tabbtn[data-tab="warden"]').click();
+  // The Warden's view, through the header's icon and name (#1807; no Warden tab in the row):
+  // the two chosen talents, and the dashed hidden-gift card.
+  await expect(page.locator('.tabbtn[data-tab="warden"]')).toHaveCount(0);
+  const who = page.locator('header .who[data-tab="warden"]');
+  await expect(who).toHaveAttribute('aria-pressed', 'false');
+  await who.click();
+  await expect(who).toHaveAttribute('aria-pressed', 'true');
   const known = page.locator('.traits .trait:not(.hidden):not(.quirk):not(.fear) b');
   await expect(known.first()).toBeVisible();
   const names = await known.allTextContents();
   expect(names).toEqual(expect.arrayContaining([offer[0], offer[2]]));
   await expect(page.locator('.trait.hidden', { hasText: 'A hidden gift' })).toBeVisible();
+
+  // A reload keeps the Warden's view open (the kept tab is `warden`); PLAN leaves it.
+  await page.reload();
+  await expect(page.locator('.trait.hidden', { hasText: 'A hidden gift' })).toBeVisible();
+  await expect(who).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.tabbtn[data-tab="plan"]').click();
+  await expect(who).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.trait.hidden')).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

@@ -99,7 +99,7 @@ describe('The opening and a day at camp, in Swedish (#1707)', () => {
     for (const s of [fresh(), fresh({ features: { 'action-visibility': false } }), camped()]) {
       const a = app(s);
       const preview = previewQueue(a);
-      for (const ring of [1, 2, 3] as const) expect(englishIn(paletteBlock(a, preview, { ring, dev: false, t: sv }))).toEqual([]);
+      for (const chooser of [null, 'explore', 'scout', 'gather', 'water', 'wood', 'hunt'] as const) expect(englishIn(paletteBlock(a, preview, { dev: false, t: sv, chooser }))).toEqual([]);
       expect(englishIn(seasonStrip(s, sv))).toEqual([]);
       expect(englishIn(storesRow(s, sv))).toEqual([]);
       expect(englishIn(coldBlock(s, sv))).toEqual([]);
@@ -121,7 +121,7 @@ describe('The opening and a day at camp, in Swedish (#1707)', () => {
     expect(englishIn(seasonStrip(storm, sv))).toEqual([]);
     expect(shown(seasonStrip(storm, sv))).toContain('Snöstorm');
     // And in English the same blocks still read as before.
-    const english = paletteBlock(app(fresh()), previewQueue(app(fresh())), { ring: 1, dev: false, t: en });
+    const english = paletteBlock(app(fresh()), previewQueue(app(fresh())), { dev: false, t: en });
     expect(shown(english)).toContain('SCOUT');
     // (And the check would see it: the English page is full of the words it looks for.)
     expect(englishIn(english).length).toBeGreaterThan(5);

@@ -94,7 +94,7 @@ describe('Distance instead of rings (#1752)', () => {
     expect(perTurn(s)).toContain('@2 half a day out');
     // The page in English: the LAND tab, the palette at each distance, the pins.
     const a = app(s);
-    const pages = [landTab(s, en), pinsList(s, en), ...[1, 2, 3].map(r => paletteBlock(a, previewQueue(a), { ring: r as 1 | 2 | 3, dev: false, t: en }))];
+    const pages = [landTab(s, en), pinsList(s, en), ...([null, 'explore', 'water', 'wood'] as const).map(chooser => paletteBlock(a, previewQueue(a), { dev: false, t: en, chooser }))];
     for (const html of pages) expect(ringsIn(html, RING_EN)).toEqual([]);
     // The API: its view, its moves' labels, and a refusal at a distance you can't reach yet.
     const g = startGame({ seed: 'dist-api' });
@@ -112,7 +112,7 @@ describe('Distance instead of rings (#1752)', () => {
     expect(ringsIn(s.log.map(l => logText(l, sv)).join('\n'), RING_SV)).toEqual([]);
     expect(s.log.map(l => logText(l, sv)).join('\n')).toContain('en halv dag bort');
     const a = app(s);
-    const pages = [landTab(s, sv), pinsList(s, sv), ...[1, 2, 3].map(r => paletteBlock(a, previewQueue(a), { ring: r as 1 | 2 | 3, dev: false, t: sv }))];
+    const pages = [landTab(s, sv), pinsList(s, sv), ...([null, 'explore', 'water', 'wood'] as const).map(chooser => paletteBlock(a, previewQueue(a), { dev: false, t: sv, chooser }))];
     for (const html of pages) expect(ringsIn(html, RING_SV)).toEqual([]);
     expect(landTab(s, sv)).toContain('EN HALV DAG BORT');
     // And no English left where a distance replaced a ring: every new line has its Swedish.

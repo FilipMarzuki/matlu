@@ -172,11 +172,25 @@ export function tabToOpen<T extends string>(wanted: string | null, tabs: readonl
 }
 
 /** The game's tabs (main.ts draws them). The MAP tab is part of LAND now (#1730). */
-export type AppTab = 'plan' | 'camp' | 'land' | 'history' | 'warden' | 'progress';
+export type RowTab = 'plan' | 'camp' | 'land' | 'history' | 'progress';
+/**
+ * What the page can have open: a tab in the row, or the Warden's view (#1807), which is no tab in
+ * the row: the header's icon and name opens it. It's still kept as the open "tab" (`artificer.tab`).
+ */
+export type AppTab = RowTab | 'warden';
 // `label` is the English name; the page draws each tab's label from the catalog (`tab.<id>`, #1704).
-export const APP_TABS: readonly TabDef<AppTab>[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
+export const APP_TABS: readonly TabDef<RowTab>[] = [
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP', needsCamp: true }, { id: 'land', label: 'LAND' }, { id: 'history', label: 'HISTORY', dev: true }, { id: 'progress', label: 'PROGRESS' },
 ];
+
+/**
+ * The view to open (#1807): the Warden's view whenever it's wanted (the header button is always
+ * there once the Warden exists, so nothing holds it back, guide or not), otherwise `tabToOpen`.
+ * A stored `warden` from before the Warden's tab left the row still opens the Warden's view.
+ */
+export function viewToOpen<T extends string>(wanted: string | null, tabs: readonly TabDef<T>[], v: TabView): T | 'warden' {
+  return wanted === 'warden' ? 'warden' : tabToOpen(wanted, tabs, v);
+}
 
 /** A kept tab id from before its tab was folded into another, as the tab it's in now: the old MAP tab opens LAND (#1730). */
 export const keptTab = (id: string | null): string | null => (id === 'map' ? 'land' : id);
