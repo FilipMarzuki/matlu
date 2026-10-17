@@ -413,6 +413,8 @@ export function deathCause(journal: readonly string[]): string {
   if (/Dead of starvation/.test(text)) return 'starvation';
   if (/Dead of the cold/.test(text)) return 'cold';
   if (/lost the way back/.test(text)) return 'blizzard';
+  // A wound gone bad (#1852): it read as 'other' before.
+  if (/Dead of an accident/.test(text)) return 'injury';
   if (/wolves find you|bear finds you/.test(text)) return 'collapse (animals)';
   if (/collapse/i.test(text)) return 'collapse (found)';
   return 'other';

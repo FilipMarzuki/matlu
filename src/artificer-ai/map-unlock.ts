@@ -5,9 +5,9 @@
  *
  * Three ways to play it, none of them a paid model:
  *
- * - **The scripted baseline** (players/scripted.ts), through the harness the bench uses. It was
- *   written before the land had to be explored (it scouts and surveys a ring or two, then hunts
- *   and smokes), so under these rules it finds two to four places and seldom unlocks at all.
+ * - **The scripted baseline** (players/scripted.ts), through the harness the bench uses. With camp
+ *   as an action it plays by needs (#1852): camp, water, wood, a roof, then a look further out,
+ *   which finds enough places. (Before #1852 it never made camp and seldom unlocked at all.)
  * - **The random baseline** (players/random.ts, `legal`), seeded, through the same harness.
  * - **An explorer** (`explorerUnlock`): the "player who explores normally" the thresholds are
  *   tuned for, standing in for the scripted baseline, which doesn't explore. Each day it explores,
@@ -71,7 +71,10 @@ export async function baselineUnlock(player: Player, characterId: string): Promi
     },
   };
   // Encounters off: an encounter's choice is its own question, and the land is what's measured here.
-  await playRun(watched, { characterId, features: MAP_RULES, encounters: false, maxDays: MEASURE_DAYS });
+  // A run still going at the end of the window is fine here (#1852: the scripted baseline now lives
+  // through it): the harness throws for a run that didn't resolve, and the days seen are all we need.
+  await playRun(watched, { characterId, features: MAP_RULES, encounters: false, maxDays: MEASURE_DAYS })
+    .catch(err => { if (!/did not resolve by day/.test(String(err))) throw err; });
   return m;
 }
 

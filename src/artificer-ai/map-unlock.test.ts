@@ -5,8 +5,8 @@
  * Measured on twelve seeds (`MEASURE_SEEDS`) with the game's default rules and `map-learning` on,
  * no paid model (map-unlock.ts has how each is played):
  *
- * - the scripted baseline, which was written before the land had to be explored and seldom finds
- *   enough places: its days are pinned as measured, and the ones that unlock land in 4–6;
+ * - the scripted baseline: its days are pinned as measured, and the ones that unlock land in 4–6
+ *   (before #1852 it was written for the old rules and seldom found enough places);
  * - the random baseline (`legal`, seeds 1–12): median in 4–6;
  * - the explorer ("explore each day, make camp, explore again"), standing in for a player who
  *   explores normally, since the scripted baseline doesn't: median in 4–6, and every seed unlocks.
@@ -48,7 +48,9 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
     expect(sum.unlocked).toBeGreaterThan(0);
     expect(inTarget(sum.median)).toBe(true);
     expect(days.filter(d => d !== null).every(inTarget)).toBe(true);
-  }, 60_000);
+    // Longer than the others (#1852): the scripted baseline now lives through the whole window, and
+    // plans each step by playing its choices forward.
+  }, 180_000);
 
   it('the random baseline: median in 4–6', async () => {
     const days: (number | null)[] = [];
@@ -61,7 +63,10 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
 // Measured with MAP_NIGHTS 4, MAP_PLACES 4, MAP_DIRECTIONS 3 (index i is seed `map-${i + 1}`):
 // explorer 12/12, median 5 (5–5); scripted 4/12, median 5 (5–5); random 11/12, median 5 (5–6).
 const EXPLORER_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
-const SCRIPTED_DAYS: (number | null)[] = [null, null, null, null, 5, 5, null, 5, 5, null, null, null];
+// With #1852 the scripted baseline plays by needs once camp is an action (it makes camp, and looks
+// further out once it has a roof), so it now finds enough places on every seed: scripted 12/12,
+// median 5 (5–5). Before, it never made camp and unlocked on 4 of 12.
+const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // With \`thermal-model\` (#1770) a night without a bag is dangerous, so the random player dies sooner:
 // random 8/12, median 5 (5–8). The explorer and the scripted baseline didn't move.
 // With `stone-gathering` (#1816) the random player has Gather stones where it had Quarry stone, so it

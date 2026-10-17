@@ -6,7 +6,8 @@
  */
 
 import { SUGGESTED_PACK } from '../../artificer/kit';
-import { blockedReason, queueHours, queueId, winterOutlook, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
+import { blockedReason, nightFuel, queueHours, queueId, runAction, winterOutlook, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
+import { campAsActionOn } from '../../artificer/camp-sites';
 import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
 import { seasonOf } from '../../artificer/winter';
@@ -117,7 +118,125 @@ const dayHours = (day: Entry[], s: Region1State): number =>
  * it trades places with a later wood trip. Each run gets a
  * fresh player, so the plan is per run.
  */
-export const scriptedPlayer = (): Player => stepwise(scriptedPlanner());
+export const scriptedPlayer = (): Player => {
+  const old = stepwise(scriptedPlanner());
+  // With camp as an action (#1732) the fixed plan never makes camp, so it never builds or fetches
+  // water and dies of thirst in the first fortnight (#1852): those games are played by needs instead.
+  return { ...old, async decide(message, s) { return campAsActionOn(s) ? needsDay(s) : old.decide(message, s); } };
+};
+
+// ── Playing by needs (#1852) ────────────────────────────────────────────────
+
+/** Vigor and Clarity the needs player won't work below: under them, it rests or ends the day. */
+const VIGOR_FLOOR = 20, CLARITY_FLOOR = 15;
+
+const optsOf = (e: Entry): ActionOpts => Object.fromEntries(e.options.map(o => [o.key, o.value])) as ActionOpts;
+const itemOf = (e: Entry): QueueItem => {
+  const q = queueId(e.action as ActionId, e.ring as Ring);
+  return e.options.length ? { q, opts: optsOf(e) } : q;
+};
+
+/** Firewood the next `n` nights ask, as the sim works it out (a cave asks for little; a frost a lot). */
+const fuelFor = (s: Region1State, n: number): number => {
+  let need = 0;
+  for (let d = s.day; d < Math.min(s.day + n, s.config.calendar.thawDay); d++) need += nightFuel(s, d);
+  return need;
+};
+
+/** Is this action open now, in this ring? (Hidden, blocked or wasted by the weather: no.) */
+const open = (s: Region1State, e: Entry): boolean =>
+  shown(s, e.action as ActionId) && blockedReason(s, e.action as ActionId, e.ring as Ring, optsOf(e)) === null && !spoiled(e, s);
+
+/**
+ * What the needs player wants next, most urgent first (#1852): camp, the near ground known, water
+ * for tonight and tomorrow, wood for the nights ahead (a winter's worth by late autumn), a roof, then
+ * food (traps first, a sling and a hook and line when it can make them, then hunting, fishing and
+ * foraging), then smoking the spare, cold gear and a better shelter. Each is checked against the
+ * state the day's earlier actions leave, so the list adapts as the day goes.
+ */
+function wants(s: Region1State): Entry[] {
+  const winter = seasonOf(s.day, s.config.calendar) === 'winter';
+  const toWinter = Math.max(0, s.config.calendar.winterDay - s.day);
+  const food = s.stores.rawFood + s.stores.rations;
+  const nightsLeft = Math.max(0, s.config.calendar.thawDay - s.day);
+  const out: Entry[] = [];
+  if (!s.campSpot) out.push(a('camp'));
+  if (!scouted(s.explore, 1)) out.push(a('scout'), a('explore'));
+  // Water: two nights' worth in hand, three once the streams freeze (melting snow needs a fire).
+  if (s.stores.water < (winter ? 3 : 2)) out.push(a('water'));
+  // Wood: tonight and the next two nights, always; in late autumn, a growing share of the winter.
+  const fuelNow = fuelFor(s, 3) + 1;
+  if (s.stores.firewood < fuelNow) out.push(a('wood'));
+  if (s.tier === 0) out.push(a('build'));
+  // Food: keep a few nights in hand, and in autumn lay in toward the winter.
+  const foodTarget = Math.min(nightsLeft, winter ? 4 : 3 + Math.max(0, 30 - toWinter) / 2);
+  if (food < foodTarget) {
+    out.push(a('traps'), a('traps', 2), a('sling'), a('hookline'), a('bow'));
+    out.push(a('hunt', 1, { target: 'small' }), a('fish'), a('gather'), a('hunt', 2, { target: 'small' }), a('gather', 2));
+  }
+  // Once there's a roof, a look further out: more places to camp, forage and game, and the map's places.
+  if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
+  if (s.stores.rawFood >= 4) out.push(a('preserve'));
+  if (s.stores.water < 4) out.push(a('water'));
+  const fuelSoon = toWinter <= 20 ? Math.min(winterOutlook(s).fuelToThaw, fuelFor(s, 20 - toWinter + 3)) : fuelNow;
+  if (s.stores.firewood < fuelSoon) out.push(a('wood'));
+  out.push(a('coldGear'), a('build'), a('coldPit'), a('bedroll'), a('drawmap'));
+  // A better roof before the frosts: short of materials for it, cut timber (wood brings both).
+  if (s.tier < 2 && /needs \d+ materials/.test(blockedReason(s, 'build', 1) ?? '')) out.push(a('wood'));
+  out.push(a('sling'), a('hookline'));
+  if (food < nightsLeft) out.push(a('traps'), a('hunt', 1, { target: 'small' }), a('fish'), a('gather'));
+  if (s.stores.firewood < winterOutlook(s).fuelToThaw + 4) out.push(a('wood'));
+  return out;
+}
+
+/** One action played forward on the plan's dice-free copy. */
+const tryAction = (s: Region1State, e: Entry): Region1State => runAction(s, itemOf(e));
+
+/** Would this action leave the Warden spent, or cost Condition (overwork, a danger)? */
+const tooHard = (before: Region1State, after: Region1State): boolean =>
+  after.vitals.vigor.current < VIGOR_FLOOR || after.vitals.clarity.current < CLARITY_FLOOR || after.vitals.condition < before.vitals.condition
+  || after.hoursToday > DAY_HOURS || !!after.outcome;
+
+/**
+ * The day as the needs player plans it: the most urgent want that it can do without going past its
+ * floors, played forward, then the next, until the day is spent or nothing else is worth doing.
+ * A rest comes in when the Warden is worn and the day still has hours. Until it can plan ahead the
+ * runner runs only the first entry and asks again, so each call plans from where the day stands.
+ */
+function planNeeds(start: Region1State): Entry[] {
+  // Planned without the dice (#1852): no luck, accidents or encounters on the copy it plays forward,
+  // so the plan weighs what a person could expect, never the seeded rolls still to come.
+  let s: Region1State = { ...start, config: { ...start.config, world: { ...start.config.world, luck: false, accidents: false, encounters: false } } };
+  const day: Entry[] = [];
+  while (s.hoursToday < DAY_HOURS && day.length < 10 && !s.outcome) {
+    let picked: { e: Entry; next: Region1State } | null = null;
+    for (const e of wants(s)) {
+      if (!open(s, e)) continue;
+      const next = tryAction(s, e);
+      if (next.hoursToday === s.hoursToday || tooHard(s, next)) continue;
+      picked = { e, next };
+      break;
+    }
+    if (!picked) {
+      // Nothing it can do without overworking: rest if there's time and it helps, else end the day.
+      const rest = a('rest');
+      if (s.vitals.vigor.current < s.vitals.vigor.cap * 0.6 && open(s, rest) && DAY_HOURS - s.hoursToday >= queueHours('rest', s)) {
+        day.push(rest); s = tryAction(s, rest); continue;
+      }
+      break;
+    }
+    day.push(picked.e);
+    s = picked.next;
+  }
+  return day;
+}
+
+/** A day by needs, replied as JSON like any player's. A blizzard keeps it in, as the fixed plan does. */
+function needsDay(s: Region1State): { text: string; usage: { cost: number } } {
+  const eating = eatingFor(s);
+  const queue = isBlizzard(s.weatherToday, s.day, s.config.calendar) ? blizzardDay(s) : planNeeds(s);
+  return { text: JSON.stringify({ thoughts: `Day ${s.day}: what's needed most.`, site: null, eating, queue }), usage: { cost: 0 } };
+}
 
 /**
  * Learned planning (#1350): the planner still plans a whole day, but until the Warden can
