@@ -323,6 +323,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'meny', name: 'The ⚙ Menu', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1808,
     note: 'The header keeps only the title, the Warden, the day and the ⚙ Menu (with help and feedback): new game, profile, language, guide, look, other ways to play, experiments and dev mode are on the Menu page.',
   },
+  {
+    // A ui feature (#1828): the Menu's Sound section and the ambience it plays (artificer-app/ambience*.ts),
+    // read from what the page shows, so it switches live and no run saves it. The sound itself stays
+    // off until the player turns it on. The play API, the console and AI players never hear it.
+    id: 'ambience', name: 'Ambient sound', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1828,
+    note: 'A Sound section in the ⚙ Menu: ambient sound made in the browser (wind, rain, snow, the fire, a stream, drips in a cave, distant thunder) that follows the weather, the time of day, where you camp and how worn your mind is. Off until you turn it on.',
+  },
 ];
 
 /** Switches by feature id. */

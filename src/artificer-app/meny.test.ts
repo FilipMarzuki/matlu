@@ -12,7 +12,7 @@ import { sv as SV } from '../artificer/i18n/sv';
 import { FEATURES, featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import {
   MENY_FEATURE, MENY_SECTIONS, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage,
-  newGameBody, newSaveButton, playAiLink, profileBody, weeklyButton, type HeaderParts,
+  newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts,
 } from './meny';
 
 const en = makeT('en');
@@ -37,12 +37,13 @@ const parts = (t = en): HeaderParts => ({
 const MOVED = ['data-cmd="reset"', 'data-cmd="weekly"', 'href="/play-with-ai/"', 'data-cmd="features"', 'lookswitch', 'devchip'];
 
 describe('the meny ui feature (#1808)', () => {
-  it('is a ui feature, experimental, on by default, registered last, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered before the ambient sound, and no run saves it', () => {
     expect(featureById(MENY_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1808 });
     expect(uiFeatureOn({}, MENY_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [MENY_FEATURE]: false }, MENY_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(MENY_FEATURE);
-    expect(FEATURES.at(-1)?.id).toBe(MENY_FEATURE);
+    // The ui features after it (#1828's ambient sound) come later; it's the last before them.
+    expect(FEATURES.findIndex(f => f.id === MENY_FEATURE)).toBe(FEATURES.findIndex(f => f.id === 'ambience') - 1);
   });
 });
 
@@ -87,21 +88,20 @@ describe('the header (#1808)', () => {
 describe('the Menu page (#1808)', () => {
   const bodies = Object.fromEntries(MENY_SECTIONS.map(id => [id, `<i>${id}</i>`]));
 
-  it('has its sections in the owner\'s order, each with its heading, and no Sound while there is no sound', () => {
-    expect(MENY_SECTIONS).toEqual(['newgame', 'profile', 'language', 'guide', 'visual', 'elsewhere', 'experiments', 'developer']);
+  it('has its sections in the owner\'s order, each with its heading, Sound after the look (#1828)', () => {
+    expect(MENY_SECTIONS).toEqual(['newgame', 'profile', 'language', 'guide', 'visual', 'sound', 'elsewhere', 'experiments', 'developer']);
     const html = menyPage(bodies, en);
     const at = MENY_SECTIONS.map(id => html.indexOf(`data-meny="${id}"`));
     expect(at.every(i => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    for (const h of ['NEW GAME', 'PROFILE', 'LANGUAGE', 'GUIDE', 'LOOK', 'PLAY ELSEWHERE', 'EXPERIMENTS', 'DEVELOPER']) expect(html).toContain(`>${h}</h3>`);
-    expect(html).not.toMatch(/sound/i);
+    for (const h of ['NEW GAME', 'PROFILE', 'LANGUAGE', 'GUIDE', 'LOOK', 'SOUND', 'PLAY ELSEWHERE', 'EXPERIMENTS', 'DEVELOPER']) expect(html).toContain(`>${h}</h3>`);
     expect(html).toContain('data-cmd="menyclose"');
     expect(html).toContain('id="meny-title" tabindex="-1"');
   });
 
   it('in Swedish', () => {
     const html = menyPage(bodies, sv);
-    for (const h of ['MENY', 'NYTT SPEL', 'PROFIL', 'SPRÅK', 'GUIDE', 'UTSEENDE', 'SPELA PÅ ANNAT SÄTT', 'EXPERIMENT', 'UTVECKLARE']) expect(html).toContain(`>${h}</h`);
+    for (const h of ['MENY', 'NYTT SPEL', 'PROFIL', 'SPRÅK', 'GUIDE', 'UTSEENDE', 'LJUD', 'SPELA PÅ ANNAT SÄTT', 'EXPERIMENT', 'UTVECKLARE']) expect(html).toContain(`>${h}</h`);
   });
 
   it('leaves out a section with nothing in it (the guide on the road)', () => {
@@ -129,6 +129,26 @@ describe('the Menu page (#1808)', () => {
     expect(html).toContain('href="/records/"');
     expect(html).not.toContain('Copied');
     expect(profileBody({ runs: 0, runId: 'w', copied: true }, sv)).toContain('Kopierat');
+  });
+
+  it('Sound (#1828): off by default with no slider; on, pressed, with the volume; en and sv', () => {
+    const off = soundBody({ on: false, volume: 0.6 }, en);
+    expect(off).toContain('data-sound="toggle" aria-pressed="false"');
+    expect(off).toContain('SOUND OFF');
+    expect(off).not.toContain('data-sound="volume"');
+    const on = soundBody({ on: true, volume: 0.6 }, en);
+    expect(on).toContain('aria-pressed="true"');
+    expect(on).toContain('SOUND ON');
+    expect(on).toContain('data-sound="volume"');
+    expect(on).toContain('value="60"');
+    expect(on).toContain('Volume');
+    const svOn = soundBody({ on: true, volume: 2 }, sv);
+    expect(svOn).toContain('LJUD PÅ');
+    expect(svOn).toContain('Volym');
+    expect(svOn).toContain('value="100"');
+    expect(soundBody({ on: false, volume: 0 }, sv)).toContain('LJUD AV');
+    // With the ui switch off the page passes an empty body, and there's no section.
+    expect(menyPage({ ...bodies, sound: '' }, en)).not.toContain('data-meny="sound"');
   });
 
   it('Play elsewhere: with your AI and the text console', () => {
