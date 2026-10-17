@@ -690,7 +690,10 @@ body { min-height: 100vh; }
 .act.guide-suggest { border-color: var(--gold); }
 @keyframes guide-glow { 0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 0 rgba(255,224,102,0); } 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(255,224,102,.45); } }
 @media (prefers-reduced-motion: reduce) { [data-glow], .act.guide-suggest { animation: none; } }
-.guidetip { display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 10px 8px 12px; border: 1px solid var(--gold); border-radius: 8px; background: rgba(255,224,102,.08); text-align: left; }
+/* The tip has its own opaque plate (#1855): it often sits on the page itself, and with the living
+   backdrop on that's a night scene, so a see-through tint left the look's ink (dark on paper looks)
+   on a dark sky. The look's panel colour under its ink is AA in every look (looks.test.ts). */
+.guidetip { display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 10px 8px 12px; border: 1px solid var(--gold); border-radius: 8px; background: var(--panel); text-align: left; }
 .guidetip p { margin: 0; flex: 1; color: var(--ink); font-size: 13px; line-height: 1.45; font-style: italic; }
 .wxintrobox .guidetip { margin: 0 0 12px; }
 .guidetip .guideok { flex: none; }
