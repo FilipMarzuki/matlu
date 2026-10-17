@@ -37,16 +37,15 @@ const parts = (t = en): HeaderParts => ({
 const MOVED = ['data-cmd="reset"', 'data-cmd="weekly"', 'href="/play-with-ai/"', 'data-cmd="features"', 'lookswitch', 'devchip'];
 
 describe('the meny ui feature (#1808)', () => {
-  it('is a ui feature, experimental, on by default, registered after every rule feature, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after the ui features before it, and no run saves it', () => {
     expect(featureById(MENY_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1808 });
     expect(uiFeatureOn({}, MENY_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [MENY_FEATURE]: false }, MENY_FEATURE)).toBe(false);
     expect(Object.keys(ruleFeatures())).not.toContain(MENY_FEATURE);
-    // The rule features' order is pinned elsewhere; the ui features come after them all (the
-    // two-row header, #1824, right after the Menu it builds on).
-    const at = FEATURES.findIndex(f => f.id === MENY_FEATURE);
-    expect(FEATURES.slice(at).every(f => f.kind === 'ui')).toBe(true);
-    expect(FEATURES[at + 1]?.id).toBe('two-row-header');
+    // The ui features after it (the queue beside the actions, #1826) come later; the ones before stay before.
+    const at = (id: string): number => FEATURES.findIndex(f => f.id === id);
+    expect(at(MENY_FEATURE)).toBeGreaterThan(at('backdrop'));
+    expect(at(MENY_FEATURE)).toBeLessThan(at('side-queue'));
   });
 });
 
