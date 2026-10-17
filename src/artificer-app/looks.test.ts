@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COLOR_TOKENS, IMAGE_TOKENS, SHADOW_TOKENS, ERAS, LOOKS, LOOK_IDS, FADE_MS, contrast, eraOf, stepOf, hexRgb,
-  isLookId, lookFromQuery, lookOfGame, looksCss, shownLook, loadLookChoice, saveLookChoice, stepLook, LOOK_SWITCHER_FEATURE, type LookId,
+  isLookId, lookFromQuery, lookOfGame, looksCss, shownLook, loadLookChoice, saveLookChoice, stepLook, LOOK_SWITCHER_FEATURE, type LookId, type LookTokens,
 } from './looks';
 import { featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import { newGame, serialize } from './controller';
@@ -182,6 +182,26 @@ describe('every look is readable: WCAG AA (#1719)', () => {
 
   it('the faintest text (hints, meta) still reaches 3:1 on the background and panels', () => {
     for (const id of LOOK_IDS) for (const bg of SURFACES) expect(contrast(LOOKS[id].tokens.faint, LOOKS[id].tokens[bg]), `${id} faint on ${bg}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the guide\'s tip line has its own opaque plate, its text AA on it in every look (#1855)', () => {
+    // style.css `.guidetip` and `.guidetip p`: one look colour each, so the tip reads the same over
+    // the page, a panel or the living backdrop's night sky.
+    const decls = declarations(readFileSync(join(HERE, 'style.css'), 'utf8'));
+    const one = (selector: string, prop: string): string => {
+      const d = decls.filter(x => x.selector === selector && x.prop === prop);
+      expect(d, `${selector} ${prop}`).toHaveLength(1);
+      const m = /^var\(--([a-z0-9-]+)\)$/.exec(d[0].value);
+      expect(m, `${selector} { ${prop}: ${d[0].value} } is one look colour`).not.toBeNull();
+      return m![1];
+    };
+    const bg = one('.guidetip', 'background') as keyof LookTokens;
+    const fg = one('.guidetip p', 'color') as keyof LookTokens;
+    for (const id of LOOK_IDS) {
+      const t = LOOKS[id].tokens;
+      expect(hexRgb(t[bg]), `${id} ${bg} is opaque`).not.toBeNull();
+      expect(contrast(t[fg], t[bg]), `${id}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('computes contrast the WCAG way', () => {
