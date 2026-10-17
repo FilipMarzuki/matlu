@@ -39,7 +39,7 @@ import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_
 import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
-import { descriptiveMapOn, describeLand, mapMode, mapNeeds } from '../artificer/descriptive-map';
+import { descriptiveMapOn, describeLand, mapMode, mapNeeds, noCampYet } from '../artificer/descriptive-map';
 import { mapLearningOn, mapSessionOpen, mapUnlockNeedTexts, MAP_DRAW_HOURS } from '../artificer/map-learning';
 import { campAsActionOn, knownSpots, ratingCountsText, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
 import { buildsText, keptCamps } from '../artificer/camp-builds';
@@ -384,7 +384,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     // Learning the map (#1754): what the unlock still needs, with how far along each is, and once it's open, the action.
     const learning = mapLearningOn(s);
     const needs = learning ? mapUnlockNeedTexts(s) : mapNeeds(s);
-    lines.push(`WHAT YOU KNOW OF THE LAND AROUND CAMP (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
+    // Before you've made camp (#1834) the land is around you, not around a camp.
+    lines.push(`WHAT YOU KNOW OF THE LAND AROUND ${noCampYet(s) ? 'YOU' : 'CAMP'} (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
     for (const l of describeLand(s)) lines.push(`  ${l}`);
     if (needs.length) lines.push(`  To draw your own map you need ${needs.length > 2 ? `${needs.slice(0, -1).join(', ')} and ${needs[needs.length - 1]}` : needs.join(' and ')}.`);
     if (mapSessionOpen(s)) lines.push(`  You can draw your own map now: do "drawmap" (${MAP_DRAW_HOURS}h at camp), and your Warden places what you've found by its direction and distance from camp.`);

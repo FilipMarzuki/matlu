@@ -215,7 +215,8 @@ describe('One LAND tab, organised by ring (#1730)', () => {
   it('shows everything the old MAP tab showed: the camp line, every place in words, the intro, what a map still needs', () => {
     const s = described();
     const text = shown(landTab(s, en));
-    expect(text).toContain('THE LAND — what you know of it, from camp');
+    // No camp has been made in this state (camp as an action, #1732), so it's told from where you stand (#1834).
+    expect(text).toContain('THE LAND — what you know of it, from here');
     // Every line the description had (and the AI reads), each once: camp at the top, the places under their rings.
     const lines = describeLand(s);
     expect(lines.length).toBeGreaterThan(2);

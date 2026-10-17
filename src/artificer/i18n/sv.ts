@@ -163,6 +163,7 @@ const core: Catalog = {
   'head.land': 'LANDET — det du vet, ring för ring',
   'head.pins': 'NÅLAR — platser du minns',
   'head.landDescribed': 'LANDET — det du vet om det, sett från lägret',
+  'head.landDescribedHere': 'LANDET — det du vet om det, sett härifrån',
   'head.yourMap': 'DIN KARTA — ritad efter det du har sett',
   'head.reachMap': 'REACH — en karta över det du vet',
   'head.history': 'REACH — dess historia',
