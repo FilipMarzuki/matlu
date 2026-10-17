@@ -42,6 +42,19 @@ export const meny = {
   'meny.devOpen': 'DEV MODE…',
   // How to play (#1824): the old ? panel, now a section of the Menu after the guide.
   'meny.howTo': 'HOW TO PLAY',
+  // How to play in the journal (#1838, artificer-app/journal-notes.ts): the Warden's own notes,
+  // first person, at the front of the journal. Same substance as help.ledeHtml.
+  'notes.title': 'MY NOTES',
+  'notes.open': 'My notes: how things work here',
+  'notes.close': '← BACK TO THE JOURNAL',
+  'notes.arrive': 'I came here alone with almost nothing, and winter is coming. I need a larder, a shelter that will hold through the winter, firewood, and a sound body and mind.',
+  'notes.queue': 'Each day I plan a queue of tasks, then set off. Every task takes hours and costs Vigor (body) or Clarity (mind).',
+  'notes.evening': 'Each evening I eat and drink. Water matters most: a few dry nights wear down body and mind. Food can wait a while, but every night in a row without is harder.',
+  'notes.land': 'First I scout close by, then I go further out. Working the land is how I learn it.',
+  'notes.winter': 'The snow comes on day {winterDay}, and then there is no way out until the thaw. I have to last until then.',
+  'notes.save': 'This journal is kept in this browser.',
+  'notes.menyNote': 'How to play is in my journal now, as my own notes.',
+  'notes.menyLink': '📖 MY NOTES, IN THE JOURNAL',
   // The two-row header's resources (#1824, artificer-app/vital-words.ts): a word for each level,
   // full (0) to nearly gone (3). The word carries the meaning; the pill's border its colour.
   'vital.word.vigor.0': 'Energized',

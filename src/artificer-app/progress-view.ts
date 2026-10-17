@@ -96,13 +96,17 @@ export function pastRuns(history: readonly RunRecord[], t: T): string {
     + `<span class="rd">${esc(t('progress.day', { n: r.day }))}${r.readyDay ? ` · ${esc(t('progress.ready', { n: r.readyDay }))}` : ''} · ${esc(t('progress.recipes', { n: r.recipes }))}</span>${r === best ? `<span class="rb">${esc(t('progress.best'))}</span>` : ''}</li>`).join('')}</ol>`;
 }
 
-/** The PROGRESS tab: the season, the outlook, the milestones and the past runs; the journal (already drawn) beside them. */
-export function progressTab(s: Region1State, history: readonly RunRecord[], journalHtml: string, t: T): string {
+/**
+ * The PROGRESS tab: the season, the outlook, the milestones and the past runs; the journal (already
+ * drawn) beside them. `journalHead` is the journal's heading when the page draws it itself (with the
+ * 📖 and the notes, #1838); left out, the plain JOURNAL heading.
+ */
+export function progressTab(s: Region1State, history: readonly RunRecord[], journalHtml: string, t: T, journalHead?: string): string {
   return `<div class="cols">
         <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}</section>
-        <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p><ul class="full">${journalHtml}</ul></section>
+        <section class="box log">${journalHead ?? `<p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p>`}<ul class="full">${journalHtml}</ul></section>
       </div>`;
 }
