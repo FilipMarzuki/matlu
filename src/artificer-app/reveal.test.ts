@@ -52,15 +52,15 @@ describe('each element’s rule (#1792)', () => {
     expect(began(a.sim)).toBe(false);
   });
 
-  it('acknowledging the weather brings the vitals, the FOCUS chip and the actions, and nothing else', () => {
-    expect([...revealedNow(ctx(fresh()))]).toEqual(['weather', 'vitals', 'focus', 'actions']);
+  it('acknowledging the weather brings the FOCUS chip and the actions, and nothing else: the bars wait for the first work', () => {
+    expect([...revealedNow(ctx(fresh()))]).toEqual(['weather', 'focus', 'actions']);
   });
 
   it('the first thing done brings one-at-a-time and End the day, even with the weather never acknowledged (a reload)', () => {
     const a = act(fresh(), suggestedAction(fresh().sim));
     expect(a.sim.hoursToday).toBeGreaterThan(0);
     const r = revealedNow(ctx(a, false));
-    for (const id of ['vitals', 'focus', 'actions', 'today'] as const) expect(r.has(id)).toBe(true);
+    for (const id of ['focus', 'actions', 'vitals', 'today'] as const) expect(r.has(id)).toBe(true);
     expect(r.has('queue')).toBe(false);
     expect(r.has('journal')).toBe(false);
   });
@@ -159,7 +159,7 @@ describe('a played run: nothing that appears disappears again (#1792)', () => {
     }
     // The run got far enough for the whole first morning to unfold.
     for (const id of ['weather', 'vitals', 'focus', 'actions', 'today', 'queue', 'journal', 'stores', 'sites'] as const) expect(seen.has(id), id).toBe(true);
-    expect(order.slice(0, 4)).toEqual(['weather', 'vitals', 'focus', 'actions']);
+    expect(order.slice(0, 4)).toEqual(['weather', 'focus', 'actions', 'vitals']);
     expect(a.sim.canPlan).toBe(true);
     expect(siteRatingCounts(a.sim).good + siteRatingCounts(a.sim).great > 0 || a.sim.site !== null).toBe(true);
   });
@@ -169,10 +169,12 @@ describe('the lines (#1792)', () => {
   it('come one at a time, in the registry’s order, and never once the player has played before', () => {
     const r = revealedNow(ctx(fresh()));
     expect(activeTip(r, [], false)).toBe('weather');
-    expect(activeTip(r, ['weather'], false)).toBe('vitals');
-    expect(activeTip(r, ['weather', 'vitals'], false)).toBe('focus');
-    expect(activeTip(r, ['weather', 'vitals', 'focus'], false)).toBe('actions');
-    expect(activeTip(r, ['weather', 'vitals', 'focus', 'actions'], false)).toBeNull();
+    expect(activeTip(r, ['weather'], false)).toBe('focus');
+    expect(activeTip(r, ['weather', 'focus'], false)).toBe('actions');
+    expect(activeTip(r, ['weather', 'focus', 'actions'], false)).toBeNull();
+    // The bars' line comes after the first work.
+    const worked = revealedNow(ctx(act(fresh(), suggestedAction(fresh().sim))));
+    expect(activeTip(worked, ['weather', 'focus', 'actions'], false)).toBe('vitals');
     expect(activeTip(r, [], true)).toBeNull();
   });
 

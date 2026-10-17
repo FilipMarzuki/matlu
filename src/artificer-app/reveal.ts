@@ -150,9 +150,10 @@ export const snowStays = (s: Pick<Region1State, 'day' | 'config'>): boolean => s
 /** The Plan screen's elements, in the order the first morning reveals them (and their lines are due). */
 export const REVEALS: readonly Revealable[] = [
   { id: 'weather', shown: () => true, line: 'guide.line.weather', used: c => c.weatherAcked },
-  { id: 'vitals', shown: afterWeather, line: 'guide.line.vitals' },
   { id: 'focus', shown: afterWeather, line: 'guide.line.focus' },
   { id: 'actions', shown: afterWeather, line: 'guide.line.actions', used: c => began(c.sim) },
+  // The bars come once something has been done (the owner): the first work is when you see them drain.
+  { id: 'vitals', shown: c => began(c.sim), line: 'guide.line.vitals' },
   // Before planning is learned (#1350): one thing at a time, and End the day.
   { id: 'today', shown: c => began(c.sim), line: 'guide.line.today', used: c => c.sim.day > 1 || c.sim.canPlan },
   { id: 'queue', shown: c => c.sim.canPlan, line: 'guide.line.queue', used: c => c.queued > 0 },
