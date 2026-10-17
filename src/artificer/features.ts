@@ -282,6 +282,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'A night at camp is worked out the way cold-weather gear is rated: the air, wind and fire where you sleep against what you wear, sleep in and lie on. A cave stays about +4 °C all winter (each cave its own, within a degree), still and damp, and its rock needs a good pad; wind on a hilltop makes the night colder than the air; walls and a fire inside them warm the air. A better sleeping bag or pad helps as much as its rating says.',
   },
   {
+    // A rules feature: a stop is a move in the run's log ("the queue's action N, stopped at hour h"),
+    // replayed by playing the day again from the morning with that action cut short (stop-action.ts),
+    // so a run from before it (absent: false) has no such move and plays as it always did.
+    id: 'stop-action', name: 'Stop an action partway', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1815,
+    note: 'While the day plays out, Stop ends the action running at that moment. On the walk out you turn back with nothing; water and a hunt bring nothing until they\'re done; wood, forage, stone and fish bring a share for the work done; exploring keeps what you\'d seen; on the walk back you have it all; at camp nothing is made or used up. The rest of the queue stays queued.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

@@ -125,8 +125,9 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     inputSchema: z.object({
       game_id: gameId,
       actions: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"]. With the action-length feature, a gathering action can take a length: {"q": "wood@2", "hours": 3} or {"q": "wood", "until": 10}.'),
+      stop: z.object({ action: z.number().int().min(0), hours: z.number().min(0) }).optional().describe('With the stop-action feature: stop the plan\'s action `action` (from 0) `hours` into it. It keeps what it had got by then (the view\'s STOPPING line says what), and the day pauses after it, with no night.'),
     }),
-  }, async ({ game_id, actions }) => after(await call('POST', movesPath(game_id), { move: { plan: actions } })));
+  }, async ({ game_id, actions, stop }) => after(await call('POST', movesPath(game_id), { move: { plan: actions, ...(stop ? { stop } : {}) } })));
 
   server.registerTool('choose', {
     title: 'Answer an encounter',

@@ -216,6 +216,8 @@ const core = {
   'timer.speed': 'Speed',
   'timer.skip': '⏭ SKIP',
   'timer.skipTip': 'Finish now (Esc)',
+  'timer.stop': '⏹ STOP',
+  'timer.stopTip': 'Stop this action now: keep what you have, and leave the rest of the queue queued',
   'timer.action': 'This action',
 
   // ── The opening's controls (its words are in ./en/opening.ts) ──────────────

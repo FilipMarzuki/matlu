@@ -73,7 +73,7 @@ import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 import { nowTotal, queueTimes, timerClock } from './time-view';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
-import { playAct, playDay, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
+import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
@@ -1292,6 +1292,8 @@ interface Playing {
   /** The step the page was last drawn at, so the page is redrawn only when one finishes. */
   drawn: number;
   lock: WakeLockHandle | null;
+  /** The run's log as the day playing began, before its move went in: a stop (#1815) writes its own move in that one's place. */
+  keptBefore: Kept | null;
 }
 let playing: Playing | null = null;
 
@@ -1311,7 +1313,7 @@ function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
     render(state);
     return;
   }
-  const pl: Playing = { plays, moveOf, day: 0, t: 0, last: null, frame: 0, drawn: -1, lock: null };
+  const pl: Playing = { plays, moveOf, day: 0, t: 0, last: null, frame: 0, drawn: -1, lock: null, keptBefore: kept };
   playing = pl;
   startDay(pl);
   void holdScreen(pl);
@@ -1323,10 +1325,39 @@ function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
 /** A day begins on the timer: it goes into the game (logged and saved) at once. */
 function startDay(pl: Playing): void {
   const p = pl.plays[pl.day];
+  pl.keptBefore = kept;
   kept = recordMove(kept, state, p.after, pl.moveOf(p));
   keep(p.after);
   pl.t = 0;
   pl.drawn = -1;
+}
+
+/**
+ * Stop (#1815, `stop-action`): the action running ends now. The day is played again from its
+ * morning with that action cut short, and that goes into the game (logged and saved) in place of
+ * the day as it was going to be: the rest of the queue stays queued, the night doesn't come, and
+ * the days after it in a whole-queue run never start. The timer plays on to the end of the cut
+ * action (the walk home), from where it was stopped.
+ */
+function stopTimer(): void {
+  const pl = playing;
+  if (!pl) return;
+  const p = pl.plays[pl.day];
+  const m = momentOf(pl);
+  const stop = stopPoint(p, m);
+  if (!stop) return;
+  const item = p.steps[stop.action].item;
+  const cut = p.fromQueue ? playStopped(p.before, stop) : playActStopped(p.before, item, stop.hours);
+  if (cut.after === p.before) return;
+  const move: WebMove = p.fromQueue ? { plan: p.before.queue, stop } : { do: item, stop: { action: 0, hours: stop.hours } };
+  kept = recordMove(pl.keptBefore, p.before, cut.after, move);
+  keep(cut.after);
+  pl.plays = [cut];
+  pl.day = 0;
+  pl.moveOf = () => move;
+  pl.t = playTimeAt(cut, stop.action, m.frac * p.steps[stop.action].hours);
+  pl.drawn = -1;
+  render(state);
 }
 
 function frame(pl: Playing, now: number): void {
@@ -1397,7 +1428,7 @@ function timerPanel(): string {
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span></div>
+    <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span>${stopPoint(p, m) ? `<button class="btn tstop" data-pbstop title="${esc(t('timer.stopTip'))}">${esc(t('timer.stop'))}</button>` : ''}</div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
     <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(logText(l, t))}</li>`).join('') : '<li class="wait">…</li>'}</ul>
   </section>`;
@@ -1724,6 +1755,7 @@ root.addEventListener('click', e => {
   if (playing) {
     if (d.speed) { setSpeed(parseSpeed(d.speed)); return; }
     if (d.pbskip !== undefined) { skipTimer(); return; }
+    if (d.pbstop !== undefined) { stopTimer(); return; }
     if (!d.tab && !d.seeland && d.cmd !== 'help' && !d.lang && !d.lookstep) return; // the look switcher (#1736) only redraws
   }
   // Drawing your map (#1754): the session's own taps, and the action's button opens the session first.

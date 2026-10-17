@@ -27,6 +27,7 @@ import { validCampSpot } from '../artificer/camp-sites';
 import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
 import { validSiteBuilds, CAMP_BUILDS_PER_SITE } from '../artificer/camp-builds';
 import { validPatches } from '../artificer/action-length';
+import { stopOn, type DayStop } from '../artificer/stop-action';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
@@ -215,9 +216,11 @@ export const queueLocked = (a: AppState): string | null =>
  * Do one thing now (#1350): before planning is learned, each action runs as it's chosen.
  * Nothing happens once the run is over or the day's hours are spent.
  */
-export function act(a: AppState, item: QueueItem): AppState {
+export function act(a: AppState, item: QueueItem, stop?: number): AppState {
   if (a.sim.outcome || a.stage === 'road' || a.sim.hoursToday >= DAY_HOURS) return a;
-  return { ...a, sim: runAction(a.sim, item) };
+  // Stopped partway (#1815): only with the run's `stop-action` switch on; off, a stop is no move at all.
+  if (stop !== undefined && !stopOn(a.sim)) return a;
+  return { ...a, sim: runAction(a.sim, item, stop) };
 }
 
 /** Choose an option in the encounter that's waiting (#1347). The day stays where it was until you carry on. */
@@ -296,6 +299,17 @@ export function runQueuedDay(a: AppState): AppState {
   if (a.sim.outcome) return a;
   const r = runDay(a.sim, a.queue);
   // A run that ends tonight (the thaw, or the body giving out) leaves nothing to plan.
+  return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
+}
+
+/**
+ * Today's queue with one of its actions stopped partway (#1815): the day played again from the
+ * morning with action `stop.action` cut `stop.hours` in. The day pauses after it (no night), and
+ * the rest of the queue stays queued. With the run's `stop-action` switch off, nothing happens.
+ */
+export function stopQueuedDay(a: AppState, stop: DayStop): AppState {
+  if (a.sim.outcome || !stopOn(a.sim)) return a;
+  const r = runDay(a.sim, a.queue, stop);
   return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
 }
 
