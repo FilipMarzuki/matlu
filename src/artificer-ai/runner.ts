@@ -591,11 +591,11 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   if (player.decidePack) {
     const decidePack = player.decidePack.bind(player);
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply);
+    let d = parsePackDecision(reply, s.config.world);
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
       reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply);
+      d = parsePackDecision(reply, s.config.world);
       if (!d.ok) errors.push(...d.errors);
     }
     if (d.ok) s = repack(s, d.decision.pack);

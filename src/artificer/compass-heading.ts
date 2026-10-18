@@ -35,7 +35,7 @@
  */
 
 import { featureOn } from './features';
-import { hasKit } from './kit';
+import { hasKit, hasAxeFishing } from './kit';
 import { HOOK_LINE } from './hunting-gear';
 import { seedOf, streamFor } from './rng';
 import type { WeatherId } from './world';
@@ -88,10 +88,13 @@ export const pullHolds = (n: NeedleCompass, day: number): boolean => day - n.mad
 /** Is the sun out enough for a shadow stick? */
 export const sunShows = (w: WeatherId): boolean => SUN_WEATHER.includes(w);
 
-/** What you'd magnetise: the sewing kit's needle, else the hook from a hook and line, else nothing. */
-export function needleSource(s: Pick<Run, 'tools' | 'kit'>): NeedleTool | null {
+/**
+ * What you'd magnetise: the sewing kit's needle, else a hook (from a hook and line, or the fishing
+ * kit's tin, #1870, with its switch on), else nothing.
+ */
+export function needleSource(s: Pick<Run, 'tools' | 'kit' | 'config'>): NeedleTool | null {
   if (hasKit(s, 'sewing-kit')) return 'needle';
-  return s.tools.some(t => t.item === HOOK_LINE) ? 'hook' : null;
+  return s.tools.some(t => t.item === HOOK_LINE) || hasAxeFishing(s, 'fishing-kit') ? 'hook' : null;
 }
 
 /**

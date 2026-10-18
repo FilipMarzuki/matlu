@@ -75,6 +75,8 @@
     "flamingo": { "tier": 0, "brief": "A deflated pool flamingo folded into a flat bundle; bright pink plastic, a yellow beak; the long neck flopping over." },
     "binoculars": { "tier": 0, "brief": "A pair of old binoculars on a leather strap; black body, brass trim; light glinting on one lens." },
     "duct-tape": { "tier": 0, "brief": "A half-used roll of duct tape; dull silver tape, cardboard core; a torn end curling off the roll." },
+    "hand-axe": { "tier": 1, "brief": "A scout's small hand axe: a short ash handle, a dark steel head with a bright ground edge; a brown leather edge guard half slipped off." },
+    "fishing-kit": { "tier": 0, "brief": "A small dented tin, lid open: a coil of green line, a few rust-spotted hooks, a red-and-white float and a lead sinker." },
     "sewing-kit": { "tier": 0, "brief": "A small round tin sewing kit, lid open; tin with a floral print, reels of thread in many colours; a needle stuck in a pincushion." },
     "magnifying-glass": { "tier": 0, "brief": "A round magnifying glass with a handle; brass rim, black handle; a bright spot of sunlight in the lens." },
     "bird-book": { "tier": 0, "brief": "A small field guide to birds, well thumbed; green cloth cover with a white bird on it; a pencil tucked in as a bookmark." },
