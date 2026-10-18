@@ -184,6 +184,7 @@ export const journal = {
   'log.meat.foxNight': 'A fox got at the meat in the night: {n} raw food gone, and its tracks all round camp by morning.',
   'log.meat.wolves': 'Wolves came into camp in the night. You lay still while they tore at the meat, and by first light all of it was gone.',
   'log.meat.bear': 'A bear came into camp in the night. You lay frozen while it ate, and by first light all the meat was gone.',
+  'log.meat.bearStored': 'A bear came into camp in the night and got at the meat you\'d put by: {n} raw food gone.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
   // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.

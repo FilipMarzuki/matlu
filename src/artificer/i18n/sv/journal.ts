@@ -316,6 +316,7 @@ export const journalSv: Record<JournalKey, string> = {
   'log.meat.foxNight': 'En räv kom åt köttet i natt: {n} mat borta, och på morgonen dess spår runt hela lägret.',
   'log.meat.wolves': 'Vargar kom in i lägret i natt. Du låg stilla medan de slet i köttet, och i gryningen var allt borta.',
   'log.meat.bear': 'En björn kom in i lägret i natt. Du låg som förstenad medan den åt, och i gryningen var allt kött borta.',
+  'log.meat.bearStored': 'En björn kom in i lägret i natt och kom åt köttet du lagt undan: {n} mat borta.',
   'log.huntEnded': 'Bytet föll {h} h in i jakten: du gick hem med det, och resten av tiden är din.',
   'log.huntOn': 'Bytet var lätt nog att packa ner, så du jagade vidare — och fick mer: {n} mat.',
   'log.sinew': '{line} Du tog vara på senor: {n}.',

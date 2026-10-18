@@ -52,7 +52,7 @@ import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
-import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
+import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -781,6 +781,24 @@ function scavenge(next: Region1State, open: number, rand: () => number, guards: 
   say(next, theftLine(theft, night), 'hardship', at);
   // A big animal in camp at night (#1823): a frightening encounter, though nobody is hurt.
   if (theft.big) next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+}
+/**
+ * A bear at the stored meat in the night (#1823): hung meat and a stone cache keep everything else
+ * off, but a bear can climb or heave the stones aside, rarely. Its own stream, so it never moves the
+ * open meat's draws. Only the big threat can reach stored meat (its small pass-through is 0), and
+ * what it takes is all of what was put by. Mutates `next`.
+ */
+function raidStore(next: Region1State, fire: boolean): void {
+  const stored = storedMeatOf(next);
+  if (stored <= 0 || !next.meatStored || next.config.world.luck === false) return;
+  const risk = leftover([...nightGuards(fire), placeGuard(next.meatStored.place)], NIGHT_BASE);
+  const u = storedScavengers(seedOf(next.character.id), next.day)();
+  if (u >= risk.big) return;
+  next.meat = meatOf(next) - stored;
+  next.stores.rawFood -= stored;
+  delete next.meatStored;
+  say(next, storedTheftLine(stored), 'hardship');
+  next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
 }
 /** The ranged tool a Warden hunts with (#1821): the bow if they have one, else a sling, else none. */
 export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null => (hasItem(s, BOW) ? 'bow' : hasItem(s, SLING) ? 'sling' : null);
@@ -3325,6 +3343,7 @@ export function endDay(s: Region1State): Region1State {
   if (scavengersOn(next)) {
     const lit = fire.kept || (fire.freeze === 0 && next.stores.firewood > 0);
     scavenge(next, openMeatOf(next), nightScavengers(seedOf(next.character.id), next.day), nightGuards(lit), true);
+    raidStore(next, lit);
   }
 
   // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.

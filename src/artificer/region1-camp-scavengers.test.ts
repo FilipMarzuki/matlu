@@ -7,7 +7,8 @@
  *                      fox or ravens take 25–50% of it, with a journal line (and tracks).
  *   2. At camp      — the same, but the Warden stays at camp that day: nothing is taken by day.
  *   3. The night    — a fire burning through it: near zero; no fire, asleep: half the risk of away.
- *   4. Stored       — Store the meat (hung with cord, or a stone cache): nothing is ever taken.
+ *   4. Stored       — Store the meat (hung with cord, or a stone cache): no fox, raven or wolf ever
+ *                      gets it; a bear only rarely (the owner: "a bear sometimes gets it"), all of it.
  *   5. Big night    — wolves or a bear take all the unguarded meat; the fright costs Clarity, nobody is hurt.
  *   6. Same seed    — the same thefts; with the switch off or absent nothing changes (the journal is
  *                      the one main played before #1823).
@@ -25,7 +26,7 @@ import { FULL_WORLD, type WorldConfig } from './world';
 import { ruleFeatures } from './features';
 import { seedOf } from './rng';
 import {
-  GUARDS, THREATS, NIGHT_BASE, DAY_BASE, BIG_CLARITY, PROTECTION_WORDS, leftover, protectionOf, rollTheft, nightScavengers,
+  GUARDS, THREATS, NIGHT_BASE, DAY_BASE, BIG_CLARITY, PROTECTION_WORDS, leftover, protectionOf, rollTheft, nightScavengers, storedScavengers, storedTheftLine,
   type Guard,
 } from './camp-scavengers';
 import { observe } from '../artificer-ai/observe';
@@ -116,7 +117,7 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
     expect(lit).toBeLessThan(dark / 4);
   });
 
-  it('4. stored safely (Store the meat), nothing is ever taken while it is stored', () => {
+  it('4. stored safely (Store the meat), no small animal or wolf ever takes it; a bear only rarely', () => {
     expect(ACTIONS.storemeat.name).toBe('Store the meat');
     expect(enT('act.storemeat')).toBe('Store the meat');
     expect(svT('act.storemeat')).toBe('Förvara köttet');
@@ -130,20 +131,45 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
     const stoned = runAction({ ...bare, stores: { ...bare.stores, materials: 2, stone: 3 } }, 'storemeat');
     expect(stoned.meatStored).toEqual({ n: 8, place: 'cache' });
     expect(stoned.stores.stone).toBe(3);
-    // Long trips and fireless nights: nothing taken, ever, while it's stored. Rations neither.
+    // Long trips and fireless nights: no fox, raven or wolf ever gets at stored meat, and rations
+    // are never touched. A bear can, rarely: then all of what was put by is gone.
+    let bears = 0;
     for (const id of ids('w-stored', 150)) {
       let s = runAction({ ...warden(id), stores: { ...warden(id).stores, materials: 2 } }, 'storemeat');
       s = endDay(runAction(s, 'wood@2'));
-      expect(robbed(s)).toBe(false);
+      expect(s.log.some(e => /fox|ravens|Wolves/.test(e.text))).toBe(false);
+      expect(s.stores.rations).toBe(2);
+      if (robbed(s)) { bears++; expect(meatOf(s)).toBe(0); continue; }
       // Only supper (one raw food) came out of it, and what's left is still stored.
       expect(meatOf(s)).toBe(7);
       expect(storedMeatOf(s)).toBe(7);
-      expect(s.stores.rations).toBe(2);
     }
+    expect(bears).toBeLessThanOrEqual(3);
     // The AI's observation and the camp view say it's guarded.
-    expect(observe(corded)).toMatch(/MEAT: 8 raw meat hangs out of reach \(hung with cord\) — secure/);
+    expect(observe(corded)).toMatch(/MEAT: 8 raw meat hangs out of reach \(hung with cord\) — well protected/);
     expect(meatBlock(corded, enT)).toMatch(/hangs out of reach/);
     expect(meatBlock(corded, svT)).toMatch(/hänger utom räckhåll/);
+  });
+
+  it('4b. a bear at the stored meat: rare, its own stream, all of what was put by goes, the fright costs Clarity', () => {
+    // Asleep, no fire, the meat hung: a bear's chance is a small fraction of the meat lying out's.
+    const risk = leftover(['asleep', 'hung'], NIGHT_BASE);
+    expect(risk.small).toBe(0);
+    expect(risk.big).toBeGreaterThan(0);
+    expect(risk.big).toBeLessThan(leftover(['asleep'], NIGHT_BASE).big / 5);
+    const id = ids('w-bear-store', 20000).find(i => storedScavengers(seedOf(i), 1)() < risk.big)!;
+    expect(id).toBeDefined();
+    const s = { ...warden(id, { meat: 10 }), meatStored: { n: 6, place: 'hung' as const } };
+    const night = endDay(s);
+    const calm = endDay({ ...s, meat: 4, stores: { ...s.stores, rawFood: 4 }, meatStored: undefined });
+    // All six put by are gone; what lay out took its own (separate) chance.
+    expect(storedMeatOf(night)).toBe(0);
+    expect(night.meatStored).toBeUndefined();
+    const line = night.log.find(e => /got at the meat you'd put by/.test(e.text))!.text;
+    expect(line).toBe(storedTheftLine(6));
+    expect(simLine(line, svT)).toBe('En björn kom in i lägret i natt och kom åt köttet du lagt undan: 6 mat borta.');
+    expect(night.vitals.clarity.current).toBeLessThan(calm.vitals.clarity.current);
+    expect(night.injuries ?? []).toEqual(calm.injuries ?? []);
   });
 
   it('5. a rare big-animal night: all unguarded raw meat is gone, the fright costs Clarity, nobody is injured', () => {
@@ -191,7 +217,7 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
 
   it('#1859-1. each guard alone leaves each threat as its row of the table', () => {
     const table: Record<Guard, [number, number, number]> = {
-      campDay: [0, 0, 1], asleep: [0.5, 0.5, 1], fire: [0.1, 0.1, 0.8], hung: [0, 0, 0.2], cache: [0, 0, 0.2], preserved: [0, 0, 0],
+      campDay: [0, 0, 1], asleep: [0.5, 0.5, 1], fire: [0.1, 0.1, 0.8], hung: [0, 0.1, 0.2], cache: [0, 0.1, 0.2], preserved: [0, 0, 0],
     };
     for (const [g, row] of Object.entries(table) as [Guard, [number, number, number]][]) {
       expect(leftover([g])).toEqual({ small: row[0], big: row[1], vermin: row[2] });
@@ -219,7 +245,8 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
     expect(protectionOf([])).toBe('open');
     expect(protectionOf(['asleep'])).toBe('fair');
     expect(protectionOf(['asleep', 'fire'])).toBe('well');
-    expect(protectionOf(['hung'])).toBe('secure');
+    expect(protectionOf(['hung'])).toBe('well');
+    expect(protectionOf(['preserved'])).toBe('secure');
     // Meat lying out: away it lies open; tonight, asleep without a fire, fairly safe; with one, well protected.
     const open = warden('w-word');
     expect(observe(open)).toMatch(/MEAT: 8 raw meat lies in camp — while you're away: lies open · tonight \(asleep\): fairly safe/);

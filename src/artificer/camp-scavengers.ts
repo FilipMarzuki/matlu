@@ -60,11 +60,11 @@ export const GUARDS: Readonly<Record<Guard, PerThreat>> = {
   asleep: { small: 0.5, big: 0.5, vermin: 1 },
   // A fire burning through the night: the best guard you can keep (the owner). A little vermin cover.
   fire: { small: 0.1, big: 0.1, vermin: 0.8 },
-  // Hung in a tree with cord, high and away from the trunk. #1859's draft says "part" for big ones;
-  // #1823's acceptance asks that nothing is ever taken while it's stored, so it's full for now.
-  hung: { small: 0, big: 0, vermin: 0.2 },
-  // A stone cache: the meat under a cairn of heavy stones. As hung, for now (see above).
-  cache: { small: 0, big: 0, vermin: 0.2 },
+  // Hung in a tree with cord, high and away from the trunk: out of reach of foxes, ravens and wolves,
+  // but a bear can climb or pull it down, rarely (the owner: "a bear sometimes gets it").
+  hung: { small: 0, big: 0.1, vermin: 0.2 },
+  // A stone cache: the meat under a cairn of heavy stones. Wolves can't shift them; a bear can, rarely.
+  cache: { small: 0, big: 0.1, vermin: 0.2 },
   // Smoked or dried (rations, from Preserve food): nothing in it draws a fox or a wolf (#1859's "—"), and mice can't
   // get into a smoked, wrapped ration. Never at risk.
   preserved: { small: 0, big: 0, vermin: 0 },
@@ -158,6 +158,14 @@ export function rollTheft(rand: () => number, n: number, risk: PerThreat, night:
 
 /** A night's draws at camp: a stream of its own, keyed on the day. */
 export const nightScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night');
+/**
+ * The stored meat's own draws at night (#1823): a bear at the hung meat or the cache is a separate
+ * roll from the meat lying out, so storing meat never shifts the open meat's draws.
+ */
+export const storedScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night-stored');
+/** The journal's line when a bear gets at the meat that was put by (#1823). Only a bear can: wolves can't climb or shift stones. */
+export const storedTheftLine = (n: number): string => `A bear came into camp in the night and got at the meat you'd put by: ${n} raw food gone.`;
+
 /** A long absence's draws: a stream of its own, keyed on the hour the trip began. */
 export const awayScavengers = (seed: number, day: number, hour: number): (() => number) => streamFor(seed, day, `scavengers@${hour}`);
 
