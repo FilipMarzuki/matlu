@@ -317,6 +317,12 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Raw meat from hunting and traps left at camp can draw animals: on a long trip away a fox or ravens may take some, and at night too, unless a fire burns (asleep at camp, the risk is halved). Store the meat (hung with cord or under a stone cache) keeps it safe; smoked or dried rations are always safe. Rarely, at night, wolves or a bear take all the meat lying out, and the fright costs Clarity. How well the meat is protected is said in a word: lies open, fairly safe, well protected, secure.',
   },
   {
+    // A rules feature (#1827): it changes what the Warden can read off a card, and adds a count of
+    // what they've done to the run (`familiar`), so a run from before it (absent: false) reads as it did.
+    id: 'forecasts', name: 'Forecasts from INT and experience', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1827,
+    note: 'What a task or craft will bring is learned by doing it: a task you have never done at that distance says you don\'t know, a few tries give a rough word, and enough tries (fewer with more INT) show the numbers. Crafts the same: never made, you\'re not sure you can; with practice, how likely it is, the grade and the cost in rough words; then the real odds, the grade and the exact cost. With INT 9 or more and everything in the queue tried before, the queue forecasts the day; with INT 13 and a week played, or three weeks at any INT, the days after it too. Rough words are sometimes a step off.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

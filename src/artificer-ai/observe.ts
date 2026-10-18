@@ -49,6 +49,8 @@ import { buildsText, keptCamps } from '../artificer/camp-builds';
 import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
 import { nowText, nowWords, timeWordsOn } from '../artificer/time-words';
 import { makeT } from '../artificer/i18n';
+import { taskCard, craftCard } from '../artificer-app/forecast-words';
+import { forecastsOn, knowThreshold } from '../artificer/forecasts';
 import { shown } from '../artificer/action-visibility';
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
 import { respondedOn, type JournalEntry } from '../artificer/journal';
@@ -142,6 +144,20 @@ const fl = (x: number): number => Math.floor(x + 1e-9);
 const r0 = (x: number): number => Math.round(x);
 /** Hours to a tenth: tools, a hurt hand and the weather make them fractional (#1475). */
 const h1 = (x: number): number => Math.round(x * 10) / 10;
+
+/**
+ * A task's or craft's hint with `forecasts` on (#1827), or null when the exact hint stands: the
+ * page's words (forecast-words.ts) for a trip at this distance, and for a craft its line and its
+ * cost in rough words. Judged against the state as it is, with no queue (the AI plans whole days).
+ */
+function forecastHint(s: Region1State, id: ActionId, r: Ring, exact: string): string | null {
+  const task = taskCard(s, s, id, r, EN);
+  if (task) return task.text;
+  const c = craftCard(s, s, id, EN, exact);
+  if (!c || c.knowing === 'exact') return c ? c.text : null;
+  const cost = (c.rough ?? []).map(i => `${EN(`fc.qty.${i.level as 0 | 1 | 2}`)} ${i.item}`).join(' and ');
+  return `${c.text}${cost ? ` · costs ${cost}${c.waste ? `, ${EN('fc.waste')}` : ''}` : ''}`;
+}
 
 /** One-line yield hint per land action in a ring (same numbers the sim uses). */
 function landHint(s: Region1State, id: ActionId, r: Ring): string {
@@ -437,14 +453,18 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const why = blockedReason(s, id, r);
       // With distances (#1752): the distance, and its number for the reply's field ("gather @2").
       const ringTag = !def.ringed ? '' : distanceOn(s) ? ` @${r} ${DISTANCE_AT[r]}` : ` ring ${r}`;
-      const hint = def.ringed ? landHint(s, id, r)
+      const exactHint = def.ringed ? landHint(s, id, r)
         : id === 'sled' && distanceOn(s) ? SLED_HINT_DIST
         : id === 'coldPit' && featureOn(s.config.world.features, 'cold-pit-slows') ? COLD_PIT_SLOWS_HINT
         : (CAMP_HINT[id] ?? '');
+      // With `forecasts` (#1827): what the Warden knows of it, in the page's words, until the numbers are known.
+      const vague = forecastHint(s, id, r, exactHint);
+      const hint = vague ?? exactHint;
       const odds = tripOdds(s, id, r);
       const danger = why ? null : dangerOf(s, id, r);
       // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
-      const load = why ? null : tripLoad(s, queueId(id, r));
+      // …but not while a forecast stands in for the numbers (#1827): the load would give them away.
+      const load = why || vague ? null : tripLoad(s, queueId(id, r));
       // How it would feel out there now (#1365): shaken or panicked, and why — as the queue preview shows a person.
       const u = why ? null : tripUnease(s, queueId(id, r));
       const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
@@ -468,6 +488,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
   // Meat at camp draws animals (#1823, `camp-scavengers`).
   if (scavengersOn(s)) lines.push(`SCAVENGERS: raw meat from hunting and traps (not plants or fish) left at camp draws animals. On a trip of ${LONG_AWAY_HOURS}h or more away, a fox or ravens may take a quarter to a half of the meat lying out; at night too, half as often since you are there asleep, and hardly ever with a fire burning. Rarely, at night, wolves or a bear take all of it and the fright costs Clarity. "storemeat" (1h at camp) puts it out of reach; rations (smoked or dried) are always safe. How well the meat is protected is said in words: lies open, fairly safe, well protected, secure.`);
+  // Forecasts (#1827, `forecasts`): how what you know of a task or craft grows by doing it.
+  if (forecastsOn(s)) lines.push(`FORECASTS: you learn what work brings by doing it. A task you have never done at that distance says "you don't know what this will bring" (each distance is learned separately); after a try or two it gives a rough word (a little / some / plenty of); after ${knowThreshold(s.character.stats.int)} tries (your INT ${s.character.stats.int}: 4 at INT 8 or less, 3 at 9-12, 2 at 13+) the numbers show. Crafts the same, per recipe, failures counting: never made, "you're not sure you can make this"; then your chance in words (you'll likely manage / it could go either way / beyond you for now), the likely grade (rough / decent / good work) and the cost roughly, with "you may waste some of it" when it could fail; then the real odds, the grade and the exact cost. Rough words are sometimes one step off: less with more INT and practice.`);
   // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.
   if (stopOn(s)) lines.push(`STOPPING: an action can be stopped partway — {"plan": [...], "stop": {"action": N, "hours": h}} stops the plan's action N (from 0) h hours into it (walks included), {"do": ..., "stop": {"action": 0, "hours": h}} the one action; the day then pauses (no night) and you plan the rest. Stopped on the walk out you turn back with nothing, the walk back as long as you'd walked. At the work: ${STOP_KINDS.bit.join(', ')} keep a share of what the whole action would bring, in proportion to the work done (rounded down); ${STOP_KINDS.all.join(' and ')} keep nothing until the work is done, all of it after; a ${STOP_KINDS.kill.join(' or ')} is a game of chance: its kill can come at any moment of the work, sometimes straight away — stopped after it you keep the whole catch (a deer's hide too), before it nothing, and a hunt that was going to come up empty keeps nothing whenever you stop; ${STOP_KINDS.see.join(', ')} keep what you'd seen, in proportion to the time at the edge. On the walk back you have it all. Crafts, building and other camp work stopped make nothing and use nothing up. The hours, Vigor and Clarity are spent as far as you got.`);
   lines.push('');

@@ -31,6 +31,7 @@ import { featureOn } from '../artificer/features';
 import { QUESTION_CHARS } from '../artificer/free-questions';
 import type { AppState } from '../artificer-app/controller';
 import { coldBlock, meatBlock, firstJournalLine, moodLine, outcomeCard, sitesBlock, toolsBlock, yieldText } from '../artificer-app/camp-blocks';
+import { cardYield } from '../artificer-app/forecast-words';
 import { hasCamp, withCampLine } from '../artificer-app/camp-view';
 import { encounterModal } from '../artificer-app/encounter-view';
 import { meetingModal } from '../artificer-app/caravan-view';
@@ -118,7 +119,8 @@ function actionLines(s: Region1State, t: T): string[] {
       const vis = visibilityOf(s, id, ring);
       if (vis.status === 'hidden') continue;
       const q = queueId(id, ring);
-      const what = vis.reason ? t('api.blocked', { why: simLine(vis.reason, t) }) : yieldText(id, s, ring, t);
+      // With `forecasts` (#1827): what the Warden knows of it, the same words the page's card says.
+      const what = vis.reason ? t('api.blocked', { why: simLine(vis.reason, t) }) : cardYield(s, s, id, ring, t, yieldText(id, s, ring, t));
       // The Make camp card's badges (#1756): how many places to camp you know rate great and good.
       const counts = id === 'camp' ? siteRatingCounts(s) : null;
       const badges = counts && (counts.great || counts.good) ? ` · ${t('campsite.badgesTip', { great: counts.great, good: counts.good })}` : '';

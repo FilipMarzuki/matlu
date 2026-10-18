@@ -46,10 +46,11 @@ import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, stepOf, type
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, explore as exploreRing, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, supplyWord, hasFind, RICHNESS, SUPPLY_DRAW, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftGrade, craftQuality, craftScore, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, toolInUse, damageTool, heirloomList, heirloomLesson, toolServes, bestPerItem, conceptOpen, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptDef, type ConceptProgress, type Grade, type Tool } from './crafting';
 // The full tech tree (#1469): the copy the crafting menu fetches at runtime. The root macro-world/ copy is an older, shorter one.
 import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
+import { forecastsOn, noteFamiliar, craftKey, taskKey } from './forecasts';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
 import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
@@ -309,6 +310,12 @@ export interface Region1State {
    * the switch on; a recipe worked out is dropped. Absent: none.
    */
   experiments?: Record<string, number>;
+  /**
+   * Familiarity (#1827, `forecasts`): how many times each task was done at each distance
+   * (`wood@2`) and each recipe tried, failures too (`craft:stone-knife`). Counted, never rolled.
+   * Written only with the switch on; absent: nothing done yet (or a run without the switch).
+   */
+  familiar?: Record<string, number>;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -2459,6 +2466,10 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Building somewhere new moves camp first; the build then starts there from scratch.
   if (id === 'build') moveForBuild(next, opts);
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
+  // Done once more (#1827, `forecasts`): the task at this distance, or a try at this recipe. A count, no dice.
+  // A task stopped partway still counts (the owner): you were out there and saw what it brings, as a failed craft does.
+  // Stopped before any of its own work began (at 0h, or during the walk back) it was never tried, so it doesn't.
+  if (forecastsOn(next) && (stop === undefined || stop > 0)) noteFamiliar(next, recipe ? craftKey(recipe.id) : taskKey(id, def.ringed ? ring : 1));
   // An heirloom's maker teaches the first time it's leaned on (#1456) — out on the land, and at the bench
   // or building too (#1469): crafts and builds go to runCraft below, so the lesson lands first.
   teachFromTool(next, recipe ? [id, 'craft'] : [id]);
@@ -2859,10 +2870,13 @@ export function tripLoad(s: Region1State, item: QueueItem): TripLoad | null {
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
-function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, stop?: number): Region1State {
-  const before = next.vitals;
+/**
+ * How the Warden comes to the bench for this recipe right now: the hours, the effort, the light and
+ * the crafter with every bonus that lifts or lowers the grade. Pure; `runCraft` makes the craft from
+ * it, and `craftOutlook` (#1827) reads the same, so a forecast judges the craft the sim would make.
+ */
+function benchFor(next: Region1State, id: ActionId, recipe: CraftRecipe) {
   const tr = talentEffects(next.character.talents);
-  const recipe = baseRecipe;
   // A hurt hand (#1286): crafting takes longer while it lasts.
   const hours = craftHours(next, recipe);
   // Tools that serve this action (a shovel for building) lighten the craft's own effort.
@@ -2880,6 +2894,18 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, sto
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
+  const night = closeWork(next, at.light, hours);
+  // Intelligence (#1256) lifts — or, below average, lowers — the grade. So does a focus on the
+  // craft's skill or one of its concepts (#1490): better work, not faster (survival lock overrides it).
+  const focused = survivalLockOf(next) ? 0 : focusGrade(next.focus, skill, recipe.concepts ?? [], next.vitals.clarity.current, se.unreliableBelow);
+  const bench: CrafterState = { ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + focused + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage };
+  return { tr, hours, skill, lvl, fx, effort, at, night, bench };
+}
+
+function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, stop?: number): Region1State {
+  const before = next.vitals;
+  const recipe = baseRecipe;
+  const { tr, hours, skill, lvl, fx, effort, at, night, bench } = benchFor(next, id, recipe);
   // Stopped before it's done (#1815): the hours and the effort are spent, nothing is made, and the materials are kept.
   if (stop !== undefined && stop < hours) {
     const spent = Math.max(0, stop);
@@ -2893,11 +2919,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, sto
     say(next, `${ACTIONS[id].name}: stopped — nothing made, and nothing used up.`, 'action', at);
     return next;
   }
-  const night = closeWork(next, at.light, hours);
-  // Intelligence (#1256) lifts — or, below average, lowers — the grade. So does a focus on the
-  // craft's skill or one of its concepts (#1490): better work, not faster (survival lock overrides it).
-  const focused = survivalLockOf(next) ? 0 : focusGrade(next.focus, skill, recipe.concepts ?? [], next.vitals.clarity.current, se.unreliableBelow);
-  const { state: c, result: made } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade + focused + (next.character.harms?.includes('weak-grip') ? WEAK_GRIP_GRADE : 0), salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result: made } = craft(bench, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   if (made.kind !== 'refused' && night.clarity > 1) {
     const strain = Math.max(0, before.clarity.current - c.vitals.clarity.current) * (night.clarity - 1);
@@ -3017,6 +3039,29 @@ export const BOOTS_WET = 0.75, HOME_PILLOW_CLARITY = 1, SALSA_CLARITY = 2, BOARD
 
 /** Close work at night (#1281) with the kit (#1400): by headlamp, while the battery lasts; else a fire the steel holds in the wind and a match helps light. */
 interface CloseWork { fire: number; clarity: number; grade: number; lamp: number; match: number }
+/**
+ * What the bench would make of a queued craft now (#1827, the forecasts): its recipe, the quality
+ * score it's judged on and the grade (null: it would fail, inputs wasted). The same judgement
+ * `runCraft` makes, on a copy (a build moves camp first; an heirloom teaches first), with shaking
+ * hands' grade off it; nothing is rolled and the state passed in isn't touched. Null when the action
+ * isn't a craft, or has nothing to make (a winterized shelter).
+ */
+export function craftOutlook(s: Region1State, item: QueueItem): { recipe: CraftRecipe; score: number; grade: Grade | null } | null {
+  const { id, opts } = parseItem(item);
+  const def = ACTIONS[id];
+  if (!def.recipe && !def.recipeFor) return null;
+  const next = clone(s);
+  if (id === 'build') moveForBuild(next, opts);
+  const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
+  if (!recipe) return null;
+  teachFromTool(next, [id, 'craft']);
+  const { bench } = benchFor(next, id, recipe);
+  const q = craftQuality(bench, recipe, CRAFT_WORLD);
+  const made = craftGrade(q);
+  const grade = made && next.today.shaking ? GRADES[Math.max(0, GRADES.indexOf(made) - SHAKING_GRADE)] : made;
+  return { recipe, score: craftScore(q), grade };
+}
+
 function closeWork(s: Region1State, light: number, hours: number): CloseWork {
   const k = s.kit;
   if (light < SEE_BELOW && k && k.lamp >= hours) return { fire: 0, clarity: 1.2, grade: 0, lamp: hours, match: 0 };
