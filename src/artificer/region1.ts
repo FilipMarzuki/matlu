@@ -18,7 +18,7 @@ import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exercise
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
-import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitVigorMult, kitFireNeed, validPack, kitOffered, hasAxeFishing, FISH_KIT_CATCH, strapsOf, packWalkMult, type KitId, type KitState } from './kit';
+import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitVigorMult, kitFireNeed, validPack, packWorldOf, kitOffered, hasAxeFishing, FISH_KIT_CATCH, strapsOf, packWalkMult, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, injuryView, KNOWS, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -3066,13 +3066,17 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
 /**
  * Pack again before setting out (#1401): on day 1, before any work, swap the pack — its tools,
  * food, cord, dressings and supplies — for another. Refused (no change) once the day has begun,
- * or for a pack that won't do.
+ * or for a pack that won't do. With `pack-volume` off, how heavy it may be is this Warden's
+ * (#1872, kit.ts carryLimit): their Strength's with `stats-before-pack` on, 9 kg otherwise.
  */
 export function repack(s: Region1State, pack: readonly KitId[], outside?: readonly KitId[]): Region1State {
   // Checked against this run's world (#1870): a hand axe in a world without its switch won't do.
   // With `pack-volume` (#1871) the pack is checked for room and straps, not weight; `outside` is
-  // what's strapped on (absent: the default straps). With it off, `outside` is ignored.
-  const rules = { ...s.config.world, ...(outside ? { outside } : {}) };
+  // what's strapped on (absent: the default straps). With it off, `outside` is ignored, and the
+  // weight is checked against what this Warden can carry (#1872, kit.ts carryLimit): their STR's
+  // comfortable weight with `stats-before-pack` on, 9 kg otherwise. createRegion1 made their stats
+  // already, so a pack is always checked against who carries it.
+  const rules = packWorldOf(s, outside);
   if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack, rules)) return s;
   const old = s.kit ? startFromPack(s.kit.items, extrasOn(s)) : null;
   const p = startFromPack(pack, extrasOn(s), strapsOf(pack, rules));

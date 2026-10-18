@@ -36,8 +36,8 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
-import { SUGGESTED_PACK, readKit, savedPackProblem, autoOutside, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
+import { suggestedPack, readKit, savedPackProblem, autoOutside, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
 import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
@@ -81,7 +81,13 @@ export function makeWarden(who: WardenSpec, legacy?: Legacy, features?: FeatureS
   // the whole run. A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with
   // the leader's packing list (#1400).
   const world: WorldConfig = { ...GAME_WORLD, features: ruleFeatures(features) };
-  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
+  // The pack ticked for them (#1872): the leader's list, or with `stats-before-pack` on, the list
+  // shaped by the talents chosen and the stats this Warden has now (kit.ts suggestedPack): the
+  // chosen ones grown to their age, as createRegion1 makes them, since a child carries with the arms
+  // they have today. So it always fits what this Warden can carry. A pack in `who` (the page's) wins.
+  const now = grownStats(who.stats ?? legacy?.stats ?? DEFAULT_STATS, who.age ?? DEFAULT_AGE);
+  const pack = suggestedPack(world.features, now, who.chosen ?? []);
+  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack, ...who }), queue: [], stage: 'reach' };
 }
 
 /** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
