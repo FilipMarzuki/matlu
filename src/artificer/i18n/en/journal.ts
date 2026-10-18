@@ -222,8 +222,8 @@ export const journal = {
   'log.pushedPast': 'Pushed past empty — it cost your health.',
 
   // ── At camp ────────────────────────────────────────────────────────────────
-  'log.preserve.smoke.one': 'Smoked and salted {n} food into {m} winter ration.',
-  'log.preserve.smoke.other': 'Smoked and salted {n} food into {m} winter rations.',
+  'log.preserve.smoke.one': 'Smoked {n} food into {m} winter ration.',
+  'log.preserve.smoke.other': 'Smoked {n} food into {m} winter rations.',
   'log.preserve.dry.one': 'Air-dried {n} food into {m} winter ration.',
   'log.preserve.dry.other': 'Air-dried {n} food into {m} winter rations.',
   'log.studied': 'Studied {concept} — {n} insight (rank {m}).',

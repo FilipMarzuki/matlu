@@ -1582,7 +1582,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: s => needsScout(s) ?? (s.stores.rawFood >= 2 ? null : 'not enough raw food to preserve'),
     variant: o => (o.method === 'dry' ? { hours: 2, clarityRate: -2 } : {}),
     options: (_s, o) => [choiceGroup('method', 'Method', o.method ?? 'smoke', [
-      { value: 'smoke', label: 'Smoke', note: '4h · up to 3 rations · careful work', blocked: null },
+      { value: 'smoke', label: 'Smoke', note: '4h · meat or fish · up to 3 rations · careful work', blocked: null },
       { value: 'dry', label: 'Air-dry', note: '2h · up to 2 rations · easy on the mind', blocked: null },
     ])],
     run: (s, _b, _r, o) => {
@@ -1592,7 +1592,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       // The meat is cured first (#1823, `camp-scavengers`): smoked or dried, nothing comes for it.
       if (scavengersOn(s)) takeMeat(s, Math.min(made * 2, meatOf(s)), false);
       s.stores.rawFood -= made * 2; s.stores.rations += made; s.flags.everPreserve = true;
-      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
+      // No salt in the wild (#1860): nothing in the kit or the land gives it, so the wild's own
+      // preserving is smoked or air-dried, never salted. Salt is Saltmere's and the caravans'.
+      return `${dry ? 'Air-dried' : 'Smoked'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
     },
   },
   // Make camp (#1732, `camp-as-action`): an action like any other, at a site you know, a real place on

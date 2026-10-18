@@ -345,7 +345,7 @@ export const camp = {
   'opt.smallNote': '3h · ~3 food · lighter · no tracking needed',
   'opt.needsBow': 'needs a bow',
   'opt.smoke': 'Smoke',
-  'opt.smokeNote': '4h · up to 3 rations · careful work',
+  'opt.smokeNote': '4h · meat or fish · up to 3 rations · careful work',
   'opt.dry': 'Air-dry',
   'opt.dryNote': '2h · up to 2 rations · easy on the mind',
   'opt.fiber': 'Woven fiber',

@@ -328,7 +328,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'opt.smallNote': '3 h · ~3 mat · lättare · ingen spårning behövs',
   'opt.needsBow': 'kräver en pilbåge',
   'opt.smoke': 'Röka',
-  'opt.smokeNote': '4 h · upp till 3 ransoner · noggrant arbete',
+  'opt.smokeNote': '4 h · kött eller fisk · upp till 3 ransoner · noggrant arbete',
   'opt.dry': 'Lufttorka',
   'opt.dryNote': '2 h · upp till 2 ransoner · lätt för huvudet',
   'opt.fiber': 'Flätad fiber',

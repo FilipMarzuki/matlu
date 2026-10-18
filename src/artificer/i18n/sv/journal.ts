@@ -350,8 +350,8 @@ export const journalSv: Record<JournalKey, string> = {
   'log.pushedPast': 'Du pressade dig förbi gränsen — det kostade hälsan.',
 
   // ── I lägret ───────────────────────────────────────────────────────────────
-  'log.preserve.smoke.one': 'Rökte och saltade {n} mat till {m} vinterranson.',
-  'log.preserve.smoke.other': 'Rökte och saltade {n} mat till {m} vinterransoner.',
+  'log.preserve.smoke.one': 'Rökte {n} mat till {m} vinterranson.',
+  'log.preserve.smoke.other': 'Rökte {n} mat till {m} vinterransoner.',
   'log.preserve.dry.one': 'Lufttorkade {n} mat till {m} vinterranson.',
   'log.preserve.dry.other': 'Lufttorkade {n} mat till {m} vinterransoner.',
   'log.studied': 'Studerade {concept} — {n} insikt (nivå {m}).',
