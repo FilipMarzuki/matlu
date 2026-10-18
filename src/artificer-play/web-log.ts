@@ -20,6 +20,7 @@ import type { Move } from './session';
 import type { Run } from './records';
 import { measure, type GameMeasures } from './record-of';
 import { GAME_VERSION } from './version';
+import { featuresOf } from '../artificer/features';
 
 /** The log format's own version: a log from another one isn't replayed. */
 export const WEB_LOG_VERSION = 1;
@@ -66,6 +67,18 @@ export interface WebLog {
   version: string;
   start: WebStart;
   moves: WebMove[];
+}
+
+/**
+ * The start of a log for a Warden the page just made with makeWarden (`a`): what the creation screen
+ * passed it (`spec`), what an earlier Warden left, and the run's rule features, every one of them
+ * named (#1882). A new game's world already names them all (makeWarden's `ruleFeatures`), so this is
+ * what it holds; it's written out with `featuresOf` so a log never leaves a switch to be guessed: the
+ * replay reads one it doesn't name by its `absent` value, as a run from before that switch.
+ * Heirlooms say which run they came from only if there are some and that run is known.
+ */
+export function webStart(a: AppState, spec: Omit<WebStart, 'id' | 'features' | 'heirlooms' | 'heirloomsFrom'>, heirlooms: Tool[] | null, heirloomsFrom: string | null = null): WebStart {
+  return { id: a.sim.character.id, ...spec, features: featuresOf(a.sim.config.world.features), heirlooms, ...(heirlooms?.length && heirloomsFrom ? { heirloomsFrom } : {}) };
 }
 
 /** A log for a Warden the page just made, with no moves yet. */
