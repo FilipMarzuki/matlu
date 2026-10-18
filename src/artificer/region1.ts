@@ -18,7 +18,7 @@ import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exercise
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
-import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitVigorMult, kitFireNeed, validPack, kitOffered, hasAxeFishing, FISH_KIT_CATCH, type KitId, type KitState } from './kit';
+import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitVigorMult, kitFireNeed, validPack, kitOffered, hasAxeFishing, FISH_KIT_CATCH, strapsOf, packWalkMult, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, injuryView, KNOWS, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -373,6 +373,8 @@ export interface Character {
 /** `stats` are the adult stats chosen at creation; `age` (#1399) makes them young. */
 export interface WardenSpec extends Partial<Pick<Character, 'id' | 'name' | 'portrait' | 'stats' | 'talents' | 'background' | 'age' | 'pack'>> {
   chosen?: TalentId[];
+  /** What's strapped on the outside of the pack (#1871, `pack-volume`); absent, the default straps (kit.ts autoOutside). Ignored with the switch off. */
+  outside?: KitId[];
 }
 
 export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy, who: WardenSpec = {}): Region1State {
@@ -398,7 +400,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const difficulty = carried ? difficultyRead(legacy?.difficulty)
     : who.chosen !== undefined || who.stats !== undefined ? difficultyOf(adult, who.chosen ?? []) : 1;
   // The odd things' switch (#1727) is the world's, read as a run would read it.
-  const packed = pack ? startFromPack(pack, extrasOn({ config: { world: config.world ?? FULL_WORLD } })) : null;
+  // …and so is the pack's volume (#1871): with it on, where things went is kept in the kit.
+  const run = { config: { world: config.world ?? FULL_WORLD } };
+  const packed = pack ? startFromPack(pack, extrasOn(run), strapsOf(pack, { ...run.config.world, ...(who.outside ? { outside: who.outside } : {}) })) : null;
   for (const [k, h] of Object.entries(trainingOf(background)) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   // What this Warden packed, and what the last one left for them (#1455) — less anything the pack already matches or beats.
   const packTools: Tool[] = packed ? packed.tools.map(t => ({ ...t })) : [];
@@ -1431,6 +1435,9 @@ const gearCraft = (r: CraftRecipe): ActionDef => ({
   },
 });
 
+/** Make camp's pull on Vigor per hour (#1732), named so a heavy pack's walk there (#1871) can add to it. */
+const CAMP_VIGOR_RATE = -2.5;
+
 export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   scout: {
     name: 'Scout', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
@@ -1585,10 +1592,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   // Make camp (#1732, `camp-as-action`): an action like any other, at a site you know, a real place on
   // the Reach. It takes the walk there from where you are, then the setting up.
   camp: {
-    name: 'Make camp', hours: CAMP_SETUP_HOURS, vigorRate: -2.5, clarityRate: -0.5,
+    name: 'Make camp', hours: CAMP_SETUP_HOURS, vigorRate: CAMP_VIGOR_RATE, clarityRate: -0.5,
     gate: (s, _r, o) => campGate(s, o),
     options: (s, o) => campOptions(s, o),
-    variant: (o, s) => (s && campAsActionOn(s) ? { hours: CAMP_SETUP_HOURS + (chosenSpot(s, o)?.hours ?? 0) } : {}),
+    variant: (o, s) => (s && campAsActionOn(s) ? campVariant(s, o) : {}),
     // moveCamp writes the journal's lines ("Chose the … as your ground", the tarp), so the action adds none.
     run: (s, _b, _r, o) => {
       const spot = chosenSpot(s, o);
@@ -1889,6 +1896,19 @@ export function chooseSite(s: Region1State, site: SiteId): Region1State {
   return next;
 }
 
+/**
+ * Make camp's hours (#1732): the setting up, and the walk there. With a heavy pack on (#1871,
+ * `pack-volume`) the walk there is the last one under it and costs more Vigor: the action has one
+ * rate, so the walk's extra is spread over its hours (the walk's share of them, times the extra).
+ * At or under the comfortable weight there's no rate here at all, so the action is exactly as before.
+ */
+function campVariant(s: Region1State, o: ActionOpts): { hours: number; vigorRate?: number } {
+  const walk = chosenSpot(s, o)?.hours ?? 0;
+  const hours = CAMP_SETUP_HOURS + walk;
+  const heavy = packWalkMult(s);
+  return heavy > 1 && walk > 0 ? { hours, vigorRate: CAMP_VIGOR_RATE + TRAVEL_VIGOR_RATE * (heavy - 1) * walk / hours } : { hours };
+}
+
 /** Per-hour pull of walking to and from an outer ring. */
 export const TRAVEL_VIGOR_RATE = -3;
 export const TRAVEL_CLARITY_RATE = -0.5;
@@ -1922,7 +1942,8 @@ function craftHours(s: Region1State, recipe: CraftRecipe): number {
  */
 function walkBack(next: Region1State): number {
   const h = walkBackHours(next);
-  const w = applyActivity(next.vitals, { hours: h, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
+  // With a heavy pack still on (#1871, `pack-volume`: no camp made yet), the walk costs more.
+  const w = applyActivity(next.vitals, { hours: h, vigorRate: TRAVEL_VIGOR_RATE * packWalkMult(next), clarityRate: TRAVEL_CLARITY_RATE });
   next.vitals = w.vitals;
   next.today.loadVigor += w.loadVigor;
   next.today.loadClarity += w.loadClarity;
@@ -2569,7 +2590,8 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // The hand axe (#1870): chopping wood costs half the Vigor (kit.ts `kitVigorMult`; 1 for everything else).
   const kv = kitVigorMult(next, id);
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex * kv, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy * PAIN_DRAIN[pain] });
+  // A heavy pack (#1871, `pack-volume`): over the comfortable weight, the walk costs more Vigor until camp is made.
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex * packWalkMult(next), clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy * PAIN_DRAIN[pain] });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -3046,11 +3068,14 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
  * food, cord, dressings and supplies — for another. Refused (no change) once the day has begun,
  * or for a pack that won't do.
  */
-export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
+export function repack(s: Region1State, pack: readonly KitId[], outside?: readonly KitId[]): Region1State {
   // Checked against this run's world (#1870): a hand axe in a world without its switch won't do.
-  if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack, s.config.world)) return s;
+  // With `pack-volume` (#1871) the pack is checked for room and straps, not weight; `outside` is
+  // what's strapped on (absent: the default straps). With it off, `outside` is ignored.
+  const rules = { ...s.config.world, ...(outside ? { outside } : {}) };
+  if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack, rules)) return s;
   const old = s.kit ? startFromPack(s.kit.items, extrasOn(s)) : null;
-  const p = startFromPack(pack, extrasOn(s));
+  const p = startFromPack(pack, extrasOn(s), strapsOf(pack, rules));
   const next = clone(s);
   // On the first morning, the tools are the pack's — and what the last Warden left (#1455), which no repacking touches.
   next.tools = [...p.tools.map(t => ({ ...t })), ...s.tools.filter(t => t.heirloom).map(t => ({ ...t }))];

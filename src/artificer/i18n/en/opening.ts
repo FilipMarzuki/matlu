@@ -53,6 +53,31 @@ export const opening = {
   // The button above the sections (#1801): opens them all, or closes them all once they're all open.
   'pack.openAll': 'Open all',
   'pack.closeAll': 'Close all',
+  // ── The pack with volume and straps (#1871, `pack-volume`) ────────────────
+  'pack.freeVol': "The backpack comes free, and the clothes you're wearing. Everything else goes inside it, or strapped on the outside if it can be.",
+  // A greyed item's tag, and the room line when nothing more goes in.
+  'pack.wontClose': "won't close",
+  'pack.room': 'Room inside',
+  'pack.room.roomy': 'Plenty of room left.',
+  'pack.room.filling': "It's filling up.",
+  'pack.room.nearly': 'Nearly full.',
+  'pack.room.full': "It's full: it won't close with anything more.",
+  'pack.straps': 'Straps: {n} of {m}',
+  'pack.in': 'Inside',
+  'pack.out': 'Strapped on',
+  'pack.noStrap': 'no strap place left',
+  'pack.noRoom': "it won't fit inside",
+  'pack.feelLabel': 'How the pack feels',
+  // How heavy it feels, in the Warden's words: never a number (kit.ts PACK_FEELS, lightest first).
+  'pack.feel.feather': 'Light as anything.',
+  'pack.feel.barely': 'I barely notice it.',
+  'pack.feel.good': 'A good weight. I could carry this all day.',
+  'pack.feel.manage': "It's heavy, but I'll manage.",
+  'pack.feel.really': 'This is really heavy…',
+  'pack.feel.hardly': 'I can hardly lift it!',
+  // A section's summary without the weight, and dev mode's numbers (?dev).
+  'pack.groupSumVol': '{n} of {m} packed',
+  'pack.dev': '{kg} kg · {l} L',
 
   // ── Character creation ─────────────────────────────────────────────────────
   'create.name': 'NAME — write it',

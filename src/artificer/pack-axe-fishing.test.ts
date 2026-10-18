@@ -105,8 +105,9 @@ describe('A hand axe and a fishing kit in the pack (#1870)', () => {
     expect(validPack(packed, world(true))).toBe(true);
     // A new game (every switch at its default) offers them; the AI's packing turn lists them.
     const msg = observePack(makeWarden({ id: 'w-pack-ai' }).sim);
-    expect(msg).toContain(`- hand-axe (0.6 kg): Hand axe — ${kitItem(AXE).does}`);
-    expect(msg).toContain(`- fishing-kit (0.2 kg): Fishing kit — ${kitItem(FISH).does}`);
+    // With the pack's volume on too (#1871, a default), each line also says its litres and whether it straps on.
+    expect(msg).toContain(`- hand-axe (0.6 kg, 1 L, can strap outside): Hand axe — ${kitItem(AXE).does}`);
+    expect(msg).toContain(`- fishing-kit (0.2 kg, 0.5 L): Fishing kit — ${kitItem(FISH).does}`);
     expect(parsePackDecision('{"pack":["hand-axe","fishing-kit"]}', world(true))).toMatchObject({ ok: true });
   });
 
