@@ -118,7 +118,11 @@ describe('#1876 walk the map', () => {
     expect(dest).toBe(unseenWater.reduce((a, b) => (walk[b] < walk[a] ? b : a)));
     expectPath(r, trip);
     const after = runAction(s, 'water@2');
-    for (const i of trip.path) expect(after.seenOut).toContain(i);
+    // Every square passed is seen now: in view from camp already, or newly seen (`seenOut`), the far end among them.
+    for (const i of trip.path) expect(sight(i % r.w, Math.floor(i / r.w)) > 0 || (after.seenOut ?? []).includes(i)).toBe(true);
+    expect(after.seenOut).toContain(dest);
+    // Land in view from camp isn't news: only squares not known before join `seenOut`.
+    for (const i of after.seenOut ?? []) expect(sight(i % r.w, Math.floor(i / r.w))).toBe(0);
     expect(after.log.some(l => l.text.startsWith("Into land you hadn't seen: "))).toBe(true);
     // The hours are the walk's, not the ring's flat +3h.
     expect(used(s, after)).toBeCloseTo(trip.outHours + trip.backHours + queueHours('water', off(s)), 9);

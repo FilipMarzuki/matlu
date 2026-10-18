@@ -24,8 +24,8 @@
  *   where the Warden stands when it isn't camp, absent at camp. A finished trip ends at camp again;
  *   a stop (#1815) leaves the Warden on the path, `afield`, and the next work starts with the walk
  *   back from there, as after heading out. No second position field, so the two can't disagree.
- * - **What you see.** The squares walked through join `seenOut`, as heading out's do, so the land in
- *   words and the places to camp learn your routes.
+ * - **What you see.** The squares walked through that weren't known yet join `seenOut`, as heading
+ *   out's do, so the land in words and the places to camp learn your routes.
  * - **Ring knowledge.** A trip's square is always in the ring it was planned for, so what the work
  *   teaches of that ring (exploration.ts) rises as before, now from a square the Warden stood on.
  * - **For a live map later.** The last few days' paths are kept, square by square, in `trail`.
@@ -141,6 +141,15 @@ export function pathTo(r: Reach, walk: readonly number[], dest: number): number[
   return path.reverse();
 }
 
+/**
+ * Does the Warden know a square (pure)? In view from home or in a ring they know (reach.ts
+ * `sightFor`, by walking time from home), or seen on a walk or heading out (`seenOut`).
+ */
+function knownTest(s: Run, r: Reach, walk: readonly number[] = walkFrom(r, homeOf(s, r).x, homeOf(s, r).y), sight = sightFor({ ...r, hours: [...walk] }, s.explore)): (i: number) => boolean {
+  const seen = new Set(s.seenOut ?? []);
+  return i => seen.has(i) || sight(i % r.w, Math.floor(i / r.w)) > 0;
+}
+
 // Destinations are asked for often (the plan's estimate, the AI's view, the needs player trying
 // actions forward), so the last few are kept. The key is everything the choice depends on: the land
 // (the seed), where you set out, the ring, the need, how much of each ring you know, and the squares
@@ -160,12 +169,12 @@ export function planTrip(s: Run, need: Need, ring: Ring): Trip | null {
   const levels = ([1, 2, 3] as const).map(n => Object.values(s.explore.known[n]).map(v => Math.floor(Math.min(3, v))).join('')).join('|');
   const key = `${r.seed}|${home.x},${home.y}|${ring}|${need}|${levels}|${s.seenOut?.length ?? 0}`;
   if (trips.has(key)) return trips.get(key)!;
-  const seen = new Set(s.seenOut ?? []);
+  const isKnownAt = knownTest(s, r, walk, sight);
   // The nearest known square that serves, else the nearest unseen one; ties to the lower index.
   let known = -1, unseen = -1;
   for (let i = 0; i < r.cells.length; i++) {
     if (!Number.isFinite(walk[i]) || ringOfHours(walk[i]) !== ring || !serves(r, i, need)) continue;
-    const isKnown = seen.has(i) || sight(i % r.w, Math.floor(i / r.w)) > 0;
+    const isKnown = isKnownAt(i);
     if (isKnown) { if (known === -1 || walk[i] < walk[known]) known = i; }
     else if (unseen === -1 || walk[i] < walk[unseen]) unseen = i;
   }
@@ -270,12 +279,18 @@ export interface TrailDay {
 
 /**
  * Note squares walked (on an already-cloned state): they go on today's trail, the last `TRAIL_DAYS`
- * days kept, and (`see`) they're seen from now on (`seenOut`). Only with the switch on. Heading out
- * (#1839) notes its walk without `see`: what it shows is its own sector, and only that.
+ * days kept, and (`see`) the ones not known yet are seen from now on (`seenOut`): land already in
+ * view or in a ring you know isn't news (#1869's finds read new `seenOut` squares as found ground).
+ * Only with the switch on. Heading out (#1839) notes its walk without `see`: what it shows is its
+ * own sector, and only that.
  */
 export function noteWalk(s: Region1State, squares: readonly number[], see = true): void {
   if (!walkOn(s) || !squares.length) return;
-  if (see) s.seenOut = [...new Set([...(s.seenOut ?? []), ...squares])].sort((a, b) => a - b);
+  if (see) {
+    const known = knownTest(s, reachOfRun(s));
+    const fresh = squares.filter(i => !known(i));
+    if (fresh.length) s.seenOut = [...new Set([...(s.seenOut ?? []), ...fresh])].sort((a, b) => a - b);
+  }
   const trail = (s.trail ?? []).map(d => ({ day: d.day, path: [...d.path] }));
   let today = trail[trail.length - 1];
   if (!today || today.day !== s.day) { today = { day: s.day, path: [] }; trail.push(today); }
