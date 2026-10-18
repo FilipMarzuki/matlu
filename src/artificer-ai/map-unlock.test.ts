@@ -81,4 +81,8 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // at random, so without the map and compass it can head out only on a sunny day (or with a needle
 // compass it happens to make), and its picks shift again: random 9/12, median 5 (5–7). The explorer
 // and the scripted baseline (packed with the leader's list, compass included) didn't move.
-const RANDOM_DAYS: (number | null)[] = [5, 5, 6, 5, 5, 5, null, null, 5, null, 7, 5];
+// With `pack-axe-fishing` (#1870) the pack list has two more things (the hand axe and the fishing kit),
+// and the random player shuffles the whole list the run offers, so every seed packs differently: some
+// go without the bag or the compass they had before. random 6/12, median 5 (5–6), still in the target.
+// The explorer and the scripted baseline (the leader's list, which has neither) didn't move.
+const RANDOM_DAYS: (number | null)[] = [null, 5, 5, 5, 5, 5, null, null, null, null, 6, null];

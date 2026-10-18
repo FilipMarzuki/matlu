@@ -28,7 +28,7 @@ import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/t
 import { validStats } from '../artificer/stats';
 import { START_AGES } from '../artificer/growing';
 import { validPack } from '../artificer/kit';
-import { FEATURES, validFeatures } from '../artificer/features';
+import { FEATURES, validFeatures, ruleFeatures } from '../artificer/features';
 import { stopRefusal } from '../artificer/stop-action';
 import { GRADES, type Tool } from '../artificer/crafting';
 import { advance, applySet, isRoadAction, phaseOf, view } from './session';
@@ -78,9 +78,11 @@ export function startProblem(s: unknown): string | null {
   }
   if (s.stats !== undefined && !validStats(s.stats)) return 'The stats aren\'t a point-buy the creation screen allows.';
   if (s.age !== undefined && !START_AGES.includes(s.age as number)) return `The age is one of ${START_AGES.join(', ')}.`;
-  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack))) return 'The pack isn\'t one that fits.';
   const known = FEATURES.filter(f => f.kind === 'rules').map(f => f.id);
   if (!validFeatures(s.features) || Object.keys(s.features).some(k => !known.includes(k))) return 'The rule features aren\'t ones the game knows.';
+  // After the features (#1870): the pack is checked against the list the run's world offers, which
+  // is makeWarden's (`ruleFeatures` of these switches), so a hand axe without its switch won't do.
+  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack, { features: ruleFeatures(s.features) }))) return 'The pack isn\'t one that fits.';
   if (s.heirlooms !== null && !(Array.isArray(s.heirlooms) && s.heirlooms.length <= 40 && s.heirlooms.every(validTool))) return 'The heirlooms aren\'t tools.';
   if (s.heirloomsFrom !== undefined && s.heirloomsFrom !== null && !isStr(s.heirloomsFrom)) return 'heirloomsFrom is a game id.';
   return null;

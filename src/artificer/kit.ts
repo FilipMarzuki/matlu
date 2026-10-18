@@ -21,6 +21,8 @@ export type KitId =
   | 'sleeping-bag' | 'sleeping-pad' | 'sit-pad' | 'wool-underlayer' | 'hat-mittens' | 'rain-gear' | 'spare-socks'
   | 'headlamp' | 'map-compass' | 'whistle' | 'cord' | 'tarp' | 'trangia' | 'weekend-food' | 'sweets'
   | 'notebook' | 'toilet-paper' | 'phone' | 'comic' | 'pillow'
+  // A hand axe and a fishing kit (#1870): only on the list with the `pack-axe-fishing` switch on.
+  | 'hand-axe' | 'fishing-kit'
   // The odd things (#1727): funny, maybe useful, and weird.
   | 'family-tent' | 'salsa' | 'hairdryer' | 'home-pillow' | 'dumbbells' | 'hammer' | 'big-bag-sweets' | 'rubber-boots' | 'flamingo' | 'rice'
   | 'harmonica' | 'board-game' | 'binoculars' | 'duct-tape' | 'sewing-kit' | 'magnifying-glass' | 'notebook-pencils' | 'bird-book' | 'throat-sweets' | 'lots-of-socks'
@@ -82,6 +84,12 @@ export const KIT: readonly KitItem[] = [
   { id: 'toilet-paper', name: 'Toilet paper', sv: 'toalettpapper', weight: 0.1, group: 'other', does: 'You know what for.', effect: 'nothing, out here', note: 'In a plastic bag. Every scout brings it. Every scout.' },
   { id: 'phone', name: 'Phone', sv: 'mobil', weight: 0.2, group: 'other', does: 'To call home.', effect: 'nothing: no signal, and dead by the third day', note: 'You promised to call home on Saturday evening.' },
   { id: 'comic', name: 'Comic book', sv: 'serietidning', weight: 0.2, group: 'other', does: 'Something to read.', effect: 'once, resting on a rainy day: +3 Clarity', note: 'Bamse, read so many times the cover\'s coming off.' },
+  // A hand axe and a fishing kit (#1870, the `pack-axe-fishing` switch): offered only with it on
+  // (`kitOffered`), so a run without it has the list it always had. They sit here, before the odd
+  // things, because `EXTRA_ITEMS` is everything from the family tent on: they're real scout kit,
+  // not odd things, and the `pack-extras` switch has nothing to do with them.
+  { id: 'hand-axe', name: 'Hand axe', sv: 'handyxa', weight: 0.6, group: 'tools', does: 'For chopping and splitting wood.', effect: 'gathering wood (firewood and materials) takes about a fifth less time and half the Vigor', note: 'Your axe licence came last spring. Always chop with the block between you and the blade.' },
+  { id: 'fishing-kit', name: 'Fishing kit', sv: 'fiskeset', weight: 0.2, group: 'fire-food', does: 'A coil of line, a few hooks, a float and a sinker, in a tin.', effect: 'fishing is open from day 1 with no hook and line to make (with traps-first hunting); a real hook catches a fifth more; it counts as a hook for a needle compass', note: 'Grandpa\'s tin. The hooks are rusty, the line is good.' },
   // The odd things (#1727): real stories of what scouts, kids and hikers have packed. Their `effect`
   // is what they do with the `pack-extras` switch on; with it off, every one of them only weighs.
   // "For later" marks an effect that needs a system the game doesn't have yet.
@@ -135,6 +143,33 @@ export interface KitRun { kit?: KitState; config?: { world: { features?: Feature
 /** Are the odd things' effects on in this run? */
 export const extrasOn = (s: KitRun): boolean => featureOn(s.config?.world.features, PACK_EXTRAS);
 
+/**
+ * The hand axe and the fishing kit's switch (#1870, features.ts). A rules switch, like the odd
+ * things': a run keeps it as it started, and a run from before it reads it as off. Unlike the odd
+ * things, with it off the two aren't on the list at all (`kitOffered`), so they can't be packed.
+ */
+export const PACK_AXE_FISHING = 'pack-axe-fishing';
+/** The two things the switch adds to the list. */
+export const AXE_FISHING_ITEMS: readonly KitId[] = ['hand-axe', 'fishing-kit'];
+
+/**
+ * Is this item on the pack list in a world with these switches? Everything is, except the hand axe
+ * and the fishing kit without their switch. `features` is the world's (`config.world.features`):
+ * undefined is a world from before the switches, where `featureOn` reads it as off.
+ */
+export const kitOffered = (id: KitId, features: FeatureSwitches | undefined): boolean =>
+  !AXE_FISHING_ITEMS.includes(id) || featureOn(features, PACK_AXE_FISHING);
+/** The pack list a world offers, in the list's order: what the pack screen and the AI's packing turn show. */
+export const offeredKit = (features: FeatureSwitches | undefined): readonly KitItem[] => KIT.filter(k => kitOffered(k.id, features));
+
+/**
+ * Did they pack the hand axe or the fishing kit, and is it on in this run? Both, always: the item
+ * can only be packed with the switch on, but a save could carry it into a run read without it, and
+ * this keeps such a run playing as one from before the switch.
+ */
+export const hasAxeFishing = (s: KitRun, id: 'hand-axe' | 'fishing-kit'): boolean =>
+  featureOn(s.config?.world.features, PACK_AXE_FISHING) && hasKit(s, id);
+
 /** Did they pack this odd thing, and does it do anything in this run? With the switch off it's only weight. */
 export const hasExtra = (s: KitRun, id: KitId): boolean => extrasOn(s) && hasKit(s, id);
 
@@ -155,16 +190,22 @@ export const SUGGESTED_PACK: readonly KitId[] = [
 
 export const packWeight = (ids: readonly KitId[]): number => Math.round(ids.reduce((n, id) => n + kitItem(id).weight, 0) * 100) / 100;
 
-/** Why a pack won't do, or null if it will: unknown or doubled items, or too heavy. */
-export function packProblem(ids: readonly string[]): string | null {
-  const unknown = ids.find(id => !KIT_IDS.includes(id as KitId));
+/**
+ * Why a pack won't do, or null if it will: unknown or doubled items, or too heavy. With a `world`,
+ * also anything that world doesn't offer (#1870: the hand axe and the fishing kit need their
+ * switch). It's an object, not the switches alone, so that a world from before the switches
+ * (`features` undefined, everything new off) still checks, and only leaving it out skips the check
+ * (a save's pack, which is read before its world is).
+ */
+export function packProblem(ids: readonly string[], world?: { features?: FeatureSwitches }): string | null {
+  const unknown = ids.find(id => !KIT_IDS.includes(id as KitId) || (world !== undefined && !kitOffered(id as KitId, world.features)));
   if (unknown) return `there's no "${unknown}" on the list`;
   const twice = ids.find((id, i) => ids.indexOf(id) !== i);
   if (twice) return `${kitItem(twice as KitId).name.toLowerCase()} is in there twice`;
   const kg = packWeight(ids as KitId[]);
   return kg > PACK_CAPACITY ? `too heavy: ${kg} kg, and the pack holds ${PACK_CAPACITY}` : null;
 }
-export const validPack = (ids: readonly string[]): ids is KitId[] => packProblem(ids) === null;
+export const validPack = (ids: readonly string[], world?: { features?: FeatureSwitches }): ids is KitId[] => packProblem(ids, world) === null;
 
 /** The kit's limited supplies (#1400): what runs out, and how much is left. */
 export interface KitState {
@@ -243,12 +284,36 @@ export const kitColdCost = (s: KitRun): number => {
 
 /** Scouting and surveying with a map and compass. */
 export const MAP_TIME = 0.8;
+/**
+ * Gathering wood with the hand axe (#1870, the owner: "about 20–25% less time" and "about half the
+ * Vigor"): one action, `wood`, brings in both the firewood and the materials, so it's the one the
+ * axe speeds up. No bigger haul: the same wood, sooner and for less effort.
+ */
+export const AXE_TIME = 0.78, AXE_VIGOR = 0.5;
 /** With the odd things on (#1727): binoculars for scouting and looking out, the bird book for tracking and hunting. */
 export const BINOCULARS_TIME = 0.9, BIRD_BOOK_TIME = 0.9;
 export const kitTimeMult = (s: KitRun, action: string): number =>
   (hasKit(s, 'map-compass') && (action === 'scout' || action === 'survey') ? MAP_TIME : 1)
   * (hasExtra(s, 'binoculars') && (action === 'scout' || action === 'lookout') ? BINOCULARS_TIME : 1)
-  * (hasExtra(s, 'bird-book') && (action === 'track' || action === 'hunt') ? BIRD_BOOK_TIME : 1);
+  * (hasExtra(s, 'bird-book') && (action === 'track' || action === 'hunt') ? BIRD_BOOK_TIME : 1)
+  * (hasAxeFishing(s, 'hand-axe') && action === 'wood' ? AXE_TIME : 1);
+
+/**
+ * What the kit does to an action's Vigor drain per hour (#1870): with the hand axe, chopping is half the work
+ * that breaking deadfall by hand or hacking at it with a knife is. Only the work: the walk out and
+ * back costs what it did. A multiplier, as the rest of the drains are, so it stacks with them.
+ */
+export const kitVigorMult = (s: KitRun, action: string): number =>
+  // AXE_VIGOR is the trip's whole cost; the work is already AXE_TIME as long, so the hourly rate
+  // takes the rest (0.5 / 0.78, about 0.64 an hour): the trip as a whole costs about half.
+  hasAxeFishing(s, 'hand-axe') && action === 'wood' ? AXE_VIGOR / AXE_TIME : 1;
+
+/**
+ * A real hook catches better than a whittled one (#1870): with the fishing kit, a fishing trip's
+ * catch before the land's supply and the luck, times this. "A little better", so a fifth: about one
+ * more fish on a near trip's three.
+ */
+export const FISH_KIT_CATCH = 1.2;
 
 /**
  * The firewood a night's fire needs, after the magnifying glass (#1727): on a clear day you light it

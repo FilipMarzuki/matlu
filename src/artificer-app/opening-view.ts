@@ -8,7 +8,8 @@
  */
 
 import { numText, type T } from '../artificer/i18n';
-import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, type KitGroup, type KitId } from '../artificer/kit';
+import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, offeredKit, type KitGroup, type KitId, type KitItem } from '../artificer/kit';
+import { ruleFeatures } from '../artificer/features';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
 import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
 import { grownStats, START_AGES } from '../artificer/growing';
@@ -58,8 +59,8 @@ export function readPackOpen(raw: string | null): PackOpen {
  * of how many, and what the packed ones weigh, the number written the viewer's way ("2.3 kg",
  * "2,3 kg"). Summed the way `packWeight` sums the whole pack, so the sections add up to its total.
  */
-export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T): string {
-  const items = KIT.filter(k => k.group === g);
+export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T, list: readonly KitItem[] = KIT): string {
+  const items = list.filter(k => k.group === g);
   const packed = items.filter(k => pack.includes(k.id)).map(k => k.id);
   return t('pack.groupSum', { n: packed.length, m: items.length, kg: numText(packWeight(packed), t) });
 }
@@ -77,7 +78,8 @@ export const setAllSections = (to: boolean): PackOpen =>
   Object.fromEntries((Object.keys(KIT_GROUPS) as KitGroup[]).map(g => [g, to])) as PackOpen;
 
 /**
- * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
+ * The packing screen (#1401): the whole list, by group (the list the run's world offers, #1870:
+ * `list`, by default a new game's with every rule at its default) — each item with its weight, what it is for
  * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
  * The weight bar and the leader's list stay at the bottom.
  *
@@ -85,10 +87,10 @@ export const setAllSections = (to: boolean): PackOpen =>
  * on every tap, so whether a section is open comes from `open` (the viewer's choices), not from
  * the browser's own toggle, which a redraw would forget.
  */
-export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}): string {
+export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures())): string {
   const kg = packWeight(pack);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
-    const items = KIT.filter(k => k.group === g).map(k => {
+    const items = list.filter(k => k.group === g).map(k => {
       const on = pack.includes(k.id);
       const fits = on || packWeight([...pack, k.id]) <= PACK_CAPACITY;
       const name = kitName(k.id, t);
@@ -105,7 +107,7 @@ export function packForm(pack: readonly KitId[], t: T, truths = false, open: Pac
     // name, and the section's summary on the right. Still a <summary>, so main.ts's toggle works.
     return `<details class="kgroup" data-group="${g}"${sectionOpen(g, pack, open) ? ' open' : ''}>`
       + `<summary class="clabel foldhead" data-kitgroup="${g}">${chevron()}<b class="kname">${esc(t(`kitgroup.${g}`).toUpperCase())}</b>`
-      + `<span class="ksum">${esc(groupSummary(g, pack, t))}</span></summary>`
+      + `<span class="ksum">${esc(groupSummary(g, pack, t, list))}</span></summary>`
       + `<div class="kchoices">${items}</div></details>`;
   }).join('');
   const fill = Math.min(100, (kg / PACK_CAPACITY) * 100);
