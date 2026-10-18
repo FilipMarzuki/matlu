@@ -15,7 +15,8 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { KIT_IDS, PACK_CAPACITY, packWeight, carryLimit, type KitId } from '../../artificer/kit';
+import { offeredKit, PACK_CAPACITY, packWeight, carryLimit, type KitId } from '../../artificer/kit';
+import type { FeatureSwitches } from '../../artificer/features';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import { shown } from '../../artificer/action-visibility';
@@ -34,11 +35,13 @@ const PACK_SALT = 7919;
 
 /**
  * A random pack that fits (#1401): the list in a random order, each item taken half the time if it
- * still fits under `limit` — this Warden's carry weight (#1872), 9 kg unless the run says otherwise.
- * The random draws are the same whatever the limit, so only what fits changes.
+ * still fits. The list is the run's (#1870): `features` are its world's switches, and without the
+ * hand axe and fishing kit's switch the list (and so the shuffle, and the pack) is the one it always was.
+ * What fits is `limit` kg, this Warden's carry weight (#1872), 9 kg unless the run says otherwise;
+ * the draws are the same whatever the limit, so only what fits changes.
  */
-export function randomPack(rand: () => number, limit: number = PACK_CAPACITY): KitId[] {
-  const order = [...KIT_IDS].sort(() => rand() - 0.5);
+export function randomPack(rand: () => number, features?: FeatureSwitches, limit: number = PACK_CAPACITY): KitId[] {
+  const order = offeredKit(features).map(k => k.id).sort(() => rand() - 0.5);
   const pack: KitId[] = [];
   for (const id of order) if (rand() < 0.5 && packWeight([...pack, id]) <= limit) pack.push(id);
   return pack;
@@ -152,7 +155,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     },
     // Packing (#1401): a random pack that fits — from its own stream, so the rest of the run's picks don't shift.
     async decidePack(_message, s) {
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), carryLimit(s)) }), usage: { cost: 0 } };
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), s.config.world.features, carryLimit(s)) }), usage: { cost: 0 } };
     },
     // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
     async decideMeeting(_message, reach, m) {

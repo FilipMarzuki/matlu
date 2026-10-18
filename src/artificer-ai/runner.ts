@@ -593,11 +593,11 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // The Warden is made first (#1872): the turn sees their stats and the pack ticked for them, and
     // a pack is checked against what they can carry.
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply, carryLimit(s));
+    let d = parsePackDecision(reply, s.config.world, carryLimit(s));
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
       reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply, carryLimit(s));
+      d = parsePackDecision(reply, s.config.world, carryLimit(s));
       if (!d.ok) errors.push(...d.errors);
     }
     if (d.ok) s = repack(s, d.decision.pack);

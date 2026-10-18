@@ -602,7 +602,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
   // The hike pack (#1400): kept if it's a pack we know.
   // Checked against the heaviest pack any run allows (#1872), so a strong Warden's pack is kept.
-  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[], MAX_CARRY) ? { pack: [...(ch.pack as KitId[])] } : {};
+  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[], undefined, MAX_CARRY) ? { pack: [...(ch.pack as KitId[])] } : {};
   // Growth by use and wear (#1257): kept if they're numbers.
   const partial = (x: unknown): Partial<Stats> | undefined => {
     if (!isObj(x)) return undefined;

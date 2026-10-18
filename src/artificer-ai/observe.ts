@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { hasKit, kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
@@ -759,7 +759,9 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
  */
 export function observePack(s: Region1State): string {
   const now = s.kit?.items ?? [];
-  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${KIT.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
+  // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
+  const list = offeredKit(s.config.world.features);
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
     `Your pack holds ${PACK_CAPACITY} kg. The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
