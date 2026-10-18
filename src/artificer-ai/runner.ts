@@ -8,7 +8,7 @@
  */
 
 import type { FeatureSwitches } from '../artificer/features';
-import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, volumeOn, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
@@ -82,7 +82,7 @@ export interface Player {
 }
 
 /** What a player packed (#1401): the pack, why, and — if two replies wouldn't do — that the last pack was kept instead. */
-export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[] }
+export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[]; /** Strapped on (#1871), as the run holds it. */ outside?: KitId[] }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
 export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
@@ -601,12 +601,14 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     let d = parsePackDecision(reply, s.config.world);
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
-      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
+      // With the pack's volume (#1871) the reply may say what's strapped on.
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${volumeOn(s) ? ', "outside"' : ''}}.`, decidePack);
       d = parsePackDecision(reply, s.config.world);
       if (!d.ok) errors.push(...d.errors);
     }
-    if (d.ok) s = repack(s, d.decision.pack);
-    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}) } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors };
+    if (d.ok) s = repack(s, d.decision.pack, d.decision.outside);
+    const straps = s.kit?.outside?.length ? { outside: [...s.kit.outside] } : {};
+    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}), ...straps } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors, ...straps };
   }
 
   // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.

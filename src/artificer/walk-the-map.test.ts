@@ -16,7 +16,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, queueHours, ACTIONS, type Region1State, type QueueItem } from './region1';
+import { createRegion1, runAction, runDay, queueHours, ACTIONS, TRAVEL_VIGOR_RATE, type Region1State, type QueueItem } from './region1';
+import { createVitals } from './vitality';
+import { SUGGESTED_PACK, packWeight, comfortableWeight, packWalkMult, type KitId } from './kit';
 import { createExploration, survey, TRAVEL_HOURS } from './exploration';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { ruleFeatures, featureById } from './features';
@@ -248,5 +250,69 @@ describe('#1876 walk the map', () => {
     expect(stopped.afield).toBeUndefined();
     // Stopped on the walk out, you turned back: the walk back as long as the walk out (#1815).
     expect(used(s, stopped)).toBeCloseTo(2, 9);
+  });
+});
+
+describe('#1876 with #1871: a heavy pack makes the walked path cost more Vigor, until camp is made', () => {
+  /** Both switches on (a new game's), carrying aside; no camp yet, the near and middle rings surveyed. */
+  const packed = (pack: KitId[], outside?: KitId[]): Region1State => {
+    const w = world(true);
+    const s = createRegion1({ world: { ...w, carrying: false, features: { ...w.features, 'pack-volume': true } } }, undefined, { id: 'w-walker', pack, ...(outside ? { outside } : {}) });
+    return { ...s, explore: survey(survey(createExploration(), 1), 2), vitals: createVitals(), hoursToday: 0 };
+  };
+  const light = packed([...SUGGESTED_PACK]);
+  const STONES: KitId[] = ['smooth-stones', 'dumbbells', 'garden-gnome', 'roller-skate'];
+  const heavy = packed([...SUGGESTED_PACK, ...STONES]);
+  const heavier = packed([...SUGGESTED_PACK, ...STONES, 'accordion', 'family-tent'], ['family-tent']);
+  const spent = (a: Region1State, b: Region1State) => a.vitals.vigor.current - b.vitals.vigor.current;
+  const fresh = (s: Region1State): Region1State => ({ ...s, vitals: createVitals(), hoursToday: 0 });
+
+  it('walking there and back, and back after a stop, costs more with a heavy pack, once; after camp is made, the same as a light one', () => {
+    expect(packWeight(light.kit!.items)).toBeLessThanOrEqual(comfortableWeight(light.character.stats.str));
+    expect(packWeight(heavy.kit!.items)).toBeGreaterThan(comfortableWeight(heavy.character.stats.str));
+    expect(heavy.site).toBeNull();
+    const mult = packWalkMult(heavy), mult2 = packWalkMult(heavier);
+    expect(mult).toBeGreaterThan(1);
+    expect(mult2).toBeGreaterThan(mult);
+    expect(packWalkMult(light)).toBe(1);
+    // The trip is the map's (the path, not the ring's flat hours), the same for both packs.
+    const trip = planTrip(heavy, 'water', 2)!;
+    expect(trip).toEqual(planTrip(light, 'water', 2));
+    const travel = trip.outHours + trip.backHours;
+    expect(travel).not.toBeCloseTo(TRAVEL_HOURS[2], 6);
+    // Walk there and back: the heavy pack costs more Vigor on the path's walk, the work being the same.
+    const hTrip = runAction(heavy, 'water@2'), lTrip = runAction(light, 'water@2'), h2Trip = runAction(heavier, 'water@2');
+    expect(used(heavy, hTrip)).toBeCloseTo(used(light, lTrip), 9);
+    const extra = spent(heavy, hTrip) - spent(light, lTrip), extra2 = spent(heavier, h2Trip) - spent(light, lTrip);
+    expect(extra).toBeGreaterThan(0);
+    // Applied once: the extra is the walk's Vigor times (mult − 1), so two packs' extras go as their (mult − 1).
+    // Applied twice it would go as (mult² − 1), a different ratio; and it's never more than the bare walk's.
+    expect(extra2 / extra).toBeCloseTo((mult2 - 1) / (mult - 1), 6);
+    expect((mult2 - 1) / (mult - 1)).not.toBeCloseTo((mult2 * mult2 - 1) / (mult * mult - 1), 2);
+    expect(extra).toBeLessThanOrEqual(-TRAVEL_VIGOR_RATE * (mult - 1) * travel + 1e-9);
+    // Stopped out on the path: the walk so far costs more too.
+    const stopAt = travel / 2 / 3;
+    const hStop = runAction(heavy, 'water@2', stopAt), lStop = runAction(light, 'water@2', stopAt);
+    expect(hStop.afield).toBeDefined();
+    expect(hStop.afield).toEqual(lStop.afield);
+    expect(spent(heavy, hStop)).toBeGreaterThan(spent(light, lStop));
+    // No camp yet, so no walk back: the next work walks its path from the square where they stopped, under the heavy pack.
+    const hOn = fresh(hStop), lOn = fresh(lStop);
+    expect(homeOf(hOn)).toEqual(hStop.afield);
+    const next = planTrip(hOn, 'timber', 1)!;
+    expect(next.home).toEqual(hStop.afield);
+    const hNext = runAction(hOn, 'wood'), lNext = runAction(lOn, 'wood');
+    expect(hNext.log.some(l => l.text.startsWith('Walked back to camp first'))).toBe(false);
+    expect(hNext.trail?.at(-1)?.path.slice(-next.path.length * 2 + 1)).toEqual([...next.path, ...next.path.slice(0, -1).reverse()]);
+    expect(used(hOn, hNext)).toBeCloseTo(used(lOn, lNext), 9);
+    expect(spent(hOn, hNext)).toBeGreaterThan(spent(lOn, lNext));
+    // Camp made, the pack is set down: the same walked trip costs what a light pack's does.
+    const spot = knownSpots(heavy)[0].id;
+    const hc = fresh(runAction(heavy, { q: 'camp', opts: { spot } })), lc = fresh(runAction(light, { q: 'camp', opts: { spot } }));
+    expect(hc.site).not.toBeNull();
+    expect(packWalkMult(hc)).toBe(1);
+    const hAfter = runAction(hc, 'water@2'), lAfter = runAction(lc, 'water@2');
+    expect(used(hc, hAfter)).toBeCloseTo(used(lc, lAfter), 9);
+    expect(spent(hc, hAfter)).toBe(spent(lc, lAfter));
   });
 });

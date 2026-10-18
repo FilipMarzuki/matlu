@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, SUGGESTED_PACK, PACK_FEEL_LINE, packWeight, packFeel, comfortableWeight, insideLitres, autoOutside, volumeOn, type KitGroup, type KitItem } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
@@ -69,6 +69,9 @@ import { marketLine } from '../artificer/economy';
 import { stopOn, STOP_KINDS } from '../artificer/stop-action';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
+
+/** A kilogram figure to one decimal, for the AI's pack lines (#1871). */
+const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /**
  * The rules and the response contract. Static on purpose: it goes in the
@@ -387,6 +390,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (s.kit) {
     const left = kitSupplies(s.kit, s.dressings ?? 0);
     lines.push(`PACK (what you brought on the hike): ${s.kit.items.map(id => `${kitItem(id).name} — ${kitItem(id).does}`).join('; ')}${left.length ? ` | LEFT: ${left.join(', ')}` : ''}`);
+    // How heavy it feels (#1871, `pack-volume`): the Warden's words, and the kilograms for the AI's rules; it costs only until camp is made.
+    if (volumeOn(s) && s.site === null) lines.push(`PACK WEIGHT: ${packWeight(s.kit.items)} kg (comfortable for you: ${round1(comfortableWeight(s.character.stats.str))} kg) — "${PACK_FEEL_LINE[packFeel(packWeight(s.kit.items), s.character.stats.str)]}" Over the comfortable weight every walk costs extra Vigor, more the heavier, until you make camp and set it down.`);
   }
   // Stats (#1259): exact values, as they are now — and, while still growing (#1399), what each will be grown up.
   const { age, adult } = s.character;
@@ -769,6 +774,8 @@ export function observePack(s: Region1State): string {
   const now = s.kit?.items ?? [];
   // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
   const list = offeredKit(s.config.world.features);
+  // The pack's volume (#1871): the rules the play API and the pack screen check, said in full.
+  if (volumeOn(s)) return observePackVolume(s, list);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
@@ -777,5 +784,28 @@ export function observePack(s: Region1State): string {
     `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
     `THE LEADER'S PACKING LIST (${packWeight(SUGGESTED_PACK)} kg): ${SUGGESTED_PACK.join(', ')}`,
     'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+  ].join('\n\n');
+}
+
+/**
+ * The packing turn with `pack-volume` on (#1871): each item's weight and litres, which can be
+ * strapped on, the 45 L inside and the strap places, and the weight as soft: the comfortable
+ * weight for this Warden's STR, and how it feels in their words. The AI sees the kilograms (the
+ * screen never shows them); the reply may say what's strapped on.
+ */
+function observePackVolume(s: Region1State, list: readonly KitItem[]): string {
+  const now = s.kit?.items ?? [];
+  const outside = s.kit?.outside ?? [];
+  const str = s.character.stats.str;
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg, ${k.litres} L${k.outside ? ', can strap outside' : ''}): ${k.name} — ${k.does}`).join('\n')}`);
+  const feel = (kg: number) => `"${PACK_FEEL_LINE[packFeel(kg, str)]}"`;
+  return [
+    'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+    `Your pack holds ${PACK_LITRES} L inside: what goes inside must fit, or it won't close. Things marked "can strap outside" can go on the ${STRAP_PLACES} strap places instead: they use no room inside but still weigh. The backpack itself comes free, with the clothes you're wearing.`,
+    `Weight is not a limit: about ${round1(comfortableWeight(str))} kg is comfortable for you (STR ${str}). Over that, every walk costs extra Vigor, more the heavier, until you make camp and set the pack down; at or under it, nothing extra.`,
+    ...groups,
+    `PACKED NOW (${packWeight(now)} kg, ${insideLitres(now, outside)} L inside${outside.length ? `, strapped on: ${outside.join(', ')}` : ''}): ${now.length ? now.join(', ') : 'nothing'} — ${feel(packWeight(now))}`,
+    `THE LEADER'S PACKING LIST (${packWeight(SUGGESTED_PACK)} kg, ${insideLitres(SUGGESTED_PACK, autoOutside(SUGGESTED_PACK))} L inside with ${autoOutside(SUGGESTED_PACK).join(', ')} strapped on): ${SUGGESTED_PACK.join(', ')}`,
+    'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...], "outside": ["<item id strapped on>", ...]}. "outside" lists only packed items marked "can strap outside" (at most ' + STRAP_PLACES + '); [] packs everything inside.',
   ].join('\n\n');
 }
