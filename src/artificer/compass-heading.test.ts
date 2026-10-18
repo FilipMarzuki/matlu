@@ -196,7 +196,10 @@ describe('#1868 keeping a heading', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     expect(a.needleCompass).toBeDefined();
     for (const off of [false, 'absent'] as const) {
-      const s = warden({ on: off, pack: ['sewing-kit'] });
+      // Heading out as in #1839, beside an Explore in the ring as it was: walking the map (#1876) off,
+      // which would walk Explore half a day out to a real square, its hours the path's, not the ring's.
+      const w = warden({ on: off, pack: ['sewing-kit'] });
+      const s = { ...w, config: { ...w.config, world: { ...w.config.world, features: { ...w.config.world.features, 'walk-the-map': false } } } };
       // Nothing to keep a heading with, on a grey day, and heading out is open as before.
       expect(keeperOf(s)).toBeNull();
       expect(headingLock(s)).toBeNull();

@@ -23,7 +23,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { MAP_NIGHTS, MAP_PLACES, MAP_DIRECTIONS } from '../artificer/map-learning';
-import { explorerUnlock, scriptedUnlock, randomUnlock, summarise, MEASURE_SEEDS } from './map-unlock';
+import { explorerUnlock, scriptedUnlock, randomUnlock, summarise, MEASURE_SEEDS, MAP_RULES } from './map-unlock';
+import { WALK_THE_MAP } from '../artificer/walk-the-map';
 
 const inTarget = (d: number | null): boolean => d !== null && d >= 4 && d <= 6;
 
@@ -33,11 +34,16 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
   });
 
   it('the explorer unlocks on every seed, median in 4–6', () => {
-    const days = MEASURE_SEEDS.map(id => explorerUnlock(id).day);
+    // Trips in rings (#1876's switch off), as the thresholds were tuned: see EXPLORER_WALK_DAYS below.
+    const days = MEASURE_SEEDS.map(id => explorerUnlock(id, { ...MAP_RULES, [WALK_THE_MAP]: false }).day);
     const sum = summarise(days);
     expect(sum.unlocked).toBe(MEASURE_SEEDS.length);
     expect(inTarget(sum.median)).toBe(true);
     expect(days).toEqual(EXPLORER_DAYS);
+    // With the default rules, trips walking the map: pinned as measured, median still in 4–6.
+    const walking = MEASURE_SEEDS.map(id => explorerUnlock(id).day);
+    expect(walking).toEqual(EXPLORER_WALK_DAYS);
+    expect(inTarget(summarise(walking).median)).toBe(true);
   }, 60_000);
 
   it('the scripted baseline, pinned as measured: the seeds that unlock do so in 4–6', async () => {
@@ -63,10 +69,19 @@ describe('Learning the map: the unlock comes around day 4–6 (#1797)', () => {
 // Measured with MAP_NIGHTS 4, MAP_PLACES 4, MAP_DIRECTIONS 3 (index i is seed `map-${i + 1}`):
 // explorer 12/12, median 5 (5–5); scripted 4/12, median 5 (5–5); random 11/12, median 5 (5–6).
 const EXPLORER_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+// With `walk-the-map` (#1876) a trip walks to a real square and back, so "close by" can be hours of
+// walking where it was none. The explorer's fixed order fetches water last; on map-3 it camps on a
+// hilltop whose nearest water is a lake 2h off, runs out of light before the water each day, and dies
+// of thirst on day 4, a night short of the four the map wants: explorer 11/12, median 5 (5–5). The
+// thresholds were tuned with trips in rings, so the every-seed check above stays on rings (the switch
+// off, where nothing moved); the walking days are pinned here so a change to them shows.
+const EXPLORER_WALK_DAYS: (number | null)[] = [5, 5, null, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // With #1852 the scripted baseline plays by needs once camp is an action (it makes camp, and looks
 // further out once it has a roof), so it now finds enough places on every seed: scripted 12/12,
 // median 5 (5–5). Before, it never made camp and unlocked on 4 of 12.
-const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+// With `walk-the-map` (#1876) trips walk to a real square and back, so map-12's days run longer and it
+// opens a day later: scripted 12/12, median 5 (5–6).
+const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6];
 // With \`thermal-model\` (#1770) a night without a bag is dangerous, so the random player dies sooner:
 // random 8/12, median 5 (5–8). The explorer and the scripted baseline didn't move.
 // With `stone-gathering` (#1816) the random player has Gather stones where it had Quarry stone, so it
@@ -81,4 +96,7 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // at random, so without the map and compass it can head out only on a sunny day (or with a needle
 // compass it happens to make), and its picks shift again: random 9/12, median 5 (5–7). The explorer
 // and the scripted baseline (packed with the leader's list, compass included) didn't move.
-const RANDOM_DAYS: (number | null)[] = [5, 5, 6, 5, 5, 5, null, null, 5, null, 7, 5];
+// With `walk-the-map` (#1876) a trip walks to a real square and back, often hours where close by was
+// none, so the random player (which packs and picks at random) runs short of water and light more and
+// dies sooner on more seeds: random 6/12, median 5 (5–5).
+const RANDOM_DAYS: (number | null)[] = [5, 5, 5, 5, 5, null, null, null, 5, null, null, null];

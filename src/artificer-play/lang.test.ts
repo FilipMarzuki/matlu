@@ -120,8 +120,10 @@ const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false, 'thermal-mode
  * And hunting and fishing with bare hands, as before #1821: Set traps in the moves, and no hunting
  * until a sling, would send it down another again. And meat at camp left alone, as before #1823:
  * a fox at the meat, or Store the meat in the moves, would send it down yet another.
+ * And trips in rings, as before #1876: walking each trip to a real square and back changes its hours,
+ * which sends the year down another path again (in the policy's year, an early death of thirst).
  */
-const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false, 'camp-scavengers': false };
+const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false, 'camp-scavengers': false, 'walk-the-map': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());
@@ -174,7 +176,9 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
 
   it('a Swedish game: what it returns has no English-only words, and a later request still answers in Swedish', async () => {
     const store = memoryStore();
-    const start = await handle(post('/api/v1/games', { lang: 'sv', features: OLD_CAMP }), store, deps);
+    // Trips in rings (#1876 off): walking them, this policy's year dies of thirst before the winter it
+    // checks; the walking lines in Swedish are walk-the-map-app.test.ts's.
+    const start = await handle(post('/api/v1/games', { lang: 'sv', features: { ...OLD_CAMP, 'walk-the-map': false } }), store, deps);
     expect(start.status).toBe(201);
     const id = String(start.body.id);
     const texts: string[] = [bodyText(start.body)];

@@ -46,6 +46,7 @@ import { buildsAt } from '../artificer/camp-builds';
 import { compassOn, keeperOf, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
 import type { Phase } from './session';
 import { nowLine } from '../artificer-app/time-view';
+import { walkOn, wherePlace } from '../artificer/walk-the-map';
 
 // ── HTML to text ────────────────────────────────────────────────────────────
 
@@ -153,6 +154,16 @@ function actionLines(s: Region1State, t: T): string[] {
   return out;
 }
 
+/** Where the Warden is (#1876, `walk-the-map`): at camp, or out on the land, which way and how far. Null with the switch off. */
+function whereText(s: Region1State, t: T): string | null {
+  if (!walkOn(s)) return null;
+  const w = wherePlace(s);
+  if (!w.dir || !w.time) return t(`api.where.${w.kind}` as Key);
+  const bearing = w.dir.exact ? t(`map.dir.${w.dir.i}` as Key) : t(`map.vague.${w.dir.i}` as Key);
+  const walk = 'n' in w.time ? t(`map.time.${w.time.band}`, { n: w.time.n }) : t(`map.time.${w.time.band}`);
+  return t(`api.where.${w.kind}` as Key, { bearing, walk });
+}
+
 /** A day in the Reach: the day and the weather, the body, stores, camp, the land, the outlook, the actions and the journal. */
 function dayText(a: AppState, t: T): string {
   const s = a.sim;
@@ -192,6 +203,7 @@ function dayText(a: AppState, t: T): string {
     htmlText(sitesBlock(s, t)),
     '',
     head('head.land', t),
+    ...[whereText(s, t)].filter((x): x is string => x !== null),
     htmlText(landRings(s, t)),
     ...(land.length ? land : []),
     '',

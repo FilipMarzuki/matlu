@@ -44,6 +44,7 @@ import { hasKit } from './kit';
 import type { Ring } from './exploration';
 import { reachOfRun, landOrigin, directionWords, directionIndex, timeWord, timeWords, type TimeWord } from './descriptive-map';
 import { walkFrom, YIELDS, BIOME_NAME, type Biome, type Reach, type Yield } from './world/reach';
+import { walkOn, pathTo, noteWalk } from './walk-the-map';
 import type { Region1State, ActionOpts, OptionGroup } from './region1';
 
 /** The rule switch (features.ts). */
@@ -207,14 +208,20 @@ function campAt(s: Run): At | null {
   return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
 }
 
+/**
+ * Can the Warden be out on the land? Heading out puts them there (this switch), and so does a stop
+ * on a walk (#1876, `walk-the-map`): one position either way, `afield`.
+ */
+const placesOn = (s: Pick<Region1State, 'config'>): boolean => directedOn(s) || walkOn(s);
+
 /** Out on the land with a camp to go back to: the night is out under the sky, and other work starts with the walk back. */
 export const awayFromCamp = (s: Pick<Region1State, 'config'> & Partial<Pick<Region1State, 'afield' | 'campSpot'>>): boolean =>
-  directedOn(s) && !!s.afield && !!s.campSpot;
+  placesOn(s) && !!s.afield && !!s.campSpot;
 
 /** Hours on foot from where you stand back to camp: 0 when you're there (or have none). */
 export function walkBackHours(s: Run): number {
   const camp = campAt(s);
-  if (!camp || !s.afield || !directedOn(s)) return 0;
+  if (!camp || !s.afield || !placesOn(s)) return 0;
   const r = reachOfRun(s);
   const h = walkFrom(r, s.afield.x, s.afield.y)[camp.y * r.w + camp.x];
   return Number.isFinite(h) ? h : 0;
@@ -238,7 +245,8 @@ export const isHeading = (w: Way): w is Dir => w !== 'here' && w !== 'camp';
 export function walksBackFirst(s: Run, id: string, opts: ActionOpts): boolean {
   if (!awayFromCamp(s)) return false;
   if (id === 'camp') return false;
-  if (id === 'explore') return wayOf(s, opts) === 'camp';
+  // Out there after a stop (#1876) with heading out off, Explore is the ring's, from camp.
+  if (id === 'explore') return !directedOn(s) || wayOf(s, opts) === 'camp';
   return true;
 }
 
@@ -292,6 +300,9 @@ export function headOut(s: Region1State, dir: Dir, ring: Ring): string[] {
   const plan = headOutPlan(r, from, dir, ring, hasKit(s, 'map-compass'));
   if (!plan.to) return [`Headed ${HEADING[dir]}, but the land runs out that way — you came back to where you set out.`];
   s.seenOut = merged(s.seenOut, plan.seen);
+  // Walking the map (#1876): the way you walked goes on today's trail, for a live map later. What it
+  // shows stays the sector's (above): the path is what you walked, not more land seen.
+  noteWalk(s, pathTo(r, walkFrom(r, from.x, from.y), plan.to.y * r.w + plan.to.x), false);
   standAt(s, plan.to);
   return [
     `Headed ${HEADING[dir]}, about ${hrs(plan.hours)} hours out, looking about as you went.`,

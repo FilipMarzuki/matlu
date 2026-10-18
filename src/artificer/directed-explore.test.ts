@@ -189,7 +189,10 @@ describe('#1839 directed explore', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     expect(a.afield).toBeDefined();
     for (const off of [false, 'absent'] as const) {
-      const s = warden(off);
+      // Today's explore is the ring's: walking the map (#1876) off too, which would walk it to a square
+      // and leave the squares it passed seen (walk-the-map.test.ts has that).
+      const w = warden(off);
+      const s = { ...w, config: { ...w.config, world: { ...w.config.world, features: { ...w.config.world.features, 'walk-the-map': false } } } };
       expect(ACTIONS.explore.options?.(s, {}) ?? []).toEqual([]);
       const chosen = runDay(s, [head('n'), { q: 'explore', opts: { way: 'camp' } }]).state;
       const today = runDay(s, ['explore@2', 'explore']).state;

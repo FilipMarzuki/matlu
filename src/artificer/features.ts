@@ -330,6 +330,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Heading out in one of the eight directions needs something to keep a heading. The map and compass from the pack: open from day 1, and it never drifts. Or make a needle compass (half an hour, nothing used up): a needle from the sewing kit, or the hook from a hook and line, stroked on wool (or your hair) and floated in the kåsa (or a still pool); it is fiddly, so a trip can drift one direction off, less with practice, and its pull fades after a week until you stroke it again. Or, on a clear or broken-cloud day, a shadow stick: half an hour more each time. Without any of them, Explore offers only Look around.',
   },
   {
+    // A rules feature (#1876): it changes a trip's hours (the path's walk, not the ring's flat travel),
+    // where the Warden stands after a stop (`afield`), and adds squares seen (`seenOut`) and the days'
+    // paths (`trail`) to the save, so a run from before it (absent: false) travels in rings as it did.
+    id: 'walk-the-map', name: 'Tasks walk the map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1876,
+    note: 'Every task that travels goes to a real square of the map and back: wood to the nearest birch or pine wood at that distance you know, water to a stream, a marsh or a lake shore, stone to scree or fell, game where game is; knowing none, into land you haven\'t seen. The walk is the path\'s (longer through wood, bog and fells), and costs its Vigor and Clarity. The squares you walk are seen. A stop leaves you where you stopped on the path, and the next work starts with the walk back.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

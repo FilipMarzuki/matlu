@@ -90,8 +90,11 @@ describe('#1839 the compass in Explore’s chooser', () => {
     const back = deserialize(serialize(a))!;
     expect(back.sim.afield).toEqual(a.sim.afield);
     expect(back.sim.seenOut).toEqual(a.sim.seenOut);
-    // With the switch off, a stray field is dropped.
-    const off = { ...app(warden(false)), sim: { ...warden(false), afield: { x: 1, y: 1 }, seenOut: [3] } };
+    // With the switch off, a stray field is dropped: with walking the map (#1876) off too, which keeps
+    // them for a stop out on the path (walk-the-map.test.ts and its save test have that).
+    const w = warden(false);
+    const offSim = { ...w, config: { ...w.config, world: { ...w.config.world, features: { ...w.config.world.features, 'walk-the-map': false } } } };
+    const off = { ...app(offSim), sim: { ...offSim, afield: { x: 1, y: 1 }, seenOut: [3] } };
     const read = deserialize(serialize(off))!;
     expect(read.sim.afield).toBeUndefined();
     expect(read.sim.seenOut).toBeUndefined();

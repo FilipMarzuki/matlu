@@ -196,6 +196,8 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
     const play = (on: boolean | 'absent'): Region1State => {
       const f: Record<string, boolean> = { ...ruleFeatures() };
       if (on === 'absent') delete f['camp-scavengers']; else f['camp-scavengers'] = on;
+      // The journal's hash below was taken before #1876: its trips are the rings', so walking the map is off.
+      f['walk-the-map'] = false;
       let s = createRegion1({ world: { ...FULL_WORLD, features: f } }, undefined, { id: 'w-scav-same' });
       s = { ...s, site: s.site ?? 'tree', explore: survey(scout(createExploration(), 1), 1), tools: [...s.tools, { item: 'sling', grade: 'sound' }], stores: { ...s.stores, materials: 10, rawFood: 5, water: 5, firewood: 0 } };
       for (const q of days) s = runDay(s, q).state;
