@@ -303,6 +303,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'You start with traps: set a line of snares where you have seen game, and by morning there may be a hare in one. Hunting actively needs a sling (small game) or later a bow (deer too, and better odds); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits in a comfortable load: then you stow it and hunt on. The odds are shown in words: good odds, fair odds, a long shot.',
   },
   {
+    // A rules feature: it adds a choice to Explore (a `way` option: look around, or head out one of
+    // eight ways) and a place on the map where the Warden can stand away from camp (`afield`), so a
+    // run from before it (absent: false) explores as it always did, and replays the same.
+    id: 'directed-explore', name: 'Explore in a direction', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1839,
+    note: 'Explore offers two ways. Look around: a little of the land in every direction, out to the distance you choose, and you stay where you are (once you have a camp and are away from it: around here, or around camp). Head out: north, north-east, east… one of eight ways, at a distance; you find what the land holds that way, sooner and further out, and end the day out there. The next day starts from where you are, and the walk back to camp is from there.',
+  },
+  {
     // A rules feature (#1823, with #1859's protection rating): it counts the raw meat at camp (`meat`,
     // `meatStored`), draws thefts on long absences and at night from streams of its own, and adds
     // Store the meat, so a run from before it (absent: false) keeps its meat untouched as it did.

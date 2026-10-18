@@ -74,4 +74,7 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // With `hunting-gear` (#1821) the random player has Set traps and the gear crafts where it had Hunt
 // and Ice fishing, so it picks differently again: random 9/12, median 5 (5–6). (The window is now 20
 // days, MEASURE_DAYS: one random run lives to day 16.) The explorer and the scripted baseline didn't move.
-const RANDOM_DAYS: (number | null)[] = [null, 5, 5, 5, 5, 5, 5, null, 5, 5, 6, null];
+// With `directed-explore` (#1839) Explore offers a way (look around, or one of eight to head out),
+// which the random player picks at random too, so it explores differently: random 8/12, median 5
+// (5–6). The explorer and the scripted baseline (which look around, the default) didn't move.
+const RANDOM_DAYS: (number | null)[] = [null, 5, 5, 5, 5, 5, null, null, null, 6, 5, 5];

@@ -37,6 +37,8 @@ import { buildsAt } from '../artificer/camp-builds';
 import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
 import { preselect, type RingDefaults } from './distance-defaults';
+import { directedOn, awayFromCamp, isHeading, type Way } from '../artificer/directed-explore';
+import type { QueueItem } from '../artificer/region1';
 import type { previewQueue, AppState } from './controller';
 import type { DayPlay, Moment } from './playback';
 
@@ -131,18 +133,26 @@ export interface DistanceOption {
   /** The one the chooser preselects, and whether that is the one remembered ("last time"). */
   chosen: boolean;
   last: boolean;
+  /** Explore's way (#1839), when one other than looking around here is picked on the compass: the entry queues with it. */
+  way?: Way;
 }
+
+/** The queue entry a distance's button adds: the plain id, or Explore with its way (#1839). */
+export const distanceItem = (o: Pick<DistanceOption, 'q' | 'way'>): QueueItem => (o.way && o.way !== 'here' ? { q: o.q, opts: { way: o.way } } : o.q);
 
 /**
  * A ringed action's distances (#1814), judged against the state after the queue so far, with the
  * preselected one: the distance remembered for this action if it's open, else the nearest open.
  * `remembered` is this Warden's choices (distance-defaults.ts). Pure, for the chooser and its tests.
  */
-export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T): DistanceOption[] {
+export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T, wayIn?: Way): DistanceOption[] {
   const t = distanceT(s, tIn);
+  // Explore's way (#1839, `directed-explore`): heading out goes where the land takes you, so every distance is open.
+  const way = id === 'explore' && directedOn(s) && wayIn && wayIn !== 'here' && (wayIn !== 'camp' || awayFromCamp(s)) ? wayIn : undefined;
+  const opts: Record<string, string> = way ? { way } : {};
   const base = RINGS.map(r => {
-    const reach = reachable(s.explore, r);
-    const vis = visibilityOf(s, id, r);
+    const reach = (way !== undefined && isHeading(way)) || reachable(s.explore, r);
+    const vis = visibilityOf(s, id, r, opts);
     const gate = vis.reason ? simLine(vis.reason, t) : null;
     const why = reach ? gate : t('ring.lockedTip');
     const greyed = !reach || (!!gate && !greyedTappable(s));
@@ -150,22 +160,47 @@ export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, 
       ring: r, q: queueId(id, r), reachable: reach, open: !greyed, why, greyed,
       travel: TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'),
       yield: yieldText(id, s, r, t),
+      ...(way ? { way } : {}),
     };
   });
   const pick = preselect(base, remembered[id]);
   return base.map(o => ({ ...o, chosen: o.ring === pick.ring, last: o.ring === pick.ring && pick.last }));
 }
 
-/** The chooser under a ringed action's card (#1814): its distances, the preselected one marked, and ✕. */
+/** The compass's squares, row by row: the eight ways around "look around" in the middle (#1839). */
+const COMPASS_ROWS: readonly (readonly Way[])[] = [['nw', 'n', 'ne'], ['w', 'here', 'e'], ['sw', 's', 'se']];
+
+/**
+ * Explore's compass (#1839, `directed-explore`): which way, above the distances. Look around in the
+ * middle, the eight ways around it, a 3 × 3 grid of small buttons that fits a phone; away from camp,
+ * "Around camp" under it. The way picked stays picked while the chooser is open (main.ts); a
+ * distance then queues Explore that way.
+ */
+export function compassBlock(s: Sim, way: Way, t: T): string {
+  const btn = (w: Way): string => {
+    const look = w === 'here';
+    const label = look ? t('compass.look') : w === 'camp' ? t('compass.camp') : t(`compass.${w}`);
+    const tip = look ? t('compass.lookTip') : w === 'camp' ? t('opt.way.camp') : t('compass.headTip', { dir: t(`heading.${w}`) });
+    return `<button class="cpb${look ? ' look' : ''}${w === 'camp' ? ' camp' : ''}${way === w ? ' on' : ''}" data-way="${w}" aria-pressed="${way === w}" title="${esc(tip)}" aria-label="${esc(look || w === 'camp' ? label : tip)}">${esc(label)}</button>`;
+  };
+  return `<div class="compass" role="group" aria-label="${esc(t('compass.aria'))}"><span class="cphead">${esc(t('compass.head'))}</span>`
+    + `<div class="cpgrid">${COMPASS_ROWS.flat().map(btn).join('')}</div>`
+    + (awayFromCamp(s) ? `<div class="cpcamp">${btn('camp')}</div>` : '')
+    + '</div>';
+}
+
+/** The chooser under a ringed action's card (#1814): its distances, the preselected one marked, and ✕. Explore's has its compass too (#1839). */
 function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: DistanceOption[], t: T, dev: boolean): string {
+  const compass = id === 'explore' && directedOn(preview.projected) ? compassBlock(preview.projected, options.find(o => o.way)?.way ?? 'here', t) : '';
   return `<div class="ringpick" role="group" aria-label="${esc(t('ringpick.aria', { action: actionName(id, t) }))}">`
     + `<div class="rphead"><span>${esc(t('ringpick.head'))}</span><button class="rpx" data-cmd="ringclose" aria-label="${esc(t('ringpick.close'))}" title="${esc(t('ringpick.close'))}">✕</button></div>`
+    + compass
     + `<div class="rpopts">${options.map(o => {
       const soft = !!o.why && !o.greyed;
       const title = o.why ? (o.greyed ? o.why : t('act.wouldSkip', { why: o.why })) : '';
-      return `<button class="rpopt${o.chosen ? ' on' : ''}${o.greyed ? ' locked' : ''}${soft ? ' soft' : ''}" data-ringpick="${o.q}" data-pickfor="${id}" data-pickring="${o.ring}"${o.greyed ? ' disabled' : ''} aria-pressed="${o.chosen}" title="${esc(title)}">`
+      return `<button class="rpopt${o.chosen ? ' on' : ''}${o.greyed ? ' locked' : ''}${soft ? ' soft' : ''}" data-ringpick="${o.q}" data-pickfor="${id}" data-pickring="${o.ring}"${o.way ? ` data-pickway="${o.way}"` : ''}${o.greyed ? ' disabled' : ''} aria-pressed="${o.chosen}" title="${esc(title)}">`
         + `<span class="rpn">${esc(ringName(o.ring, t).toUpperCase())}${o.last ? ` <span class="rplast">${esc(t('ringpick.last'))}</span>` : ''}</span>`
-        + `<span class="rpt">${esc(o.travel)}${o.reachable ? ` · ${esc(actionTime(a, preview, queueHours(o.q, preview.projected), t, dev))}` : ''}</span>`
+        + `<span class="rpt">${esc(o.travel)}${o.reachable ? ` · ${esc(actionTime(a, preview, queueHours(distanceItem(o), preview.projected), t, dev))}` : ''}</span>`
         + `<span class="y">${o.why ? `<span class="gate">${esc(o.why)}</span>` : `<span class="yield">${esc(o.yield)}</span>`}</span></button>`;
     }).join('')}</div></div>`;
 }
@@ -180,7 +215,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -193,7 +228,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   return known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     // A land action is shown at the distance its chooser would preselect.
-    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t) : null;
+    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t, id === 'explore' && opts.chooser === 'explore' ? opts.way : undefined) : null;
     const r: Ring = options?.find(o => o.chosen)?.ring ?? 1;
     const q = queueId(id, r);
     // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
