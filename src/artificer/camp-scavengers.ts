@@ -93,12 +93,13 @@ export const GUARDS: Readonly<Record<Guard, PerThreat>> = {
   preserved: { small: 0, big: 0, vermin: 0 },
   // A lidded cold pit (#1857): split wood over the pit, heavy stones on top. The owner: "make it
   // realistic". Foxes, ravens and martens can't lift it, and wolves don't dig through a
-  // stone-weighted lid, so nothing small gets in. A bear can heave the stones aside, at about half
-  // the chance it has at meat lying out (the owner, to tune). The big column is wolves and a bear in
-  // equal parts (rollTheft: a bear half the time outside winter), so half of the bear's half is 0.25
-  // of the big threat, and it's only ever a bear (raidPit; in winter the bear sleeps, so none).
+  // stone-weighted lid, so nothing small gets in. A bear can heave the stones aside, about as rarely
+  // as it pulls hung meat down or shifts a cache (the owner left the bear's chance "to tune"): tuned
+  // to equal `hung` and `cache`, so Store the meat's pit-first order never puts the meat somewhere
+  // worse, and the pit's cold is a pure gain. It's still only ever a bear (raidPit; in winter the
+  // bear sleeps, so none).
   // Mice get in through the gaps, at half the rate they reach meat behind walls (the owner, to tune).
-  lidded: { small: 0, big: 0.25, vermin: 0.5 },
+  lidded: { small: 0, big: 0.1, vermin: 0.5 },
   // Walls (#1858): a timber or stone-banked shelter with the meat inside. Nothing bigger than a mouse
   // gets in, by day or night, whether you're there or not. Mice don't mind walls at all.
   walled: { small: 0, big: 0, vermin: 1 },

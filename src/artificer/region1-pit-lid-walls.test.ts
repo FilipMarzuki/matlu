@@ -8,7 +8,8 @@
  *   1. Lidded, away   — a lidded cold pit holding raw meat, the Warden away with no fire: no fox, raven
  *                        or wolf takes any of it.
  *   2. Bear           — on a rare bear night the lidded pit can still be raided, at a lower chance than
- *                        meat lying out (half the bear's chance, the owner); never in winter.
+ *                        meat lying out and no more often than hung meat (tuned to equal it, so Store
+ *                        the meat's pit-first order never picks a worse place); never in winter.
  *   3. Mice           — over many seeded nights mice sometimes take a small share from the pit, less
  *                        often than behind walls (#1858), never more than a small share.
  *   4. Store the meat — with a lidded pit, the meat goes in the pit up to what it holds and the rest is
@@ -35,7 +36,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  createRegion1, runAction, runDay, endDay, chooseSite, blockedReason, ACTIONS, meatOf, storedMeatOf, openMeatOf, pitMeatOf, hungMeatOf, campDaysOf, miceAbout, coldPitHolds,
+  createRegion1, runAction, runDay, endDay, chooseSite, blockedReason, ACTIONS, placeGuard, meatOf, storedMeatOf, openMeatOf, pitMeatOf, hungMeatOf, campDaysOf, miceAbout, coldPitHolds,
   type Region1State, type QueueItem, type SiteId,
 } from './region1';
 import { visibilityOf, shown } from './action-visibility';
@@ -118,9 +119,12 @@ describe('A lid for the cold pit (#1857)', () => {
   });
 
   it('2. a rare bear night: the lidded pit can still be raided, at a lower chance than meat lying out, never in winter', () => {
-    // Half the bear's chance at meat lying out (the owner): the big threat is half bear outside winter.
+    // A bear gets into the pit no more often than it pulls hung meat down, and less often than it
+    // takes meat lying out (the owner left the chance "to tune"; tuned to equal hung meat's).
     const lying = leftover(['asleep'], NIGHT_BASE).big, pit = leftover(['asleep', 'lidded'], NIGHT_BASE).big;
-    expect(pit).toBeCloseTo(lying * 0.5 * 0.5, 12);
+    expect(GUARDS.lidded.big).toBeLessThanOrEqual(GUARDS.hung.big);
+    expect(pit).toBeLessThanOrEqual(leftover(['asleep', 'hung'], NIGHT_BASE).big);
+    expect(pit).toBeLessThan(lying);
     expect(pit).toBeGreaterThan(0);
     const s0 = warden('w-probe');
     expect(seasonOf(s0.day, s0.config.calendar)).not.toBe('winter');
@@ -165,6 +169,17 @@ describe('A lid for the cold pit (#1857)', () => {
     expect(simLine(pitMiceLine(1), svT)).toBe('Möss tog sig in i kylgropen genom springorna i locket: 1 mat borta.');
   });
 
+  it('2b. with the default switches, the lidded pit is rated at least as well as hung meat, so Store the meat never picks a worse place', () => {
+    const rank = { open: 0, fair: 1, well: 2, secure: 3 } as const;
+    for (const age of [0, 20]) {
+      const w = warden(`w-pit-word-${age}`, { lidded: true, pitMeat: 8, age });
+      const s: Region1State = { ...w, config: { ...w.config, world: { ...w.config.world, features: ruleFeatures() } } };
+      expect(pitMeatOf(s)).toBe(8);
+      const pitWord = protectionOf([placeGuard('pit')], miceAbout(s)), hungWord = protectionOf([placeGuard('hung')]);
+      expect(rank[pitWord]).toBeGreaterThanOrEqual(rank[hungWord]);
+    }
+  });
+
   it('4. with a lidded pit, Store the meat puts the meat in the pit up to what it holds, the rest hung or cached; no separate action', () => {
     // There's one storing action, and the lid is a place it uses, not an action of its own.
     expect(Object.keys(ACTIONS).filter(k => /store/i.test(k))).toEqual(['storemeat']);
@@ -196,9 +211,9 @@ describe('A lid for the cold pit (#1857)', () => {
     const supper = endDay(corded);
     expect([pitMeatOf(supper), hungMeatOf(supper)]).toEqual([8, 3]);
     // The camp view and the observation say so.
-    expect(meatBlock(corded, enT)).toContain('8 raw meat lies in the cold pit, covered and weighed down: fairly safe');
-    expect(meatBlock(corded, svT)).toContain('8 rått kött ligger i kylgropen, täckt och tyngd med sten: ganska säkert');
-    expect(observe(corded)).toMatch(/MEAT: 8 raw meat lies in the cold pit, covered and weighed down — fairly safe; 4 raw meat hangs out of reach/);
+    expect(meatBlock(corded, enT)).toContain('8 raw meat lies in the cold pit, covered and weighed down: well protected');
+    expect(meatBlock(corded, svT)).toContain('8 rått kött ligger i kylgropen, täckt och tyngd med sten: väl skyddat');
+    expect(observe(corded)).toMatch(/MEAT: 8 raw meat lies in the cold pit, covered and weighed down — well protected; 4 raw meat hangs out of reach/);
   });
 
   it('5. no cold pit: the lid can\'t be made; with one, it is a short camp job that stays with the pit', () => {
