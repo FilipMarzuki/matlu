@@ -30,6 +30,7 @@ import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
 import { todayHours } from '../artificer-app/controller';
+import { foundLine } from '../artificer-app/explore-finds';
 import { tellHistoriesWith } from '../artificer/history-in-play';
 import { runHistory } from '../artificer/world/history';
 
@@ -534,6 +535,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
+  /**
+   * What the land trips since the last observation turned up (#1869): its FOUND line, as the page says
+   * the finds (artificer-app/explore-finds.ts). Words only: the run is the same with or without it.
+   */
+  let observedAt = s;
+  const observeNow = (): string => { const f = foundLine(observedAt, s); observedAt = s; return observe(s, notes, f ? [f] : []); };
 
   /** What this run's last call cost: its estimate for the next one (#1491). */
   let lastCost: number | undefined;
@@ -674,7 +681,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       stepped = done;
       let thoughts = '', invalid = false, lastReply = '', errors: string[] | undefined;
       for (let asks = 0; asks < LOCKED_ASKS && !s.outcome && s.day === day && !s.canPlan; asks++) {
-        lastReply = await ask(observe(s, notes));
+        lastReply = await ask(observeNow());
         notes = [];
         let p = decideFor(s, lastReply);
         if (!p.ok) {
@@ -706,7 +713,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       }
       // Planning opened mid-day: the rest of today is planned as usual, below.
     }
-    let reply = await ask(observe(s, notes));
+    let reply = await ask(observeNow());
     let parsed = decideFor(s, reply);
     notes = [];
     if (!parsed.ok) {

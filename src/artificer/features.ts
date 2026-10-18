@@ -430,6 +430,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'start-on-land', name: 'Start on LAND', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1853,
     note: 'A new Warden starts on LAND after the intro, with the patrol leader\'s advice (scout first: find shelter and water) and an Explore button that goes to PLAN with Explore highlighted and its distance chooser open.',
   },
+  {
+    // A ui feature (#1869): what a land trip turned up, said as finds (artificer-app/explore-finds.ts),
+    // so it switches live and no run saves it. The finds are worked out on the page from what the run
+    // knew before and after the trip; the sim isn't touched. Off, the timer and the journal are as before.
+    id: 'explore-finds', name: 'Finds as you explore', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1869,
+    note: 'After an Explore, a scout, a survey or a look-out, what it turned up appears one line at a time in the day\'s log as it plays ("Found birch trees", "A good source of smooth rocks"), and the journal keeps one line per trip.',
+  },
 ];
 
 /** Switches by feature id. */
