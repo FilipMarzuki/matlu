@@ -134,6 +134,15 @@ describe('The remaining tabs, in Swedish (#1711)', () => {
     expect(shown(progressTab(rich(), records(), '', sv))).toContain('VÄKTARE 1');
   });
 
+  it('leaves PAST WARDENS out until a winter has been finished (#1866)', () => {
+    for (const t of [en, sv]) {
+      const none = shown(progressTab(rich(), [], '', t));
+      expect(none).not.toContain(t('head.pastRuns'));
+      expect(none).not.toMatch(/No finished winters|Inga avslutade vintrar/);
+      expect(shown(progressTab(rich(), records(), '', t))).toContain(t('head.pastRuns'));
+    }
+  });
+
   it('keeps the English tabs saying what they said', () => {
     const s = rich();
     expect(shown(wardenTab({ sim: s }, en))).toContain("Aching back — strain 1.5. Tonight's recovery");

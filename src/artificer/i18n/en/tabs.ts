@@ -199,7 +199,6 @@ export const tabs = {
   'progress.fuelShort.other': 'Firewood lasts {n} nights — about {m} more wood to see the winter out.',
   'progress.tooCold': 'The shelter is too cold for a clear midwinter night, even with the fire in. Walls, bedding or cold gear.',
   'progress.enough': 'Enough laid by to reach the thaw, if nothing goes wrong.',
-  'progress.noRuns': 'No finished winters yet. Live through the winter to the thaw, and it will be recorded here.',
   'progress.run': 'WARDEN {n}',
   'progress.kind.arrived': 'Reached Mistheim',
   'progress.kind.survived': 'Survived the winter',

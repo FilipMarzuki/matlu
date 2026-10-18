@@ -23,6 +23,7 @@ export const planqSv: Record<keyof typeof planq, string> = {
   'actshort.sled': 'Kälke',
   'actshort.snare': 'Snara',
   'actshort.traps': 'Fällor',
+  'actshort.storemeat': 'Förvara kött',
   'actshort.sling': 'Slunga',
   'actshort.bow': 'Båge',
   'actshort.hookline': 'Krok',

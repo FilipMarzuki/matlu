@@ -177,6 +177,8 @@ function wants(s: Region1State): Entry[] {
   // Once there's a roof, a look further out: more places to camp, forage and game, and the map's places.
   if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
   if (s.stores.rawFood >= 4) out.push(a('preserve'));
+  // Meat lying out at camp draws animals (#1823): put it out of reach (refused, so skipped, with nothing to store or the switch off).
+  out.push(a('storemeat'));
   if (s.stores.water < 4) out.push(a('water'));
   const fuelSoon = toWinter <= 20 ? Math.min(winterOutlook(s).fuelToThaw, fuelFor(s, 20 - toWinter + 3)) : fuelNow;
   if (s.stores.firewood < fuelSoon) out.push(a('wood'));

@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, LOOSE_STONE_SITES, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, meatOf, openMeatOf, storedMeatOf, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -39,6 +39,7 @@ import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_
 import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
+import { scavengersOn, protectionWord, LONG_AWAY_HOURS } from '../artificer/camp-scavengers';
 import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds, noCampYet } from '../artificer/descriptive-map';
@@ -200,6 +201,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   sling: 'opens hunting: small game (2 materials)',
   bow: 'opens deer hunting, and better hunting odds (3 materials + 2 sinew; sinew comes from small game: traps or sling hunts)',
   hookline: 'opens fishing (1 material)',
+  storemeat: 'puts the raw meat lying out at camp out of reach of animals: under a stone cache (needs 3 stone) or hung with cord (needs 1 material); nothing used up',
   waterskin: '+1 water per trip',
   bedroll: '+6 clarity overnight',
   shovel: 'build -20% vigor',
@@ -258,6 +260,25 @@ function coldLine(s: Region1State): string | null {
   return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${pit}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
 }
 
+/**
+ * The meat at camp (#1823, `camp-scavengers`) and how well it's protected, in #1859's words: the
+ * meat lying out (while you're away, and tonight) and the meat stored. Null with the switch off or no meat.
+ */
+function meatLine(s: Region1State): string | null {
+  if (!scavengersOn(s) || meatOf(s) <= 0) return null;
+  const parts: string[] = [];
+  const open = openMeatOf(s), stored = storedMeatOf(s);
+  if (open > 0) {
+    const fire = fireTonight(s);
+    parts.push(`${open} raw meat lies in camp — while you're away: ${protectionWord([])} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(nightGuards(fire))}`);
+  }
+  if (stored > 0 && s.meatStored) {
+    const word = protectionWord([placeGuard(s.meatStored.place)]);
+    parts.push(s.meatStored.place === 'cache' ? `${stored} raw meat lies under a stone cache, out of reach — ${word}` : `${stored} raw meat hangs out of reach (hung with cord) — ${word}`);
+  }
+  return `MEAT: ${parts.join('; ')}`;
+}
+
 /** A tool, named by grade — and, for an heirloom that hasn't taught yet, what it still holds of its maker's knowledge (#1456, #1469). */
 function toolLabel(t: Tool, taughtBy: readonly string[] | undefined): string {
   const holds = t.heirloom && t.made && !(taughtBy ?? []).includes(t.item)
@@ -309,6 +330,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}${huntingGearOn(s) ? ` · sinew ${sinewOf(s)}` : ''}`);
   const cold = coldLine(s);
   if (cold) lines.push(cold);
+  const meat = meatLine(s);
+  if (meat) lines.push(meat);
   if (s.config.world.carrying !== false) lines.push(loadLine(s));
 
   const t = s.config.thresholds;
@@ -463,6 +486,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     lines.push(`EXPLORING: "explore" takes option "way". "here" (the default) looks around: a little of the land in every direction, out to the distance you queue it at, and you stay where you are${s.campSpot ? ' ("camp" instead walks back to camp first and looks around there, when you\'re away from it)' : ''}. n, ne, e, se, s, sw, w, nw heads out that way: you see the land in that 45° slice (about ${HEAD_OUT_HOURS[1]}h out close by, ${HEAD_OUT_HOURS[2]}h at half a day, ${HEAD_OUT_HOURS[3]}h at a day), find the water, wood, stone and camp sites the map has there, learn nothing of the other directions, and end the day out there; the next day starts from there. Heading out needs no ground known first. Looking around once you have headed out sees about ${LOOK_HOURS[1]}/${LOOK_HOURS[2]}/${LOOK_HOURS[3]}h each way.${where}`);
   }
   if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
+  // Meat at camp draws animals (#1823, `camp-scavengers`).
+  if (scavengersOn(s)) lines.push(`SCAVENGERS: raw meat from hunting and traps (not plants or fish) left at camp draws animals. On a trip of ${LONG_AWAY_HOURS}h or more away, a fox or ravens may take a quarter to a half of the meat lying out; at night too, half as often since you are there asleep, and hardly ever with a fire burning. Rarely, at night, wolves or a bear take all of it and the fright costs Clarity. "storemeat" (1h at camp) puts it out of reach; rations (smoked or dried) are always safe. How well the meat is protected is said in words: lies open, fairly safe, well protected, secure.`);
   // Forecasts (#1827, `forecasts`): how what you know of a task or craft grows by doing it.
   if (forecastsOn(s)) lines.push(`FORECASTS: you learn what work brings by doing it. A task you have never done at that distance says "you don't know what this will bring" (each distance is learned separately); after a try or two it gives a rough word (a little / some / plenty of); after ${knowThreshold(s.character.stats.int)} tries (your INT ${s.character.stats.int}: 4 at INT 8 or less, 3 at 9-12, 2 at 13+) the numbers show. Crafts the same, per recipe, failures counting: never made, "you're not sure you can make this"; then your chance in words (you'll likely manage / it could go either way / beyond you for now), the likely grade (rough / decent / good work) and the cost roughly, with "you may waste some of it" when it could fail; then the real odds, the grade and the exact cost. Rough words are sometimes one step off: less with more INT and practice.`);
   // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.

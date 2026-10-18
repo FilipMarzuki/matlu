@@ -87,7 +87,7 @@ import { itemIcon } from './item-icons';
 import { esc, pct, band, wardenButton } from './html';
 import { weatherRow } from './weather-row';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
-import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
+import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
@@ -1033,7 +1033,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'camp':
       return `<div class="cols">
         <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a.sim, t)}
-          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim, t)}${markFirst(coldBlock(a.sim, t), 'cold')}${nightBlock(a.sim, t, { dev })}
+          <p class="eyebrow" style="margin-top:14px">${esc(t('head.stores'))}</p>${storesRow(a.sim, t)}${markFirst(coldBlock(a.sim, t), 'cold')}${meatBlock(a.sim, t)}${nightBlock(a.sim, t, { dev })}
           <p class="eyebrow" style="margin-top:14px">${esc(t('head.tools'))}</p>${toolsBlock(a.sim, t)}</section>
         <section class="box camp-scene"><p class="eyebrow">${esc(t('head.site'))}</p>${sitesBlock(a.sim, t)}</section>
       </div>`;

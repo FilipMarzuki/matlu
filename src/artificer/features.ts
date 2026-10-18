@@ -310,6 +310,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Explore offers two ways. Look around: a little of the land in every direction, out to the distance you choose, and you stay where you are (once you have a camp and are away from it: around here, or around camp). Head out: north, north-east, east… one of eight ways, at a distance; you find what the land holds that way, sooner and further out, and end the day out there. The next day starts from where you are, and the walk back to camp is from there.',
   },
   {
+    // A rules feature (#1823, with #1859's protection rating): it counts the raw meat at camp (`meat`,
+    // `meatStored`), draws thefts on long absences and at night from streams of its own, and adds
+    // Store the meat, so a run from before it (absent: false) keeps its meat untouched as it did.
+    id: 'camp-scavengers', name: 'Meat at camp draws animals', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1823,
+    note: 'Raw meat from hunting and traps left at camp can draw animals: on a long trip away a fox or ravens may take some, and at night too, unless a fire burns (asleep at camp, the risk is halved). Store the meat (hung with cord or under a stone cache) keeps it safe; smoked or dried rations are always safe. Rarely, at night, wolves or a bear take all the meat lying out, and the fright costs Clarity. How well the meat is protected is said in a word: lies open, fairly safe, well protected, secure.',
+  },
+  {
     // A rules feature (#1827): it changes what the Warden can read off a card, and adds a count of
     // what they've done to the run (`familiar`), so a run from before it (absent: false) reads as it did.
     id: 'forecasts', name: 'Forecasts from INT and experience', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1827,
