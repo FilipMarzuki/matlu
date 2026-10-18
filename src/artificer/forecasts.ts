@@ -97,11 +97,21 @@ export function judged(level: number, levels: number, chance: number, rand: () =
 }
 
 /**
- * The generator for one judgement: seeded by the run, the day, the queue's contents and what is
- * being judged (`slot`), a stream of its own (rng.ts `generator`). Nothing the sim draws is touched.
+ * The generator for one of the queue's verdicts (the day and the days after): seeded by the run, the
+ * day, the queue's contents and what is being judged (`slot`), a stream of its own (rng.ts
+ * `generator`), since those verdicts describe the queue as a whole. Nothing the sim draws is touched.
  */
 export const forecastRand = (s: Pick<Knower, 'day' | 'character'>, queueKey: string, slot: string): (() => number) =>
   generator(seedOf(`${s.character.id}|forecast|${s.day}|${queueKey}|${slot}`));
+
+/**
+ * The generator for a card's rough words (a task at its distance, `taskKey`; a recipe, `craftKey`):
+ * seeded by the run, the day and the card only, never the queue. A card's word stays fixed for the
+ * day: the same task at the same distance reads the same on its card, in the chooser and on its
+ * queue row, however the queue is edited (owner's decision, #1827).
+ */
+export const cardRand = (s: Pick<Knower, 'day' | 'character'>, key: string): (() => number) =>
+  generator(seedOf(`${s.character.id}|forecast|${s.day}|card|${key}`));
 
 /** A queue's contents as a seed string: the same queue, the same forecast. */
 export const queueKeyOf = (queue: readonly unknown[]): string => JSON.stringify(queue);

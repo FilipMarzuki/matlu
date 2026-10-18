@@ -18,7 +18,6 @@ import { visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST
 import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
 import { yieldAmounts } from './yield-amounts';
 import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
-import { queueKeyOf } from '../artificer/forecasts';
 import { seasonOf, MIDWINTER_AFTER, type Grade } from '../artificer/winter';
 import { daylightHours } from '../artificer/clock';
 import { featureOn } from '../artificer/features';
@@ -138,7 +137,7 @@ export interface DistanceOption {
  * preselected one: the distance remembered for this action if it's open, else the nearest open.
  * `remembered` is this Warden's choices (distance-defaults.ts). Pure, for the chooser and its tests.
  */
-export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T, known: Sim = s, queueKey = ''): DistanceOption[] {
+export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, tIn: T, known: Sim = s): DistanceOption[] {
   const t = distanceT(s, tIn);
   const base = RINGS.map(r => {
     const reach = reachable(s.explore, r);
@@ -150,7 +149,7 @@ export function distanceOptions(s: Sim, id: ActionId, remembered: RingDefaults, 
       ring: r, q: queueId(id, r), reachable: reach, open: !greyed, why, greyed,
       travel: TRAVEL_HOURS[r] ? t('ring.travel', { n: TRAVEL_HOURS[r] }) : t('ring.home'),
       // With `forecasts` (#1827): what the Warden knows of it at this distance (`known`: the run as it is).
-      yield: cardYield(known, s, id, r, t, yieldText(id, s, r, t), queueKey),
+      yield: cardYield(known, s, id, r, t, yieldText(id, s, r, t)),
     };
   });
   const pick = preselect(base, remembered[id]);
@@ -191,12 +190,12 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   // In words (#1740), the length gets a line of its own under the name.
   const tw = timeWordsShown(a.sim, dev);
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
-  // Forecasts (#1827): judged in the queue's projection, from what the Warden has really done (a.sim), seeded by the queue.
-  const qk = queueKeyOf(a.queue);
+  // Forecasts (#1827): judged in the queue's projection, from what the Warden has really done (a.sim);
+  // a card's word is seeded by the run, the day and the card, so editing the queue never redraws it.
   return known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     // A land action is shown at the distance its chooser would preselect.
-    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t, a.sim, qk) : null;
+    const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t, a.sim) : null;
     const r: Ring = options?.find(o => o.chosen)?.ring ?? 1;
     const q = queueId(id, r);
     // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
@@ -213,8 +212,8 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     const open = !!options && opts.chooser === id && !resolved && !greyed;
     const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
     const exact = yieldText(id, preview.projected, r, t);
-    const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact, qk);
-    const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t, qk)?.text ?? exact;
+    const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact);
+    const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t)?.text ?? exact;
     return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`

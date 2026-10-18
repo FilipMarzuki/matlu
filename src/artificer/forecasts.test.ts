@@ -165,7 +165,7 @@ describe('Forecasts from INT and experience (#1827)', () => {
     }
   });
 
-  it('7. Given the same seed, day and queue, Then the same forecast; with the switch off or absent, cards as today, no forecasts, the same run', () => {
+  it('7. Given the same seed and day (and, for the day\'s verdict, the same queue), Then the same forecast; with the switch off or absent, cards as today, no forecasts, the same run', () => {
     const fam = { [taskKey('wood', 1)]: 1, [taskKey('water', 1)]: 2 };
     const draw = (s: Region1State) => { const a = app(s, ['wood', 'water']); const p = previewQueue(a); return paletteBlock(a, p, { dev: false, t: en }) + forecastBlock(a, p, en); };
     expect(draw(warden(9, fam))).toBe(draw(warden(9, fam)));
@@ -188,5 +188,32 @@ describe('Forecasts from INT and experience (#1827)', () => {
     for (const item of ['wood', queueId('water', 2), 'knife', 'gather', 'rest'] as QueueItem[]) { on = runAction(on, item); off = runAction(off, item); }
     expect(strip(on)).toBe(strip(off));
     expect(on.familiar).toEqual({ 'wood@1': 1, 'water@2': 1, 'craft:stone-knife': 1, 'gather@1': 1, 'rest@1': 1 });
+  });
+
+  it('8. Given a fixed run and day, Then a task card\'s word is the same whether the queue is empty, holds other tasks, or holds the task in another slot; a different day may give another word', () => {
+    const fam = { [taskKey('wood', 1)]: 1, [taskKey('water', 1)]: 1, [taskKey('gather', 1)]: 1 };
+    const queues: QueueItem[][] = [[], ['water', 'gather'], ['wood', 'water'], ['water', 'gather', 'wood'], ['gather', 'wood', 'water', 'wood']];
+    // The wood card's word on the palette, in the chooser and on each queued wood row, for one queue.
+    const words = (s: Region1State, queue: QueueItem[]): string[] => {
+      const a = app(s, queue);
+      const p = previewQueue(a);
+      const card = taskCard(s, p.projected, 'wood', 1, en)!.text;
+      const chooser = distanceOptions(p.projected, 'wood', {}, en, s).find(o => o.ring === 1)!.yield;
+      const rows = queue.flatMap((q, i) => (q === 'wood' ? [taskCard(s, p.before[i], 'wood', 1, en)!.text] : []));
+      expect(paletteBlock(a, p, { dev: false, t: en })).toContain(card);
+      return [card, chooser, ...rows];
+    };
+    let misjudged = 0;
+    const byDay = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const s = warden(8, fam, { id: `w-card-${i}`, day: 5 });
+      const all = queues.flatMap(q => words(s, q));
+      expect(new Set(all).size).toBe(1);
+      if (taskCard(s, s, 'wood', 1, en)!.level !== taskLevel('wood', s, 1)) misjudged++;
+      for (let day = 2; day < 30; day++) byDay.add(taskCard(warden(8, fam, { id: `w-card-${i}`, day }), warden(8, fam, { id: `w-card-${i}`, day }), 'wood', 1, en)!.text);
+    }
+    // The words do get misjudged (so the sameness above isn't just the truth), and another day can draw another.
+    expect(misjudged).toBeGreaterThan(0);
+    expect(byDay.size).toBeGreaterThan(1);
   });
 });

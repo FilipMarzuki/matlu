@@ -8,8 +8,10 @@
  * `known` only, so queueing wood four times doesn't make you know wood: doing it does.
  *
  * Every rough word goes through `judged` (forecasts.ts): sometimes one step off, from a seeded
- * generator of its own keyed by the run, the day, the queue and the card (`queueKey`, `slot`), so
- * the page shows the same words on every redraw. Exact numbers are never misjudged.
+ * generator of its own, so the page shows the same words on every redraw. A card's word is keyed by
+ * the run, the day and the card (`cardRand`), so editing the queue never redraws it; the day's and
+ * the days' verdicts also by the queue's contents (`forecastRand`), since they judge the queue as a
+ * whole. Exact numbers are never misjudged.
  *
  * Pure: states in, text (or the parts of it) out. The page (camp-blocks.ts, main.ts), the play
  * API's text (view-words.ts) and the AI's observation (observe.ts, in English) all read these.
@@ -20,7 +22,7 @@ import { ACTIONS, craftOutlook, parseItem, queueHours, queueId, huntOddsOf, type
 import type { Ring } from '../artificer/exploration';
 import type { Stack } from '../artificer/crafting';
 import {
-  forecastsOn, taskKey, craftKey, familiarity, knowThreshold, knowing, misjudgeChance, judged, forecastRand, queueKeyOf,
+  forecastsOn, taskKey, craftKey, familiarity, knowThreshold, knowing, misjudgeChance, judged, forecastRand, cardRand, queueKeyOf,
   roughAmount, roughQty, craftBand, CRAFT_BANDS, roughGrade, dayForecastOpen, farForecastOpen, type Knowing, type CraftBand,
 } from '../artificer/forecasts';
 import { PROVISION_TASKS, yieldAmounts } from './yield-amounts';
@@ -52,14 +54,14 @@ export function taskLevel(id: ActionId, s: Sim, r: Ring): number | null {
  * before (switch off, not a trip, or done N times at this distance). Never done at this distance:
  * unknown, even if it's known nearer in. Fewer than N: a rough word, sometimes a step off.
  */
-export function taskCard(known: Sim, s: Sim, id: ActionId, r: Ring, t: T, queueKey = ''): { knowing: Knowing; level: number | null; text: string } | null {
+export function taskCard(known: Sim, s: Sim, id: ActionId, r: Ring, t: T): { knowing: Knowing; level: number | null; text: string } | null {
   if (!forecastsOn(known) || !PROVISION_TASKS.includes(id)) return null;
   const key = taskKey(id, r);
   const k = knowing(known, key);
   if (k === 'exact') return null;
   if (k === 'unknown') return { knowing: k, level: null, text: t('fc.task.unknown') };
   const truth = taskLevel(id, s, r) ?? 0;
-  const level = judged(truth, 3, chanceFor(known, familiarity(known, key)), forecastRand(known, queueKey, `card:${key}`));
+  const level = judged(truth, 3, chanceFor(known, familiarity(known, key)), cardRand(known, key));
   // A hunt's or a trap line's odds are already words (#1821): they stay.
   const odds = id === 'hunt' || id === 'traps' ? huntOddsOf(s, id, r) ?? (id === 'traps' ? 'fair' : null) : null;
   const text = t(`fc.amount.${level as 0 | 1 | 2}`, { what: t(`fc.what.${WHAT[id]!}`) }) + (odds ? ` · ${t(`odds.hunt.${odds}`)}` : '');
@@ -89,7 +91,7 @@ export interface CraftCard {
  * N tries: success and the likely grade in words (a step off at times), the cost roughly, and the
  * waste warning when it could fail. N or more: `exact` (today's line, the odds band, the grade).
  */
-export function craftCard(known: Sim, s: Sim, id: ActionId, t: T, exactLine: string, queueKey = '', item: QueueItem = queueId(id)): CraftCard | null {
+export function craftCard(known: Sim, s: Sim, id: ActionId, t: T, exactLine: string, item: QueueItem = queueId(id)): CraftCard | null {
   if (!forecastsOn(known) || !isCraft(id)) return null;
   const o = craftOutlook(s, item);
   if (!o) return null;
@@ -101,7 +103,7 @@ export function craftCard(known: Sim, s: Sim, id: ActionId, t: T, exactLine: str
     return { knowing: k, text: `${exactLine} · ${t(`fc.odds.${truth}`)}${grade}`, band: truth, grade: o.grade, rough: null, waste: false };
   }
   const chance = chanceFor(known, familiarity(known, key));
-  const rand = forecastRand(known, queueKey, `card:${key}`);
+  const rand = cardRand(known, key);
   // Cost in rough words: each input judged too ("can be off by a step").
   const rough = o.recipe.inputs.map((i: Stack) => ({ item: i.item, level: judged(roughQty(i.qty), 3, chance, rand) }));
   const purpose = t(`fc.purpose.${id}` as Parameters<T>[0]);
@@ -117,8 +119,8 @@ export function craftCard(known: Sim, s: Sim, id: ActionId, t: T, exactLine: str
  * The card's yield line, as the page and the API say it (#1827): the forecast's words with
  * `forecasts` on (until the numbers are known), else `exactLine` (`yieldText`) as before.
  */
-export function cardYield(known: Sim, s: Sim, id: ActionId, r: Ring, t: T, exactLine: string, queueKey = ''): string {
-  return taskCard(known, s, id, r, t, queueKey)?.text ?? craftCard(known, s, id, t, exactLine, queueKey)?.text ?? exactLine;
+export function cardYield(known: Sim, s: Sim, id: ActionId, r: Ring, t: T, exactLine: string): string {
+  return taskCard(known, s, id, r, t)?.text ?? craftCard(known, s, id, t, exactLine)?.text ?? exactLine;
 }
 
 // ── The queue's forecast ────────────────────────────────────────────────────

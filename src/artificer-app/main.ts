@@ -89,7 +89,6 @@ import { weatherRow } from './weather-row';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
 import { forecastBlock, taskCard } from './forecast-words';
-import { queueKeyOf } from '../artificer/forecasts';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { installFeedback } from './feedback-panel';
@@ -453,8 +452,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   // The queue beside the actions (#1826): each row also carries its compact words, which a narrow
   // column shows instead of the full ones (style.css, a container query on `.planq`). Off, as before.
   const compact = sideQueueOn();
-  // Forecasts (#1827): a trip not yet known at its distance shows the card's words on its load row, not the exact haul.
-  const qk = queueKeyOf(a.queue);
+  // Forecasts (#1827): a trip not yet known at its distance shows the card's words on its load row, not the exact haul
+  // (the same word as its card: seeded by the run, the day and the trip, not the queue).
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -490,7 +489,7 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t, qk)?.text) : ''}${menu}</li>`;
+      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t)?.text) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
