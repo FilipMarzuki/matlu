@@ -27,9 +27,14 @@ import {
   DIRECTED_EXPLORE, DIRS, HEAD_OUT_HOURS, LOOK_HOURS, headOutPlan, inSector, sectorOf, standingAt, walkBackHours, wayOptions, type Dir,
 } from './directed-explore';
 
-/** Daylight, clear weather, no luck, accidents or encounters: what happens is the rules'. */
+/**
+ * Daylight, clear weather, no luck, accidents or encounters: what happens is the rules'. Keeping a
+ * heading (#1868, `compass-heading`) is off: these are #1839's rules, where heading out needs nothing
+ * (on a clear day it would go by the shadow stick, half an hour more and sometimes a direction off).
+ * compass-heading.test.ts has heading out with it.
+ */
 const world = (on: boolean | 'absent'): WorldConfig => {
-  const features = ruleFeatures();
+  const features: Record<string, boolean> = { ...ruleFeatures(), 'compass-heading': false };
   if (on === 'absent') delete features[DIRECTED_EXPLORE];
   else features[DIRECTED_EXPLORE] = on;
   return { ...FULL_WORLD, luck: false, accidents: false, darkness: false, weather: 'clear', encounters: false, features };

@@ -39,6 +39,7 @@ import { seasonView, weatherReport } from '../artificer/weather-words';
 import { actionTime, timerLength, timeWordsShown } from './time-view';
 import { preselect, type RingDefaults } from './distance-defaults';
 import { directedOn, awayFromCamp, isHeading, type Way } from '../artificer/directed-explore';
+import { headingLock } from '../artificer/compass-heading';
 import type { QueueItem } from '../artificer/region1';
 import type { previewQueue, AppState } from './controller';
 import type { DayPlay, Moment } from './playback';
@@ -50,7 +51,7 @@ export type Preview = ReturnType<typeof previewQueue>;
 
 /** The action palette's groups: `key` names the heading in the catalog (`group.*`). */
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
-  { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout'] },
+  { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout', 'needlecompass'] },
   { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat'] },
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel'] },
@@ -62,7 +63,7 @@ export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
-  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳',
+  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', needlecompass: '🪡',
 };
 
 /**
@@ -178,17 +179,23 @@ const COMPASS_ROWS: readonly (readonly Way[])[] = [['nw', 'n', 'ne'], ['w', 'her
  * middle, the eight ways around it, a 3 × 3 grid of small buttons that fits a phone; away from camp,
  * "Around camp" under it. The way picked stays picked while the chooser is open (main.ts); a
  * distance then queues Explore that way.
+ *
+ * With nothing to keep a heading by (#1868, `compass-heading`), the eight ways are greyed and can't be
+ * picked, and a note under the grid says what's missing (the same words the sim's refusal uses).
  */
 export function compassBlock(s: Sim, way: Way, t: T): string {
+  const lock = headingLock(s);
   const btn = (w: Way): string => {
     const look = w === 'here';
     const label = look ? t('compass.look') : w === 'camp' ? t('compass.camp') : t(`compass.${w}`);
     const tip = look ? t('compass.lookTip') : w === 'camp' ? t('opt.way.camp') : t('compass.headTip', { dir: t(`heading.${w}`) });
-    return `<button class="cpb${look ? ' look' : ''}${w === 'camp' ? ' camp' : ''}${way === w ? ' on' : ''}" data-way="${w}" aria-pressed="${way === w}" title="${esc(tip)}" aria-label="${esc(look || w === 'camp' ? label : tip)}">${esc(label)}</button>`;
+    const off = !!lock && isHeading(w);
+    return `<button class="cpb${look ? ' look' : ''}${w === 'camp' ? ' camp' : ''}${way === w && !off ? ' on' : ''}${off ? ' locked' : ''}" data-way="${w}" aria-pressed="${way === w && !off}" title="${esc(off ? simLine(lock, t) : tip)}" aria-label="${esc(look || w === 'camp' ? label : tip)}"${off ? ' disabled' : ''}>${esc(label)}</button>`;
   };
-  return `<div class="compass" role="group" aria-label="${esc(t('compass.aria'))}"><span class="cphead">${esc(t('compass.head'))}</span>`
+  return `<div class="compass${lock ? ' nohead' : ''}" role="group" aria-label="${esc(t('compass.aria'))}"><span class="cphead">${esc(t('compass.head'))}</span>`
     + `<div class="cpgrid">${COMPASS_ROWS.flat().map(btn).join('')}</div>`
     + (awayFromCamp(s) ? `<div class="cpcamp">${btn('camp')}</div>` : '')
+    + (lock ? `<p class="cpnote"><b>${esc(t('compass.locked'))}</b> ${esc(simLine(lock, t))}</p>` : '')
     + '</div>';
 }
 

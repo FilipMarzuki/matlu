@@ -59,6 +59,7 @@ import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type Therm
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
 import { wayOf, wayOptions, isHeading, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp } from './directed-explore';
+import { withHeadingLock, wayLock, headingExtraHours, needleLock, needleGate, makeNeedleCompass, steerHeading, NEEDLE_HOURS, type NeedleCompass } from './compass-heading';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
 
@@ -286,6 +287,13 @@ export interface Region1State {
    * Written only with the switch on. Absent: none.
    */
   seenOut?: number[];
+  /**
+   * The needle compass (#1868, `compass-heading`): the day its needle was last stroked, what it was
+   * made from (the sewing kit's needle, or the hook from a hook and line) and the trips headed out
+   * with it, its practice (compass-heading.ts). Written only by Make a needle compass and by heading
+   * out with it, so only with the switch on. Absent: none made.
+   */
+  needleCompass?: NeedleCompass;
   /**
    * The map-drawing session is done (#1754, `map-learning`): you've placed what you found, and your
    * own map is drawn (descriptive-map.ts `canDrawMap`). Written only by the Draw your map action, so
@@ -685,7 +693,9 @@ export type ActionId =
   // Traps, and the gear active hunting and fishing need (#1821): only with the `hunting-gear` switch on.
   | 'traps' | 'sling' | 'bow' | 'hookline'
   // Storing the meat out of reach of animals (#1823): only with the `camp-scavengers` switch on.
-  | 'storemeat';
+  | 'storemeat'
+  // Making a needle compass to keep a heading by (#1868): only with the `compass-heading` switch on.
+  | 'needlecompass';
 
 /** Actions that happen out on the land, in a chosen ring. */
 export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore' | 'gatherstone' | 'traps';
@@ -1367,6 +1377,8 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   }
   // Store the meat (#1823): its own switch, whatever `action-visibility` says.
   if (id === 'storemeat') return scavengersOn(s) ? null : `${id} isn't part of this game's rules`;
+  // Make a needle compass (#1868): its own switch, and no need of it with the real compass packed.
+  if (id === 'needlecompass') return needleLock(s);
   if (id === 'hunt' && huntLocked(s)) return `you don't know how to ${HUNT_UNLOCK.verb} yet — ${HUNT_UNLOCK.how} (${SKILLS.hunting.name})`;
   if (id === 'fish' && fishLocked(s)) return `you don't know how to ${FISH_UNLOCK.verb} yet — ${FISH_UNLOCK.how} (${SKILLS[skillFor('fish') ?? 'fieldcraft'].name})`;
   if (!visibilityOn(s)) return null;
@@ -1661,6 +1673,14 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       return place === 'cache' ? `Put ${n} raw meat under a cairn of heavy stones, out of reach.` : `Hung ${n} raw meat high in a tree with cord, out of reach.`;
     },
   },
+  // Make a needle compass (#1868, `compass-heading`): a short job anywhere, nothing used up. Stroke a
+  // steel needle (the sewing kit's, or the hook from a hook and line) one way on wool and float it on
+  // still water, and it points north. Kept once made; its pull fades, and the same job refreshes it.
+  needlecompass: {
+    name: 'Make a needle compass', hours: NEEDLE_HOURS, vigorRate: -0.5, clarityRate: -1,
+    gate: s => needleGate(s),
+    run: s => makeNeedleCompass(s),
+  },
   sling: gearCraft(HUNTING_RECIPES.sling),
   bow: gearCraft(HUNTING_RECIPES.bow),
   hookline: gearCraft(HUNTING_RECIPES.hookline),
@@ -1720,16 +1740,20 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   explore: {
     name: 'Explore', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true,
     // Heading out one way (#1839, `directed-explore`) goes where the land takes you: no need to know the ground inside first.
-    gate: (s, r, o) => skillLockOf(s, 'explore') ?? (isHeading(wayOf(s, o)) ? null : reach(s, r)),
+    // …but it needs something to keep a heading by (#1868, `compass-heading`): a compass, a needle compass, or the sun.
+    gate: (s, r, o) => skillLockOf(s, 'explore') ?? (isHeading(wayOf(s, o)) ? wayLock(s, o) : reach(s, r)),
     // Look around, or head out one of eight ways (#1839): no choice at all with the switch off.
-    options: (s, o) => wayOptions(s, o),
+    // With nothing to keep a heading by (#1868), the eight ways are there but blocked, saying what's missing.
+    options: (s, o) => withHeadingLock(s, wayOptions(s, o)),
     run: (s, _b, r, o, light) => {
       if (tooDarkToSee('explore', light)) return tooDark(r);
       if (blindInFog(s.weatherToday, 'explore')) return fogged(r);
       // Heading out (#1839): the land that way, and you end the day out there. Its lines in order, the last one returned.
       const way = wayOf(s, o);
       if (isHeading(way)) {
-        const lines = headOut(s, way, r);
+        // Keeping the heading (#1868): the shadow stick's marks, and a needle that drifts one direction off.
+        const steer = steerHeading(s, way);
+        const lines = [...steer.lines, ...headOut(s, steer.dir, r)];
         for (const l of lines.slice(0, -1)) say(s, l, 'action');
         return lines[lines.length - 1];
       }
@@ -1875,7 +1899,9 @@ function actionHours(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts
   // Deep snow (#1315) slows the walk out and the felling; a blizzard slows everything out there.
   const snow = snowSlowFor(s);
   const storm = inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)];
+  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)]
+    // Heading out by the sun (#1868, `compass-heading`): the shadow stick's two marks, a while apart.
+    + (id === 'explore' ? headingExtraHours(s, opts) : 0);
   const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
   return { work, travel };
 }

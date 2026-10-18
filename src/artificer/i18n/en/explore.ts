@@ -57,4 +57,33 @@ export const explore = {
   'heading.sw': 'south-west',
   'heading.w': 'west',
   'heading.nw': 'north-west',
+
+  // ── Keeping a heading (#1868, compass-heading.ts, switch `compass-heading`) ──
+  // Why heading out is blocked, and why the needle compass can't be made now (compass-heading.ts HEADING_TEXT).
+  'reason.heading.canMake': 'you need something to keep a heading: a compass, or a needle you can magnetise — you have {w} (Make a needle compass); on a clear day the sun can do',
+  'reason.heading.nothing': 'you need something to keep a heading: a compass, or a needle you can magnetise — you have neither, and no needle or fish hook; on a clear day the sun can do',
+  'reason.heading.stale': 'your needle compass has lost its pull — stroke it on wool again (Make a needle compass); on a clear day the sun can do',
+  'reason.needle.need': 'needs a needle (a sewing kit) or the hook from a hook and line',
+  'reason.needle.fresh': 'your needle compass still holds its pull',
+  'reason.needle.packed': 'your map and compass keep a heading already',
+  // The journal: making the needle compass, the shadow stick's marks, and a trip that drifted.
+  'log.needle.made': 'Stroked {w} on {w2}, one way, forty times, and floated it on a chip of birch bark in {w3}: it swung round to point north. You have a needle compass.',
+  'log.needle.refreshed': 'Stroked {w} on {w2} again and floated it in {w3}: it has its pull back.',
+  'log.heading.sun': "Marked the tip of a stick's shadow twice, a while apart, to find your bearings: about {h} hours more.",
+  'log.heading.drift': 'The needle wandered as you went: you meant to head {heading}, and ended up heading {heading2}.',
+  'log.heading.sunDrift': 'The shadow line was rough: you meant to head {heading}, and ended up heading {heading2}.',
+  // What the needle compass is made with, as the lines above name it.
+  'w.needle.needle': 'the needle from your sewing kit',
+  'w.needle.hook': 'the hook from your hook and line',
+  'w.needle.underlayer': 'your wool underlayer',
+  'w.needle.mittens': 'your wool mittens',
+  'w.needle.hair': 'your hair',
+  'w.needle.kasa': 'your kåsa',
+  'w.needle.pool': 'a still pool',
+  // The play API's word on what keeps the Warden's heading today (#1868), after Explore's ways.
+  'api.heading.compass': 'you keep your heading by the map and compass',
+  'api.heading.needle': 'you keep your heading by your needle compass, which may drift a direction off; its pull lasts {n} more day(s)',
+  'api.heading.sun': 'you keep your heading by the sun with a shadow stick today: half an hour more each time',
+  // The compass in Explore's chooser, greyed (#1868): a heading over why.
+  'compass.locked': 'Only Look around for now',
 } as const satisfies Record<string, string>;

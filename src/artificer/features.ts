@@ -323,6 +323,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'What a task or craft will bring is learned by doing it: a task you have never done at that distance says you don\'t know, a few tries give a rough word, and enough tries (fewer with more INT) show the numbers. Crafts the same: never made, you\'re not sure you can; with practice, how likely it is, the grade and the cost in rough words; then the real odds, the grade and the exact cost. With INT 9 or more and everything in the queue tried before, the queue forecasts the day; with INT 13 and a week played, or three weeks at any INT, the days after it too. Rough words are sometimes a step off.',
   },
   {
+    // A rules feature (#1868): it blocks heading out (#1839) until something keeps a heading, adds Make a
+    // needle compass and a save field (`needleCompass`), and draws a trip's drift from a stream of its
+    // own, so a run from before it (absent: false) heads out as it did, and replays the same.
+    id: 'compass-heading', name: 'Heading out needs a compass', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1868,
+    note: 'Heading out in one of the eight directions needs something to keep a heading. The map and compass from the pack: open from day 1, and it never drifts. Or make a needle compass (half an hour, nothing used up): a needle from the sewing kit, or the hook from a hook and line, stroked on wool (or your hair) and floated in the kåsa (or a still pool); it is fiddly, so a trip can drift one direction off, less with practice, and its pull fades after a week until you stroke it again. Or, on a clear or broken-cloud day, a shadow stick: half an hour more each time. Without any of them, Explore offers only Look around.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

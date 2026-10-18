@@ -43,6 +43,8 @@ export const camp = {
   'act.traps': 'Set traps',
   // Storing the meat out of animals' reach (#1823, `camp-scavengers`).
   'act.storemeat': 'Store the meat',
+  // Keeping a heading by a needle compass (#1868, `compass-heading`).
+  'act.needlecompass': 'Make a needle compass',
   'act.preserve': 'Preserve food',
   'act.build': 'Build shelter',
   'act.coldGear': 'Craft cold gear',
@@ -249,6 +251,7 @@ export const camp = {
   'yield.bow': 'hunt deer too, and better odds · 3 mat + 2 sinew',
   'yield.hookline': 'fish through the ice · 1 mat',
   'yield.storemeat': 'out of reach of animals: under a stone cache (3 stone) or hung with cord (1 mat) · nothing used up',
+  'yield.needlecompass': 'keeps a heading, to head out by · a needle or a hook, nothing used up · its pull lasts a week',
   'yield.waterskin': '+1 water per trip · takes a hide',
   'yield.bedroll': '+6 clarity overnight',
   'yield.shovel': 'build −20% vigor · needs a roof',
