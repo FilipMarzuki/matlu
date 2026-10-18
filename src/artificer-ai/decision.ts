@@ -245,14 +245,17 @@ export const PACK_DECISION_SCHEMA = {
 
 export interface PackDecision { thoughts: string; pack: KitId[] }
 
-/** Validate a packing reply: a list of known ids, none twice, within what the pack holds. Never throws. */
-export function parsePackDecision(text: string): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
+/**
+ * Validate a packing reply: a list of known ids, none twice, within what the pack holds — `limit`
+ * kg, this Warden's carry weight (#1872, kit.ts carryLimit; 9 kg unless the run says otherwise). Never throws.
+ */
+export function parsePackDecision(text: string, limit?: number): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
   let raw: unknown;
   try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.pack) || !o.pack.every(x => typeof x === 'string')) return { ok: false, errors: ['"pack" must be a list of item ids'] };
-  const problem = packProblem(o.pack as string[]);
+  const problem = packProblem(o.pack as string[], limit);
   if (problem) return { ok: false, errors: [`your pack won't do: ${problem}`] };
   return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])] } };
 }

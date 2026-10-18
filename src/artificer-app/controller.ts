@@ -36,7 +36,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
-import { SUGGESTED_PACK, validPack, readKit, type KitId } from '../artificer/kit';
+import { suggestedPack, validPack, readKit, MAX_CARRY, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
@@ -81,7 +81,11 @@ export function makeWarden(who: WardenSpec, legacy?: Legacy, features?: FeatureS
   // the whole run. A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with
   // the leader's packing list (#1400).
   const world: WorldConfig = { ...GAME_WORLD, features: ruleFeatures(features) };
-  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
+  // The pack ticked for them (#1872): the leader's list, or with `stats-before-pack` on, the list
+  // shaped by the stats and talents chosen (kit.ts suggestedPack) — so it always fits what this
+  // Warden can carry. A pack in `who` (the page's chosen one) wins.
+  const pack = suggestedPack(world.features, who.stats ?? legacy?.stats ?? DEFAULT_STATS, who.chosen ?? []);
+  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack, ...who }), queue: [], stage: 'reach' };
 }
 
 /** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
@@ -597,7 +601,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Background (#1398): a scout, if the save says so.
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
   // The hike pack (#1400): kept if it's a pack we know.
-  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[]) ? { pack: [...(ch.pack as KitId[])] } : {};
+  // Checked against the heaviest pack any run allows (#1872), so a strong Warden's pack is kept.
+  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[], MAX_CARRY) ? { pack: [...(ch.pack as KitId[])] } : {};
   // Growth by use and wear (#1257): kept if they're numbers.
   const partial = (x: unknown): Partial<Stats> | undefined => {
     if (!isObj(x)) return undefined;

@@ -8,9 +8,9 @@
  */
 
 import type { FeatureSwitches } from '../artificer/features';
-import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
+import { suggestedPack, carryLimit, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
-import { validStats, type Stats } from '../artificer/stats';
+import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
 import { campAsActionOn } from '../artificer/camp-sites';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, focusRefusal, FOCUS_OPEN, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
@@ -525,7 +525,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // a legacy of heirlooms alone (#1455) has none, so the spread still applies.
   const spreadApplies = !!opts.stats && !opts.legacy?.stats;
   if (spreadApplies && !validStats(opts.stats!)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: suggestedPack(opts.features, (spreadApplies ? opts.stats : opts.legacy?.stats) ?? DEFAULT_STATS, chosen) }) });
   const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
@@ -590,12 +590,14 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let packed: PackRecord | undefined;
   if (player.decidePack) {
     const decidePack = player.decidePack.bind(player);
+    // The Warden is made first (#1872): the turn sees their stats and the pack ticked for them, and
+    // a pack is checked against what they can carry.
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply);
+    let d = parsePackDecision(reply, carryLimit(s));
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
       reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply);
+      d = parsePackDecision(reply, carryLimit(s));
       if (!d.ok) errors.push(...d.errors);
     }
     if (d.ok) s = repack(s, d.decision.pack);

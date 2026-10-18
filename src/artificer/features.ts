@@ -330,6 +330,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Heading out in one of the eight directions needs something to keep a heading. The map and compass from the pack: open from day 1, and it never drifts. Or make a needle compass (half an hour, nothing used up): a needle from the sewing kit, or the hook from a hook and line, stroked on wool (or your hair) and floated in the kåsa (or a still pool); it is fiddly, so a trip can drift one direction off, less with practice, and its pull fades after a week until you stroke it again. Or, on a clear or broken-cloud day, a shadow stick: half an hour more each time. Without any of them, Explore offers only Look around.',
   },
   {
+    // A rules feature (#1872): the intro's order is ui, but how much the pack can hold is a rule
+    // (kit.ts carryLimit), and it changes the pack a new Warden starts with (kit.ts suggestedPack),
+    // so one rules switch covers both. A run from before it (absent: false) packs as it did: the
+    // leader's list, and 9 kg for everyone.
+    id: 'stats-before-pack', name: 'Who you are, then what you pack', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1872,
+    note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the tarp and the stove, a clever one a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. You can still change anything. How much fits follows Strength: 9 kg at STR 10, about 1 kg more or less per point, from 6 to 13 kg.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

@@ -15,7 +15,7 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { KIT_IDS, PACK_CAPACITY, packWeight, type KitId } from '../../artificer/kit';
+import { KIT_IDS, PACK_CAPACITY, packWeight, carryLimit, type KitId } from '../../artificer/kit';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import { shown } from '../../artificer/action-visibility';
@@ -32,11 +32,15 @@ export type RandomMode = 'uniform' | 'legal';
 /** Salt for the random player's packing stream (#1401). */
 const PACK_SALT = 7919;
 
-/** A random pack that fits (#1401): the list in a random order, each item taken half the time if it still fits. */
-export function randomPack(rand: () => number): KitId[] {
+/**
+ * A random pack that fits (#1401): the list in a random order, each item taken half the time if it
+ * still fits under `limit` — this Warden's carry weight (#1872), 9 kg unless the run says otherwise.
+ * The random draws are the same whatever the limit, so only what fits changes.
+ */
+export function randomPack(rand: () => number, limit: number = PACK_CAPACITY): KitId[] {
   const order = [...KIT_IDS].sort(() => rand() - 0.5);
   const pack: KitId[] = [];
-  for (const id of order) if (rand() < 0.5 && packWeight([...pack, id]) <= PACK_CAPACITY) pack.push(id);
+  for (const id of order) if (rand() < 0.5 && packWeight([...pack, id]) <= limit) pack.push(id);
   return pack;
 }
 
@@ -147,8 +151,8 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
       return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: encounterOption(s) }), usage: { cost: 0 } };
     },
     // Packing (#1401): a random pack that fits — from its own stream, so the rest of the run's picks don't shift.
-    async decidePack() {
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT)) }), usage: { cost: 0 } };
+    async decidePack(_message, s) {
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), carryLimit(s)) }), usage: { cost: 0 } };
     },
     // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
     async decideMeeting(_message, reach, m) {
