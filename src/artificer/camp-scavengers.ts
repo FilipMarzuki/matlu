@@ -59,7 +59,9 @@ export const GUARDS: Readonly<Record<Guard, PerThreat>> = {
   // Asleep at camp at night: you're there, but you don't hear much. Half the risk.
   asleep: { small: 0.5, big: 0.5, vermin: 1 },
   // A fire burning through the night: the best guard you can keep (the owner). A little vermin cover.
-  fire: { small: 0.1, big: 0.1, vermin: 0.8 },
+  // Larger animals keep well clear of a fire through the night with a very high chance (the owner),
+  // so a fire lets only 2% of the big threat through; a hungry fox still sometimes chances it.
+  fire: { small: 0.1, big: 0.02, vermin: 0.8 },
   // Hung in a tree with cord, high and away from the trunk: out of reach of foxes, ravens and wolves,
   // but a bear can climb or pull it down, rarely (the owner: "a bear sometimes gets it").
   hung: { small: 0, big: 0.1, vermin: 0.2 },
