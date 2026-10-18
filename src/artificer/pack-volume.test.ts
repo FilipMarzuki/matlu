@@ -119,8 +119,12 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
     expect(strong.every((v, i) => v <= weak[i])).toBe(true);
     expect(strong.some((v, i) => v < weak[i])).toBe(true);
     expect(comfortableWeight(15)).toBeGreaterThan(comfortableWeight(6));
-    // …only a little: within a couple of kilograms of today's 9 kg.
-    expect(Math.abs(comfortableWeight(15) - PACK_CAPACITY)).toBeLessThan(2.5);
+    // About a kilogram per point (the owner), today's 9 kg for the usual 12-year-old, kept to 6–13 kg.
+    expect(comfortableWeight(6)).toBe(PACK_CAPACITY);
+    expect(comfortableWeight(8)).toBe(PACK_CAPACITY + 2);
+    expect(comfortableWeight(4)).toBe(PACK_CAPACITY - 2);
+    expect(comfortableWeight(15)).toBe(13);
+    expect(comfortableWeight(1)).toBe(6);
     // The words, in both languages, with no digits; and none on the pack screen without dev mode.
     for (const t of [en, sv]) {
       for (const f of PACK_FEELS) { expect(t(`pack.feel.${f}`)).not.toMatch(/\d/); expect(t(`pack.feel.${f}`)).not.toBe(`pack.feel.${f}`); }
@@ -165,8 +169,9 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
   it('6: a pack over the comfortable weight costs extra Vigor on the walk, more the heavier, until camp is made', () => {
     const light = warden(true, [...SUGGESTED_PACK]);
     expect(packWeight(SUGGESTED_PACK)).toBeLessThanOrEqual(comfortableWeight(light.character.stats.str));
-    const heavy = warden(true, [...SUGGESTED_PACK, 'smooth-stones', 'dumbbells']);
-    const heavier = warden(true, [...SUGGESTED_PACK, ...STONES]);
+    // This Warden is a grown-up STR 10, so comfortable is 13 kg: heavy and heavier both go over it.
+    const heavy = warden(true, [...SUGGESTED_PACK, ...STONES]);
+    const heavier = warden(true, [...SUGGESTED_PACK, ...STONES, 'accordion', 'family-tent'], ['family-tent']);
     expect(packWeight(heavy.kit!.items)).toBeGreaterThan(comfortableWeight(heavy.character.stats.str));
     expect(heavyWalkMult(packWeight(SUGGESTED_PACK), 10)).toBe(1);
     expect(heavyWalkMult(comfortableWeight(10), 10)).toBe(1);

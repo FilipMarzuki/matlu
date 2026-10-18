@@ -335,11 +335,15 @@ export function packRoom(pack: readonly KitId[], outside: readonly KitId[], offe
 
 /**
  * The comfortable weight for a Warden of this Strength (#1871): today's 9 kg (a quarter of a kid's
- * weight) for the usual new scout — STR 10 grown up, so STR 6 at 12 (growing.ts) — and 3% more or
- * less for each point of STR from there. A grown, strong Warden carries about a kilo or two more.
+ * weight) for the usual new scout — STR 10 grown up, so STR 6 at 12 (growing.ts) — and a kilogram
+ * more or less for each point of STR from there (the owner: "±1 kg per STR point"), kept between
+ * 6 and 13 kg so no Warden is crushed by the leader's list or carries a house. It reads the body's
+ * Strength now, since a child carries with the arms they have today. #1872 (stats before packing)
+ * uses this same function.
  */
-export const KID_STR = 6, STR_COMFORT = 0.03;
-export const comfortableWeight = (str: number): number => PACK_CAPACITY * (1 + STR_COMFORT * (str - KID_STR));
+export const KID_STR = 6, KG_PER_STR = 1, CARRY_MIN = 6, CARRY_MAX = 13;
+export const comfortableWeight = (str: number): number =>
+  Math.min(CARRY_MAX, Math.max(CARRY_MIN, PACK_CAPACITY + KG_PER_STR * (str - KID_STR)));
 
 /**
  * How heavy it feels, in the Warden's words, lightest first. Each step is a share of the comfortable
