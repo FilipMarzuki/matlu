@@ -572,6 +572,17 @@ body { min-height: 100vh; }
   .kbar span { display: block; height: 100%; background: var(--gold); }
   .kweight { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 12px; }
   .kweight b { color: var(--ink); }
+  /* The pack's volume and straps (#1871): a strappable item packed carries its inside / strapped-on
+     choice under it, as one grid cell; the foot leads with the Warden's own words for the weight. */
+  .kitem { display: grid; gap: 4px; min-width: 0; align-content: start; }
+  .kstrap { display: flex; gap: 4px; }
+  .kplace { flex: 1 1 0; min-height: 32px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 11px/1.2 var(--body); cursor: pointer; }
+  .kplace[aria-pressed="true"] { color: var(--ink); border-color: var(--gold); }
+  .kplace:disabled { opacity: .4; cursor: default; }
+  .kfeel { flex: 1 1 100%; margin: 0; color: var(--gold); font: italic 14px/1.35 var(--body); }
+  .kroom { color: var(--ink); font-size: 12px; }
+  .kroom.full, .kchoice:disabled .kkg { color: var(--danger); }
+  .kbar.full span { background: var(--danger); }
   /* The hike pack (#1400). */
   .packlist { display: flex; flex-wrap: wrap; gap: 6px; }
   .packitem { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 12px; }

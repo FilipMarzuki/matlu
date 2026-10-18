@@ -27,7 +27,7 @@ import { RINGS, type Ring } from '../artificer/exploration';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
 import { validStats } from '../artificer/stats';
 import { START_AGES } from '../artificer/growing';
-import { validPack } from '../artificer/kit';
+import { validPack, packRulesOf } from '../artificer/kit';
 import { FEATURES, validFeatures } from '../artificer/features';
 import { stopRefusal } from '../artificer/stop-action';
 import { GRADES, type Tool } from '../artificer/crafting';
@@ -78,7 +78,11 @@ export function startProblem(s: unknown): string | null {
   }
   if (s.stats !== undefined && !validStats(s.stats)) return 'The stats aren\'t a point-buy the creation screen allows.';
   if (s.age !== undefined && !START_AGES.includes(s.age as number)) return `The age is one of ${START_AGES.join(', ')}.`;
-  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack))) return 'The pack isn\'t one that fits.';
+  // The pack is checked by the run's own rules (#1871): with `pack-volume` on, room inside and the
+  // straps (what's strapped on, if the log says); off, today's weight.
+  if (s.outside !== undefined && !(Array.isArray(s.outside) && s.outside.every(isStr) && s.pack !== undefined)) return 'outside lists the pack\'s strapped-on items.';
+  const rules = packRulesOf(isObj(s.features) ? s.features as Record<string, boolean> : undefined, s.outside as string[] | undefined);
+  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack, rules))) return 'The pack isn\'t one that fits.';
   const known = FEATURES.filter(f => f.kind === 'rules').map(f => f.id);
   if (!validFeatures(s.features) || Object.keys(s.features).some(k => !known.includes(k))) return 'The rule features aren\'t ones the game knows.';
   if (s.heirlooms !== null && !(Array.isArray(s.heirlooms) && s.heirlooms.length <= 40 && s.heirlooms.every(validTool))) return 'The heirlooms aren\'t tools.';
@@ -102,7 +106,7 @@ export function startOf(s: WebStart): AppState {
   const spec = { id, ...(name !== undefined ? { name } : {}), ...(portrait !== undefined ? { portrait } : {}), ...(chosen ? { chosen } : {}), ...(stats ? { stats } : {}), ...(age !== undefined ? { age } : {}) };
   const legacy = s.heirlooms === null ? undefined : { known: [], concepts: {}, heirlooms: s.heirlooms.map(t => ({ ...t })) };
   const app = makeWarden(spec, legacy, s.features);
-  return s.pack ? { ...app, sim: repack(app.sim, s.pack) } : app;
+  return s.pack ? { ...app, sim: repack(app.sim, s.pack, s.outside) } : app;
 }
 
 /**

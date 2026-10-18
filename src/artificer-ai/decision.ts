@@ -8,7 +8,7 @@
  * without schema enforcement can still drift.
  */
 
-import { packProblem, type KitId } from '../artificer/kit';
+import { packProblem, type KitId, type PackRules } from '../artificer/kit';
 import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
 import type { RoadActionId } from '../artificer/road';
@@ -236,23 +236,34 @@ export function parseEncounterDecision(text: string, options: readonly { id: str
 export const PACK_DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'pack'],
+  // `outside` is required for strict structured-output modes (every property must be); a game
+  // without the pack's volume (#1871) ignores it, and [] packs everything inside.
+  required: ['thoughts', 'pack', 'outside'],
   properties: {
     thoughts: { type: 'string', description: 'One or two sentences: what you packed and why.' },
     pack: { type: 'array', items: { type: 'string' }, description: 'The ids of the items you pack, exactly as listed.' },
+    outside: { type: 'array', items: { type: 'string' }, description: 'The packed items you strap on the outside (only ones that can be strapped on); [] for none.' },
   },
 } as const;
 
-export interface PackDecision { thoughts: string; pack: KitId[] }
+export interface PackDecision { thoughts: string; pack: KitId[]; outside?: KitId[] }
 
-/** Validate a packing reply: a list of known ids, none twice, within what the pack holds. Never throws. */
-export function parsePackDecision(text: string): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
+/**
+ * Validate a packing reply: a list of known ids, none twice, within what the pack holds. With the
+ * run's `rules` (#1871, `pack-volume`) that's the room inside and the straps, as `repack` checks;
+ * without, today's weight. Never throws.
+ */
+export function parsePackDecision(text: string, rules?: PackRules): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
   let raw: unknown;
   try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.pack) || !o.pack.every(x => typeof x === 'string')) return { ok: false, errors: ['"pack" must be a list of item ids'] };
-  const problem = packProblem(o.pack as string[]);
+  // What's strapped on counts only with the volume on; absent there, the default straps.
+  const volume = rules?.volume === true;
+  if (volume && o.outside !== undefined && !(Array.isArray(o.outside) && o.outside.every(x => typeof x === 'string'))) return { ok: false, errors: ['"outside" must be a list of item ids'] };
+  const outside = volume && Array.isArray(o.outside) ? [...(o.outside as KitId[])] : undefined;
+  const problem = packProblem(o.pack as string[], volume ? { volume, ...(outside ? { outside } : {}) } : undefined);
   if (problem) return { ok: false, errors: [`your pack won't do: ${problem}`] };
-  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])] } };
+  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])], ...(outside ? { outside } : {}) } };
 }
