@@ -43,7 +43,8 @@ describe('Stop on the timer (#1815)', () => {
     const m = momentAt(on, on.steps[0].hours / 2);
     expect(stopPoint(on, m)).toEqual({ action: 0, hours: expect.closeTo(on.steps[0].hours / 2, 1) });
     // The night has nothing to stop.
-    expect(stopPoint(on, momentAt(on, on.steps[0].hours + on.steps[1].hours + 0.1))).toBeNull();
+    // (After every step: with walking the map, #1876, close-by water can be a long walk, and the wood no longer fits the day.)
+    expect(stopPoint(on, momentAt(on, on.steps.reduce((h, st) => h + st.hours, 0) + 0.1))).toBeNull();
     const off = playDay(queued(ready('w-stop-offer', { 'stop-action': false }), ['water', 'wood']));
     expect(stopPoint(off, momentAt(off, off.steps[0].hours / 2))).toBeNull();
   });

@@ -70,4 +70,13 @@ export const exploreSv: Record<keyof typeof explore, string> = {
   'api.heading.needle': 'du håller kursen med din nålkompass, som kan dra iväg ett väderstreck; kraften räcker {n} dag(ar) till',
   'api.heading.sun': 'du håller kursen med solen och en skuggpinne i dag: en halvtimme till varje gång',
   'compass.locked': 'Bara Se dig omkring än så länge',
+
+  'log.walk.to': 'Där arbetet fanns: {Biome}, {bearing}, {walk} från där du gick ut.',
+  'log.walk.unseen': 'In i land du inte sett: {Biome}, {bearing}, {walk} från där du gick ut.',
+  'log.walk.stopped': 'Du stannade ute i landet, {bearing}, {walk} från lägret: nästa arbete börjar med vägen tillbaka.',
+  'log.walk.stoppedHere': 'Du stannade ute i landet, {bearing}, {walk} från där du gick ut: nästa arbete börjar härifrån.',
+  'api.where.camp': 'Du är i lägret.',
+  'api.where.start': 'Du är där du gav dig av ifrån.',
+  'api.where.out': 'Du är ute i landet, {bearing}, {walk} från lägret.',
+  'api.where.outHere': 'Du är ute i landet, {bearing}, {walk} från där du gick ut.',
 };

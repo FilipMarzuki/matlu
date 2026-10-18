@@ -41,6 +41,7 @@ import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
 import { scavengersOn, protectionWord, LONG_AWAY_HOURS } from '../artificer/camp-scavengers';
 import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
+import { walkOn, whereLine, WALK_RULES } from '../artificer/walk-the-map';
 import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds, noCampYet } from '../artificer/descriptive-map';
@@ -500,6 +501,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
     const heading = headingLine(s);
     if (heading) lines.push(heading);
   }
+  // Tasks walk the map (#1876, `walk-the-map`): the rules, and where the Warden is now.
+  if (walkOn(s)) lines.push(`${WALK_RULES} ${whereLine(s)}`);
   if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
   // Meat at camp draws animals (#1823, `camp-scavengers`).
   if (scavengersOn(s)) lines.push(`SCAVENGERS: raw meat from hunting and traps (not plants or fish) left at camp draws animals. On a trip of ${LONG_AWAY_HOURS}h or more away, a fox or ravens may take a quarter to a half of the meat lying out; at night too, half as often since you are there asleep, and hardly ever with a fire burning. Rarely, at night, wolves or a bear take all of it and the fright costs Clarity. "storemeat" (1h at camp) puts it out of reach; rations (smoked or dried) are always safe. How well the meat is protected is said in words: lies open, fairly safe, well protected, secure.`);

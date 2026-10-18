@@ -86,4 +86,16 @@ export const explore = {
   'api.heading.sun': 'you keep your heading by the sun with a shadow stick today: half an hour more each time',
   // The compass in Explore's chooser, greyed (#1868): a heading over why.
   'compass.locked': 'Only Look around for now',
+
+  // ── Walking the map (#1876, walk-the-map.ts, switch `walk-the-map`) ─────────
+  // Where a trip went, and where a stop left you: the sim's own English (walk-the-map.ts `tripLine`, `stoppedLine`).
+  'log.walk.to': 'Where the work was: {Biome}, {bearing}, {walk} from where you set out.',
+  'log.walk.unseen': "Into land you hadn't seen: {Biome}, {bearing}, {walk} from where you set out.",
+  'log.walk.stopped': 'You stopped out on the land, {bearing}, {walk} from camp: the next work starts with the walk back.',
+  'log.walk.stoppedHere': 'You stopped out on the land, {bearing}, {walk} from where you set out: the next work starts from here.',
+  // The play API's line on where the Warden is (walk-the-map.ts `whereLine`).
+  'api.where.camp': 'You are at camp.',
+  'api.where.start': 'You are where you set out from.',
+  'api.where.out': 'You are out on the land, {bearing}, {walk} from camp.',
+  'api.where.outHere': 'You are out on the land, {bearing}, {walk} from where you set out.',
 } as const satisfies Record<string, string>;

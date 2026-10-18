@@ -100,11 +100,12 @@ function tryDo(s: Region1State, item: QueueItem): Region1State {
 /**
  * The explorer's unlock (see the top): explore, make camp once (at the first place it knows),
  * explore again, wood, water and forage; then the night. One action at a time, as a new Warden
- * plays before planning opens. Daylight, weather and luck are the run's own.
+ * plays before planning opens. Daylight, weather and luck are the run's own. `features`: the rules
+ * it plays (the default rules with the map to learn, unless a test asks for others).
  */
-export function explorerUnlock(characterId: string): Measured {
+export function explorerUnlock(characterId: string, features: Record<string, boolean> = MAP_RULES): Measured {
   const m: Measured = { day: null, days: [] };
-  let s = createRegion1({ world: { ...FULL_WORLD, encounters: false, features: { ...MAP_RULES } } }, undefined, { id: characterId, pack: [...SUGGESTED_PACK] });
+  let s = createRegion1({ world: { ...FULL_WORLD, encounters: false, features: { ...features } } }, undefined, { id: characterId, pack: [...SUGGESTED_PACK] });
   let camped = false;
   for (let i = 0; i < MEASURE_DAYS && !s.outcome; i++) {
     const ring = EXPLORE_RINGS[i % EXPLORE_RINGS.length];

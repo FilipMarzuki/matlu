@@ -58,7 +58,8 @@ import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './buil
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
-import { wayOf, wayOptions, isHeading, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp } from './directed-explore';
+import { wayOf, wayOptions, isHeading, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp, directedOn } from './directed-explore';
+import { walkTrip, walkOn, legAt, noteWalk, tripLine, endWalk, pathHome, type Trip, type TrailDay } from './walk-the-map';
 import { withHeadingLock, wayLock, headingExtraHours, needleLock, needleGate, makeNeedleCompass, steerHeading, NEEDLE_HOURS, type NeedleCompass } from './compass-heading';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
@@ -287,6 +288,11 @@ export interface Region1State {
    * Written only with the switch on. Absent: none.
    */
   seenOut?: number[];
+  /**
+   * The last few days' walking (#1876, `walk-the-map`): each day's squares stepped on, in order, for
+   * a live map later (walk-the-map.ts). Written only with the switch on. Absent: none kept.
+   */
+  trail?: TrailDay[];
   /**
    * The needle compass (#1868, `compass-heading`): the day its needle was last stroked, what it was
    * made from (the sewing kit's needle, or the hook from a hook and line) and the trips headed out
@@ -1770,7 +1776,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
         return lines[lines.length - 1];
       }
       // Away from camp (or, before camp, from the start), looking around sees the land where you stand.
-      if (way === 'here' && s.afield) return lookHere(s, r);
+      if (way === 'here' && s.afield && directedOn(s)) return lookHere(s, r);
       const first = !scouted(s.explore, r);
       s.explore = exploreRing(s.explore, r);
       if (first) {
@@ -1927,8 +1933,20 @@ function actionHours(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts
   const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)]
     // Heading out by the sun (#1868, `compass-heading`): the shadow stick's two marks, a while apart.
     + (id === 'explore' ? headingExtraHours(s, opts) : 0);
-  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
+  // Walking the map (#1876, `walk-the-map`): the walk is the path's there and back, not the ring's flat hours.
+  const trip = def.ringed ? tripOf(s, id, ring, opts) : null;
+  const travel = def.ringed ? (trip ? trip.outHours + trip.backHours : TRAVEL_HOURS[ring]) * snow * storm : 0;
   return { work, travel };
+}
+
+/**
+ * The trip a task walks on the map (#1876), or null: the switch off, or Explore's own ways — heading
+ * out, and looking around where you stand (#1839) — which move the Warden by their own rules.
+ */
+function tripOf(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts): Trip | null {
+  if (!walkOn(s)) return null;
+  const way = id === 'explore' ? wayOf(s, opts) : 'here';
+  return walkTrip(s, id, ring, isHeading(way) || (way === 'here' && !!s.afield && directedOn(s)));
 }
 
 /** A craft's or build's hours (#1475): the recipe's time, the craft tools' speed, a hurt hand (#1286) and pain — the run's and the estimate's. */
@@ -1948,6 +1966,8 @@ function walkBack(next: Region1State): number {
   next.today.loadVigor += w.loadVigor;
   next.today.loadClarity += w.loadClarity;
   next.hoursToday += h;
+  // Walking the map (#1876): the way back goes on today's trail.
+  noteWalk(next, pathHome(next));
   backAtCamp(next);
   say(next, walkBackLine(h), 'action');
   return h;
@@ -2586,7 +2606,12 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const atStop = hunt === 'ends' ? planTravel / 2 + killAt * planWork : stop;
   const cut = atStop === undefined ? null : cutTrips(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], atStop, kind, killAt);
   const workHours = cut ? cut.work : planWork;
-  const travel = cut ? cut.travel : planTravel;
+  // Walking the map (#1876, `walk-the-map`): the trip's square and its path. A stop leaves the Warden
+  // on the path (`leg`): the walk is as far as they got, with no walk back yet (the next work starts
+  // with it), and that holds on the last walk home too, where there's nothing of the work to cut.
+  const trip = def.ringed ? tripOf(next, id, ring, opts) : null;
+  const leg = trip && stop !== undefined ? legAt(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop) : null;
+  const travel = leg ? leg.walked : cut ? cut.travel : planTravel;
   // The hand axe (#1870): chopping wood costs half the Vigor (kit.ts `kitVigorMult`; 1 for everything else).
   const kv = kitVigorMult(next, id);
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex * kv, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
@@ -2619,6 +2644,9 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     say(next, `You went out into the blizzard${where(ring)} and lost the way back. They find you at the thaw.`, 'outcome', at);
     return next;
   }
+  // Where the trip went (#1876), once the Warden got there.
+  const went = trip && leg?.leg !== 'out' ? tripLine(next, trip) : null;
+  if (went) say(next, went, 'action', at);
   const before = { ...next.stores };
   // The share of the work whose yield is kept, when stopped (#1815): 1 for the whole action.
   let kept = cut ? (planWork > 0 ? cut.kept / planWork : 0) : 1;
@@ -2648,6 +2676,8 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     // Stowed and hunted on (#1821): the rest of the planned hours, with another chance at a catch.
     if (hunt === 'on') huntOn(next, before, ring, at, s.hoursToday);
   }
+  // The walk done (#1876): the squares walked are seen, and a stop leaves the Warden out on the path.
+  if (trip) { const stopped = endWalk(next, trip, leg); if (stopped) say(next, stopped, 'action', at); }
   // A session (#1668): how its trips went, and what it left of the patches (as far as it got, when stopped).
   if (session) {
     next.patches = withPatches(next.patches, ring, cut ? partOf(session.plan.end, Object.fromEntries(Object.keys(session.plan.end).map(p => [p, abundance(s.patches, ring, p as PatchId)])), kept) : session.plan.end);

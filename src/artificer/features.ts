@@ -354,6 +354,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the hand axe (and, stronger still, the tarp and the stove), an outdoors talent the fishing kit, a clever one the map and compass and a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. Only what the run offers is suggested. You can still change anything. How much you carry comfortably follows Strength (the same weight the Warden\'s words for the pack use): 9 kg for the usual 12-year-old, about 1 kg more or less per point, from 6 to 13 kg. With the pack\'s volume off, that is also the most the pack can weigh.',
   },
   {
+    // A rules feature (#1876): it changes a trip's hours (the path's walk, not the ring's flat travel),
+    // where the Warden stands after a stop (`afield`), and adds squares seen (`seenOut`) and the days'
+    // paths (`trail`) to the save, so a run from before it (absent: false) travels in rings as it did.
+    id: 'walk-the-map', name: 'Tasks walk the map', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1876,
+    note: 'Every task that travels goes to a real square of the map and back: wood to the nearest birch or pine wood at that distance you know, water to a stream, a marsh or a lake shore, stone to scree or fell, game where game is; knowing none, into land you haven\'t seen. The walk is the path\'s (longer through wood, bog and fells), and costs its Vigor and Clarity. The squares you walk are seen. A stop leaves you where you stopped on the path, and the next work starts with the walk back.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
