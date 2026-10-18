@@ -252,7 +252,8 @@ export interface PackDecision { thoughts: string; pack: KitId[]; outside?: KitId
 /**
  * Validate a packing reply: a list of known ids, none twice, within what the pack holds. Against
  * the run's `world` when given (#1870): what it offers, and with `pack-volume` (#1871) the room
- * inside and the straps instead of weight, as `repack` checks. Never throws.
+ * inside and the straps instead of weight, as `repack` checks; with it off, the world's `limit` kg
+ * (#1872: this Warden's carry weight, kit.ts packWorldOf; 9 kg unless the run says otherwise). Never throws.
  */
 export function parsePackDecision(text: string, world?: PackWorld): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
   let raw: unknown;

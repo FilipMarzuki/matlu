@@ -15,6 +15,12 @@
 import type { Tool } from './crafting';
 import type { WeatherId } from './world';
 import { featureOn, type FeatureSwitches } from './features';
+// stats.ts imports only types from elsewhere, so this adds no import cycle. The talents are a
+// type-only import: it vanishes when compiled, so talents.ts (which imports rng) isn't pulled in.
+import { DEFAULT_STATS, type Stats } from './stats';
+import type { TalentId } from './talents';
+// growing.ts imports only stats.ts, so no cycle either: it gives a run with no Warden yet the usual 12-year-old's stats.
+import { grownStats, DEFAULT_AGE } from './growing';
 
 export type KitId =
   | 'mora-knife' | 'fire-steel' | 'matches' | 'first-aid-kit' | 'water-bottle' | 'kasa' | 'thermos'
@@ -238,8 +244,13 @@ export const insideLitres = (ids: readonly KitId[], outside: readonly KitId[]): 
  * The world a pack is checked in (#1870, #1871): its switches, and with `pack-volume` on what's
  * strapped on (`outside`; absent: {@link autoOutside}, so a caller that never heard of straps
  * still packs sensibly). Leaving the world out checks the list's shape and today's weight only.
+ *
+ * `limit` (#1872) is the most the pack may weigh with `pack-volume` off, in kg: this Warden's
+ * {@link carryLimit} (their comfortable weight with `stats-before-pack` on). Absent, today's
+ * {@link PACK_CAPACITY}. With the volume on weight is soft, so it's ignored there. One shape for
+ * every check: {@link packWorldOf} builds it from a run.
  */
-export interface PackWorld { features?: FeatureSwitches; outside?: readonly string[] }
+export interface PackWorld { features?: FeatureSwitches; outside?: readonly string[]; limit?: number }
 
 /** Is the pack's volume on in this world? Off with no world (today's rules). */
 const volumeIn = (world: PackWorld | undefined): boolean => world !== undefined && featureOn(world.features, PACK_VOLUME);
@@ -280,14 +291,16 @@ export function fitProblem(ids: readonly KitId[], outside: readonly string[]): s
  * is read before its world is). Then, with `pack-volume` off (or no world), too heavy; with it on,
  * a strap problem or too much inside (#1871). Weight is never a refusal with the volume on: a heavy
  * pack is allowed, and costs on the walk instead (region1.ts). The strings are plain English for
- * the AI and the API (they may name numbers; the screen never shows them).
+ * the AI and the API (they may name numbers; the screen never shows them). How heavy is too heavy
+ * with the volume off is the world's `limit` (#1872), else {@link PACK_CAPACITY}.
  */
 export function packProblem(ids: readonly string[], world?: PackWorld): string | null {
   const list = listProblem(ids, world);
   if (list) return list;
   if (!volumeIn(world)) {
     const kg = packWeight(ids as KitId[]);
-    return kg > PACK_CAPACITY ? `too heavy: ${kg} kg, and the pack holds ${PACK_CAPACITY}` : null;
+    const limit = world?.limit ?? PACK_CAPACITY;
+    return kg > limit ? `too heavy: ${kg} kg, and the pack holds ${limit}` : null;
   }
   return fitProblem(ids as KitId[], world!.outside ?? autoOutside(ids as KitId[]));
 }
@@ -296,10 +309,17 @@ export const validPack = (ids: readonly string[], world?: PackWorld): ids is Kit
 /**
  * Why a saved pack can't be read back, or null: the list's shape (not what the world offers: a
  * save's pack is read before its world, see packProblem), then with `pack-volume` on (#1871) whether
- * it closes with `outside` strapped on, else today's weight. The kit and the character's pack use it.
+ * it closes with `outside` strapped on, else its weight: today's 9 kg, or with `stats-before-pack`
+ * on (#1872) the heaviest any Warden may carry ({@link MAX_CARRY}), since the save is read before
+ * its Warden is and a strong Warden's 11 kg is a real pack. The kit and the character's pack use it.
  */
 export function savedPackProblem(ids: readonly string[], features: FeatureSwitches | undefined, outside: readonly string[]): string | null {
-  return listProblem(ids) ?? (featureOn(features, PACK_VOLUME) ? fitProblem(ids as KitId[], outside) : packProblem(ids));
+  const list = listProblem(ids);
+  if (list) return list;
+  if (featureOn(features, PACK_VOLUME)) return fitProblem(ids as KitId[], outside);
+  // Not packProblem with a world: a world would check what it offers too, which a save skips.
+  const kg = packWeight(ids as KitId[]), limit = featureOn(features, STATS_BEFORE_PACK) ? MAX_CARRY : PACK_CAPACITY;
+  return kg > limit ? `too heavy: ${kg} kg, and the pack holds ${limit}` : null;
 }
 
 /**
@@ -380,6 +400,122 @@ export const heavyWalkMult = (kg: number, str: number): number => {
 /** What the walk costs with the pack this run has, now: only with the switch on, and only until camp is made (the pack is set down there). */
 export const packWalkMult = (s: KitRun & { site: unknown; character: { stats: { str: number } } }): number =>
   volumeOn(s) && s.site === null && s.kit ? heavyWalkMult(packWeight(s.kit.items), s.character.stats.str) : 1;
+
+// ── Who you are shapes the pack (#1872, switch `stats-before-pack`) ─────────────────────────────
+//
+// One carry formula, #1871's {@link comfortableWeight} on the Warden's Strength now (a child carries
+// with the arms they have today). What it does depends on `pack-volume`:
+// - volume off: it's the pack's hard limit ({@link carryLimit}, through PackWorld's `limit`), in
+//   place of 9 kg for everyone;
+// - volume on: weight is soft, so there's no limit to change; the Warden's words and the walk's
+//   Vigor already follow STR (packFeel, packWalkMult), and this switch only shapes the suggested pack.
+
+/** The switch (features.ts): the Warden is made before packing, and who they are shapes the pack. */
+export const STATS_BEFORE_PACK = 'stats-before-pack';
+
+/** A run with no Warden yet (tests, quick starts): the usual new scout, average stats grown to 12. */
+const KID_STATS: Readonly<Stats> = grownStats(DEFAULT_STATS, DEFAULT_AGE);
+
+/** What a run's carry limit and suggested pack read: its switches, and the Warden's stats now and known talents. */
+export interface CarryRun {
+  config?: { world: { features?: FeatureSwitches } };
+  character?: { stats: Stats; talents?: readonly { id: TalentId; known: boolean }[] };
+}
+
+/** Is the Warden made before packing, with a pack and a limit to suit (#1872)? Off in a run from before the switch. */
+export const statsBeforePack = (s: CarryRun): boolean => featureOn(s.config?.world.features, STATS_BEFORE_PACK);
+
+/** The Warden's stats now (the young body's, not the adult ones the point-buy showed). */
+const statsNow = (s: CarryRun): Readonly<Stats> => s.character?.stats ?? KID_STATS;
+
+/**
+ * What this run's pack may weigh with `pack-volume` off: {@link comfortableWeight} of the Warden's
+ * STR now with `stats-before-pack` on, else the 9 kg every Warden had. With the volume on there's no
+ * hard limit (packProblem ignores it), and this is only where "heavy, but I'll manage" starts.
+ */
+export const carryLimit = (s: CarryRun): number => statsBeforePack(s) ? comfortableWeight(statsNow(s).str) : PACK_CAPACITY;
+
+/** The world this run's packs are checked in: its switches, its Warden's {@link carryLimit}, and what's strapped on if given. */
+export const packWorldOf = (s: CarryRun, outside?: readonly string[]): PackWorld =>
+  ({ features: s.config?.world.features, limit: carryLimit(s), ...(outside ? { outside } : {}) });
+
+/** The heaviest any pack can be in any run with the volume off: what a save is checked against, so a strong Warden's pack is never dropped as too heavy. */
+export const MAX_CARRY = Math.max(PACK_CAPACITY, CARRY_MAX);
+
+/**
+ * What a talent suggests packing (#1872). Only things the talent would plausibly reach for, and
+ * only one each, so the list stays the leader's with a nudge. A suggestion goes in only if the run
+ * offers it (the hand axe and the fishing kit need `pack-axe-fishing`, #1870) and, for the odd
+ * things (binoculars, duct tape), only when they do something (`pack-extras` on): with it off they
+ * only weigh, and suggesting dead weight would be a trick. Talents with nothing to pack are absent.
+ */
+export const TALENT_PACK: Readonly<Partial<Record<TalentId, { id: KitId; extra?: true }>>> = {
+  hardy: { id: 'hand-axe' },
+  keenEye: { id: 'binoculars', extra: true },
+  // The outdoors talents: hunting, foraging and finding water are where a line and hooks pay.
+  hunter: { id: 'fishing-kit' },
+  forager: { id: 'fishing-kit' },
+  waterfinder: { id: 'fishing-kit' },
+  sharp: { id: 'notebook' },
+  quickLearner: { id: 'notebook' },
+  carefulHands: { id: 'duct-tape', extra: true },
+  silverTongue: { id: 'sweets' },
+};
+
+/**
+ * What a strong Warden is suggested (#1872), by Strength now: the hand axe from one point over the
+ * usual new scout's ({@link KID_STR}, 6), the patrol's tarp from two, and its stove too from three
+ * (STR 11, 12 and 13 grown up, for a 12-year-old). Each is also checked against the run's list and
+ * the Warden's carry weight, so a run without the axe's switch simply skips it.
+ */
+export const STRONG_PACK: readonly { str: number; id: KitId }[] = [{ str: KID_STR + 1, id: 'hand-axe' }, { str: KID_STR + 2, id: 'tarp' }, { str: KID_STR + 3, id: 'trangia' }];
+/**
+ * What a clever Warden is suggested: from INT 10 now (INT 12 grown up: a young mind is 2 behind at
+ * every starting age, growing.ts), the map and compass (already the leader's) and a notebook.
+ */
+export const CLEVER_INT = 10;
+export const CLEVER_PACK: readonly KitId[] = ['map-compass', 'notebook'];
+/**
+ * What comes out first when the leader's list is too heavy for a weak Warden: the least needed
+ * first (toilet paper does nothing out here), the sleeping bag, knife and food never.
+ */
+export const LIGHTEN_ORDER: readonly KitId[] = ['toilet-paper', 'kasa', 'sit-pad', 'whistle', 'cord', 'hat-mittens', 'headlamp', 'rain-gear', 'sleeping-pad'];
+
+/**
+ * The pack ticked for a new Warden (#1872): the leader's list, shaped by who they are now.
+ * - Off (`stats-before-pack` off or absent): the leader's list, as before.
+ * - On: the leader's list, then what high STR, high INT and each chosen talent suggest, each only if
+ *   the run's rules still take the pack (with `pack-volume` on, it closes with the default straps;
+ *   off, it's under the carry limit) and it stays at or under {@link comfortableWeight}; then, if
+ *   the leader's list itself is too heavy (a weak Warden), the least needed things come out until it is.
+ * `stats` are the Warden's now (the young body's). The usual new scout (average stats at 12) with
+ * no talents gets exactly the leader's list. Pure and deterministic: the same stats and talents
+ * always tick the same list, in the same order (the leader's order, then the additions in the order
+ * above). It's only the starting ticks: the player changes anything.
+ */
+export function suggestedPack(features: FeatureSwitches | undefined, stats: Readonly<Stats>, chosen: readonly TalentId[] = []): KitId[] {
+  if (!featureOn(features, STATS_BEFORE_PACK)) return [...SUGGESTED_PACK];
+  const limit = comfortableWeight(stats.str);
+  const world: PackWorld = { features, limit };
+  const extras = featureOn(features, PACK_EXTRAS);
+  const want: KitId[] = [
+    ...STRONG_PACK.filter(x => stats.str >= x.str).map(x => x.id),
+    ...(stats.int >= CLEVER_INT ? CLEVER_PACK : []),
+    ...chosen.flatMap(t => { const x = TALENT_PACK[t]; return x && (!x.extra || extras) ? [x.id] : []; }),
+  ];
+  const pack: KitId[] = [...SUGGESTED_PACK];
+  for (const id of want) {
+    if (pack.includes(id)) continue;
+    const next = [...pack, id];
+    if (packWeight(next) <= limit && packProblem(next, world) === null) pack.push(id);
+  }
+  for (const id of LIGHTEN_ORDER) { if (packWeight(pack) <= limit) break; const i = pack.indexOf(id); if (i >= 0) pack.splice(i, 1); }
+  return pack;
+}
+
+/** The pack ticked for a run's Warden: their stats now and the talents they know they have (never the hidden one). */
+export const suggestedPackOf = (s: CarryRun): KitId[] =>
+  suggestedPack(s.config?.world.features, statsNow(s), (s.character?.talents ?? []).filter(t => t.known).map(t => t.id));
 
 /** The kit's limited supplies (#1400): what runs out, and how much is left. */
 export interface KitState {

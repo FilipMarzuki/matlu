@@ -34,7 +34,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, type KitGroup, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, carryLimit, packWorldOf, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -1931,6 +1931,18 @@ const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } cat
  */
 const packWorld = (): { features: Record<string, boolean> } => ({ features: ruleFeatures(loadChoices()) });
 
+/**
+ * Who you are, then what you pack (#1872): with the next run's `stats-before-pack` on, creation
+ * comes before the pack, so the pack screen knows the draft's stats and talents. These read the
+ * draft the way the run will read its Warden (kit.ts carryLimit, suggestedPack), so what the
+ * screen lets in is what repack accepts: their stats now, the chosen ones grown to the age chosen,
+ * as makeWarden makes them (a child carries with the arms they have today). Off: 9 kg and the
+ * leader's list, as before.
+ */
+const draftRun = () => ({ config: { world: packWorld() }, character: { stats: grownStats(validStats(draft.stats) ? draft.stats : DEFAULT_STATS, draft.age) } });
+const draftLimit = (): number => carryLimit(draftRun());
+const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
+
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
@@ -1950,6 +1962,8 @@ function commitCharacter(): void {
   const from = kept?.log.start.heirloomsFrom ?? null;
   state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
   startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
+  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made.
+  if (statsBeforePack(state.sim)) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
   // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
   // pack again: the same makeWarden → startLog → repack the run had when packing came last.
   applyPack();
@@ -1986,7 +2000,15 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
-  if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
+  if (intro.beats[intro.i].kind === 'create') {
+    if (!draftValid()) return;
+    commitCharacter();
+    // Told again from the Warden just made (#1872): the order comes from the run's own
+    // `stats-before-pack` switch, and the run is only now made from the player's switches, so
+    // re-read the beats and carry on from creation's place in them (by id, never by index).
+    const beats = introBeats(state.sim, t);
+    intro = { beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')) };
+  }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
   // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
@@ -2001,7 +2023,11 @@ let drawnBeat = -1;
 function renderIntro(): void {
   if (!intro) return;
   const b = intro.beats[intro.i];
-  introEl.classList.toggle('settled', drawnBeat === intro.i);
+  // Read before drawnBeat moves on: only a redraw of the same beat keeps its scroll. (Checked after the
+  // assignment, it was always true, so the pack screen opened scrolled to where creation was left —
+  // which shows once creation comes right before it, #1872.)
+  const sameBeat = drawnBeat === intro.i;
+  introEl.classList.toggle('settled', sameBeat);
   drawnBeat = intro.i;
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -2011,13 +2037,13 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
-    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: grownStats(draft.stats, draft.age).str, dev } : undefined) : '',
+    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
   });
   feedback.refresh();
   const beatEl = introEl.querySelector('.beat');
-  if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
+  if (beatEl && sameBeat) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
   if (b.kind === 'create') saveDraft();
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
@@ -2055,7 +2081,8 @@ introEl.addEventListener('click', e => {
     const id = btn.dataset.kit as KitId;
     if (draftPack.includes(id)) { draftPack = draftPack.filter(x => x !== id); draftOutside = draftOutside.filter(x => x !== id); }
     else if (packVolumeOn()) { const next = addToPack(draftPack, draftOutside, id); if (next) ({ pack: draftPack, outside: draftOutside } = next); }
-    else if (validPack([...draftPack, id], packWorld())) draftPack = [...draftPack, id];
+    // By weight, what this Warden can carry (#1872): the draft's carry limit, as repack will check it.
+    else if (validPack([...draftPack, id], packWorldOf(draftRun()))) draftPack = [...draftPack, id];
     renderIntro(); return;
   }
   // Inside or strapped on (#1871): only if it fits there.
@@ -2065,7 +2092,8 @@ introEl.addEventListener('click', e => {
     renderIntro(); return;
   }
   if (btn?.dataset.kitcmd) {
-    draftPack = btn.dataset.kitcmd === 'leader' ? [...SUGGESTED_PACK] : [];
+    // The list button (#1872): the list ticked for this Warden with `stats-before-pack` on, else the leader's.
+    draftPack = btn.dataset.kitcmd === 'leader' ? (statsBeforePack(draftRun()) ? tickedPack() : [...SUGGESTED_PACK]) : [];
     draftOutside = autoOutside(draftPack);
     renderIntro(); return;
   }

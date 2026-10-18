@@ -11,6 +11,9 @@ export const opening = {
   'intro.hike2': 'Two nights in tents, back on Sunday.',
   'intro.hike3': "You've been looking forward to it all week.",
   'intro.pack': 'What will you pack?',
+  // The creation screen when it comes before the pack (#1872, `stats-before-pack`): the scout's own
+  // question, before the hike, not the portal's voice.
+  'intro.whoAreYou': 'Who are you?',
   'intro.seam1': 'A seam opens in the air.',
   'intro.seam2': 'Light folds inward — and you fall through it.',
   'intro.stone1': 'Cold stone under your hands.',
@@ -23,6 +26,8 @@ export const opening = {
   'intro.identify': 'IDENTIFY YOURSELF, ARTIFICER.',
   // `{name}` is left for fillName (intro.ts) to fill once the Warden has one.
   'intro.registered': 'Registered: {name}.',
+  // With creation before the pack (#1872): the voice no longer asks, it reads the name it found.
+  'intro.identified': 'IDENTITY CONFIRMED. Registered: {name}.',
   'intro.winter': 'Winter is coming. Survive!',
   'intro.before': 'Someone was here before you.',
   'intro.left': 'They left: {list}.',
@@ -36,6 +41,10 @@ export const opening = {
   // ── The pack screen ────────────────────────────────────────────────────────
   'pack.free': "The backpack comes free, and the clothes you're wearing. Everything else has to fit in {kg} kg.",
   'pack.wontFit': "won't fit — take something out first",
+  // With creation before the pack (#1872): how much fits is this Warden's, and the list is ticked for them.
+  'pack.freeStr': "The backpack comes free, and the clothes you're wearing. With your strength, everything else has to fit in {kg} kg.",
+  'pack.forYou': "The list is ticked for someone like you: your strength, and what you're good at. Change anything.",
+  'pack.forYouBtn': 'TICKED FOR YOU',
   'pack.weight': 'Pack weight',
   'pack.kg': '{n} kg',
   'pack.leader': "THE LEADER'S LIST",
