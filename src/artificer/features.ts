@@ -330,6 +330,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Heading out in one of the eight directions needs something to keep a heading. The map and compass from the pack: open from day 1, and it never drifts. Or make a needle compass (half an hour, nothing used up): a needle from the sewing kit, or the hook from a hook and line, stroked on wool (or your hair) and floated in the kåsa (or a still pool); it is fiddly, so a trip can drift one direction off, less with practice, and its pull fades after a week until you stroke it again. Or, on a clear or broken-cloud day, a shadow stick: half an hour more each time. Without any of them, Explore offers only Look around.',
   },
   {
+    // A rules feature (#1870): it puts two things on the pack list (a hand axe and a fishing kit) and
+    // gives them their effects (kit.ts `hasAxeFishing`), so a run from before it (absent: false) is
+    // offered the list it was, packs what it packed, and replays the same.
+    id: 'pack-axe-fishing', name: 'A hand axe and a fishing kit in the pack', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1870,
+    note: 'Two more things to pack. A hand axe: gathering wood (firewood and materials) goes about a fifth quicker and costs about half the Vigor. A fishing kit (line, real hooks, a float and a sinker): with traps-first hunting, fishing is open from day 1 with no hook and line to make, a real hook catches a little better, and its hook will do for a needle compass. Neither is on the leader\'s list.',
+  },
+  {
     // A rules feature (#1876): it changes a trip's hours (the path's walk, not the ring's flat travel),
     // where the Warden stands after a stop (`afield`), and adds squares seen (`seenOut`) and the days'
     // paths (`trail`) to the save, so a run from before it (absent: false) travels in rings as it did.
@@ -421,6 +428,13 @@ export const FEATURES: readonly FeatureDef[] = [
     // Off, a new Warden starts on PLAN as before, and LAND's day-1 Explore button is #1836's.
     id: 'start-on-land', name: 'Start on LAND', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1853,
     note: 'A new Warden starts on LAND after the intro, with the patrol leader\'s advice (scout first: find shelter and water) and an Explore button that goes to PLAN with Explore highlighted and its distance chooser open.',
+  },
+  {
+    // A ui feature (#1869): what a land trip turned up, said as finds (artificer-app/explore-finds.ts),
+    // so it switches live and no run saves it. The finds are worked out on the page from what the run
+    // knew before and after the trip; the sim isn't touched. Off, the timer and the journal are as before.
+    id: 'explore-finds', name: 'Finds as you explore', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1869,
+    note: 'After an Explore, a scout, a survey or a look-out, what it turned up appears one line at a time in the day\'s log as it plays ("Found birch trees", "A good source of smooth rocks"), and the journal keeps one line per trip.',
   },
 ];
 

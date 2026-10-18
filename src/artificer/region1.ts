@@ -18,7 +18,7 @@ import { DEFAULT_STATS, statEffects, statDrain, withTraining, exercise, exercise
 import { FULL_WORLD, type WorldConfig } from './world';
 import { accidentRisk, craftRisk, rollAccident, worstFortune, accidentLine, ACCIDENT_CONDITION, EXHAUSTED_BELOW, type Accident } from './accidents';
 import { painOf, strainPain, painRiseLine, painNightLine, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT, type Pain } from './pain';
-import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitFireNeed, validPack, type KitId, type KitState } from './kit';
+import { startFromPack, hasKit, hasExtra, extrasOn, usedKit, kitColdCost, kitTimeMult, kitVigorMult, kitFireNeed, validPack, kitOffered, hasAxeFishing, FISH_KIT_CATCH, type KitId, type KitState } from './kit';
 import { grownStats, birthdayLine, isYoung, YOUNG_PRACTICE } from './growing';
 import { trainingOf, knowsTheCold, coldWise, type Background } from './scout';
 import { severityOf, injure, injuryCost, nightHealing, strains, AGGRAVATE_CHANCE, HEAL_POINTS, HARM_OF, STIFF_KNEE_COST, WEAK_GRIP_GRADE, SCAR_ACHE, CUT_BLEED, INJURY_NAME, healingLine, healedLine, notHealingLine, injuryView, KNOWS, worstUntreated, treatmentFor, treatmentQuality, treatLine, festerLine, NO_TREATMENT, TREAT_BONUS, FESTER_CHANCE, FESTER_CONDITION, type Injury, type Harm } from './injuries';
@@ -394,7 +394,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
   const adult: Stats = { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) };
   const age = who.age ?? (legacy?.age !== undefined ? legacy.age + 1 : undefined);
   // The hike pack (#1400): chosen now, or what this character packed last time. None: today's bare start.
-  const pack = who.pack ?? legacy?.pack;
+  // Only what this world offers (#1870): a Warden who packed the hand axe last time, starting in a
+  // world without its switch, leaves it at home (it isn't on this list), so the run is today's.
+  const pack = (who.pack ?? legacy?.pack)?.filter(id => kitOffered(id, (config.world ?? FULL_WORLD).features));
   // Difficulty (#1728), fixed here, at BEGIN: a character carried on keeps theirs; a new one made
   // from creation choices (stats or talent picks) is worth what they left unspent. A quick start
   // (neither: tests, old callers) is ×1.00. Kept only above ×1.00, so a full spend saves as before.
@@ -842,7 +844,8 @@ export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null
 /** Hunting is hidden (#1821) until a sling or a bow: only with `hunting-gear` on. */
 const huntLocked = (s: Region1State): boolean => huntingGearOn(s) && huntTool(s) === null;
 /** Fishing is hidden (#1821) until a hook and line: only with `hunting-gear` on. */
-const fishLocked = (s: Region1State): boolean => huntingGearOn(s) && !hasItem(s, HOOK_LINE);
+// The fishing kit (#1870) is a hook and line already: real hooks and a line, so fishing opens with it from day 1.
+const fishLocked = (s: Region1State): boolean => huntingGearOn(s) && !hasItem(s, HOOK_LINE) && !hasAxeFishing(s, 'fishing-kit');
 /** Knowing hunting (or woodcraft) well enough to make a bow (#1821). */
 const bowReady = (s: Region1State): boolean => skillLevel(s.skills, 'hunting') >= BOW_LEVEL.hunting || skillLevel(s.skills, 'woodcraft') >= BOW_LEVEL.woodcraft;
 /** A hunt's quarry: as chosen, else deer — or small game, with `hunting-gear` and no bow (#1821). */
@@ -1536,7 +1539,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     // (Over a long sitting the spot itself goes quiet, #1668 — and comes back in a few days.)
     options: lengthOptions('fish'),
     run: (s, b, r, _o, light, luck, sc) => {
-      const n = scaleHaul(haul(s, r, 'water', FISH_CATCH * RICHNESS[r] + b, luck * sc.yieldOf('fishing')), darkYieldMult('gather', light));
+      // A real hook from the fishing kit (#1870) catches a little better than a whittled one.
+      const hook = hasAxeFishing(s, 'fishing-kit') ? FISH_KIT_CATCH : 1;
+      const n = scaleHaul(haul(s, r, 'water', (FISH_CATCH * RICHNESS[r] + b) * hook, luck * sc.yieldOf('fishing')), darkYieldMult('gather', light));
       s.stores.rawFood += n; s.flags.everFood = true;
       return n > 0 ? `Fished through the ice${where(r)} — ${n} raw food.` : `Sat over a hole in the ice${where(r)} and caught nothing.`;
     },
@@ -2586,7 +2591,9 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const trip = def.ringed ? tripOf(next, id, ring, opts) : null;
   const leg = trip && stop !== undefined ? legAt(session ? session.plan.trips : [{ travel: planTravel, work: planWork }], stop) : null;
   const travel = leg ? leg.walked : cut ? cut.travel : planTravel;
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
+  // The hand axe (#1870): chopping wood costs half the Vigor (kit.ts `kitVigorMult`; 1 for everything else).
+  const kv = kitVigorMult(next, id);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * sprain * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex * kv, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy * PAIN_DRAIN[pain] });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * sprain * knee * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy * PAIN_DRAIN[pain] });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
@@ -3070,7 +3077,8 @@ function aggravate(next: Region1State, action: string, ring: number, craft: bool
  * or for a pack that won't do.
  */
 export function repack(s: Region1State, pack: readonly KitId[]): Region1State {
-  if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack)) return s;
+  // Checked against this run's world (#1870): a hand axe in a world without its switch won't do.
+  if (s.day !== 1 || s.hoursToday > 0 || s.outcome || !validPack(pack, s.config.world)) return s;
   const old = s.kit ? startFromPack(s.kit.items, extrasOn(s)) : null;
   const p = startFromPack(pack, extrasOn(s));
   const next = clone(s);

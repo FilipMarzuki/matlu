@@ -86,6 +86,13 @@ export const kitSv: Record<keyof typeof kit, string> = {
   'kit.comic': 'Serietidning',
   'kit.comic.does': 'Något att läsa.',
   'kit.comic.note': 'Bamse, så läst att omslaget håller på att lossna.',
+  // Handyxan och fiskesetet (#1870): bara med sin regelbrytare på.
+  'kit.hand-axe': 'Handyxa',
+  'kit.hand-axe.does': 'Att hugga ved och klyva med.',
+  'kit.hand-axe.note': 'Yxbeviset kom i våras. Hugg alltid med kubben mellan dig och eggen.',
+  'kit.fishing-kit': 'Fiskeset',
+  'kit.fishing-kit.does': 'En rulle lina, några krokar, ett flöte och ett sänke, i en burk.',
+  'kit.fishing-kit.note': 'Morfars burk. Krokarna är rostiga, linan är bra.',
   // De konstiga sakerna (#1727): roliga, kanske nyttiga, och märkliga.
   'kit.family-tent': 'Familjetält',
   'kit.family-tent.does': 'Plats för sex. Du är en.',
