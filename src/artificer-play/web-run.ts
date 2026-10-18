@@ -28,7 +28,7 @@ import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/t
 import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
 import { START_AGES, DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { validPack, packWorldOf } from '../artificer/kit';
-import { FEATURES, validFeatures, ruleFeatures } from '../artificer/features';
+import { FEATURES, validFeatures, featuresOf } from '../artificer/features';
 import { stopRefusal } from '../artificer/stop-action';
 import { GRADES, type Tool } from '../artificer/crafting';
 import { advance, applySet, isRoadAction, phaseOf, view } from './session';
@@ -81,14 +81,14 @@ export function startProblem(s: unknown): string | null {
   const known = FEATURES.filter(f => f.kind === 'rules').map(f => f.id);
   if (!validFeatures(s.features) || Object.keys(s.features).some(k => !known.includes(k))) return 'The rule features aren\'t ones the game knows.';
   // After the features (#1870): the pack is checked against the list the run's world offers, which
-  // is makeWarden's (`ruleFeatures` of these switches), so a hand axe without its switch won't do.
+  // is startOf's (`featuresOf` these switches, #1882), so a hand axe without its switch won't do.
   // …and with `pack-volume` on (#1871), by room inside and the straps (what's strapped on, if the log says), not weight.
   if (s.outside !== undefined && !(Array.isArray(s.outside) && s.outside.every(isStr) && s.pack !== undefined)) return 'outside lists the pack\'s strapped-on items.';
   // With it off, by what this Warden can carry (#1872, kit.ts carryLimit): their stats now (the
   // ones checked above, grown to their age, as makeWarden makes them) under the same switches, as
   // repack checks it when the run is made.
   const now = grownStats((s.stats as Stats | undefined) ?? DEFAULT_STATS, (s.age as number | undefined) ?? DEFAULT_AGE);
-  const world = packWorldOf({ config: { world: { features: ruleFeatures(s.features) } }, character: { stats: now } }, s.outside as string[] | undefined);
+  const world = packWorldOf({ config: { world: { features: featuresOf(s.features) } }, character: { stats: now } }, s.outside as string[] | undefined);
   if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack, world))) return 'The pack isn\'t one that fits.';
   if (s.heirlooms !== null && !(Array.isArray(s.heirlooms) && s.heirlooms.length <= 40 && s.heirlooms.every(validTool))) return 'The heirlooms aren\'t tools.';
   if (s.heirloomsFrom !== undefined && s.heirloomsFrom !== null && !isStr(s.heirloomsFrom)) return 'heirloomsFrom is a game id.';
@@ -105,12 +105,21 @@ export function logProblem(x: unknown, maxMoves: number): string | null {
   return startProblem(x.start);
 }
 
-/** The first Warden of a log: makeWarden, then the pack if one was chosen, as the page made it. */
+/**
+ * The first Warden of a log: makeWarden, then the pack if one was chosen, as the page made it.
+ *
+ * Under the log's own switches, each one it doesn't name read by its `absent` value (#1882,
+ * features.ts featuresOf), as a save reads its run's. A log is a run that has already begun: one
+ * started before a switch existed couldn't have had that switch's rules, so filling it with today's
+ * default (`ruleFeatures`, which only a brand-new game should get) would replay it under rules it
+ * never played, and refuse its pack or end it differently. makeWarden's `ruleFeatures` then changes
+ * nothing, since every rule switch is named.
+ */
 export function startOf(s: WebStart): AppState {
   const { id, name, portrait, chosen, stats, age } = s;
   const spec = { id, ...(name !== undefined ? { name } : {}), ...(portrait !== undefined ? { portrait } : {}), ...(chosen ? { chosen } : {}), ...(stats ? { stats } : {}), ...(age !== undefined ? { age } : {}) };
   const legacy = s.heirlooms === null ? undefined : { known: [], concepts: {}, heirlooms: s.heirlooms.map(t => ({ ...t })) };
-  const app = makeWarden(spec, legacy, s.features);
+  const app = makeWarden(spec, legacy, featuresOf(s.features));
   return s.pack ? { ...app, sim: repack(app.sim, s.pack, s.outside) } : app;
 }
 
