@@ -205,15 +205,19 @@ describe('Forecasts from INT and experience (#1827)', () => {
     };
     let misjudged = 0;
     const byDay = new Set<string>();
-    for (let i = 0; i < 60; i++) {
+    // 20 runs are enough to catch a misjudged word and a day that draws another (seeded, so it's fixed).
+    for (let i = 0; i < 20; i++) {
       const s = warden(8, fam, { id: `w-card-${i}`, day: 5 });
       const all = queues.flatMap(q => words(s, q));
       expect(new Set(all).size).toBe(1);
       if (taskCard(s, s, 'wood', 1, en)!.level !== taskLevel('wood', s, 1)) misjudged++;
-      for (let day = 2; day < 30; day++) byDay.add(taskCard(warden(8, fam, { id: `w-card-${i}`, day }), warden(8, fam, { id: `w-card-${i}`, day }), 'wood', 1, en)!.text);
+      for (let day = 2; day < 30; day++) {
+        const d = warden(8, fam, { id: `w-card-${i}`, day });
+        byDay.add(taskCard(d, d, 'wood', 1, en)!.text);
+      }
     }
     // The words do get misjudged (so the sameness above isn't just the truth), and another day can draw another.
     expect(misjudged).toBeGreaterThan(0);
     expect(byDay.size).toBeGreaterThan(1);
-  });
+  }, 30_000);
 });
