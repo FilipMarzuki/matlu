@@ -52,6 +52,7 @@ import conceptsRegistry from './content/concepts.json';
 import { featureOn } from './features';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
+import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -202,6 +203,19 @@ export interface Region1State {
    * (`sinewOf`), so an old save loads unchanged and gets its first sinew from its next catch.
    */
   sinew?: number;
+  /**
+   * Raw meat (#1823, `camp-scavengers`): how much of `stores.rawFood` is meat from hunting and traps
+   * (the rest is foraged plants and fish, which draw no animals). Written only with the switch on;
+   * absent reads as none. Read through `meatOf`, which never counts more meat than there is raw food:
+   * eating and spoiling take the plants first, so the meat is what's left.
+   */
+  meat?: number;
+  /**
+   * Of that meat, how much is stored safely at this camp (#1823, Store the meat) and where. Read
+   * through `storedMeatOf` (never more than the meat): what's eaten comes off the meat lying out
+   * first. Meat brought in afterwards lies out until it's stored too. Making camp elsewhere drops it.
+   */
+  meatStored?: { n: number; place: MeatPlace };
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -662,7 +676,9 @@ export type ActionId =
   // Picking up loose stone (#1816): only with the `stone-gathering` switch on.
   | 'gatherstone'
   // Traps, and the gear active hunting and fishing need (#1821): only with the `hunting-gear` switch on.
-  | 'traps' | 'sling' | 'bow' | 'hookline';
+  | 'traps' | 'sling' | 'bow' | 'hookline'
+  // Storing the meat out of reach of animals (#1823): only with the `camp-scavengers` switch on.
+  | 'storemeat';
 
 /** Actions that happen out on the land, in a chosen ring. */
 export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish' | 'explore' | 'gatherstone' | 'traps';
@@ -737,6 +753,67 @@ const hasItem = (s: Pick<Region1State, 'tools'>, item: string): boolean => s.too
 export const sinewOf = (s: Pick<Region1State, 'sinew'>): number => s.sinew ?? 0;
 /** Add sinew from a catch, and say how much (for `sinewNote`). Mutates `s`. */
 const addSinew = (s: Region1State, n: number): number => { s.sinew = sinewOf(s) + n; return n; };
+/** Raw meat at camp (#1823): never more than the raw food there is. 0 with the switch off. */
+export const meatOf = (s: Pick<Region1State, 'meat' | 'stores'>): number => Math.max(0, Math.min(s.meat ?? 0, s.stores.rawFood));
+/** Of it, the meat stored safely (#1823). */
+export const storedMeatOf = (s: Pick<Region1State, 'meat' | 'meatStored' | 'stores'>): number => Math.min(s.meatStored?.n ?? 0, meatOf(s));
+/** The meat lying out at camp, not stored (#1823): what animals can get at. */
+export const openMeatOf = (s: Pick<Region1State, 'meat' | 'meatStored' | 'stores'>): number => meatOf(s) - storedMeatOf(s);
+/** Add meat brought in from a hunt or a trap line (#1823): only with the switch on. Mutates `s`. */
+const addMeat = (s: Region1State, n: number): void => { if (n > 0 && scavengersOn(s)) s.meat = meatOf(s) + n; };
+/** Take meat out of the stores (#1823): a theft, or meat preserved. It comes off the meat lying out first. Mutates `s`. */
+function takeMeat(s: Region1State, n: number, fromStores: boolean): void {
+  const stored = storedMeatOf(s);
+  s.meat = meatOf(s) - n;
+  if (fromStores) s.stores.rawFood -= n;
+  if (s.meatStored) {
+    if (Math.min(stored, s.meat) > 0) s.meatStored = { ...s.meatStored, n: Math.min(stored, s.meat) };
+    else delete s.meatStored;
+  }
+}
+/**
+ * Whether a fire will burn tonight (#1823): enough firewood for what the night asks, or, on a night
+ * that asks for none, any wood at all for one (as the night's fright reads it, nightSceneOf).
+ */
+export const fireTonight = (s: Region1State): boolean => s.stores.firewood > 0 && s.stores.firewood >= nightFuel(s);
+/** The guards on the meat lying out tonight (#1823, #1859): you asleep at camp, and a fire if one burns. */
+export const nightGuards = (fire: boolean): Guard[] => (fire ? ['asleep', 'fire'] : ['asleep']);
+/** The guard where the stored meat is (#1859): each place is a row of the table. */
+export const placeGuard = (place: MeatPlace): Guard => place;
+/** The best place camp has the makings for, to store the meat (#1823): MEAT_PLACES is best first. */
+export const meatPlaceFor = (s: Pick<Region1State, 'stores'>): MeatPlace | null => MEAT_PLACES.find(p => s.stores[p.needs.store] >= p.needs.n)?.place ?? null;
+/**
+ * A theft from the meat lying out (#1823), drawn from its own stream: on a long absence (by day,
+ * `night` false) or a night at camp. Says what took it, takes it, and (something big at night)
+ * the fright's Clarity. Mutates `next`. With luck off (the flat world) nothing comes.
+ */
+function scavenge(next: Region1State, open: number, rand: () => number, guards: readonly Guard[], night: boolean, at?: LogEntry['at']): void {
+  if (open <= 0 || next.config.world.luck === false) return;
+  const theft = rollTheft(rand, open, leftover(guards, night ? NIGHT_BASE : DAY_BASE), night, seasonOf(next.day, next.config.calendar) === 'winter');
+  if (!theft) return;
+  takeMeat(next, Math.min(theft.taken, openMeatOf(next)), true);
+  say(next, theftLine(theft, night), 'hardship', at);
+  // A big animal in camp at night (#1823): a frightening encounter, though nobody is hurt.
+  if (theft.big) next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+}
+/**
+ * A bear at the stored meat in the night (#1823): hung meat and a stone cache keep everything else
+ * off, but a bear can climb or heave the stones aside, rarely. Its own stream, so it never moves the
+ * open meat's draws. Only the big threat can reach stored meat (its small pass-through is 0), and
+ * what it takes is all of what was put by. Mutates `next`.
+ */
+function raidStore(next: Region1State, fire: boolean): void {
+  const stored = storedMeatOf(next);
+  if (stored <= 0 || !next.meatStored || next.config.world.luck === false) return;
+  const risk = leftover([...nightGuards(fire), placeGuard(next.meatStored.place)], NIGHT_BASE);
+  const u = storedScavengers(seedOf(next.character.id), next.day)();
+  if (u >= risk.big) return;
+  next.meat = meatOf(next) - stored;
+  next.stores.rawFood -= stored;
+  delete next.meatStored;
+  say(next, storedTheftLine(stored), 'hardship');
+  next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+}
 /** The ranged tool a Warden hunts with (#1821): the bow if they have one, else a sling, else none. */
 export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null => (hasItem(s, BOW) ? 'bow' : hasItem(s, SLING) ? 'sling' : null);
 /** Hunting is hidden (#1821) until a sling or a bow: only with `hunting-gear` on. */
@@ -1047,6 +1124,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string, pitFood: PitF
   }
   // The pit's carried rot (#1757) belongs to the pit where it built up: leaving camp leaves it behind.
   delete next.pitRot;
+  // The meat you'd stored (#1823) comes down with you: at the new camp it lies out until it's stored again.
+  delete next.meatStored;
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -1279,6 +1358,8 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
     if (!huntingGearOn(s)) return `${id} isn't part of this game's rules`;
     return id === 'bow' && !bowReady(s) ? `you don't know how to ${BOW_UNLOCK.verb} yet — ${BOW_UNLOCK.how} (${SKILLS.hunting.name})` : null;
   }
+  // Store the meat (#1823): its own switch, whatever `action-visibility` says.
+  if (id === 'storemeat') return scavengersOn(s) ? null : `${id} isn't part of this game's rules`;
   if (id === 'hunt' && huntLocked(s)) return `you don't know how to ${HUNT_UNLOCK.verb} yet — ${HUNT_UNLOCK.how} (${SKILLS.hunting.name})`;
   if (id === 'fish' && fishLocked(s)) return `you don't know how to ${FISH_UNLOCK.verb} yet — ${FISH_UNLOCK.how} (${SKILLS[skillFor('fish') ?? 'fieldcraft'].name})`;
   if (!visibilityOn(s)) return null;
@@ -1471,6 +1552,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       // Two raw food cure down to one ration; smoking does up to three a session, drying two.
       const dry = o.method === 'dry';
       const made = Math.min(dry ? 2 : 3, Math.floor(s.stores.rawFood / 2));
+      // The meat is cured first (#1823, `camp-scavengers`): smoked or dried, nothing comes for it.
+      if (scavengersOn(s)) takeMeat(s, Math.min(made * 2, meatOf(s)), false);
       s.stores.rawFood -= made * 2; s.stores.rations += made; s.flags.everPreserve = true;
       return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
     },
@@ -1554,6 +1637,21 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const note = workLand(s, r, 'game');
       s.traps = [...(s.traps ?? []), r];
       return `Set a line of traps${where(r)}: snares along the game trails, to check by morning.${note}`;
+    },
+  },
+  // Store the meat (#1823, `camp-scavengers`): a short job at camp, putting the raw meat lying out in
+  // the best place camp has the makings for (camp-scavengers.ts MEAT_PLACES): under a stone cache with
+  // stone, else hung in a tree with cord. Nothing is used up. It holds until you take from it.
+  storemeat: {
+    name: 'Store the meat', hours: STORE_MEAT_HOURS, vigorRate: -1.5, clarityRate: -0.5,
+    gate: s => (!s.site ? 'make camp first'
+      : openMeatOf(s) <= 0 ? 'no raw meat lying out to store'
+        : meatPlaceFor(s) ? null : 'needs 1 materials for cord, or 3 stone for a cache'),
+    run: s => {
+      const place = meatPlaceFor(s)!;
+      const n = meatOf(s);
+      s.meatStored = { n, place };
+      return place === 'cache' ? `Put ${n} raw meat under a cairn of heavy stones, out of reach.` : `Hung ${n} raw meat high in a tree with cord, out of reach.`;
     },
   },
   sling: gearCraft(HUNTING_RECIPES.sling),
@@ -2524,6 +2622,14 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   if (!canDrawMap(s) && canDrawMap(next)) say(next, mapDrawnLine(next), 'milestone', at);
   // Turned back on the way out (#1815), you never reached the place.
   if (def.ringed && cut?.phase !== 'out') revisit(next, ring, at);
+  // Meat at camp (#1823, `camp-scavengers`): while you were away long enough, the meat lying out at
+  // camp (what was there when you set out, not what you bring back) may have drawn a fox or ravens.
+  // Its own stream, keyed on the hour you set out. Then a hunt's catch comes in as meat.
+  if (def.ringed && scavengersOn(next) && !next.outcome) {
+    const caught = id === 'hunt' ? Math.max(0, next.stores.rawFood - s.stores.rawFood) : 0;
+    if (workHours + travel >= LONG_AWAY_HOURS) scavenge(next, openMeatOf(s), awayScavengers(seedOf(next.character.id), s.day, s.hoursToday), [], false, at);
+    addMeat(next, caught);
+  }
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
@@ -2575,6 +2681,7 @@ function checkTraps(next: Region1State): void {
     if (!caught) { say(next, `By morning your traps${where(r)} were empty.`, 'action'); continue; }
     const n = trapCatchOf(next.explore, r);
     next.stores.rawFood += n;
+    addMeat(next, n);
     next.flags.everFood = true;
     const e = { ...next.explore, supply: { ...next.explore.supply, [r]: { ...next.explore.supply[r], game: Math.max(0, Math.round((next.explore.supply[r].game - SUPPLY_DRAW.game) * 1000) / 1000) } } };
     next.explore = e;
@@ -3206,6 +3313,7 @@ export function endDay(s: Region1State): Region1State {
   // A set snare line brings in a little food overnight (before supper).
   if (capabilities(next.tools).has('snare-line')) {
     next.stores.rawFood += 1;
+    addMeat(next, 1);
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
   // What a find set going comes in overnight (#1345).
@@ -3284,6 +3392,15 @@ export function endDay(s: Region1State): Region1State {
           ? 'Your body gives out and you collapse in the snow. No one comes into the Reach in winter — the wolves find you first.'
           : 'Your body gives out and you collapse. No one passes this way — a bear finds you first.', 'outcome');
     return next;
+  }
+
+  // Animals at the meat in the night (#1823, `camp-scavengers`): you're asleep at camp, which halves
+  // the risk, and a fire burning keeps almost everything off (the same fire the night's fright reads).
+  // What's stored is out of reach. Its own stream, keyed on the day.
+  if (scavengersOn(next)) {
+    const lit = fire.kept || (fire.freeze === 0 && next.stores.firewood > 0);
+    scavenge(next, openMeatOf(next), nightScavengers(seedOf(next.character.id), next.day), nightGuards(lit), true);
+    raidStore(next, lit);
   }
 
   // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.

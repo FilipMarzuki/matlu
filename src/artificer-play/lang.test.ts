@@ -118,9 +118,10 @@ const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false, 'thermal-mode
  * Learning the map in both languages is map-learning-app.test.ts's. Quarrying from the first day
  * too, as before #1816: Gather stones in the moves would send the year down another path as well.
  * And hunting and fishing with bare hands, as before #1821: Set traps in the moves, and no hunting
- * until a sling, would send it down another again.
+ * until a sling, would send it down another again. And meat at camp left alone, as before #1823:
+ * a fox at the meat, or Store the meat in the moves, would send it down yet another.
  */
-const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false };
+const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false, 'camp-scavengers': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());
