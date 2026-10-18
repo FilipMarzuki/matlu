@@ -6,8 +6,9 @@
  */
 
 import { suggestedPackOf } from '../../artificer/kit';
-import { blockedReason, nightFuel, queueHours, queueId, runAction, winterOutlook, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
+import { blockedReason, nightFuel, queueHours, queueId, runAction, winterOutlook, openMeatOf, meatPlaceFor, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
 import { campAsActionOn } from '../../artificer/camp-sites';
+import { BANK_FIREWOOD } from '../../artificer/camp-scavengers';
 import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
 import { seasonOf } from '../../artificer/winter';
@@ -167,6 +168,10 @@ function wants(s: Region1State): Entry[] {
   // Wood: tonight and the next two nights, always; in late autumn, a growing share of the winter.
   const fuelNow = fuelFor(s, 3) + 1;
   if (s.stores.firewood < fuelNow) out.push(a('wood'));
+  // Meat lying out it can't store (no cord, no stone) and firewood to spare beyond the next nights:
+  // bank the fire before the day's trips (#1865), so a fox finds it guarded. Refused, so skipped,
+  // when there's no meat, it's banked already, or the switch is off.
+  if (openMeatOf(s) > 0 && meatPlaceFor(s) === null && s.stores.firewood >= fuelNow + BANK_FIREWOOD) out.push(a('bankfire'));
   if (s.tier === 0) out.push(a('build'));
   // Food: keep a few nights in hand, and in autumn lay in toward the winter.
   const foodTarget = Math.min(nightsLeft, winter ? 4 : 3 + Math.max(0, 30 - toWinter) / 2);

@@ -36,6 +36,7 @@
 
 import { featureOn } from './features';
 import { streamFor } from './rng';
+import type { WeatherId } from './world';
 
 /** The switch's id (features.ts). */
 export const CAMP_SCAVENGERS = 'camp-scavengers';
@@ -278,3 +279,53 @@ export function theftLine(t: Theft, night: boolean): string {
     ? `A fox got at the meat in the night: ${t.taken} raw food gone, and its tracks all round camp by morning.`
     : `While you were away, a fox got at the meat: ${t.taken} raw food gone, and its tracks all round camp.`;
 }
+
+// ── A banked fire by day (#1865, the `banked-fire` rules switch) ──────────────
+//
+// #1823 counted a fire only at night, because the sim had no daytime fire. The owner: "a fire is the
+// best" guard for meat at camp. So before a long trip the Warden can bank the fire: heap firewood on
+// the embers and cover them with ash and turf, so it smoulders for hours without anyone tending it.
+// A banked fire adds the `fire` guard to the day roll on the meat lying out (small thieves ×0.1, the
+// big ones ×0.02), until it burns down. Heavy rain, a storm or snow can put it out while you're away.
+
+/** The switch's id (features.ts). It needs `camp-scavengers` too: without meat at risk there's nothing to guard. */
+export const BANKED_FIRE = 'banked-fire';
+
+/** Whether a run has a banked fire to bank: both switches on, as it saved them. */
+export const bankedFireOn = (s: { config: { world: { features?: Readonly<Record<string, boolean>> } } }): boolean =>
+  scavengersOn(s) && featureOn(s.config.world.features, BANKED_FIRE);
+
+/**
+ * What banking costs and buys: about 1 firewood for every 4 hours away (the owner's tuning guess).
+ * One banking lays on `BANK_FIREWOOD` and smoulders `BANK_HOURS`: 12h, the length of a long day trip
+ * (a half-day-out trip in the rain runs past 8h, so two firewood would leave it cold before you got
+ * back). With less firewood than that, it can't be banked (the gate says why). Drafts, to tune.
+ */
+export const BANK_HOURS_PER_FIREWOOD = 4;
+export const BANK_FIREWOOD = 3;
+export const BANK_HOURS = BANK_FIREWOOD * BANK_HOURS_PER_FIREWOOD;
+/** How long banking takes: a short job at camp before you set out (raking the embers, heaping on wood, covering it). */
+export const BANK_WORK_HOURS = 0.5;
+
+/**
+ * The chance, per trip, that the weather puts a banked fire out while you're away. Only heavy wet
+ * weather does: rain soaks through the turf, a storm (a blizzard in winter) beats it down, and snow
+ * smothers it. A clear, overcast, foggy or windy day leaves it smouldering. Drafts, to tune.
+ */
+export const FIRE_OUT: Readonly<Partial<Record<WeatherId, number>>> = { rain: 0.35, storm: 0.6, snow: 0.25 };
+
+/**
+ * Whether the weather puts the banked fire out on the trip that sets out at `hour`: a draw from a
+ * stream of its own (`scavengers@<hour>-fire`), never the meat's own away stream, so banking or not
+ * never shifts whether a fox comes.
+ */
+export const bankedFireDraw = (seed: number, day: number, hour: number): (() => number) => streamFor(seed, day, `scavengers@${hour}-fire`);
+
+/** The journal's lines for a banked fire (English: the sim's log; i18n/{en,sv}/journal.ts read them back). */
+export const bankLine = (): string => `Banked the fire with ${BANK_FIREWOOD} firewood: it will smoulder for about ${BANK_HOURS} hours and keep animals off the meat.`;
+export function fireOutLine(w: WeatherId): string {
+  if (w === 'snow') return 'While you were away, the snow smothered the banked fire, and nothing kept animals off the meat.';
+  if (w === 'storm') return 'While you were away, the storm beat out the banked fire, and nothing kept animals off the meat.';
+  return 'While you were away, the rain put out the banked fire, and nothing kept animals off the meat.';
+}
+export const burntDownLine = (): string => 'The banked fire burned down before you got back, and nothing kept animals off the meat.';

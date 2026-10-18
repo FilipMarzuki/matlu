@@ -317,6 +317,12 @@ export const journalSv: Record<JournalKey, string> = {
   'log.meat.wolves': 'Vargar kom in i lägret i natt. Du låg stilla medan de slet i köttet, och i gryningen var allt borta.',
   'log.meat.bear': 'En björn kom in i lägret i natt. Du låg som förstenad medan den åt, och i gryningen var allt kött borta.',
   'log.meat.bearStored': 'En björn kom in i lägret i natt och kom åt köttet du lagt undan: {n} mat borta.',
+  'log.bankfire': 'Lade på elden med {n} ved och bäddade in den: den pyr i runt {h} timmar och håller djuren borta från köttet.',
+  'log.bankfire.rain': 'Medan du var borta släckte regnet den inbäddade elden, och ingenting höll djuren borta från köttet.',
+  'log.bankfire.storm': 'Medan du var borta slog stormen ut den inbäddade elden, och ingenting höll djuren borta från köttet.',
+  'log.bankfire.snow': 'Medan du var borta kvävde snön den inbäddade elden, och ingenting höll djuren borta från köttet.',
+  'log.bankfire.burnt': 'Den inbäddade elden hade brunnit ut innan du kom tillbaka, och ingenting höll djuren borta från köttet.',
+
   'log.lidpit': 'Lade ett lock av kluvet trä över kylgropen och tyngde ner det med tunga stenar.',
   'log.storemeat.pit': 'Lade {n} rått kött i kylgropen, under locket och stenarna.',
   'log.storemeat.pitCache': 'Lade {n} rått kött i kylgropen, under locket och stenarna, och {m} till under ett röse av tunga stenar.',
@@ -358,8 +364,8 @@ export const journalSv: Record<JournalKey, string> = {
   'log.pushedPast': 'Du pressade dig förbi gränsen — det kostade hälsan.',
 
   // ── I lägret ───────────────────────────────────────────────────────────────
-  'log.preserve.smoke.one': 'Rökte och saltade {n} mat till {m} vinterranson.',
-  'log.preserve.smoke.other': 'Rökte och saltade {n} mat till {m} vinterransoner.',
+  'log.preserve.smoke.one': 'Rökte {n} mat till {m} vinterranson.',
+  'log.preserve.smoke.other': 'Rökte {n} mat till {m} vinterransoner.',
   'log.preserve.dry.one': 'Lufttorkade {n} mat till {m} vinterranson.',
   'log.preserve.dry.other': 'Lufttorkade {n} mat till {m} vinterransoner.',
   'log.studied': 'Studerade {concept} — {n} insikt (nivå {m}).',

@@ -212,8 +212,12 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
       expect(shown(s, 'storemeat')).toBe(false);
       expect(observe(s)).not.toMatch(/MEAT:/);
       expect(meatBlock(s, enT)).toBe('');
-      // The journal's hash was taken on main before this change.
-      expect(seedOf(JSON.stringify(s.log))).toBe(1598564469);
+      // The journal's hash was taken on main before this change. Re-pinned for #1860, the wording
+      // only: the smoke line lost "and salted" (no salt in the wild), same run, same RNG. Put the old
+      // words back and the hash is the one main had (1598564469).
+      expect(seedOf(JSON.stringify(s.log))).toBe(4093299207);
+      const before = s.log.map(l => ({ ...l, text: l.text.replace(/^Smoked (\d+ food into)/, 'Smoked and salted $1') }));
+      expect(seedOf(JSON.stringify(before))).toBe(1598564469);
     }
   });
 

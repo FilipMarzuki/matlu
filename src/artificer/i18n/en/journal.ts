@@ -185,6 +185,13 @@ export const journal = {
   'log.meat.wolves': 'Wolves came into camp in the night. You lay still while they tore at the meat, and by first light all of it was gone.',
   'log.meat.bear': 'A bear came into camp in the night. You lay frozen while it ate, and by first light all the meat was gone.',
   'log.meat.bearStored': 'A bear came into camp in the night and got at the meat you\'d put by: {n} raw food gone.',
+  // A banked fire (#1865, `banked-fire`): banking it, and the weather or the hours putting it out.
+  'log.bankfire': 'Banked the fire with {n} firewood: it will smoulder for about {h} hours and keep animals off the meat.',
+  'log.bankfire.rain': 'While you were away, the rain put out the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.storm': 'While you were away, the storm beat out the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.snow': 'While you were away, the snow smothered the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.burnt': 'The banked fire burned down before you got back, and nothing kept animals off the meat.',
+
   // The lid for the cold pit (#1857, `cold-pit-lid`) and the walled larder's mice (#1858, `walled-larder`).
   'log.lidpit': 'Laid a lid of split wood over the cold pit and weighed it down with heavy stones.',
   'log.storemeat.pit': 'Put {n} raw meat in the cold pit, under its lid and the stones.',
@@ -231,8 +238,8 @@ export const journal = {
   'log.pushedPast': 'Pushed past empty — it cost your health.',
 
   // ── At camp ────────────────────────────────────────────────────────────────
-  'log.preserve.smoke.one': 'Smoked and salted {n} food into {m} winter ration.',
-  'log.preserve.smoke.other': 'Smoked and salted {n} food into {m} winter rations.',
+  'log.preserve.smoke.one': 'Smoked {n} food into {m} winter ration.',
+  'log.preserve.smoke.other': 'Smoked {n} food into {m} winter rations.',
   'log.preserve.dry.one': 'Air-dried {n} food into {m} winter ration.',
   'log.preserve.dry.other': 'Air-dried {n} food into {m} winter rations.',
   'log.studied': 'Studied {concept} — {n} insight (rank {m}).',

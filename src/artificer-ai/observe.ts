@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, LOOSE_STONE_SITES, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -39,7 +39,7 @@ import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_
 import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
-import { scavengersOn, lidOn, walledLarderOn, protectionWord, LONG_AWAY_HOURS, LID_COST, MICE_FREE_DAYS } from '../artificer/camp-scavengers';
+import { scavengersOn, lidOn, walledLarderOn, protectionWord, LONG_AWAY_HOURS, LID_COST, MICE_FREE_DAYS, bankedFireOn, BANK_FIREWOOD, BANK_HOURS, BANK_HOURS_PER_FIREWOOD, BANK_WORK_HOURS } from '../artificer/camp-scavengers';
 import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
 import { walkOn, whereLine, WALK_RULES } from '../artificer/walk-the-map';
 import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
@@ -209,6 +209,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   needlecompass: `a needle compass to keep a heading by (nothing used up): heading out n … nw opens; its pull lasts ${NEEDLE_PULL_DAYS} days, then make it again`,
   storemeat: 'puts the raw meat lying out at camp out of reach of animals: under a stone cache (needs 3 stone) or hung with cord (needs 1 material); nothing used up',
   lidpit: `a lid for the cold pit at camp (needs the pit, ${LID_COST.materials} materials and ${LID_COST.stone} stone): after it, storemeat puts the meat in the pit first, up to what it holds`,
+  bankfire: `banks the fire before a long trip (${BANK_FIREWOOD} firewood): it smoulders about ${BANK_HOURS}h and keeps animals off the meat lying out while you're away`,
   waterskin: '+1 water per trip',
   bedroll: '+6 clarity overnight',
   shovel: 'build -20% vigor',
@@ -281,9 +282,10 @@ function meatLine(s: Region1State): string | null {
   const mice = miceAbout(s);
   if (open > 0) {
     const fire = fireTonight(s);
-    // Behind walls (#1858): the line says so, and the walls guard it.
-    const walled = walledHere(s);
-    parts.push(`${open} raw meat lies ${walled ? 'in the shelter, behind walls' : 'in camp'} — while you're away: ${protectionWord(openGuards(s, []), walled && mice)} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(openGuards(s, nightGuards(fire)), walled && mice)}`);
+    // Behind walls (#1858): the line says so, and the walls guard it, on top of a banked fire (#1865)
+    // while you're away, as long as it smoulders.
+    const walled = walledHere(s), banked = bankedNow(s);
+    parts.push(`${open} raw meat lies ${walled ? 'in the shelter, behind walls' : 'in camp'} — while you're away${banked ? ' (a banked fire)' : ''}: ${protectionWord(openGuards(s, awayGuards(banked)), walled && mice)} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(openGuards(s, nightGuards(fire)), walled && mice)}`);
   }
   if (pit > 0) parts.push(`${pit} raw meat lies in the cold pit, covered and weighed down — ${protectionWord([placeGuard('pit')], mice)}`);
   if (stored > 0 && s.meatStored) {
@@ -351,6 +353,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (cold) lines.push(cold);
   const meat = meatLine(s);
   if (meat) lines.push(meat);
+  // A banked fire at camp (#1865, `banked-fire`): how long it has left, in hours of the day.
+  if (bankedNow(s)) lines.push(`CAMP FIRE: a banked fire smoulders in camp, about ${Math.round((s.banked!.until - s.hoursToday) * 2) / 2}h left before it burns down`);
   if (s.config.world.carrying !== false) lines.push(loadLine(s));
 
   const t = s.config.thresholds;
@@ -519,6 +523,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (walledLarderOn(s)) lines.push(`WALLED LARDER: once camp's shelter has walls (tier 2), the raw meat lying loose in it is safe from foxes, ravens, wolves and bears, day and night. Only mice get in: none for the first ${MICE_FREE_DAYS} days at a site, then more often the longer camp stands there, nibbling 5–10% on some nights. Moving camp starts the count again. Hung meat and rations are safe from them.`);
   // Forecasts (#1827, `forecasts`): how what you know of a task or craft grows by doing it.
   if (forecastsOn(s)) lines.push(`FORECASTS: you learn what work brings by doing it. A task you have never done at that distance says "you don't know what this will bring" (each distance is learned separately); after a try or two it gives a rough word (a little / some / plenty of); after ${knowThreshold(s.character.stats.int)} tries (your INT ${s.character.stats.int}: 4 at INT 8 or less, 3 at 9-12, 2 at 13+) the numbers show. Crafts the same, per recipe, failures counting: never made, "you're not sure you can make this"; then your chance in words (you'll likely manage / it could go either way / beyond you for now), the likely grade (rough / decent / good work) and the cost roughly, with "you may waste some of it" when it could fail; then the real odds, the grade and the exact cost. Rough words are sometimes one step off: less with more INT and practice.`);
+  // A banked fire guards the meat by day (#1865, `banked-fire`).
+  if (bankedFireOn(s)) lines.push(`BANKED FIRE: "bankfire" (${BANK_WORK_HOURS}h at camp, ${BANK_FIREWOOD} firewood: about 1 for every ${BANK_HOURS_PER_FIREWOOD}h away; it needs raw meat lying out and that much firewood) banks the fire so it smoulders about ${BANK_HOURS}h, and while it does it guards the meat lying out on a trip of ${LONG_AWAY_HOURS}h or more as a fire does: a fox or ravens come about a tenth as often, anything bigger hardly ever. Bank it just before you set out: a trip that comes back after it has burned down loses the guard. Heavy rain, a storm or snow may put it out while you're away (the journal says so). It is gone by nightfall; the night's fire is the firewood the night burns.`);
   // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.
   if (stopOn(s)) lines.push(`STOPPING: an action can be stopped partway — {"plan": [...], "stop": {"action": N, "hours": h}} stops the plan's action N (from 0) h hours into it (walks included), {"do": ..., "stop": {"action": 0, "hours": h}} the one action; the day then pauses (no night) and you plan the rest. Stopped on the walk out you turn back with nothing, the walk back as long as you'd walked. At the work: ${STOP_KINDS.bit.join(', ')} keep a share of what the whole action would bring, in proportion to the work done (rounded down); ${STOP_KINDS.all.join(' and ')} keep nothing until the work is done, all of it after; a ${STOP_KINDS.kill.join(' or ')} is a game of chance: its kill can come at any moment of the work, sometimes straight away — stopped after it you keep the whole catch (a deer's hide too), before it nothing, and a hunt that was going to come up empty keeps nothing whenever you stop; ${STOP_KINDS.see.join(', ')} keep what you'd seen, in proportion to the time at the edge. On the walk back you have it all. Crafts, building and other camp work stopped make nothing and use nothing up. The hours, Vigor and Clarity are spent as far as you got.`);
   lines.push('');
