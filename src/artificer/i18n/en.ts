@@ -41,6 +41,7 @@ import { backdrop } from './en/backdrop';
 import { meny } from './en/meny';
 import { planq } from './en/planq';
 import { forecast } from './en/forecast';
+import { finds } from './en/finds';
 
 /** The strings that live in this file rather than an area file under ./en/. */
 const core = {
@@ -308,7 +309,7 @@ const core = {
  * (#1714: the road's `end.died` hid the camp's). duplicates.test.ts checks with `duplicateKeys` that no
  * key is defined twice.
  */
-export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather, time, distance, maplearn, explore, guide, survival, feedback, backdrop, meny, planq, forecast };
+export const enAreas = { core, opening, kit, camp, map, road, people, journal, roadlog, encounters, claims, claimsHand, queue, history, tabs, lore, api, weather, time, distance, maplearn, explore, guide, survival, feedback, backdrop, meny, planq, forecast, finds };
 
 export const en = {
   ...core,
@@ -353,4 +354,5 @@ export const en = {
   ...meny,
   ...planq,
   ...forecast,
+  ...finds,
 } as const satisfies Record<string, string>;

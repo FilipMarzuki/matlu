@@ -299,8 +299,12 @@ const WX_HOW: Readonly<Record<Exclude<SeasonView, 'numbers'>, string>> = {
 /** The catalog's English, for the words the page draws in the viewer's language (#1740). */
 const EN = makeT('en');
 
-/** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
-export function observe(s: Region1State, notes: readonly string[] = []): string {
+/**
+ * Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…).
+ * `found` is what the land trips since the last observation turned up (#1869, artificer-app/explore-finds.ts
+ * `foundLine`): its FOUND line follows the notes. The harness works it out, since the state alone can't say what's new.
+ */
+export function observe(s: Region1State, notes: readonly string[] = [], found: readonly string[] = []): string {
   const cal = s.config.calendar;
   const season = seasonOf(s.day, cal);
   const v = s.vitals;
@@ -319,6 +323,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Learned planning (#1350): until the first level-up, one action per reply.
   if (!s.canPlan) lines.push("PLANNING: not yet — you take things one at a time. Put ONE action in the queue (only the first runs); you'll be asked again after it. An empty queue ends the day. The first time a skill levels up, you'll be able to plan whole days.");
   for (const n of notes) lines.push(`NOTE: ${n}`);
+  for (const f of found) lines.push(f);
   if (wx.view !== 'numbers') {
     lines.push(`WEATHER (as you sense it: ${WX_HOW[wx.view]}, and there's no thermometer):`);
     for (const l of wx.lines) lines.push(`  ${l}`);
