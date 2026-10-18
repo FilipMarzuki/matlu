@@ -27,6 +27,7 @@ export const planq = {
   // Traps and the hunting gear (#1821, `hunting-gear`).
   'actshort.traps': 'Traps',
   'actshort.storemeat': 'Store meat',
+  'actshort.bankfire': 'Bank fire',
   'actshort.needlecompass': 'Needle compass',
   'actshort.sling': 'Sling',
   'actshort.bow': 'Bow',

@@ -361,6 +361,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Every task that travels goes to a real square of the map and back: wood to the nearest birch or pine wood at that distance you know, water to a stream, a marsh or a lake shore, stone to scree or fell, game where game is; knowing none, into land you haven\'t seen. The walk is the path\'s (longer through wood, bog and fells), and costs its Vigor and Clarity. The squares you walk are seen. A stop leaves you where you stopped on the path, and the next work starts with the walk back.',
   },
   {
+    // A rules feature (#1865, on top of `camp-scavengers`): it adds Bank the fire, a `banked` mark to
+    // the save for the day, and a draw for the weather putting the fire out from a stream of its own
+    // (`scavengers@<hour>-fire`), so a run from before it (absent: false) plays as it did.
+    id: 'banked-fire', name: 'A banked fire guards the meat', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1865,
+    note: 'Before a long trip, Bank the fire (half an hour at camp, 3 firewood: about 1 for every 4 hours away) and it smoulders for about 12 hours, the length of a long day trip, while you\'re out, keeping foxes, ravens and bigger animals off the meat lying out at camp. Heavy rain, a storm or snow can put it out while you\'re away, and the journal says so. Only with meat at camp drawing animals (`camp-scavengers`) on.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

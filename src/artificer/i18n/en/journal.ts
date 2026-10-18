@@ -185,6 +185,12 @@ export const journal = {
   'log.meat.wolves': 'Wolves came into camp in the night. You lay still while they tore at the meat, and by first light all of it was gone.',
   'log.meat.bear': 'A bear came into camp in the night. You lay frozen while it ate, and by first light all the meat was gone.',
   'log.meat.bearStored': 'A bear came into camp in the night and got at the meat you\'d put by: {n} raw food gone.',
+  // A banked fire (#1865, `banked-fire`): banking it, and the weather or the hours putting it out.
+  'log.bankfire': 'Banked the fire with {n} firewood: it will smoulder for about {h} hours and keep animals off the meat.',
+  'log.bankfire.rain': 'While you were away, the rain put out the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.storm': 'While you were away, the storm beat out the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.snow': 'While you were away, the snow smothered the banked fire, and nothing kept animals off the meat.',
+  'log.bankfire.burnt': 'The banked fire burned down before you got back, and nothing kept animals off the meat.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
   // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.

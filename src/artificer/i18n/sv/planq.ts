@@ -24,6 +24,7 @@ export const planqSv: Record<keyof typeof planq, string> = {
   'actshort.snare': 'Snara',
   'actshort.traps': 'Fällor',
   'actshort.storemeat': 'Förvara kött',
+  'actshort.bankfire': 'Lägg på eld',
   'actshort.needlecompass': 'Nålkompass',
   'actshort.sling': 'Slunga',
   'actshort.bow': 'Båge',
