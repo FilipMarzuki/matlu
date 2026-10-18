@@ -87,9 +87,9 @@ export function milesBlock(s: Region1State, t: T): string {
   }).join('')}</ol>`;
 }
 
-/** The history of finished runs (newest first), with the best one marked. */
+/** The history of finished runs (newest first), with the best one marked. Empty with none: the tab leaves PAST WARDENS out (#1866). */
 export function pastRuns(history: readonly RunRecord[], t: T): string {
-  if (!history.length) return `<p class="mood">${esc(t('progress.noRuns'))}</p>`;
+  if (!history.length) return '';
   const best = bestRun(history);
   return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">${r.characterName ? `${esc(r.characterName)} · ` : ''}${esc(t('progress.run', { n: r.run }))}</span>`
     + `<span class="rk k-${r.kind}">${esc(t(`progress.kind.${r.kind}` as Key))}${r.grade ? ` — ${esc(t(`grade.${r.grade}` as Key))}` : ''}${r.injury ? ` · ${esc(t('progress.frostbite'))}` : ''}</span>`
@@ -97,7 +97,8 @@ export function pastRuns(history: readonly RunRecord[], t: T): string {
 }
 
 /**
- * The PROGRESS tab: the season, the outlook, the milestones and the past runs; the journal (already
+ * The PROGRESS tab: the season, the outlook, the milestones and the past runs (only once a winter has
+ * been finished, #1866); the journal (already
  * drawn) beside them. `journalHead` is the journal's heading when the page draws it itself (with the
  * 📖 and the notes, #1838); left out, the plain JOURNAL heading.
  */
@@ -106,7 +107,7 @@ export function progressTab(s: Region1State, history: readonly RunRecord[], jour
         <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}</section>
+          ${history.length ? `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}` : ''}</section>
         <section class="box log">${journalHead ?? `<p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p>`}<ul class="full">${journalHtml}</ul></section>
       </div>`;
 }

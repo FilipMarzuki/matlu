@@ -227,7 +227,6 @@ export const tabsSv: Record<TabsKey, string> = {
   'progress.fuelShort.other': 'Veden räcker {n} nätter — ungefär {m} ved till behövs för att klara vintern.',
   'progress.tooCold': 'Skyddet är för kallt för en klar midvinternatt, även med elden tänd. Väggar, bäddar eller vinterkläder.',
   'progress.enough': 'Tillräckligt upplagt för att nå tövädret, om inget går fel.',
-  'progress.noRuns': 'Inga avslutade vintrar än. Lev vintern igenom till tövädret, så skrivs det in här.',
   'progress.run': 'VÄKTARE {n}',
   'progress.kind.arrived': 'Nådde Mistheim',
   'progress.kind.survived': 'Överlevde vintern',
