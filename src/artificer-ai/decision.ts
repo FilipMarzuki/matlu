@@ -8,7 +8,8 @@
  * without schema enforcement can still drift.
  */
 
-import { packProblem, type KitId, type PackRules } from '../artificer/kit';
+import { packProblem, PACK_VOLUME, type KitId, type PackWorld } from '../artificer/kit';
+import { featureOn } from '../artificer/features';
 import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
 import type { RoadActionId } from '../artificer/road';
@@ -249,21 +250,22 @@ export const PACK_DECISION_SCHEMA = {
 export interface PackDecision { thoughts: string; pack: KitId[]; outside?: KitId[] }
 
 /**
- * Validate a packing reply: a list of known ids, none twice, within what the pack holds. With the
- * run's `rules` (#1871, `pack-volume`) that's the room inside and the straps, as `repack` checks;
- * without, today's weight. Never throws.
+ * Validate a packing reply: a list of known ids, none twice, within what the pack holds. Against
+ * the run's `world` when given (#1870): what it offers, and with `pack-volume` (#1871) the room
+ * inside and the straps instead of weight, as `repack` checks. Never throws.
  */
-export function parsePackDecision(text: string, rules?: PackRules): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
+export function parsePackDecision(text: string, world?: PackWorld): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
   let raw: unknown;
   try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.pack) || !o.pack.every(x => typeof x === 'string')) return { ok: false, errors: ['"pack" must be a list of item ids'] };
-  // What's strapped on counts only with the volume on; absent there, the default straps.
-  const volume = rules?.volume === true;
+  // Against the run's world when given (#1870): a hand axe in a world without its switch isn't on the list.
+  // With the pack's volume on (#1871) what's strapped on counts too; absent there, the default straps.
+  const volume = world !== undefined && featureOn(world.features, PACK_VOLUME);
   if (volume && o.outside !== undefined && !(Array.isArray(o.outside) && o.outside.every(x => typeof x === 'string'))) return { ok: false, errors: ['"outside" must be a list of item ids'] };
   const outside = volume && Array.isArray(o.outside) ? [...(o.outside as KitId[])] : undefined;
-  const problem = packProblem(o.pack as string[], volume ? { volume, ...(outside ? { outside } : {}) } : undefined);
+  const problem = packProblem(o.pack as string[], world ? { ...world, ...(outside ? { outside } : {}) } : undefined);
   if (problem) return { ok: false, errors: [`your pack won't do: ${problem}`] };
   return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])], ...(outside ? { outside } : {}) } };
 }

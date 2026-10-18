@@ -8,7 +8,7 @@
  */
 
 import type { FeatureSwitches } from '../artificer/features';
-import { SUGGESTED_PACK, packRulesOf, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, volumeOn, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { validStats, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
@@ -591,13 +591,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   if (player.decidePack) {
     const decidePack = player.decidePack.bind(player);
     let reply = await ask(observePack(s), decidePack);
-    // The run's own packing rules (#1871): with `pack-volume`, room inside and straps, not weight.
-    const rules = packRulesOf(s.config.world.features);
-    let d = parsePackDecision(reply, rules);
+    let d = parsePackDecision(reply, s.config.world);
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
-      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${rules.volume ? ', "outside"' : ''}}.`, decidePack);
-      d = parsePackDecision(reply, rules);
+      // With the pack's volume (#1871) the reply may say what's strapped on.
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${volumeOn(s) ? ', "outside"' : ''}}.`, decidePack);
+      d = parsePackDecision(reply, s.config.world);
       if (!d.ok) errors.push(...d.errors);
     }
     if (d.ok) s = repack(s, d.decision.pack, d.decision.outside);

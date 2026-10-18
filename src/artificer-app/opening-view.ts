@@ -8,7 +8,8 @@
  */
 
 import { numText, type T } from '../artificer/i18n';
-import { KIT, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, packWeight, kitItem, canStrap, addToPack, placeItem, insideLitres, packFeel, packRoom, type KitGroup, type KitId } from '../artificer/kit';
+import { KIT, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, packWeight, kitItem, offeredKit, canStrap, addToPack, placeItem, insideLitres, packFeel, packRoom, type KitGroup, type KitId, type KitItem } from '../artificer/kit';
+import { ruleFeatures } from '../artificer/features';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
 import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
 import { grownStats, START_AGES } from '../artificer/growing';
@@ -58,8 +59,8 @@ export function readPackOpen(raw: string | null): PackOpen {
  * of how many, and what the packed ones weigh, the number written the viewer's way ("2.3 kg",
  * "2,3 kg"). Summed the way `packWeight` sums the whole pack, so the sections add up to its total.
  */
-export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T, weights = true): string {
-  const items = KIT.filter(k => k.group === g);
+export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T, list: readonly KitItem[] = KIT, weights = true): string {
+  const items = list.filter(k => k.group === g);
   const packed = items.filter(k => pack.includes(k.id)).map(k => k.id);
   // With `pack-volume` (#1871) the screen never says a weight (outside dev mode): only the count.
   if (!weights) return t('pack.groupSumVol', { n: packed.length, m: items.length });
@@ -100,7 +101,8 @@ export const setAllSections = (to: boolean): PackOpen =>
   Object.fromEntries((Object.keys(KIT_GROUPS) as KitGroup[]).map(g => [g, to])) as PackOpen;
 
 /**
- * The packing screen (#1401): the whole list, by group — each item with its weight, what it is for
+ * The packing screen (#1401): the whole list, by group (the list the run's world offers, #1870:
+ * `list`, by default a new game's with every rule at its default) — each item with its weight, what it is for
  * out here, and a scout's note. Tap to pack, tap again to take it out; what won't fit is greyed.
  * The weight bar and the leader's list stay at the bottom.
  *
@@ -108,12 +110,12 @@ export const setAllSections = (to: boolean): PackOpen =>
  * on every tap, so whether a section is open comes from `open` (the viewer's choices), not from
  * the browser's own toggle, which a redraw would forget.
  */
-export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, vol?: PackVolumeView): string {
+export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures()), vol?: PackVolumeView): string {
   const kg = packWeight(pack);
   // Weights show unless `pack-volume` is on (#1871): then only in dev mode, with the litres.
   const weights = !vol || vol.dev;
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
-    const items = KIT.filter(k => k.group === g).map(k => {
+    const items = list.filter(k => k.group === g).map(k => {
       const on = pack.includes(k.id);
       // What won't go in is greyed: today, too heavy; with volume, no room inside and no strap free.
       const fits = on || (vol ? addToPack(pack, vol.outside, k.id) !== null : packWeight([...pack, k.id]) <= PACK_CAPACITY);
@@ -136,14 +138,14 @@ export function packForm(pack: readonly KitId[], t: T, truths = false, open: Pac
     // name, and the section's summary on the right. Still a <summary>, so main.ts's toggle works.
     return `<details class="kgroup" data-group="${g}"${sectionOpen(g, pack, open) ? ' open' : ''}>`
       + `<summary class="clabel foldhead" data-kitgroup="${g}">${chevron()}<b class="kname">${esc(t(`kitgroup.${g}`).toUpperCase())}</b>`
-      + `<span class="ksum">${esc(groupSummary(g, pack, t, weights))}</span></summary>`
+      + `<span class="ksum">${esc(groupSummary(g, pack, t, list, weights))}</span></summary>`
       + `<div class="kchoices">${items}</div></details>`;
   }).join('');
   if (vol) return `<form class="create pack" onsubmit="return false">
     <p class="mood" style="margin:0">${esc(t('pack.freeVol'))}</p>
     <div class="kfolds"><button type="button" class="pill" data-kitfold="all">${esc(openAllLabel(pack, t, open))}</button></div>
     ${groups}
-    ${volumeFoot(pack, vol, t)}
+    ${volumeFoot(pack, vol, t, list)}
   </form>`;
   const fill = Math.min(100, (kg / PACK_CAPACITY) * 100);
   return `<form class="create pack" onsubmit="return false">
@@ -164,9 +166,9 @@ export function packForm(pack: readonly KitId[], t: T, truths = false, open: Pac
  * (live, as you pack), how full the inside is (a bar and words), the straps used, and the two
  * buttons. Kilograms and litres only in dev mode.
  */
-function volumeFoot(pack: readonly KitId[], vol: PackVolumeView, t: T): string {
+function volumeFoot(pack: readonly KitId[], vol: PackVolumeView, t: T, list: readonly KitItem[]): string {
   const kg = packWeight(pack), l = insideLitres(pack, vol.outside);
-  const room = packRoom(pack, vol.outside);
+  const room = packRoom(pack, vol.outside, list.map(k => k.id));
   const fill = Math.min(100, (l / PACK_LITRES) * 100);
   return `<div class="kfoot">
       <p class="kfeel" aria-label="${esc(t('pack.feelLabel'))}">${esc(t(`pack.feel.${packFeel(kg, vol.str)}`))}</p>

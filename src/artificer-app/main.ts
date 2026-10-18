@@ -34,7 +34,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { SUGGESTED_PACK, PACK_VOLUME, validPack, autoOutside, addToPack, placeItem, type KitGroup, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -43,7 +43,7 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
-import { FEATURES, experimentalOn, featuresOf, uiFeatureOn, ruleFeatures, featureOn } from '../artificer/features';
+import { FEATURES, experimentalOn, featuresOf, ruleFeatures, uiFeatureOn, featureOn } from '../artificer/features';
 import { grownStats } from '../artificer/growing';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
 import { newLog, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
@@ -1852,6 +1852,12 @@ function loadDraft(): typeof draft | null {
 const saveDraft = (): void => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* a convenience; play on */ } };
 const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
 
+/**
+ * The world the Warden being packed for will start in (#1870): what makeWarden will make from the
+ * player's switches when creation is done, so the pack screen offers the list that run will check.
+ */
+const packWorld = (): { features: Record<string, boolean> } => ({ features: ruleFeatures(loadChoices()) });
+
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
@@ -1932,7 +1938,7 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
-    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, packVolumeOn() ? { outside: draftOutside, str: grownStats(draft.stats, draft.age).str, dev } : undefined) : '',
+    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: grownStats(draft.stats, draft.age).str, dev } : undefined) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
   });
@@ -1976,7 +1982,7 @@ introEl.addEventListener('click', e => {
     const id = btn.dataset.kit as KitId;
     if (draftPack.includes(id)) { draftPack = draftPack.filter(x => x !== id); draftOutside = draftOutside.filter(x => x !== id); }
     else if (packVolumeOn()) { const next = addToPack(draftPack, draftOutside, id); if (next) ({ pack: draftPack, outside: draftOutside } = next); }
-    else if (validPack([...draftPack, id])) draftPack = [...draftPack, id];
+    else if (validPack([...draftPack, id], packWorld())) draftPack = [...draftPack, id];
     renderIntro(); return;
   }
   // Inside or strapped on (#1871): only if it fits there.

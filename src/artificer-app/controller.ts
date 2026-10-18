@@ -36,7 +36,7 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
-import { SUGGESTED_PACK, validPack, readKit, packRulesOf, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, readKit, savedPackProblem, autoOutside, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
@@ -603,7 +603,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const savedFeatures = savedWorld && validFeatures(savedWorld.features) ? savedWorld.features : undefined;
   // The strapped-on list isn't the character's; the pack's check here is the room (straps as saved in the kit, else the defaults).
   const kitOutside = isObj(sim.kit) && Array.isArray(sim.kit.outside) && sim.kit.outside.every(x => typeof x === 'string') ? sim.kit.outside as string[] : undefined;
-  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[], packRulesOf(savedFeatures, kitOutside)) ? { pack: [...(ch.pack as KitId[])] } : {};
+  const pack = isObj(ch) && Array.isArray(ch.pack) && savedPackProblem(ch.pack as string[], savedFeatures, kitOutside ?? autoOutside(ch.pack as KitId[])) === null ? { pack: [...(ch.pack as KitId[])] } : {};
   // Growth by use and wear (#1257): kept if they're numbers.
   const partial = (x: unknown): Partial<Stats> | undefined => {
     if (!isObj(x)) return undefined;

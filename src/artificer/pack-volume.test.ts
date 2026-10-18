@@ -23,7 +23,9 @@ import { serialize, deserialize } from '../artificer-app/controller';
 import { startProblem, startOf } from '../artificer-play/web-run';
 
 const en = makeT('en'), sv = makeT('sv');
-const ON = { volume: true } as const;
+/** A world with the pack's volume on, and the hand axe and fishing kit offered (#1870), as a new game has. */
+const VOL = { [PACK_VOLUME]: true, 'pack-axe-fishing': true };
+const ON = { features: VOL };
 /** Weight only: with `pack-extras` off these odd things do nothing but weigh (and take room). */
 const STONES: KitId[] = ['smooth-stones', 'dumbbells', 'garden-gnome', 'roller-skate'];
 
@@ -59,15 +61,15 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
   it('1: more litres than the pack holds can\'t all go inside, and the screen says it won\'t close', () => {
     const big: KitId[] = [...SUGGESTED_PACK, 'home-pillow', 'accordion'];
     expect(insideLitres(big, [])).toBeGreaterThan(PACK_LITRES);
-    expect(packProblem(big, { volume: true, outside: [] })).toMatch(/won't close/);
-    expect(validPack(big, { volume: true, outside: [] })).toBe(false);
+    expect(packProblem(big, { features: VOL, outside: [] })).toMatch(/won't close/);
+    expect(validPack(big, { features: VOL, outside: [] })).toBe(false);
     // Tapping one more thing into a pack that's nearly full is refused.
     const nearly: KitId[] = [...SUGGESTED_PACK, 'home-pillow'];
     expect(validPack(nearly, ON)).toBe(true);
     expect(addToPack(nearly, autoOutside(nearly), 'accordion')).toBeNull();
     // The screen: the accordion greyed, and the room said in words.
     for (const t of [en, sv]) {
-      const html = packForm(nearly, t, false, {}, { outside: autoOutside(nearly), str: 10, dev: false });
+      const html = packForm(nearly, t, false, {}, undefined, { outside: autoOutside(nearly), str: 10, dev: false });
       expect(html).toMatch(/data-kit="accordion"[^>]*disabled/);
       expect(html).toContain(esc(t('pack.wontClose')));
     }
@@ -83,11 +85,11 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
     // The strap places run out: one more outside than there are places won't do.
     const strappable = KIT.filter(k => k.outside).map(k => k.id);
     expect(strappable.length).toBeGreaterThan(STRAP_PLACES);
-    expect(validPack(strappable, { volume: true, outside: strappable.slice(0, STRAP_PLACES) })).toBe(true);
-    expect(packProblem(strappable, { volume: true, outside: strappable.slice(0, STRAP_PLACES + 1) })).toMatch(/strap/);
+    expect(validPack(strappable, { features: VOL, outside: strappable.slice(0, STRAP_PLACES) })).toBe(true);
+    expect(packProblem(strappable, { features: VOL, outside: strappable.slice(0, STRAP_PLACES + 1) })).toMatch(/strap/);
     expect(placeItem(strappable, strappable.slice(0, STRAP_PLACES), strappable[STRAP_PLACES], true)).toBeNull();
     // And the screen lets you choose: inside or strapped on, for those items.
-    const html = packForm(['sleeping-pad'], en, false, {}, { outside: ['sleeping-pad'], str: 10, dev: false });
+    const html = packForm(['sleeping-pad'], en, false, {}, undefined, { outside: ['sleeping-pad'], str: 10, dev: false });
     expect(html).toMatch(/data-kitplace="sleeping-pad" data-place="out" aria-pressed="true"/);
     expect(html).toMatch(/data-kitplace="sleeping-pad" data-place="in" aria-pressed="false"/);
   });
@@ -95,10 +97,10 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
   // 3. Given a non-`outside` item, then it can only go inside.
   it('3: a thing that can\'t be strapped on only goes inside', () => {
     expect(canStrap('accordion')).toBe(false);
-    expect(packProblem(['accordion'], { volume: true, outside: ['accordion'] })).toMatch(/strapped/);
+    expect(packProblem(['accordion'], { features: VOL, outside: ['accordion'] })).toMatch(/strapped/);
     expect(placeItem(['accordion'], [], 'accordion', true)).toBeNull();
     // No strap choice is drawn for it.
-    expect(packForm(['accordion', 'kasa'], en, false, {}, { outside: [], str: 10, dev: false })).not.toContain('data-kitplace="accordion"');
+    expect(packForm(['accordion', 'kasa'], en, false, {}, undefined, { outside: [], str: 10, dev: false })).not.toContain('data-kitplace="accordion"');
   });
 
   // 4. Given pack weights across the range, the line steps through the words in order, shows no numbers, and STR moves the steps up.
@@ -123,11 +125,11 @@ describe('The pack has a volume, some things strap outside, and the Warden says 
     for (const t of [en, sv]) {
       for (const f of PACK_FEELS) { expect(t(`pack.feel.${f}`)).not.toMatch(/\d/); expect(t(`pack.feel.${f}`)).not.toBe(`pack.feel.${f}`); }
       const pack: KitId[] = [...SUGGESTED_PACK, ...STONES];
-      const html = packForm(pack, t, false, {}, { outside: autoOutside(pack), str: 6, dev: false });
+      const html = packForm(pack, t, false, {}, undefined, { outside: autoOutside(pack), str: 6, dev: false });
       expect(html).toContain(esc(t(`pack.feel.${packFeel(packWeight(pack), 6)}`)));
       expect(html.replace(/<[^>]*>/g, ' ')).not.toMatch(/\d\s*kg/);
       // In dev mode the kilograms show.
-      expect(packForm(pack, t, false, {}, { outside: autoOutside(pack), str: 6, dev: true }).replace(/<[^>]*>/g, ' ')).toMatch(/\d\s*kg/);
+      expect(packForm(pack, t, false, {}, undefined, { outside: autoOutside(pack), str: 6, dev: true }).replace(/<[^>]*>/g, ' ')).toMatch(/\d\s*kg/);
     }
     expect(en(`pack.feel.${PACK_FEELS[0]}`)).toBe('Light as anything.');
     expect(sv(`pack.feel.${PACK_FEELS[0]}`)).toBe('Lätt som en fjäder.');

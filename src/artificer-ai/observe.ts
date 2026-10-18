@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { hasKit, kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, SUGGESTED_PACK, PACK_FEEL_LINE, packWeight, packFeel, comfortableWeight, insideLitres, autoOutside, volumeOn, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, SUGGESTED_PACK, PACK_FEEL_LINE, packWeight, packFeel, comfortableWeight, insideLitres, autoOutside, volumeOn, type KitGroup, type KitItem } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
@@ -764,9 +764,11 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
  */
 export function observePack(s: Region1State): string {
   const now = s.kit?.items ?? [];
+  // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
+  const list = offeredKit(s.config.world.features);
   // The pack's volume (#1871): the rules the play API and the pack screen check, said in full.
-  if (volumeOn(s)) return observePackVolume(s);
-  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${KIT.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
+  if (volumeOn(s)) return observePackVolume(s, list);
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
     `Your pack holds ${PACK_CAPACITY} kg. The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
@@ -783,11 +785,11 @@ export function observePack(s: Region1State): string {
  * weight for this Warden's STR, and how it feels in their words. The AI sees the kilograms (the
  * screen never shows them); the reply may say what's strapped on.
  */
-function observePackVolume(s: Region1State): string {
+function observePackVolume(s: Region1State, list: readonly KitItem[]): string {
   const now = s.kit?.items ?? [];
   const outside = s.kit?.outside ?? [];
   const str = s.character.stats.str;
-  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${KIT.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg, ${k.litres} L${k.outside ? ', can strap outside' : ''}): ${k.name} — ${k.does}`).join('\n')}`);
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg, ${k.litres} L${k.outside ? ', can strap outside' : ''}): ${k.name} — ${k.does}`).join('\n')}`);
   const feel = (kg: number) => `"${PACK_FEEL_LINE[packFeel(kg, str)]}"`;
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',

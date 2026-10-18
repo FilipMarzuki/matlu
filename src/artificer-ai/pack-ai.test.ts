@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegion1, repack, runAction } from '../artificer/region1';
 import { SUGGESTED_PACK, KIT, PACK_CAPACITY, PACK_LITRES, PACK_VOLUME, STRAP_PLACES, PACK_FEEL_LINE, validPack, packWeight, autoOutside, type KitId } from '../artificer/kit';
 import { introBeats } from '../artificer-app/intro';
+import { ruleFeatures } from '../artificer/features';
 import { newGame, newRun } from '../artificer-app/controller';
 import { legacyOf } from '../artificer/legacy';
 import { createVitals } from '../artificer/vitality';
@@ -73,7 +74,7 @@ describe('Packing for the hike (#1401)', () => {
     // The Warden's words for what's packed now, as the screen says them.
     expect(Object.values(PACK_FEEL_LINE).some(l => msg.includes(`"${l}"`))).toBe(true);
     expect(msg).toMatch(/"outside": \["<item id strapped on>", \.\.\.\]/);
-    const rules = { volume: true };
+    const rules = { features: ruleFeatures() };
     // Heavy is fine; too much inside won't close; a strap for a thing that can't be strapped is refused.
     const heavy = [...SUGGESTED_PACK, 'dumbbells', 'smooth-stones', 'garden-gnome'];
     expect(parsePackDecision(JSON.stringify({ thoughts: '', pack: heavy }), rules)).toMatchObject({ ok: true });
@@ -86,8 +87,8 @@ describe('Packing for the hike (#1401)', () => {
     expect(r.kit?.outside).toEqual(['tarp']);
     // The random baseline still packs within 9 kg, and its packs close.
     for (let seed = 1; seed <= 50; seed++) {
-      const p = randomPack(rng(seed), true);
-      expect(validPack(p, { volume: true, outside: autoOutside(p) })).toBe(true);
+      const p = randomPack(rng(seed), ruleFeatures());
+      expect(validPack(p, { features: ruleFeatures(), outside: autoOutside(p) })).toBe(true);
       expect(packWeight(p)).toBeLessThanOrEqual(PACK_CAPACITY);
     }
   });

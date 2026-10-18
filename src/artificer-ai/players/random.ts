@@ -15,7 +15,8 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { KIT_IDS, PACK_CAPACITY, packWeight, autoOutside, validPack, volumeOn, type KitId } from '../../artificer/kit';
+import { offeredKit, PACK_CAPACITY, PACK_VOLUME, packWeight, autoOutside, fitProblem, type KitId } from '../../artificer/kit';
+import { featureOn, type FeatureSwitches } from '../../artificer/features';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import { shown } from '../../artificer/action-visibility';
@@ -34,17 +35,20 @@ const PACK_SALT = 7919;
 
 /**
  * A random pack that fits (#1401): the list in a random order, each item taken half the time if it
- * still fits. Within today's 9 kg either way, so with `pack-volume` on (#1871, `volume`) the random
- * Warden is never slowed by a heavy pack; there it must also close, with the default straps. The
- * draws are the same either way (an item that won't close is skipped after its coin), so a seed
- * packs the same as before unless the room inside turns something away.
+ * still fits. The list is the run's (#1870): `features` are its world's switches, and without the
+ * hand axe and fishing kit's switch the list (and so the shuffle, and the pack) is the one it always was.
+ * Within today's 9 kg either way, so with `pack-volume` on (#1871) the random Warden is never slowed
+ * by a heavy pack; there it must also close, with the default straps. The draws are the same either
+ * way (an item that won't close is skipped after its coin), so a seed packs as before unless the
+ * room inside turns something away.
  */
-export function randomPack(rand: () => number, volume = false): KitId[] {
-  const order = [...KIT_IDS].sort(() => rand() - 0.5);
+export function randomPack(rand: () => number, features?: FeatureSwitches): KitId[] {
+  const volume = featureOn(features, PACK_VOLUME);
+  const order = offeredKit(features).map(k => k.id).sort(() => rand() - 0.5);
   const pack: KitId[] = [];
   for (const id of order) {
     if (!(rand() < 0.5 && packWeight([...pack, id]) <= PACK_CAPACITY)) continue;
-    if (volume && !validPack([...pack, id], { volume: true, outside: autoOutside([...pack, id]) })) continue;
+    if (volume && fitProblem([...pack, id], autoOutside([...pack, id])) !== null) continue;
     pack.push(id);
   }
   return pack;
@@ -158,7 +162,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     },
     // Packing (#1401): a random pack that fits — from its own stream, so the rest of the run's picks don't shift.
     async decidePack(_message, s) {
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), volumeOn(s)) }), usage: { cost: 0 } };
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), s.config.world.features) }), usage: { cost: 0 } };
     },
     // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
     async decideMeeting(_message, reach, m) {

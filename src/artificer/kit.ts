@@ -21,6 +21,8 @@ export type KitId =
   | 'sleeping-bag' | 'sleeping-pad' | 'sit-pad' | 'wool-underlayer' | 'hat-mittens' | 'rain-gear' | 'spare-socks'
   | 'headlamp' | 'map-compass' | 'whistle' | 'cord' | 'tarp' | 'trangia' | 'weekend-food' | 'sweets'
   | 'notebook' | 'toilet-paper' | 'phone' | 'comic' | 'pillow'
+  // A hand axe and a fishing kit (#1870): only on the list with the `pack-axe-fishing` switch on.
+  | 'hand-axe' | 'fishing-kit'
   // The odd things (#1727): funny, maybe useful, and weird.
   | 'family-tent' | 'salsa' | 'hairdryer' | 'home-pillow' | 'dumbbells' | 'hammer' | 'big-bag-sweets' | 'rubber-boots' | 'flamingo' | 'rice'
   | 'harmonica' | 'board-game' | 'binoculars' | 'duct-tape' | 'sewing-kit' | 'magnifying-glass' | 'notebook-pencils' | 'bird-book' | 'throat-sweets' | 'lots-of-socks'
@@ -91,11 +93,17 @@ export const KIT: readonly KitItem[] = [
   { id: 'whistle', name: 'Whistle', sv: 'visselpipa', weight: 0.02, litres: 0.05, group: 'tools', does: 'For making a loud noise.', effect: 'face a boar or a bear and you can blow it: noise sends most animals off', note: 'Three blasts means help. Every scout has one round their neck.' },
   { id: 'cord', name: 'Cord, 10 m', sv: 'snöre', weight: 0.2, litres: 0.3, group: 'tools', does: 'For tying things.', effect: '+2 materials', note: 'For the tarp, for a clothesline, for anything. You can never have too much cord.' },
   { id: 'tarp', name: 'Tarp', sv: 'vindskydd', weight: 1.0, litres: 3, outside: true, group: 'tools', does: 'A roof to sleep under.', effect: 'pitched when you make camp: a crude lean-to roof without felling a tree', note: 'The patrol\'s tarp — you were carrying it when you got separated.' },
-  // The hand axe (#1870), once it's in the kit, gets `outside: true` too: it rides in its sheath, strapped to the side.
   { id: 'notebook', name: 'Notebook and pencil', sv: 'anteckningsbok', weight: 0.1, litres: 0.3, group: 'other', does: 'To write things down.', effect: '+10% insight from study', note: 'For the hike diary the leader wants. A pencil works in the rain; a pen doesn\'t.' },
   { id: 'toilet-paper', name: 'Toilet paper', sv: 'toalettpapper', weight: 0.1, litres: 1, group: 'other', does: 'You know what for.', effect: 'nothing, out here', note: 'In a plastic bag. Every scout brings it. Every scout.' },
   { id: 'phone', name: 'Phone', sv: 'mobil', weight: 0.2, litres: 0.1, group: 'other', does: 'To call home.', effect: 'nothing: no signal, and dead by the third day', note: 'You promised to call home on Saturday evening.' },
   { id: 'comic', name: 'Comic book', sv: 'serietidning', weight: 0.2, litres: 0.3, group: 'other', does: 'Something to read.', effect: 'once, resting on a rainy day: +3 Clarity', note: 'Bamse, read so many times the cover\'s coming off.' },
+  // A hand axe and a fishing kit (#1870, the `pack-axe-fishing` switch): offered only with it on
+  // (`kitOffered`), so a run without it has the list it always had. They sit here, before the odd
+  // things, because `EXTRA_ITEMS` is everything from the family tent on: they're real scout kit,
+  // not odd things, and the `pack-extras` switch has nothing to do with them.
+  // Sizes (#1871): the hand axe straps on, in its sheath on the side of the pack; the fishing kit is a small tin.
+  { id: 'hand-axe', name: 'Hand axe', sv: 'handyxa', weight: 0.6, litres: 1, outside: true, group: 'tools', does: 'For chopping and splitting wood.', effect: 'gathering wood (firewood and materials) takes about a fifth less time and half the Vigor', note: 'Your axe licence came last spring. Always chop with the block between you and the blade.' },
+  { id: 'fishing-kit', name: 'Fishing kit', sv: 'fiskeset', weight: 0.2, litres: 0.5, group: 'fire-food', does: 'A coil of line, a few hooks, a float and a sinker, in a tin.', effect: 'fishing is open from day 1 with no hook and line to make (with traps-first hunting); a real hook catches a fifth more; it counts as a hook for a needle compass', note: 'Grandpa\'s tin. The hooks are rusty, the line is good.' },
   // The odd things (#1727): real stories of what scouts, kids and hikers have packed. Their `effect`
   // is what they do with the `pack-extras` switch on; with it off, every one of them only weighs.
   // "For later" marks an effect that needs a system the game doesn't have yet.
@@ -149,6 +157,33 @@ export interface KitRun { kit?: KitState; config?: { world: { features?: Feature
 /** Are the odd things' effects on in this run? */
 export const extrasOn = (s: KitRun): boolean => featureOn(s.config?.world.features, PACK_EXTRAS);
 
+/**
+ * The hand axe and the fishing kit's switch (#1870, features.ts). A rules switch, like the odd
+ * things': a run keeps it as it started, and a run from before it reads it as off. Unlike the odd
+ * things, with it off the two aren't on the list at all (`kitOffered`), so they can't be packed.
+ */
+export const PACK_AXE_FISHING = 'pack-axe-fishing';
+/** The two things the switch adds to the list. */
+export const AXE_FISHING_ITEMS: readonly KitId[] = ['hand-axe', 'fishing-kit'];
+
+/**
+ * Is this item on the pack list in a world with these switches? Everything is, except the hand axe
+ * and the fishing kit without their switch. `features` is the world's (`config.world.features`):
+ * undefined is a world from before the switches, where `featureOn` reads it as off.
+ */
+export const kitOffered = (id: KitId, features: FeatureSwitches | undefined): boolean =>
+  !AXE_FISHING_ITEMS.includes(id) || featureOn(features, PACK_AXE_FISHING);
+/** The pack list a world offers, in the list's order: what the pack screen and the AI's packing turn show. */
+export const offeredKit = (features: FeatureSwitches | undefined): readonly KitItem[] => KIT.filter(k => kitOffered(k.id, features));
+
+/**
+ * Did they pack the hand axe or the fishing kit, and is it on in this run? Both, always: the item
+ * can only be packed with the switch on, but a save could carry it into a run read without it, and
+ * this keeps such a run playing as one from before the switch.
+ */
+export const hasAxeFishing = (s: KitRun, id: 'hand-axe' | 'fishing-kit'): boolean =>
+  featureOn(s.config?.world.features, PACK_AXE_FISHING) && hasKit(s, id);
+
 /** Did they pack this odd thing, and does it do anything in this run? With the switch off it's only weight. */
 export const hasExtra = (s: KitRun, id: KitId): boolean => extrasOn(s) && hasKit(s, id);
 
@@ -192,7 +227,7 @@ export const canStrap = (id: KitId): boolean => kitItem(id).outside === true;
  * leader's list, an older log): this order, up to the strap places. The pad and the sit pad first,
  * as every scout carries them; the sleeping bag never by default (it's a choice: see KIT).
  */
-export const AUTO_STRAP: readonly KitId[] = ['sleeping-pad', 'sit-pad', 'family-tent', 'rubber-boots', 'tarp', 'kasa'];
+export const AUTO_STRAP: readonly KitId[] = ['sleeping-pad', 'sit-pad', 'family-tent', 'rubber-boots', 'tarp', 'hand-axe', 'kasa'];
 export const autoOutside = (ids: readonly KitId[]): KitId[] => AUTO_STRAP.filter(id => ids.includes(id)).slice(0, STRAP_PLACES);
 
 /** Litres inside: everything packed that isn't strapped on. Rounded, so 0.1 + 0.2 reads 0.3. */
@@ -200,49 +235,75 @@ export const insideLitres = (ids: readonly KitId[], outside: readonly KitId[]): 
   Math.round(ids.filter(id => !outside.includes(id)).reduce((n, id) => n + kitItem(id).litres, 0) * 100) / 100;
 
 /**
- * What a pack is checked against. `volume` is the switch; `outside` what's strapped on (absent:
- * {@link autoOutside}, so a caller that never heard of straps still packs sensibly). Absent rules
- * are the switch off: today's weight limit.
+ * The world a pack is checked in (#1870, #1871): its switches, and with `pack-volume` on what's
+ * strapped on (`outside`; absent: {@link autoOutside}, so a caller that never heard of straps
+ * still packs sensibly). Leaving the world out checks the list's shape and today's weight only.
  */
-export interface PackRules { volume: boolean; outside?: readonly string[] }
+export interface PackWorld { features?: FeatureSwitches; outside?: readonly string[] }
 
-/** A run's rules for packing, from its switches: what `repack` and `readKit` check. */
-export const packRulesOf = (features: FeatureSwitches | undefined, outside?: readonly string[]): PackRules =>
-  ({ volume: featureOn(features, PACK_VOLUME), ...(outside ? { outside } : {}) });
+/** Is the pack's volume on in this world? Off with no world (today's rules). */
+const volumeIn = (world: PackWorld | undefined): boolean => world !== undefined && featureOn(world.features, PACK_VOLUME);
 
-/** What's strapped on under these rules: as given, or the default; nothing with the switch off. */
-export const strapsOf = (ids: readonly KitId[], rules?: PackRules): KitId[] =>
-  !rules?.volume ? [] : rules.outside ? [...rules.outside] as KitId[] : autoOutside(ids);
+/** What's strapped on in this world: as given, or the default; nothing with the volume off. */
+export const strapsOf = (ids: readonly KitId[], world?: PackWorld): KitId[] =>
+  !volumeIn(world) ? [] : world!.outside ? [...world!.outside] as KitId[] : autoOutside(ids);
 
-/**
- * Why a pack won't do, or null if it will: unknown or doubled items; then, with the switch off,
- * too heavy; with it on, a strap problem or too much inside ("it won't close"). Weight is never a
- * refusal with the switch on: a heavy pack is allowed, and costs on the walk instead (region1.ts).
- * The strings are plain English for the AI and the API (they may name numbers; the screen never shows them).
- */
-export function packProblem(ids: readonly string[], rules?: PackRules): string | null {
-  const unknown = ids.find(id => !KIT_IDS.includes(id as KitId));
+/** The list's own problems: an unknown item, one the world doesn't offer (#1870), or one twice. */
+function listProblem(ids: readonly string[], world?: PackWorld): string | null {
+  const unknown = ids.find(id => !KIT_IDS.includes(id as KitId) || (world !== undefined && !kitOffered(id as KitId, world.features)));
   if (unknown) return `there's no "${unknown}" on the list`;
   const twice = ids.find((id, i) => ids.indexOf(id) !== i);
-  if (twice) return `${kitItem(twice as KitId).name.toLowerCase()} is in there twice`;
-  if (!rules?.volume) {
-    const kg = packWeight(ids as KitId[]);
-    return kg > PACK_CAPACITY ? `too heavy: ${kg} kg, and the pack holds ${PACK_CAPACITY}` : null;
-  }
-  const outside = rules.outside ?? autoOutside(ids as KitId[]);
-  const notPacked = outside.find(id => !ids.includes(id));
+  return twice ? `${kitItem(twice as KitId).name.toLowerCase()} is in there twice` : null;
+}
+
+/**
+ * Does a pack of known items fit with these things strapped on (#1871)? Each strapped thing packed,
+ * strappable and once, within the strap places, and the rest inside {@link PACK_LITRES}: null, or
+ * why not ("it won't close").
+ */
+export function fitProblem(ids: readonly KitId[], outside: readonly string[]): string | null {
+  const notPacked = outside.find(id => !ids.includes(id as KitId));
   if (notPacked) return `"${notPacked}" is strapped on but isn't packed`;
   if (outside.some((id, i) => outside.indexOf(id) !== i)) return 'something is strapped on twice';
   const loose = outside.find(id => !canStrap(id as KitId));
   if (loose) return `${kitItem(loose as KitId).name.toLowerCase()} can't be strapped on the outside: it goes inside`;
   if (outside.length > STRAP_PLACES) return `${outside.length} things strapped on, and there are only ${STRAP_PLACES} strap places`;
-  const l = insideLitres(ids as KitId[], outside as KitId[]);
+  const l = insideLitres(ids, outside as KitId[]);
   return l > PACK_LITRES ? `it won't close: ${l} L inside, and the pack holds ${PACK_LITRES} L` : null;
 }
-export const validPack = (ids: readonly string[], rules?: PackRules): ids is KitId[] => packProblem(ids, rules) === null;
 
 /**
- * The pack screen's tap on an item that isn't packed (switch on): where it goes. Strapped on if it's
+ * Why a pack won't do, or null if it will: unknown or doubled items. With a `world`, also anything
+ * that world doesn't offer (#1870: the hand axe and the fishing kit need their switch). It's an
+ * object, not the switches alone, so that a world from before the switches (`features` undefined,
+ * everything new off) still checks, and only leaving it out skips the check (a save's pack, which
+ * is read before its world is). Then, with `pack-volume` off (or no world), too heavy; with it on,
+ * a strap problem or too much inside (#1871). Weight is never a refusal with the volume on: a heavy
+ * pack is allowed, and costs on the walk instead (region1.ts). The strings are plain English for
+ * the AI and the API (they may name numbers; the screen never shows them).
+ */
+export function packProblem(ids: readonly string[], world?: PackWorld): string | null {
+  const list = listProblem(ids, world);
+  if (list) return list;
+  if (!volumeIn(world)) {
+    const kg = packWeight(ids as KitId[]);
+    return kg > PACK_CAPACITY ? `too heavy: ${kg} kg, and the pack holds ${PACK_CAPACITY}` : null;
+  }
+  return fitProblem(ids as KitId[], world!.outside ?? autoOutside(ids as KitId[]));
+}
+export const validPack = (ids: readonly string[], world?: PackWorld): ids is KitId[] => packProblem(ids, world) === null;
+
+/**
+ * Why a saved pack can't be read back, or null: the list's shape (not what the world offers: a
+ * save's pack is read before its world, see packProblem), then with `pack-volume` on (#1871) whether
+ * it closes with `outside` strapped on, else today's weight. The kit and the character's pack use it.
+ */
+export function savedPackProblem(ids: readonly string[], features: FeatureSwitches | undefined, outside: readonly string[]): string | null {
+  return listProblem(ids) ?? (featureOn(features, PACK_VOLUME) ? fitProblem(ids as KitId[], outside) : packProblem(ids));
+}
+
+/**
+ * The pack screen's tap on an item that isn't packed (volume on): where it goes. Strapped on if it's
  * one the defaults strap and a place is free (a pad goes under the lid); else inside if it fits;
  * else strapped on if it can be and a place is free. Null: it won't go ("it won't close").
  */
@@ -250,7 +311,7 @@ export function addToPack(pack: readonly KitId[], outside: readonly KitId[], id:
   if (pack.includes(id)) return null;
   const next = [...pack, id];
   const tries: KitId[][] = [...(AUTO_STRAP.includes(id) ? [[...outside, id]] : []), [...outside], ...(canStrap(id) ? [[...outside, id]] : [])];
-  const fit = tries.find(o => validPack(next, { volume: true, outside: o }));
+  const fit = tries.find(o => fitProblem(next, o) === null);
   return fit ? { pack: next, outside: fit } : null;
 }
 
@@ -258,16 +319,16 @@ export function addToPack(pack: readonly KitId[], outside: readonly KitId[], id:
 export function placeItem(pack: readonly KitId[], outside: readonly KitId[], id: KitId, out: boolean): KitId[] | null {
   if (!pack.includes(id) || !canStrap(id)) return null;
   const next = out ? [...outside.filter(x => x !== id), id] : outside.filter(x => x !== id);
-  return validPack(pack, { volume: true, outside: next }) ? next : null;
+  return fitProblem(pack, next) === null ? next : null;
 }
 
 /**
  * How full the inside is, in words for the screen: plenty of room, filling up, nearly full, or full
- * (nothing left on the list would go in, inside or on a strap).
+ * (nothing left on the list would go in, inside or on a strap). `offered` is the world's list (#1870).
  */
 export type PackRoom = 'roomy' | 'filling' | 'nearly' | 'full';
-export function packRoom(pack: readonly KitId[], outside: readonly KitId[]): PackRoom {
-  if (KIT_IDS.every(id => pack.includes(id) || !addToPack(pack, outside, id))) return 'full';
+export function packRoom(pack: readonly KitId[], outside: readonly KitId[], offered: readonly KitId[] = KIT_IDS): PackRoom {
+  if (offered.every(id => pack.includes(id) || !addToPack(pack, outside, id))) return 'full';
   const f = insideLitres(pack, outside) / PACK_LITRES;
   return f < 0.5 ? 'roomy' : f < 0.85 ? 'filling' : 'nearly';
 }
@@ -401,12 +462,36 @@ export const kitColdCost = (s: KitRun): number => {
 
 /** Scouting and surveying with a map and compass. */
 export const MAP_TIME = 0.8;
+/**
+ * Gathering wood with the hand axe (#1870, the owner: "about 20–25% less time" and "about half the
+ * Vigor"): one action, `wood`, brings in both the firewood and the materials, so it's the one the
+ * axe speeds up. No bigger haul: the same wood, sooner and for less effort.
+ */
+export const AXE_TIME = 0.78, AXE_VIGOR = 0.5;
 /** With the odd things on (#1727): binoculars for scouting and looking out, the bird book for tracking and hunting. */
 export const BINOCULARS_TIME = 0.9, BIRD_BOOK_TIME = 0.9;
 export const kitTimeMult = (s: KitRun, action: string): number =>
   (hasKit(s, 'map-compass') && (action === 'scout' || action === 'survey') ? MAP_TIME : 1)
   * (hasExtra(s, 'binoculars') && (action === 'scout' || action === 'lookout') ? BINOCULARS_TIME : 1)
-  * (hasExtra(s, 'bird-book') && (action === 'track' || action === 'hunt') ? BIRD_BOOK_TIME : 1);
+  * (hasExtra(s, 'bird-book') && (action === 'track' || action === 'hunt') ? BIRD_BOOK_TIME : 1)
+  * (hasAxeFishing(s, 'hand-axe') && action === 'wood' ? AXE_TIME : 1);
+
+/**
+ * What the kit does to an action's Vigor drain per hour (#1870): with the hand axe, chopping is half the work
+ * that breaking deadfall by hand or hacking at it with a knife is. Only the work: the walk out and
+ * back costs what it did. A multiplier, as the rest of the drains are, so it stacks with them.
+ */
+export const kitVigorMult = (s: KitRun, action: string): number =>
+  // AXE_VIGOR is the trip's whole cost; the work is already AXE_TIME as long, so the hourly rate
+  // takes the rest (0.5 / 0.78, about 0.64 an hour): the trip as a whole costs about half.
+  hasAxeFishing(s, 'hand-axe') && action === 'wood' ? AXE_VIGOR / AXE_TIME : 1;
+
+/**
+ * A real hook catches better than a whittled one (#1870): with the fishing kit, a fishing trip's
+ * catch before the land's supply and the luck, times this. "A little better", so a fifth: about one
+ * more fish on a near trip's three.
+ */
+export const FISH_KIT_CATCH = 1.2;
 
 /**
  * The firewood a night's fire needs, after the magnifying glass (#1727): on a clear day you light it
@@ -426,10 +511,14 @@ export function readKit(x: unknown, features?: FeatureSwitches): KitState | unde
   const o = x as Record<string, unknown>;
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
   if (!Array.isArray(o.items) || !o.items.every(id => typeof id === 'string')) return undefined;
+  // The list's shape is checked without the world (as a save's pack always was: see packProblem),
+  // so an item a switch offers isn't dropped here; `hasAxeFishing` and the rest read the switch.
+  if (listProblem(o.items as string[])) return undefined;
   const volume = featureOn(features, PACK_VOLUME);
   const straps = volume && Array.isArray(o.outside) && o.outside.length > 0 && o.outside.every(id => typeof id === 'string')
-    && validPack(o.items as string[], { volume: true, outside: o.outside as string[] }) ? [...(o.outside as KitId[])] : undefined;
-  if (!validPack(o.items as string[], volume ? { volume: true, outside: straps ?? [] } : undefined)) return undefined;
+    && fitProblem(o.items as KitId[], o.outside as string[]) === null ? [...(o.outside as KitId[])] : undefined;
+  // With the volume on, the pack must close as saved (weight is soft); off, today's weight limit.
+  if (savedPackProblem(o.items as string[], features, straps ?? [])) return undefined;
   const items = [...(o.items as KitId[])];
   // What's used up (#1727): kept only if every entry is something that was packed; otherwise
   // dropped, which reads as nothing used yet.

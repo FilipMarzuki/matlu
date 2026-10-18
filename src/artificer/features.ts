@@ -330,12 +330,19 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Heading out in one of the eight directions needs something to keep a heading. The map and compass from the pack: open from day 1, and it never drifts. Or make a needle compass (half an hour, nothing used up): a needle from the sewing kit, or the hook from a hook and line, stroked on wool (or your hair) and floated in the kåsa (or a still pool); it is fiddly, so a trip can drift one direction off, less with practice, and its pull fades after a week until you stroke it again. Or, on a clear or broken-cloud day, a shadow stick: half an hour more each time. Without any of them, Explore offers only Look around.',
   },
   {
+    // A rules feature (#1870): it puts two things on the pack list (a hand axe and a fishing kit) and
+    // gives them their effects (kit.ts `hasAxeFishing`), so a run from before it (absent: false) is
+    // offered the list it was, packs what it packed, and replays the same.
+    id: 'pack-axe-fishing', name: 'A hand axe and a fishing kit in the pack', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1870,
+    note: 'Two more things to pack. A hand axe: gathering wood (firewood and materials) goes about a fifth quicker and costs about half the Vigor. A fishing kit (line, real hooks, a float and a sinker): with traps-first hunting, fishing is open from day 1 with no hook and line to make, a real hook catches a little better, and its hook will do for a needle compass. Neither is on the leader\'s list.',
+  },
+  {
     // A rules feature (#1871): it changes which packs can be packed (45 L inside and strap places
     // instead of 9 kg, kit.ts packProblem), saves where things went (`kit.outside`), and makes a heavy
     // pack cost Vigor on the walk until camp is made, so a run from before it (absent: false) packs
     // and walks as it did, and replays the same.
     id: 'pack-volume', name: 'Pack volume, straps and how heavy it feels', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1871,
-    note: 'The pack holds 45 litres inside: what goes in must fit, or it won\'t close. The sleeping pad, sit pad, tarp, kåsa, rubber boots, family tent and the sleeping bag (under the lid) can be strapped on the outside instead, on four strap places: no room used, but they still weigh. Weight is no longer a limit: the Warden says how heavy the pack feels (a strong one says it later), and a pack over the comfortable weight costs extra Vigor on every walk, more the heavier, until you make camp.',
+    note: 'The pack holds 45 litres inside: what goes in must fit, or it won\'t close. The sleeping pad, sit pad, tarp, kåsa, rubber boots, family tent, hand axe and the sleeping bag (under the lid) can be strapped on the outside instead, on four strap places: no room used, but they still weigh. Weight is no longer a limit: the Warden says how heavy the pack feels (a strong one says it later), and a pack over the comfortable weight costs extra Vigor on every walk, more the heavier, until you make camp.',
   },
   {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
