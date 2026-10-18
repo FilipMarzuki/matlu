@@ -41,7 +41,7 @@ import { featureOn } from './features';
 import { hasKit } from './kit';
 import type { Ring } from './exploration';
 import { reachOfRun, landOrigin, directionWords, directionIndex, timeWords, timeWord, type TimeWord } from './descriptive-map';
-import { walkFrom, sightFor, ringOfHours, COST, YIELDS, BIOME_NAME, type Biome, type Reach, type Yield } from './world/reach';
+import { walkFrom, sightFor, ringOfHours, COST, YIELDS, BIOME_NAME, REACH_W, REACH_H, type Biome, type Reach, type Yield } from './world/reach';
 import type { Region1State } from './region1';
 
 /** The rule switch (features.ts). */
@@ -153,7 +153,8 @@ function knownTest(s: Run, r: Reach, walk: readonly number[] = walkFrom(r, homeO
 // Destinations are asked for often (the plan's estimate, the AI's view, the needs player trying
 // actions forward), so the last few are kept. The key is everything the choice depends on: the land
 // (the seed), where you set out, the ring, the need, how much of each ring you know, and the squares
-// seen (`seenOut` only ever grows, so its length tells one set from the next).
+// seen, in full: two games on one seed (the play API runs many in one process) can have seen as many
+// squares and not the same ones, so a count alone would hand one game the other's trip.
 const trips = new Map<string, Trip | null>();
 
 /**
@@ -167,7 +168,7 @@ export function planTrip(s: Run, need: Need, ring: Ring): Trip | null {
   const walk = walkFrom(r, home.x, home.y);
   const sight = sightFor({ ...r, hours: walk }, s.explore);
   const levels = ([1, 2, 3] as const).map(n => Object.values(s.explore.known[n]).map(v => Math.floor(Math.min(3, v))).join('')).join('|');
-  const key = `${r.seed}|${home.x},${home.y}|${ring}|${need}|${levels}|${s.seenOut?.length ?? 0}`;
+  const key = `${r.seed}|${home.x},${home.y}|${ring}|${need}|${levels}|${(s.seenOut ?? []).join('.')}`;
   if (trips.has(key)) return trips.get(key)!;
   const isKnownAt = knownTest(s, r, walk, sight);
   // The nearest known square that serves, else the nearest unseen one; ties to the lower index.
@@ -381,7 +382,8 @@ export const WALK_RULES = 'WALKING: every task that travels walks the map. It go
 
 // ── The save ────────────────────────────────────────────────────────────────
 
-const isSquare = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+/** A square of the Reach: an index into its cells. */
+const isSquare = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < REACH_W * REACH_H;
 
 /** A saved `trail` that reads right: at most `TRAIL_DAYS` days, each a whole day number and its squares. */
 export function validTrail(x: unknown): x is TrailDay[] {

@@ -61,8 +61,8 @@ describe('#1876 walking the map, in words and in the save', () => {
     // Off, a stray trail is dropped.
     const off = camped(false);
     expect(deserialize(serialize(app({ ...off, trail: s.trail })))!.sim.trail).toBeUndefined();
-    // Malformed (a square that isn't one, a day that isn't, too many days), dropped and the rest kept.
-    for (const bad of [[{ day: 1, path: [-1] }], [{ day: 0, path: [1] }], [{ day: 1, path: ['x'] }], [1, 2, 3, 4].map(day => ({ day, path: [1] })), 'nope']) {
+    // Malformed (a square that isn't one or is off the map, a day that isn't, too many days), dropped and the rest kept.
+    for (const bad of [[{ day: 1, path: [-1] }], [{ day: 1, path: [48 * 32] }], [{ day: 0, path: [1] }], [{ day: 1, path: ['x'] }], [1, 2, 3, 4].map(day => ({ day, path: [1] })), 'nope']) {
       const raw = JSON.parse(serialize(app(s)));
       raw.sim.trail = bad;
       const read = deserialize(JSON.stringify(raw))!;

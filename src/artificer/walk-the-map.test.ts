@@ -226,6 +226,16 @@ describe('#1876 walk the map', () => {
     };
     const a = play(true), b = play(true);
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    // A trip is the state's own: two runs on one seed that have seen as many squares, not the same
+    // ones, each get the plan their own squares give (the kept plans can't hand one the other's).
+    const base = camped();
+    const r6 = reachOfRun(base);
+    const dest = idx(r6, planTrip(base, 'water', 2)!.dest);
+    const elsewhere = r6.cells.findIndex((_c, i) => i !== dest && !planTrip(base, 'water', 2)!.path.includes(i));
+    const sawIt = planTrip({ ...base, seenOut: [dest] }, 'water', 2)!;
+    const sawOther = planTrip({ ...base, seenOut: [elsewhere] }, 'water', 2)!;
+    expect(sawIt.known).toBe(true);
+    expect(sawOther.known).toBe(false);
     expect(a.trail?.length).toBeGreaterThan(0);
     const offRun = play(false), absentRun = play('absent');
     expect(JSON.stringify({ ...offRun, config: null })).toBe(JSON.stringify({ ...absentRun, config: null }));
