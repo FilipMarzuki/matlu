@@ -20,6 +20,7 @@ import { weatherSv } from './sv/weather';
 import { timeSv } from './sv/time';
 import { distanceSv } from './sv/distance';
 import { maplearnSv } from './sv/maplearn';
+import { exploreSv } from './sv/explore';
 import { survivalSv } from './sv/survival';
 import { guideSv } from './sv/guide';
 import { feedbackSv } from './sv/feedback';
@@ -320,7 +321,7 @@ const core: Catalog = {
 };
 
 /** Every area by name, as en.ts has them (`enAreas`): duplicates.test.ts checks that no key is defined in two. */
-export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv, timeSv, distanceSv, maplearnSv, guideSv, survivalSv, feedbackSv, backdropSv, menySv, planqSv };
+export const svAreas: Record<string, Catalog> = { core, openingSv, kitSv, campSv, mapSv, roadSv, peopleSv, journalSv, roadlogSv, encountersSv, claimsSv, queueSv, historySv, tabsSv, loreSv3, loreSv2, loreSv, apiSv, weatherSv, timeSv, distanceSv, maplearnSv, exploreSv, guideSv, survivalSv, feedbackSv, backdropSv, menySv, planqSv };
 
 export const sv: Catalog = {
   ...core,
@@ -346,6 +347,7 @@ export const sv: Catalog = {
   ...timeSv,
   ...distanceSv,
   ...maplearnSv,
+  ...exploreSv,
   ...survivalSv,
   ...guideSv,
   ...feedbackSv,

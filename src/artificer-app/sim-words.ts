@@ -264,6 +264,16 @@ const PATTERN: Readonly<Record<string, string>> = {
 /** A part's name without a trailing digit: `say2` is a `say`, `n2` a number. */
 const baseOf = (name: string): string => name.replace(/\d+$/, '');
 
+/** A walking time as the land's descriptions say it ("about 2 hours", "a couple of hours"), read back and said with `t` (#1839). */
+function walkWords(v: string, t: T): string | undefined {
+  for (const k of Object.keys(en) as Key[]) {
+    if (!k.startsWith('map.time.')) continue;
+    const m = v.match(new RegExp(`^${escapeRe(en[k]).replace('\\{n\\}', '(\\d+)')}$`));
+    if (m) return t(k, m[1] !== undefined ? { n: m[1] } : undefined);
+  }
+  return undefined;
+}
+
 /**
  * One varying part of a sim sentence, said in the viewer's language — or undefined when it isn't
  * a value this part can be (then the template doesn't match after all, and the next is tried).
@@ -293,6 +303,12 @@ function part(name: string, v: string, t: T): string | undefined {
       return d ? t(`ring.the.${d}.dist`) : undefined;
     }
     case 'verb': return v === 'explore' || v === 'scout' ? t(`verb.${v}`) : undefined;
+    // Heading out (#1839): the way you went ("north-east"), a kind of land by the map's name, a
+    // bearing and a walking time as the land's descriptions say them (map.dir.*, map.time.*).
+    case 'heading': { const k = (Object.keys(en) as Key[]).find(x => /^heading\.[a-z]+$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'Biome': { const k = (Object.keys(en) as Key[]).find(x => /^biome\.[a-z]+$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'bearing': { const k = (Object.keys(en) as Key[]).find(x => /^map\.(?:dir|vague)\.\d$/.test(x) && en[x] === v); return k ? t(k) : undefined; }
+    case 'walk': return walkWords(v, t);
     case 'grade': return isKey(`grade.${v}`) ? t(`grade.${v}` as Key) : undefined;
     case 'recipe': { const id = recipeOf(v); return id ? recipeName(id, t).toLowerCase() : undefined; }
     // A recipe by name at the head of a line ("Worked out: Brush hut"), with its capital.
@@ -630,6 +646,8 @@ export function optionLabel(g: OptionGroup, c: OptionChoice, t: T): string {
   if (g.key === 'spot') { const p = parseSpotId(c.value); return p ? siteName(p.kind, t) : c.label; }
   if (g.key === 'type' || g.key === 'walls') return recipeName(SHELTER_RECIPE[c.value] ?? c.value, t, c.label);
   if (g.key === 'concept') return conceptName(c.value, t);
+  // Explore's way (#1839): a direction or "around camp" by its key; "look around (here)" is read as the sim said it.
+  if (g.key === 'way' && c.value !== 'here' && isKey(`opt.way.${c.value}`)) return t(`opt.way.${c.value}` as Key);
   if (g.key === 'with') { const k = storeOf(c.value); return k ? t(`store.${k}`) : c.label; }
   if (c.label === en['opt.usual']) return t('opt.usual');
   return simLine(c.label, t);

@@ -51,7 +51,7 @@ export const campAsActionOn = (s: Pick<Region1State, 'config'>): boolean => feat
 export const CAMP_SETUP_HOURS = 2;
 
 /** What a run needs for this: its switches, who it is, what it knows, what it packed, its skills and its camp. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'skills' | 'campSpot'>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'skills' | 'campSpot'> & Partial<Pick<Region1State, 'afield' | 'seenOut'>>;
 
 /** Where camp is, as saved: the spot's id, and every spot camped at (whose truth you know). */
 export interface CampSpotState { at: string; camped: string[] }
@@ -159,18 +159,28 @@ export function knownSpots(s: Run): CampSpot[] {
       if (best === -1 || hrs < r.hours[best]) best = i;
     }
     if (best !== -1) found.push({ kind, i: best, start: false });
+    // Heading out one way (#1839, `directed-explore`): the nearest site of the kind among the squares
+    // seen that way is known too, so a camp site found to the north is offered even with a nearer one elsewhere.
+    let out = -1;
+    for (const i of s.seenOut ?? []) {
+      if (near.has(i) || i === best || !isSpot(r, kind, i)) continue;
+      if (out === -1 || r.hours[i] < r.hours[out] || (r.hours[i] === r.hours[out] && i < out)) out = i;
+    }
+    if (out !== -1) found.push({ kind, i: out, start: false });
   }
   // The site you're camped at stays known, even if it isn't the nearest of its kind.
   const at = s.campSpot ? parseSpotId(s.campSpot.at) : null;
   if (at && !found.some(f => f.i === at.y * r.w + at.x)) found.push({ kind: at.kind, i: at.y * r.w + at.x, start: false });
 
-  const from = whereYouAre(s, r);
+  // Out on the land (#1839), the walks are from where you stand; `here` stays camp's own square.
+  const from = s.afield ?? whereYouAre(s, r);
   const walk = walkFrom(r, from.x, from.y);
+  const campId = s.campSpot?.at;
   const compass = hasKit(s, 'map-compass');
   const spots = found.map(f => {
     const x = f.i % r.w, y = Math.floor(f.i / r.w);
     const atYou = x === from.x && y === from.y;
-    const here = atYou && !!s.campSpot;
+    const here = spotId(f.kind, x, y) === campId;
     const hours = atYou ? 0 : walk[f.i];
     const bearing = bearingFrom(from.x, from.y, x, y);
     // Surveyed ground gives a sure walking time, as #1686's descriptions do; the start you walked yourself.
@@ -194,6 +204,8 @@ export const knownSpot = (s: Run, id: string | undefined): CampSpot | undefined 
 /** The site the action offers first: where the run starts, before any camp; then the nearest other one. */
 export function defaultSpot(s: Run): CampSpot | undefined {
   const spots = knownSpots(s);
+  // Out on the land (#1839): the nearest site from where you stand.
+  if (s.afield) return spots.filter(p => !p.here).sort((a, b) => a.hours - b.hours || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
   return s.campSpot ? spots.find(p => !p.here) : spots[0];
 }
 
