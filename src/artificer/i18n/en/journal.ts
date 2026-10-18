@@ -185,6 +185,15 @@ export const journal = {
   'log.meat.wolves': 'Wolves came into camp in the night. You lay still while they tore at the meat, and by first light all of it was gone.',
   'log.meat.bear': 'A bear came into camp in the night. You lay frozen while it ate, and by first light all the meat was gone.',
   'log.meat.bearStored': 'A bear came into camp in the night and got at the meat you\'d put by: {n} raw food gone.',
+  // The lid for the cold pit (#1857, `cold-pit-lid`) and the walled larder's mice (#1858, `walled-larder`).
+  'log.lidpit': 'Laid a lid of split wood over the cold pit and weighed it down with heavy stones.',
+  'log.storemeat.pit': 'Put {n} raw meat in the cold pit, under its lid and the stones.',
+  'log.storemeat.pitCache': 'Put {n} raw meat in the cold pit, under its lid and the stones, and {m} more under a cairn of heavy stones.',
+  'log.storemeat.pitHung': 'Put {n} raw meat in the cold pit, under its lid and the stones, and hung {m} more high in a tree with cord.',
+  'log.storemeat.pitFull': 'Put {n} raw meat in the cold pit, under its lid and the stones. The rest doesn\'t fit.',
+  'log.meat.bearPit': 'A bear came into camp in the night, heaved the stones off the cold pit and tore the lid away: {n} raw food gone.',
+  'log.meat.mice': 'Mice have been at the meat in the night: {n} raw food gone, and droppings all along the wall.',
+  'log.meat.micePit': 'Mice got into the cold pit through the gaps in its lid: {n} raw food gone.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
   // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.

@@ -28,6 +28,7 @@ import { validCampSpot } from '../artificer/camp-sites';
 import { validAfield, validSeenOut, DIRECTED_EXPLORE } from '../artificer/directed-explore';
 import { validTrail, WALK_THE_MAP } from '../artificer/walk-the-map';
 import { validNeedleCompass, COMPASS_HEADING } from '../artificer/compass-heading';
+import { CAMP_SCAVENGERS, COLD_PIT_LID } from '../artificer/camp-scavengers';
 import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
 import { validSiteBuilds, CAMP_BUILDS_PER_SITE } from '../artificer/camp-builds';
 import { validPatches } from '../artificer/action-length';
@@ -669,6 +670,14 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // dropped record reads as a save from before it, whose builds are the current camp's.
   const siteBuilds = campSpot && featureOn(config.world.features, CAMP_BUILDS_PER_SITE) && validSiteBuilds(sim.siteBuilds) && Object.keys(sim.siteBuilds).length
     ? JSON.parse(JSON.stringify(sim.siteBuilds)) as Region1State['siteBuilds'] : undefined;
+  // The cold pit's lid (#1857): only `true`, only on a pit at a real site, and only with `cold-pit-lid`
+  // (and the scavengers it builds on) on; anything else is dropped (no lid). The meat in the lidded
+  // pit: a whole number above 0 with a lid, else dropped (it lies out). A lid kept on a pit at a camp
+  // you left goes the same way.
+  const lidRun = featureOn(config.world.features, CAMP_SCAVENGERS) && featureOn(config.world.features, COLD_PIT_LID);
+  const pitLid = lidRun && coldPitAt && sim.pitLid === true ? true as const : undefined;
+  const meatPit = pitLid && Number.isInteger(sim.meatPit) && (sim.meatPit as number) > 0 ? sim.meatPit as number : undefined;
+  if (siteBuilds && !lidRun) for (const b of Object.values(siteBuilds)) if (b.pit) delete b.pit.lid;
   // Where you stand out on the land, and the squares seen heading out (#1839): kept if well-formed and
   // the switch is on, else dropped — dropped, you're at camp (or the start) and know the land by its rings.
   // Walking the map (#1876) puts the Warden out there too (a stop on the path), and sees the squares walked.
@@ -681,5 +690,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // The needle compass (#1868): kept if well-formed and the switch is on, else dropped — dropped, none was made.
   const needleCompass = featureOn(config.world.features, COMPASS_HEADING) && validNeedleCompass(sim.needleCompass)
     ? { made: sim.needleCompass.made, tool: sim.needleCompass.tool, ...(sim.needleCompass.trips ? { trips: sim.needleCompass.trips } : {}) } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, afield, seenOut, trail, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, pitLid, meatPit, mapLearned, afield, seenOut, trail, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

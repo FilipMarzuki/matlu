@@ -182,7 +182,8 @@ function wants(s: Region1State): Entry[] {
   if (s.stores.water < 4) out.push(a('water'));
   const fuelSoon = toWinter <= 20 ? Math.min(winterOutlook(s).fuelToThaw, fuelFor(s, 20 - toWinter + 3)) : fuelNow;
   if (s.stores.firewood < fuelSoon) out.push(a('wood'));
-  out.push(a('coldGear'), a('build'), a('coldPit'), a('bedroll'), a('drawmap'));
+  // A lid on the cold pit once there is one (#1857): Store the meat then puts the meat in it first (refused, so skipped, with no pit or the switch off).
+  out.push(a('coldGear'), a('build'), a('coldPit'), a('lidpit'), a('bedroll'), a('drawmap'));
   // A better roof before the frosts: short of materials for it, cut timber (wood brings both).
   if (s.tier < 2 && /needs \d+ materials/.test(blockedReason(s, 'build', 1) ?? '')) out.push(a('wood'));
   out.push(a('sling'), a('hookline'));

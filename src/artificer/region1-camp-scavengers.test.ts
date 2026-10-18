@@ -220,6 +220,8 @@ describe('Meat left at camp draws animals unless it is guarded (#1823, #1859)', 
   it('#1859-1. each guard alone leaves each threat as its row of the table', () => {
     const table: Record<Guard, [number, number, number]> = {
       campDay: [0, 0, 1], asleep: [0.5, 0.5, 1], fire: [0.1, 0.02, 0.8], hung: [0, 0.1, 0.2], cache: [0, 0.1, 0.2], preserved: [0, 0, 0],
+      // #1857's lidded pit and #1858's walls (region1-pit-lid-walls.test.ts says why these numbers).
+      lidded: [0, 0.25, 0.5], walled: [0, 0, 1],
     };
     for (const [g, row] of Object.entries(table) as [Guard, [number, number, number]][]) {
       expect(leftover([g])).toEqual({ small: row[0], big: row[1], vermin: row[2] });

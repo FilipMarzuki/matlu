@@ -361,6 +361,21 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Every task that travels goes to a real square of the map and back: wood to the nearest birch or pine wood at that distance you know, water to a stream, a marsh or a lake shore, stone to scree or fell, game where game is; knowing none, into land you haven\'t seen. The walk is the path\'s (longer through wood, bog and fells), and costs its Vigor and Clarity. The squares you walk are seen. A stop leaves you where you stopped on the path, and the next work starts with the walk back.',
   },
   {
+    // A rules feature (#1857, on #1823's scavengers): it adds Lid the cold pit, a save field
+    // (`pitLid`, and `meatPit` for the meat in it), makes the lidded pit the first place Store the
+    // meat uses, and draws a bear and mice at the pit from streams of their own, so a run from before
+    // it (absent: false) stores its meat as it did, and replays the same. Needs `camp-scavengers`.
+    id: 'cold-pit-lid', name: 'A lid for the cold pit', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1857,
+    note: 'Lid the cold pit (1h at a camp with a cold pit, 2 materials and 2 stone): split wood over the pit, weighed down with heavy stones. It stays with the pit. Store the meat puts the raw meat in the lidded pit first, up to what the pit holds (8, or 12 at the river), and hangs or caches the rest as before. No fox, raven or wolf gets into it; a bear can heave the stones aside, rarely; mice get through the gaps now and then, once camp has stood a few days.',
+  },
+  {
+    // A rules feature (#1858, on #1823's scavengers): it guards the meat lying loose at a camp with
+    // walls and adds the first mice, drawn from streams of their own, so a run from before it
+    // (absent: false) keeps its meat as it did, and replays the same. Needs `camp-scavengers`.
+    id: 'walled-larder', name: 'Walls keep the meat safe; only mice nibble', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1858,
+    note: 'Once camp\'s shelter has walls (timber or stone-banked), raw meat kept loose in it is safe from foxes, ravens, wolves and bears, day and night, whether you are there or not. A roof alone doesn\'t count. Only mice get in: wild mice are shy of people, so none come for the first four days at a site; then, more often the longer camp stands there, they nibble 5–10% of the loose meat on some nights. Moving camp starts the count again. Hung meat and smoked or dried rations are safe from them; the lidded cold pit mostly.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.

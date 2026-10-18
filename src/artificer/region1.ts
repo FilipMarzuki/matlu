@@ -53,7 +53,8 @@ import { featureOn } from './features';
 import { forecastsOn, noteFamiliar, craftKey, taskKey } from './forecasts';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
-import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
+import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace, type PutBy } from './camp-scavengers';
+import { lidOn, walledLarderOn, miceChance, rollNibble, pitScavengers, pitTheftLine, verminScavengers, pitVerminScavengers, miceLine, pitMiceLine, LID_COST, LID_HOURS, LID_LINE } from './camp-scavengers';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -217,8 +218,21 @@ export interface Region1State {
    * Of that meat, how much is stored safely at this camp (#1823, Store the meat) and where. Read
    * through `storedMeatOf` (never more than the meat): what's eaten comes off the meat lying out
    * first. Meat brought in afterwards lies out until it's stored too. Making camp elsewhere drops it.
+   * The lidded cold pit's meat (#1857) is kept apart, in `meatPit`.
    */
-  meatStored?: { n: number; place: MeatPlace };
+  meatStored?: { n: number; place: PutBy };
+  /**
+   * The cold pit at camp has its lid on (#1857, `cold-pit-lid`). It belongs to the pit at
+   * `coldPitAt`: digging a new pit, or leaving this one behind, takes it off (a pit kept at a camp
+   * you left, `siteBuilds`, keeps it as `lid`). Written only with the switch on. Absent: no lid.
+   */
+  pitLid?: true;
+  /**
+   * Of the meat, how much is in the lidded cold pit (#1857): read through `pitMeatOf`, never more than
+   * the meat or what the pit holds. Store the meat fills it first. Written only with the switch on;
+   * dropped when the pit is empty or you make camp elsewhere. Absent: none.
+   */
+  meatPit?: number;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -706,6 +720,8 @@ export type ActionId =
   | 'traps' | 'sling' | 'bow' | 'hookline'
   // Storing the meat out of reach of animals (#1823): only with the `camp-scavengers` switch on.
   | 'storemeat'
+  // A lid for the cold pit (#1857): only with the `cold-pit-lid` switch on.
+  | 'lidpit'
   // Making a needle compass to keep a heading by (#1868): only with the `compass-heading` switch on.
   | 'needlecompass';
 
@@ -784,22 +800,63 @@ export const sinewOf = (s: Pick<Region1State, 'sinew'>): number => s.sinew ?? 0;
 const addSinew = (s: Region1State, n: number): number => { s.sinew = sinewOf(s) + n; return n; };
 /** Raw meat at camp (#1823): never more than the raw food there is. 0 with the switch off. */
 export const meatOf = (s: Pick<Region1State, 'meat' | 'stores'>): number => Math.max(0, Math.min(s.meat ?? 0, s.stores.rawFood));
-/** Of it, the meat stored safely (#1823). */
-export const storedMeatOf = (s: Pick<Region1State, 'meat' | 'meatStored' | 'stores'>): number => Math.min(s.meatStored?.n ?? 0, meatOf(s));
+/** What the meat helpers read: the meat, where it's put by, and the camp's pit (#1823, #1857). */
+type MeatView = Pick<Region1State, 'meat' | 'meatStored' | 'meatPit' | 'pitLid' | 'stores' | 'site' | 'coldPitAt' | 'config'>;
+/**
+ * Whether camp's cold pit has its lid on (#1857, `cold-pit-lid`): the lid belongs to the pit, so it
+ * counts only where the pit is, at camp.
+ */
+export const pitLidded = (s: Pick<Region1State, 'pitLid' | 'site' | 'coldPitAt' | 'config'>): boolean =>
+  s.pitLid === true && !!s.site && s.coldPitAt === s.site && lidOn(s);
+/**
+ * The meat in the lidded cold pit (#1857): never more than the meat there is, or than the pit holds.
+ * When meat goes (eaten, spoiled), the pit's is the last to go: it's the best place. 0 with no lid.
+ */
+export const pitMeatOf = (s: MeatView): number => (pitLidded(s) ? Math.max(0, Math.min(s.meatPit ?? 0, meatOf(s), coldPitHolds(s.site))) : 0);
+/** The meat hung or cached (#1823): never more than the meat left once the pit's is counted. */
+export const hungMeatOf = (s: MeatView): number => Math.max(0, Math.min(s.meatStored?.n ?? 0, meatOf(s) - pitMeatOf(s)));
+/**
+ * Of it, the meat stored safely (#1823): hung or cached, and (#1857) in the lidded pit. With no lid
+ * the pit's share is 0, so this is the count it always was.
+ */
+export const storedMeatOf = (s: MeatView): number => pitMeatOf(s) + hungMeatOf(s);
 /** The meat lying out at camp, not stored (#1823): what animals can get at. */
-export const openMeatOf = (s: Pick<Region1State, 'meat' | 'meatStored' | 'stores'>): number => meatOf(s) - storedMeatOf(s);
+export const openMeatOf = (s: MeatView): number => meatOf(s) - storedMeatOf(s);
 /** Add meat brought in from a hunt or a trap line (#1823): only with the switch on. Mutates `s`. */
 const addMeat = (s: Region1State, n: number): void => { if (n > 0 && scavengersOn(s)) s.meat = meatOf(s) + n; };
-/** Take meat out of the stores (#1823): a theft, or meat preserved. It comes off the meat lying out first. Mutates `s`. */
+/**
+ * Take meat out of the stores (#1823): a theft, or meat preserved. It comes off the meat lying out
+ * first, then what's hung or cached, and last (#1857) the lidded pit's. Mutates `s`.
+ */
 function takeMeat(s: Region1State, n: number, fromStores: boolean): void {
-  const stored = storedMeatOf(s);
+  const pit = pitMeatOf(s), stored = hungMeatOf(s);
   s.meat = meatOf(s) - n;
   if (fromStores) s.stores.rawFood -= n;
+  // With no lid `pit` is 0, so the hung meat keeps min(stored, meat), as before #1857.
+  const pitLeft = Math.min(pit, s.meat);
+  if (s.meatPit !== undefined) {
+    if (pitLeft > 0) s.meatPit = pitLeft;
+    else delete s.meatPit;
+  }
   if (s.meatStored) {
-    if (Math.min(stored, s.meat) > 0) s.meatStored = { ...s.meatStored, n: Math.min(stored, s.meat) };
+    if (Math.min(stored, s.meat - pitLeft) > 0) s.meatStored = { ...s.meatStored, n: Math.min(stored, s.meat - pitLeft) };
     else delete s.meatStored;
   }
 }
+/** Whether camp's shelter has walls to keep the meat in (#1858, `walled-larder`): tier 2, either kind. A roof alone doesn't count. */
+export const walledHere = (s: Pick<Region1State, 'site' | 'tier' | 'config'>): boolean => !!s.site && s.tier >= 2 && walledLarderOn(s);
+/**
+ * The guards on the meat lying loose at camp (#1858): `base` (none while you're away, `nightGuards`
+ * at night), and the walls when there are walls. With no walls (or the switch off), `base` as it was.
+ */
+export const openGuards = (s: Pick<Region1State, 'site' | 'tier' | 'config'>, base: readonly Guard[]): Guard[] => (walledHere(s) ? [...base, 'walled'] : [...base]);
+/**
+ * The days camp has stood at its site (#1858): from `siteDay`, written each time camp is made or
+ * moved (moveCamp), so moving camp sets it back to 0. 0 before camp, or on a save without it.
+ */
+export const campDaysOf = (s: Pick<Region1State, 'site' | 'siteDay' | 'day'>): number => (s.site && s.siteDay !== undefined ? Math.max(0, s.day - s.siteDay) : 0);
+/** Whether mice can come to this camp tonight (#1858): it has stood long enough at its site. */
+export const miceAbout = (s: Pick<Region1State, 'site' | 'siteDay' | 'day' | 'config'>): boolean => (walledLarderOn(s) || lidOn(s)) && miceChance(campDaysOf(s)) > 0;
 /**
  * Whether a fire will burn tonight (#1823): enough firewood for what the night asks, or, on a night
  * that asks for none, any wood at all for one (as the night's fright reads it, nightSceneOf).
@@ -807,10 +864,19 @@ function takeMeat(s: Region1State, n: number, fromStores: boolean): void {
 export const fireTonight = (s: Region1State): boolean => s.stores.firewood > 0 && s.stores.firewood >= nightFuel(s);
 /** The guards on the meat lying out tonight (#1823, #1859): you asleep at camp, and a fire if one burns. */
 export const nightGuards = (fire: boolean): Guard[] => (fire ? ['asleep', 'fire'] : ['asleep']);
-/** The guard where the stored meat is (#1859): each place is a row of the table. */
-export const placeGuard = (place: MeatPlace): Guard => place;
-/** The best place camp has the makings for, to store the meat (#1823): MEAT_PLACES is best first. */
-export const meatPlaceFor = (s: Pick<Region1State, 'stores'>): MeatPlace | null => MEAT_PLACES.find(p => s.stores[p.needs.store] >= p.needs.n)?.place ?? null;
+/** The guard where the stored meat is (#1859): each place is a row of the table; the pit's (#1857) is `lidded`. */
+export const placeGuard = (place: MeatPlace): Guard => (place === 'pit' ? 'lidded' : place);
+/**
+ * The best place outside the pit camp has the makings for, to store the meat (#1823): MEAT_PLACES is
+ * best first. The lidded pit (#1857) is filled before this, by Store the meat itself, since it needs
+ * the pit rather than stores.
+ */
+export const meatPlaceFor = (s: Pick<Region1State, 'stores'>): PutBy | null => {
+  for (const p of MEAT_PLACES) if (p.needs !== 'lid' && s.stores[p.needs.store] >= p.needs.n) return p.place;
+  return null;
+};
+/** Room left in the lidded pit for more meat (#1857): 0 with no lid. */
+const pitRoom = (s: Region1State): number => (pitLidded(s) ? Math.max(0, coldPitHolds(s.site) - pitMeatOf(s)) : 0);
 /**
  * A theft from the meat lying out (#1823), drawn from its own stream: on a long absence (by day,
  * `night` false) or a night at camp. Says what took it, takes it, and (something big at night)
@@ -823,7 +889,7 @@ function scavenge(next: Region1State, open: number, rand: () => number, guards: 
   takeMeat(next, Math.min(theft.taken, openMeatOf(next)), true);
   say(next, theftLine(theft, night), 'hardship', at);
   // A big animal in camp at night (#1823): a frightening encounter, though nobody is hurt.
-  if (theft.big) next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+  if (theft.big) fright(next);
 }
 /**
  * A bear at the stored meat in the night (#1823): hung meat and a stone cache keep everything else
@@ -832,7 +898,8 @@ function scavenge(next: Region1State, open: number, rand: () => number, guards: 
  * what it takes is all of what was put by. Mutates `next`.
  */
 function raidStore(next: Region1State, fire: boolean): void {
-  const stored = storedMeatOf(next);
+  // Only what's hung or cached: the lidded pit's meat (#1857) has a roll of its own (raidPit).
+  const stored = hungMeatOf(next);
   if (stored <= 0 || !next.meatStored || next.config.world.luck === false) return;
   const risk = leftover([...nightGuards(fire), placeGuard(next.meatStored.place)], NIGHT_BASE);
   const u = storedScavengers(seedOf(next.character.id), next.day)();
@@ -841,7 +908,60 @@ function raidStore(next: Region1State, fire: boolean): void {
   next.stores.rawFood -= stored;
   delete next.meatStored;
   say(next, storedTheftLine(stored), 'hardship');
+  fright(next);
+}
+/** The Clarity a big animal in camp at night costs (#1823): a frightening encounter, though nobody is hurt. Mutates `next`. */
+function fright(next: Region1State): void {
   next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+}
+/**
+ * A bear at the lidded cold pit in the night (#1857): the stones keep foxes, ravens and wolves out
+ * (`lidded`'s small pass-through is 0, and only a bear is strong enough for the big part), so only a
+ * bear can get in, and not in winter, when it sleeps. Its own stream (`pitScavengers`), so it never
+ * moves the other draws. It takes all of the pit's meat. Mutates `next`.
+ */
+function raidPit(next: Region1State, fire: boolean): void {
+  const inPit = pitMeatOf(next);
+  if (inPit <= 0 || next.config.world.luck === false || seasonOf(next.day, next.config.calendar) === 'winter') return;
+  const risk = leftover([...nightGuards(fire), 'lidded'], NIGHT_BASE);
+  if (pitScavengers(seedOf(next.character.id), next.day)() >= risk.big) return;
+  next.meat = meatOf(next) - inPit;
+  next.stores.rawFood -= inPit;
+  delete next.meatPit;
+  say(next, pitTheftLine(inPit), 'hardship');
+  fright(next);
+}
+/**
+ * Mice in the night (#1858): only at a camp that has stood at its site a few days (`miceChance`).
+ * They nibble a small share of the meat loose behind walls (`walled-larder`) and of the meat in the
+ * lidded pit (`cold-pit-lid`), at the vermin pass-through of the guards there; each from a stream
+ * of its own. Hung or cached meat is out in the trees, away from the shelter that draws them, and
+ * rations are smoked: they leave those be. Mutates `next`.
+ */
+function mice(next: Region1State, fire: boolean): void {
+  const chance = miceChance(campDaysOf(next));
+  if (chance <= 0 || next.config.world.luck === false) return;
+  const seed = seedOf(next.character.id);
+  if (walledHere(next)) {
+    const loose = openMeatOf(next);
+    const k = rollNibble(verminScavengers(seed, next.day), loose, chance * leftover(openGuards(next, nightGuards(fire))).vermin);
+    if (k > 0) {
+      takeMeat(next, k, true);
+      say(next, miceLine(k), 'hardship');
+    }
+  }
+  const inPit = pitMeatOf(next);
+  if (inPit > 0) {
+    const k = rollNibble(pitVerminScavengers(seed, next.day), inPit, chance * leftover([...nightGuards(fire), 'lidded']).vermin);
+    if (k > 0) {
+      // From the pit itself: the meat loose and hung keeps what it has.
+      next.meat = meatOf(next) - k;
+      next.stores.rawFood -= k;
+      if (inPit - k > 0) next.meatPit = inPit - k;
+      else delete next.meatPit;
+      say(next, pitMiceLine(k), 'hardship');
+    }
+  }
 }
 /** The ranged tool a Warden hunts with (#1821): the bow if they have one, else a sling, else none. */
 export const huntTool = (s: Pick<Region1State, 'tools'>): 'sling' | 'bow' | null => (hasItem(s, BOW) ? 'bow' : hasItem(s, SLING) ? 'sling' : null);
@@ -1111,7 +1231,8 @@ function keepCamp(next: Region1State, to: string, pitFood: PitFoodChoice): { bac
   if (from) {
     const here = campHere(next);
     const stash = pitFood === 'leave' ? here.pit?.food ?? 0 : 0;
-    const pit: KeptPit | null = here.pit ? { food: stash, ...(stash > 0 && next.pitRot ? { rot: next.pitRot } : {}) } : null;
+    // The lid (#1857) stays on the pit you leave, and is there when you come back.
+    const pit: KeptPit | null = here.pit ? { food: stash, ...(stash > 0 && next.pitRot ? { rot: next.pitRot } : {}), ...(pitLidded(next) ? { lid: true as const } : {}) } : null;
     if (here.shelter || pit) builds[from] = { left: next.day, ...(here.shelter ? { shelter: here.shelter } : {}), ...(pit ? { pit } : {}) };
     else delete builds[from];
     if (pit?.food) next.stores.rawFood -= pit.food;
@@ -1151,11 +1272,15 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string, pitFood: PitF
   if (spot) {
     next.campSpot = { at: spot, camped: next.campSpot?.camped.includes(spot) ? [...next.campSpot.camped] : [...(next.campSpot?.camped ?? []), spot] };
     if (next.coldPitAt) next.coldPitAt = null;
+    // …and its lid (#1857) stays on it: kept with the pit in `siteBuilds` (keepCamp), if at all.
+    delete next.pitLid;
   }
   // The pit's carried rot (#1757) belongs to the pit where it built up: leaving camp leaves it behind.
   delete next.pitRot;
   // The meat you'd stored (#1823) comes down with you: at the new camp it lies out until it's stored again.
+  // So does the meat in the lidded pit (#1857).
   delete next.meatStored;
+  delete next.meatPit;
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -1179,6 +1304,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string, pitFood: PitF
   if (back?.pit) {
     // The cold pit you dug here, and the food you left in it: yours again, less what went bad meanwhile.
     next.coldPitAt = site;
+    // Its lid (#1857), if you'd laid one, is still on it.
+    if (back.pit.lid && lidOn(next)) next.pitLid = true;
     const p = pitWhileAway(next, site, back.pit, back.left);
     if (p.spoiled > 0) {
       addTally(next, { spoiled: p.spoiled });
@@ -1390,6 +1517,8 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   }
   // Store the meat (#1823): its own switch, whatever `action-visibility` says.
   if (id === 'storemeat') return scavengersOn(s) ? null : `${id} isn't part of this game's rules`;
+  // Lid the cold pit (#1857): its own switch (with `camp-scavengers`), whatever `action-visibility` says.
+  if (id === 'lidpit') return lidOn(s) ? null : `${id} isn't part of this game's rules`;
   // Make a needle compass (#1868): its own switch, and no need of it with the real compass packed.
   if (id === 'needlecompass') return needleLock(s);
   if (id === 'hunt' && huntLocked(s)) return `you don't know how to ${HUNT_UNLOCK.verb} yet — ${HUNT_UNLOCK.how} (${SKILLS.hunting.name})`;
@@ -1681,14 +1810,44 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   // stone, else hung in a tree with cord. Nothing is used up. It holds until you take from it.
   storemeat: {
     name: 'Store the meat', hours: STORE_MEAT_HOURS, vigorRate: -1.5, clarityRate: -0.5,
+    // With a lidded cold pit (#1857) the pit is the first place: it can be all the job needs.
     gate: s => (!s.site ? 'make camp first'
       : openMeatOf(s) <= 0 ? 'no raw meat lying out to store'
-        : meatPlaceFor(s) ? null : 'needs 1 materials for cord, or 3 stone for a cache'),
+        : meatPlaceFor(s) || pitRoom(s) > 0 ? null
+          : pitLidded(s) ? 'the cold pit is full, and the rest needs 1 materials for cord, or 3 stone for a cache' : 'needs 1 materials for cord, or 3 stone for a cache'),
     run: s => {
-      const place = meatPlaceFor(s)!;
       const n = meatOf(s);
-      s.meatStored = { n, place };
-      return place === 'cache' ? `Put ${n} raw meat under a cairn of heavy stones, out of reach.` : `Hung ${n} raw meat high in a tree with cord, out of reach.`;
+      // The lidded pit first (#1857), up to what it holds; with no lid, nothing goes in it and the
+      // job is the one it always was: all the meat to the best place outside it.
+      const pit = pitLidded(s) ? Math.min(n, coldPitHolds(s.site)) : 0;
+      const rest = n - pit;
+      const place = rest > 0 ? meatPlaceFor(s) : null;
+      if (pit > 0) s.meatPit = pit;
+      if (place) s.meatStored = { n: rest, place };
+      else if (rest <= 0) delete s.meatStored;
+      if (pit <= 0) return place === 'cache' ? `Put ${n} raw meat under a cairn of heavy stones, out of reach.` : `Hung ${n} raw meat high in a tree with cord, out of reach.`;
+      const inPit = `Put ${pit} raw meat in the cold pit, under its lid and the stones`;
+      if (rest <= 0) return `${inPit}.`;
+      if (place === 'cache') return `${inPit}, and ${rest} more under a cairn of heavy stones.`;
+      if (place === 'hung') return `${inPit}, and hung ${rest} more high in a tree with cord.`;
+      return `${inPit}. The rest doesn't fit.`;
+    },
+  },
+  // Lid the cold pit (#1857, `cold-pit-lid`): a short camp craft. Split wood laid over the pit and two
+  // heavy stones on top. Nothing to work out, so no recipe to discover; it stays with the pit, and
+  // after it the pit is one more place Store the meat uses (the first).
+  lidpit: {
+    name: 'Lid the cold pit', hours: LID_HOURS, vigorRate: -2, clarityRate: -0.5,
+    gate: s => (!s.site ? 'make camp first'
+      : s.coldPitAt !== s.site ? 'dig a cold pit first'
+        : s.pitLid ? 'the cold pit already has a lid'
+          : s.stores.materials < LID_COST.materials ? `needs ${LID_COST.materials} materials (have ${s.stores.materials})`
+            : s.stores.stone < LID_COST.stone ? `needs ${LID_COST.stone} stone (have ${s.stores.stone})` : null),
+    run: s => {
+      s.stores.materials -= LID_COST.materials;
+      s.stores.stone -= LID_COST.stone;
+      s.pitLid = true;
+      return LID_LINE;
     },
   },
   // Make a needle compass (#1868, `compass-heading`): a short job anywhere, nothing used up. Stroke a
@@ -2723,7 +2882,8 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Its own stream, keyed on the hour you set out. Then a hunt's catch comes in as meat.
   if (def.ringed && scavengersOn(next) && !next.outcome) {
     const caught = id === 'hunt' ? Math.max(0, next.stores.rawFood - s.stores.rawFood) : 0;
-    if (workHours + travel >= LONG_AWAY_HOURS) scavenge(next, openMeatOf(s), awayScavengers(seedOf(next.character.id), s.day, s.hoursToday), [], false, at);
+    // Behind walls (#1858, `walled-larder`), nothing bigger than a mouse gets at it (openGuards).
+    if (workHours + travel >= LONG_AWAY_HOURS) scavenge(next, openMeatOf(s), awayScavengers(seedOf(next.character.id), s.day, s.hoursToday), openGuards(s, []), false, at);
     addMeat(next, caught);
   }
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
@@ -3040,8 +3200,11 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe, sto
     // The pit is part of the camp, not something you carry.
     next.tools = next.tools.filter(t => t.item !== COLD_PIT_RECIPE.output.item);
     next.coldPitAt = next.site;
-    // A new pit starts with no rot carried over (#1757), even if one was left behind earlier today.
+    // A new pit starts with no rot carried over (#1757), even if one was left behind earlier today,
+    // and with no lid (#1857): the old pit's lid, and its meat, stay with the old pit.
     delete next.pitRot;
+    delete next.pitLid;
+    delete next.meatPit;
     say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold${featureOn(next.config.world.features, 'cold-pit-slows') ? ' and slows the rot' : ''}.`, 'action', at);
   } else if (result.kind === 'crafted') {
     say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : " Crude — it won't hold up through a winter.") : ''}`, 'action', at);
@@ -3537,8 +3700,13 @@ export function endDay(s: Region1State): Region1State {
   // What's stored is out of reach. Its own stream, keyed on the day.
   if (scavengersOn(next)) {
     const lit = fire.kept || (fire.freeze === 0 && next.stores.firewood > 0);
-    scavenge(next, openMeatOf(next), nightScavengers(seedOf(next.character.id), next.day), nightGuards(lit), true);
+    // Walls (#1858) keep everything but mice off the meat lying loose in the shelter.
+    scavenge(next, openMeatOf(next), nightScavengers(seedOf(next.character.id), next.day), openGuards(next, nightGuards(lit)), true);
     raidStore(next, lit);
+    // The lidded pit (#1857): a bear, rarely, outside winter. Then mice (#1858), once camp has stood a few days.
+    // Each from a stream of its own, so with the switches off nothing here draws at all.
+    if (lidOn(next)) raidPit(next, lit);
+    if (walledLarderOn(next) || lidOn(next)) mice(next, lit);
   }
 
   // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.

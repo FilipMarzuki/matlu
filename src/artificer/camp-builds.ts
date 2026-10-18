@@ -48,7 +48,9 @@ export const WEATHER_DAYS = 10;
 /** A shelter left standing at a camp. */
 export interface KeptShelter { tier: 1 | 2; grade: Grade; type: ShelterType; walls: WallMaterial | null; sited?: true }
 /** A cold pit left at a camp: the raw food in it, and the rot that food owed when you left (#1757). */
-export interface KeptPit { food: number; rot?: number }
+export interface KeptPit { food: number; rot?: number;
+  /** The pit has its lid on (#1857, `cold-pit-lid`): written only with the switch on. */
+  lid?: true }
 /** A camp you've left: the day you left it, and what's built there. */
 export interface SiteBuild { left: number; shelter?: KeptShelter; pit?: KeptPit }
 
@@ -65,7 +67,8 @@ function validShelter(x: unknown): x is KeptShelter {
 
 function validPit(x: unknown): x is KeptPit {
   if (!isObj(x)) return false;
-  return isCount(x.food) && (x.rot === undefined || (typeof x.rot === 'number' && Number.isFinite(x.rot) && x.rot > 0 && x.rot < 1));
+  return isCount(x.food) && (x.rot === undefined || (typeof x.rot === 'number' && Number.isFinite(x.rot) && x.rot > 0 && x.rot < 1))
+    && (x.lid === undefined || x.lid === true);
 }
 
 /** A saved `siteBuilds` that reads right: each key a spot id, each camp with a day left and a shelter, a pit or both. */

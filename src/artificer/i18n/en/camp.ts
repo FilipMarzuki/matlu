@@ -43,6 +43,8 @@ export const camp = {
   'act.traps': 'Set traps',
   // Storing the meat out of animals' reach (#1823, `camp-scavengers`).
   'act.storemeat': 'Store the meat',
+  // A lid for the cold pit (#1857, `cold-pit-lid`).
+  'act.lidpit': 'Lid the cold pit',
   // Keeping a heading by a needle compass (#1868, `compass-heading`).
   'act.needlecompass': 'Make a needle compass',
   'act.preserve': 'Preserve food',
@@ -159,6 +161,7 @@ export const camp = {
   // Dev mode only (dev-only.ts): the numbers behind the words.
   'night.dev': 'At the sleeper {temp} °C, radiant {radiant} °C, wind {wind} m/s (feels {feels} °C outside) · IREQ {min}–{neutral} clo, limit {limit} · held {held} clo (clothes {clothes}, bag {bag}, pad R {pad})',
   'site.pit': 'cold pit ({n} raw food)',
+  'site.pitLid': 'covered and weighed down',
   'site.pick': 'Pick camp here, or choose a location on a queued build.',
   'site.scoutFirst': 'Scout first to find somewhere to settle.',
 
@@ -251,6 +254,8 @@ export const camp = {
   'yield.bow': 'hunt deer too, and better odds · 3 mat + 2 sinew',
   'yield.hookline': 'fish through the ice · 1 mat',
   'yield.storemeat': 'out of reach of animals: under a stone cache (3 stone) or hung with cord (1 mat) · nothing used up',
+  'yield.storemeatPit': 'out of reach of animals: in the lidded cold pit first, then under a stone cache (3 stone) or hung with cord (1 mat) · nothing used up',
+  'yield.lidpit': 'a lid for the cold pit: no fox, raven or wolf gets in · 2 mat + 2 stone',
   'yield.needlecompass': 'keeps a heading, to head out by · a needle or a hook, nothing used up · its pull lasts a week',
   'yield.waterskin': '+1 water per trip · takes a hide',
   'yield.bedroll': '+6 clarity overnight',
@@ -287,6 +292,10 @@ export const camp = {
   'reason.needSinew': 'you need sinew — trap or hunt small game first',
   'reason.noMeatOut': 'no raw meat lying out to store',
   'reason.storeMeatNeeds': 'needs 1 materials for cord, or 3 stone for a cache',
+  // The lidded cold pit (#1857).
+  'reason.pitFullStoreNeeds': 'the cold pit is full, and the rest needs 1 materials for cord, or 3 stone for a cache',
+  'reason.digPitFirst': 'dig a cold pit first',
+  'reason.pitLidded': 'the cold pit already has a lid',
   'reason.unknownRecipe': "you haven't worked out how to make a {recipe} yet",
   'reason.haveTool': 'you already have a {grade} {recipe}',
   'reason.bench': 'needs a tier-{n} bench (yours is tier {m})',
@@ -404,6 +413,8 @@ export const camp = {
   'meat.asleepFire': 'asleep, a fire',
   'meat.hung': '{n} raw meat hangs out of reach (hung with cord): {word}',
   'meat.cache': '{n} raw meat lies under a stone cache, out of reach: {word}',
+  'meat.openWalled': "{n} raw meat lies in the shelter, behind walls — while you're away: {away} · tonight ({guards}): {night}",
+  'meat.pit': '{n} raw meat lies in the cold pit, covered and weighed down: {word}',
   'meat.prot.open': 'lies open',
   'meat.prot.fair': 'fairly safe',
   'meat.prot.well': 'well protected',

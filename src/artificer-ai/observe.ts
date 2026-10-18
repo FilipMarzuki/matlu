@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, LOOSE_STONE_SITES, meatOf, openMeatOf, storedMeatOf, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -39,7 +39,7 @@ import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_
 import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
-import { scavengersOn, protectionWord, LONG_AWAY_HOURS } from '../artificer/camp-scavengers';
+import { scavengersOn, lidOn, walledLarderOn, protectionWord, LONG_AWAY_HOURS, LID_COST, MICE_FREE_DAYS } from '../artificer/camp-scavengers';
 import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
 import { walkOn, whereLine, WALK_RULES } from '../artificer/walk-the-map';
 import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
@@ -208,6 +208,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   hookline: 'opens fishing (1 material)',
   needlecompass: `a needle compass to keep a heading by (nothing used up): heading out n … nw opens; its pull lasts ${NEEDLE_PULL_DAYS} days, then make it again`,
   storemeat: 'puts the raw meat lying out at camp out of reach of animals: under a stone cache (needs 3 stone) or hung with cord (needs 1 material); nothing used up',
+  lidpit: `a lid for the cold pit at camp (needs the pit, ${LID_COST.materials} materials and ${LID_COST.stone} stone): after it, storemeat puts the meat in the pit first, up to what it holds`,
   waterskin: '+1 water per trip',
   bedroll: '+6 clarity overnight',
   shovel: 'build -20% vigor',
@@ -262,7 +263,9 @@ function coldLine(s: Region1State): string | null {
   if (s.config.world.weather !== 'seeded') return null;
   const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
   const sp = nightSpoilage(s, t);
-  const pit = s.site && s.coldPitAt === s.site ? (featureOn(s.config.world.features, 'cold-pit-slows') ? ', cold pit — slows the rot, doesn\'t stop it' : ', cold pit') : ', no cold pit';
+  const pit = (s.site && s.coldPitAt === s.site ? (featureOn(s.config.world.features, 'cold-pit-slows') ? ', cold pit — slows the rot, doesn\'t stop it' : ', cold pit') : ', no cold pit')
+    // The lid (#1857), when there is one.
+    + (pitLidded(s) ? ', covered and weighed down' : '');
   return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${pit}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
 }
 
@@ -273,11 +276,16 @@ function coldLine(s: Region1State): string | null {
 function meatLine(s: Region1State): string | null {
   if (!scavengersOn(s) || meatOf(s) <= 0) return null;
   const parts: string[] = [];
-  const open = openMeatOf(s), stored = storedMeatOf(s);
+  const open = openMeatOf(s), stored = hungMeatOf(s), pit = pitMeatOf(s);
+  // Mice (#1858) count once camp has stood a few days: the meat they reach is then well protected, not secure.
+  const mice = miceAbout(s);
   if (open > 0) {
     const fire = fireTonight(s);
-    parts.push(`${open} raw meat lies in camp — while you're away: ${protectionWord([])} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(nightGuards(fire))}`);
+    // Behind walls (#1858): the line says so, and the walls guard it.
+    const walled = walledHere(s);
+    parts.push(`${open} raw meat lies ${walled ? 'in the shelter, behind walls' : 'in camp'} — while you're away: ${protectionWord(openGuards(s, []), walled && mice)} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(openGuards(s, nightGuards(fire)), walled && mice)}`);
   }
+  if (pit > 0) parts.push(`${pit} raw meat lies in the cold pit, covered and weighed down — ${protectionWord([placeGuard('pit')], mice)}`);
   if (stored > 0 && s.meatStored) {
     const word = protectionWord([placeGuard(s.meatStored.place)]);
     parts.push(s.meatStored.place === 'cache' ? `${stored} raw meat lies under a stone cache, out of reach — ${word}` : `${stored} raw meat hangs out of reach (hung with cord) — ${word}`);
@@ -506,6 +514,9 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
   // Meat at camp draws animals (#1823, `camp-scavengers`).
   if (scavengersOn(s)) lines.push(`SCAVENGERS: raw meat from hunting and traps (not plants or fish) left at camp draws animals. On a trip of ${LONG_AWAY_HOURS}h or more away, a fox or ravens may take a quarter to a half of the meat lying out; at night too, half as often since you are there asleep, and hardly ever with a fire burning. Rarely, at night, wolves or a bear take all of it and the fright costs Clarity. "storemeat" (1h at camp) puts it out of reach; rations (smoked or dried) are always safe. How well the meat is protected is said in words: lies open, fairly safe, well protected, secure.`);
+  // The lid (#1857) and the walled larder (#1858), each with its own switch.
+  if (lidOn(s)) lines.push(`COLD PIT LID: "lidpit" (1h at a camp with a cold pit, ${LID_COST.materials} materials + ${LID_COST.stone} stone) lids the pit; then "storemeat" puts the meat in the pit first (up to what it holds), the rest hung or cached. No fox, raven or wolf gets into a lidded pit; a bear rarely does, outside winter; mice sometimes nibble a little.`);
+  if (walledLarderOn(s)) lines.push(`WALLED LARDER: once camp's shelter has walls (tier 2), the raw meat lying loose in it is safe from foxes, ravens, wolves and bears, day and night. Only mice get in: none for the first ${MICE_FREE_DAYS} days at a site, then more often the longer camp stands there, nibbling 5–10% on some nights. Moving camp starts the count again. Hung meat and rations are safe from them.`);
   // Forecasts (#1827, `forecasts`): how what you know of a task or craft grows by doing it.
   if (forecastsOn(s)) lines.push(`FORECASTS: you learn what work brings by doing it. A task you have never done at that distance says "you don't know what this will bring" (each distance is learned separately); after a try or two it gives a rough word (a little / some / plenty of); after ${knowThreshold(s.character.stats.int)} tries (your INT ${s.character.stats.int}: 4 at INT 8 or less, 3 at 9-12, 2 at 13+) the numbers show. Crafts the same, per recipe, failures counting: never made, "you're not sure you can make this"; then your chance in words (you'll likely manage / it could go either way / beyond you for now), the likely grade (rough / decent / good work) and the cost roughly, with "you may waste some of it" when it could fail; then the real odds, the grade and the exact cost. Rough words are sometimes one step off: less with more INT and practice.`);
   // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.
