@@ -337,12 +337,21 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Two more things to pack. A hand axe: gathering wood (firewood and materials) goes about a fifth quicker and costs about half the Vigor. A fishing kit (line, real hooks, a float and a sinker): with traps-first hunting, fishing is open from day 1 with no hook and line to make, a real hook catches a little better, and its hook will do for a needle compass. Neither is on the leader\'s list.',
   },
   {
-    // A rules feature (#1872): the intro's order is ui, but how much the pack can hold is a rule
-    // (kit.ts carryLimit), and it changes the pack a new Warden starts with (kit.ts suggestedPack),
-    // so one rules switch covers both. A run from before it (absent: false) packs as it did: the
-    // leader's list, and 9 kg for everyone.
+    // A rules feature (#1871): it changes which packs can be packed (45 L inside and strap places
+    // instead of 9 kg, kit.ts packProblem), saves where things went (`kit.outside`), and makes a heavy
+    // pack cost Vigor on the walk until camp is made, so a run from before it (absent: false) packs
+    // and walks as it did, and replays the same.
+    id: 'pack-volume', name: 'Pack volume, straps and how heavy it feels', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1871,
+    note: 'The pack holds 45 litres inside: what goes in must fit, or it won\'t close. The sleeping pad, sit pad, tarp, kåsa, rubber boots, family tent, hand axe and the sleeping bag (under the lid) can be strapped on the outside instead, on four strap places: no room used, but they still weigh. Weight is no longer a limit: the Warden says how heavy the pack feels, and a pack over the comfortable weight (9 kg for the usual 12-year-old, about a kilogram more or less for each point of Strength, 6 to 13 kg) costs extra Vigor on every walk, more the heavier, until you make camp.',
+  },
+  {
+    // A rules feature (#1872): the intro's order is ui, but the pack a new Warden starts with
+    // (kit.ts suggestedPack) and, with `pack-volume` off, how much it can hold (kit.ts carryLimit) are
+    // rules, so one rules switch covers both. The carry weight is #1871's comfortableWeight, on the
+    // Warden's Strength now. A run from before it (absent: false) packs as it did: the leader's list,
+    // and 9 kg for everyone.
     id: 'stats-before-pack', name: 'Who you are, then what you pack', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1872,
-    note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the hand axe (and, stronger still, the tarp and the stove), an outdoors talent the fishing kit, a clever one the map and compass and a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. Only what the run offers is suggested. You can still change anything. How much fits follows Strength: 9 kg at STR 10, about 1 kg more or less per point, from 6 to 13 kg.',
+    note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the hand axe (and, stronger still, the tarp and the stove), an outdoors talent the fishing kit, a clever one the map and compass and a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. Only what the run offers is suggested. You can still change anything. How much you carry comfortably follows Strength (the same weight the Warden\'s words for the pack use): 9 kg for the usual 12-year-old, about 1 kg more or less per point, from 6 to 13 kg. With the pack\'s volume off, that is also the most the pack can weigh.',
   },
   {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live

@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, carryLimit, statsBeforePack, suggestedPackOf, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, SUGGESTED_PACK, PACK_FEEL_LINE, KID_STR, packWeight, packFeel, comfortableWeight, insideLitres, autoOutside, volumeOn, carryLimit, statsBeforePack, suggestedPackOf, type KitGroup, type KitItem, type KitId } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
@@ -68,6 +68,9 @@ import { marketLine } from '../artificer/economy';
 import { stopOn, STOP_KINDS } from '../artificer/stop-action';
 import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
+
+/** A kilogram figure to one decimal, for the AI's pack lines (#1871). */
+const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /**
  * The rules and the response contract. Static on purpose: it goes in the
@@ -386,6 +389,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (s.kit) {
     const left = kitSupplies(s.kit, s.dressings ?? 0);
     lines.push(`PACK (what you brought on the hike): ${s.kit.items.map(id => `${kitItem(id).name} — ${kitItem(id).does}`).join('; ')}${left.length ? ` | LEFT: ${left.join(', ')}` : ''}`);
+    // How heavy it feels (#1871, `pack-volume`): the Warden's words, and the kilograms for the AI's rules; it costs only until camp is made.
+    if (volumeOn(s) && s.site === null) lines.push(`PACK WEIGHT: ${packWeight(s.kit.items)} kg (comfortable for you: ${round1(comfortableWeight(s.character.stats.str))} kg) — "${PACK_FEEL_LINE[packFeel(packWeight(s.kit.items), s.character.stats.str)]}" Over the comfortable weight every walk costs extra Vigor, more the heavier, until you make camp and set it down.`);
   }
   // Stats (#1259): exact values, as they are now — and, while still growing (#1399), what each will be grown up.
   const { age, adult } = s.character;
@@ -766,20 +771,19 @@ export function observePack(s: Region1State): string {
   const now = s.kit?.items ?? [];
   // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
   const list = offeredKit(s.config.world.features);
+  // The pack's volume (#1871): the rules the play API and the pack screen check, said in full.
+  if (volumeOn(s)) return observePackVolume(s, list);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
   // Who you are comes first (#1872, `stats-before-pack`): the turn sees the Warden it packs for —
-  // the stats chosen at creation and the talents they know — what that Strength carries, and the
-  // list ticked for them. Off, the turn reads exactly as before.
+  // their stats now and the talents they know — what that Strength carries, and the list ticked
+  // for them. Off, the turn reads exactly as before.
   if (statsBeforePack(s)) {
-    const c = s.character;
-    const made = c.adult ?? c.stats;
-    const known = c.talents.filter(x => x.known);
     const ticked = suggestedPackOf(s);
     const limit = carryLimit(s);
     return [
       'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
-      `YOU: ${STAT_IDS.map(id => `${STATS[id].short} ${made[id]}`).join(' · ')} (as chosen; 10 is average) · TALENTS: ${known.length ? known.map(x => `${TALENTS[x.id].name} (${TALENTS[x.id].blurb})`).join(' · ') : 'none chosen'}`,
-      `Your pack holds ${limit} kg: what you carry comfortably with Strength ${made.str} (${PACK_CAPACITY} kg at 10, about 1 kg more or less per point). The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
+      youLine(s),
+      `Your pack holds ${limit} kg: what you carry comfortably with Strength ${s.character.stats.str} (${PACK_CAPACITY} kg at ${KID_STR}, about 1 kg more or less per point). The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
       ...groups,
       `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
       `THE LIST TICKED FOR YOU (${packWeight(ticked)} kg): ${ticked.join(', ')} — the leader's list, shaped by your stats and talents. Change anything.`,
@@ -793,5 +797,43 @@ export function observePack(s: Region1State): string {
     `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
     `THE LEADER'S PACKING LIST (${packWeight(SUGGESTED_PACK)} kg): ${SUGGESTED_PACK.join(', ')}`,
     'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+  ].join('\n\n');
+}
+
+/**
+ * Who the Warden is, for the packing turn with `stats-before-pack` on (#1872): their stats now (the
+ * young body's, which is what carries the pack) and the talents they know, never the hidden one.
+ */
+function youLine(s: Region1State): string {
+  const c = s.character;
+  const known = c.talents.filter(x => x.known);
+  return `YOU: ${STAT_IDS.map(id => `${STATS[id].short} ${c.stats[id]}`).join(' · ')} (now; a usual 12-year-old scout has STR ${KID_STR}) · TALENTS: ${known.length ? known.map(x => `${TALENTS[x.id].name} (${TALENTS[x.id].blurb})`).join(' · ') : 'none chosen'}`;
+}
+
+/**
+ * The packing turn with `pack-volume` on (#1871): each item's weight and litres, which can be
+ * strapped on, the 45 L inside and the strap places, and the weight as soft: the comfortable
+ * weight for this Warden's STR, and how it feels in their words. The AI sees the kilograms (the
+ * screen never shows them); the reply may say what's strapped on.
+ */
+function observePackVolume(s: Region1State, list: readonly KitItem[]): string {
+  const now = s.kit?.items ?? [];
+  const outside = s.kit?.outside ?? [];
+  const str = s.character.stats.str;
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg, ${k.litres} L${k.outside ? ', can strap outside' : ''}): ${k.name} — ${k.does}`).join('\n')}`);
+  const feel = (kg: number) => `"${PACK_FEEL_LINE[packFeel(kg, str)]}"`;
+  // With `stats-before-pack` too (#1872): who the Warden is, and the list ticked for them (which
+  // closes with the default straps, kit.ts suggestedPack) in place of the leader's.
+  const sbp = statsBeforePack(s);
+  const ticked: readonly KitId[] = sbp ? suggestedPackOf(s) : SUGGESTED_PACK;
+  return [
+    'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+    ...(sbp ? [youLine(s)] : []),
+    `Your pack holds ${PACK_LITRES} L inside: what goes inside must fit, or it won't close. Things marked "can strap outside" can go on the ${STRAP_PLACES} strap places instead: they use no room inside but still weigh. The backpack itself comes free, with the clothes you're wearing.`,
+    `Weight is not a limit: about ${round1(comfortableWeight(str))} kg is comfortable for you (STR ${str}). Over that, every walk costs extra Vigor, more the heavier, until you make camp and set the pack down; at or under it, nothing extra.`,
+    ...groups,
+    `PACKED NOW (${packWeight(now)} kg, ${insideLitres(now, outside)} L inside${outside.length ? `, strapped on: ${outside.join(', ')}` : ''}): ${now.length ? now.join(', ') : 'nothing'} — ${feel(packWeight(now))}`,
+    `${sbp ? 'THE LIST TICKED FOR YOU' : "THE LEADER'S PACKING LIST"} (${packWeight(ticked)} kg, ${insideLitres(ticked, autoOutside(ticked))} L inside with ${autoOutside(ticked).join(', ')} strapped on): ${ticked.join(', ')}${sbp ? ` — the leader's list, shaped by your stats and talents: ${feel(packWeight(ticked))} Change anything.` : ''}`,
+    'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...], "outside": ["<item id strapped on>", ...]}. "outside" lists only packed items marked "can strap outside" (at most ' + STRAP_PLACES + '); [] packs everything inside.',
   ].join('\n\n');
 }

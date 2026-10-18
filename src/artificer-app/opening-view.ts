@@ -8,7 +8,7 @@
  */
 
 import { numText, type T } from '../artificer/i18n';
-import { KIT, KIT_GROUPS, PACK_CAPACITY, packWeight, kitItem, offeredKit, type KitGroup, type KitId, type KitItem } from '../artificer/kit';
+import { KIT, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, packWeight, kitItem, offeredKit, canStrap, addToPack, placeItem, insideLitres, packFeel, packRoom, type KitGroup, type KitId, type KitItem } from '../artificer/kit';
 import { ruleFeatures } from '../artificer/features';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
 import { STAT_IDS, POINT_BUDGET, canRaise, canLower, raiseCost, type Stats } from '../artificer/stats';
@@ -59,10 +59,34 @@ export function readPackOpen(raw: string | null): PackOpen {
  * of how many, and what the packed ones weigh, the number written the viewer's way ("2.3 kg",
  * "2,3 kg"). Summed the way `packWeight` sums the whole pack, so the sections add up to its total.
  */
-export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T, list: readonly KitItem[] = KIT): string {
+export function groupSummary(g: KitGroup, pack: readonly KitId[], t: T, list: readonly KitItem[] = KIT, weights = true): string {
   const items = list.filter(k => k.group === g);
   const packed = items.filter(k => pack.includes(k.id)).map(k => k.id);
+  // With `pack-volume` (#1871) the screen never says a weight (outside dev mode): only the count.
+  if (!weights) return t('pack.groupSumVol', { n: packed.length, m: items.length });
   return t('pack.groupSum', { n: packed.length, m: items.length, kg: numText(packWeight(packed), t) });
+}
+
+/**
+ * What the pack screen needs with `pack-volume` on (#1871): what's strapped on, the Warden's STR
+ * (the words move with it), and dev mode (which alone shows kilograms and litres). `forYou`
+ * (#1872): the list was ticked for this Warden, so the list button resets to that.
+ */
+export interface PackVolumeView { outside: readonly KitId[]; str: number; dev: boolean; forYou?: boolean }
+
+/**
+ * A packed, strappable item's choice (#1871): inside the pack or strapped on. A side that isn't
+ * possible (no strap place free, no room inside) is greyed with why; the current side is pressed.
+ */
+function strapChoice(id: KitId, pack: readonly KitId[], vol: PackVolumeView, t: T): string {
+  const out = vol.outside.includes(id);
+  const side = (place: 'in' | 'out') => {
+    const here = (place === 'out') === out;
+    const can = here || placeItem(pack, vol.outside, id, place === 'out') !== null;
+    const why = can ? '' : ` disabled title="${esc(t(place === 'out' ? 'pack.noStrap' : 'pack.noRoom'))}"`;
+    return `<button type="button" class="kplace" data-kitplace="${id}" data-place="${place}" aria-pressed="${here}"${why}>${esc(t(place === 'out' ? 'pack.out' : 'pack.in'))}</button>`;
+  };
+  return `<div class="kstrap" role="group">${side('in')}${side('out')}</div>`;
 }
 
 /** Is every pack section open? Then the button above them closes them all; otherwise it opens them all (#1801). */
@@ -88,50 +112,94 @@ export const setAllSections = (to: boolean): PackOpen =>
  * the browser's own toggle, which a redraw would forget.
  */
 /**
- * How much this pack screen holds, and whether its list was ticked for the Warden (#1872): with
- * `stats-before-pack` the limit is their carry weight (kit.ts carryLimit) and the list button
+ * How much this pack screen holds by weight, and whether its list was ticked for the Warden (#1872):
+ * with `stats-before-pack` the limit is their carry weight (kit.ts carryLimit) and the list button
  * resets to the list ticked for them; without, 9 kg and the leader's list, as before.
  */
 export interface PackCarry { limit: number; forYou: boolean }
 const LEADER_CARRY: PackCarry = { limit: PACK_CAPACITY, forYou: false };
 
-export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures()), carry: PackCarry = LEADER_CARRY): string {
+/**
+ * The screen's one view argument: with `outside` it's the volume's screen (#1871, PackVolumeView,
+ * `forYou` if the list was ticked for the Warden, #1872), else the weight's (PackCarry). Absent:
+ * 9 kg and the leader's list.
+ */
+export type PackView = PackVolumeView | PackCarry;
+
+export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures()), view?: PackView): string {
+  const vol = view && 'outside' in view ? view : undefined;
+  const carry = view && 'limit' in view ? view : LEADER_CARRY;
+  const forYou = view?.forYou === true;
   const cap = carry.limit;
   const kg = packWeight(pack);
+  // Weights show unless `pack-volume` is on (#1871): then only in dev mode, with the litres.
+  const weights = !vol || vol.dev;
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
     const items = list.filter(k => k.group === g).map(k => {
       const on = pack.includes(k.id);
-      const fits = on || packWeight([...pack, k.id]) <= cap;
+      // What won't go in is greyed: by weight, over the carry limit; with volume, no room inside and no strap free.
+      const fits = on || (vol ? addToPack(pack, vol.outside, k.id) !== null : packWeight([...pack, k.id]) <= cap);
       const name = kitName(k.id, t);
       // In English the scout's Swedish name shows beside it, for flavour; in Swedish the name already is it.
       const flavour = k.sv && k.sv.toLowerCase() !== name.toLowerCase() && name === k.name ? ` <i>${esc(k.sv)}</i>` : '';
-      return `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : esc(t('pack.wontFit'))}">`
-        + `<span class="khead">${itemIcon(k.id)}<b>${esc(name)}</b>${flavour}<span class="kkg">${esc(t('pack.kg', { n: k.weight }))}</span></span>`
+      // The tag on the right: the weight as today; with volume, the numbers in dev mode, or "won't close" on a greyed item.
+      const tag = !vol ? t('pack.kg', { n: k.weight })
+        : vol.dev ? t('pack.dev', { kg: numText(k.weight, t), l: numText(k.litres, t) }) : fits ? '' : t('pack.wontClose');
+      const button = `<button type="button" class="kchoice" data-kit="${k.id}" aria-pressed="${on}" ${fits ? '' : 'disabled'} title="${fits ? '' : esc(t(vol ? 'pack.noRoom' : 'pack.wontFit'))}">`
+        + `<span class="khead">${itemIcon(k.id)}<b>${esc(name)}</b>${flavour}${tag ? `<span class="kkg">${esc(tag)}</span>` : ''}</span>`
         // What a scout would say it's for, never the rule it plays (#1684): the player finds out
         // what's useful by playing. The rule shows only with the hidden truths (`?dev=truths`).
         + `<span class="kdoes">${esc(t(`kit.${k.id}.does`))}</span><span class="knote">${esc(t(`kit.${k.id}.note`))}</span>`
         + `${truths ? `<span class="devtruth" title="${esc(t('pack.ruleTip'))}">${esc(t('pack.rule', { rule: k.effect }))}</span>` : ''}</button>`;
+      // A packed thing that can go outside gets its inside / strapped-on choice below it (#1871).
+      return vol && on && canStrap(k.id) ? `<div class="kitem">${button}${strapChoice(k.id, pack, vol, t)}</div>` : button;
     }).join('');
     // The heading is one band (#1801): the shared chevron (fold.ts, as the weather box has), the
     // name, and the section's summary on the right. Still a <summary>, so main.ts's toggle works.
     return `<details class="kgroup" data-group="${g}"${sectionOpen(g, pack, open) ? ' open' : ''}>`
       + `<summary class="clabel foldhead" data-kitgroup="${g}">${chevron()}<b class="kname">${esc(t(`kitgroup.${g}`).toUpperCase())}</b>`
-      + `<span class="ksum">${esc(groupSummary(g, pack, t, list))}</span></summary>`
+      + `<span class="ksum">${esc(groupSummary(g, pack, t, list, weights))}</span></summary>`
       + `<div class="kchoices">${items}</div></details>`;
   }).join('');
+  if (vol) return `<form class="create pack" onsubmit="return false">
+    <p class="mood" style="margin:0">${esc(t('pack.freeVol'))}</p>
+    ${forYou ? `<p class="mood" style="margin:0">${esc(t('pack.forYou'))}</p>` : ''}
+    <div class="kfolds"><button type="button" class="pill" data-kitfold="all">${esc(openAllLabel(pack, t, open))}</button></div>
+    ${groups}
+    ${volumeFoot(pack, vol, t, list)}
+  </form>`;
   const fill = Math.min(100, (kg / cap) * 100);
   return `<form class="create pack" onsubmit="return false">
-    <p class="mood" style="margin:0">${esc(t(carry.forYou ? 'pack.freeStr' : 'pack.free', { kg: cap }))}</p>
-    ${carry.forYou ? `<p class="mood" style="margin:0">${esc(t('pack.forYou'))}</p>` : ''}
+    <p class="mood" style="margin:0">${esc(t(forYou ? 'pack.freeStr' : 'pack.free', { kg: cap }))}</p>
+    ${forYou ? `<p class="mood" style="margin:0">${esc(t('pack.forYou'))}</p>` : ''}
     <div class="kfolds"><button type="button" class="pill" data-kitfold="all">${esc(openAllLabel(pack, t, open))}</button></div>
     ${groups}
     <div class="kfoot">
       <div class="kbar" role="meter" aria-label="${esc(t('pack.weight'))}" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${kg}"><span style="width:${fill}%"></span></div>
       <span class="kweight"><b>${kg}</b> / ${esc(t('pack.kg', { n: cap }))}</span>
-      <button type="button" class="pill" data-kitcmd="leader">${esc(t(carry.forYou ? 'pack.forYouBtn' : 'pack.leader'))}</button>
+      <button type="button" class="pill" data-kitcmd="leader">${esc(t(forYou ? 'pack.forYouBtn' : 'pack.leader'))}</button>
       <button type="button" class="pill" data-kitcmd="empty">${esc(t('pack.empty'))}</button>
     </div>
   </form>`;
+}
+
+/**
+ * The pack screen's foot with `pack-volume` on (#1871): the Warden's own words for the weight
+ * (live, as you pack), how full the inside is (a bar and words), the straps used, and the two
+ * buttons. Kilograms and litres only in dev mode.
+ */
+function volumeFoot(pack: readonly KitId[], vol: PackVolumeView, t: T, list: readonly KitItem[]): string {
+  const kg = packWeight(pack), l = insideLitres(pack, vol.outside);
+  const room = packRoom(pack, vol.outside, list.map(k => k.id));
+  const fill = Math.min(100, (l / PACK_LITRES) * 100);
+  return `<div class="kfoot">
+      <p class="kfeel" aria-label="${esc(t('pack.feelLabel'))}">${esc(t(`pack.feel.${packFeel(kg, vol.str)}`))}</p>
+      <div class="kbar${room === 'full' ? ' full' : ''}" role="meter" aria-label="${esc(t('pack.room'))}" aria-valuemin="0" aria-valuemax="${PACK_LITRES}" aria-valuenow="${l}"><span style="width:${fill}%"></span></div>
+      <span class="kroom${room === 'full' ? ' full' : ''}">${esc(t(`pack.room.${room}`))}</span>
+      <span class="kweight">${esc(t('pack.straps', { n: vol.outside.length, m: STRAP_PLACES }))}${vol.dev ? ` · <b>${esc(t('pack.dev', { kg: numText(kg, t), l: numText(l, t) }))}</b>` : ''}</span>
+      <button type="button" class="pill" data-kitcmd="leader">${esc(t(vol.forYou ? 'pack.forYouBtn' : 'pack.leader'))}</button>
+      <button type="button" class="pill" data-kitcmd="empty">${esc(t('pack.empty'))}</button>
+    </div>`;
 }
 
 /** The creation form: your name (written, beside the standard portrait), two of four offered talents, age, stats. Choices live in the draft until Continue. */

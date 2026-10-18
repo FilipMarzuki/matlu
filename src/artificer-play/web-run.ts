@@ -25,9 +25,9 @@ import {
 import { ACTIONS, repack, type QueueItem } from '../artificer/region1';
 import { RINGS, type Ring } from '../artificer/exploration';
 import { talentOffer, seedOf, TALENT_PICKS, type TalentId } from '../artificer/talents';
-import { validStats, type Stats } from '../artificer/stats';
-import { START_AGES } from '../artificer/growing';
-import { validPack, carryLimit } from '../artificer/kit';
+import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
+import { START_AGES, DEFAULT_AGE, grownStats } from '../artificer/growing';
+import { validPack, packWorldOf } from '../artificer/kit';
 import { FEATURES, validFeatures, ruleFeatures } from '../artificer/features';
 import { stopRefusal } from '../artificer/stop-action';
 import { GRADES, type Tool } from '../artificer/crafting';
@@ -82,11 +82,14 @@ export function startProblem(s: unknown): string | null {
   if (!validFeatures(s.features) || Object.keys(s.features).some(k => !known.includes(k))) return 'The rule features aren\'t ones the game knows.';
   // After the features (#1870): the pack is checked against the list the run's world offers, which
   // is makeWarden's (`ruleFeatures` of these switches), so a hand axe without its switch won't do.
-  // And against what this Warden can carry (#1872): their stats (checked above) under the same
-  // switches, as repack checks it when the run is made.
-  const world = { features: ruleFeatures(s.features) };
-  const limit = carryLimit({ config: { world }, ...(s.stats !== undefined ? { character: { stats: s.stats as Stats } } : {}) });
-  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack, world, limit))) return 'The pack isn\'t one that fits.';
+  // …and with `pack-volume` on (#1871), by room inside and the straps (what's strapped on, if the log says), not weight.
+  if (s.outside !== undefined && !(Array.isArray(s.outside) && s.outside.every(isStr) && s.pack !== undefined)) return 'outside lists the pack\'s strapped-on items.';
+  // With it off, by what this Warden can carry (#1872, kit.ts carryLimit): their stats now (the
+  // ones checked above, grown to their age, as makeWarden makes them) under the same switches, as
+  // repack checks it when the run is made.
+  const now = grownStats((s.stats as Stats | undefined) ?? DEFAULT_STATS, (s.age as number | undefined) ?? DEFAULT_AGE);
+  const world = packWorldOf({ config: { world: { features: ruleFeatures(s.features) } }, character: { stats: now } }, s.outside as string[] | undefined);
+  if (s.pack !== undefined && !(Array.isArray(s.pack) && s.pack.every(isStr) && validPack(s.pack, world))) return 'The pack isn\'t one that fits.';
   if (s.heirlooms !== null && !(Array.isArray(s.heirlooms) && s.heirlooms.length <= 40 && s.heirlooms.every(validTool))) return 'The heirlooms aren\'t tools.';
   if (s.heirloomsFrom !== undefined && s.heirloomsFrom !== null && !isStr(s.heirloomsFrom)) return 'heirloomsFrom is a game id.';
   return null;
@@ -108,7 +111,7 @@ export function startOf(s: WebStart): AppState {
   const spec = { id, ...(name !== undefined ? { name } : {}), ...(portrait !== undefined ? { portrait } : {}), ...(chosen ? { chosen } : {}), ...(stats ? { stats } : {}), ...(age !== undefined ? { age } : {}) };
   const legacy = s.heirlooms === null ? undefined : { known: [], concepts: {}, heirlooms: s.heirlooms.map(t => ({ ...t })) };
   const app = makeWarden(spec, legacy, s.features);
-  return s.pack ? { ...app, sim: repack(app.sim, s.pack) } : app;
+  return s.pack ? { ...app, sim: repack(app.sim, s.pack, s.outside) } : app;
 }
 
 /**

@@ -8,8 +8,8 @@
  */
 
 import type { FeatureSwitches } from '../artificer/features';
-import { suggestedPack, carryLimit, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
+import { suggestedPack, volumeOn, packWorldOf, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
 import { campAsActionOn } from '../artificer/camp-sites';
@@ -82,7 +82,7 @@ export interface Player {
 }
 
 /** What a player packed (#1401): the pack, why, and — if two replies wouldn't do — that the last pack was kept instead. */
-export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[] }
+export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[]; /** Strapped on (#1871), as the run holds it. */ outside?: KitId[] }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
 export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
@@ -525,8 +525,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // A spread a person couldn't pick never reaches the sim (#1259). A legacy's own stats win over it;
   // a legacy of heirlooms alone (#1455) has none, so the spread still applies.
   const spreadApplies = !!opts.stats && !opts.legacy?.stats;
+  // The pack is ticked for the Warden's stats now (#1872): the spread grown to 12, as createRegion1 makes them.
   if (spreadApplies && !validStats(opts.stats!)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: suggestedPack(opts.features, (spreadApplies ? opts.stats : opts.legacy?.stats) ?? DEFAULT_STATS, chosen) }) });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: suggestedPack(opts.features, grownStats((spreadApplies ? opts.stats : opts.legacy?.stats) ?? DEFAULT_STATS, DEFAULT_AGE), chosen) }) });
   const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
@@ -600,15 +601,17 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // The Warden is made first (#1872): the turn sees their stats and the pack ticked for them, and
     // a pack is checked against what they can carry.
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply, s.config.world, carryLimit(s));
+    let d = parsePackDecision(reply, packWorldOf(s));
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
-      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply, s.config.world, carryLimit(s));
+      // With the pack's volume (#1871) the reply may say what's strapped on.
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${volumeOn(s) ? ', "outside"' : ''}}.`, decidePack);
+      d = parsePackDecision(reply, packWorldOf(s));
       if (!d.ok) errors.push(...d.errors);
     }
-    if (d.ok) s = repack(s, d.decision.pack);
-    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}) } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors };
+    if (d.ok) s = repack(s, d.decision.pack, d.decision.outside);
+    const straps = s.kit?.outside?.length ? { outside: [...s.kit.outside] } : {};
+    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}), ...straps } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors, ...straps };
   }
 
   // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.

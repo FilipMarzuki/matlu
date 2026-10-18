@@ -48,12 +48,15 @@ describe('the create screen comes before the pack (#1872, acceptance 1)', () => 
 });
 
 describe('the pack screen for the Warden just made (#1872, acceptance 2)', () => {
-  const features = ruleFeatures();
+  // The weight's screen: `pack-volume` (#1871) off, where the carry weight is the pack's limit. The
+  // volume's screen with this switch on is in artificer/stats-before-pack.test.ts.
+  const features = ruleFeatures({ 'pack-volume': false });
   const list = offeredKit(features);
 
   it('says what this Warden carries, ticks their list, and its button resets to it, in en and sv', () => {
-    const strong = makeWarden({ id: 'w-1872-pf', stats: { ...DEFAULT_STATS, str: 12 } }).sim;
-    const pack = suggestedPack(features, strong.character.adult ?? strong.character.stats, []);
+    // STR 12 chosen is STR 8 at 12 (growing.ts): 11 kg, read off the Strength they have now.
+    const strong = makeWarden({ id: 'w-1872-pf', stats: { ...DEFAULT_STATS, str: 12 } }, undefined, features).sim;
+    const pack = suggestedPack(features, strong.character.stats, []);
     const limit = carryLimit(strong);
     const en = packForm(pack, makeT('en'), false, {}, list, { limit, forYou: true });
     expect(en).toContain('With your strength, everything else has to fit in 11 kg.');

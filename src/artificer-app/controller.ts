@@ -36,8 +36,8 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
-import { suggestedPack, validPack, readKit, MAX_CARRY, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
+import { suggestedPack, readKit, savedPackProblem, autoOutside, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
 import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
@@ -82,9 +82,11 @@ export function makeWarden(who: WardenSpec, legacy?: Legacy, features?: FeatureS
   // the leader's packing list (#1400).
   const world: WorldConfig = { ...GAME_WORLD, features: ruleFeatures(features) };
   // The pack ticked for them (#1872): the leader's list, or with `stats-before-pack` on, the list
-  // shaped by the stats and talents chosen (kit.ts suggestedPack) — so it always fits what this
-  // Warden can carry. A pack in `who` (the page's chosen one) wins.
-  const pack = suggestedPack(world.features, who.stats ?? legacy?.stats ?? DEFAULT_STATS, who.chosen ?? []);
+  // shaped by the talents chosen and the stats this Warden has now (kit.ts suggestedPack): the
+  // chosen ones grown to their age, as createRegion1 makes them, since a child carries with the arms
+  // they have today. So it always fits what this Warden can carry. A pack in `who` (the page's) wins.
+  const now = grownStats(who.stats ?? legacy?.stats ?? DEFAULT_STATS, who.age ?? DEFAULT_AGE);
+  const pack = suggestedPack(world.features, now, who.chosen ?? []);
   return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack, ...who }), queue: [], stage: 'reach' };
 }
 
@@ -600,9 +602,14 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const harms = harmList.length ? { harms: harmList } : {};
   // Background (#1398): a scout, if the save says so.
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
-  // The hike pack (#1400): kept if it's a pack we know.
-  // Checked against the heaviest pack any run allows (#1872), so a strong Warden's pack is kept.
-  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[], undefined, MAX_CARRY) ? { pack: [...(ch.pack as KitId[])] } : {};
+  // The hike pack (#1400): kept if it's a pack we know — by the run's own rules (#1871): with
+  // `pack-volume` on a heavy pack is a real one. Read off the saved world before `config` is checked
+  // below; a world that doesn't check out reads as no switches, today's rules.
+  const savedWorld = isObj(sim.config) && isObj(sim.config.world) ? sim.config.world : undefined;
+  const savedFeatures = savedWorld && validFeatures(savedWorld.features) ? savedWorld.features : undefined;
+  // The strapped-on list isn't the character's; the pack's check here is the room (straps as saved in the kit, else the defaults).
+  const kitOutside = isObj(sim.kit) && Array.isArray(sim.kit.outside) && sim.kit.outside.every(x => typeof x === 'string') ? sim.kit.outside as string[] : undefined;
+  const pack = isObj(ch) && Array.isArray(ch.pack) && savedPackProblem(ch.pack as string[], savedFeatures, kitOutside ?? autoOutside(ch.pack as KitId[])) === null ? { pack: [...(ch.pack as KitId[])] } : {};
   // Growth by use and wear (#1257): kept if they're numbers.
   const partial = (x: unknown): Partial<Stats> | undefined => {
     if (!isObj(x)) return undefined;
@@ -669,5 +676,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // The needle compass (#1868): kept if well-formed and the switch is on, else dropped — dropped, none was made.
   const needleCompass = featureOn(config.world.features, COMPASS_HEADING) && validNeedleCompass(sim.needleCompass)
     ? { made: sim.needleCompass.made, tool: sim.needleCompass.tool, ...(sim.needleCompass.trips ? { trips: sim.needleCompass.trips } : {}) } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, afield, seenOut, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, afield, seenOut, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

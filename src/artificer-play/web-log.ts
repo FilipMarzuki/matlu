@@ -39,6 +39,8 @@ export interface WebStart {
   age?: number;
   /** The pack, if the packing screen was passed (it repacks); absent, the leader's list. */
   pack?: KitId[];
+  /** What was strapped on the outside of it (#1871, `pack-volume`); absent, the default straps. */
+  outside?: KitId[];
   /** The run's rule features (#1579), as the run holds them. */
   features: Record<string, boolean>;
   /**

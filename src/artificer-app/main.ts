@@ -34,7 +34,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { SUGGESTED_PACK, validPack, offeredKit, carryLimit, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, carryLimit, packWorldOf, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -43,7 +43,8 @@ import { QUESTION_CHARS } from '../artificer/free-questions';
 import { matchFreeQuestion } from '../artificer/knowledge-questions';
 import { keepHistory, playFacts } from '../artificer/history-in-play';
 import { cleanQuestion } from '../artificer-play/questions';
-import { FEATURES, experimentalOn, featuresOf, ruleFeatures, uiFeatureOn } from '../artificer/features';
+import { FEATURES, experimentalOn, featuresOf, ruleFeatures, uiFeatureOn, featureOn } from '../artificer/features';
+import { grownStats } from '../artificer/growing';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
 import { newLog, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
 import { runOf } from '../artificer-play/record-of';
@@ -1891,6 +1892,14 @@ let draft: Draft = blankDraft();
 const draftValid = (): boolean => draft.name.trim().length > 0;
 /** What's in the pack on the packing screen (#1401): the leader's list for a new Warden, last time's for one carrying on. */
 let draftPack: KitId[] = [...SUGGESTED_PACK];
+/** What's strapped on the outside (#1871, `pack-volume`): the default straps for the leader's list until the player moves something. */
+let draftOutside: KitId[] = autoOutside(SUGGESTED_PACK);
+/**
+ * Is the pack's volume on for the game being packed for (#1871)? The run's switches are made when
+ * the Warden is (commitCharacter → makeWarden with the player's choices), after this screen, so
+ * read them the same way: the defaults with the player's own switches on top.
+ */
+const packVolumeOn = (): boolean => featureOn(ruleFeatures(loadChoices()), PACK_VOLUME);
 // Which pack sections this viewer has opened or folded (#1727): a per-browser convenience, so
 // storage that's blocked or empty just means every section starts as its default.
 let packOpen: PackOpen = (() => { try { return readPackOpen(localStorage.getItem(PACK_OPEN_KEY)); } catch { return {}; } })();
@@ -1926,15 +1935,18 @@ const packWorld = (): { features: Record<string, boolean> } => ({ features: rule
  * Who you are, then what you pack (#1872): with the next run's `stats-before-pack` on, creation
  * comes before the pack, so the pack screen knows the draft's stats and talents. These read the
  * draft the way the run will read its Warden (kit.ts carryLimit, suggestedPack), so what the
- * screen lets in is what repack accepts. Off: 9 kg and the leader's list, as before.
+ * screen lets in is what repack accepts: their stats now, the chosen ones grown to the age chosen,
+ * as makeWarden makes them (a child carries with the arms they have today). Off: 9 kg and the
+ * leader's list, as before.
  */
-const draftRun = () => ({ config: { world: packWorld() }, character: { stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } } });
+const draftRun = () => ({ config: { world: packWorld() }, character: { stats: grownStats(validStats(draft.stats) ? draft.stats : DEFAULT_STATS, draft.age) } });
 const draftLimit = (): number => carryLimit(draftRun());
 const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
 
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
+  draftOutside = autoOutside(SUGGESTED_PACK);
   drawnBeat = -1;
   intro = { beats: introBeats(state.sim, t), i: 0 };
   renderIntro();
@@ -1951,7 +1963,7 @@ function commitCharacter(): void {
   state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
   startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
   // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made.
-  if (statsBeforePack(state.sim)) draftPack = tickedPack();
+  if (statsBeforePack(state.sim)) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
   // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
   // pack again: the same makeWarden → startLog → repack the run had when packing came last.
   applyPack();
@@ -1960,9 +1972,11 @@ function commitCharacter(): void {
 
 /** The pack chosen is the one the run starts with (#1401); the log's start says what was packed (#1559). */
 function applyPack(): void {
-  state = { ...state, sim: repack(state.sim, draftPack) };
+  // With `pack-volume` (#1871) where things went goes with it, into the run and the log's start.
+  const outside = packVolumeOn() ? [...draftOutside] : undefined;
+  state = { ...state, sim: repack(state.sim, draftPack, outside) };
   const k = logFor(state);
-  if (k && !k.log.moves.length) { kept = { ...k, log: { ...k.log, start: { ...k.log.start, pack: [...draftPack] } } }; saveKept(); }
+  if (k && !k.log.moves.length) { kept = { ...k, log: { ...k.log, start: { ...k.log.start, pack: [...draftPack], ...(outside ? { outside } : {}) } } }; saveKept(); }
 }
 
 function endIntro(): void {
@@ -2023,7 +2037,7 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
-    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
+    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
   });
@@ -2042,7 +2056,7 @@ introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
   // The 💬 button (#1845) opens the feedback panel beside the intro, and never counts as a tap to go on.
   if (el.closest('[data-cmd="feedback"]')) { feedback.toggle(); return; }
-  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitcmd], [data-kitgroup], [data-kitfold]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitplace], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
   const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
@@ -2062,13 +2076,27 @@ introEl.addEventListener('click', e => {
     renderIntro(); return;
   }
   // Packing (#1401): tap to pack or take out; only what fits goes in.
+  // With `pack-volume` (#1871), what has room inside or a strap free (kit.ts addToPack decides which).
   if (btn?.dataset.kit) {
     const id = btn.dataset.kit as KitId;
-    if (draftPack.includes(id)) draftPack = draftPack.filter(x => x !== id);
-    else if (validPack([...draftPack, id], packWorld(), draftLimit())) draftPack = [...draftPack, id];
+    if (draftPack.includes(id)) { draftPack = draftPack.filter(x => x !== id); draftOutside = draftOutside.filter(x => x !== id); }
+    else if (packVolumeOn()) { const next = addToPack(draftPack, draftOutside, id); if (next) ({ pack: draftPack, outside: draftOutside } = next); }
+    // By weight, what this Warden can carry (#1872): the draft's carry limit, as repack will check it.
+    else if (validPack([...draftPack, id], packWorldOf(draftRun()))) draftPack = [...draftPack, id];
     renderIntro(); return;
   }
-  if (btn?.dataset.kitcmd) { draftPack = btn.dataset.kitcmd === 'leader' ? (statsBeforePack(draftRun()) ? tickedPack() : [...SUGGESTED_PACK]) : []; renderIntro(); return; }
+  // Inside or strapped on (#1871): only if it fits there.
+  if (btn?.dataset.kitplace) {
+    const next = placeItem(draftPack, draftOutside, btn.dataset.kitplace as KitId, btn.dataset.place === 'out');
+    if (next) draftOutside = next;
+    renderIntro(); return;
+  }
+  if (btn?.dataset.kitcmd) {
+    // The list button (#1872): the list ticked for this Warden with `stats-before-pack` on, else the leader's.
+    draftPack = btn.dataset.kitcmd === 'leader' ? (statsBeforePack(draftRun()) ? tickedPack() : [...SUGGESTED_PACK]) : [];
+    draftOutside = autoOutside(draftPack);
+    renderIntro(); return;
+  }
   if (btn?.dataset.stat) {
     // A step up or down, only if point-buy allows it (the buttons are disabled otherwise, but check anyway).
     const id = btn.dataset.stat as StatId;
