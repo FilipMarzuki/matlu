@@ -234,6 +234,10 @@ export const CARRY_AVERAGE_STR = 10;
  *
  * Today this is the pack's hard limit (with the switch on). #1871 turns the limit soft, with the
  * Warden's words for the weight; it calls this one function for where "heavy, but I'll manage" starts.
+ *
+ * The one place the formula lives. #1871 (open as this lands) proposes its own,
+ * 9 kg × (1 + 0.03 × (STR − 6)); the owner picks one, and whichever of the two merges second swaps
+ * its body in here, so the pack screen, repack, the play API and the AI's turn all keep agreeing.
  */
 export function comfortableWeight(stats: Readonly<Pick<Stats, 'str'>>): number {
   const kg = PACK_CAPACITY + CARRY_PER_STR * (stats.str - CARRY_AVERAGE_STR);

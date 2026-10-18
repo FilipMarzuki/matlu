@@ -342,7 +342,7 @@ export const FEATURES: readonly FeatureDef[] = [
     // so one rules switch covers both. A run from before it (absent: false) packs as it did: the
     // leader's list, and 9 kg for everyone.
     id: 'stats-before-pack', name: 'Who you are, then what you pack', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 1872,
-    note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the tarp and the stove, a clever one a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. You can still change anything. How much fits follows Strength: 9 kg at STR 10, about 1 kg more or less per point, from 6 to 13 kg.',
+    note: 'You make your Warden (name, talents, age, stats) before packing, not after the portal. The list comes ticked for who you are: a strong Warden is suggested the hand axe (and, stronger still, the tarp and the stove), an outdoors talent the fishing kit, a clever one the map and compass and a notebook, a scout with a keen eye the binoculars; a weak one a lighter list. Only what the run offers is suggested. You can still change anything. How much fits follows Strength: 9 kg at STR 10, about 1 kg more or less per point, from 6 to 13 kg.',
   },
   {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live

@@ -1986,7 +1986,15 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
-  if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
+  if (intro.beats[intro.i].kind === 'create') {
+    if (!draftValid()) return;
+    commitCharacter();
+    // Told again from the Warden just made (#1872): the order comes from the run's own
+    // `stats-before-pack` switch, and the run is only now made from the player's switches, so
+    // re-read the beats and carry on from creation's place in them (by id, never by index).
+    const beats = introBeats(state.sim, t);
+    intro = { beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')) };
+  }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
   // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
