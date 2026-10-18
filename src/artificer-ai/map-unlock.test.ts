@@ -77,4 +77,8 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // With `directed-explore` (#1839) Explore offers a way (look around, or one of eight to head out),
 // which the random player picks at random too, so it explores differently: random 8/12, median 5
 // (5–6). The explorer and the scripted baseline (which look around, the default) didn't move.
-const RANDOM_DAYS: (number | null)[] = [null, 5, 5, 5, 5, 5, null, null, null, 6, 5, 5];
+// With `compass-heading` (#1868) heading out needs something to keep a heading. The random player packs
+// at random, so without the map and compass it can head out only on a sunny day (or with a needle
+// compass it happens to make), and its picks shift again: random 9/12, median 5 (5–7). The explorer
+// and the scripted baseline (packed with the leader's list, compass included) didn't move.
+const RANDOM_DAYS: (number | null)[] = [5, 5, 6, 5, 5, 5, null, null, 5, null, 7, 5];

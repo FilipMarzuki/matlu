@@ -41,6 +41,7 @@ import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
 import { scavengersOn, protectionWord, LONG_AWAY_HOURS } from '../artificer/camp-scavengers';
 import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
+import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
 import { descriptiveMapOn, describeLand, mapMode, mapNeeds, noCampYet } from '../artificer/descriptive-map';
 import { mapLearningOn, mapSessionOpen, mapUnlockNeedTexts, MAP_DRAW_HOURS } from '../artificer/map-learning';
@@ -201,6 +202,7 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   sling: 'opens hunting: small game (2 materials)',
   bow: 'opens deer hunting, and better hunting odds (3 materials + 2 sinew; sinew comes from small game: traps or sling hunts)',
   hookline: 'opens fishing (1 material)',
+  needlecompass: `a needle compass to keep a heading by (nothing used up): heading out n … nw opens; its pull lasts ${NEEDLE_PULL_DAYS} days, then make it again`,
   storemeat: 'puts the raw meat lying out at camp out of reach of animals: under a stone cache (needs 3 stone) or hung with cord (needs 1 material); nothing used up',
   waterskin: '+1 water per trip',
   bedroll: '+6 clarity overnight',
@@ -484,6 +486,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const where = awayFromCamp(s) ? ` You are out on the land now, about ${Math.round(walkBackHours(s) * 2) / 2}h from camp: tonight you sleep out with no shelter, and any work but exploring or Make camp starts with the walk back.`
       : s.afield ? ' You are out on the land now, away from where you started: walks and directions are from here.' : '';
     lines.push(`EXPLORING: "explore" takes option "way". "here" (the default) looks around: a little of the land in every direction, out to the distance you queue it at, and you stay where you are${s.campSpot ? ' ("camp" instead walks back to camp first and looks around there, when you\'re away from it)' : ''}. n, ne, e, se, s, sw, w, nw heads out that way: you see the land in that 45° slice (about ${HEAD_OUT_HOURS[1]}h out close by, ${HEAD_OUT_HOURS[2]}h at half a day, ${HEAD_OUT_HOURS[3]}h at a day), find the water, wood, stone and camp sites the map has there, learn nothing of the other directions, and end the day out there; the next day starts from there. Heading out needs no ground known first. Looking around once you have headed out sees about ${LOOK_HOURS[1]}/${LOOK_HOURS[2]}/${LOOK_HOURS[3]}h each way.${where}`);
+    // Keeping a heading (#1868, `compass-heading`): what heading out needs, and what the Warden has.
+    const heading = headingLine(s);
+    if (heading) lines.push(heading);
   }
   if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
   // Meat at camp draws animals (#1823, `camp-scavengers`).

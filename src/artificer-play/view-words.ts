@@ -43,6 +43,7 @@ import { hrs } from '../artificer-app/html';
 import { actionName, buildsWords, focusName, isKey, landLines, lockText, optionGroupLabel, optionLabel, ringName, simLine, spotRated, weatherLines, weatherWord } from '../artificer-app/sim-words';
 import { knownSpot, siteRatingCounts } from '../artificer/camp-sites';
 import { buildsAt } from '../artificer/camp-builds';
+import { compassOn, keeperOf, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
 import type { Phase } from './session';
 import { nowLine } from '../artificer-app/time-view';
 
@@ -109,6 +110,14 @@ function journalLines(log: readonly { day: number; text: string }[], mark: strin
   return log.slice(-n).map(l => `- ${mark}${l.day} ${logText(l, t)}`);
 }
 
+/** What keeps the Warden's heading today (#1868, `compass-heading`), after Explore's ways: nothing with the switch off or nothing to keep it. */
+function headingNote(s: Region1State, t: T): string {
+  const k = compassOn(s) ? keeperOf(s) : null;
+  if (!k) return '';
+  if (k === 'compass' || k === 'sun') return ` · ${t(`api.heading.${k}`)}`;
+  return ` · ${t('api.heading.needle', { n: NEEDLE_PULL_DAYS - (s.day - (s.needleCompass?.made ?? s.day)) })}`;
+}
+
 /** One Reach action as a line: what it's called, its hours, what it yields or why it can't be done now, and its id. */
 function actionLines(s: Region1State, t: T): string[] {
   const out: string[] = [];
@@ -134,7 +143,10 @@ function actionLines(s: Region1State, t: T): string[] {
           const b = p ? buildsAt(s, p.id) : [];
           return `${r ? ` (${r})` : ''}${b.length ? ` (${t('campsite.builtThere', { list: buildsWords(b, t) })})` : ''}`;
         };
-        out.push(`    ${optionGroupLabel(g, t)} "${g.key}": ${g.choices.map(c => `"${c.value}" = ${optionLabel(g, c, t)}${rated(c)}`).join(' | ')}`);
+        // A choice that's blocked says why (#1868: heading out with nothing to keep a heading by), and Explore's
+        // ways what keeps the Warden's heading today.
+        const blocked = (c: { blocked: string | null }): string => (g.key === 'way' && c.blocked ? ` (${t('api.blocked', { why: simLine(c.blocked, t) })})` : '');
+        out.push(`    ${optionGroupLabel(g, t)} "${g.key}": ${g.choices.map(c => `"${c.value}" = ${optionLabel(g, c, t)}${rated(c)}${blocked(c)}`).join(' | ')}${g.key === 'way' ? headingNote(s, t) : ''}`);
       }
     }
   }
