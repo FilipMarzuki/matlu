@@ -37,7 +37,7 @@ describe('Forecasts from INT and experience (#1827)', () => {
     expect(cardYield(s, s, 'wood', 2, en, yieldText('wood', s, 2, en))).not.toMatch(noDigits);
     // Known close by: the numbers, as today — in the chooser too, distance by distance.
     expect(taskCard(s, s, 'wood', 1, en)).toBeNull();
-    const opts = distanceOptions(s, 'wood', {}, en, s);
+    const opts = distanceOptions(s, 'wood', {}, en, undefined, s);
     expect(opts.find(o => o.ring === 1)?.yield).toBe(yieldText('wood', s, 1, en));
     expect(opts.find(o => o.ring === 2)?.yield).toBe("you don't know what this will bring");
     expect(taskCard(s, s, 'wood', 2, sv)?.text).toBe('du vet inte vad det här ger');
@@ -198,7 +198,7 @@ describe('Forecasts from INT and experience (#1827)', () => {
       const a = app(s, queue);
       const p = previewQueue(a);
       const card = taskCard(s, p.projected, 'wood', 1, en)!.text;
-      const chooser = distanceOptions(p.projected, 'wood', {}, en, s).find(o => o.ring === 1)!.yield;
+      const chooser = distanceOptions(p.projected, 'wood', {}, en, undefined, s).find(o => o.ring === 1)!.yield;
       const rows = queue.flatMap((q, i) => (q === 'wood' ? [taskCard(s, p.before[i], 'wood', 1, en)!.text] : []));
       expect(paletteBlock(a, p, { dev: false, t: en })).toContain(card);
       return [card, chooser, ...rows];

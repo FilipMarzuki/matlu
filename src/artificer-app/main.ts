@@ -87,7 +87,8 @@ import { itemIcon } from './item-icons';
 import { esc, pct, band, wardenButton } from './html';
 import { weatherRow } from './weather-row';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
-import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, type Preview } from './camp-blocks';
+import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
+import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
@@ -145,11 +146,20 @@ const expanded = new Set<number>();
  */
 let ringPick: ActionId | null = null;
 let ringDefaults = loadRingDefaults();
+/**
+ * The way picked on Explore's compass (#1839, `directed-explore`) while its chooser is open: look
+ * around (here), around camp, or one of the eight ways. Page state, as the chooser is: back to
+ * "look around" whenever the chooser shuts.
+ */
+let exploreWay: Way = 'here';
+/** Every way Explore's compass can pick (#1839). */
+const WAYS: readonly Way[] = ['here', 'camp', ...DIRS];
 
 /** Shut the chooser; with `refocus`, the keyboard goes back to the card it opened from. */
 function closeRingPick(refocus: boolean): void {
   const id = ringPick;
   ringPick = null;
+  exploreWay = 'here';
   render(state);
   if (refocus && id) root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus();
 }
@@ -158,7 +168,7 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay };
 };
 
 // ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
@@ -463,7 +473,7 @@ function queueBlock(a: AppState, preview: Preview): string {
     const needsChoice = groups.some(g => g.value === null);
     const open = groups.length > 0 && (expanded.has(i) || needsChoice);
     // A length left at its usual (#1668) isn't worth a label on the row.
-    const chosen = groups.map(g => { const c = g.choices.find(x => x.value === g.value && x.value !== 'usual' && x.value !== 'none'); return c ? optionLabel(g, c, t) : ''; }).filter(Boolean).join(' · ');
+    const chosen = groups.map(g => { const c = g.choices.find(x => x.value === g.value && x.value !== 'usual' && x.value !== 'none' && !(g.key === 'way' && x.value === 'here')); return c ? optionLabel(g, c, t) : ''; }).filter(Boolean).join(' · ');
     const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="${esc(t('queue.options'))}">${open ? '▾' : '▸'}</button>` : '';
     const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(optionGroupLabel(g, t).toUpperCase())}</span><div class="optchoices">${g.choices.map(c => {
       const note = choiceNote(preview.before[i], g, c, t);
@@ -2189,18 +2199,27 @@ root.addEventListener('click', e => {
   // preselected distance takes the keyboard's focus, so Enter queues it there.
   else if (d.chooser) {
     ringPick = ringPick === d.chooser ? null : d.chooser as ActionId;
+    exploreWay = 'here';
     render(state);
     root.querySelector<HTMLElement>(ringPick ? '.ringpick .rpopt.on:not([disabled])' : `[data-chooser="${d.chooser}"]`)?.focus();
   }
   else if (d.cmd === 'ringclose') closeRingPick(true);
+  // Explore's compass (#1839): a way picked (tapped again, back to looking around); the distances then queue that way.
+  else if (d.way && (WAYS as readonly string[]).includes(d.way)) {
+    exploreWay = exploreWay === d.way ? 'here' : d.way as Way;
+    render(state);
+    root.querySelector<HTMLElement>(`.compass [data-way="${exploreWay}"]`)?.focus();
+  }
   // A distance chosen: remembered for this action and Warden, then queued there, or (before
   // planning is learned, #1350) done now, as any tap on an action.
   else if (d.ringpick) {
-    const q = d.ringpick as QueueId;
     const id = d.pickfor as ActionId;
+    // Explore that way (#1839): the entry carries its way, as a queued action's options do.
+    const q = distanceItem({ q: d.ringpick as QueueId, way: d.pickway as Way | undefined });
     ringDefaults = rememberRing(ringDefaults, state.sim.character.id, id, Number(d.pickring) as Ring);
     saveRingDefaults(ringDefaults);
     ringPick = null;
+    exploreWay = 'here';
     if (state.sim.canPlan) { update(enqueue(state, q)); root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus(); }
     else playOut([playAct(state, q)], () => ({ do: q }));
   }

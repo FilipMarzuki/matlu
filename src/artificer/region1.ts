@@ -57,6 +57,7 @@ import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './buil
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
+import { wayOf, wayOptions, isHeading, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp } from './directed-explore';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
 import { hasLength, chosenLength, planTrips, patchesOf, patchKey, abundance, patchWord, recoverPatches, ACTION_PATCHES, MAIN, HOUR_CHOICES, UNTIL_CHOICES, STEP, MIN_WORK, type LengthAction, type PatchId, type Patches, type TripPlan } from './action-length';
 
@@ -259,6 +260,18 @@ export interface Region1State {
    * switch on. Absent: camp is a site kind alone, as before.
    */
   campSpot?: CampSpotState;
+  /**
+   * Where the Warden stands when it isn't camp (#1839, `directed-explore`): the Reach square they
+   * headed out to (directed-explore.ts). Absent: at camp, or (before camp) at the start. Written only
+   * by heading out, so only with the switch on; cleared by the walk back and by Make camp.
+   */
+  afield?: { x: number; y: number };
+  /**
+   * The Reach squares seen by heading out, or by looking around away from camp (#1839), as sorted
+   * indices: the rings' knowledge has no direction, so what one direction shows is kept by square.
+   * Written only with the switch on. Absent: none.
+   */
+  seenOut?: number[];
   /**
    * The map-drawing session is done (#1754, `map-learning`): you've placed what you found, and your
    * own map is drawn (descriptive-map.ts `canDrawMap`). Written only by the Draw your map action, so
@@ -542,7 +555,8 @@ function shelterFactor(s: Region1State): number {
  * `built-warmth` (#1763) the site gives a head start instead of a ceiling (built-warmth.ts).
  */
 export function warmth(s: Region1State): number {
-  if (!s.site) return 0;
+  // A night out on the land away from camp (#1839, `directed-explore`): under the sky, no shelter.
+  if (!s.site || awayFromCamp(s)) return 0;
   if (builtWarmthOn(s)) return builtWarmth(s, GRADE_WARMTH, SHELTER_PIN_WARMTH);
   return Math.min(1, SITES[s.site].warmth * shelterFactor(s) * GRADE_WARMTH[s.shelterGrade ?? 'sound'] + (s.shelter.sited && s.tier > 0 ? SHELTER_PIN_WARMTH : 0));
 }
@@ -1480,6 +1494,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const spot = chosenSpot(s, o);
       // The cold pit's food comes with you unless the entry says `pitFood: 'leave'` (#1753).
       if (spot) moveCamp(s, spot.kind, spot.id, pitFoodOf(o));
+      // Wherever you walked from (#1839), you're at camp now.
+      if (spot) backAtCamp(s);
       return '';
     },
   },
@@ -1605,10 +1621,22 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   // Learning your actions as you go (#1689): the one exploring action a new Warden has.
   explore: {
     name: 'Explore', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true,
-    gate: (s, r) => skillLockOf(s, 'explore') ?? reach(s, r),
-    run: (s, _b, r, _o, light) => {
+    // Heading out one way (#1839, `directed-explore`) goes where the land takes you: no need to know the ground inside first.
+    gate: (s, r, o) => skillLockOf(s, 'explore') ?? (isHeading(wayOf(s, o)) ? null : reach(s, r)),
+    // Look around, or head out one of eight ways (#1839): no choice at all with the switch off.
+    options: (s, o) => wayOptions(s, o),
+    run: (s, _b, r, o, light) => {
       if (tooDarkToSee('explore', light)) return tooDark(r);
       if (blindInFog(s.weatherToday, 'explore')) return fogged(r);
+      // Heading out (#1839): the land that way, and you end the day out there. Its lines in order, the last one returned.
+      const way = wayOf(s, o);
+      if (isHeading(way)) {
+        const lines = headOut(s, way, r);
+        for (const l of lines.slice(0, -1)) say(s, l, 'action');
+        return lines[lines.length - 1];
+      }
+      // Away from camp (or, before camp, from the start), looking around sees the land where you stand.
+      if (way === 'here' && s.afield) return lookHere(s, r);
       const first = !scouted(s.explore, r);
       s.explore = exploreRing(s.explore, r);
       if (first) {
@@ -1759,6 +1787,22 @@ function craftHours(s: Region1State, recipe: CraftRecipe): number {
   return recipe.timeBase * modifiersFor(s.tools, 'craft').timeMult * injuryCost(s.injuries, 'hand') * PAIN_HOURS[painOf(s)];
 }
 
+/**
+ * The walk back to camp from out on the land (#1839): its hours, and the walk's pull on Vigor and
+ * Clarity at the travel rates. You're at camp after it. Mutates `next`; returns the hours.
+ */
+function walkBack(next: Region1State): number {
+  const h = walkBackHours(next);
+  const w = applyActivity(next.vitals, { hours: h, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
+  next.vitals = w.vitals;
+  next.today.loadVigor += w.loadVigor;
+  next.today.loadClarity += w.loadClarity;
+  next.hoursToday += h;
+  backAtCamp(next);
+  say(next, walkBackLine(h), 'action');
+  return h;
+}
+
 /** Building somewhere new moves camp first — and pitches the tarp, if one's packed (#1400). Mutates `next`. */
 function moveForBuild(next: Region1State, opts: ActionOpts): void {
   const plan = planBuild(next, opts);
@@ -1778,6 +1822,13 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
   if (!s) return (def.recipe ? def.recipe.timeBase : def.variant?.(opts, s, ring).hours ?? def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+  // Away from camp (#1839), the walk back comes first: the plan's hours are the work's and the walk's.
+  if (walksBackFirst(s, id, opts)) {
+    const back = walkBackHours(s);
+    const home = clone(s);
+    backAtCamp(home);
+    return back + queueHours(item, home);
+  }
   let at = s;
   if (id === 'build' && planBuild(s, opts).moving) { at = clone(s); moveForBuild(at, opts); }
   const recipe = def.recipeFor?.(at, opts) ?? def.recipe;
@@ -2308,6 +2359,12 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const def = ACTIONS[id];
   const refused = blockedReason(next, id, ring, opts);
   if (refused) { say(next, `${def.name}${where(ring)}: skipped — ${refused}.`, 'skip'); return next; }
+  // Away from camp (#1839, `directed-explore`), the work starts with the walk back to camp; a stop is
+  // still counted from the start of the action's own plan, so it comes off the walk first.
+  if (walksBackFirst(next, id, opts)) {
+    const back = walkBack(next);
+    if (stop !== undefined) stop = Math.max(0, stop - back);
+  }
   // Building somewhere new moves camp first; the build then starts there from scratch.
   if (id === 'build') moveForBuild(next, opts);
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;

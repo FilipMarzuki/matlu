@@ -25,6 +25,7 @@ import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '..
 import { FORECASTS } from '../artificer/forecasts';
 import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
+import { validAfield, validSeenOut, DIRECTED_EXPLORE } from '../artificer/directed-explore';
 import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
 import { validSiteBuilds, CAMP_BUILDS_PER_SITE } from '../artificer/camp-builds';
 import { validPatches } from '../artificer/action-length';
@@ -654,5 +655,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // dropped record reads as a save from before it, whose builds are the current camp's.
   const siteBuilds = campSpot && featureOn(config.world.features, CAMP_BUILDS_PER_SITE) && validSiteBuilds(sim.siteBuilds) && Object.keys(sim.siteBuilds).length
     ? JSON.parse(JSON.stringify(sim.siteBuilds)) as Region1State['siteBuilds'] : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Where you stand out on the land, and the squares seen heading out (#1839): kept if well-formed and
+  // the switch is on, else dropped — dropped, you're at camp (or the start) and know the land by its rings.
+  const directed = featureOn(config.world.features, DIRECTED_EXPLORE);
+  const afield = directed && validAfield(sim.afield) ? { x: sim.afield.x, y: sim.afield.y } : undefined;
+  const seenOut = directed && validSeenOut(sim.seenOut) && sim.seenOut.length ? [...sim.seenOut] : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, mapLearned, afield, seenOut, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }
