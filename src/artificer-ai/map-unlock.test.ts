@@ -103,4 +103,8 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6];
 // With `walk-the-map` (#1876) a trip walks to a real square and back, often hours where close by was
 // none, so the random player (which packs and picks at random) runs short of water and light more and
 // dies sooner on more seeds: random 4/12, median 5 (5–5), still in the target.
-const RANDOM_DAYS: (number | null)[] = [5, 5, null, 5, null, 5, null, null, null, null, 5, null];
+// With the seeded Fisher–Yates pack shuffle (#1877) in place of `sort(() => rand() - 0.5)`, the
+// random player's pack order no longer depends on the engine's sort, and it takes fewer draws (one
+// per item instead of one per comparison), so each seed packs, and so plays, differently: re-pinned
+// as measured, random 6/12, median 5 (5–5), still in the target. Rules, explorer and scripted unchanged.
+const RANDOM_DAYS: (number | null)[] = [5, 5, null, 5, 5, null, 5, null, null, null, 5, 5];

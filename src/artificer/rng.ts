@@ -34,16 +34,26 @@ export function generator(seed: number): () => number {
   };
 }
 
-/** A seeded shuffle (Fisher–Yates) of a copy. */
-export function shuffled<T>(items: readonly T[], seed: number): T[] {
+/**
+ * A Fisher–Yates shuffle of a copy, drawing from `rand` (#1877): one draw per position, from the
+ * end down, so the same generator in the same state always gives the same order.
+ *
+ * Use this, never `sort(() => rand() - 0.5)`. A comparator that answers at random breaks sort's
+ * contract, so the order it gives depends on the engine's sort algorithm (and how many times it
+ * calls the comparator): V8 is consistent today, but another engine or a future V8 could shuffle
+ * the same seed differently. Fisher–Yates is also unbiased, which the sort trick isn't.
+ */
+export function shuffledBy<T>(items: readonly T[], rand: () => number): T[] {
   const out = [...items];
-  const r = generator(seed);
   for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(r() * (i + 1));
+    const j = Math.floor(rand() * (i + 1));
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
 }
+
+/** A seeded shuffle (Fisher–Yates) of a copy, from a fresh generator on `seed`. */
+export const shuffled = <T>(items: readonly T[], seed: number): T[] => shuffledBy(items, generator(seed));
 
 /** A generator for one purpose (`salt`) on one day — the same every time for the same seed. */
 export const streamFor = (seed: number, day: number, salt: string): (() => number) => generator(seedOf(`${seed}|${day}|${salt}`));
