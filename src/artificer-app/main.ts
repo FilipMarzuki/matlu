@@ -63,6 +63,7 @@ import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue,
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
+import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
 import { drawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
@@ -176,6 +177,8 @@ const paletteOpts = (s: AppState['sim']) => {
 // and an Explore button that goes to PLAN with Explore highlighted and its chooser open. The page's
 // own state, like the chooser's: nothing in the save.
 const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
+/** Finds as you explore (#1869, explore-finds.ts): a ui feature, on unless switched off in the features panel. */
+const findsOn = (): boolean => uiFeatureOn(loadChoices(), FINDS_FEATURE);
 /** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
 const startClaimed = new Set<string>();
 /** This run started on LAND: claimed now, or on an earlier visit. */
@@ -405,7 +408,9 @@ function journal(a: AppState, limit: number): string {
   // A land trip's line links to its ring on the LAND tab (#1730).
   // The first day's look around (#1754) is followed by what lay where that morning.
   const seeLand = (l: { text: string }): string => { const r = tripRing(l.text); return r ? ` ${seeLandLink(r, t)}` : lookAroundLand(a.sim, l, t); };
-  return journalItems(withCampLine(a.sim.log), limit, 'D', t, seeLand) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
+  // Each land trip's finds as one line after it (#1869, `explore-finds`): this browser's, by the trip's place in the log.
+  const log = findsOn() ? withTripLines(a.sim.log, storedTrips(a.sim.character.id), t) : a.sim.log;
+  return journalItems(withCampLine(log), limit, 'D', t, seeLand) || `<li style="color:var(--faint);font-style:italic">${esc(firstJournalLine(a.sim, t))}</li>`;
 }
 
 /**
@@ -1137,7 +1142,7 @@ function drawPage(a: AppState): void {
   // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
   if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
   if (playing) {
-    tickTimer(playing);
+    tickTimer(playing, performance.now());
     // The newest line in view: lines arrive at the bottom of the timer's list.
     const lines = root.querySelector<HTMLElement>('.timer .tlog');
     if (lines) lines.scrollTop = lines.scrollHeight;
@@ -1625,6 +1630,12 @@ interface Playing {
   lock: WakeLockHandle | null;
   /** The run's log as the day playing began, before its move went in: a stop (#1815) writes its own move in that one's place. */
   keptBefore: Kept | null;
+  /** What each step of the day playing turned up, if it was a land trip (#1869, explore-finds.ts); all null with the switch off. */
+  finds: (TripFinds | null)[];
+  /** When (real ms) each step finished, so its finds come one at a time after it. */
+  doneAt: number[];
+  /** How many find lines the timer's log last showed, so it's redrawn only when another arrives. */
+  shown: number;
 }
 let playing: Playing | null = null;
 
@@ -1644,7 +1655,7 @@ function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
     render(state);
     return;
   }
-  const pl: Playing = { plays, moveOf, day: 0, t: 0, last: null, frame: 0, drawn: -1, lock: null, keptBefore: kept };
+  const pl: Playing = { plays, moveOf, day: 0, t: 0, last: null, frame: 0, drawn: -1, lock: null, keptBefore: kept, finds: [], doneAt: [], shown: 0 };
   playing = pl;
   startDay(pl);
   void holdScreen(pl);
@@ -1661,7 +1672,28 @@ function startDay(pl: Playing): void {
   keep(p.after);
   pl.t = 0;
   pl.drawn = -1;
+  startFinds(pl);
 }
+
+/** A day's finds (#1869): worked out from its steps, and kept for the journal at once, so Skip or leaving keeps them too. */
+function startFinds(pl: Playing, done = 0): void {
+  const p = pl.plays[pl.day];
+  pl.finds = playFinds(p, findsOn());
+  // Steps already shown (a stop, #1815, plays the day again from where it was) show their finds whole.
+  pl.doneAt = Array.from({ length: done }, () => -Infinity);
+  pl.shown = 0;
+  if (pl.finds.some(Boolean)) storeTrips(p.before.sim.character.id, p, pl.finds);
+}
+
+/** How many of step `i`'s finds have shown by now: the first as it finishes, then one each `FIND_MS`. */
+const findsNow = (pl: Playing, i: number, now: number): number => (pl.doneAt[i] === undefined ? 0 : findsShown(findCount(pl.finds[i] ?? null), now - pl.doneAt[i]));
+/** Finds still to come (or the last just shown, still being read): the timer waits for them before the day ends. */
+const findsPending = (pl: Playing, now: number): boolean =>
+  pl.finds.some((f, i) => f && pl.doneAt[i] !== undefined && now - pl.doneAt[i] < (findCount(f) - 1) * FIND_MS + FIND_LINGER_MS);
+/** How long the last find stays on the timer before the day's end takes it away (real ms). */
+const FIND_LINGER_MS = 1500;
+/** Every find line showing now, across the day's steps. */
+const findsTotal = (pl: Playing, now: number): number => pl.finds.reduce((n, _f, i) => n + findsNow(pl, i, now), 0);
 
 /**
  * Stop (#1815, `stop-action`): the action running ends now. The day is played again from its
@@ -1688,6 +1720,7 @@ function stopTimer(): void {
   pl.moveOf = () => move;
   pl.t = playTimeAt(cut, stop.action, m.frac * p.steps[stop.action].hours);
   pl.drawn = -1;
+  startFinds(pl, stop.action);
   render(state);
 }
 
@@ -1696,7 +1729,10 @@ function frame(pl: Playing, now: number): void {
   if (pl.last !== null) pl.t += ((now - pl.last) * speed) / MS_PER_HOUR;
   pl.last = now;
   let m = momentOf(pl);
-  if (m.over) {
+  // Each step that's finished starts its finds' clock (#1869).
+  for (let i = 0; i < m.done; i++) if (pl.doneAt[i] === undefined) pl.doneAt[i] = now;
+  // The finds still coming hold the day's end, so the last of them can be read.
+  if (m.over && !findsPending(pl, now)) {
     if (pl.day + 1 >= pl.plays.length) { endTimer(); return; }
     pl.day += 1;
     startDay(pl);
@@ -1704,7 +1740,7 @@ function frame(pl: Playing, now: number): void {
   }
   // A step finished (or the night came): the page catches up, and its lines arrive.
   if (m.index !== pl.drawn) { pl.drawn = m.index; render(state); }
-  else tickTimer(pl);
+  else tickTimer(pl, now);
   pl.frame = requestAnimationFrame(t => frame(pl, t));
 }
 
@@ -1752,7 +1788,6 @@ function timerPanel(): string {
   const p = pl.plays[pl.day];
   const m = momentOf(pl);
   const night = m.index >= p.steps.length;
-  const lines = linesAt(p, m.done, night);
   const days = pl.plays.length > 1 ? t('timer.days', { n: pl.day + 1, total: pl.plays.length }) : '';
   return `<section class="timer${night ? ' night' : ''}" aria-label="${esc(t('timer.label'))}">
     <div class="trow"><span class="tday">${esc(t('timer.day', { n: p.before.sim.day }) + days)}</span><span class="tclock" id="pb-clock">${esc(timerClock(p.before.sim, m.clock, t, dev))}</span>
@@ -1761,14 +1796,52 @@ function timerPanel(): string {
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
     <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span>${stopPoint(p, m) ? `<button class="btn tstop" data-pbstop title="${esc(t('timer.stopTip'))}">${esc(t('timer.stop'))}</button>` : ''}</div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div>
-    <ul class="tlog" aria-live="polite">${lines.length ? lines.map(l => `<li class="${logClass(l)}">${esc(logText(l, t))}</li>`).join('') : '<li class="wait">…</li>'}</ul>
+    <ul class="tlog" id="pb-log" aria-live="polite">${timerLog(pl, performance.now())}</ul>
   </section>`;
 }
 
-/** Each frame: the clock, the bars and the trip's leg, without redrawing the page. */
-function tickTimer(pl: Playing): void {
+/**
+ * The timer's log: the day's journal lines as each step finishes and, a land trip's, its finds one
+ * at a time after them (#1869). With the switch off there are no finds, and it's the lines as before.
+ */
+function timerLog(pl: Playing, now: number): string {
   const p = pl.plays[pl.day];
   const m = momentOf(pl);
+  const night = m.index >= p.steps.length;
+  pl.shown = findsTotal(pl, now);
+  const lines = pl.finds.some(Boolean) ? timerLines(p, m.done, night, pl.finds, i => findsNow(pl, i, now), t) : linesAt(p, m.done, night).map(log => ({ log }));
+  return lines.length
+    ? lines.map(l => ('log' in l ? `<li class="${logClass(l.log)}">${esc(logText(l.log, t))}</li>` : `<li class="find">${esc(l.find)}</li>`)).join('')
+    : '<li class="wait">…</li>';
+}
+
+/** The timer's log redrawn: lines that are already there stay put (so they don't fade in again), and only the new ones are added. */
+function patchLog(el: HTMLElement, html: string): void {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const next = [...tpl.content.children];
+  const cur = [...el.children];
+  if (cur.length <= next.length && cur.every((c, i) => c.outerHTML === next[i].outerHTML)) for (const n of next.slice(cur.length)) el.appendChild(n);
+  else el.innerHTML = html;
+}
+
+/** Keep the newest line of the timer's log in view. */
+function scrollTimerLog(): void {
+  const log = document.getElementById('pb-log');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+
+/** Each frame: the clock, the bars and the trip's leg, without redrawing the page. */
+function tickTimer(pl: Playing, now: number): void {
+  const p = pl.plays[pl.day];
+  const m = momentOf(pl);
+  // The day has played out and waits for its last finds (#1869): nothing left to stop.
+  if (m.over) document.querySelector('[data-pbstop]')?.remove();
+  // Another find has come (#1869): only the log is redrawn.
+  if (findsTotal(pl, now) !== pl.shown) {
+    const log = document.getElementById('pb-log');
+    if (log) { patchLog(log, timerLog(pl, now)); scrollTimerLog(); }
+  }
   const clock = document.getElementById('pb-clock');
   if (clock) clock.textContent = timerClock(p.before.sim, m.clock, t, dev);
   const bar = document.getElementById('pb-bar');
