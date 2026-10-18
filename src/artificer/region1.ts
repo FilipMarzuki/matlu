@@ -2369,6 +2369,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   if (id === 'build') moveForBuild(next, opts);
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
   // Done once more (#1827, `forecasts`): the task at this distance, or a try at this recipe. A count, no dice.
+  // A task stopped partway still counts (the owner): you were out there and saw what it brings, as a failed craft does.
   if (forecastsOn(next)) noteFamiliar(next, recipe ? craftKey(recipe.id) : taskKey(id, def.ringed ? ring : 1));
   // An heirloom's maker teaches the first time it's leaned on (#1456) — out on the land, and at the bench
   // or building too (#1469): crafts and builds go to runCraft below, so the lesson lands first.

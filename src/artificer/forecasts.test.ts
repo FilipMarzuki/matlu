@@ -190,6 +190,17 @@ describe('Forecasts from INT and experience (#1827)', () => {
     expect(on.familiar).toEqual({ 'wood@1': 1, 'water@2': 1, 'craft:stone-knife': 1, 'gather@1': 1, 'rest@1': 1 });
   });
 
+  it('9. Given a task stopped partway (Stop, #1815), Then it still counts as one try: the owner\'s call, as a failed craft does', () => {
+    const s = warden(10);
+    const whole = runAction(s, queueId('wood', 2));
+    const stopped = runAction(s, queueId('wood', 2), 0.5);
+    // It was stopped: it took less of the day than the whole trip did.
+    expect(stopped.hoursToday).toBeLessThan(whole.hoursToday);
+    // Still one try at that distance, the same as finishing it.
+    expect(familiarity(stopped, taskKey('wood', 2))).toBe(1);
+    expect(familiarity(whole, taskKey('wood', 2))).toBe(1);
+  });
+
   it('8. Given a fixed run and day, Then a task card\'s word is the same whether the queue is empty, holds other tasks, or holds the task in another slot; a different day may give another word', () => {
     const fam = { [taskKey('wood', 1)]: 1, [taskKey('water', 1)]: 1, [taskKey('gather', 1)]: 1 };
     const queues: QueueItem[][] = [[], ['water', 'gather'], ['wood', 'water'], ['water', 'gather', 'wood'], ['gather', 'wood', 'water', 'wood']];
