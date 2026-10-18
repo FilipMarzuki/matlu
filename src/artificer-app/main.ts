@@ -46,7 +46,7 @@ import { cleanQuestion } from '../artificer-play/questions';
 import { FEATURES, experimentalOn, featuresOf, ruleFeatures, uiFeatureOn, featureOn } from '../artificer/features';
 import { grownStats } from '../artificer/growing';
 import { weekOfId, shortWeek } from '../artificer-play/weekly';
-import { newLog, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
+import { newLog, webStart, recordMove, runOver, claimOf, markDev, submitBody, WEB_LOG_VERSION, type Recorder, type WebMove, type WebStart } from '../artificer-play/web-log';
 import { runOf } from '../artificer-play/record-of';
 import { achievementsOf, type Achievement } from '../artificer-play/achievements';
 import type { RunSummary } from '../artificer-play/records';
@@ -1576,8 +1576,7 @@ const logFor = (a: AppState): Kept | null => (kept && kept.log.start.id === a.si
  * because the server can check them against no other.
  */
 function startLog(a: AppState, spec: Omit<WebStart, 'id' | 'features' | 'heirlooms' | 'heirloomsFrom'>, heirlooms: Tool[] | null, heirloomsFrom: string | null = null): void {
-  const start: WebStart = { id: a.sim.character.id, ...spec, features: { ...(a.sim.config.world.features ?? {}) }, heirlooms, ...(heirlooms?.length && heirloomsFrom ? { heirloomsFrom } : {}) };
-  kept = { log: newLog(start), measures: {} };
+  kept = { log: newLog(webStart(a, spec, heirlooms, heirloomsFrom)), measures: {} };
   noteDevRun(a);
   saveKept();
 }

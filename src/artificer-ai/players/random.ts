@@ -17,6 +17,7 @@
 
 import { offeredKit, PACK_CAPACITY, PACK_VOLUME, packWeight, autoOutside, fitProblem, carryLimit, type KitId } from '../../artificer/kit';
 import { featureOn, type FeatureSwitches } from '../../artificer/features';
+import { shuffledBy } from '../../artificer/rng';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import { shown } from '../../artificer/action-visibility';
@@ -35,8 +36,10 @@ const PACK_SALT = 7919;
 
 /**
  * A random pack that fits (#1401): the list in a random order, each item taken half the time if it
- * still fits. The list is the run's (#1870): `features` are its world's switches, and without the
- * hand axe and fishing kit's switch the list (and so the shuffle, and the pack) is the one it always was.
+ * still fits. The list is the run's (#1870): `features` are its world's switches, so a switch that
+ * adds or removes kit changes the list, and so the shuffle and the pack. The order is a seeded
+ * Fisher–Yates shuffle (#1877, rng.ts shuffledBy), not `sort(() => rand() - 0.5)`, whose order
+ * depends on the engine's sort algorithm.
  * Within `limit` kg either way: this Warden's carry weight (#1872, kit.ts carryLimit), 9 kg unless
  * the run says otherwise. So with `pack-volume` on (#1871) the random Warden is never slowed by a
  * heavy pack; there it must also close, with the default straps. The draws are the same either way
@@ -45,7 +48,7 @@ const PACK_SALT = 7919;
  */
 export function randomPack(rand: () => number, features?: FeatureSwitches, limit: number = PACK_CAPACITY): KitId[] {
   const volume = featureOn(features, PACK_VOLUME);
-  const order = offeredKit(features).map(k => k.id).sort(() => rand() - 0.5);
+  const order = shuffledBy(offeredKit(features).map(k => k.id), rand);
   const pack: KitId[] = [];
   for (const id of order) {
     if (!(rand() < 0.5 && packWeight([...pack, id]) <= limit)) continue;
