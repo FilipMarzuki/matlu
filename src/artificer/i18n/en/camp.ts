@@ -43,6 +43,8 @@ export const camp = {
   'act.traps': 'Set traps',
   // Storing the meat out of animals' reach (#1823, `camp-scavengers`).
   'act.storemeat': 'Store the meat',
+  // Banking the fire to guard the meat while you're away (#1865, `banked-fire`).
+  'act.bankfire': 'Bank the fire',
   // Keeping a heading by a needle compass (#1868, `compass-heading`).
   'act.needlecompass': 'Make a needle compass',
   'act.preserve': 'Preserve food',
@@ -251,6 +253,7 @@ export const camp = {
   'yield.bow': 'hunt deer too, and better odds · 3 mat + 2 sinew',
   'yield.hookline': 'fish through the ice · 1 mat',
   'yield.storemeat': 'out of reach of animals: under a stone cache (3 stone) or hung with cord (1 mat) · nothing used up',
+  'yield.bankfire': 'smoulders about 12h while you\'re away, keeping animals off the meat · 3 firewood',
   'yield.needlecompass': 'keeps a heading, to head out by · a needle or a hook, nothing used up · its pull lasts a week',
   'yield.waterskin': '+1 water per trip · takes a hide',
   'yield.bedroll': '+6 clarity overnight',
@@ -287,6 +290,9 @@ export const camp = {
   'reason.needSinew': 'you need sinew — trap or hunt small game first',
   'reason.noMeatOut': 'no raw meat lying out to store',
   'reason.storeMeatNeeds': 'needs 1 materials for cord, or 3 stone for a cache',
+  'reason.noMeatToGuard': 'no raw meat lying out to guard',
+  'reason.fireBanked': 'the fire is already banked',
+  'reason.bankFirewood': 'needs {n} firewood to bank the fire (have {m})',
   'reason.unknownRecipe': "you haven't worked out how to make a {recipe} yet",
   'reason.haveTool': 'you already have a {grade} {recipe}',
   'reason.bench': 'needs a tier-{n} bench (yours is tier {m})',
@@ -402,6 +408,8 @@ export const camp = {
   'meat.open': "{n} raw meat lies in camp — while you're away: {away} · tonight ({guards}): {night}",
   'meat.asleep': 'asleep',
   'meat.asleepFire': 'asleep, a fire',
+  // A banked fire at camp (#1865, `banked-fire`): while it smoulders, the meat's away word counts it too.
+  'meat.banked': 'A banked fire smoulders in camp.',
   'meat.hung': '{n} raw meat hangs out of reach (hung with cord): {word}',
   'meat.cache': '{n} raw meat lies under a stone cache, out of reach: {word}',
   'meat.prot.open': 'lies open',

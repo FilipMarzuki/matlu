@@ -15,7 +15,7 @@ import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibil
 import { hasKit } from '../artificer/kit';
 import { huntingGearOn } from '../artificer/hunting-gear';
 import { scavengersOn, protectionOf } from '../artificer/camp-scavengers';
-import { meatOf, openMeatOf, storedMeatOf, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { bankedNow, awayGuards, openMeatOf, storedMeatOf, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
 import { yieldAmounts } from './yield-amounts';
 import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
@@ -52,7 +52,7 @@ export type Preview = ReturnType<typeof previewQueue>;
 /** The action palette's groups: `key` names the heading in the catalog (`group.*`). */
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout', 'needlecompass'] },
-  { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat'] },
+  { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat', 'bankfire'] },
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
@@ -63,7 +63,7 @@ export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
-  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', needlecompass: '🪡',
+  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', bankfire: '🔥', needlecompass: '🪡',
 };
 
 /**
@@ -507,15 +507,17 @@ export function coldBlock(s: Sim, t: T): string {
 /**
  * The meat at camp (#1823, `camp-scavengers`) and how well it's protected, in #1859's words: the
  * meat lying out (while you're away, and tonight, asleep and with a fire if one will burn) and the
- * meat stored. Empty with the switch off or no raw meat at camp.
+ * meat stored. A banked fire (#1865, `banked-fire`) says it smoulders, and counts as the guard while
+ * you're away. Empty with the switch off, or no raw meat at camp and no banked fire.
  */
 export function meatBlock(s: Sim, t: T): string {
-  if (!scavengersOn(s) || meatOf(s) <= 0) return '';
-  const lines: string[] = [];
+  if (!scavengersOn(s)) return '';
+  const banked = bankedNow(s);
+  const lines: string[] = banked ? [t('meat.banked')] : [];
   const open = openMeatOf(s), stored = storedMeatOf(s);
   if (open > 0) {
     const fire = fireTonight(s);
-    lines.push(t('meat.open', { n: open, away: t(`meat.prot.${protectionOf([])}`), guards: t(fire ? 'meat.asleepFire' : 'meat.asleep'), night: t(`meat.prot.${protectionOf(nightGuards(fire))}`) }));
+    lines.push(t('meat.open', { n: open, away: t(`meat.prot.${protectionOf(awayGuards(banked))}`), guards: t(fire ? 'meat.asleepFire' : 'meat.asleep'), night: t(`meat.prot.${protectionOf(nightGuards(fire))}`) }));
   }
   if (stored > 0 && s.meatStored) lines.push(t(s.meatStored.place === 'cache' ? 'meat.cache' : 'meat.hung', { n: stored, word: t(`meat.prot.${protectionOf([placeGuard(s.meatStored.place)])}`) }));
   return lines.map(l => `<p class="mood" style="margin:4px 0 0">${esc(l)}</p>`).join('');

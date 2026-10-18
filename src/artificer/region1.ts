@@ -53,7 +53,7 @@ import { featureOn } from './features';
 import { forecastsOn, noteFamiliar, craftKey, taskKey } from './forecasts';
 import { cutTrips, killMoment, stopKindOf, type Cut, type DayStop } from './stop-action';
 import { huntingGearOn, huntScore, huntOdds, trapFortune, huntOnFortune, CATCH_CHANCE, HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK, BOW_LEVEL, SLING, BOW, HOOK_LINE, SINEW_SMALL, SINEW_DEER, BOW_SINEW, NEED_SINEW, sinewNote, type HuntOdds, type HuntTool } from './hunting-gear';
-import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, type Guard, type MeatPlace } from './camp-scavengers';
+import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedScavengers, storedTheftLine, awayScavengers, LONG_AWAY_HOURS, DAY_BASE, NIGHT_BASE, BIG_CLARITY, MEAT_PLACES, STORE_MEAT_HOURS, bankedFireOn, bankedFireDraw, bankLine, fireOutLine, burntDownLine, BANK_FIREWOOD, BANK_HOURS, BANK_WORK_HOURS, FIRE_OUT, type Guard, type MeatPlace } from './camp-scavengers';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
@@ -219,6 +219,13 @@ export interface Region1State {
    * first. Meat brought in afterwards lies out until it's stored too. Making camp elsewhere drops it.
    */
   meatStored?: { n: number; place: MeatPlace };
+  /**
+   * A banked fire at camp (#1865, `banked-fire`): the day it was banked and the hour of that day
+   * (`hoursToday`) it smoulders until. Read through `bankedNow`, so a mark from an earlier day, or a
+   * fire that has burned down, counts for nothing. Written only with the switch on; cleared at night
+   * (the night's own fire takes over) and when camp moves.
+   */
+  banked?: { day: number; until: number };
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -706,6 +713,8 @@ export type ActionId =
   | 'traps' | 'sling' | 'bow' | 'hookline'
   // Storing the meat out of reach of animals (#1823): only with the `camp-scavengers` switch on.
   | 'storemeat'
+  // Banking the fire to guard the meat while you're away (#1865): only with the `banked-fire` switch on.
+  | 'bankfire'
   // Making a needle compass to keep a heading by (#1868): only with the `compass-heading` switch on.
   | 'needlecompass';
 
@@ -807,6 +816,14 @@ function takeMeat(s: Region1State, n: number, fromStores: boolean): void {
 export const fireTonight = (s: Region1State): boolean => s.stores.firewood > 0 && s.stores.firewood >= nightFuel(s);
 /** The guards on the meat lying out tonight (#1823, #1859): you asleep at camp, and a fire if one burns. */
 export const nightGuards = (fire: boolean): Guard[] => (fire ? ['asleep', 'fire'] : ['asleep']);
+/**
+ * Whether a banked fire smoulders at camp right now (#1865, `banked-fire`): banked today and not yet
+ * burned down (nor put out: then the mark is gone). False with the switch off.
+ */
+export const bankedNow = (s: Pick<Region1State, 'banked' | 'day' | 'hoursToday' | 'config'>): boolean =>
+  bankedFireOn(s) && !!s.banked && s.banked.day === s.day && s.hoursToday < s.banked.until;
+/** The guards on the meat lying out while you're away (#1865): a banked fire if one smoulders, else none. */
+export const awayGuards = (banked: boolean): Guard[] => (banked ? ['fire'] : []);
 /** The guard where the stored meat is (#1859): each place is a row of the table. */
 export const placeGuard = (place: MeatPlace): Guard => place;
 /** The best place camp has the makings for, to store the meat (#1823): MEAT_PLACES is best first. */
@@ -824,6 +841,27 @@ function scavenge(next: Region1State, open: number, rand: () => number, guards: 
   say(next, theftLine(theft, night), 'hardship', at);
   // A big animal in camp at night (#1823): a frightening encounter, though nobody is hurt.
   if (theft.big) next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - BIG_CLARITY) } };
+}
+/**
+ * Whether the fire banked when the trip set out (`s`) still smoulders when it's back (`next`), #1865.
+ * Heavy wet weather may put it out (FIRE_OUT, a draw from its own stream keyed on the hour the trip
+ * set out, so it never moves the meat's away roll); and a trip that runs past the banking's hours
+ * comes back to cold ashes. Either way the fire is gone (the mark cleared) and the journal says so.
+ * With luck off (the flat world) the weather never puts it out. Mutates `next`.
+ */
+function fireLasted(next: Region1State, s: Region1State, at?: LogEntry['at']): boolean {
+  const chance = FIRE_OUT[next.weatherToday] ?? 0;
+  if (chance > 0 && next.config.world.luck !== false && bankedFireDraw(seedOf(next.character.id), s.day, s.hoursToday)() < chance) {
+    delete next.banked;
+    say(next, fireOutLine(next.weatherToday), 'hardship', at);
+    return false;
+  }
+  if (next.hoursToday > s.banked!.until + 1e-9) {
+    delete next.banked;
+    say(next, burntDownLine(), 'hardship', at);
+    return false;
+  }
+  return true;
 }
 /**
  * A bear at the stored meat in the night (#1823): hung meat and a stone cache keep everything else
@@ -1156,6 +1194,8 @@ function moveCamp(next: Region1State, site: SiteId, spot?: string, pitFood: PitF
   delete next.pitRot;
   // The meat you'd stored (#1823) comes down with you: at the new camp it lies out until it's stored again.
   delete next.meatStored;
+  // …and a fire banked there (#1865) stays behind, smouldering, at a camp you've left.
+  delete next.banked;
   next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
@@ -1390,6 +1430,8 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   }
   // Store the meat (#1823): its own switch, whatever `action-visibility` says.
   if (id === 'storemeat') return scavengersOn(s) ? null : `${id} isn't part of this game's rules`;
+  // Bank the fire (#1865): its own switch (on top of `camp-scavengers`), whatever `action-visibility` says.
+  if (id === 'bankfire') return bankedFireOn(s) ? null : `${id} isn't part of this game's rules`;
   // Make a needle compass (#1868): its own switch, and no need of it with the real compass packed.
   if (id === 'needlecompass') return needleLock(s);
   if (id === 'hunt' && huntLocked(s)) return `you don't know how to ${HUNT_UNLOCK.verb} yet — ${HUNT_UNLOCK.how} (${SKILLS.hunting.name})`;
@@ -1852,6 +1894,26 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const quality = treatmentQuality(skillLevel(s.skills, 'firstaid'), plan.better);
       s.injuries = s.injuries!.map(i => (i === inj ? { ...i, treated: quality } : i));
       return treatLine(inj, plan.via, quality);
+    },
+  },
+  // Last in the table, so the action ids before it keep their places (the uniform random player picks by index).
+  // Bank the fire (#1865, `banked-fire`): a short job at camp before a long trip. Rake the embers
+  // together, heap on firewood and cover it with ash and turf, so it smoulders for hours untended and
+  // keeps animals off the meat lying out (the `fire` guard on the day roll). It's paid up front, at
+  // about 1 firewood per 4 hours (camp-scavengers.ts BANK_*): the sim doesn't know yet how long the
+  // next trip will be, so a fixed banking that lasts a long trip there and back is the honest price.
+  bankfire: {
+    name: 'Bank the fire', hours: BANK_WORK_HOURS, vigorRate: -1, clarityRate: -0.5,
+    gate: s => (!s.site ? 'make camp first'
+      : openMeatOf(s) <= 0 ? 'no raw meat lying out to guard'
+        : bankedNow(s) ? 'the fire is already banked'
+          : s.stores.firewood < BANK_FIREWOOD ? `needs ${BANK_FIREWOOD} firewood to bank the fire (have ${s.stores.firewood})` : null),
+    run: s => {
+      s.stores.firewood -= BANK_FIREWOOD;
+      // `hoursToday` already counts this job (runActionCore adds the hours before `run`), so the fire
+      // smoulders from the moment you set out.
+      s.banked = { day: s.day, until: s.hoursToday + BANK_HOURS };
+      return bankLine();
     },
   },
 };
@@ -2723,7 +2785,10 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Its own stream, keyed on the hour you set out. Then a hunt's catch comes in as meat.
   if (def.ringed && scavengersOn(next) && !next.outcome) {
     const caught = id === 'hunt' ? Math.max(0, next.stores.rawFood - s.stores.rawFood) : 0;
-    if (workHours + travel >= LONG_AWAY_HOURS) scavenge(next, openMeatOf(s), awayScavengers(seedOf(next.character.id), s.day, s.hoursToday), [], false, at);
+    // A banked fire (#1865, `banked-fire`) guards it, if it lasted the trip: false with the switch off,
+    // so the guards are [] and the roll is the one it always was.
+    const fire = bankedNow(s) && fireLasted(next, s, at);
+    if (workHours + travel >= LONG_AWAY_HOURS) scavenge(next, openMeatOf(s), awayScavengers(seedOf(next.character.id), s.day, s.hoursToday), awayGuards(fire), false, at);
     addMeat(next, caught);
   }
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
@@ -3570,6 +3635,8 @@ export function endDay(s: Region1State): Region1State {
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
   next.studiedToday = {};
+  // A banked fire (#1865) is the day's: by nightfall it has burned down, and the night has its own fire.
+  delete next.banked;
   // The thaw (#1302): the Warden made it through, graded by how they came out of it.
   if (seasonOf(next.day, next.config.calendar) === 'thaw') {
     const grade = gradeOf(next.vitals.condition);
