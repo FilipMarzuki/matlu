@@ -16,8 +16,18 @@
  *
  * When something gets at it: usually a small thief takes a quarter to a half of the meat lying out
  * (seeded); rarely, at night, something big takes all of it, and the fright costs Clarity. Nobody
- * is hurt in this first version. Vermin have their column in the table but no events yet (the
- * walled shelter, #1858, is where they come in), so #1857 and #1858 only add rows.
+ * is hurt in this first version.
+ *
+ * Two more guards came later, each behind a rules switch of its own, and each only adds a row:
+ * - **a lidded cold pit** (#1857, `cold-pit-lid`): one more place Store the meat can use, the best
+ *   one, up to what the pit holds. Nothing small and no wolf gets past the stones; a bear can heave
+ *   them aside, rarely; mice get in through the gaps, a little.
+ * - **walls** (#1858, `walled-larder`): once camp's shelter has walls, the meat lying loose in it is
+ *   out of reach of everything bigger than a mouse, day and night.
+ * With them come the first **vermin** events: mice, which only come to a camp that has stood at its
+ * site a few days (`miceChance`), and only nibble a small share (`rollNibble`). They reach the meat
+ * loose behind walls and the meat in the lidded pit; hung or cached meat is out in the trees, away
+ * from the shelter they're drawn to, so they leave it be (its vermin column is the rating's only).
  *
  * Pure: the table, the rating and the draw. region1.ts applies them. Every draw comes from a
  * string-keyed stream of its own (`streamFor`: `seedOf` and its own generator), never the sim's
@@ -31,22 +41,32 @@ import type { WeatherId } from './world';
 /** The switch's id (features.ts). */
 export const CAMP_SCAVENGERS = 'camp-scavengers';
 
+/** The switches' ids (features.ts): a lid for the cold pit (#1857), and walls as a larder (#1858). */
+export const COLD_PIT_LID = 'cold-pit-lid';
+export const WALLED_LARDER = 'walled-larder';
+
+type Switched = { config: { world: { features?: Readonly<Record<string, boolean>> } } };
 /** Whether a run has the switch on: as it saved it, off for a run from before it. */
-export const scavengersOn = (s: { config: { world: { features?: Readonly<Record<string, boolean>> } } }): boolean =>
-  featureOn(s.config.world.features, CAMP_SCAVENGERS);
+export const scavengersOn = (s: Switched): boolean => featureOn(s.config.world.features, CAMP_SCAVENGERS);
+/**
+ * Whether a run has the lid (#1857) or the walled larder (#1858). Each needs `camp-scavengers` too:
+ * without it no meat is counted, so there is nothing for a lid or walls to keep safe.
+ */
+export const lidOn = (s: Switched): boolean => scavengersOn(s) && featureOn(s.config.world.features, COLD_PIT_LID);
+export const walledLarderOn = (s: Switched): boolean => scavengersOn(s) && featureOn(s.config.world.features, WALLED_LARDER);
 
 /**
- * The threats to food at camp (#1859). Vermin have no base risk and no events yet: wild mice are
- * shy of people, so when they come (#1858) their base risk will depend on the days camp has stood
- * at the site — none for the first few days (about 3–4), then building.
+ * The threats to food at camp (#1859). Vermin have no base risk in DAY_BASE or NIGHT_BASE: wild mice
+ * are shy of people, so their chance depends on the days camp has stood at its site instead
+ * (`miceChance`, #1858): none for the first few days, then building.
  */
 export type Threat = 'small' | 'big' | 'vermin';
 export const THREATS: readonly Threat[] = ['small', 'big', 'vermin'];
 /** A share per threat: a guard's pass-through, a base risk, or what's left over. */
 export type PerThreat = Readonly<Record<Threat, number>>;
 
-/** What can guard food at camp. #1857 (a lidded cold pit) and #1858 (walls) each add one. */
-export type Guard = 'campDay' | 'asleep' | 'fire' | 'hung' | 'cache' | 'preserved';
+/** What can guard food at camp. #1857 added the lidded cold pit (`lidded`), #1858 walls (`walled`). */
+export type Guard = 'campDay' | 'asleep' | 'fire' | 'hung' | 'cache' | 'preserved' | 'lidded' | 'walled';
 
 /**
  * Each guard's pass-through per threat: the share of that threat it lets through. #1859's table,
@@ -71,6 +91,18 @@ export const GUARDS: Readonly<Record<Guard, PerThreat>> = {
   // Smoked or dried (rations, from Preserve food): nothing in it draws a fox or a wolf (#1859's "—"), and mice can't
   // get into a smoked, wrapped ration. Never at risk.
   preserved: { small: 0, big: 0, vermin: 0 },
+  // A lidded cold pit (#1857): split wood over the pit, heavy stones on top. The owner: "make it
+  // realistic". Foxes, ravens and martens can't lift it, and wolves don't dig through a
+  // stone-weighted lid, so nothing small gets in. A bear can heave the stones aside, about as rarely
+  // as it pulls hung meat down or shifts a cache (the owner left the bear's chance "to tune"): tuned
+  // to equal `hung` and `cache`, so Store the meat's pit-first order never puts the meat somewhere
+  // worse, and the pit's cold is a pure gain. It's still only ever a bear (raidPit; in winter the
+  // bear sleeps, so none).
+  // Mice get in through the gaps, at half the rate they reach meat behind walls (the owner, to tune).
+  lidded: { small: 0, big: 0.1, vermin: 0.5 },
+  // Walls (#1858): a timber or stone-banked shelter with the meat inside. Nothing bigger than a mouse
+  // gets in, by day or night, whether you're there or not. Mice don't mind walls at all.
+  walled: { small: 0, big: 0, vermin: 1 },
 };
 
 /**
@@ -89,16 +121,21 @@ export type Protection = 'open' | 'fair' | 'well' | 'secure';
 export const PROTECTION_WORDS: Readonly<Record<Protection, string>> = { open: 'lies open', fair: 'fairly safe', well: 'well protected', secure: 'secure' };
 
 /**
- * The rating's band: from the worst of the threats that can strike in this version (small and big;
- * vermin join with their events, #1858), as a share of the full risk. Above half, it lies open;
- * above a tenth, fairly safe; anything above none, well protected; none, secure.
+ * The rating's band: from the worst of the small and big threats, as a share of the full risk. Above
+ * half, it lies open; above a tenth, fairly safe; anything above none, well protected; none, secure.
+ *
+ * Mice (#1858) only nibble a small share, so they never make meat lie open. With `mice` (mice can
+ * come to this camp now: it has stood long enough, `miceChance` > 0), meat nothing bigger can reach
+ * but mice can is well protected rather than secure. Without it (the default, and every call from
+ * before #1858) the rating is the one it always was.
  */
-export function protectionOf(guards: readonly Guard[]): Protection {
+export function protectionOf(guards: readonly Guard[], mice = false): Protection {
   const l = leftover(guards);
   const worst = Math.max(l.small, l.big);
+  if (worst === 0 && mice && l.vermin > 0) return 'well';
   return worst > 0.5 ? 'open' : worst > 0.1 ? 'fair' : worst > 0 ? 'well' : 'secure';
 }
-export const protectionWord = (guards: readonly Guard[]): string => PROTECTION_WORDS[protectionOf(guards)];
+export const protectionWord = (guards: readonly Guard[], mice = false): string => PROTECTION_WORDS[protectionOf(guards, mice)];
 
 /**
  * A long absence: a trip away from camp of at least this many hours (work and walk together). A
@@ -128,14 +165,57 @@ export const STORE_MEAT_HOURS = 1;
 
 /**
  * Where Store the meat puts the meat, best first: it uses the best place camp has the makings for.
- * #1857 (a lidded cold pit) adds one here. Nothing is used up: the stones are only stacked, the
- * cord only tied off.
+ * Nothing is used up: the stones are only stacked, the cord only tied off.
+ *
+ * The lidded cold pit (#1857) comes first. The owner: "just a place to store it; the action is the
+ * same". It needs the pit at camp with its lid on (`'lid'`), and takes only what the pit holds (8
+ * raw food, 12 at the river); the rest goes to the next place, as before.
  */
-export type MeatPlace = 'cache' | 'hung';
-export const MEAT_PLACES: readonly { place: MeatPlace; needs: { store: 'stone' | 'materials'; n: number } }[] = [
+/** The places meat is put by outside the pit: what `meatStored` keeps. */
+export type PutBy = 'cache' | 'hung';
+export type MeatPlace = 'pit' | PutBy;
+export const MEAT_PLACES: readonly ({ place: 'pit'; needs: 'lid' } | { place: PutBy; needs: { store: 'stone' | 'materials'; n: number } })[] = [
+  { place: 'pit', needs: 'lid' },
   { place: 'cache', needs: { store: 'stone', n: 3 } },
   { place: 'hung', needs: { store: 'materials', n: 1 } },
 ];
+
+/** The lid's cost (#1857): split wood for the boards (materials) and two heavy stones to weigh it down. */
+export const LID_COST = { materials: 2, stone: 2 } as const;
+/** How long laying the lid takes: a short camp job. */
+export const LID_HOURS = 1;
+
+/**
+ * Mice (#1858). The owner: "it takes a while for mice to come. They are usually pretty afraid of
+ * humans in the wild", and "maybe not on the first few days". So none for the first MICE_FREE_DAYS
+ * nights at a site, then a nightly chance that grows by MICE_RAMP a night (crumbs, the smell of
+ * food, a warm shelter) up to MICE_CAP. Moving camp sets the days back to zero. Drafts, to tune.
+ */
+export const MICE_FREE_DAYS = 4;
+export const MICE_RAMP = 0.03;
+export const MICE_CAP = 0.25;
+/** A nibble's share of the meat the mice reach: 5–10% (seeded). */
+export const MICE_TAKES = { from: 0.05, to: 0.1 } as const;
+
+/** The nightly chance mice come to a camp that has stood `days` days at its site. Pure. */
+export function miceChance(days: number): number {
+  if (!(days >= MICE_FREE_DAYS)) return 0;
+  return Math.min(MICE_CAP, MICE_RAMP * (Math.floor(days) - MICE_FREE_DAYS + 1));
+}
+
+/**
+ * How much of `n` meat mice nibble tonight, from the draws `rand` gives and the chance left over
+ * (`miceChance` times the guards' vermin pass-through). The first draw decides whether they come,
+ * the second the share (5–10%), and a third rounds it up or down in proportion: 20 meat at 7% is
+ * 1.4, so 1 six times in ten and 2 four times in ten. On average that's exactly the share drawn,
+ * and never more than a tenth rounded up, even on a small pile. Pure.
+ */
+export function rollNibble(rand: () => number, n: number, chance: number): number {
+  if (n <= 0 || chance <= 0) return 0;
+  if (rand() >= chance) return 0;
+  const share = MICE_TAKES.from + (MICE_TAKES.to - MICE_TAKES.from) * rand();
+  return Math.min(n, Math.floor(n * share + rand()));
+}
 
 /** The animals. A bear only outside winter (it's asleep then); ravens only by day. */
 export type Thief = 'fox' | 'ravens' | 'wolves' | 'bear';
@@ -168,6 +248,25 @@ export const nightScavengers = (seed: number, day: number): (() => number) => st
 export const storedScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night-stored');
 /** The journal's line when a bear gets at the meat that was put by (#1823). Only a bear can: wolves can't climb or shift stones. */
 export const storedTheftLine = (n: number): string => `A bear came into camp in the night and got at the meat you'd put by: ${n} raw food gone.`;
+
+/**
+ * The lidded pit's own draws at night (#1857): a bear at the pit is a roll of its own, so filling the
+ * pit never shifts the open meat's or the hung meat's draws.
+ */
+export const pitScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night-pit');
+/** The journal's line when a bear gets into the lidded pit (#1857). */
+export const pitTheftLine = (n: number): string => `A bear came into camp in the night, heaved the stones off the cold pit and tore the lid away: ${n} raw food gone.`;
+/**
+ * Mice at night (#1858): one stream for the meat loose behind walls and one for the lidded pit, so
+ * neither moves the other, and neither moves any stream from before them.
+ */
+export const verminScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night-vermin');
+export const pitVerminScavengers = (seed: number, day: number): (() => number) => streamFor(seed, day, 'scavengers@night-vermin-pit');
+/** The journal's lines for mice (#1858): at the meat in the shelter, and in the lidded pit. */
+export const miceLine = (n: number): string => `Mice have been at the meat in the night: ${n} raw food gone, and droppings all along the wall.`;
+export const pitMiceLine = (n: number): string => `Mice got into the cold pit through the gaps in its lid: ${n} raw food gone.`;
+/** The journal's line for laying the lid (#1857). */
+export const LID_LINE = 'Laid a lid of split wood over the cold pit and weighed it down with heavy stones.';
 
 /** A long absence's draws: a stream of its own, keyed on the hour the trip began. */
 export const awayScavengers = (seed: number, day: number, hour: number): (() => number) => streamFor(seed, day, `scavengers@${hour}`);

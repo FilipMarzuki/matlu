@@ -160,8 +160,16 @@ describe('A banked fire guards the meat at camp while you are away (#1865)', () 
       // The journal's hash was taken on main before this change (the same moves, the switch not there yet).
       expect(seedOf(JSON.stringify(s.log))).toBe(2303865145);
     }
-    // Absent, the whole state is main's too.
-    expect(seedOf(JSON.stringify(play('absent')))).toBe(2518478687);
+    // Absent, the whole state is main's too. With the lid and the walled larder (#1857, #1858) absent as
+    // well, it is the very state #1865 pinned; with them on (the defaults) the only difference is the
+    // two keys in the run's features record, so the play is the same.
+    expect(seedOf(JSON.stringify(play('absent')))).toBe(3656918259);
+    const strip = (x: Region1State): Region1State => {
+      const features = { ...x.config.world.features };
+      delete features['cold-pit-lid']; delete features['walled-larder'];
+      return { ...x, config: { ...x.config, world: { ...x.config.world, features } } };
+    };
+    expect(seedOf(JSON.stringify(strip(play('absent'))))).toBe(2518478687);
     // Off, Bank the fire in the moves is refused and nothing else moves: the stores and the meat are the same.
     const tried = play(false, banking);
     expect(tried.stores).toEqual(play(false).stores);

@@ -14,8 +14,8 @@ import { numText, type T } from '../artificer/i18n';
 import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibility';
 import { hasKit } from '../artificer/kit';
 import { huntingGearOn } from '../artificer/hunting-gear';
-import { scavengersOn, protectionOf } from '../artificer/camp-scavengers';
-import { bankedNow, awayGuards, openMeatOf, storedMeatOf, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { scavengersOn, lidOn, protectionOf } from '../artificer/camp-scavengers';
+import { bankedNow, awayGuards, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
 import { yieldAmounts } from './yield-amounts';
 import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
@@ -53,7 +53,7 @@ export type Preview = ReturnType<typeof previewQueue>;
 export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout', 'needlecompass'] },
   { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat', 'bankfire'] },
-  { key: 'build', ids: ['camp', 'build', 'coldPit', 'coldGear'] },
+  { key: 'build', ids: ['camp', 'build', 'coldPit', 'lidpit', 'coldGear'] },
   { key: 'craft', ids: ['knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel'] },
   { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
   { key: 'think', ids: ['study', 'experiment', 'drawmap', 'tinker', 'rest', 'treat'] },
@@ -63,7 +63,7 @@ export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
-  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', bankfire: '🔥', needlecompass: '🪡',
+  traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', lidpit: '🪵', bankfire: '🔥', needlecompass: '🪡',
 };
 
 /**
@@ -89,6 +89,8 @@ export function yieldText(id: ActionId, s: Sim, r: Ring, t: T): string {
     case 'build': return s.tier < 2 ? t('yield.build', { n: s.tier + 1, m: BUILD_COST[s.tier as 0 | 1] }) : t('yield.winterized');
     // With `cold-pit-slows` (#1757) the pit slows the rot rather than stopping it, and says so.
     case 'coldPit': return t(featureOn(s.config.world.features, 'cold-pit-slows') ? 'yield.coldPitSlows' : 'yield.coldPit', { n: coldPitHolds(s.site) });
+    // With `cold-pit-lid` (#1857) the lidded pit is the first place Store the meat uses.
+    case 'storemeat': return t(lidOn(s) ? 'yield.storemeatPit' : 'yield.storemeat');
     default: return t(`yield.${id}`);
   }
 }
@@ -514,12 +516,19 @@ export function meatBlock(s: Sim, t: T): string {
   if (!scavengersOn(s)) return '';
   const banked = bankedNow(s);
   const lines: string[] = banked ? [t('meat.banked')] : [];
-  const open = openMeatOf(s), stored = storedMeatOf(s);
+  const open = openMeatOf(s), hung = hungMeatOf(s), pit = pitMeatOf(s);
+  // Mice (#1858) only count once camp has stood a few days at its site: then the meat they can
+  // reach (behind walls, in the pit) is well protected rather than secure.
+  const mice = miceAbout(s);
   if (open > 0) {
     const fire = fireTonight(s);
-    lines.push(t('meat.open', { n: open, away: t(`meat.prot.${protectionOf(awayGuards(banked))}`), guards: t(fire ? 'meat.asleepFire' : 'meat.asleep'), night: t(`meat.prot.${protectionOf(nightGuards(fire))}`) }));
+    // Behind walls (#1858, `walled-larder`), the line says so, and the walls guard it, on top of a
+    // banked fire (#1865) while you're away.
+    const walled = walledHere(s);
+    lines.push(t(walled ? 'meat.openWalled' : 'meat.open', { n: open, away: t(`meat.prot.${protectionOf(openGuards(s, awayGuards(banked)), walled && mice)}`), guards: t(fire ? 'meat.asleepFire' : 'meat.asleep'), night: t(`meat.prot.${protectionOf(openGuards(s, nightGuards(fire)), walled && mice)}`) }));
   }
-  if (stored > 0 && s.meatStored) lines.push(t(s.meatStored.place === 'cache' ? 'meat.cache' : 'meat.hung', { n: stored, word: t(`meat.prot.${protectionOf([placeGuard(s.meatStored.place)])}`) }));
+  if (pit > 0) lines.push(t('meat.pit', { n: pit, word: t(`meat.prot.${protectionOf([placeGuard('pit')], mice)}`) }));
+  if (hung > 0 && s.meatStored) lines.push(t(s.meatStored.place === 'cache' ? 'meat.cache' : 'meat.hung', { n: hung, word: t(`meat.prot.${protectionOf([placeGuard(s.meatStored.place)])}`) }));
   return lines.map(l => `<p class="mood" style="margin:4px 0 0">${esc(l)}</p>`).join('');
 }
 
@@ -541,7 +550,7 @@ const warmWords = (s: Sim, t: T): string => {
 
 /** Where camp is now, as it stands: the shelter, how warm, the cold pit. */
 const campNow = (s: Sim, t: T): string =>
-  ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), warmWords(s, t), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) })] : [])].join(' · ')}.`;
+  ` ${[t('site.shelter', { tier: s.tier }) + (s.shelterGrade ? ` (${gradeWord(s.shelterGrade, t)})` : ''), warmWords(s, t), ...(s.site && s.coldPitAt === s.site ? [t('site.pit', { n: coldPitHolds(s.site) }) + (pitLidded(s) ? `, ${t('site.pitLid')}` : '')] : [])].join(' · ')}.`;
 
 /**
  * Tonight at camp as a heat balance (#1770, `thermal-model`): the night's quality in words, and in

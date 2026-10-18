@@ -39,6 +39,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   'act.traps': 'Gillra fällor',
   'act.storemeat': 'Förvara köttet',
   'act.bankfire': 'Lägg på elden',
+
+  'act.lidpit': 'Lägg lock på kylgropen',
   'act.needlecompass': 'Gör en nålkompass',
   'act.preserve': 'Konservera mat',
   'act.build': 'Bygg skydd',
@@ -148,6 +150,7 @@ export const campSv: Record<keyof typeof camp, string> = {
   'night.look.dangerous': 'Natten ser farligt kall ut: kylan kan göra verklig skada.',
   'night.dev': 'Vid sovplatsen {temp} °C, strålning {radiant} °C, vind {wind} m/s (känns som {feels} °C ute) · IREQ {min}–{neutral} clo, gräns {limit} · har {held} clo (kläder {clothes}, sovsäck {bag}, liggunderlag R {pad})',
   'site.pit': 'kylgrop ({n} mat)',
+  'site.pitLid': 'täckt och tyngd med sten',
   'site.pick': 'Slå läger här, eller välj plats på ett bygge i kön.',
   'site.scoutFirst': 'Spana först, så hittar du någonstans att slå dig ner.',
 
@@ -238,6 +241,9 @@ export const campSv: Record<keyof typeof camp, string> = {
   'yield.hookline': 'pimpla genom isen · 1 material',
   'yield.storemeat': 'utom räckhåll för djuren: under ett stenröse (3 sten) eller upphängt med snöre (1 material) · inget går åt',
   'yield.bankfire': 'pyr runt 12 h medan du är borta och håller djuren borta från köttet · 3 ved',
+
+  'yield.storemeatPit': 'utom räckhåll för djuren: först i kylgropen med lock, sedan under ett stenröse (3 sten) eller upphängt med snöre (1 material) · inget går åt',
+  'yield.lidpit': 'ett lock på kylgropen: ingen räv, korp eller varg kommer in · 2 material + 2 sten',
   'yield.needlecompass': 'håller kursen när du går ut åt ett håll · en nål eller en krok, inget går åt · kraften räcker en vecka',
   'yield.waterskin': '+1 vatten per tur · kräver en hud',
   'yield.bedroll': '+6 klarhet över natten',
@@ -276,6 +282,10 @@ export const campSv: Record<keyof typeof camp, string> = {
   'reason.noMeatToGuard': 'inget rått kött ligger framme att vakta',
   'reason.fireBanked': 'elden är redan inbäddad',
   'reason.bankFirewood': 'behöver {n} ved för att bädda in elden (har {m})',
+
+  'reason.pitFullStoreNeeds': 'kylgropen är full, och resten behöver 1 material till snöre, eller 3 sten till ett röse',
+  'reason.digPitFirst': 'gräv en kylgrop först',
+  'reason.pitLidded': 'kylgropen har redan ett lock',
   'reason.unknownRecipe': 'du har inte listat ut hur man gör det här än: {recipe}',
   'reason.haveTool': 'du har redan en sådan: {recipe} ({grade})',
   'reason.bench': 'kräver en arbetsbänk på nivå {n} (din är på nivå {m})',
@@ -392,6 +402,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   'meat.banked': 'En inbäddad eld pyr i lägret.',
   'meat.hung': '{n} rått kött hänger utom räckhåll (upphängt med snöre): {word}',
   'meat.cache': '{n} rått kött ligger under ett stenröse, utom räckhåll: {word}',
+  'meat.openWalled': '{n} rått kött ligger i skyddet, innanför väggarna — medan du är borta: {away} · i natt ({guards}): {night}',
+  'meat.pit': '{n} rått kött ligger i kylgropen, täckt och tyngd med sten: {word}',
   'meat.prot.open': 'ligger öppet',
   'meat.prot.fair': 'ganska säkert',
   'meat.prot.well': 'väl skyddat',

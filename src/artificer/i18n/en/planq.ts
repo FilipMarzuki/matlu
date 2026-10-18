@@ -28,6 +28,8 @@ export const planq = {
   'actshort.traps': 'Traps',
   'actshort.storemeat': 'Store meat',
   'actshort.bankfire': 'Bank fire',
+
+  'actshort.lidpit': 'Lid pit',
   'actshort.needlecompass': 'Needle compass',
   'actshort.sling': 'Sling',
   'actshort.bow': 'Bow',

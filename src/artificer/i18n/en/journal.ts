@@ -191,6 +191,16 @@ export const journal = {
   'log.bankfire.storm': 'While you were away, the storm beat out the banked fire, and nothing kept animals off the meat.',
   'log.bankfire.snow': 'While you were away, the snow smothered the banked fire, and nothing kept animals off the meat.',
   'log.bankfire.burnt': 'The banked fire burned down before you got back, and nothing kept animals off the meat.',
+
+  // The lid for the cold pit (#1857, `cold-pit-lid`) and the walled larder's mice (#1858, `walled-larder`).
+  'log.lidpit': 'Laid a lid of split wood over the cold pit and weighed it down with heavy stones.',
+  'log.storemeat.pit': 'Put {n} raw meat in the cold pit, under its lid and the stones.',
+  'log.storemeat.pitCache': 'Put {n} raw meat in the cold pit, under its lid and the stones, and {m} more under a cairn of heavy stones.',
+  'log.storemeat.pitHung': 'Put {n} raw meat in the cold pit, under its lid and the stones, and hung {m} more high in a tree with cord.',
+  'log.storemeat.pitFull': 'Put {n} raw meat in the cold pit, under its lid and the stones. The rest doesn\'t fit.',
+  'log.meat.bearPit': 'A bear came into camp in the night, heaved the stones off the cold pit and tore the lid away: {n} raw food gone.',
+  'log.meat.mice': 'Mice have been at the meat in the night: {n} raw food gone, and droppings all along the wall.',
+  'log.meat.micePit': 'Mice got into the cold pit through the gaps in its lid: {n} raw food gone.',
   'log.huntEnded': 'The kill came {h}h into the hunt: you headed home with it, and the rest of the time is yours.',
   'log.huntOn': 'The catch was light enough to stow, so you hunted on — and took more: {n} raw food.',
   // Sinew a catch gave (#1821, hunting-gear.ts `sinewNote`), after the catch's own line.
