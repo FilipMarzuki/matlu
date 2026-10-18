@@ -15,7 +15,7 @@ import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
 import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
-import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, carryLimit, statsBeforePack, suggestedPackOf, type KitGroup } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
@@ -762,6 +762,25 @@ export function observePack(s: Region1State): string {
   // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
   const list = offeredKit(s.config.world.features);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
+  // Who you are comes first (#1872, `stats-before-pack`): the turn sees the Warden it packs for —
+  // the stats chosen at creation and the talents they know — what that Strength carries, and the
+  // list ticked for them. Off, the turn reads exactly as before.
+  if (statsBeforePack(s)) {
+    const c = s.character;
+    const made = c.adult ?? c.stats;
+    const known = c.talents.filter(x => x.known);
+    const ticked = suggestedPackOf(s);
+    const limit = carryLimit(s);
+    return [
+      'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+      `YOU: ${STAT_IDS.map(id => `${STATS[id].short} ${made[id]}`).join(' · ')} (as chosen; 10 is average) · TALENTS: ${known.length ? known.map(x => `${TALENTS[x.id].name} (${TALENTS[x.id].blurb})`).join(' · ') : 'none chosen'}`,
+      `Your pack holds ${limit} kg: what you carry comfortably with Strength ${made.str} (${PACK_CAPACITY} kg at 10, about 1 kg more or less per point). The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
+      ...groups,
+      `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
+      `THE LIST TICKED FOR YOU (${packWeight(ticked)} kg): ${ticked.join(', ')} — the leader's list, shaped by your stats and talents. Change anything.`,
+      'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+    ].join('\n\n');
+  }
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
     `Your pack holds ${PACK_CAPACITY} kg. The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,

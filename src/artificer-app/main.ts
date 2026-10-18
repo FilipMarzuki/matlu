@@ -34,7 +34,7 @@ import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
-import { SUGGESTED_PACK, validPack, offeredKit, type KitGroup, type KitId } from '../artificer/kit';
+import { SUGGESTED_PACK, validPack, offeredKit, carryLimit, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
 import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
@@ -1849,6 +1849,16 @@ const clearDraft = (): void => { try { localStorage.removeItem(DRAFT_KEY); } cat
  */
 const packWorld = (): { features: Record<string, boolean> } => ({ features: ruleFeatures(loadChoices()) });
 
+/**
+ * Who you are, then what you pack (#1872): with the next run's `stats-before-pack` on, creation
+ * comes before the pack, so the pack screen knows the draft's stats and talents. These read the
+ * draft the way the run will read its Warden (kit.ts carryLimit, suggestedPack), so what the
+ * screen lets in is what repack accepts. Off: 9 kg and the leader's list, as before.
+ */
+const draftRun = () => ({ config: { world: packWorld() }, character: { stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } } });
+const draftLimit = (): number => carryLimit(draftRun());
+const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
+
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   draftPack = [...SUGGESTED_PACK];
@@ -1867,6 +1877,8 @@ function commitCharacter(): void {
   const from = kept?.log.start.heirloomsFrom ?? null;
   state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
   startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
+  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made.
+  if (statsBeforePack(state.sim)) draftPack = tickedPack();
   // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
   // pack again: the same makeWarden → startLog → repack the run had when packing came last.
   applyPack();
@@ -1916,7 +1928,11 @@ let drawnBeat = -1;
 function renderIntro(): void {
   if (!intro) return;
   const b = intro.beats[intro.i];
-  introEl.classList.toggle('settled', drawnBeat === intro.i);
+  // Read before drawnBeat moves on: only a redraw of the same beat keeps its scroll. (Checked after the
+  // assignment, it was always true, so the pack screen opened scrolled to where creation was left —
+  // which shows once creation comes right before it, #1872.)
+  const sameBeat = drawnBeat === intro.i;
+  introEl.classList.toggle('settled', sameBeat);
   drawnBeat = intro.i;
   // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
   const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
@@ -1926,13 +1942,13 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
-    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features)) : '',
+    form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
   });
   feedback.refresh();
   const beatEl = introEl.querySelector('.beat');
-  if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
+  if (beatEl && sameBeat) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
   if (b.kind === 'create') saveDraft();
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
@@ -1968,10 +1984,10 @@ introEl.addEventListener('click', e => {
   if (btn?.dataset.kit) {
     const id = btn.dataset.kit as KitId;
     if (draftPack.includes(id)) draftPack = draftPack.filter(x => x !== id);
-    else if (validPack([...draftPack, id], packWorld())) draftPack = [...draftPack, id];
+    else if (validPack([...draftPack, id], packWorld(), draftLimit())) draftPack = [...draftPack, id];
     renderIntro(); return;
   }
-  if (btn?.dataset.kitcmd) { draftPack = btn.dataset.kitcmd === 'leader' ? [...SUGGESTED_PACK] : []; renderIntro(); return; }
+  if (btn?.dataset.kitcmd) { draftPack = btn.dataset.kitcmd === 'leader' ? (statsBeforePack(draftRun()) ? tickedPack() : [...SUGGESTED_PACK]) : []; renderIntro(); return; }
   if (btn?.dataset.stat) {
     // A step up or down, only if point-buy allows it (the buttons are disabled otherwise, but check anyway).
     const id = btn.dataset.stat as StatId;

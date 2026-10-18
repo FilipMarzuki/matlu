@@ -13,7 +13,7 @@
 import { CRAFT_WORLD, type Region1State } from '../artificer/region1';
 import { artificerRank } from '../artificer/rank';
 import { makeT, type T } from '../artificer/i18n';
-import { hasKit } from '../artificer/kit';
+import { hasKit, statsBeforePack } from '../artificer/kit';
 import { gradeWord, rankName, recipeName } from './sim-words';
 import { esc } from './html';
 
@@ -48,6 +48,22 @@ export function introBeats(s: Region1State, t: T = EN): Beat[] {
   const rank = rankName(artificerRank(s, CRAFT_WORLD.concepts), t).toUpperCase();
   // What the last Warden left (#1455): one run each, and the tools pass on.
   const left = s.tools.filter(x => x.heirloom).map(x => t('intro.heirloom', { grade: gradeWord(x.grade, t), item: recipeName(x.item, t).toLowerCase() })).join(', ');
+  // Who you are, then what you pack (#1872, the run's `stats-before-pack` switch): creation moves to
+  // right after the hike page, asked in the scout's own voice, so the stats chosen can shape the pack.
+  // The portal's voice then reads the name back instead of asking for it. The beat ids stay the same
+  // (#1845's feedback names them), only their order and the two lines change.
+  if (statsBeforePack(s)) return [
+    { id: 'hike', kind: 'narration', lines: [t('intro.hike1'), t('intro.hike2'), t('intro.hike3')] },
+    { id: 'create', kind: 'create', lines: [t('intro.whoAreYou')] },
+    { id: 'pack', kind: 'pack', lines: [t('intro.pack')] },
+    { id: 'portal', kind: 'narration', portal: true, lines: [t('intro.seam1'), t('intro.seam2')] },
+    { id: 'stone', kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2'), t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro')] },
+    { id: 'arrival', kind: 'voice', lines: [t('intro.arrival'), t('intro.scanning'), t('intro.threshold')] },
+    { id: 'class', kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
+    { id: 'registered', kind: 'voice', lines: [t('intro.identified'), t('intro.winter')] },
+    ...(left ? [{ id: 'before' as const, kind: 'voice' as const, lines: [t('intro.before'), t('intro.left', { list: left })] }] : []),
+    { id: 'title', kind: 'title', lines: [t('intro.close1'), t('intro.close2'), t('intro.close3')] },
+  ];
 
   return [
     // First the weekend (#1666): the hike, and packing for it — then the portal.

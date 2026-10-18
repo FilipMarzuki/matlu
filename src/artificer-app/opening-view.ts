@@ -87,12 +87,21 @@ export const setAllSections = (to: boolean): PackOpen =>
  * on every tap, so whether a section is open comes from `open` (the viewer's choices), not from
  * the browser's own toggle, which a redraw would forget.
  */
-export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures())): string {
+/**
+ * How much this pack screen holds, and whether its list was ticked for the Warden (#1872): with
+ * `stats-before-pack` the limit is their carry weight (kit.ts carryLimit) and the list button
+ * resets to the list ticked for them; without, 9 kg and the leader's list, as before.
+ */
+export interface PackCarry { limit: number; forYou: boolean }
+const LEADER_CARRY: PackCarry = { limit: PACK_CAPACITY, forYou: false };
+
+export function packForm(pack: readonly KitId[], t: T, truths = false, open: PackOpen = {}, list: readonly KitItem[] = offeredKit(ruleFeatures()), carry: PackCarry = LEADER_CARRY): string {
+  const cap = carry.limit;
   const kg = packWeight(pack);
   const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => {
     const items = list.filter(k => k.group === g).map(k => {
       const on = pack.includes(k.id);
-      const fits = on || packWeight([...pack, k.id]) <= PACK_CAPACITY;
+      const fits = on || packWeight([...pack, k.id]) <= cap;
       const name = kitName(k.id, t);
       // In English the scout's Swedish name shows beside it, for flavour; in Swedish the name already is it.
       const flavour = k.sv && k.sv.toLowerCase() !== name.toLowerCase() && name === k.name ? ` <i>${esc(k.sv)}</i>` : '';
@@ -110,15 +119,16 @@ export function packForm(pack: readonly KitId[], t: T, truths = false, open: Pac
       + `<span class="ksum">${esc(groupSummary(g, pack, t, list))}</span></summary>`
       + `<div class="kchoices">${items}</div></details>`;
   }).join('');
-  const fill = Math.min(100, (kg / PACK_CAPACITY) * 100);
+  const fill = Math.min(100, (kg / cap) * 100);
   return `<form class="create pack" onsubmit="return false">
-    <p class="mood" style="margin:0">${esc(t('pack.free', { kg: PACK_CAPACITY }))}</p>
+    <p class="mood" style="margin:0">${esc(t(carry.forYou ? 'pack.freeStr' : 'pack.free', { kg: cap }))}</p>
+    ${carry.forYou ? `<p class="mood" style="margin:0">${esc(t('pack.forYou'))}</p>` : ''}
     <div class="kfolds"><button type="button" class="pill" data-kitfold="all">${esc(openAllLabel(pack, t, open))}</button></div>
     ${groups}
     <div class="kfoot">
-      <div class="kbar" role="meter" aria-label="${esc(t('pack.weight'))}" aria-valuemin="0" aria-valuemax="${PACK_CAPACITY}" aria-valuenow="${kg}"><span style="width:${fill}%"></span></div>
-      <span class="kweight"><b>${kg}</b> / ${esc(t('pack.kg', { n: PACK_CAPACITY }))}</span>
-      <button type="button" class="pill" data-kitcmd="leader">${esc(t('pack.leader'))}</button>
+      <div class="kbar" role="meter" aria-label="${esc(t('pack.weight'))}" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${kg}"><span style="width:${fill}%"></span></div>
+      <span class="kweight"><b>${kg}</b> / ${esc(t('pack.kg', { n: cap }))}</span>
+      <button type="button" class="pill" data-kitcmd="leader">${esc(t(carry.forYou ? 'pack.forYouBtn' : 'pack.leader'))}</button>
       <button type="button" class="pill" data-kitcmd="empty">${esc(t('pack.empty'))}</button>
     </div>
   </form>`;
