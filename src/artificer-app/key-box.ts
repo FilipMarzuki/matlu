@@ -23,8 +23,8 @@ const METRIC_ICON: Readonly<Record<KeyMetric['id'], { store: string; emoji: stri
   water: { store: 'water', emoji: '💧' },
   firewood: { store: 'firewood', emoji: '🪵' },
 };
-/** Rations' emoji (#1890 changes it from 🧂 to 💨). */
-const RATIONS_EMOJI = '💨';
+/** Rations' emoji: smoke, not salt (#1890). */
+export const RATIONS_EMOJI = '💨';
 
 /** An icon standing alone, so its name is its alt and title (the compact status bar, #1675). */
 const soloIcon = (store: string, emoji: string, name: string): string => {
