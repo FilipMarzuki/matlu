@@ -311,7 +311,7 @@ The rule stays the same as today: **store what the Warden knows; regenerate the 
 - **The road and Mistheim:**
   - `road.ts` says 2 days between stops, 8 travel days in all, and the hexes are a day apart.
   - So on the hex map, the road leaves the start hex south, and **Mistheim sits about 8 hexes south** (`(0, 8)`), as a crafted special place.
-  - The three anchor villages are seated inside the Reach today (`placeAnchors`), much closer than 2 days. Moving them out to hexes `(0,2)/(0,4)/(0,6)` would change the history's input, so it's a later, switched step, flagged for the owner (see Open points).
+  - The three anchor villages are seated inside the Reach today (`placeAnchors`), much closer than 2 days. Moving them out to hexes `(0,2)/(0,4)/(0,6)` would change the history's input, so it's a later, switched step, decided by the owner (see Owner decisions): behind `hex-world`.
 
 ---
 
@@ -347,7 +347,7 @@ A mapping table, `REACH_TO_CW_BIOME`, plus `tileBiomeIdx` on the bilinear fields
 
 ---
 
-## Open points for the owner (consequences of the fixed numbers, not new choices)
+## Owner decisions on the open points
 
 1. **The Reach is ~7 hexes of land, not one.**
    - At ~30 km a hex (9-cell size), the 48 × 32 Reach covers:
@@ -355,9 +355,11 @@ A mapping table, `REACH_TO_CW_BIOME`, plus `tileBiomeIdx` on the bilinear fields
      - its NW and NE neighbours fully;
      - most of N, SW and SE;
      - a quarter of S.
-   - So "the Reach becomes the start hex" here means the start hex is the Reach's heart (camp's hex, 200/200 seeds), and the rest of the Reach fills in its neighbours.
-   - Making the Reach literally one hex would need a hex about 37 cells across (two days' walk), which contradicts the 30 km. This doc keeps 30 km.
-2. **The road villages** are inside the Reach today but 2 days apart on the road. They stay put until the road step (follow-up 12).
+   - **Decided:** hexes stay ~30 km. The start hex is the Reach's heart, the hex holding camp (200/200 seeds), and the rest of the Reach fills in its neighbours. Today's runs are unchanged.
+2. **The road villages** are inside the Reach today but 2 days apart on the road.
+   - **Decided:** with `hex-world` on, they move out onto hexes along the road, `(0,2)`, `(0,4)` and `(0,6)`.
+   - With the switch off or absent, they stay where they are.
+   - This is follow-up 12, now ATDD (no longer waiting on the owner).
 
 ---
 
@@ -380,7 +382,7 @@ Each is one agent session.
 | 9 | Artificer: "Further off" — hexes in words | `knownPlaces` lists neighbour hexes by direction and days; AI `observe()` + a `RULES` paragraph only when on | S | 5, 7 | medium (AI rules caching) | ATDD `systems` |
 | 10 | Artificer: drawn hex overview + current-hex cell map | text hex overview after `mapLearned`; cell map of the current hex; the LAND tab (#1841) sections | M | 9 | low | exempt `ui-hud` |
 | 11 | World builder: provinces as hex clusters outside the Reach | seats on the hex graph, growth by hex cost, cultures from `cultures.json` by land fit; no history yet | M | 5 | medium | ATDD `systems` |
-| 12 | World builder: the road and Mistheim on the hex map | Mistheim as a special place ~8 hexes south; road hexes; owner call on moving the anchors | S | 11 | medium (crafted content) | needs-refinement (owner) |
+| 12 | World builder: the road and Mistheim on the hex map | Mistheim as a special place ~8 hexes south; road hexes; the anchor villages move to hexes `(0,2)/(0,4)/(0,6)` with `hex-world` on | S | 11 | medium (crafted content) | ATDD `systems` (anchors move behind `hex-world`) |
 | 13 | World builder: history for the wider world | a second history run over the outer provinces in the worker; Reach history unchanged | L | 11 | **high** (storytelling golden hashes) | ATDD `systems` |
 | 14 | worldmap: tile chunks for Core Warden | `tileChunk(seed, cell, chunk)`: bilinear fields + fine noise → `tileBiomeIdx`, edge-keyed river and path crossings, `REACH_TO_CW_BIOME` | M | 3, 4 | medium | ATDD `systems` (the pure part) |
 | 15 | Core Warden: world mode in GameScene | a window of world tiles, world seed instead of `Math.random()`, window-local iso drawing, chunk streaming | L | 14 | medium (scene) | exempt `world` |
