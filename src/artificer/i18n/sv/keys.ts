@@ -1,0 +1,41 @@
+import type { keys } from '../en/keys';
+
+/** De viktigaste förråden (#1891): rutan under FOKUS, maten per sort, nattens skydd och värme, och raderna under FRAMSTEG. */
+export const keysSv: Record<keyof typeof keys, string> = {
+  'keys.box': 'Viktigaste förråden',
+  'keys.days.one': '{n} dag',
+  'keys.days.other': '{n} dagar',
+  'keys.foodTip': 'Mat för {days}, med ett mål om natten: färsk mat först, sedan ransoner. Tryck för sorterna.',
+  'keys.kinds': 'MATEN PER SORT',
+  'keys.raw': 'Färsk mat (kött, fisk, insamlat)',
+  'keys.meat': 'varav {n} kött',
+  'keys.rations': 'Ransoner (rökta eller torkade)',
+  'keys.keeps': 'håller sig',
+  'keys.spoils': '{n} blir dålig i natt',
+  'keys.noSpoil': 'inget blir dåligt i natt',
+  'keys.allStores': 'Alla förråd finns under LÄGRET.',
+  'keys.waterTip': 'Vatten: en dryck om natten.',
+  'keys.firewoodTip': 'Ved: nattens eld behöver {n}.',
+
+  'keys.shelter.none': 'INGET SKYDD',
+  'keys.shelter.tier': 'SKYDD {tier}/2',
+  'keys.warm.warm': 'VARM NATT',
+  'keys.warm.cool': 'SVAL NATT',
+  'keys.warm.cold': 'KALL NATT',
+  'keys.warm.dangerous': 'FARLIGT KALLT',
+  'keys.warmPct': '{n}% VARMT',
+  'keys.uneasy': 'ORO',
+  'keys.sleepless': 'SÖMNLÖS',
+  'keys.nightTip': 'I natt: {shelter}, {warmth}.',
+  'keys.openCamp': 'inget skydd byggt',
+
+  'keys.head': 'VIKTIGASTE FÖRRÅDEN FÖR VINTERN',
+  'keys.row.food': 'MAT',
+  'keys.row.water': 'VATTEN',
+  'keys.row.firewood': 'VED',
+  'keys.of.food.one': '{n} av ~{m} dag',
+  'keys.of.food.other': '{n} av ~{m} dagar',
+  'keys.of.firewood': '{n} av ~{m}',
+  'keys.asYouGo': '{n} · hämtas efter hand',
+  'keys.noneNeeded': '{n} · inget behövs till tövädret',
+};

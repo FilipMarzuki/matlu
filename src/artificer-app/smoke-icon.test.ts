@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ICON, STORE_EMOJI } from './camp-blocks';
+import { RATIONS_EMOJI } from './key-box';
 
 describe('smoke, not salt, for preserving (#1890)', () => {
   it('the Preserve food action shows smoke', () => {
@@ -20,10 +21,13 @@ describe('smoke, not salt, for preserving (#1890)', () => {
     expect(STORE_EMOJI.rations).not.toBe('🧂');
   });
 
-  it("the status bar's rations fallback in main.ts is smoke too", () => {
+  it("the food breakdown under the key box (#1891) shows rations as smoke too", () => {
+    // Rations left the status bar's row in #1891; they show in the key box's food breakdown.
+    expect(RATIONS_EMOJI).toBe('💨');
     // main.ts draws the page and can't be imported in a test (it touches the DOM), so read its source.
-    const src = readFileSync(join(__dirname, 'main.ts'), 'utf8');
-    expect(src).toContain("sIcon('rations', '💨'");
-    expect(src).not.toContain('🧂');
+    for (const f of ['main.ts', 'key-box.ts']) {
+      const src = readFileSync(join(__dirname, f), 'utf8');
+      expect(src).not.toContain('🧂');
+    }
   });
 });
