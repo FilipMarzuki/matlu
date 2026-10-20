@@ -61,7 +61,7 @@ export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry
 
 export const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
-  wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
+  wood: '🪵', gatherstone: '🪨', quarry: '⛰️', preserve: '💨', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕', treat: '🩹',
   lookout: '🔭', study: '📖', explore: '🧭', experiment: '🧪', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', camp: '🏕️', drawmap: '🗺️', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
   traps: '🪤', sling: '🪃', bow: '🏹', hookline: '🪝', storemeat: '🌳', lidpit: '🪵', bankfire: '🔥', needlecompass: '🪡',
 };
@@ -471,7 +471,8 @@ export function vitalsBlock(s: Sim, t: T): string {
 
 /** A chip in the stores row: a store, or sinew (#1821, `hunting-gear`), kept beside them on the sim. */
 type StoreKey = keyof Sim['stores'] | 'sinew';
-const STORE_EMOJI: Record<StoreKey, string> = { rawFood: '🍖', water: '💧', firewood: '🪵', materials: '🪨', rations: '🧂', stone: '⛰️', hides: '🦌', sinew: '🧵' };
+/** #1890: rations are smoked, not salted (there is no salt in the wild), so they show 💨, not 🧂. */
+export const STORE_EMOJI: Record<StoreKey, string> = { rawFood: '🍖', water: '💧', firewood: '🪵', materials: '🪨', rations: '💨', stone: '⛰️', hides: '🦌', sinew: '🧵' };
 
 /**
  * A store chip: the good's 32 px icon (#1675), or its old emoji until it has one, the name as text
