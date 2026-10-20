@@ -1446,3 +1446,38 @@ header.tworow { display: block; }
 .queue .forecast { margin: 0 0 9px; padding: 6px 8px; border-left: 2px solid var(--teal); background: rgba(77,212,240,.06); font-size: 11.5px; color: var(--ink); }
 .queue .forecast .fchead { display: block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--teal); margin-bottom: 3px; }
 .queue .forecast p { margin: 0 0 2px; font-style: italic; }
+
+/* ── The key survival box under FOCUS (#1891, key-box.ts) ─────────────────── */
+.keycol { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.keybox { align-items: center; gap: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); }
+.keybox > span, .keybox .kfood > summary { display: inline-flex; align-items: center; gap: 3px; }
+.keybox .kv { font-variant-numeric: tabular-nums; }
+.keybox .kfood { position: relative; }
+.keybox .kfood > summary { cursor: pointer; list-style: none; }
+.keybox .kfood > summary::-webkit-details-marker { display: none; }
+.keybox .kfood > summary::after { content: '▾'; font-size: 9px; color: var(--faint); margin-left: 2px; }
+.keybox .kfood[open] > summary::after { content: '▴'; }
+.keybox .kpop { position: absolute; top: calc(100% + 6px); left: -8px; z-index: 31; width: max-content; max-width: min(320px, calc(100vw - 32px)); padding: 8px 10px; border: 1px solid var(--border2); border-radius: 9px; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.4); color: var(--ink); }
+.keybox .kpop .eyebrow { margin: 0 0 6px; }
+.keybox .kkinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.keybox .kkinds li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: center; }
+.keybox .kkinds li > span:first-child { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.keybox .kkinds li > b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.keybox .kkinds li > span:last-child { grid-column: 1 / -1; font-size: 11px; padding-left: 2px; }
+.keybox .kkinds .spoils { color: var(--warn); }
+.keybox .kkinds .keeps { color: var(--dim); }
+.keybox .kkinds i { font-style: normal; color: var(--dim); font-size: 11px; }
+.keybox .kall { margin: 6px 0 0; font-size: 11px; color: var(--faint); }
+.keybox .low { color: var(--danger); }
+.res .kind { font-size: 11px; color: var(--dim); }
+/* The night chip with the shelter in it (#1891): coloured by tonight's quality unless it's a fearful night. */
+.tag.nightq { border: 1px solid var(--border2); color: var(--dim); cursor: help; }
+.tag.nightq.q-cold { border-color: rgba(255,170,51,.5); color: var(--warn); }
+.tag.nightq.q-dangerous { border-color: rgba(255,90,90,.6); color: var(--danger); }
+/* PROGRESS: each key metric against the winter outlook (#1891, progress-view.ts keyNeedsBlock). */
+.keyneeds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.keyneeds li { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 10px; }
+.keyneeds .pn { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+.keyneeds .kn { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13px; }
+.keyneeds .st { font-family: var(--display); font-size: 7px; letter-spacing: .5px; text-align: right; color: var(--green); }
+.keyneeds .st.short { color: var(--warn); }

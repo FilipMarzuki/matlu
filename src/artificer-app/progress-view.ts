@@ -13,6 +13,7 @@ import { MIDWINTER_AFTER } from '../artificer/winter';
 import { nightTemp, coldNightNeeds } from '../artificer/weather';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { seasonView, weatherReport } from '../artificer/weather-words';
+import { keyMetrics, outlookNights } from '../artificer/key-metrics';
 import { esc, pct } from './html';
 
 const plural = (t: T, key: string, n: number, vars: Record<string, string | number> = {}): string => t(`${key}.${n === 1 ? 'one' : 'other'}` as Key, { n, ...vars });
@@ -46,9 +47,6 @@ export function timeline(s: Region1State, t: T): string {
     + `<div class="tl-legend"><span>${t('progress.autumnHtml', { a: 1, b: cal.winterDay - 1 })}</span><span>${t('progress.winterHtml', { a: cal.winterDay, b: cal.thawDay - 1 })}</span><span>${t('progress.thawHtml', { n: cal.thawDay })}</span></div>`;
 }
 
-/** The nights the outlook measures against: the rest of the winter (all of it, while it's still autumn). */
-const outlookNights = (s: Region1State): number => Math.min(winterOutlook(s).nightsToThaw, s.config.calendar.thawDay - s.config.calendar.winterDay);
-
 /** What falls short of the thaw, in plain words (empty when nothing does). */
 export function outlookWarnings(s: Region1State, t: T): string[] {
   const o = winterOutlook(s);
@@ -76,6 +74,23 @@ export function outlookBlock(s: Region1State, t: T): string {
     + row(t('progress.warmth'), (warmth(s) + FIRE_WARMTH) / warmNeed, `${Math.floor((warmth(s) + FIRE_WARMTH) * 100)}% / ${Math.ceil(warmNeed * 100)}%`, o.warmthMargin >= 0)
     + `<p class="mood" style="margin:6px 0 0">${esc(plural(t, 'progress.water', o.waterDays))}</p>`
     + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">${esc(t('progress.enough'))}</p>`);
+}
+
+/**
+ * The key survival metrics against the winter outlook (#1891): "firewood 12 of ~40", "food 4 of ~30
+ * days", each tagged holding or short by the outlook's own rule, so its verdict can be read. The
+ * needs are the outlook's (key-metrics.ts, from `winterOutlook`); water, fetched as you go, has none.
+ */
+export function keyNeedsBlock(s: Region1State, t: T): string {
+  const rows = keyMetrics(s).map(m => {
+    const name = t(`keys.row.${m.id}` as Key);
+    // A need of 0 (a cave's steady air asks no fire, #1770): said in words, not "12 of ~0".
+    const text = m.need === null ? t('keys.asYouGo', { n: m.value }) : m.need === 0 ? t('keys.noneNeeded', { n: m.value })
+      : m.id === 'food' ? t(`keys.of.food.${m.need === 1 ? 'one' : 'other'}`, { n: m.value, m: m.need }) : t('keys.of.firewood', { n: m.value, m: m.need });
+    const tag = m.holding === null ? '' : `<span class="st ${m.holding ? 'done' : 'short'}">${esc(t(m.holding ? 'status.holding' : 'status.short'))}</span>`;
+    return `<li class="k-${m.id}${m.holding === false ? ' short' : ''}"><span class="pn">${esc(name)}</span><span class="kn">${esc(text)}</span>${tag}</li>`;
+  }).join('');
+  return `<ul class="keyneeds">${rows}</ul>`;
 }
 
 /** The milestones, done or still to do. */
@@ -106,6 +121,7 @@ export function progressTab(s: Region1State, history: readonly RunRecord[], jour
   return `<div class="cols">
         <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t)}
+          <p class="eyebrow" style="margin-top:12px">${esc(t('keys.head'))}</p>${keyNeedsBlock(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t)}
           ${history.length ? `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}` : ''}</section>
         <section class="box log">${journalHead ?? `<p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p>`}<ul class="full">${journalHtml}</ul></section>

@@ -15,7 +15,7 @@ import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibil
 import { hasKit } from '../artificer/kit';
 import { huntingGearOn } from '../artificer/hunting-gear';
 import { scavengersOn, lidOn, protectionOf } from '../artificer/camp-scavengers';
-import { bankedNow, awayGuards, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
 import { yieldAmounts } from './yield-amounts';
 import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
@@ -485,7 +485,10 @@ export function storesRow(s: Sim, t: T): string {
   const st = s.stores;
   // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
   const streak = (n: number, word: string): string => (n ? ` <span class="streak">${esc(word)} ×${n}</span>` : '');
-  return `<div class="res">${storeChip('rawFood', st.rawFood, t, st.rawFood < 1, streak(s.deprivation.hungry, t('status.hungry')))}${storeChip('water', st.water, t, st.water < 1, streak(s.deprivation.thirsty, t('status.thirsty')))}`
+  // The food by kind (#1891): of the raw food, the meat from hunts and traps, when the run tracks it (#1823).
+  const meat = meatOf(s);
+  const meatNote = meat ? ` <span class="kind">${esc(t('keys.meat', { n: meat }))}</span>` : '';
+  return `<div class="res">${storeChip('rawFood', st.rawFood, t, st.rawFood < 1, meatNote + streak(s.deprivation.hungry, t('status.hungry')))}${storeChip('water', st.water, t, st.water < 1, streak(s.deprivation.thirsty, t('status.thirsty')))}`
     + `${storeChip('firewood', st.firewood, t)}${storeChip('materials', st.materials, t)}${storeChip('rations', st.rations, t)}${storeChip('stone', st.stone, t)}${storeChip('hides', st.hides, t)}`
     // Sinew (#1821) only with `hunting-gear` on: off, the row is as it always was.
     + `${huntingGearOn(s) ? storeChip('sinew', sinewOf(s), t) : ''}</div>`;

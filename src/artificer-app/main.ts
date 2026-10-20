@@ -14,7 +14,7 @@
 
 import './style.css';
 import { mapMode } from '../artificer/descriptive-map';
-import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, tonightsFright, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId, type EatingPlan } from '../artificer/region1';
+import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId, type EatingPlan } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
 import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -25,6 +25,7 @@ import { skillLevel } from '../artificer/skills';
 import { introBeats, introHtml, introWhere, type Beat } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
+import { keyBox, nightChip } from './key-box';
 import { GUIDE_FEATURE } from './survival-path';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
@@ -54,7 +55,7 @@ import type { Tool } from '../artificer/crafting';
 import { APP_TABS, devMode, devTruths, devNeedsPassword, devUnlocks, keptTab, loadChoices, saveChoices, setDevMode, tabIsDev, viewToOpen, visibleTabs, type AppTab, type TabView } from './feature-choices';
 import { hasCamp, withCampLine } from './camp-view';
 import { journalItems, logClass, logText } from './journal-view';
-import { injuryChip, nightTip, painTip, pinNoteText, uneaseText } from './queue-words';
+import { injuryChip, painTip, pinNoteText, uneaseText } from './queue-words';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
 import { mapSessionModal, newSessionUi, lookAroundLand, type MapSessionUi } from './map-session-view';
@@ -85,7 +86,6 @@ import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
-import { itemIcon } from './item-icons';
 import { esc, pct, band, wardenButton } from './html';
 import { weatherRow } from './weather-row';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
@@ -570,7 +570,8 @@ function statusBar(a: AppState, preview: Preview, row2 = ''): string {
   // The Warden's button shows from the start (#1818), so with the two rows the bar is never empty.
   if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return row2 ? `<div class="statusbar">${row2}</div>` : '';
   const vitals = g.shows('vitals');
-  const focus = g.shows('focus') ? `${markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock')}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}` : '';
+  const focus = g.shows('focus') ? markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock') : '';
+  const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
   // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
   // (an injury's chip, the weather) may be on another tab, or gone again (the injury healed).
   const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
@@ -578,33 +579,25 @@ function statusBar(a: AppState, preview: Preview, row2 = ''): string {
     const stores = g.shows('stores');
     return `<div class="statusbar">${row2}
     ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
-    ${stores ? markFirst(storesBar(a), 'stores') : ''}
-    ${focus}${stores ? statusEating(s) : ''}${vitals ? `${nightChip(s)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
+    ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
+    ${stores ? statusEating(s) : ''}${vitals ? `${nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
     ${g.shows('focus') ? outlookTag(s, ready) : ''}
   </div>${tips}`;
   }
   return `<div class="statusbar">${row2}
     ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
-    ${storesBar(a)}
-    ${focusChip(s, t, focusPopOpen, focusUi())}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${nightChip(s)}${painChip(s)}${injuryChips(s)}
+    ${keyColumn(focusChip(s, t, focusPopOpen, focusUi()), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${nightChip(s, t)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
     ${outlookTag(s, ready)}
   </div>`;
 }
 
-/** The status bar's compact stores (#1675): icon and count, no name beside it. */
-function storesBar(a: AppState): string {
-  const s = a.sim;
-  const st = s.stores;
-  // The compact stores (#1675): icon and count, no name beside it, so the icon carries the name as
-  // its alt (and title, for a hover); the old emoji stays as the fallback.
-  const sIcon = (id: keyof typeof st, emoji: string, name: string): string => {
-    const img = itemIcon(id, { alt: name });
-    return img ? img.replace('<img ', `<img title="${esc(name)}" `) : emoji;
-  };
-  return `<div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">${sIcon('rawFood', '🍖', t('store.rawFood'))}${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="${esc(t('status.hungryTip'))}">${esc(t('status.hungry'))} ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">${sIcon('water', '💧', t('store.water'))}${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="${esc(t('status.thirstyTip'))}">${esc(t('status.thirsty'))} ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>${sIcon('firewood', '🪵', t('store.firewood'))}${st.firewood}</span><span>${sIcon('materials', '🪨', t('store.materials'))}${st.materials}</span><span>${sIcon('rations', '🧂', t('store.rations'))}${st.rations}</span></div>`;
-}
+/**
+ * The FOCUS chip with the key survival box under it (#1891, key-box.ts): food as days, water and
+ * firewood. The full stores list (materials, stone, hides…) is the CAMP tab's.
+ */
+const keyColumn = (focus: string, box: string): string => (focus || box ? `<div class="keycol">${focus}${box}</div>` : '');
 
 /** Pain (#1409): what you feel, always — sharper when you've worked through an injury. */
 function painChip(s: AppState['sim']): string {
@@ -624,13 +617,6 @@ function injuryChips(s: AppState['sim']): string {
     const { parts, tip } = injuryChip(i, fa, t);
     return `<span class="tag inj${v.severity ? ` sev-${v.severity}` : ''}${v.risk || v.festers ? ' risk' : ''}" title="${esc(tip)}">🩹 ${esc(parts.join(' · '))}</span>`;
   }).join('');
-}
-
-/** Tonight, if it looks frightening (#1364): an uneasy or sleepless night, and why. */
-function nightChip(s: AppState['sim']): string {
-  const f = tonightsFright(s);
-  if (!f || f.state === 'calm' || s.outcome) return '';
-  return `<span class="tag fear s-${f.state}" title="${esc(nightTip({ state: f.state, perceived: f.perceived, reasons: f.reasons }, t))}">🌑 ${esc(t(f.state === 'shaken' ? 'night.uneasy' : 'night.sleepless'))}</span>`;
 }
 
 /** The status bar's verdict: readiness through the autumn; once the snow is down, whether what's laid by reaches the thaw. */
