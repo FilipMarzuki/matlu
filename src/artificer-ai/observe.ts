@@ -14,14 +14,15 @@
 import { injuryWords } from '../artificer/injuries';
 import type { Tool } from '../artificer/crafting';
 import { painOf, restingPain, PAIN_NAME, PAIN_DRAIN, PAIN_HOURS, PAIN_NIGHT } from '../artificer/pain';
-import { HEAL_HOURS, HEAL_FEE, FRIEND_HEAL, SET_BONE_TRUST } from '../artificer/injuries';
-import { kitItem, kitSupplies, KIT, KIT_GROUPS, PACK_CAPACITY, SUGGESTED_PACK, packWeight, type KitGroup } from '../artificer/kit';
+import { HEAL_HOURS, HEAL_FEE } from '../artificer/injuries';
+import { hasKit, kitItem, kitSupplies, offeredKit, KIT_GROUPS, PACK_CAPACITY, PACK_LITRES, STRAP_PLACES, SUGGESTED_PACK, PACK_FEEL_LINE, KID_STR, packWeight, packFeel, comfortableWeight, insideLitres, autoOutside, volumeOn, carryLimit, statsBeforePack, suggestedPackOf, type KitGroup, type KitItem, type KitId } from '../artificer/kit';
 import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
+import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
-  tripLoad, tripUnease, tonightsFright, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
+  tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
@@ -33,7 +34,28 @@ import { ASK_HOURS, tellsFor } from '../artificer/asks';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
-import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, type RoadState } from '../artificer/road';
+import type { SiteId } from '../artificer/region1';
+import { builtWarmthOn, siteShelterText, SHELTER_TEXT, WIND_EXPOSURE, DAMP, BED_WARMTH } from '../artificer/built-warmth';
+import { nightLineForAi, thermalOn } from '../artificer/thermal';
+import { featureOn } from '../artificer/features';
+import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
+import { scavengersOn, lidOn, walledLarderOn, protectionWord, LONG_AWAY_HOURS, LID_COST, MICE_FREE_DAYS, bankedFireOn, BANK_FIREWOOD, BANK_HOURS, BANK_HOURS_PER_FIREWOOD, BANK_WORK_HOURS } from '../artificer/camp-scavengers';
+import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
+import { walkOn, whereLine, WALK_RULES } from '../artificer/walk-the-map';
+import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
+import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
+import { descriptiveMapOn, describeLand, mapMode, mapNeeds, noCampYet } from '../artificer/descriptive-map';
+import { mapLearningOn, mapSessionOpen, mapUnlockNeedTexts, MAP_DRAW_HOURS } from '../artificer/map-learning';
+import { campAsActionOn, knownSpots, ratingCountsText, siteRatingCounts, siteRatingsOn } from '../artificer/camp-sites';
+import { buildsText, keptCamps } from '../artificer/camp-builds';
+import { weatherReport, SEASON_SHORT, type SeasonView } from '../artificer/weather-words';
+import { nowText, nowWords, timeWordsOn } from '../artificer/time-words';
+import { makeT } from '../artificer/i18n';
+import { taskCard, craftCard } from '../artificer-app/forecast-words';
+import { forecastsOn, knowThreshold } from '../artificer/forecasts';
+import { shown } from '../artificer/action-visibility';
+import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, healFee, journalNow, type RoadState } from '../artificer/road';
+import { respondedOn, type JournalEntry } from '../artificer/journal';
 import { peopleOf, personById, TRAVELLERS, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { encounterById, optionsFor, stepOf, type EncounterOption } from '../artificer/encounters';
@@ -41,18 +63,24 @@ import { THREAT_WORDS, STATE_WORDS, DARK_FADES } from '../artificer/panic';
 import { QUIRKS, quirkName, isFear, FEAR_FADES } from '../artificer/quirks';
 import { meetingOptions, meetingStep, type Meeting } from '../artificer/caravan-meeting';
 import { INJURY_NAME, HARM_NAME, HARM_WORDS } from '../artificer/injuries';
-import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst } from '../artificer/pins';
-import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
+import { pinCapacity, maxInterest, pinEffect, placeName, tripPinNote, letGoFirst, type Pin } from '../artificer/pins';
+import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, friendly } from '../artificer/trade';
+import { marketLine } from '../artificer/economy';
+import { stopOn, STOP_KINDS } from '../artificer/stop-action';
+import { feltWord, RAPPORT_LADDER } from '../artificer/rapport';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
+
+/** A kilogram figure to one decimal, for the AI's pack lines (#1871). */
+const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /**
  * The rules and the response contract. Static on purpose: it goes in the
  * system prompt and is cached, so never interpolate anything per-run here.
  */
-export const RULES = `You are playing "Greywind Reach", the first region of the Artificer: a survival-crafting game played one day at a time.
+export const RULES = `You are playing the Artificer, a survival-crafting game played one day at a time, set in an unnamed valley.
 
 GOAL
-Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave Greywind Reach before spring.
+Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave the valley before spring.
 Freezing nights burn firewood: 1, plus 1 for every full 5 C of frost (a warm shelter burns up to a third less). A freezing night without enough fire costs Condition — about 8 at -5 C, 20 at -15 C, less with shelter and sound cold gear — and a few in a row kill. When the cold is deep (day mean below -5 C) the streams are frozen hard: fetching water means melting snow, 1 firewood a trip.
 A good winter needs a larder (raw food, then preserved rations, one a night), water, firewood, a warm shelter (a clear midwinter night is about -19 C and needs about 87% warmth not to be a cold night; a fire kept in all night adds 15%, so a 75%-warm shelter with a fire is enough. A cold night costs 4 Condition plus 3 for every 10% the shelter falls short, and heals nothing), and a body in good shape. The WINTER OUTLOOK line tells you how many nights your stores last.
 
@@ -60,7 +88,7 @@ HOW A DAY WORKS
 You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. Hours you don't plan are lost: most days have room for three or four actions (e.g. water 2h, wood 4h, gather 5h, preserve with method dry 2h). At night you eat 1 food and drink 1 water, then sleep; a warmer shelter recovers more. Water is critical, food less so. A night without water: Vigor and Clarity recover only 30%, and you lose 10 x (nights running without water) Condition and 8 x Clarity — three dry nights cost 60 Condition, a fourth is usually fatal. A night without food: Vigor recovers 50%, Clarity 80%, and you lose 1 x (nights running) Condition and 3 x Clarity. One missed meal doesn't stop capacity growing; no water, or two hungry nights running, does. Condition only heals on nights with both food and water. If Condition reaches 0 overnight the run ends at once: dead if you had gone 2+ nights without water or 5+ without food, otherwise collapsed — and no one comes into the Reach, so a collapse is death too (a bear in autumn, wolves in winter) unless the spring caravan is within 3 days of arriving and its traders find you. Death ends the character. Rations (preserved food) are eaten only when there's no raw food left. Raw food spoils: each night a fifth of the raw food not kept cold goes bad (rounded up) — half that on nights near freezing (2 °C or below), none in a hard frost (−5 °C or below). A cold pit at camp keeps 8 raw food cold (12 at the river), and in winter the snow keeps 6 more. Rations never spoil. What a trip can bring home is limited: you can lift at most 40 + 3 x (STR − 10) stones, and a load's bulk (weight x awkwardness) must fit that too. Weights per unit: raw food 1, rations 0.5, water 2, firewood 2, materials 1, stone 3, hide 3; loose food, water, firewood and materials are awkward (x1.5–1.6), stone x1.3, hides x1.4 — a waterskin makes water x1.0. Whatever won't fit is left behind, heaviest first. Carrying gear (basket, backpack, harness, sled) makes loads less awkward but never raises the max; crude gear gives half the benefit; a sled is taken only when it helps. A comfortable load is 40% of your max (16 stones of bulk at STR 10); above that you are overloaded, and on a far-ring trip the walk home takes 30% longer and costs 60% more Vigor per unit over comfortable (a load twice the comfortable one: 1.3× the time, 1.6× the Vigor). Each overloaded hour builds strain (overload ratio − 1 per hour): each point cuts the next night's Vigor recovery by 10% (at most half), each night halves it, and waking with 3+ leaves you exhausted — all work drains 15% more that day. You choose how to eat ("eating" in your reply): full (a meal every night), half (a meal every other night — a lean night costs 1 Condition and wears the Vigor cap down, but no hunger builds; it makes a larder last twice as long), or none (fast, even with food). Being cooped up three or more days in a row — never out on the land, no study or crafting — brings cabin fever, which wears the Clarity cap down until you get out or get absorbed in work. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
 
 SKILLS
-Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels: Novice 5h, Apprentice 20h, Adept 60h, Journeyman 150h, Skilled 400h, Expert 1,000h, Veteran 3,000h, Professional 10,000h, Master, Grandmaster, and beyond human: Paragon, Mythic, Transcendent. A focused skill learns 3x as much from the same hours (not faster work). Higher skill in a field means lighter work, more yield, better tool use and better craft grades. You only know how good you THINK you are — beginners overrate themselves, the getting-good underrate themselves — so judge by results.
+Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, gatherstone, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels: Novice 5h, Apprentice 20h, Adept 60h, Journeyman 150h, Skilled 400h, Expert 1,000h, Veteran 3,000h, Professional 10,000h, Master, Grandmaster, and beyond human: Paragon, Mythic, Transcendent. A focused skill learns 3x as much from the same hours (not faster work). Higher skill in a field means lighter work, more yield, better tool use and better craft grades. You only know how good you THINK you are — beginners overrate themselves, the getting-good underrate themselves — so judge by results.
 Techniques are what a skill level looks like in practice (e.g. reading the grain, still hunting, smoke curing): each gives a concrete edge (yield, lighter work, better grades). Easy ones you work out alone with practice, hard ones take much longer alone, and some can only be taught — by a teacher or a manual found while scouting the far rings. A manual also makes practice in its skill more efficient. Past Adept, practising alone gets steadily slower; knowing the techniques of your level speeds the climb.
 
 FOCUS
@@ -68,7 +96,7 @@ Your mind works on one thing, set with "focus" in your reply (null keeps it, "no
 
 THE LAND
 Snow lies on the ground in winter and deepens with each snowfall: deep snow makes the walk out and wood cutting take up to half again as long. Once the cold is deep (from about day 36) the lake ice is thick enough to fish through (fish: a slow, steady catch). A winter storm is a blizzard. You can still go out, but everything out there takes half again as long, hauls come back poorer, and the cold may frostbite you, lose you in the white (and your haul with it), or kill you outright; further rings are worse, sound cold gear helps. Camp work (crafting, study, rest) is safe.
-Every gathering trip (gather, hunt, water, wood, quarry, fish) has luck: it comes back empty, poor (half), ordinary or good (1.5x). The odds of the hour are shown per action ("good / fair / poor / bad odds now"): weather (rain, fog and storms spoil foraging and hunting; snow buries forage but shows the tracks; wind and storms bring down dead wood), the land's supply (scarce or bare ground is worse), your skill and techniques, and the light set them. Luck is fixed per hour, so the same trip at the same hour always comes out the same.
+Every gathering trip (gather, hunt, water, wood, quarry, gatherstone, fish) has luck: it comes back empty, poor (half), ordinary or good (1.5x). The odds of the hour are shown per action ("good / fair / poor / bad odds now"): weather (rain, fog and storms spoil foraging and hunting; snow buries forage but shows the tracks; wind and storms bring down dead wood), the land's supply (scarce or bare ground is worse), your skill and techniques, and the light set them. Luck is fixed per hour, so the same trip at the same hour always comes out the same.
 Each ring's forage, game, timber, water and stone is a supply (plenty / thinning / scarce / bare) that your trips draw down and the land regrows overnight: quickly in early autumn (days 1-15), slowly in late autumn, hardly at all in winter. Yields follow the supply. Rest an overworked ring; push outward when the near one runs thin.
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
 Each ring has domains (forage, timber, stone, water, game; routes beyond home) known at a level: unknown, suspected, observed, detailed.
@@ -83,8 +111,8 @@ Crafts (build, coldPit, coldGear, knife, snare, waterskin, bedroll, shovel, bask
 ACCIDENTS
 Out on the land you can get hurt: about 1% per hour of work and walking, three times that in full dark, more in rain, fog, snow and storms (a storm 2.5x), 1.5x if you set out with Vigor under 20 or Clarity under 30, less with skill — never above 35% for one trip. Crafting is safer (0.5% an hour, double for knapping or a blade; worse in the dark without a fire). Rest and study are safe. Each hour has a fixed fortune, so the same work at the same hour turns out the same; moving risky work to a better hour or better weather is how you avoid it. An accident is a bruise (-2 Condition), a bad cut (-5), or a lost haul; in the worst conditions also a damaged tool (the tool the work uses drops a grade, a crude one breaks) or a sprain (physical work and walking cost 1.3x Vigor while it lasts), and a bad cut can be deep (it bleeds 1 Condition a night). At the bench, a bad slip can hurt your hand (crafting takes 1.3x as long).
 INJURIES are minor (60%), serious (30%) or grave (10%; 1.5x instead of 1.3x) — one step worse if you set out with Vigor under 20. They heal in points (minor 2, serious 6, grave 10): each night you ate, drank and slept warm heals 1, 2 after a light restful day, scaled by Constitution; a hungry, thirsty or cold night heals nothing. Heavy work (wood, quarry, hunt, build, ring 3) on a serious sprain, or crafting with a serious hurt hand, has a 15% chance to make it grave. A grave injury heals into an OLD WOUND that stays with the character for every later run: a stiff knee (walking to the far rings costs 1.1x Vigor), a weak grip (crafts a step worse at the edge of a grade) or a scar (2 Clarity lost on cold nights). Rest a serious injury rather than work through it.
-THE PACK: you set out on a weekend hike with your patrol, so you have what you packed. The knife, water bottle and sleeping bag count as your knife, waterskin and bedroll; the backpack is a sound backpack. Each item's effect is listed on the PACK line; some things run out (dressings, headlamp battery, matches, the thermos, stove fuel, the sweets).
-STATS: six, shown on the STATS line; 10 is ordinary. Each point above 10 (below 10, the reverse): STR — 3% less Vigor on heavy work (wood, quarry, build) and you carry more (see LOAD); AGI — 3% less drain on agile work (hunt, track, scout, survey, lookout) and 3% faster travel; CON — 3% less Condition lost to hunger, thirst and cold, and 3% faster healing; INT — 5% more insight, and every 3 points one step better (or worse) craft grade; WIL — 2% less Clarity drain, 3% less Clarity lost to deprivation, and your work stays reliable to lower Clarity; CHA — trust and prices with people (the road and trading; it does little in the Reach).
+THE PACK: you set out on a weekend hike with your patrol, so you have what you packed. The knife, water bottle and sleeping bag count as your knife, waterskin and bedroll; the backpack is a sound backpack. What each item is for is listed on the PACK line — what it's good for out here, you find out by using it; some things run out (dressings, headlamp battery, matches, the thermos, stove fuel, the sweets).
+STATS: six, shown on the STATS line; 10 is ordinary. Each point above 10 (below 10, the reverse): STR — 3% less Vigor on heavy work (wood, quarry, build) and you carry more (see LOAD); AGI — 3% less drain on agile work (hunt, track, scout, survey, lookout) and 3% faster travel; CON — 3% less Condition lost to hunger, thirst and cold, and 3% faster healing; INT — 5% more insight, and every 3 points one step better (or worse) craft grade; WIL — 2% less Clarity drain, 3% less Clarity lost to deprivation, and your work stays reliable to lower Clarity; CHA — how soon people warm to you, how truly you read them, and prices (the road and trading; it does little in the Reach).
 GROWING UP: you start as a child (11–14) and each new run of the same character is a year older. Your stats are lower now than they will be: each grows a little every year toward the adult stats chosen at creation, and is full at 18 (the body lags most: STR and CON). Every effect uses your stats as they are now. Under 18, skills learn 1.2x as fast.
 TALENTS: you chose two gifts and were born with one more you don't know about yet — it works on you all the same. When it makes a real difference (a little more brought home, a lot less tiredness, a night you came through better than you should have), the journal may hint at it: a vague line, later a closer one, and in time you'll know it ("You have a gift: …"). Talents grow stronger, unseen, with the work they suit. You also have a quirk or two — how you react when it's too much, perhaps a temperament — that you learn about yourself the first time each shows.
 USE AND WEAR: stats also grow by use. Practising a skill builds the stat it leans on — Woodcraft and Stonework STR; Hunting, Scouting and Handcraft AGI; Fieldcraft and Foraging CON; Memory and First aid INT — 0.5 exercise an hour untrained, up to 1.5 at Journeyman. Study builds INT hour for hour. Hard work adds 0.5 an hour: heavy work (Vigor −4/h or more, or pushing past empty) to STR and CON, demanding mind work (Clarity −4/h or more) to INT and WIL. Work begun with Clarity under 40 (or locked to survival) builds WIL hour for hour; talking and trading on the road CHA; every hour past 10 in a day, and each hungry or thirsty night (4h), CON. Growth comes in recovery: the exercise waits until a proper night (fed, watered, not cold), which banks at most 4h per stat — more than that since the last proper night is wasted, and a poor night banks nothing (it waits for the next good one). So spread hard training over days rather than cramming it. The next point needs 30 x (score − 8)² hours, at least 120 (10→11 or lower: 120h, 14→15: 1,080h), never past 18. The body tapers: for STR, CON and AGI, each point you've gained by use doubles what the next costs — 120h, 240h, 480h, 960h (the first gains come fast, then a plateau) — or the 30 x (score − 8)² above, whichever is more. INT, WIL and CHA don't taper. A point lost to wear or collapse comes back at the cheaper cost of the point before it. Hardship wears CON down: each night at 3+ nights hungry or 2+ thirsty adds 1 wear, and at 3 wear CON drops a point (never below 3). A run that ends in collapse costs a point of CON for good. Nothing of you carries to the next run: each Warden is someone new, and only the tools you end with pass on to them, as heirlooms.
@@ -122,24 +150,51 @@ const r0 = (x: number): number => Math.round(x);
 /** Hours to a tenth: tools, a hurt hand and the weather make them fractional (#1475). */
 const h1 = (x: number): number => Math.round(x * 10) / 10;
 
+/**
+ * A task's or craft's hint with `forecasts` on (#1827), or null when the exact hint stands: the
+ * page's words (forecast-words.ts) for a trip at this distance, and for a craft its line and its
+ * cost in rough words. Judged against the state as it is, with no queue (the AI plans whole days).
+ */
+function forecastHint(s: Region1State, id: ActionId, r: Ring, exact: string): string | null {
+  const task = taskCard(s, s, id, r, EN);
+  if (task) return task.text;
+  const c = craftCard(s, s, id, EN, exact);
+  if (!c || c.knowing === 'exact') return c ? c.text : null;
+  const cost = (c.rough ?? []).map(i => `${EN(`fc.qty.${i.level as 0 | 1 | 2}`)} ${i.item}`).join(' and ');
+  return `${c.text}${cost ? ` · costs ${cost}${c.waste ? `, ${EN('fc.waste')}` : ''}` : ''}`;
+}
+
 /** One-line yield hint per land action in a ring (same numbers the sim uses). */
 function landHint(s: Region1State, id: ActionId, r: Ring): string {
   const ty = (d: Domain, base: number, per: number): number => tripYield(s.explore, r, d, base, per);
   const fb = (d: Domain): number => (hasFind(s.explore, r, d) ? 2 : 0);
   switch (id) {
     case 'gather': return `+${ty('forage', 3, 2)} food${fb('forage') ? ' +2 materials' : ''}`;
-    case 'hunt': return `deer +${ty('game', 7, 0) + fb('game')} food & a hide (needs game observed); small game ~+${ty('game', 3, 1) + fb('game')} food (needs game suspected)`;
+    case 'hunt': {
+      // With `hunting-gear` (#1821): what the tool allows, and the odds in the same words the page shows.
+      const odds = huntOddsOf(s, 'hunt', r);
+      if (!odds) return `deer +${ty('game', 7, 0) + fb('game')} food & a hide (needs game observed); small game ~+${ty('game', 3, 1) + fb('game')} food (needs game suspected)`;
+      const small = `small game ~+${ty('game', 3, 1) + fb('game')} food (needs game suspected)`;
+      return `${huntTool(s) === 'bow' ? `deer +${ty('game', 7, 0) + fb('game')} food & a hide (needs game observed); ${small}` : `${small}; deer need a bow`} · ${HUNT_ODDS_WORDS[odds]} · a kill ends the hunt unless the catch fits a comfortable load`;
+    }
+    case 'traps': return `set a line of snares (1 material): by morning small game ~+${trapCatchOf(s.explore, r)} food, or nothing · ${HUNT_ODDS_WORDS[huntOddsOf(s, 'traps', r) ?? 'fair']}`;
     case 'water': return `+${ty('water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + fb('water')} water`;
     case 'wood': return `+${ty('timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb('timber')} firewood, +${ty('timber', 2, 1)} materials`;
     case 'quarry': return `+${ty('stone', 3, 1) + fb('stone')} stone`;
+    case 'gatherstone': return `+${ty('stone', 1.5, 0.5) + (r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0) + fb('stone') / 2} stone (more camped by the river or on the hill)`;
     case 'fish': return `about +${FISH_CATCH * RICHNESS[r]} food through the ice (needs thick lake ice: the deep cold)`;
+    case 'explore': return distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
+      : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
     case 'scout': return 'everything there at least suspected';
     case 'survey': return 'everything there observed';
     case 'track': return 'game observed';
-    case 'lookout': return 'ring +1 level, next ring comes into view';
+    case 'lookout': return distanceOn(s) ? 'the land there +1 level, the land further out comes into view' : 'ring +1 level, next ring comes into view';
     default: return '';
   }
 }
+
+/** The cold pit's hint with `cold-pit-slows` (#1757): it slows the rot rather than stopping it. */
+const COLD_PIT_SLOWS_HINT = 'a cold pit at camp: keeps 8 raw food (12 at the river) cold and slows the rot — it spoils at a third of the open rate (a quarter at the river) · 4 stone + 2 materials';
 
 const CAMP_HINT: Partial<Record<ActionId, string>> = {
   preserve: '2 raw food -> 1 ration (smoke: up to 3; dry: up to 2)',
@@ -148,6 +203,13 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   coldPit: 'a cold pit at camp: keeps 8 raw food (12 at the river) from spoiling · 4 stone + 2 materials',
   knife: 'hunt -15% vigor, quicker preserving',
   snare: '+1 food every night',
+  sling: 'opens hunting: small game (2 materials)',
+  bow: 'opens deer hunting, and better hunting odds (3 materials + 2 sinew; sinew comes from small game: traps or sling hunts)',
+  hookline: 'opens fishing (1 material)',
+  needlecompass: `a needle compass to keep a heading by (nothing used up): heading out n … nw opens; its pull lasts ${NEEDLE_PULL_DAYS} days, then make it again`,
+  storemeat: 'puts the raw meat lying out at camp out of reach of animals: under a stone cache (needs 3 stone) or hung with cord (needs 1 material); nothing used up',
+  lidpit: `a lid for the cold pit at camp (needs the pit, ${LID_COST.materials} materials and ${LID_COST.stone} stone): after it, storemeat puts the meat in the pit first, up to what it holds`,
+  bankfire: `banks the fire before a long trip (${BANK_FIREWOOD} firewood): it smoulders about ${BANK_HOURS}h and keeps animals off the meat lying out while you're away`,
   waterskin: '+1 water per trip',
   bedroll: '+6 clarity overnight',
   shovel: 'build -20% vigor',
@@ -156,10 +218,26 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   harness: 'firewood awkwardness 1.1, stone and hides 1.0 (a hide + 1 material)',
   sled: 'stone, firewood and hides count half their weight on snow or rings 1-2 (0.8 in ring 3); the sled adds 4 when taken (5 materials)',
   study: 'a third of your clarity -> concept insight (rank 1 reveals recipes)',
+  experiment: 'try things with the materials at hand (option "with" picks one) -> work out a recipe you don\'t know yet; a focus on its concept or skill doubles the progress',
   tinker: 'rests body, spends mind',
   rest: 'recovers a little',
+  drawmap: 'sit down at camp and draw your own map from what you\'ve found (opens after a few nights, with enough places found in enough directions and something to draw on)',
+  camp: 'make camp at a place you know (option "spot"): the walk there, then 2h setting up; moving leaves your shelter behind',
   treat: 'tends your worst untreated injury (1h): a first-aid dressing, or improvised — a cut with 1 materials (or a hide), a sprain with 1 firewood + 1 materials, a hurt hand with 1 food',
 };
+
+/** The sled's hint with distances (#1752): the same rule, rings 1-2 and 3 said as how far out. */
+const SLED_HINT_DIST = 'stone, firewood and hides count half their weight on snow or up to half a day out (0.8 a day out); the sled adds 4 when taken (5 materials)';
+
+/**
+ * The places to camp you know, rated from your reading of them (#1756, `camp-site-ratings`): the
+ * counts the page's Make camp card shows as badges, in English. '' until one rates good or better.
+ */
+function ratedNote(s: Region1State): string {
+  if (!siteRatingsOn(s)) return '';
+  const counts = ratingCountsText(siteRatingCounts(s));
+  return counts ? ` · PLACES TO CAMP YOU KNOW, as you read them: ${counts}` : '';
+}
 
 const haulWords = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${k}`).join(', ');
 
@@ -185,8 +263,36 @@ function loadLine(s: Region1State): string {
 function coldLine(s: Region1State): string | null {
   if (s.config.world.weather !== 'seeded') return null;
   const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
-  const sp = spoilage(s.stores.rawFood, coldCapacity(s, t), t);
-  return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${s.site && s.coldPitAt === s.site ? ', cold pit' : ', no cold pit'}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
+  const sp = nightSpoilage(s, t);
+  const pit = (s.site && s.coldPitAt === s.site ? (featureOn(s.config.world.features, 'cold-pit-slows') ? ', cold pit — slows the rot, doesn\'t stop it' : ', cold pit') : ', no cold pit')
+    // The lid (#1857), when there is one.
+    + (pitLidded(s) ? ', covered and weighed down' : '');
+  return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${pit}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
+}
+
+/**
+ * The meat at camp (#1823, `camp-scavengers`) and how well it's protected, in #1859's words: the
+ * meat lying out (while you're away, and tonight) and the meat stored. Null with the switch off or no meat.
+ */
+function meatLine(s: Region1State): string | null {
+  if (!scavengersOn(s) || meatOf(s) <= 0) return null;
+  const parts: string[] = [];
+  const open = openMeatOf(s), stored = hungMeatOf(s), pit = pitMeatOf(s);
+  // Mice (#1858) count once camp has stood a few days: the meat they reach is then well protected, not secure.
+  const mice = miceAbout(s);
+  if (open > 0) {
+    const fire = fireTonight(s);
+    // Behind walls (#1858): the line says so, and the walls guard it, on top of a banked fire (#1865)
+    // while you're away, as long as it smoulders.
+    const walled = walledHere(s), banked = bankedNow(s);
+    parts.push(`${open} raw meat lies ${walled ? 'in the shelter, behind walls' : 'in camp'} — while you're away${banked ? ' (a banked fire)' : ''}: ${protectionWord(openGuards(s, awayGuards(banked)), walled && mice)} · tonight (${fire ? 'asleep, a fire' : 'asleep'}): ${protectionWord(openGuards(s, nightGuards(fire)), walled && mice)}`);
+  }
+  if (pit > 0) parts.push(`${pit} raw meat lies in the cold pit, covered and weighed down — ${protectionWord([placeGuard('pit')], mice)}`);
+  if (stored > 0 && s.meatStored) {
+    const word = protectionWord([placeGuard(s.meatStored.place)]);
+    parts.push(s.meatStored.place === 'cache' ? `${stored} raw meat lies under a stone cache, out of reach — ${word}` : `${stored} raw meat hangs out of reach (hung with cord) — ${word}`);
+  }
+  return `MEAT: ${parts.join('; ')}`;
 }
 
 /** A tool, named by grade — and, for an heirloom that hasn't taught yet, what it still holds of its maker's knowledge (#1456, #1469). */
@@ -197,28 +303,58 @@ function toolLabel(t: Tool, taughtBy: readonly string[] | undefined): string {
   return `${t.item} (${t.grade}${holds ? `, holds ${holds}` : ''})`;
 }
 
-/** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
-export function observe(s: Region1State, notes: readonly string[] = []): string {
+/** What the Warden knows of the calendar, for the WEATHER heading (#1729). */
+const WX_HOW: Readonly<Record<Exclude<SeasonView, 'numbers'>, string>> = {
+  words: 'no calendar, and you have lost count of the days',
+  tally: 'you keep count of the days',
+  strip: "you've seen a season turn, so you know the shape of the year",
+};
+
+/** The catalog's English, for the words the page draws in the viewer's language (#1740). */
+const EN = makeT('en');
+
+/**
+ * Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…).
+ * `found` is what the land trips since the last observation turned up (#1869, artificer-app/explore-finds.ts
+ * `foundLine`): its FOUND line follows the notes. The harness works it out, since the state alone can't say what's new.
+ */
+export function observe(s: Region1State, notes: readonly string[] = [], found: readonly string[] = []): string {
   const cal = s.config.calendar;
   const season = seasonOf(s.day, cal);
   const v = s.vitals;
   const st = s.stores;
   const lines: string[] = [];
 
-  lines.push(`DAY ${s.day} — ${season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`}.`);
+  // The weather in words (#1729, `weather-words`): until the calendar is earned, the season as the
+  // Warden senses it instead of the day the snow falls. Once a season has turned, as before.
+  const wx = weatherReport(s);
+  const calendarKnown = wx.view === 'numbers' || wx.view === 'strip';
+  lines.push(`DAY ${s.day} — ${calendarKnown ? (season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`) : SEASON_SHORT[wx.season]}.`);
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
+  // The time of day in words (#1740, `time-words`): what the page's queue box says. The hours stay:
+  // the rules (a cached prompt) and every move are in hours, so the AI plans in them as before.
+  if (timeWordsOn(s)) lines.push(`TIME OF DAY: ${nowText(nowWords(s.day, s.hoursToday, cal), EN)}`);
   // Learned planning (#1350): until the first level-up, one action per reply.
   if (!s.canPlan) lines.push("PLANNING: not yet — you take things one at a time. Put ONE action in the queue (only the first runs); you'll be asked again after it. An empty queue ends the day. The first time a skill levels up, you'll be able to plan whole days.");
   for (const n of notes) lines.push(`NOTE: ${n}`);
+  for (const f of found) lines.push(f);
+  if (wx.view !== 'numbers') {
+    lines.push(`WEATHER (as you sense it: ${WX_HOW[wx.view]}, and there's no thermometer):`);
+    for (const l of wx.lines) lines.push(`  ${l}`);
+  }
   lines.push('');
   // Capacities and Condition round DOWN: 99.6 shown as "100" read as meeting a 100 threshold it doesn't (#1230).
   lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100`);
   const dep = s.deprivation;
   if (dep.hungry || dep.thirsty) lines.push(`DEPRIVATION: ${[dep.hungry ? `${dep.hungry} night(s) without food` : '', dep.thirsty ? `${dep.thirsty} night(s) without water` : ''].filter(Boolean).join(', ')} — another night without costs more Condition.`);
   lines.push(`EATING: ${s.eating ?? 'full'} rations${(s.cabinDays ?? 0) > 0 ? ` · ${s.cabinDays} day(s) cooped up${(s.cabinDays ?? 0) >= CABIN_FEVER_FROM ? ' — cabin fever' : ''}` : ''}`);
-  lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}`);
+  lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}${huntingGearOn(s) ? ` · sinew ${sinewOf(s)}` : ''}`);
   const cold = coldLine(s);
   if (cold) lines.push(cold);
+  const meat = meatLine(s);
+  if (meat) lines.push(meat);
+  // A banked fire at camp (#1865, `banked-fire`): how long it has left, in hours of the day.
+  if (bankedNow(s)) lines.push(`CAMP FIRE: a banked fire smoulders in camp, about ${Math.round((s.banked!.until - s.hoursToday) * 2) / 2}h left before it burns down`);
   if (s.config.world.carrying !== false) lines.push(loadLine(s));
 
   const t = s.config.thresholds;
@@ -232,10 +368,32 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const nights = (n: number): string => `${n} night${n === 1 ? '' : 's'}`;
   lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} (${o.fuelToThaw} needed to the thaw, tonight ${nightFuel(s)}) · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
 
-  lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  // Camp as an action (#1732): the camp is a real place, and where to camp is the camp action's choice.
+  const spot = campAsActionOn(s) ? knownSpots(s).find(p => p.here) : undefined;
+  // With `built-warmth` (#1763) a site has no ceiling: it's said by its natural shelter and what building it needs.
+  const built = builtWarmthOn(s);
+  const siteNote = (k: SiteId): string => (built ? siteShelterText(k) : `max ${pct(SITES[k].warmth)}`);
+  // With `thermal-model` (#1770) the night is a heat balance, said on its own line below, so the
+  // warmth fraction's percentages are left out.
+  const heat = tonightThermal(s);
+  const thermal = thermalOn(s);
+  const sites = built && thermal
+    ? `Sites by natural shelter: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${SHELTER_TEXT.word[k]}`).join(', ')}`
+    : built
+    ? `Sites by natural shelter: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${SHELTER_TEXT.word[k]}`).join(', ')} (a site gives a head start, not a ceiling: timber walls, soundly built, with a fire make any of them warm enough for midwinter; the hilltop's wind costs ${pct(WIND_EXPOSURE)} until walls are soundly built, the riverbank's damp ${pct(DAMP)} until a shelter is soundly built off the ground, and a bedroll adds ${pct(BED_WARMTH)})`
+    : `Sites: ${(Object.keys(SITES) as SiteId[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}`;
+  lines.push(`CAMP: ${spot ? `at ${spot.id}, ` : ''}${s.site ? `${SITES[s.site].name} (${built ? `natural shelter: ${siteNote(s.site)}` : siteNote(s.site)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}${built && !thermal ? `, ${pct(warmth(s))} warm` : ''}` : 'none yet'}. ${sites}. First shelter stage costs ${BUILD_COST[0]} materials.`);
+  // Tonight as a heat balance (#1770, `thermal-model`): the words, and the clo figures to plan with.
+  if (heat) lines.push(`NIGHT AT CAMP (as it stands, with the fire the woodpile allows): ${nightLineForAi(heat)}. Clothes, bag and pad add up; a cave's air stays mild and steady all winter but its rock needs a pad; wind and open sky make a night colder than the air; walls with a fire inside them warm the air.`);
+  // Each camp keeps what you built there (#1753): the camps you're away from, by spot id.
+  const kept = keptCamps(s);
+  if (kept.length) lines.push(`BUILT AT OTHER PLACES: ${kept.map(c => `${c.id}: ${buildsText(c.items)}`).join('; ')} (still there when you camp there again; food you leave in a cold pit stays in it)`);
+  if (campAsActionOn(s)) lines.push('Make camp is an action here: "camp", with its "spot" option, at one of the places to camp you know (each a real place, by direction and walking time from where you are, with what you can tell of it). Explore to find more. The "site" field does nothing in this game.');
   lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => toolLabel(x, s.taughtBy)).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
-  lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
+  // With the actions you don't know hidden (#1690), what's still to work out isn't named either, as in the app: only how many.
+  const notYet = !undiscovered.length ? '' : visibilityOn(s) ? ` · ${undiscovered.length} still to work out (experiment with what you have, study, or learn the land)` : ` · not yet: ${undiscovered.join(', ')}`;
+  lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${notYet}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
   // Background (#1398): a scout, trained in first aid, camp chores, map and compass.
@@ -243,12 +401,17 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // The hike kit (#1400): what was packed, and what's left of what runs out.
   if (s.kit) {
     const left = kitSupplies(s.kit, s.dressings ?? 0);
-    lines.push(`PACK (what you brought on the hike): ${s.kit.items.map(id => `${kitItem(id).name} — ${kitItem(id).effect}`).join('; ')}${left.length ? ` | LEFT: ${left.join(', ')}` : ''}`);
+    lines.push(`PACK (what you brought on the hike): ${s.kit.items.map(id => `${kitItem(id).name} — ${kitItem(id).does}`).join('; ')}${left.length ? ` | LEFT: ${left.join(', ')}` : ''}`);
+    // How heavy it feels (#1871, `pack-volume`): the Warden's words, and the kilograms for the AI's rules; it costs only until camp is made.
+    if (volumeOn(s) && s.site === null) lines.push(`PACK WEIGHT: ${packWeight(s.kit.items)} kg (comfortable for you: ${round1(comfortableWeight(s.character.stats.str))} kg) — "${PACK_FEEL_LINE[packFeel(packWeight(s.kit.items), s.character.stats.str)]}" Over the comfortable weight every walk costs extra Vigor, more the heavier, until you make camp and set it down.`);
   }
   // Stats (#1259): exact values, as they are now — and, while still growing (#1399), what each will be grown up.
   const { age, adult } = s.character;
   const grown = adult ? withTraining(adult, s.character.trained) : null;
   lines.push(`STATS: ${STAT_IDS.map(k => `${STATS[k].short} ${s.character.stats[k]}${grown && grown[k] !== s.character.stats[k] ? ` (${grown[k]} grown up)` : ''}`).join(' · ')}`);
+  // Difficulty (#1728): only when something was left unspent at creation, so other games read as before.
+  const hard = difficultyOfCharacter(s.character);
+  if (hard > 1) lines.push(`DIFFICULTY: ${difficultyLabel(hard)} — chosen at creation, from the stat points and talent picks left unspent. It changes nothing in play, and goes into the run record.`);
   if (age !== undefined && adult) lines.push(`AGE: ${age}${isYoung(age) ? ` — still growing (skills learn ${YOUNG_PRACTICE}x as fast)` : ' — grown'}`);
   // Talents (#1263): only the ones the Warden knows about — never the hidden one, nor any tier.
   const knownTalents = s.character.talents.filter(t => t.known);
@@ -269,7 +432,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const pain = painOf(s);
   if (pain > 0) lines.push(`PAIN: ${PAIN_NAME[pain]}${pain >= 2 ? ` — work drains your mind ${PAIN_DRAIN[pain]}x${PAIN_HOURS[pain] > 1 ? ` and takes ${PAIN_HOURS[pain]}x as long` : ''}, and tonight will cost ${PAIN_NIGHT[pain]} Clarity` : ''}${(s.today.pain ?? 0) > restingPain(s.injuries) ? ' (worse for the work you did today)' : ''}`);
   // Lasting harms (#1392): what grave injuries left.
-  if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${HARM_WORDS[h]})`).join(' · ')}`);
+  if (s.character.harms?.length) lines.push(`OLD WOUNDS: ${s.character.harms.map(h => `${HARM_NAME[h]} (${ringWordsFor(s, HARM_WORDS[h])})`).join(' · ')}`);
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''} · concepts open: ${FOCUS_OPEN(s).join(', ') || 'none'}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
@@ -279,34 +442,60 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`TECHNIQUES: ${known.length ? known.join(', ') : 'none yet'}${s.manuals.length ? ` | MANUALS: ${s.manuals.map(id => manualById(id)?.name ?? id).join(', ')}` : ''}`);
 
   lines.push('');
-  lines.push('THE LAND:');
+  // With distances (#1752): told from camp, or where you are before it, each with the number a land action's reply takes.
+  const dist = distanceOn(s);
+  lines.push(dist ? `THE LAND, by how far it is ${measuredFromCamp(s) ? 'from camp' : 'from where you are'} (a land action's "ring" field takes the number after @):` : 'THE LAND:');
   for (const r of RINGS) {
     const open = reachable(s.explore, r);
     // Supply (#1304): what the land still holds — trips draw it down, the season regrows it.
     const known = domainsOf(r).map(d => `${d} ${LEVEL_NAME[level(s.explore, r, d)]}${d === 'routes' ? '' : ` · ${supplyWord(s.explore.supply[r][d])}`}`).join(', ');
     const finds = domainsOf(r).filter(d => hasFind(s.explore, r, d)).map(d => FINDS[d]?.name).join(', ');
-    lines.push(`- ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
+    const name = dist ? `@${r} ${DISTANCE_AT[r]} (+${TRAVEL_HOURS[r]}h walking there and back)` : `ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)`;
+    lines.push(`- ${name}${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
+  }
+  // The land in words (#1686, `descriptive-map`): the AI, and the API that shows this same text,
+  // gets what the Warden knows of the land as a scout would say it, the same lines the MAP tab shows.
+  if (descriptiveMapOn(s)) {
+    const mode = mapMode(s);
+    // Learning the map (#1754): what the unlock still needs, with how far along each is, and once it's open, the action.
+    const learning = mapLearningOn(s);
+    const needs = learning ? mapUnlockNeedTexts(s) : mapNeeds(s);
+    // Before you've made camp (#1834) the land is around you, not around a camp.
+    lines.push(`WHAT YOU KNOW OF THE LAND AROUND ${noCampYet(s) ? 'YOU' : 'CAMP'} (${mode === 'drawn' ? 'you have drawn your own map of what you\'ve seen' : 'no map yet: you know it as directions and walking times'}; ${hasKit(s, 'map-compass') ? 'the compass gives exact bearings' : 'no compass, so bearings are rough'}):`);
+    for (const l of describeLand(s)) lines.push(`  ${l}`);
+    if (needs.length) lines.push(`  To draw your own map you need ${needs.length > 2 ? `${needs.slice(0, -1).join(', ')} and ${needs[needs.length - 1]}` : needs.join(' and ')}.`);
+    if (mapSessionOpen(s)) lines.push(`  You can draw your own map now: do "drawmap" (${MAP_DRAW_HOURS}h at camp), and your Warden places what you've found by its direction and distance from camp.`);
   }
 
   lines.push('');
   lines.push('ACTIONS (id · hours · effect · BLOCKED reason if it would be skipped now):');
   for (const id of Object.keys(ACTIONS) as ActionId[]) {
     const def = ACTIONS[id];
+    // What the Warden doesn't know how to do yet isn't listed (#1690); what they can't do now is, BLOCKED with why.
+    if (!shown(s, id)) continue;
     const rings: Ring[] = def.ringed ? RINGS.filter(r => reachable(s.explore, r)) : [1];
     for (const r of rings) {
       const why = blockedReason(s, id, r);
-      const ringTag = def.ringed ? ` ring ${r}` : '';
-      const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
+      // With distances (#1752): the distance, and its number for the reply's field ("gather @2").
+      const ringTag = !def.ringed ? '' : distanceOn(s) ? ` @${r} ${DISTANCE_AT[r]}` : ` ring ${r}`;
+      const exactHint = def.ringed ? landHint(s, id, r)
+        : id === 'sled' && distanceOn(s) ? SLED_HINT_DIST
+        : id === 'coldPit' && featureOn(s.config.world.features, 'cold-pit-slows') ? COLD_PIT_SLOWS_HINT
+        : (CAMP_HINT[id] ?? '');
+      // With `forecasts` (#1827): what the Warden knows of it, in the page's words, until the numbers are known.
+      const vague = forecastHint(s, id, r, exactHint);
+      const hint = vague ?? exactHint;
       const odds = tripOdds(s, id, r);
       const danger = why ? null : dangerOf(s, id, r);
       // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
-      const load = why ? null : tripLoad(s, queueId(id, r));
+      // …but not while a forecast stands in for the numbers (#1827): the load would give them away.
+      const load = why || vague ? null : tripLoad(s, queueId(id, r));
       // How it would feel out there now (#1365): shaken or panicked, and why — as the queue preview shows a person.
       const u = why ? null : tripUnease(s, queueId(id, r));
       const unease = u && u.state !== 'calm' ? ` · UNEASE: ${u.reasons.filter(x => x !== 'ground you know').join(', ')} — ${u.state === 'shaken' ? "you'll be shaken" : 'you may panic'}` : '';
       // What a place you remember does for this trip (#1381), as the queue preview shows a person.
       const pin = def.ringed ? tripPinNote(s.pins, id, r) : null;
-      lines.push(`- ${id}${ringTag} · ${h1(queueHours(queueId(id, r), s))}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}`);
+      lines.push(`- ${id}${ringTag} · ${h1(queueHours(queueId(id, r), s))}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}${unease}${pin ? ` · ${pin}` : ''}${id === 'camp' ? ratedNote(s) : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {
@@ -314,6 +503,30 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     }
   }
 
+  // Traps first; hunting and fishing need gear (#1821, `hunting-gear`).
+  // Explore in a direction (#1839, `directed-explore`): the way option, and where you stand.
+  if (directedOn(s)) {
+    const where = awayFromCamp(s) ? ` You are out on the land now, about ${Math.round(walkBackHours(s) * 2) / 2}h from camp: tonight you sleep out with no shelter, and any work but exploring or Make camp starts with the walk back.`
+      : s.afield ? ' You are out on the land now, away from where you started: walks and directions are from here.' : '';
+    lines.push(`EXPLORING: "explore" takes option "way". "here" (the default) looks around: a little of the land in every direction, out to the distance you queue it at, and you stay where you are${s.campSpot ? ' ("camp" instead walks back to camp first and looks around there, when you\'re away from it)' : ''}. n, ne, e, se, s, sw, w, nw heads out that way: you see the land in that 45° slice (about ${HEAD_OUT_HOURS[1]}h out close by, ${HEAD_OUT_HOURS[2]}h at half a day, ${HEAD_OUT_HOURS[3]}h at a day), find the water, wood, stone and camp sites the map has there, learn nothing of the other directions, and end the day out there; the next day starts from there. Heading out needs no ground known first. Looking around once you have headed out sees about ${LOOK_HOURS[1]}/${LOOK_HOURS[2]}/${LOOK_HOURS[3]}h each way.${where}`);
+    // Keeping a heading (#1868, `compass-heading`): what heading out needs, and what the Warden has.
+    const heading = headingLine(s);
+    if (heading) lines.push(heading);
+  }
+  // Tasks walk the map (#1876, `walk-the-map`): the rules, and where the Warden is now.
+  if (walkOn(s)) lines.push(`${WALK_RULES} ${whereLine(s)}`);
+  if (huntingGearOn(s)) lines.push(`HUNTING: traps first. "traps" sets a line of snares (2h, 1 material) where you have seen game; it catches overnight with no more work, small game or nothing by morning, and must be set again for another night. Hunting needs a sling (small game) or a bow (deer too, better odds; opens with more Hunting or Woodcraft, and its string takes ${BOW_SINEW} sinew: each small-game catch, trapped or hunted, gives ${SINEW_SMALL} sinew, a deer ${SINEW_DEER}); fishing needs a hook and line. A kill ends the hunt and you walk home with it, the hours left over yours, unless the catch fits within a comfortable load: then you stow it and hunt on, with another chance at a catch (a deer never fits). Odds are said in words: good odds, fair odds, a long shot.`);
+  // Meat at camp draws animals (#1823, `camp-scavengers`).
+  if (scavengersOn(s)) lines.push(`SCAVENGERS: raw meat from hunting and traps (not plants or fish) left at camp draws animals. On a trip of ${LONG_AWAY_HOURS}h or more away, a fox or ravens may take a quarter to a half of the meat lying out; at night too, half as often since you are there asleep, and hardly ever with a fire burning. Rarely, at night, wolves or a bear take all of it and the fright costs Clarity. "storemeat" (1h at camp) puts it out of reach; rations (smoked or dried) are always safe. How well the meat is protected is said in words: lies open, fairly safe, well protected, secure.`);
+  // The lid (#1857) and the walled larder (#1858), each with its own switch.
+  if (lidOn(s)) lines.push(`COLD PIT LID: "lidpit" (1h at a camp with a cold pit, ${LID_COST.materials} materials + ${LID_COST.stone} stone) lids the pit; then "storemeat" puts the meat in the pit first (up to what it holds), the rest hung or cached. No fox, raven or wolf gets into a lidded pit; a bear rarely does, outside winter; mice sometimes nibble a little.`);
+  if (walledLarderOn(s)) lines.push(`WALLED LARDER: once camp's shelter has walls (tier 2), the raw meat lying loose in it is safe from foxes, ravens, wolves and bears, day and night. Only mice get in: none for the first ${MICE_FREE_DAYS} days at a site, then more often the longer camp stands there, nibbling 5–10% on some nights. Moving camp starts the count again. Hung meat and rations are safe from them.`);
+  // Forecasts (#1827, `forecasts`): how what you know of a task or craft grows by doing it.
+  if (forecastsOn(s)) lines.push(`FORECASTS: you learn what work brings by doing it. A task you have never done at that distance says "you don't know what this will bring" (each distance is learned separately); after a try or two it gives a rough word (a little / some / plenty of); after ${knowThreshold(s.character.stats.int)} tries (your INT ${s.character.stats.int}: 4 at INT 8 or less, 3 at 9-12, 2 at 13+) the numbers show. Crafts the same, per recipe, failures counting: never made, "you're not sure you can make this"; then your chance in words (you'll likely manage / it could go either way / beyond you for now), the likely grade (rough / decent / good work) and the cost roughly, with "you may waste some of it" when it could fail; then the real odds, the grade and the exact cost. Rough words are sometimes one step off: less with more INT and practice.`);
+  // A banked fire guards the meat by day (#1865, `banked-fire`).
+  if (bankedFireOn(s)) lines.push(`BANKED FIRE: "bankfire" (${BANK_WORK_HOURS}h at camp, ${BANK_FIREWOOD} firewood: about 1 for every ${BANK_HOURS_PER_FIREWOOD}h away; it needs raw meat lying out and that much firewood) banks the fire so it smoulders about ${BANK_HOURS}h, and while it does it guards the meat lying out on a trip of ${LONG_AWAY_HOURS}h or more as a fire does: a fox or ravens come about a tenth as often, anything bigger hardly ever. Bank it just before you set out: a trip that comes back after it has burned down loses the guard. Heavy rain, a storm or snow may put it out while you're away (the journal says so). It is gone by nightfall; the night's fire is the firewood the night burns.`);
+  // Stopping partway (#1815, `stop-action`): what a stop would keep, by the kind of work.
+  if (stopOn(s)) lines.push(`STOPPING: an action can be stopped partway — {"plan": [...], "stop": {"action": N, "hours": h}} stops the plan's action N (from 0) h hours into it (walks included), {"do": ..., "stop": {"action": 0, "hours": h}} the one action; the day then pauses (no night) and you plan the rest. Stopped on the walk out you turn back with nothing, the walk back as long as you'd walked. At the work: ${STOP_KINDS.bit.join(', ')} keep a share of what the whole action would bring, in proportion to the work done (rounded down); ${STOP_KINDS.all.join(' and ')} keep nothing until the work is done, all of it after; a ${STOP_KINDS.kill.join(' or ')} is a game of chance: its kill can come at any moment of the work, sometimes straight away — stopped after it you keep the whole catch (a deer's hide too), before it nothing, and a hunt that was going to come up empty keeps nothing whenever you stop; ${STOP_KINDS.see.join(', ')} keep what you'd seen, in proportion to the time at the edge. On the walk back you have it all. Crafts, building and other camp work stopped make nothing and use nothing up. The hours, Vigor and Clarity are spent as far as you got.`);
   lines.push('');
   const done = REGION1_MILESTONES.filter(m => s.milestones.includes(m.id)).map(m => m.name);
   lines.push(`MILESTONES: ${done.length}/${REGION1_MILESTONES.length}${done.length ? ` (${done.join(', ')})` : ''}`);
@@ -337,15 +550,15 @@ export const ROAD_RULES = `THE CARAVAN ROAD — you survived the winter. The spr
 
 Each day: choose road actions in order; they run until the day's 16 hours are spent, then you sleep. On the wagon the caravan waters you; in a village you drink your own water. Food comes from your stores every night as before. Nights on the road are never cold.
 
-PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
+PEOPLE: each person has a role, and a regard for you that you never see. You see how they seem with you, coldest to warmest: ${RAPPORT_LADDER}. Your read can be off: Charisma reads people truer, a tired mind (low Clarity) reads them worse, reserved people seem colder than they are, and after a ragged winter everyone seems a little colder. When someone shows where you really stand (a friend's price, a free lesson or healing, a favour asked, a secret told), your read of them moves toward the truth, and the journal says so if it changes. What opens goes by how they really feel, not how they seem. Talking (${TALK_HOURS}h) warms people and, as they warm, they share what they know. Someone who comes to trust you well becomes a contact who remembers you next time.
 TELLING: what you did in the Reach means something to some people. "tell:<person>:<deed>" (${ASK_HOURS}h) tells them, once; they warm to you for it.
-ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know. An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
+ASKING: with a focus on a topic, a skill or a concept, "ask:<person>" (${ASK_HOURS}h) asks them about it: they tell you what they know once they trust you enough (and trust you a little more for asking), say not yet, or don't know (and, with referrals on, may name someone nearby who would). An answer can name people and places you've not met yet. Asking again after an answer is free and tells you nothing new.
 LEADS: an answer can send you to someone elsewhere. The lead is listed below; asking that person about its topic needs less trust (someone they know sent you), and you can focus on them before you meet them.
 NOTICING: in a village, each morning, you may notice who is tied to your focus (or to something you've learned about, less often): a sign in the journal, and asking them about it then needs less trust.
-TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
-QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
-HEALERS: "heal:<healer>" (${HEAL_HOURS}h) — Ottilia on the wagon, or a village's healer — tends your worst untreated injury: treated well (+2 healing a night), 2 points healed at once; ${HEAL_FEE} marks, free for a friend (trust ${FRIEND_HEAL}+). At trust ${SET_BONE_TRUST}+ she sets a grave injury properly, so it heals without an old wound. Old wounds can't be undone.
-TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend, trust 40+); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
+TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; a trader who has warmed to you gives a friend's rate. ${TRADE_HOURS}h each.
+QUESTS: people who have warmed to you a little ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
+HEALERS: "heal:<healer>" (${HEAL_HOURS}h) — Ottilia on the wagon, or a village's healer — tends your worst untreated injury: treated well (+2 healing a night), 2 points healed at once; ${HEAL_FEE} marks, free for a friend. One who trusts you well sets a grave injury properly, so it heals without an old wound. Old wounds can't be undone.
+TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
 HANDS AND MIND (anywhere on the road): "craft:<recipe>" makes a known recipe from your stores (${WAGON_CRAFT_HOURS}h, no building), "study:<concept>" studies as in the Reach, "tend" mends worn gear. ON THE WAGON: talk to your fellow travellers (the tinker and herbwife teach a little of their craft as they talk), and "help" drive and pitch camp (${HELP_HOURS}h, hard work, the cook gives you an extra portion). Gathering, felling, building and scouting are not possible from the wagon.
 ALSO: "rest" (a few hours' rest), "wait" (let the day pass).
 
@@ -386,7 +599,7 @@ export function observeEncounter(s: Region1State, notes: readonly string[] = [])
     // On the caravan road (#1349) there are no rings, and marks are part of what you have.
     p.action === 'road'
       ? `ENCOUNTER — road day ${p.day}, on the caravan road. The day waits until you choose.`
-      : `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
+      : `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ${distanceOn(s) ? `${DISTANCE_AT[p.ring]} (@${p.ring})` : `ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}`}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
     ...notes.map(n => `NOTE: ${n}`),
     stepOf(t, p.step).text,
     // Your read and how you stand (#1365): how dangerous it looks to you — not what it is.
@@ -434,7 +647,8 @@ export function pinsLine(s: Region1State): string {
   const pins = s.pins ?? [];
   const room = pinCapacity(s), top = maxInterest(s.skills);
   const full = pins.length >= room ? ` — FULL (to remember another, forget one first; least interesting and oldest: ${letGoFirst(pins)!.id})` : '';
-  const each = pins.map(p => `${p.id} = ${placeName(p)}, ring ${p.ring}${p.feeling ? `, ${p.feeling}` : ''}${p.interest ? `, ${p.interest} star${p.interest > 1 ? 's' : ''}` : ''}: ${pinEffect(p)}`);
+  const where = (p: Pin): string => (distanceOn(s) ? DISTANCE_AT[p.ring] : `ring ${p.ring}`);
+  const each = pins.map(p => `${p.id} = ${placeName(p)}, ${where(p)}${p.feeling ? `, ${p.feeling}` : ''}${p.interest ? `, ${p.interest} star${p.interest > 1 ? 's' : ''}` : ''}: ${ringWordsFor(s, pinEffect(p))}`);
   return `PINS (memory ${pins.length}/${room}${top ? `, interest up to ${top} stars` : ', interest not yet'})${full}: ${each.length ? each.join(' · ') : 'none — places worth remembering turn up out on the land'}`;
 }
 
@@ -446,6 +660,15 @@ function quirkLine(s: Region1State): string | null {
   const hidden = qs.filter(q => !q.known).length;
   if (!known.length && !fears.length && !hidden) return null;
   return `QUIRKS: ${[...known, ...fears].join(' · ') || 'none known'}${hidden ? ` · ${hidden} not yet known (how you react when it's too much)` : ''}`;
+}
+
+/** How a journal entry reads to the AI (#1580): its status, then each account with its hedge, and whether it was so once checked. */
+const JOURNAL_STATUS: Readonly<Record<JournalEntry['status'], string>> = {
+  heard: 'one source', corroborated: 'CORROBORATED by independent sources', contradicted: 'CONTRADICTED: the accounts clash', checked: 'CHECKED for yourself',
+};
+function journalLine(e: JournalEntry): string {
+  const said = e.claims.map(c => `${personById(c.person)?.name ?? TRAVELLERS.find(t => t.id === c.person)?.name ?? c.person} (${c.hedge}): "${c.text}"${c.right === undefined ? '' : c.right ? ' ✓ so' : ' ✗ not so'}`);
+  return `- ${e.label} — ${JOURNAL_STATUS[e.status]}${e.seen ? `: ${e.seen}` : ''} · ${said.join(' · ')}`;
 }
 
 /** Render a road day's observation (#1251). `notes` carries harness feedback, as in Region 1. */
@@ -479,12 +702,21 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     }
   }
   // Leads (#1497): who answers have sent you to, and whether you've asked them yet.
-  if (r.leads?.length) lines.push(`LEADS: ${r.leads.map(l => `${l.who} (${personById(l.who)?.name}, ${l.where ?? 'on the road'}) about ${l.about}, from ${l.from}${(r.asked?.[l.who] ?? []).includes(l.about) ? ' — asked' : ''}`).join(' · ')}`);
+  if (r.leads?.length) lines.push(`LEADS: ${r.leads.map(l => `${l.who} (${personById(l.who)?.name}, ${l.where ?? 'on the road'}) about ${l.about}, from ${l.from}${respondedOn(r.asked?.[l.who], l.about) ? ' — asked' : ''}`).join(' · ')}`);
 
-  // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered.
+  // The journal of who said what (#1580): the same claims and hedges a person sees on the page.
+  const journal = journalNow(r);
+  if (journal?.length) {
+    lines.push('WHO SAID WHAT (your journal: each account, and how sure they sounded; accounts can be wrong, or lies):');
+    // What a caught lie costs (#1660): asking the one you doubt again is how you show them you know.
+    if (featureOn(r.features, 'caught-lies')) lines.push('(Two accounts clash, or you saw for yourself? Ask the one you doubt about it again, with that focus: you show them you know, and how they take it depends on why they lied.)');
+    for (const e of journal) lines.push(journalLine(e));
+  }
+  // Something to ask about (#1495): any focus but a goal. Who's here, and who's already answered
+  // (a lie told instead, #1580, is an answer too, as far as anyone asking can tell).
   if (r.focus && r.focus.kind !== 'goal') {
     const key = focusKey(r.focus);
-    const asked = peopleHere(r).map(p => `ask:${p.id}${(r.asked?.[p.id] ?? []).includes(key) ? ' (answered)' : ''}`);
+    const asked = peopleHere(r).map(p => `ask:${p.id}${respondedOn(r.asked?.[p.id], key) ? ' (answered)' : ''}`);
     lines.push(`ASK ABOUT YOUR FOCUS (${focusLabel(r.focus)}), ${ASK_HOURS}h each: ${asked.join(', ')}`);
   }
   // What you did in the Reach (#1499): who here it means something to.
@@ -492,19 +724,21 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
   if (tells.length) lines.push(`TELL WHAT YOU DID, ${ASK_HOURS}h each: ${tells.join(', ')}`);
   if (!village) {
     lines.push('');
-    lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');
-    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}${p.concept ? ` · knows ${p.concept}` : ''}`);
+    // How they seem with you (#1578): the felt word a person on the page sees, never the trust number.
+    lines.push('ON THE WAGON WITH YOU (id · role · how they seem with you) — talk to pass the road; trade, quests and lessons wait for the next village:');
+    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · ${feltWord(r, p.id)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}${p.concept ? ` · knows ${p.concept}` : ''}`);
   }
   // Injuries ride along (#1286, #1392), and a healer can tend them (#1394).
   if (r.injuries?.length) lines.push(`INJURIES: ${r.injuries.map(i => `${i.severity} ${INJURY_NAME[i.kind]}, ${Math.ceil(i.heal)} healing to go${i.treated ? `, treated (${i.treated})` : ', untreated'}${i.mended ? ', set properly' : ''}`).join(' · ')}`);
   if (r.character.harms?.length) lines.push(`OLD WOUNDS: ${r.character.harms.map(h => HARM_NAME[h]).join(', ')}`);
   const healers = peopleHere(r).filter(p => p.role === 'healer');
-  if (healers.length) lines.push(`HEALERS HERE: ${healers.map(p => `${p.id} (${healFee(r, p.id) ? `${healFee(r, p.id)} marks` : 'free — a friend'}${(r.trust[p.id] ?? 0) >= SET_BONE_TRUST ? ', trusts you enough to set a grave injury' : ''})`).join(', ')}`);
+  // The fee is a price, so it's shown; whether she'd set a bone isn't (#1578): you find out when she does.
+  if (healers.length) lines.push(`HEALERS HERE: ${healers.map(p => `${p.id} (${healFee(r, p.id) ? `${healFee(r, p.id)} marks` : 'free — a friend'})`).join(', ')}`);
   const crafts = r.known.filter(id => ROAD_CRAFTS[id]);
   lines.push(`YOU CAN CRAFT ON THE ROAD: ${crafts.join(', ') || 'nothing you know'} (recipes cost stores as in the Reach)`);
   if (village) {
     lines.push('');
-    lines.push('PEOPLE HERE (id · role · trust · what they have for you):');
+    lines.push('PEOPLE HERE (id · role · how they seem with you · what they have for you):');
     for (const p of peopleOf(village)) {
       const told = r.told[p.id] ?? 0;
       const more = told < p.lore.length ? 'has more to tell' : 'has told you all they know';
@@ -512,7 +746,7 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
       const noticed = (r.noticed?.[p.id] ?? []).length ? `you noticed a tie to ${(r.noticed?.[p.id] ?? []).join(', ')}` : '';
       const sent = (r.leads ?? []).filter(l => l.who === p.id).map(l => `${l.from} sent you to ask about ${l.about}`).join(', ');
       const extras = [more, p.teaches && `teaches ${p.teaches.skill}`, quest && `offers quest ${quest.id}`, noticed, sent].filter(Boolean).join(' · ');
-      lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${extras}`);
+      lines.push(`- ${p.id} · ${p.name}, ${p.role} · ${feltWord(r, p.id)} · ${extras}`);
     }
     const offered = questsHere(r);
     if (offered.length) {
@@ -523,7 +757,10 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     const t = tradeTerms(r);
     if (t) {
       lines.push('');
-      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5) · trust ${Math.round(t.trust)}${t.trust >= 50 ? ' (friend’s rate)' : ''}`);
+      // A friend's rate is in the prices, so it's said; the trust behind it isn't (#1578).
+      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5)${friendly(t) ? ' · friend’s rate' : ''}`);
+      // The village's own market (#1599): the same line the trade panel shows.
+      if (t.local) lines.push(`  market: ${marketLine(t.local)}`);
       lines.push(`  sells (marks each): ${t.sells.map(g => `${g} ${buyPrice(g as never, 1, t)}`).join(' · ')}`);
       const goods = Object.entries(r.stores).filter(([k, n]) => n > 0 && isGood(k)).map(([k]) => `${k} ${sellPrice(k, 'sound', 1, t)}`);
       const tools = r.tools.filter(x => KIND_OF[x.item]).map(x => `${x.item} (${x.grade}) ${sellPrice(x.item, x.grade, 1, t)}`);
@@ -552,7 +789,27 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
  */
 export function observePack(s: Region1State): string {
   const now = s.kit?.items ?? [];
-  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${KIT.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.effect}`).join('\n')}`);
+  // The list this run's world offers (#1870): the hand axe and fishing kit only with their switch on.
+  const list = offeredKit(s.config.world.features);
+  // The pack's volume (#1871): the rules the play API and the pack screen check, said in full.
+  if (volumeOn(s)) return observePackVolume(s, list);
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg): ${k.name} — ${k.does}`).join('\n')}`);
+  // Who you are comes first (#1872, `stats-before-pack`): the turn sees the Warden it packs for —
+  // their stats now and the talents they know — what that Strength carries, and the list ticked
+  // for them. Off, the turn reads exactly as before.
+  if (statsBeforePack(s)) {
+    const ticked = suggestedPackOf(s);
+    const limit = carryLimit(s);
+    return [
+      'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+      youLine(s),
+      `Your pack holds ${limit} kg: what you carry comfortably with Strength ${s.character.stats.str} (${PACK_CAPACITY} kg at ${KID_STR}, about 1 kg more or less per point). The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
+      ...groups,
+      `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
+      `THE LIST TICKED FOR YOU (${packWeight(ticked)} kg): ${ticked.join(', ')} — the leader's list, shaped by your stats and talents. Change anything.`,
+      'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+    ].join('\n\n');
+  }
   return [
     'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
     `Your pack holds ${PACK_CAPACITY} kg. The backpack itself comes free, with the clothes you're wearing. Choose freely — the whole list weighs more than the pack holds.`,
@@ -560,5 +817,43 @@ export function observePack(s: Region1State): string {
     `PACKED NOW (${packWeight(now)} kg): ${now.length ? now.join(', ') : 'nothing'}`,
     `THE LEADER'S PACKING LIST (${packWeight(SUGGESTED_PACK)} kg): ${SUGGESTED_PACK.join(', ')}`,
     'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...]}',
+  ].join('\n\n');
+}
+
+/**
+ * Who the Warden is, for the packing turn with `stats-before-pack` on (#1872): their stats now (the
+ * young body's, which is what carries the pack) and the talents they know, never the hidden one.
+ */
+function youLine(s: Region1State): string {
+  const c = s.character;
+  const known = c.talents.filter(x => x.known);
+  return `YOU: ${STAT_IDS.map(id => `${STATS[id].short} ${c.stats[id]}`).join(' · ')} (now; a usual 12-year-old scout has STR ${KID_STR}) · TALENTS: ${known.length ? known.map(x => `${TALENTS[x.id].name} (${TALENTS[x.id].blurb})`).join(' · ') : 'none chosen'}`;
+}
+
+/**
+ * The packing turn with `pack-volume` on (#1871): each item's weight and litres, which can be
+ * strapped on, the 45 L inside and the strap places, and the weight as soft: the comfortable
+ * weight for this Warden's STR, and how it feels in their words. The AI sees the kilograms (the
+ * screen never shows them); the reply may say what's strapped on.
+ */
+function observePackVolume(s: Region1State, list: readonly KitItem[]): string {
+  const now = s.kit?.items ?? [];
+  const outside = s.kit?.outside ?? [];
+  const str = s.character.stats.str;
+  const groups = (Object.keys(KIT_GROUPS) as KitGroup[]).map(g => `${KIT_GROUPS[g].toUpperCase()}\n${list.filter(k => k.group === g).map(k => `- ${k.id} (${k.weight} kg, ${k.litres} L${k.outside ? ', can strap outside' : ''}): ${k.name} — ${k.does}`).join('\n')}`);
+  const feel = (kg: number) => `"${PACK_FEEL_LINE[packFeel(kg, str)]}"`;
+  // With `stats-before-pack` too (#1872): who the Warden is, and the list ticked for them (which
+  // closes with the default straps, kit.ts suggestedPack) in place of the leader's.
+  const sbp = statsBeforePack(s);
+  const ticked: readonly KitId[] = sbp ? suggestedPackOf(s) : SUGGESTED_PACK;
+  return [
+    'PACKING — Friday afternoon. Your patrol is heading out for a weekend hike in the forest: two nights, back on Sunday. What do you pack?',
+    ...(sbp ? [youLine(s)] : []),
+    `Your pack holds ${PACK_LITRES} L inside: what goes inside must fit, or it won't close. Things marked "can strap outside" can go on the ${STRAP_PLACES} strap places instead: they use no room inside but still weigh. The backpack itself comes free, with the clothes you're wearing.`,
+    `Weight is not a limit: about ${round1(comfortableWeight(str))} kg is comfortable for you (STR ${str}). Over that, every walk costs extra Vigor, more the heavier, until you make camp and set the pack down; at or under it, nothing extra.`,
+    ...groups,
+    `PACKED NOW (${packWeight(now)} kg, ${insideLitres(now, outside)} L inside${outside.length ? `, strapped on: ${outside.join(', ')}` : ''}): ${now.length ? now.join(', ') : 'nothing'} — ${feel(packWeight(now))}`,
+    `${sbp ? 'THE LIST TICKED FOR YOU' : "THE LEADER'S PACKING LIST"} (${packWeight(ticked)} kg, ${insideLitres(ticked, autoOutside(ticked))} L inside with ${autoOutside(ticked).join(', ')} strapped on): ${ticked.join(', ')}${sbp ? ` — the leader's list, shaped by your stats and talents: ${feel(packWeight(ticked))} Change anything.` : ''}`,
+    'Reply with only the JSON object: {"thoughts": "<why>", "pack": ["<item id>", ...], "outside": ["<item id strapped on>", ...]}. "outside" lists only packed items marked "can strap outside" (at most ' + STRAP_PLACES + '); [] packs everything inside.',
   ].join('\n\n');
 }

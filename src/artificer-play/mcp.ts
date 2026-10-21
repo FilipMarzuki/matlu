@@ -25,6 +25,9 @@ import { McpServer, createMcpHandler, CLIENT_INFO_META_KEY, type CallToolResult 
 import * as z from 'zod/v4';
 import { handle, type ApiDeps, type ApiResponse, type GameStore } from './api';
 import { GAME_VERSION, type Move, type MoveOption } from './session';
+import { experimentalOn } from '../artificer/features';
+import { achievementLines, type Achievement } from './achievements';
+import { makeT, LANGS, type Lang, type T } from '../artificer/i18n';
 
 export interface McpOptions {
   /** The player's address (as the HTTP API takes it), for the per-address limits. */
@@ -47,7 +50,7 @@ export async function mcpFetch(request: Request, opts: McpOptions): Promise<Resp
 }
 
 const INSTRUCTIONS = [
-  'You are playing "Greywind Reach", the first region of the Artificer: a Warden alone in a mountain valley',
+  'You are playing the Artificer: a Warden alone in an unnamed mountain valley,',
   'with 30 days of autumn to prepare for a 60-night winter. Survive to the thaw; then a caravan may take you on.',
   'Start with new_game and keep its game_id: every other tool needs it. look shows everything you know and the',
   'moves open now; act makes one move and answers with what changed. Call rules once for how the world works.',
@@ -55,7 +58,7 @@ const INSTRUCTIONS = [
 
 function buildServer(opts: McpOptions, request: Request): McpServer {
   const server = new McpServer(
-    { name: 'artificer', title: 'The Artificer: Greywind Reach', version: GAME_VERSION },
+    { name: 'artificer', title: 'The Artificer', version: GAME_VERSION },
     { instructions: INSTRUCTIONS },
   );
   // Every call says it comes from MCP, so the games it starts are recorded as played here (#1558).
@@ -66,16 +69,25 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
   server.registerTool('new_game', {
     title: 'Start a game',
-    description: 'Start a new game of Greywind Reach. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
+    description: 'Start a new game of the Artificer, on a fresh world or (weekly: true) this week\'s shared one. Returns its game_id (pass it to every other tool), the opening view and the moves open now.',
     inputSchema: z.object({
       name: z.string().max(24).optional().describe("Your Warden's name, shown on the records (default: Warden)."),
       model: z.string().max(64).optional().describe('Which AI model is playing, if you know. Shown on the records as self-reported.'),
+      features: z.record(z.string(), z.boolean()).optional().describe('Switch experimental rule features for this game, e.g. {"free-questions": false}. The rules tool lists them; leave out for the defaults.'),
+      weekly: z.boolean().optional().describe("true to play this week's world: the same world (weather, encounters) for everyone, people and AIs, this week, so its runs compare fairly. Leave out for a fresh world."),
+      // Any string, so an unknown language gets the API's own refusal (a 400 that names the ones there are).
+      lang: z.string().optional().describe(`The language of the game's text: ${LANGS.map(l => `"${l}"`).join(' or ')}. Leave out for English (the default). Only the words change: the same game in each.`),
+      // Any numbers, so a spread that isn't a legal point-buy gets the API's own refusal, which says the rules.
+      stats: z.record(z.string(), z.number()).optional().describe('Your stats, as the creation screen\'s point-buy: {"str":12,"con":11,"agi":10,"int":10,"wil":10,"cha":10}. Each starts at 10, 6 points to spend (1 per step to 13, 2 above), lower one to 7 to buy more. Points left unspent are allowed and raise the difficulty multiplier the run records (+0.10 each). Leave out for a quick start: all 10s, recorded as ×1.00.'),
     }),
-  }, async ({ name, model }, ctx) => {
-    const r = await call('POST', '/api/v1/games', { name, model, client: clientName(ctx.mcpReq.envelope, request) });
+  }, async ({ name, model, features, weekly, lang, stats }, ctx) => {
+    const r = await call('POST', '/api/v1/games', { name, model, features, ...(weekly ? { weekly: true } : {}), ...(lang !== undefined ? { lang } : {}), ...(stats !== undefined ? { stats } : {}), client: clientName(ctx.mcpReq.envelope, request) });
     if (r.status !== 201) return failure(r);
     const b = gameBody(r);
-    return text(`Game started. game_id: ${b.id}\nPass this game_id to every other tool.\n\n${b.text}\n\n${movesBlock(b.moves)}`);
+    const t = tOf(b);
+    const world = b.week ? `${t ? t('api.mcp.weekly', { week: b.week }) : `This is the weekly world, ${b.week}: everyone who plays this week plays the same one.`}\n` : '';
+    const started = t ? t('api.mcp.started', { id: b.id }) : `Game started. game_id: ${b.id}\nPass this game_id to every other tool.`;
+    return text(`${started}\n${world}${featuresLine(b.features, t)}\n${b.text}\n\n${movesBlock(b.moves, t)}`);
   });
 
   server.registerTool('look', {
@@ -87,21 +99,23 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     const r = await call('GET', `/api/v1/games/${encodeURIComponent(game_id)}`);
     if (r.status !== 200) return failure(r);
     const b = gameBody(r);
-    return text(`${b.text}\n\n${movesBlock(b.moves)}`);
+    return text(`${b.text}\n\n${movesBlock(b.moves, tOf(b))}`);
   });
 
   server.registerTool('act', {
     title: 'Make one move',
     description: [
-      'Make one move. move is an action id from the moves list, such as "scout", "water" or "gather@2" (ring 2),',
+      'Make one move. move is an action id from the moves list, such as "explore", "water" or "gather@2" (ring 2),',
       'or "end_day" to sleep, or any move exactly as the moves list shows it (a JSON object). Free settings take',
       'no hours: {"set": {"eating": "full" | "half" | "none"}}, {"set": {"focus": "goal:larder" | "none"}},',
-      '{"set": {"site": "cave"}}. Answers with what changed and a status line; in an encounter or on the road it',
+      '{"set": {"site": "cave"}}. Gathering can take a length when the game has the action-length feature:',
+      '{"do": {"q": "wood@2", "hours": 3}} (walks included) or {"do": {"q": "wood", "until": 10}}.',
+      'Answers with what changed and a status line; in an encounter or on the road it',
       'also shows the options. A refused move changes nothing and says why.',
     ].join(' '),
     inputSchema: z.object({
       game_id: gameId,
-      move: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('An action id like "scout", "end_day", or a move object from the list.'),
+      move: z.union([z.string(), z.record(z.string(), z.unknown())]).describe('An action id like "explore", "end_day", or a move object from the list.'),
     }),
   }, async ({ game_id, move }) => after(await call('POST', movesPath(game_id), { move: toMove(move) })));
 
@@ -110,9 +124,10 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     description: 'Queue a whole day of actions in order, run them, and sleep. Only once the Warden has learned to plan (the view says when); until then, use act one move at a time.',
     inputSchema: z.object({
       game_id: gameId,
-      actions: z.array(z.string()).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"].'),
+      actions: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).min(1).max(40).describe('Action ids in order, such as ["water", "gather", "wood"]. With the action-length feature, a gathering action can take a length: {"q": "wood@2", "hours": 3} or {"q": "wood", "until": 10}.'),
+      stop: z.object({ action: z.number().int().min(0), hours: z.number().min(0) }).optional().describe('With the stop-action feature: stop the plan\'s action `action` (from 0) `hours` into it. It keeps what it had got by then (the view\'s STOPPING line says what), and the day pauses after it, with no night.'),
     }),
-  }, async ({ game_id, actions }) => after(await call('POST', movesPath(game_id), { move: { plan: actions } })));
+  }, async ({ game_id, actions, stop }) => after(await call('POST', movesPath(game_id), { move: { plan: actions, ...(stop ? { stop } : {}) } })));
 
   server.registerTool('choose', {
     title: 'Answer an encounter',
@@ -120,16 +135,32 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
     inputSchema: z.object({ game_id: gameId, option: z.string().describe('The option id, e.g. "help" or "board".') }),
   }, async ({ game_id, option }) => after(await call('POST', movesPath(game_id), { move: { choose: option } })));
 
+  server.registerTool('ask_question', {
+    title: 'Ask someone a question',
+    description: [
+      'On the road: ask someone here one question in your own words, once per person per stay, up to 200',
+      'characters. They answer from what they know, or say they can\'t; the view says how far trust matters in this game, and lists who',
+      'can still be asked. Questions are kept to improve the game, with nothing about the player: never put',
+      'anyone\'s name, age or details in one.',
+    ].join(' '),
+    inputSchema: z.object({
+      game_id: gameId,
+      person: z.string().describe('The person id from the view, e.g. "hf-orrin".'),
+      question: z.string().describe('The question, e.g. "Where does the iron here come from?"'),
+    }),
+  }, async ({ game_id, person, question }) => after(await call('POST', movesPath(game_id), { move: { ask: { person, question } } })));
+
   server.registerTool('rules', {
     title: 'Read the rules',
-    description: 'How Greywind Reach works: seasons, the body, stores, building, the land in rings, the caravan and the road. Read it once at the start.',
+    description: 'How the Artificer works: seasons, the body, stores, building, the land in rings, the caravan and the road. Read it once at the start.',
     inputSchema: z.object({}),
     annotations: { readOnlyHint: true },
   }, async () => {
     const r = await call('GET', '/api/v1/rules');
     if (r.status !== 200) return failure(r);
-    const b = r.body as { rules: string; roadRules: string };
-    return text(`${b.rules}\n\nON THE ROAD\n${b.roadRules}`);
+    const b = r.body as { rules: string; roadRules: string; features?: { id: string; name: string; note: string; stage: string; default: boolean }[] };
+    const features = (b.features ?? []).map(f => `- ${f.id} (${f.stage}, ${f.default ? 'on' : 'off'} by default): ${f.name}. ${f.note}`).join('\n');
+    return text(`${b.rules}\n\nON THE ROAD\n${b.roadRules}${features ? `\n\nFEATURES (switch them at new_game)\n${features}` : ''}`);
   });
 
   return server;
@@ -137,7 +168,21 @@ function buildServer(opts: McpOptions, request: Request): McpServer {
 
 // ── Turning API answers into tool results ───────────────────────────────────
 
-interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string }
+interface GameBody { id: string; phase: string; status: string; text: string; moves: MoveOption[]; changed?: string[]; record?: string; features?: Record<string, boolean>; achievements?: Achievement[]; week?: string; lang?: Lang }
+
+/**
+ * The catalog for a game in another language (#1713), for the lines this file writes around its
+ * text; null for an English game, whose lines stay exactly as they were.
+ */
+const tOf = (b: { lang?: Lang }): T | null => (b.lang && b.lang !== 'en' ? makeT(b.lang) : null);
+
+/** Which experimental features this game plays with (#1579), as a line under its id; empty if none. */
+function featuresLine(features: Record<string, boolean> | undefined, t: T | null = null): string {
+  const on = experimentalOn(features);
+  if (!on.length) return '';
+  // In another language (#1713) by id, the way new_game takes them: the features' names are English only.
+  return t ? `${t('api.mcp.features', { ids: on.map(f => `"${f.id}"`).join(', ') })}\n` : `Experimental features on in this game: ${on.map(f => f.name).join(', ')}.\n`;
+}
 
 const movesPath = (id: string): string => `/api/v1/games/${encodeURIComponent(id)}/moves`;
 /** The API's body for a game (its shape is api.ts's gameBody). */
@@ -146,9 +191,10 @@ const text = (t: string): CallToolResult => ({ content: [{ type: 'text', text: t
 
 /** A refused or failed call: the reason, plus the open moves when the game said what they are. */
 function failure(r: ApiResponse): CallToolResult {
-  const b = r.body as { error?: string; moves?: MoveOption[] };
-  const why = r.status === 422 ? `Refused: ${b.error}` : `Error (${r.status}): ${b.error ?? 'unknown'}`;
-  return { content: [{ type: 'text', text: b.moves?.length ? `${why}\n\n${movesBlock(b.moves)}` : why }], isError: true };
+  const b = r.body as { error?: string; moves?: MoveOption[]; lang?: Lang };
+  const t = tOf(b);
+  const why = r.status === 422 ? (t ? t('api.mcp.refused', { why: b.error ?? '' }) : `Refused: ${b.error}`) : `Error (${r.status}): ${b.error ?? 'unknown'}`;
+  return { content: [{ type: 'text', text: b.moves?.length ? `${why}\n\n${movesBlock(b.moves, t)}` : why }], isError: true };
 }
 
 /**
@@ -159,18 +205,22 @@ function failure(r: ApiResponse): CallToolResult {
 function afterMove(r: ApiResponse, base: string): CallToolResult {
   if (r.status !== 200) return failure(r);
   const b = gameBody(r);
-  const changed = b.changed?.length ? b.changed.join('\n') : '(nothing new)';
+  const t = tOf(b);
+  const changed = b.changed?.length ? b.changed.join('\n') : t ? t('api.mcp.nothingNew') : '(nothing new)';
   const head = `${changed}\n\n${b.status}`;
-  if (b.phase === 'day') return text(`${head}\n(look shows the full view and the moves open now.)`);
-  // A finished run has a record (#1558): a full link, for the player's AI to pass on to them.
+  if (b.phase === 'day') return text(`${head}\n${t ? t('api.mcp.lookHint') : '(look shows the full view and the moves open now.)'}`);
+  // A finished run has a record (#1558): a full link, for the player's AI to pass on to them, and
+  // the achievements it earned against everyone's records (#1559).
+  const earned = b.achievements ? achievementLines(b.achievements) : [];
+  const achieved = b.achievements ? `\n\n${earned.length ? `Achievements earned:\n${earned.map(l => `- ${l}`).join('\n')}` : 'No achievements this run.'}` : '';
   const record = b.record ? `\n\nHow this run compares with everyone's: ${new URL(b.record, base).href}` : '';
-  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves)}` : ''}${record}`);
+  return text(`${head}\n\n${b.text}${b.moves.length ? `\n\n${movesBlock(b.moves, t)}` : ''}${achieved}${record}`);
 }
 
-function movesBlock(moves: MoveOption[]): string {
-  if (!moves.length) return 'No moves left: the run is over.';
+function movesBlock(moves: MoveOption[], t: T | null = null): string {
+  if (!moves.length) return t ? t('api.mcp.noMoves') : 'No moves left: the run is over.';
   const lines = moves.map(m => `- ${JSON.stringify(m.move)}  ${m.label}${m.hours !== undefined ? ` (${m.hours}h)` : ''}`);
-  return `MOVES NOW (pass one to act, or just its action id):\n${lines.join('\n')}`;
+  return `${t ? t('api.mcp.moves') : 'MOVES NOW (pass one to act, or just its action id):'}\n${lines.join('\n')}`;
 }
 
 /** The act tool's move: a shorthand string or a move object as listed. The API checks the shape. */

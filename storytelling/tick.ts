@@ -38,6 +38,8 @@ import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovati
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
 import { runTradeRoutes } from "./trade.js";
+import { runRegions } from "./regions.js";
+import { runOddPatches } from "./odd-patches.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -209,6 +211,30 @@ export function tick(w: World): void {
   // was before that. Without this the "title held by dead char" invariant
   // can fail at end-of-simulation, since no next tick arrives to clean up.
   resolvePendingSuccessions(w);
+
+  // --- regional level (#1598) — reads the finished year: its events, its
+  // harvests and plagues, who now holds what. Last, so it sees the year whole.
+  // It draws only from w.regionRng and logs to its own log, then pushes back
+  // (#1608): levies, hard winters, famine and bandits thin provinces and empty
+  // their stores, trade sets their wealth, and unsettled politics chill its
+  // lords and can turn a feud into a claim. Those changes are the engine's
+  // state, so NEXT year's simulation (wars, harvests, goals) reads them, and
+  // the golden hashes include them. Running last keeps this year's engine
+  // rolls exactly as they were; only what follows feels the region.
+  runRegions(w, evStart);
+  // A hard winter or a famine can carry off named people in the regional pass
+  // (#1617), lords among them. This sweep passes their titles the same year,
+  // so no seat is held by the dead into the next. The regional level hears of
+  // these deaths and successions next year (World.regionalCursor).
+  resolvePendingSuccessions(w);
+
+  // --- odd patches of humans (#1633) — a rare year, humans with no past turn
+  // up somewhere unexpected, or a human settlement grows past what births
+  // allow. Never explained. Last of all, and drawing only from
+  // w.oddPatchRng, so every roll above is exactly as it was; the strangers
+  // join the world's life next year. No-op (and no draws) in a world without
+  // a human race. It kills nobody, so no succession sweep is needed after it.
+  runOddPatches(w);
 }
 
 // ---------------------------------------------------------------------------

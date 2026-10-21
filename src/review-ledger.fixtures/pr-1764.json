@@ -1,0 +1,64 @@
+{
+  "pr": {
+    "number": 1764,
+    "title": "Artificer: pick the focus from any tab via the FOCUS chip (#1758)",
+    "html_url": "https://github.com/FilipMarzuki/matlu/pull/1764",
+    "state": "closed",
+    "merged_at": "2026-10-15T12:34:19Z",
+    "closed_at": "2026-10-15T12:34:19Z",
+    "created_at": "2026-10-15T12:27:58Z",
+    "labels": [
+      {
+        "name": "risk:low"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "id": 6192046611,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "created_at": "2026-10-15T12:28:30Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1764#issuecomment-6192046611",
+      "body": "<!-- risk-score -->\n**Review risk: low** (score 0) — reviews: the review agent.\n\n- no risk rules matched\n\n_Rules: `.github/review-risk.json` (#1431)._"
+    }
+  ],
+  "reviews": [
+    {
+      "id": 5533135811,
+      "user": {
+        "login": "github-actions[bot]"
+      },
+      "state": "APPROVED",
+      "commit_id": "0ed2424168d85a41132399464f98887e7496bc0c",
+      "submitted_at": "2026-10-15T12:33:50Z",
+      "html_url": "https://github.com/FilipMarzuki/matlu/pull/1764#pullrequestreview-5533135811",
+      "body": "LGTM — verified the popover reuses `focusBlock` (shared with the Warden tab, so choices can't drift), the disabled-while-locked path, the outside/Esc/toggle close logic, and the click-handler wiring (`data-cmd=\"focuspop\"/\"focuspopclose\"`, `fromPop\" focus-return). Issue #1758 is `ui-hud`-labelled (exempt from ATDD), and the PR's checklist-style acceptance matches that. No security issues, no unrelated scope, i18n keys added for both languages."
+    }
+  ],
+  "commits": [
+    {
+      "sha": "c6fe1fc0be8a5ead41ec45f9b6be236fac7041a3",
+      "date": "2026-10-15T12:23:47Z",
+      "message": "Artificer: pick the focus from any tab via the status bar's FOCUS chip (#1758)",
+      "parents": 1,
+      "files": [
+        "src/artificer-app/focus-popover.test.ts",
+        "src/artificer-app/focus-popover.ts",
+        "src/artificer-app/main.ts",
+        "src/artificer-app/style.css",
+        "src/artificer-app/warden-view.ts",
+        "src/artificer/i18n/en.ts",
+        "src/artificer/i18n/sv.ts"
+      ]
+    },
+    {
+      "sha": "0ed2424168d85a41132399464f98887e7496bc0c",
+      "date": "2026-10-15T12:27:05Z",
+      "message": "Merge origin/main into claude/1758-focus-anywhere (#1758)",
+      "parents": 2,
+      "files": null
+    }
+  ]
+}

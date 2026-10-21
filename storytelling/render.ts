@@ -10,9 +10,11 @@
 import type { Arc } from "./arcs.js";
 import { SPEC_REGISTRY } from "./event-spec.js";
 import { topHeroes } from "./magic.js";
+import { isHumanRace } from "./odd-patches.js";
 import type { FocusContext } from "./sifter.js";
-import type { Character, WorldEvent } from "./types.js";
+import type { Character, RegionalEvent, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
+import { regionLabel } from "./regions.js";
 
 // Regnal numbering: across two centuries a house reuses given names, so an
 // undisambiguated chronicle has three "Brigid of Corvane"s and reads as a
@@ -74,6 +76,59 @@ function provName(w: World, id: string | null): string {
 function tagsOf(ev: WorldEvent): string[] {
   const t = ev.data["_tags"];
   return typeof t === "string" && t.length ? t.split(",") : [];
+}
+
+// ---------------------------------------------------------------------------
+// Odd patches of humans (#1633) — what each People says about them. WORLD.md:
+// "Every People has a story for it: the Lövfolk say humans root like weeds, the
+// Bergfolk say the deep rock coughs them up, the goblins say humans breed when
+// nobody's looking and won't hear otherwise. Other Peoples remember mostly the
+// patches and say humans came, not grew; the Riksfolk say they were always
+// here." Keyed by the People's id, lower-cased and without accents ("Lövfolk"
+// → "lovfolk"), so a spec that names its races that way gets these for free.
+// None of them is the cause, and none may name it.
+// ---------------------------------------------------------------------------
+const PATCH_SETTING: Record<string, string> = {
+  shore: "wandering the shore", woods: "in the woods", valley: "in a high valley",
+  marsh: "among the reeds", open: "out on the open land", fields: "on the edge of the fields",
+};
+
+const ODD_HUMAN_SAYINGS: Record<string, (people: string) => string> = {
+  lovfolk: (p) => `${p} said humans root like weeds.`,
+  bergfolk: (p) => `${p} said the deep rock had coughed them up.`,
+  goblin: (p) => `${p} said humans breed when nobody's looking, and would hear nothing else.`,
+  goblins: (p) => `${p} said humans breed when nobody's looking, and would hear nothing else.`,
+  riksfolk: (p) => `${p} said humans had always been here.`,
+};
+
+// Races the engine knows as kinds of creature read as plain plurals ("the
+// orcs"); a People with a name of its own keeps it ("the Bergfolk", "the Pandor").
+const KIND_PLURAL: Record<string, string> = {
+  human: "humans", orc: "orcs", dwarf: "dwarfs", elf: "elves", goblin: "goblins", troll: "trolls",
+};
+
+function peopleKey(id: string): string {
+  return id.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/**
+ * What a People says when strangers turn up or a human village swells: one
+ * sentence, past tense, for the end of the chronicle line. A RaceSpec's own
+ * `oddHumansSaying` wins; then what WORLD.md has that People say; then, for a
+ * human People, that they took the strangers in; then "humans come; they do
+ * not grow". With no People at all, nobody says anything more.
+ */
+export function oddHumansSaying(w: World, raceId: string): string {
+  const race = raceId ? w.races.get(raceId) : undefined;
+  if (!race) return "Nobody could say more than that.";
+  if (race.oddHumansSaying) return race.oddHumansSaying;
+  const key = peopleKey(race.id);
+  const name = KIND_PLURAL[key] ?? `${race.name}`;
+  const people = `The ${name}`;
+  const known = ODD_HUMAN_SAYINGS[key] ?? ODD_HUMAN_SAYINGS[peopleKey(race.name)];
+  if (known) return known(people);
+  if (isHumanRace(race)) return `Even the ${name} there could not say where the new faces came from.`;
+  return `${people} said only that humans come; they do not grow.`;
 }
 
 // The core: one event -> one chronicle sentence.
@@ -172,6 +227,21 @@ export function renderEvent(w: World, ev: WorldEvent): string {
 
     case "HARVEST_FAILURE":
       return `The harvest failed at ${provName(w, ev.provinceId)}.`;
+
+    // Odd patches of humans (#1633): told as mysteries. The line says what was
+    // seen and what the neighbours said, never why: nobody in the world knows.
+    case "ODD_PATCH": {
+      const where = PATCH_SETTING[String(ev.data["setting"] ?? "")] ?? "on the edge of the fields";
+      const souls = Number(ev.data["souls"] ?? 0);
+      const teller = oddHumansSaying(w, String(ev.data["teller"] ?? ""));
+      return `Strangers were found ${where} at ${provName(w, ev.provinceId)}: some ${souls} humans no one had seen before, ${who(w, ev.actorId)} among them, with no kin to name and no memory of where they had come from. They stayed, and took up the ways of the place. ${teller}`;
+    }
+    case "STRANGE_GROWTH": {
+      const teller = oddHumansSaying(w, String(ev.data["teller"] ?? ""));
+      const share = Number(ev.data["share"] ?? 0);
+      const part = share >= 0.18 ? "a fifth" : share >= 0.15 ? "a sixth" : share >= 0.12 ? "an eighth" : "a tenth";
+      return `${provName(w, ev.provinceId)} grew by ${part} in a single year, some ${ev.data["gain"]} souls more than any cradle could account for, and no road had brought them. ${teller}`;
+    }
 
     case "GRUDGE_FORMED":
       return `${who(w, ev.actorId)} swore a grudge against ${who(w, ev.targetId)}.`;
@@ -589,7 +659,16 @@ export interface LayeredOpts {
   chronicle?: number; // chronicle window in years (default 160)
   arcDecay?: number; // remembered-significance lost per year of age (default 0.2)
   focus?: FocusContext; // when set, prepend a focus banner to the output
+  // Lines told from outside the sifted event log (the Artificer's big regional
+  // events, #1598), already written. Each goes in year order: in living memory
+  // after that year's events, in the chronicle among the threads by start year.
+  // Marked "◇ " so a reader (and the HISTORY tab) can tell them apart. Older
+  // than the chronicle window: left out. Rendering only, no RNG.
+  extra?: { year: number; text: string }[];
 }
+
+/** The marker an `extra` line carries in the layered chronicle. */
+export const EXTRA_MARK = "◇";
 
 export function renderLayeredChronicle(
   w: World,
@@ -671,28 +750,190 @@ export function renderLayeredChronicle(
       return age > W1 && age <= W2 && remembered(a) >= 20;
     })
     .sort((x, y) => x.startYear - y.startYear || y.significance - x.significance);
-  if (chronicled.length) {
+  // Extra lines (stable sort keeps the caller's order within a year).
+  const extra = [...(opts.extra ?? [])].sort((a, b) => a.year - b.year);
+  const extraOld = extra.filter((x) => now - x.year > W1 && now - x.year <= W2);
+  const extraLiving = extra.filter((x) => now - x.year <= W1);
+  if (chronicled.length || extraOld.length) {
     if (out.length) out.push("");
     out.push("─".repeat(64), "THE CHRONICLE", "─".repeat(64));
-    for (const a of chronicled) out.push(`  ${a.title}`);
+    // Merge by year: a thread before an extra line of its start year.
+    let i = 0;
+    for (const a of chronicled) {
+      while (i < extraOld.length && extraOld[i].year < a.startYear) {
+        out.push(`  ${EXTRA_MARK} ${extraOld[i].text.replace(/\.$/, "")} (${extraOld[i].year}).`);
+        i++;
+      }
+      out.push(`  ${a.title}`);
+    }
+    for (; i < extraOld.length; i++) out.push(`  ${EXTRA_MARK} ${extraOld[i].text.replace(/\.$/, "")} (${extraOld[i].year}).`);
   }
 
   // ── LIVING MEMORY — individual events within the recent window ───────────
   const living = events.filter((e) => now - e.year <= W1);
-  if (living.length) {
+  if (living.length || extraLiving.length) {
     if (out.length) out.push("");
-    out.push("─".repeat(64), `LIVING MEMORY (${living[0].year}–${now})`, "─".repeat(64));
-    let lastYear = -Infinity;
+    const first = Math.min(living[0]?.year ?? Infinity, extraLiving[0]?.year ?? Infinity);
+    out.push("─".repeat(64), `LIVING MEMORY (${first}–${now})`, "─".repeat(64));
+    // Merge by year: each year's own events first, then its extra lines.
+    const lines: { year: number; text: string }[] = [];
+    let i = 0;
     for (const ev of living) {
-      if (ev.year !== lastYear) {
-        out.push("");
-        lastYear = ev.year;
+      while (i < extraLiving.length && extraLiving[i].year < ev.year) {
+        lines.push({ year: extraLiving[i].year, text: `${EXTRA_MARK} ${extraLiving[i].text}` });
+        i++;
       }
-      out.push(`${String(ev.year).padStart(4, " ")}  ${renderEvent(w, ev)}`);
+      lines.push({ year: ev.year, text: renderEvent(w, ev) });
+    }
+    for (; i < extraLiving.length; i++) lines.push({ year: extraLiving[i].year, text: `${EXTRA_MARK} ${extraLiving[i].text}` });
+    let lastYear = -Infinity;
+    for (const l of lines) {
+      if (l.year !== lastYear) {
+        out.push("");
+        lastYear = l.year;
+      }
+      out.push(`${String(l.year).padStart(4, " ")}  ${l.text}`);
     }
   }
 
   return out.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Regional events (regions.ts, #1598) — one plain sentence each, as the people
+// of the region would tell it. Like renderEvent, it only phrases what the
+// regional level recorded. A region is named after its market town: "the
+// Hollowford country".
+// ---------------------------------------------------------------------------
+const REGION_TRADE: Record<string, string> = {
+  farming: "its fields", lumber: "timber", mining: "ore from its mines", fishing: "its fisheries",
+  herding: "its flocks", peat: "peat and reed", trading: "its market",
+};
+
+export function regionalTrade(livelihood: string): string {
+  return REGION_TRADE[livelihood] ?? livelihood;
+}
+
+/**
+ * renderRegionalEvent, always naming the region: told on its own (a chronicle line), "Famine
+ * struck Ravenford." needs the country it was in: "Famine struck Ravenford, in the Hollowford
+ * country."
+ */
+export function renderRegionalEventNamed(w: World, ev: RegionalEvent): string {
+  const text = renderRegionalEvent(w, ev);
+  const region = w.regions.get(ev.regionId);
+  if (!region) return text;
+  const label = regionLabel(region);
+  // The country goes after the first sentence: "Famine struck Ravenford, in the
+  // Hollowford country. Among the dead was…" (#1617 added that second sentence).
+  return text.toLowerCase().includes(label.toLowerCase()) ? text : text.replace(/\.(\s|$)/, `, in ${label}.$1`);
+}
+
+// "Among the dead was Aldric of Aldermark." — the most notable named person a
+// hard winter or a famine carried off (#1617), with a count when it took more.
+function namedDead(w: World, ev: RegionalEvent): string {
+  const n = Number(ev.data["named_dead"] ?? 0);
+  if (n <= 0 || !ev.actorId) return "";
+  return n > 1 ? ` Among the dead were ${who(w, ev.actorId)} and ${n - 1} more of name.` : ` Among the dead was ${who(w, ev.actorId)}.`;
+}
+
+export function renderRegionalEvent(w: World, ev: RegionalEvent): string {
+  const region = w.regions.get(ev.regionId);
+  const here = region ? regionLabel(region) : "the country";
+  const Here = here[0].toUpperCase() + here.slice(1);
+  const other = w.regions.get(ev.otherRegionId ?? "");
+  const there = other ? regionLabel(other) : "the next country";
+  const at = ev.provinceId ? provName(w, ev.provinceId) : here;
+  const house = String(ev.data["house"] ?? "");
+  const venture = String(ev.data["venture"] ?? "venture");
+  // One lord can hold several seats in a region; the regional level tells it once and counts them.
+  const extra = Number(ev.data["seats"] ?? 1) - 1;
+  const titled = (id: string | null) => titleName(w, id) + (extra > 0 ? ` and ${extra === 1 ? "another seat" : `${extra} other seats`}` : "");
+  const ventureAt = ev.provinceId ? `the ${venture} at ${provName(w, ev.provinceId)}` : `the ${venture}`;
+  switch (ev.kind) {
+    case "LORD_DIED":
+      return `${who(w, ev.targetId)} died, and ${who(w, ev.actorId)} took up ${titled(ev.titleId)}.`;
+    case "SEAT_VACANT":
+      return `${who(w, ev.targetId)} died with no clear heir, and ${titled(ev.titleId)} lay empty.`;
+    case "SEAT_SEIZED":
+      return ev.data["lowborn"]
+        ? `${who(w, ev.actorId)}, born to no house of note, seized ${titled(ev.titleId)}.`
+        : `${who(w, ev.actorId)} seized ${titled(ev.titleId)} from ${who(w, ev.targetId)}.`;
+    case "HOUSE_RISES":
+      return ev.data["from"]
+        ? `The house of ${house} rose to lead ${here}, over the house of ${ev.data["from"]}.`
+        : `The house of ${house} came to lead ${here}.`;
+    case "HOUSE_FALLS":
+      return `The house of ${house} lost its last seat in ${here}.`;
+    case "FEUD":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} fought over ${titled(ev.titleId)}; ${ev.data["attacker_won"] ? `${name(w, ev.actorId)} won` : `${name(w, ev.targetId)} held`}.`;
+    case "FEUD_FLARES":
+      return `The old feud flared again in ${here}: ${who(w, ev.actorId)} laid claim to ${titled(ev.titleId)}, held by ${who(w, ev.targetId)}.`;
+    case "BORDER_WAR":
+      return `${who(w, ev.actorId)} came from outside ${here} to fight for ${titled(ev.titleId)}, and ${ev.data["attacker_won"] ? "took it" : "was turned back"}.`;
+    case "ALLIANCE":
+      return ev.data["union"]
+        ? `${who(w, ev.actorId)} and ${who(w, ev.targetId)} joined their houses by marriage.`
+        : `${who(w, ev.actorId)} and ${who(w, ev.targetId)} swore an alliance.`;
+    case "LEVY_RAISED":
+      return ev.titleId
+        ? `${who(w, ev.actorId)} called up the men of ${here} to fight over ${titled(ev.titleId)}.`
+        : `${who(w, ev.actorId)} called up the men of ${here} for war.`;
+    case "TAXES_RAISED":
+      return `The lords of ${here} raised their dues, and people grumbled.`;
+    case "TAXES_EASED":
+      return `The lords of ${here} eased their dues.`;
+    case "HARVEST_GOOD":
+      return `${Here} brought in a bumper harvest.`;
+    case "HARVEST_POOR":
+      return `The harvest failed across ${here}, and people went hungry.`;
+    case "SHORTAGE":
+      return `Bread grew dear in ${here}: ${Number(ev.data["price"] ?? 1).toFixed(1)} times its usual price.`;
+    case "BOOM":
+      return `Good times came to ${here}.`;
+    case "SLUMP":
+      return `Hard times came to ${here}.`;
+    case "VENTURE_OPENED":
+      return `A new ${venture} was opened at ${at}.`;
+    case "VENTURE_THRIVES":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} was thriving.`;
+    case "VENTURE_FAILING":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} was failing.`;
+    case "VENTURE_CLOSED":
+      return `${ventureAt[0].toUpperCase()}${ventureAt.slice(1)} closed.`;
+    case "ROAD_THRIVES":
+      return `Trade flourished on the road between ${here} and ${there}.`;
+    case "ROAD_FAILS":
+      return `Trade dwindled on the road between ${here} and ${there}.`;
+    case "FAMINE": {
+      const n = Number(ev.data["provinces"] ?? 1);
+      return (n > 1 ? `Famine struck ${here}, in ${n} of its lands.` : `Famine struck ${at}.`) + namedDead(w, ev);
+    }
+    case "PLAGUE": {
+      const n = Number(ev.data["provinces"] ?? 1);
+      return n > 1 ? `Plague swept through ${here}, ${n} of its ${ev.data["of"]} lands.` : `Plague struck ${at}.`;
+    }
+    case "BANDITRY":
+      return ev.actorId ? `${who(w, ev.actorId)} led outlaws on the roads of ${at}.` : `Bandits troubled the roads around ${at}.`;
+    case "HARD_WINTER": {
+      // Since #1608 a hard winter costs lives (more in a poor region). Populations
+      // are abstract, so it's told by its share of the people, not a head count.
+      const share = Number(ev.data["share"] ?? 0);
+      return (share >= 0.018 ? `A hard winter gripped ${here}, and many died of the cold and hunger.`
+        : share >= 0.012 ? `A hard winter gripped ${here}, and the old and the weak died of the cold.`
+        : `A hard winter gripped ${here}.`) + namedDead(w, ev);
+    }
+    case "FAIR":
+      return `A great fair was held at ${at}.`;
+    case "FESTIVAL":
+      return `A festival was held at ${at}.`;
+    case "MIGRATION":
+      return other
+        ? `People fleeing ${ev.data["cause"]} in ${there} came through ${here}.`
+        : `Newcomers arrived in ${at}.`;
+    case "UNREST":
+      return `There was unrest in ${at}.`;
+  }
 }
 
 // Render the whole selected chronicle as dated lines, grouped by year (the flat,

@@ -72,6 +72,17 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
   wood: 'woodcraft', gather: 'foraging', hunt: 'hunting', track: 'hunting', quarry: 'stonework',
   water: 'fieldcraft', preserve: 'fieldcraft', scout: 'scouting', survey: 'scouting', lookout: 'scouting',
   tinker: 'handcraft', fish: 'fieldcraft', treat: 'firstaid',
+  // Explore (#1689) is a scout's work: it's how a new Warden learns to scout, survey and look out.
+  explore: 'scouting',
+  // Making camp (#1732) is camp craft: clearing the ground, laying the fire, rigging a windbreak.
+  camp: 'fieldcraft',
+  // Drawing your map (#1797, `map-learning`) is a scout's work too: placing what you found by its
+  // bearing and walking time. Practised per hour like any scouting; the action exists only with the switch on.
+  drawmap: 'scouting',
+  // Gathering stones (#1816, `stone-gathering`) is how a new Warden gets the Stonework that finds the cleave.
+  gatherstone: 'stonework',
+  // Setting traps (#1821, `hunting-gear`) is how a new Warden gets the Hunting that opens the bow.
+  traps: 'hunting',
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',
@@ -79,6 +90,8 @@ const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'trap-snare': 'hunting',
   'cold-gear': 'handcraft', 'hide-parka': 'handcraft', waterskin: 'handcraft', bedroll: 'handcraft',
   basket: 'handcraft', backpack: 'handcraft', harness: 'handcraft', sled: 'woodcraft',
+  // The hunting and fishing gear (#1821).
+  sling: 'hunting', bow: 'woodcraft', 'hook-line': 'fieldcraft',
 };
 
 /** The skill this work trains and draws on, or null (rest, study). A recipe, when there is one, decides. */

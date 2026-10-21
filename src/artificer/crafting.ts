@@ -238,11 +238,22 @@ export interface QualityInput {
  * real station plus most of the other factors maxed.
  */
 export function craftGrade(q: QualityInput): Grade | null {
-  const score = q.band + q.benchTier + q.tools + q.conceptRank - Math.max(0, q.recipeTier - 1);
+  const score = craftScore(q);
   if (score <= 0) return null;
   const raw: Grade = score >= 9 ? 'masterwork' : score >= 6 ? 'fine' : score >= 3 ? 'sound' : 'crude';
   const cap = BENCH_GRADE_CAP[Math.min(BENCH_GRADE_CAP.length - 1, Math.max(0, q.benchTier))];
   return gradeIndex(raw) > gradeIndex(cap) ? cap : raw;
+}
+
+/**
+ * The quality score a craft is judged on (#1827 reads it for forecasts): above 0 it succeeds, and
+ * the higher it is, the better the grade and the further from failing. `craftGrade` turns it into a grade.
+ */
+export const craftScore = (q: QualityInput): number => q.band + q.benchTier + q.tools + q.conceptRank - Math.max(0, q.recipeTier - 1);
+
+/** What a crafter brings to this recipe at the bench: the inputs `craftGrade` judges (`craft` uses the same). */
+export function craftQuality(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = craftWorld()): QualityInput {
+  return { band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: meanConceptRank(s, recipe), recipeTier: recipe.tier };
 }
 
 /** Fraction of inputs recovered from a failed craft (never all of them). */
@@ -432,7 +443,7 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
 
   const next = clone(s);
   const rank = meanConceptRank(s, recipe);
-  const grade = craftGrade({ band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: rank, recipeTier: recipe.tier });
+  const grade = craftGrade(craftQuality(s, recipe, world));
 
   // The session's cost — your tools can make bench work itself cheaper.
   const mod = modifiersFor(s.tools, 'craft', world.effects);

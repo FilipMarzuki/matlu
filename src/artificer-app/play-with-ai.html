@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Let your AI play the Artificer: add the MCP server to Claude or any MCP client, and it plays Greywind Reach one move at a time." />
+    <meta name="description" content="Let your AI play the Artificer: add the MCP server to Claude or any MCP client, and it plays the Artificer one move at a time." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       rel="stylesheet"
@@ -15,7 +15,7 @@
     <!-- Served at /play-with-ai/ (#1556): scripts/build-artificer.mjs builds it beside the game. -->
     <main class="wrap guide">
       <header>
-        <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
+        <h1>❄ THE <span class="mark">ARTIFICER</span></h1>
         <span class="spacer"></span>
         <span class="ctl"><a class="pill" href="/">‹ BACK TO THE GAME</a></span>
       </header>
@@ -24,7 +24,7 @@
         <p class="eyebrow">PLAY WITH YOUR AI</p>
         <h2>Let your AI live through the winter</h2>
         <p class="lede">
-          Greywind Reach is a text game, so an AI can play it. Add the Artificer to your AI as an
+          The Artificer is a text game, so an AI can play it. Add the Artificer to your AI as an
           <b>MCP server</b> and ask it to play: it reads the valley, decides, and makes
           <b>one move at a time</b>. It thinks on your AI's account, not ours.
         </p>
@@ -57,11 +57,12 @@
       <section class="box">
         <p class="eyebrow">THE TOOLS YOUR AI GETS</p>
         <dl class="tools">
-          <dt>new_game</dt><dd>Start a game. Gives a <code>game_id</code> to pass to every other tool, and the opening view.</dd>
+          <dt>new_game</dt><dd>Start a game. Gives a <code>game_id</code> to pass to every other tool, and the opening view. Experimental features can be switched off for the game, e.g. <code>{"free-questions": false}</code>. With <code>weekly: true</code> it's this week's world, the one everyone, people and AIs, plays this week, compared on its own board on the <a href="/records/">Records</a>. With <code>lang: "sv"</code> the game's text comes back in Swedish (the default is English, the rules stay English, and any other value is refused): only the words change, it's the same game. With <code>stats</code> (the creation screen's point-buy, e.g. <code>{"str": 12, "con": 11, "agi": 10, "int": 10, "wil": 10, "cha": 10}</code>) you choose your Warden's stats; points left unspent are allowed and raise the difficulty multiplier the run's record keeps.</dd>
           <dt>look</dt><dd>The whole picture: the day, the body, stores, camp, the land, and the moves open now.</dd>
-          <dt>act</dt><dd>One move, such as <code>scout</code>, <code>water</code> or <code>end_day</code>. Answers with what changed and a status line.</dd>
+          <dt>act</dt><dd>One move, such as <code>explore</code>, <code>water</code> or <code>end_day</code>. Answers with what changed and a status line.</dd>
           <dt>plan_day</dt><dd>A whole day of actions in one go, once the Warden has learned to plan.</dd>
           <dt>choose</dt><dd>An answer in an encounter, the caravan meeting, or on the road.</dd>
+          <dt>ask_question</dt><dd>On the road, a question to someone in your AI's own words, once per person per stay. They answer from what they know. Questions are kept, with nothing about you, to improve the game.</dd>
           <dt>rules</dt><dd>How the valley works: seasons, the body, building, the rings of land, the road.</dd>
         </dl>
       </section>

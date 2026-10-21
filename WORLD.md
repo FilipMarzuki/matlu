@@ -903,6 +903,13 @@ A Bergfolk master [Runesmith] who quietly uses Rasa to find the right emotional 
 before carving produces work that is measurably superior to the work of those who do not.
 Most of them know this and none of them want to discuss it.
 
+**The Wildkin** use Rasa without theory or script. Their records are den-songs and
+knotted memory cords, and a boar elder who sings a boundary feels its weight as it was felt
+when it was agreed, as a Deepwalker [Keeper] does a treaty. Ironhide's bears are
+truth-speakers: a bear says a thing once, means it entirely, and a council bends toward it.
+Beyond that, Wildkin magic is uneven by line, rare in some and strong where it comes.
+*(Added 2026-10-11, #1606.)*
+
 **The Fae** use Rasa almost exclusively. Their magic is personal and tied to their
 emotional state and accumulated knowledge of what it feels like to be a particular age
 with particular experiences. Fae Rasa is exceptionally powerful — deep, specific, backed
@@ -1118,6 +1125,12 @@ The previous ages left ruins everywhere — buried under farmland, half-submerge
 shallows, entire cities sealed inside the northern mountains. The world is not built on top
 of its history. It is built around it, beside it, occasionally inside it.
 
+In the far west, where the northern spine bends south to meet the sea, lies the Wildkin's
+kingdom: a strip of forest and meadow between the mountains and the sea, open only to the
+east. It is **the core area**, the part of Mistheim that Core Warden is played in and that
+the rest of this section opens outward from. See *The Wildkin — beastkin of the core
+kingdom*. *(Added 2026-10-11, #1606.)*
+
 ---
 
 ### The Bergfolk — dwarves of the northern holds
@@ -1277,12 +1290,58 @@ Representative Classes: [Watermaster], [Farmer], [Herd-caller], [Riverkeeper],
   history. The Viddfolk need the steppe for their route-claims; the Merkförbund wants
   to extend farming into it. No war, but the negotiation has been ongoing for sixty
   years and no one expects it to conclude.
+- *Riksfolk:* Neighbours across the fen country north of the delta. The Realm buys
+  delta grain in bad years and resents needing to. *(Added 2026-10-11, #1623.)*
+- *Strandfolk:* Their best customer: delta grain goes to the rest of the continent in
+  Strandfolk hulls. *(Added 2026-10-11, #1623.)*
 
 **The Dry's effect:** Myst-touched river water has been making crops more fertile
 for three centuries. The effect is so integrated into Markfolk farming practice that
 most farmers cannot identify where their methods end and the Myst begins. The yields
 are still strong. The trend is not visible yet. The [Watermasters] who monitor river
 Myst flow have noticed. They have not yet told the council.
+
+#### The eastern charters
+
+*Added 2026-10-11 (#1620). Where the Merkförbund grows, and how. The Markfolk don't border
+the Wildkin: the human kingdoms that Core Warden's setting bible
+(`macro-world/setting-corewarden.md`) has pressing the Wildkin's eastern border are a human
+People of their own, the Riksfolk (#1623).*
+
+**Which way the fields go:** East. The delta's other edges are hard country: salt marsh
+toward the sea, wet fen and the foothills' stony ground to the north. East is dry, flat and
+open: the grassy edge of the steppe, where the soil is thin but deep and nothing has ever
+been ploughed. About three hundred years ago the river works the Steinfolk built reached
+the eastern tributaries, and the [Watermasters] found they could carry water out onto the
+steppe's edge. In much of the Merkförbund a farm goes whole to the eldest child, so younger
+sons and daughters took a charter and went east. Each generation the fields reached a little
+further. Nobody marched anywhere. They dug a ditch, built a fence, and wrote the yield in a
+seed book.
+
+**The charters:** Merkförbund law gives land to whoever fences it, farms it and writes it
+down. The council grants a charter for "open land": land with no fence, no furrow and no
+record. The steppe's edge had none of the three. The Viddfolk's route-claims live in route
+songs, not on paper, and a route-claim is a road, not a field. So by Markfolk law the
+steppe's edge is open land, and every charter is lawful. By the Vidde Accords, which the
+Merkförbund also signed, a route-claim is Viddfolk jurisdiction wherever it runs. Both are
+law. That is the sixty-year negotiation in one sentence.
+
+**Why they believe it is right:** The charter farmers are not villains in their own story.
+They believe land that isn't farmed is land going to waste. They believe the Viddfolk are
+passing through, not living there, which is true and also beside the point. And they
+believe they bring order: ditches, roads, market days, a seed book with every yield in it.
+
+**Route gates:** Where a charter fence crosses a route-claim, the fence has a gate, and on
+the days the route is run the gate stands open. Leaving a route gate shut on a route day is
+one of the few things a charter farmer can be fined for by both the council and the
+Viddfolk. Most charter farmers know the route days better than their own children's
+birthdays.
+
+**The edge now:** The charter farms are the Merkförbund's margins, and the margins are
+where the yields are starting to drop. They are also where the goblin [Salvagers] work,
+where the fields are newest and the ruins least mapped. The [Watermasters] who carried the
+water east are the first to see it coming back thinner. The younger children who took the
+charters are the first who will have nowhere further to go.
 
 ---
 
@@ -1491,6 +1550,9 @@ Representative Classes: [Keeper], [Navigator], [Salt-Master], [Tide-Warden], [Di
 - *Pandor:* Strong alliance. The Compact of Knowing shares a legal framework that the
   Deepwalker [Keepers] and Pandor [Archivists] both participate in. They are the two
   peoples most actively terrified by the Dry, for related reasons.
+- *Strandfolk:* Harbour partners. The Deepwalkers keep the salt, the charts and the
+  memory; the Strandfolk build the boats and fill them. Hamnlag contracts are witnessed
+  by Deepwalker [Keepers]. *(Added 2026-10-11, #1623.)*
 
 ---
 
@@ -1524,8 +1586,8 @@ mission that cannot wait three tidal cycles for a response will not get one. Thi
 obstruction. It is how Merfolk time works: they plan across decades, and a nation that
 wants an answer this week has misunderstood the relationship.
 
-Their Classes reflect deep-ocean expertise: [Depth-Keeper], [Pressure-Smith], [Current-
-Reader], [Ruin-Walker]. The last class is of particular interest to the Pandor, who have
+Their Classes reflect deep-ocean expertise: [Depth-Keeper], [Pressure-Smith],
+[Current-Reader], [Ruin-Walker]. The last class is of particular interest to the Pandor, who have
 been trying to establish a formal knowledge-exchange agreement for thirty years. The
 Djupvolk have not yet replied.
 
@@ -1760,6 +1822,465 @@ frequently unhelpful. Several of the answers have become proverbs.
 The third has never been directly observed. Its passage is inferred from marks it leaves:
 a particular pattern of Myst disturbance, a quality of silence in places where it has
 recently been. The Fae appear to know more than they are saying about the third one.
+
+---
+
+### The Wildkin — beastkin of the core kingdom
+
+*Added 2026-10-11 (#1606). The owner made the Wildkin, the beastkin of Core Warden's setting
+bible (`macro-world/setting-corewarden.md`), the 16th People, and their kingdom between the
+mountains and the sea **the core area** of the game. The bible is canon for them; the clan
+lines and the Clan Question come from the Wildkin race lore it points to
+(`macro-world/race-affinities.json`). The West March is told from the fields under the
+Riksfolk (*The West March and the Wildkin border*); this is the same border from the dens.
+Names and details not in those sources are placeholders until the owner reviews them.*
+
+**Where they live:** A strip of forest, meadow, river and wetland in the far west of the
+continent, between a mountain range and the sea. The mountains are the western end of the
+northern spine, where it bends south to meet the coast: they wall the kingdom on the north
+and the west. The sea runs along its south, past the point where the Strandfolk charts end.
+Its only open side faces east, onto the river Alå and the Realm's West March beyond it. The
+climate is temperate: wet springs, mild summers. The kingdom has never been large. It has
+never needed to be. The mountains and the sea have always been its walls.
+
+**The core area:** The core area of the game, for now: Core Warden is mostly played out in
+Wildkin lands *(owner, 2026-10-11)*. The kingdom is small enough to be one game map, mountains
+to sea and the Alå to the wild western shore. It is not the middle of Mistheim (that is the Pandor's
+central highlands) but its far western corner, and the rest of this section opens outward
+from it: the Realm and, beyond the fen country, the Markfolk delta to the east; the Bergfolk
+spine to the north; the unsailed sea to the south. In the world, nobody calls it the core.
+The Wildkin call it the kingdom, and most of the continent rarely thinks about it.
+
+**What they make:** What forest, meadow and shore give. Furs and worked hide, bark-cloth,
+honey and wax, smoked fish, shellfish gathered from the shore, alder charcoal, bone tools
+and carved antler. Furs, honey, smoked fish and charcoal go east over the Alå fords; grain,
+wool and iron hinges come west. Boar hamlets farm, dig and build walls. Rabbit warrens keep
+big gardens, half above ground and half below. Wolf packs hunt and herd. Nobody builds
+boats: there is no Wildkin sea clan and no legend of a sea voyage. The sea is a wall, not a
+road.
+
+Their houses tell their history. The oldest still look like dens: round, half sunk into the
+ground, roofed with hide and turf, facing the trail. The newest have square walls, latched
+doors and iron hinges, and stand on market squares the old dens never had. Whether that is
+growth or erosion is the quiet argument in every settlement.
+
+**Resources:** Old forest, meadow, wetland, river fish, game, honey, shellfish, alder.
+Scarce: metal (bought in the March, and lately at the pass-towns from dwarves walking out of
+the mountains), and room. There is nowhere left to roam.
+
+**What shapes them:** Being walled in. The older clans remember when packs roamed freely,
+following game and season, and a den was a place you left. But squeezed between the
+mountains and the sea, with the fence-folk's charters creeping west across the Old Runs, the
+land a pack could run shrank with every generation. Roaming became harder, then impractical,
+then impossible. The Great Clans formalised because someone had to decide who lived where
+once "everywhere" stopped being an option. The kingdom has been settled ever since: old and
+stable, with no war since the Stone Line was set. It is isolationist by geography, not
+ideology. It has simply never had a reason to look outward. That is changing.
+
+They are not shapeshifters. A Wildkin is always partly animal and partly person, and the
+balance shifts with feeling and season. Their dead stay dead, and always have: the clan
+gathers at its oldest den and tells how the one who died ran.
+
+Belonging is everything. A Wildkin names their clan before themselves. Poverty can be lived
+through; being clanless, by exile, by orphaning or because a clan dissolved, is the true
+bottom of Wildkin life.
+
+**Rasa:** The Wildkin use Rasa the way most Peoples do, without a word for it, and use
+Runescript hardly at all. They have no written tradition. They keep records in knotted
+memory cords and in den-songs, and a boundary lives in the memory of the boar clans, not on
+paper. That memory works the way a Deepwalker contract does: a Stoneback elder who sings a
+boundary feels its weight as it was felt when it was agreed, which is why a boar clan's word
+on a boundary stands. Ironhide's bears are truth-speakers. In council a bear says a thing
+once and means it entirely, and the room bends toward it. Beyond that, magic is uneven by
+line: some lines get it rarely, but strongly. A Wildkin with real power tends to dress plain
+and say little; the clans' shamans, antlered and barefoot, do the opposite. The only
+Runescript most Wildkin know came west with the iron hinges: the three runes the fence-folk
+mutter over a latched door.
+
+Representative Classes: [Hunter], [Shaman], [Grove-Warden], [Boundary-Singer], [Trader],
+[Scout].
+
+#### The clans
+
+Eight beast lines, and inside each line many independent clans: packs, holds, warrens,
+eyries, dens. A "wolf clan" is any kinship group of the wolf line, and there are dozens. Most
+clans are small, twenty to eighty people.
+
+- **Wolf.** Pack hunters and herders: loyal, coordinated, tireless runners, with the loudest
+  and warmest settlements in the kingdom. Greymane is the largest single clan and the most
+  powerful. Other wolf clans: Nightrunner, Ashpelt, Ridgehowl, and many smaller packs.
+- **Bear.** Solitary guardians of the sacred groves, slow to anger and terrifying when
+  provoked, found near the passes and in the oldest woods. A bear "clan" may be three adults
+  and their children. Ironhide is theirs.
+- **Fox.** Traders and diplomats, quick-witted and as easy in a market square as in a
+  forest: the line most likely to live among other Peoples. Redtail leads; Silvertongue and
+  Duskear are small but networked. A fox trader's red sash marks them neutral in clan
+  quarrels, and every trader in the kingdom has taken it up.
+- **Boar.** Stubborn settlers: farmers, diggers, wall-builders, and the arbiters of land
+  law. The oldest territories are theirs, and their hamlets never move. Stoneback leads;
+  Deeproot, Mudwall and Thornfield are local and immovable.
+- **Cat.** Independent, nocturnal, curious to a fault, found everywhere. Each family is its
+  own sovereign, so there are dozens of tiny cat clans and no spokesperson. The third most
+  numerous line, and the least seen at council.
+- **Rabbit.** Community builders whose warrens run half above ground and half below. Newer
+  as a line than the founding four, and now very numerous: Longburrow alone has more members
+  than Ironhide and Redtail together. Heatherfoot is the other great warren. Underestimated
+  by everyone, exactly once.
+- **Hawk.** Scouts and watchers, keen-eyed, drawn to cliffs and ridgelines. Too few and too
+  scattered to organise: an eyrie may be six adults on a clifftop.
+- **Snake.** Patient, cold-comfortable, the line other Wildkin find hardest to read. They
+  guard old places and old knowledge, attend council rarely, and bring old knowledge when
+  they do.
+
+**Mixed clans:** Marrying across lines is normal and growing. A child of two lines takes
+after one parent fully, never a blend: a wolf-fox child is a wolf or a fox. Nobody knows
+why, and elders, shamans and scholars have argued it for centuries. Families mixed over
+generations become clans of their own. They are the fastest-growing part of Wildkin
+society, and they have no voice on the council.
+
+#### The Highfang, the Great Clans and the Clan Question
+
+**The Highfang** rules for life or until challenged, chosen by the Great Clans' council. Any
+line may hold the seat; every Highfang in living memory has been wolf or boar. The Highfang
+wears the tooth-crown, one tooth from each beast line, for standing over every clan. A Great
+Clan chief wears a single fang of their own line. A chief with more ornament than deeds is
+mocked: "more teeth than kills."
+
+**The Great Clans** are the oldest and best-connected clan of each founding line, with
+permanent council seats: Greymane (wolf), Ironhide (bear), Redtail (fox) and Stoneback
+(boar). A seat gives no command over the rest of the line: Greymane cannot order a distant
+wolf pack. But the seat speaks for the line's interests, and smaller clans usually defer, by
+custom rather than obligation. The four lesser lines, cat, rabbit, hawk and snake, have no
+seat. They may petition.
+
+**The Clan Question:** The council was set when the four founding lines were the only clans
+that mattered, before the warrens grew, before the cats settled, before mixed families were
+common. The council hasn't changed. The kingdom has. This is not a caste system: there is no
+purity doctrine and no bar on moving between roles. A fox can farm, and a mixed child can
+marry into Greymane. But the inequality is real, everyone feels it, and nobody has fixed it.
+
+- *The seat problem:* Longburrow outnumbers Ironhide and Redtail combined and has no seat.
+  When Longburrow petitions, it waits. When Ironhide speaks, the council listens at once.
+  The answer is always "founding blood, founding right." Longburrow's elders are patient.
+  Their young are not.
+- *The representation gap:* the cats are too independent to petition together. Some call it
+  freedom from politics. Cats who have lived among other Peoples call it "freedom to be
+  ignored."
+- *The mixed question:* mixed clans argue they are a ninth line and should be heard. The
+  Great Clans resist, not from hatred but from fear that more seats mean less founding
+  authority.
+- *The role shadow:* nobody enforces what a line is for, but the expectations persist. A
+  fox who farms gets gentle jokes; a bear who trades gets looks; a hawk who settles in a
+  valley is "grounded", and it stings.
+- *The Ironhide paradox:* the smallest, most solitary line holds a permanent seat, and its
+  moral authority as grove-guardians and truth-speakers is real. Should fifteen bears weigh
+  as much as four hundred rabbits? Ironhide always gives the same answer: "We were here
+  before you counted."
+
+The fence-folk complicate it. Some young Longburrow rabbits hold up the Realm's old Riksdag,
+with its elected burghers, as a model, and the Great Clans hear human influence creeping in
+again. In a settlement the Question shows as lesser-line folk grumbling about "old blood,
+old rules", Great Clan members defending tradition with real conviction, young rabbits with
+pamphlets and old bears who won't read them, fox traders who work the system perfectly and
+see no reason to change it, and cats who wish you'd stop asking.
+
+#### What's coming over the walls
+
+For centuries the kingdom's walls kept the world out. Within the last few years every wall
+has started to leak, and nobody has connected the leaks.
+
+- *The mountains:* Dwarves are walking out of tunnels that weren't there last season,
+  trading at the pass-towns and asking questions about the surface. Some are friendly. Some
+  are plainly running from something. They won't say what, or why now.
+- *The high passes:* The dead walk there. Not an army: scattered, confused and hostile,
+  coming down from deeper in the mountains, all within the last year. The Wildkin have no
+  framework for this. Their dead stay dead.
+- *Below:* Strange creatures are coming up through cave mouths, old wells and cracked earth,
+  things no Wildkin has a name for. Some are hostile by nature, some because they are
+  terrified. Down there too are ruins, foundations and tunnels older than the beastkin
+  kingdom, which look built by human hands. Nobody knows who built them. The Riksfolk point
+  to them and say they were here first, and the Wildkin find the question uncomfortable.
+- *The sea:* Nothing has come yet. The Wildkin fish from the shore, gather shellfish and
+  build no boats. Nobody knows what is out there. Yet.
+- *The east:* The fence-folk, below.
+
+**Relations:**
+- *Riksfolk:* The fence-folk, and the oldest sore. Their West March was fenced, one
+  charter at a time, across the Old Runs the packs once followed. The Alder War, about a
+  hundred and forty years ago, ended with the Stone Line along the Alå, set by Stoneback and
+  the Realm's [Hedge-Wardens] together. It has not moved since, and every spring a Stoneback
+  elder walks it with a March [Hedge-Warden]. The fences brought trade too, and the iron
+  hinges, latched doors and market squares the Wildkin now build with. Redtail traders and
+  March grain-factors have done business for generations. In the Drowned Year, about sixty
+  years ago, Greymane packs took flooded March families into the dry forest. Lesser-line
+  Wildkin, cats and rabbits above all, cross east for wages. Now the Marshal has put a
+  standing guard on the March, incidents along the Line are rising, and the border clans
+  grow more defensive in turn. Neither side knows it is being pushed. See *The West March
+  and the Wildkin border*.
+- *Bergfolk:* Dwarves out of the mountains: new at the pass-towns, fair traders, and
+  unwilling to explain themselves. Iron now reaches the kingdom two ways, through the March
+  and straight out of the rock.
+- *Markfolk:* No border. The orcs' delta lies far to the south-east, beyond the Realm and
+  the fen country, and their fields grow east, away from the kingdom. The Wildkin know them
+  from March market talk and the odd sack of delta grain.
+- *Strandfolk:* No contact. Their charts end where the coast turns west, short of the
+  Wildkin's sea, and no Wildkin has ever seen a sail. Boat people down the coast are a fox
+  trader's story.
+- *Viddfolk:* [Heralds] reach the Alå fords now and then with the Realm's letters. The old
+  wolves envy a People who still roam.
+- *Fae:* Something at the meadow's edge at dawn bargains for names. Grandmothers warn the
+  cubs.
+
+**The Dry's effect:** The den-songs are losing their endings. Boar elders singing a boundary
+reach a verse they can't finish, and argue over what the last line was. Ironhide says the
+oldest grove has gone quiet, and bears don't say that lightly. Along the border the
+corruption works another way, as it does in the Marshal's hall: tempers short, suspicion
+easy, every cut fence read as a declaration. The Highfang's council is debating. Nobody has
+answers.
+
+---
+
+### The Riksfolk — humans of the Realm
+
+*Added 2026-10-11 (#1623). The owner: "There needs to be human peoples but also an orc
+people." The Markfolk are the orcs; humans are their own Peoples, the Riksfolk and the
+Strandfolk. The Riksfolk are the "human empire or federation of kingdoms" that Core
+Warden's setting bible (`macro-world/setting-corewarden.md` § East — The Human Lands) puts
+on the Wildkin's eastern border. The bible stays canon for the Wildkin; this is the same
+history from the human side. Names are placeholders until the owner reviews them.*
+
+**Where they live:** The river lowlands and low hills north-west of the Merkförbund, under
+the western end of the northern spine. To their west, across the river Alå, lies the
+Wildkin's strip of forest and meadow between the mountains and the sea. The Riksfolk call
+their country the Realm (Riket), and the word has meant different things in different
+centuries: sometimes one empire under one crown, sometimes a dozen kingdoms squabbling over
+the same river, once, for about eighty years, a republic run from a hall of elected
+burghers called the Riksdag. Every Riksfolk child learns the list of what the Realm has
+been. It is a long list.
+
+Right now it is becoming one thing again. The last generation of kings proved too weak to
+stop their own lords feuding, and the Marshal of the Realm (the Riksmarsk), who commands the
+only standing army, has been settling the feuds one by one, by treaty where she can and by
+garrison where she can't. She has not taken a crown. She has not needed to.
+
+**What they make:** Grain, wool, timber and soldiers. The lowlands are good farmland, if not
+as good as the delta; the hills run sheep. The Realm's real export, for most of its
+history, has been people: younger children, landless and short-lived, who go looking for a
+place of their own. Riksfolk are found in harbour towns, on Bergfolk work-crews and in
+Viddfolk caravans all over the continent.
+
+**Resources:** Farmland, drained fen, hill pasture, timber, river fords. Scarce: metal (they
+buy Bergfolk iron), salt, and any land they haven't already fenced.
+
+**What shapes them:** Short lives and many governments. Humans live eighty years if they're
+lucky, which the long-lived Peoples find hard to take seriously, and the Realm has changed
+its whole shape several times within the memory of a single Lövfolk. Other Peoples find
+how fast humans breed and how fast they change their minds alarming. The Riksfolk find
+everyone else slow.
+
+What holds the Realm together through all of it is written law. Kings come and go; the
+Landslag, the law-book of the Realm, stays. A Riksfolk will argue about who should rule for
+an evening, but nobody argues with a charter, a boundary written down and witnessed. Land
+that pays no due to any lord is "waste" in the Landslag, waste belongs to the crown, and the
+crown grants it by charter to whoever will fence it and farm it. Most of the Realm's history
+is that one rule, applied.
+
+Where humans came from is argued. Humans were in Mistheim before the worlds merged. Some of
+their ancestors came later, with the Earth fragments, and every one of those came without
+memory: no names, no tongue, no story of where they had been. They married into the humans
+already here, so most humans today have such an ancestor somewhere back in the line, and nobody
+can say which. *(Owner, 2026-10-11, #1623.)*
+
+Nobody in Mistheim knows this. What people know is the pattern. All through the histories there
+are odd patches of extra humans in places nobody expected them: a valley that held two families
+one winter and forty the next, a coast where strangers were found wandering the shingle with no
+words anyone knew, a village that doubled between one harvest and the next and could not say
+where its new people had come from. Some human settlements have grown in strange ways, faster
+than any birth rate, around nothing anyone can point to. Every People has a story for it: the
+Lövfolk say humans root like weeds, the Bergfolk say the deep rock coughs them up, the goblins say
+humans breed when nobody's looking and won't hear otherwise. Other Peoples remember mostly the
+patches and say humans came, not grew; the Riksfolk say they were always here, and point to the
+old ruins on the Wildkin's side of the Alå. Nobody knows who built those ruins. *(Owner,
+2026-10-11.)*
+
+Representative Classes: [Reeve], [Dikemaster], [Hedge-Warden], [Knight], [Charter-Clerk],
+[Marshal].
+
+**Relations:**
+- *Wildkin:* The western neighbour, and the oldest sore. The Realm's West March grew onto
+  land the Wildkin packs once roamed, and the two have shared a border at the river Alå
+  since the Stone Line was set. Trade, a few marriages, a treaty that holds, and harsher
+  talk every year. See *The West March and the Wildkin border* below.
+- *Bergfolk:* The Realm buys Bergfolk iron, and the Marshal's army has bought a great deal
+  of it lately. The holds have noticed, and have started asking what it's for.
+- *Markfolk:* Neighbours across the fen country north of the delta, which neither side has
+  ever drained, by an old understanding that each would rather the other didn't. The Realm
+  buys delta grain in bad years and resents needing to.
+- *Strandfolk:* Kin by blood, strangers by law. The Strandfolk say humans came up the coast
+  and some of them settled inland and got ideas; the Riksfolk say the reverse. The Marshal
+  would like a harbour. The Hamnlag pays no due to any crown and intends to keep it so.
+- *Viddfolk:* Like every nation, the Realm signed the Vidde Accords and pays into the
+  [Herald] network. The Marshal's letters travel faster than her soldiers, and she knows
+  every word of them is remembered.
+
+**The Dry's effect:** Hill farms in the Realm's north are losing their high fields to the
+grey, one season at a time. The Marshal's council treats it as a supply problem. The
+[Dikemasters], who drained the West March and know what Myst-touched fen soil feels like,
+have started to wonder what happens if the March's soil goes the same way.
+
+#### The West March and the Wildkin border
+
+*Added 2026-10-11 (#1623; first drafted in #1620 for the Markfolk, then moved here when the
+Markfolk were made the orc People). The Wildkin's eastern border history, seen from the
+fields.*
+
+**Where the border is:** The Wildkin's kingdom lies west of the Realm, a strip of forest,
+meadow and wetland between the mountains and the sea. Its only open side faces east, onto
+the river lowlands. The border runs along the river Alå, through a wide gap of wet meadow and
+alder wood that the Riksfolk call the West March (Västmarken) and the Wildkin call the Old
+Runs, because their packs used to run there.
+
+**How the March grew:** Slowly, and mostly without anyone deciding it. The Realm always had
+easier directions to grow: north into the hills, east along the rivers. The west was wet:
+fen, flood meadow and alder carr, good for game and bad for barley. About three hundred
+years ago the Realm's [Dikemasters] learned to drain the wet meadows with ditch, sluice and
+windmill. Drained fen is the best soil in the lowlands. In the Realm a farm goes whole to
+the eldest child, so younger sons and daughters took a charter and went west. Each
+generation the fields reached a little further. Nobody marched anywhere. They dug a ditch,
+built a fence, and wrote the boundary in the charter roll.
+
+**The charters:** The Landslag calls land that pays no due to any lord "waste", and waste
+belongs to the crown, which grants it by charter. The Wildkin's roaming grounds paid no due
+to anyone. Their dens moved with the game and the seasons, and their boundaries lived in the
+memory of the boar clans, not on paper. So by the Realm's law the western meadows were
+waste, and every charter was lawful.
+
+**Fences in daylight:** The Landslag is strict about boundaries: a fence moves in daylight,
+with neighbours watching, or not at all. The West March kept that rule. Every fence that
+crept west was moved openly, by charter, with witnesses. This is the thing the Riksfolk
+remember most, and the thing the Wildkin find hardest to forgive: it was all done fairly,
+by rules the Wildkin had never agreed to.
+
+**Why they believed it was right:** The settlers were not villains in their own story. They
+believed land that isn't farmed is land going to waste. They believed the packs were passing
+through, not living there. They believed they were bringing order: ditches, roads, market
+days, latched doors. And some pointed to the old ruins in the Wildkin's lands, which are
+older than the beastkin kingdom and look built by human hands, and said their own ancestors
+had been there first. Nobody knows who built those ruins. Nothing ties them to the Realm.
+
+**What the Wildkin remember:** The same years, from the other side of the fence. The meadows
+their packs followed the game across were ditched and fenced, one season at a time. Roaming
+became harder, then impractical, then impossible, and the Great Clans had to decide who
+lived where. The fences brought trade too, and iron hinges, latched doors and market squares
+came west with them. The Wildkin call the Riksfolk "fence-folk", not always kindly.
+
+**The Alder War and the Stone Line:** It wasn't all slow. There were border fights in every
+generation and a few real wars, the worst of them the Alder War, about a hundred and forty
+years ago, when the March lords tried to charter land on the Wildkin's side of the Alå. Both
+sides lost people and neither won. It ended with the Stone Line: a row of boundary stones
+along the Alå, set by the Realm's [Hedge-Wardens] and the Stoneback boar clans together.
+Each stone has the Realm's charter-mark cut into one side and a boar clan's tusk-mark into
+the other. The treaty says the Line doesn't move. It hasn't. Since then the March has grown
+no further west, so March farmers today never moved a fence onto Wildkin land themselves.
+They live on fields their great-great-grandparents fenced.
+
+**How the Realm treats beastkin:** Better than strangers, worse than neighbours. Beastkin can
+cross at the Line's fords, trade in the March market squares and work for wages. But a
+charter can only go to a subject of the Realm, and a beastkin becomes one only by swearing
+to a lord, which almost none will, so very few hold land. Fox traders know every March
+market. Wolf herders are prized by March shepherds, though nobody says so at the lord's
+table. Border towns like Alåbro have a few beastkin households that have been there longer
+than some human ones.
+
+**The Clan Question, seen from the March:** The Realm has been an empire, a squabble of
+kingdoms and a republic in five hundred years. So the Riksfolk find a council of four
+founding seats, fixed for centuries, very strange. The version told in March taverns: "Four
+seats and none for the rabbits, and they call *us* unsettled." Some young Longburrow rabbits
+hold up the Realm's old Riksdag, with its elected burghers, as a model, which the Great Clans
+hear as human influence creeping in again. A few March lords think the lesser lines would
+side with the Realm if it came to it. They have not asked the lesser lines, who would mostly
+say no.
+
+**Points of contact:** The border is not only a quarrel.
+
+- *Trade:* March grain, wool and iron hinges go west over the Alå fords; furs, honey, smoked
+  fish and alder charcoal come east. Redtail fox traders and March grain-factors have done
+  business for generations, and like each other more than either council knows.
+- *Marriages:* A few, mostly in the border towns. Those households are at home on both banks
+  and fully welcome on neither, though that is slowly changing.
+- *Refugees:* In the Drowned Year, about sixty years ago, the Alå flooded the low March, and
+  Greymane packs took March families into the dry forest until the water went down. The
+  March remembers it, mostly. In the other direction, lesser-line Wildkin, cats and rabbits
+  above all, come east for wages in March towns.
+- *The Line itself:* Every spring a Stoneback elder and a March [Hedge-Warden] walk the Stone
+  Line together and check every stone. It is the oldest working arrangement on the border,
+  and it is done in near silence.
+
+**The border now:** Getting worse. The Marshal has named a March-warden to command a standing
+border guard, the first in a century, and the old March families, who have traded across the
+Alå for generations, find that alarming. Beastkin border clans are getting more defensive in
+turn. The rhetoric about beastkin in the Marshal's hall grows harsher every season. Incidents
+along the Line are rising: a cut fence, a missing flock, a den found ditched. Neither side
+knows the corruption is leaning on both of them. And in the Realm's north, hill families are
+losing their own high fields to the grey, one fence at a time. A few of them have started to
+notice how that sounds.
+
+---
+
+### The Strandfolk — humans of the harbour coast
+
+*Added 2026-10-11 (#1623). The second human People, so humans aren't one realm. A
+placeholder name until the owner reviews it.*
+
+**Where they live:** The long harbour coast east of the delta, where the Merkförbund's rivers
+reach the sea and the shore breaks into islands, inlets and skerries. The Strandfolk have no
+kingdom. They have the Hamnlag, the Harbour Law: a league of some thirty free harbour towns
+that share a law-book, a set of weights and measures, and a long habit of not being ruled
+by anyone. Each town keeps its own council of shipmasters. The Hamnlag meets only when it
+must, and every town sends whoever lost the vote at home.
+
+**What they make:** Boats and freight. Strandfolk [Shipwrights] build most of the hulls that
+work Mistheim's coasts, and Strandfolk crews sail them. Half the delta's grain goes to the
+rest of the continent in Strandfolk holds. They fish, they salt what they catch with
+Deepwalker salt, and they carry anything that floats for anyone who pays the freight.
+
+**Resources:** Sheltered harbours, fishing grounds, coastal timber, the freight trade.
+Scarce: farmland, metal, stone, and patience with anyone who wants them to stay put.
+
+**What shapes them:** The sea, and the short lives they share with the Riksfolk. A Strandfolk
+crew lives on the trust that the boat next to them will come when they call, so the oldest
+rule of the Hamnlag is storm-right: in a storm every harbour is open to every boat, whatever
+its flag, whatever its debts, and nobody may be turned away or charged for it. A harbour
+that broke storm-right would lose its place in the Hamnlag the same season. None has, in
+living memory.
+
+The Strandfolk share their harbours with the Deepwalkers, and the two have worked out who
+does what over centuries: the Deepwalkers keep the salt, the charts and the memory; the
+Strandfolk build the boats and fill them. A Hamnlag contract is witnessed by a Deepwalker
+[Keeper], because that is the only signature every harbour accepts.
+
+Their charts end where the coast turns west beyond the Realm. Past that is the Wildkin's sea,
+which nobody in the Hamnlag has had a reason to sail. Yet.
+
+Representative Classes: [Shipwright], [Fisher], [Harbourmaster], [Pilot], [Net-Mender].
+
+**Relations:**
+- *Deepwalkers:* Harbour partners. The Tidekin keep the memory and the salt; the Strandfolk
+  keep the boats. Each thinks the other could not manage alone, and each is right.
+- *Merfolk:* Uneasy. Strandfolk fishing grounds sit over Merfolk waters, and the Merfolk do
+  not answer when asked about it. Nets come up cut, now and then. Nobody can prove why.
+- *Markfolk:* Their best customer. Delta grain in Strandfolk hulls feeds the coast and half
+  the continent. The two trade dry jokes about who needs whom, and both keep the accounts.
+- *Riksfolk:* Kin by blood, strangers by law. The Marshal wants a harbour; the Hamnlag pays no
+  due to any crown. Riksfolk younger children have been signing onto Strandfolk crews for
+  centuries, and some of them never go home.
+- *Viddfolk:* Hamnlag letters go inland by [Herald], and the harbour towns pay into the Vidde
+  Accords like everyone else. The Strandfolk respect anyone who travels for a living.
+
+**The Dry's effect:** The fish runs follow the Myst-currents along the coast, and the runs
+are coming late. The [Pilots] who read the water say the currents have changed their taste.
+The harbour councils have not compared notes yet. When they do, they will find every
+harbour has been telling itself it's only a bad year.
 
 ---
 
@@ -2123,6 +2644,113 @@ they have made progress.
 
 ---
 
+#### Wildkin
+
+*Added 2026-10-11 (#1606), from the Wildkin's section above and the ikibeki dress in
+`macro-world/fashion.json`.*
+
+**Appearance:** Always partly animal and partly person, never one turning into the other.
+Each line carries its beast plainly: wolf, bear, fox and cat fur, ears and tails; boar tusks
+and bristle; rabbit ears and long feet; hawk feathers and hooked faces; snake scales, slit
+pupils and forked tongues. Most stand on digitigrade legs. How much beast shows shifts with
+feeling and season: a frightened fox looks more fox. A child of two lines looks wholly like
+one of them.
+
+**Clothing:** Hide, bark-cloth and wool, undyed, in bark, moss and earth tones. Fur-bearing
+lines wear little, because the coat is the first layer; snake-line Wildkin wear the most.
+Boots are soft hide, open-toed for clawed feet; many rabbits go barefoot. Everyone wears a
+clan cord at the neck, beaded with deeds and alliances, and a bare cord is the saddest thing
+a Wildkin can wear. Elders wear long bark-cloth robes with their clan's story burnt into the
+hem; the Highfang wears the tooth-crown and a long hide cloak; traders wear the fox red sash
+of neutrality. Shamans wear antlers and go barefoot. Wealth looks more human: glass beads, a
+metal buckle, a panel of woven cloth from the March. Bears and snakes refuse such things even
+when they can afford them, and mean it as a statement.
+
+**Architecture:** Round dens and longhouses along the trails, half sunk into the ground,
+roofed in hide and turf, laid out as the ground and the paths fall rather than in rows.
+Rabbit warrens run half above ground and half below; hawk eyries cling to cliffs; boar
+hamlets sit behind low walls and never move. The newer houses near the Alå have square
+walls, latched doors and iron hinges, around a market square.
+
+**Objects:** Memory cords, knotted records that an elder reads with their fingers. Staffs
+of office carved with a clan beast's head. Bone toggles, matched in sets when a family is
+doing well. Council-stone pendants. On the Stone Line, each stone carries a boar clan's
+tusk-mark on its western face.
+
+---
+
+#### Riksfolk
+
+*Added 2026-10-11 (#1631), from the Riksfolk's section above.*
+
+**Appearance:** Humans: the smallest-boned and shortest-lived of the speaking Peoples, and
+the most varied. Two Riksfolk siblings can look like they came from opposite ends of the
+continent, and a March village can hold every skin, hair and build the human Peoples have.
+Nobody can say why humans vary so much more than anyone else. Hands are rough and backs
+bent early: most Riksfolk work the land from childhood and are old at sixty.
+
+**Clothing:** Wool from the hill flocks and linen from the lowland flax, undyed or dyed
+with what grows by the ditches: weld yellow, woad blue, walnut brown. Working clothes are
+a long belted tunic over breeches, with a hooded cape against the wet. Boots are the
+expensive thing, oiled and resoled for a lifetime, because the Realm's ground is drained
+fen and nobody works it barefoot. A free farmer wears a charter token on a cord at the
+neck, a small stamped lead disc with the number of their charter in the roll. [Hedge-Wardens]
+wear green; [Charter-Clerks] go about with ink on their fingers and a wax tablet at the belt.
+The Marshal's soldiers wear grey, with Bergfolk iron and nothing on it to say whose
+soldiers they were before.
+
+**Architecture:** Timber frame, wattle and daub, and thatch, on a footing of field stone.
+Houses are long, with the byre at one end, set back from a lane along a ditch. What marks a
+Riksfolk landscape is not the buildings but the lines: straight ditches, straight hedges,
+straight fences, every field a shape someone wrote down. Windmills drain the March and
+grind its grain; sluice-houses stand where the ditches meet the river. A market town has a
+charter hall, timber on a stone ground floor, where the roll is kept, and a boundary stone
+in its square that every road is measured from.
+
+**Objects:** Charter rolls: long parchment scrolls, every holding in a parish written down,
+witnessed and sealed, kept in iron-bound chests and read aloud once a year. Boundary
+stones cut with the Realm's charter-mark, the crown over a straight line. Surveyors' chains
+and sighting-staffs. Iron hinges and latches, bought from the Bergfolk and fitted to every
+door, gate and chest: a latched door is the first thing a March farmer builds. The Stone
+Line's stones carry the charter-mark on one face and a boar clan's tusk-mark on the other.
+
+---
+
+#### Strandfolk
+
+*Added 2026-10-11 (#1631), from the Strandfolk's section above.*
+
+**Appearance:** Humans, as varied as the Riksfolk and weathered harder. Skin goes brown and
+lined early from wind and salt, and hair bleaches at the ends. Hands are scarred by line and
+net. Many harbour towns have families nobody can trace back more than a few generations,
+who simply turned up one season and stayed; the Hamnlag has a word for it, and doesn't use
+it to their faces.
+
+**Clothing:** Built to be wet in. Thick knitted ganseys in undyed grey or dark blue, each
+harbour town knitting its own pattern into the yoke, so a body the sea gives back can be
+sent home. Oilskin smocks and sou'westers, linseed-oiled and yellow-brown with age, over
+canvas trousers. Sea boots on deck, bare feet in harbour. A shipmaster wears a brass
+Hamnlag weight on a chain, the town's mark on one side and the league's on the other; a
+[Pilot] a knotted cord that records every passage they've learned.
+
+**Architecture:** Tarred timber on stone quays. Harbour towns climb the shore in narrow
+lanes from the waterfront, every house built to be seen from the sea, with a coloured door
+or gable so a crew can find home in bad light. Boatsheds and net-lofts stand along the
+water, and every harbour has its storm-lantern tower, lit whenever the weather turns,
+because storm-right means a harbour must be findable. They would build their harbour walls
+in stone if they could afford it; most are timber cribs filled with rubble, rebuilt after
+every great storm.
+
+**Objects:** Clinker-built boats, overlapping planks riveted together, the Strandfolk's real
+art: a [Shipwright] can tell which yard built a hull by its rivets. Sets of Hamnlag weights
+and measures, stamped and checked every year, so that one barrel weighs like another in
+every harbour. Contracts on thin wooden boards, cut with the shipmaster's mark and witnessed
+by a Deepwalker [Keeper]'s seal. Net-needles of bone and horn. Charts copied from the
+Deepwalkers' memory-charts and from each other, ending, every one, where the coast turns
+west beyond the Realm.
+
+---
+
 ### Alliances and political arrangements
 
 **The Compact of Knowing** — Pandor, Lövfolk, Deepwalkers, and Vitstad. A knowledge-
@@ -2155,6 +2783,16 @@ would admit to it in a diplomatic context. It is the most functional piece of pa
 continental intelligence sharing in Mistheim, operating entirely below the level of
 official recognition.
 
+**The Stone Line** — Not an alliance: a border treaty between the Realm of the Riksfolk and
+the Wildkin's Great Clans, set after the Alder War about a hundred and forty years ago. A row
+of marked boundary stones along the river Alå that neither side may move, walked and checked
+together every spring. It has held. See *The West March and the Wildkin border*. *(Added
+2026-10-11, #1623.)*
+
+**The Hamnlag** — The Strandfolk's league of free harbour towns, with storm-right at its
+heart: in a storm every harbour is open to every boat. Not a nation and not quite an
+alliance, but every People that sails keeps its rule. *(Added 2026-10-11, #1623.)*
+
 ---
 
 ### Resource geography
@@ -2166,7 +2804,11 @@ official recognition.
 | Central highlands | Bamboo, mineral springs, highland ruins | Pandor | Goblin [Delvers] have mapped ruins extensively |
 | Southern plains and delta | Farmland, river systems, clay | Markfolk | Eastern steppe border with Viddfolk |
 | Open steppe | Grazing, Myst wind-eddies, scattered ruins | Viddfolk (route-claims) | Eastern expansion pressure from Markfolk |
+| Realm lowlands and hills | Farmland, hill pasture, timber, river fords | Riksfolk (the Realm) | Iron bought from the Bergfolk; the undrained fen country with the Markfolk (added 2026-10-11, #1623) |
+| West March and the Old Runs | Drained fen (the best soil in the lowlands), alder wood, game, the Alå fords | Riksfolk to the Stone Line, Wildkin beyond it | The Wildkin border at the river Alå (added 2026-10-11, #1623) |
+| The core kingdom (between the mountains and the sea) | Old forest, meadow, game, honey, river fish and shellfish, alder charcoal, furs and hide | Wildkin (the Highfang and the Great Clans) | The Stone Line with the Riksfolk; the lower passes, where dwarves are walking out and the dead walking down (added 2026-10-11, #1606) |
 | Coastlines and harbours | Fish, salt, sea-access, coastal salvage | Deepwalkers | Deep-channel authority with Merfolk |
+| Harbour coast east of the delta | Boats, freight, fishing grounds, coastal timber | Strandfolk (the Hamnlag), harbours shared with the Deepwalkers | Fishing grounds over Merfolk waters; the Marshal of the Realm wants a harbour (added 2026-10-11, #1623) |
 | Deep ocean | Pressure-crystal, Myst-kelp, sunken ruins | Merfolk (Djupvolk) | Deepwalker access rights to specific sites |
 | High peaks | Air-borne mana crystals, extreme isolation | Giant territories | Bergfolk mine lower reaches by agreement |
 | Ruin networks | Pre-age artefacts, sealed infrastructure, information | Notionally: the nation whose territory contains them. Practically: the Goblin Compact, which has the maps | Everywhere |

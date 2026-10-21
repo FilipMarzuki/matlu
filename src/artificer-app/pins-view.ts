@@ -1,68 +1,97 @@
 /**
  * Pins on screen (#1380): the places you remember. How much room your memory has (shown with the
  * remember-this prompt), a 📌 on each ring of the land that holds one, and the full list with its
- * forget and interest controls.
+ * forget and interest controls. In the viewer's language (#1709 the memory line, #1711 the rest).
  *
  * Presentation only: the rules live in `src/artificer/pins.ts` and `region1.ts` (`forgetPin`,
  * `setInterest`). Buttons carry `data-pinring="<ring>"`, `data-forget="<pin id>"` and
  * `data-interest="<pin id>|<0–3>"`.
  */
 
-import { RING_NAME, RINGS, type Ring } from '../artificer/exploration';
+import { RINGS, type Ring } from '../artificer/exploration';
 import type { Region1State } from '../artificer/region1';
-import { pinCapacity, letGoFirst, maxInterest, pinEffect, placeName, PIN_WORDS, type Pin } from '../artificer/pins';
+import { pinCapacity, letGoFirst, maxInterest, pinWeight, placeName, PIN_WORDS, type Pin } from '../artificer/pins';
+import { makeT, type T } from '../artificer/i18n';
+import { distanceT, wordText } from './sim-words';
 
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 const stars = (n: number): string => '★'.repeat(n);
-const FEELING_WORD: Readonly<Record<NonNullable<Pin['feeling']>, string>> = { eerie: 'eerie', awed: 'awe-struck', peaceful: 'peaceful' };
+/** A place you remember, by name ("the deep pool"), in the viewer's language. */
+export const placeText = (p: Pin, t: T): string => wordText(placeName(p), t) ?? placeName(p);
 
 /** "Memory: 2 of 3" — and, when it's full, the place you'd let go first (a suggestion). */
-export function memoryLine(s: Region1State): string {
+export function memoryLine(s: Region1State, t: T = makeT('en')): string {
   const held = s.pins?.length ?? 0, room = pinCapacity(s);
   const full = held >= room;
   const first = full ? letGoFirst(s.pins) : undefined;
-  return `<p class="enc-memory ${full ? 'full' : ''}">🧠 Memory: <b>${held} of ${room}</b> places${full && first
-    ? ` — full. You'd let go of <b>${esc(placeName(first))}</b> (${esc(RING_NAME[first.ring].toLowerCase())} ring) first. <button class="pinbtn" data-forget="${esc(first.id)}">Let it go</button>`
-    : ''}</p>`;
+  // In the viewer's language (#1709): it shows on the encounter screen, for a place worth remembering.
+  return `<p class="enc-memory ${full ? 'full' : ''}">${full && first
+    ? `${t('encui.memoryFullHtml', { held, room, place: esc(placeText(first, t)), ring: esc(t(`ring.${first.ring}`).toLowerCase()) })} <button class="pinbtn" data-forget="${esc(first.id)}">${esc(t('encui.letGo'))}</button>`
+    : t('encui.memoryHtml', { held, room })}</p>`;
+}
+
+/** What a held place does (pins.ts pinEffect), in words. */
+export function pinEffectText(p: Pin, t: T): string {
+  const n = pinWeight(p);
+  switch (p.kind) {
+    case 'fishing': return t('pins.fx.fishing', { n });
+    case 'forage': return t('pins.fx.forage', { n });
+    case 'stone': return t('pins.fx.stone', { n });
+    case 'shelter': return t(p.ring === 1 ? 'pins.fx.shelter' : 'pins.fx.shelterFar');
+    case 'wonder': return p.feeling === 'eerie' ? t(n > 1 ? 'pins.fx.eerieMuch' : 'pins.fx.eerie') : t('pins.fx.wonder');
+    case 'peaceful': return t(n > 1 ? 'pins.fx.calmMuch' : 'pins.fx.calm');
+  }
 }
 
 /** The 📌 on a ring of the land: how many places you remember there. Tapping lists them. */
-export function ringPinChip(s: Region1State, ring: Ring, open: boolean): string {
+export function ringPinChip(s: Region1State, ring: Ring, open: boolean, t: T = makeT('en')): string {
   const here = (s.pins ?? []).filter(p => p.ring === ring);
   if (!here.length) return '';
   const loud = here.some(p => p.interest === 3);
-  return `<button class="chip pin ${loud ? 'loud' : ''}" data-pinring="${ring}" aria-expanded="${open}">📌 ${here.length === 1 ? esc(placeName(here[0])) : `${here.length} places`}</button>`;
+  return `<button class="chip pin ${loud ? 'loud' : ''}" data-pinring="${ring}" aria-expanded="${open}">📌 ${esc(here.length === 1 ? placeText(here[0], t) : t('pins.places', { n: here.length }))}</button>`;
 }
 
 /** One remembered place: what it is, how it felt, when you found it, its interest and what it does. */
-function pinRow(s: Region1State, p: Pin, controls: boolean): string {
+function pinRow(s: Region1State, p: Pin, controls: boolean, t: T): string {
   const top = maxInterest(s.skills);
   const scale = controls && top > 0
-    ? `<span class="pin-stars">${[1, 2, 3].map(n => `<button class="star ${(p.interest ?? 0) >= n ? 'on' : ''}" data-interest="${esc(p.id)}|${p.interest === n ? 0 : n}" ${n > top ? `disabled title="Your Memory isn't good enough to weigh places that finely yet"` : `title="${n === 3 ? 'Know it well: its effect counts double' : `Interest ${n}`}"`}>★</button>`).join('')}</span>`
+    ? `<span class="pin-stars">${[1, 2, 3].map(n => `<button class="star ${(p.interest ?? 0) >= n ? 'on' : ''}" data-interest="${esc(p.id)}|${p.interest === n ? 0 : n}" ${n > top ? `disabled title="${esc(t('pins.starLocked'))}"` : `title="${esc(n === 3 ? t('pins.star3') : t('pins.star', { n }))}"`}>★</button>`).join('')}</span>`
     : p.interest ? `<span class="pin-stars">${stars(p.interest)}</span>` : '';
   return `<li class="pin-row ${p.interest === 3 ? 'loud' : ''}">
-      <div class="pin-head"><b>${esc(placeName(p))}</b>${scale}</div>
-      <div class="pin-meta">${esc(PIN_WORDS[p.kind])}${p.feeling ? ` · <i>${FEELING_WORD[p.feeling]}</i>` : ''} · found day ${p.day}</div>
-      <div class="pin-fx">${esc(pinEffect(p))}</div>
-      ${controls ? `<button class="pinbtn" data-forget="${esc(p.id)}">Let it go</button>` : ''}
+      <div class="pin-head"><b>${esc(placeText(p, t))}</b>${scale}</div>
+      <div class="pin-meta">${esc(wordText(PIN_WORDS[p.kind], t) ?? PIN_WORDS[p.kind])}${p.feeling ? ` · <i>${esc(t(`pins.feel.${p.feeling}`))}</i>` : ''} · ${esc(t('pins.found', { n: p.day }))}</div>
+      <div class="pin-fx">${esc(pinEffectText(p, t))}</div>
+      ${controls ? `<button class="pinbtn" data-forget="${esc(p.id)}">${esc(t('pins.letGo'))}</button>` : ''}
     </li>`;
 }
 
 /** A ring's pins, shown under the ring on the land when its 📌 is tapped. */
-export function ringPins(s: Region1State, ring: Ring): string {
+export function ringPins(s: Region1State, ring: Ring, t: T = makeT('en')): string {
   const here = (s.pins ?? []).filter(p => p.ring === ring);
-  return here.length ? `<ul class="pins">${here.map(p => pinRow(s, p, false)).join('')}</ul>` : '';
+  return here.length ? `<ul class="pins">${here.map(p => pinRow(s, p, false, t)).join('')}</ul>` : '';
+}
+
+/** How many places you can hold in mind, and whether you can weigh them yet (the PINS list's first line). */
+export function pinsRoom(s: Region1State, t: T = makeT('en')): string {
+  const room = pinCapacity(s), top = maxInterest(s.skills);
+  const weigh = top ? `${t('pins.weigh', { stars: stars(top) })} ${t(top < 3 ? 'pins.weighMore' : 'pins.weighTop')}` : t('pins.weighLater');
+  return `<p class="mood" style="margin:0 0 8px">${t(room === 1 ? 'pins.roomHtml.one' : 'pins.roomHtml.other', { n: room })} ${esc(weigh)}</p>`;
+}
+
+/** A ring's places with their forget and interest controls (the merged LAND tab's ring sections, #1730). */
+export function ringPinRows(s: Region1State, ring: Ring, t: T = makeT('en')): string {
+  const here = (s.pins ?? []).filter(p => p.ring === ring);
+  return here.length ? `<ul class="pins">${here.map(p => pinRow(s, p, true, t)).join('')}</ul>` : '';
 }
 
 /** The PINS list: every place you remember, by ring, with forget and (once Memory allows) interest controls. */
-export function pinsList(s: Region1State): string {
+export function pinsList(s: Region1State, t: T = makeT('en')): string {
+  // The run's own words (#1752): with `distance-not-rings` on, the places by how far they are.
+  t = distanceT(s, t);
   const pins = s.pins ?? [];
-  const room = pinCapacity(s), top = maxInterest(s.skills);
-  const head = `<p class="mood" style="margin:0 0 8px">You can hold <b>${room}</b> place${room === 1 ? '' : 's'} in mind — more with a sharper mind (INT) and more Memory. ${top
-    ? `You can weigh them now: up to ${stars(top)}.${top < 3 ? ' ★★★ comes with more Memory.' : ' A ★★★ place counts double.'}`
-    : 'With more Memory you will learn to weigh them.'}</p>`;
-  if (!pins.length) return `${head}<p class="mood" style="margin:0">None yet. Out on the land you sometimes come across a place worth remembering.</p>`;
+  const head = pinsRoom(s, t);
+  if (!pins.length) return `${head}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return head + RINGS.filter(r => pins.some(p => p.ring === r)).map(r =>
-    `<div class="ringhead">${RING_NAME[r].toUpperCase()}</div><ul class="pins">${pins.filter(p => p.ring === r).map(p => pinRow(s, p, true)).join('')}</ul>`).join('');
+    `<div class="ringhead">${esc(t(`ring.${r}`).toUpperCase())}</div><ul class="pins">${pins.filter(p => p.ring === r).map(p => pinRow(s, p, true, t)).join('')}</ul>`).join('');
 }

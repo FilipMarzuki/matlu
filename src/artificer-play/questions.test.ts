@@ -1,0 +1,157 @@
+/**
+ * Acceptance tests for #1575 (plan #1574): free questions, from outside the page. Over the console,
+ * MCP and the API they're a move, `{ ask: { person, question } }`, matched and played on the
+ * server, which keeps the question. The web game plays on the page and keeps its questions through
+ * POST /api/v1/questions. Every question is kept cleaned, with nothing identifying, within limits.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { createRegion1 } from '../artificer/region1';
+import { answerFor } from '../artificer/asks';
+import { view, apply, gameFrom, serialize, GAME_VERSION } from './session';
+import { handle, memoryStore, LIMITS, type ApiRequest, type GameRecord } from './api';
+import { cleanQuestion, QUESTION_CHARS } from './questions';
+import { hollowfordGame as atHollowford } from './fixtures';
+
+describe('Cleaning a question to keep (#1575)', () => {
+  it('cuts it to the length cap, and drops control and invisible characters', () => {
+    const c = cleanQuestion(`  Where\u0000 is​ the\nsmith?  ${'a'.repeat(300)}`)!;
+    expect([...c].length).toBeLessThanOrEqual(QUESTION_CHARS);
+    expect(c.startsWith('Where is the smith?')).toBe(true);
+  });
+
+  it('cuts out runs of digits, email addresses and links: anything about the player', () => {
+    expect(cleanQuestion('call me on 070-123 45 67 ok?')).toBe('call me on … ok?');
+    expect(cleanQuestion('I was born in 2014, is that old?')).toBe('I was born in …, is that old?');
+    expect(cleanQuestion('mail kid@example.com or see https://example.com/me')).toBe('mail … or see …');
+    // Small numbers are part of ordinary questions.
+    expect(cleanQuestion('Is day 45 midwinter?')).toBe('Is day 45 midwinter?');
+  });
+
+  it('keeps every word: there is no word filter, and only the owner reads the questions', () => {
+    expect(cleanQuestion('How do I kill a wolf?')).toBe('How do I kill a wolf?');
+    expect(cleanQuestion('what the hell is iron')).toBe('what the hell is iron');
+  });
+
+  it('has no question in nothing', () => {
+    expect(cleanQuestion('   ')).toBeNull();
+    expect(cleanQuestion('5551234567')).toBeNull();
+    expect(cleanQuestion(42)).toBeNull();
+  });
+});
+
+describe('A free question as a move (#1575): console, MCP and the API', () => {
+  it('matches, answers past the gates, and plays as the topic it matched, never the words', () => {
+    const g = atHollowford();
+    expect(view(g).text).toMatch(/Free questions.*Orrin \(hf-orrin\)/s);
+    const r = apply(g, { ask: { person: 'hf-orrin', question: 'Where do people round here get ore?' } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.played).toEqual({ do: 'question:hf-orrin:material:iron' });
+    expect(r.asked).toMatchObject({ person: 'hf-orrin', text: 'Where do people round here get ore?', topic: 'material:iron' });
+    expect(r.changed.join(' ')).toContain(answerFor('hf-orrin', 'material:iron')!.text);
+    // Asked once this stay: no longer offered, and a second is refused, changing nothing.
+    expect(view(r.game).text).not.toMatch(/Not asked yet:.*Orrin/);
+    const again = apply(r.game, { ask: { person: 'hf-orrin', question: 'And smiths?' } });
+    expect(again.ok).toBe(false);
+  });
+
+  it('deflects what it can’t match, played without a topic', () => {
+    const g = atHollowford();
+    const odd = apply(g, { ask: { person: 'hf-tobin', question: 'What is the meaning of life?' } });
+    expect(odd.ok && odd.played).toEqual({ do: 'question:hf-tobin' });
+    expect(odd.ok && odd.asked).toMatchObject({ text: 'What is the meaning of life?', topic: null });
+    expect(odd.ok && odd.changed.join(' ')).toMatch(/Tobin thinks it over/);
+  });
+
+  it('is refused off the road, to someone not here, or with no question in it', () => {
+    const reach = gameFrom({ sim: createRegion1({}, undefined, { id: 'play-q', name: 'Vega' }), queue: [], stage: 'reach' }, 'play-q');
+    expect(apply(reach, { ask: { person: 'hf-orrin', question: 'Iron?' } }).ok).toBe(false);
+    const g = atHollowford();
+    expect(apply(g, { ask: { person: 'kg-sabine', question: 'Iron?' } }).ok).toBe(false);
+    expect(apply(g, { ask: { person: 'hf-orrin', question: '   ' } }).ok).toBe(false);
+  });
+});
+
+describe('Keeping questions through the API (#1575)', () => {
+  let n = 0;
+  const deps = { now: () => Date.parse('2026-10-11T12:00:00Z'), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, salt: 'pepper' };
+  const post = (path: string, body: unknown, ip = '203.0.113.7'): ApiRequest => ({ method: 'POST', path, body: JSON.stringify(body), ip });
+
+  /** A stored API game at Hollowford. */
+  function stored(store: ReturnType<typeof memoryStore>, surface: GameRecord['surface'] = 'console'): string {
+    const g = atHollowford();
+    const id = deps.newId();
+    const at = new Date(deps.now()).toISOString();
+    store.rows.set(id, { id, version: GAME_VERSION, session: serialize(g), moves: [], phase: 'road', name: 'Vega', client: null, model: null, ipKey: 'f00dfeedcafe1234f00dfeedcafe1234', surface, player: 'person', measures: {}, createdAt: at, updatedAt: at });
+    return id;
+  }
+
+  it('keeps an ask move’s question, cleaned and with nothing identifying, and stores the move as played', async () => {
+    const store = memoryStore();
+    const id = stored(store);
+    const r = await handle(post(`/api/v1/games/${id}/moves`, { move: { ask: { person: 'hf-isa', question: 'Which mushrooms can I eat? My number is 0701234567' } } }), store, deps);
+    expect(r.status).toBe(200);
+    expect(store.rows.get(id)!.moves).toEqual([{ do: 'question:hf-isa:skill:foraging' }]);
+    expect(store.questions).toEqual([{
+      question: 'Which mushrooms can I eat? My number is …', person: 'hf-isa', topic: 'skill:foraging', answered: true,
+      trust: expect.any(Number), gameVersion: GAME_VERSION, surface: 'console',
+    }]);
+    // No address, hash, game id or seed in what's kept.
+    const kept = JSON.stringify(store.questions);
+    for (const s of [id, '203.0.113.7', 'play-thaw', store.rows.get(id)!.ipKey]) expect(kept).not.toContain(s);
+  });
+
+  it('won’t take the road action a question plays as, sent on its own: questions come in words', async () => {
+    const store = memoryStore();
+    const id = stored(store);
+    const r = await handle(post(`/api/v1/games/${id}/moves`, { move: { do: 'question:hf-orrin:material:iron' } }), store, deps);
+    expect(r.status).toBe(400);
+    expect(store.questions).toEqual([]);
+  });
+
+  it('keeps the web game’s questions through the store-only endpoint, checking who and what', async () => {
+    const store = memoryStore();
+    const ok = await handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'Where is iron?', topic: 'material:iron', trust: 31.6 }), store, deps);
+    expect(ok.status).toBe(201);
+    expect(store.questions[0]).toMatchObject({ person: 'hf-orrin', topic: 'material:iron', answered: true, trust: 32, surface: 'web', gameVersion: GAME_VERSION });
+    // A topic nobody here knows is kept as none.
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where is mana-granite?', topic: 'material:mana-granite' }), store, deps);
+    expect(store.questions[1]).toMatchObject({ topic: null, answered: false });
+    // One the person doesn't know but someone near them does (#1611): kept, as a referral, not answered.
+    // Foraging, which Isa knows and Maren doesn't in any game (with the scope facts, #1610, Maren
+    // knows the road's word on iron, so iron is no longer a referral for her).
+    await handle(post('/api/v1/questions', { person: 'hf-maren', question: 'Where do mushrooms grow?', topic: 'skill:foraging' }), store, deps);
+    expect(store.questions[2]).toMatchObject({ topic: 'skill:foraging', answered: false });
+    // Their People's ways, told: the page says it answered.
+    await handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'What do the Bergfolk believe?', topic: 'group:Bergfolk/values', answered: true }), store, deps);
+    expect(store.questions[3]).toMatchObject({ topic: 'group:Bergfolk/values', answered: true });
+    // Nobody the road has, or no question: refused, nothing kept.
+    expect((await handle(post('/api/v1/questions', { person: 'zz-nobody', question: 'Hi?' }), store, deps)).status).toBe(400);
+    expect((await handle(post('/api/v1/questions', { person: 'hf-orrin', question: '' }), store, deps)).status).toBe(400);
+    expect(store.questions).toHaveLength(4);
+  });
+
+  it('holds the limits: per address per day, then everyone’s together', async () => {
+    const store = memoryStore();
+    const limits = { ...LIMITS, questionsPerIpPerDay: 3, questionsPerDay: 5 };
+    const ask = (ip: string) => handle(post('/api/v1/questions', { person: 'hf-orrin', question: 'Iron?' }, ip), store, deps, limits);
+    for (let i = 0; i < 3; i++) expect((await ask('203.0.113.7')).status).toBe(201);
+    expect((await ask('203.0.113.7')).status).toBe(429);
+    // Another address still can, until the day's total is reached.
+    expect((await ask('198.51.100.1')).status).toBe(201);
+    expect((await ask('198.51.100.2')).status).toBe(201);
+    expect((await ask('198.51.100.3')).status).toBe(429);
+    expect(store.questions).toHaveLength(5);
+  });
+
+  it('plays an ask move past the limits, but keeps no more questions', async () => {
+    const store = memoryStore();
+    const id = stored(store, 'mcp');
+    const limits = { ...LIMITS, questionsPerIpPerDay: 0 };
+    const r = await handle(post(`/api/v1/games/${id}/moves`, { move: { ask: { person: 'hf-orrin', question: 'Iron?' } } }), store, deps, limits);
+    expect(r.status).toBe(200);
+    expect(store.rows.get(id)!.moves).toEqual([{ do: 'question:hf-orrin:material:iron' }]);
+    expect(store.questions).toEqual([]);
+  });
+});

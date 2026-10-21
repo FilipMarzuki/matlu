@@ -234,7 +234,9 @@ function makeButton(
     backgroundColor: disabled ? '#1a1c2e66' : colors.bg,
     padding: { x: Size.btnPadX, y: Size.btnPadY },
     align: 'center',
-    fixedWidth: fixedWidth ?? undefined,
+    // Only set fixedWidth when provided — an explicit `fixedWidth: undefined` key breaks
+    // this Phaser version's Text width calculation (auto-sizing silently fails).
+    ...(fixedWidth !== undefined ? { fixedWidth } : {}),
   };
 
   const btn = scene.add.text(x, y, label, style)

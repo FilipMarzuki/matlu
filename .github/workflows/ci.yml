@@ -110,6 +110,11 @@ jobs:
 
       - run: npm run unit:mapgen
 
+      # Standalone strict typecheck of worldmap/ — no src/ or Supabase on the path.
+      - run: npm run worldmap:typecheck
+
+      - run: npm run unit:worldmap
+
   build-wiki:
     name: Build Matlu Codex (wiki/)
     needs: scope

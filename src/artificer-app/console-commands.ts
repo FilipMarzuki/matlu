@@ -23,11 +23,11 @@ export type Command =
   | { kind: 'look' }
   | { kind: 'help' }
   | { kind: 'rules' }
-  | { kind: 'new'; name?: string }
+  | { kind: 'new'; name?: string; weekly?: true }
   | { kind: 'error'; message: string };
 
 /** Words the console answers itself, completed by Tab alongside the moves. */
-const COMMANDS = ['look', 'help', 'rules', 'new', 'end day', 'set eating ', 'set focus ', 'set site ', 'plan '];
+const COMMANDS = ['look', 'help', 'rules', 'new', 'new weekly', 'end day', 'set eating ', 'set focus ', 'set site ', 'plan ', 'ask '];
 
 const norm = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
 /** A move's action id: "gather@2" → "gather". */
@@ -47,6 +47,9 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
   if (line === 'look' || line === 'l') return { kind: 'look' };
   if (line === 'rules') return { kind: 'rules' };
   // The name keeps the case it was typed in, so read it from the input rather than the lowercased line.
+  // "new weekly" (or "new week") plays this week's world, the one everyone plays this week (#1559).
+  const weekly = /^new\s+week(?:ly)?(?:\s+(.+))?$/i.exec(input.trim());
+  if (weekly) return { kind: 'new', name: weekly[1]?.trim() || undefined, weekly: true };
   const fresh = /^new(?:\s+game)?(?:\s+(.+))?$/i.exec(input.trim());
   if (fresh) return { kind: 'new', name: fresh[1]?.trim() || undefined };
   if (/^(end( the)? day|sleep|end)$/.test(line)) return { kind: 'move', move: { endDay: true } };
@@ -61,6 +64,14 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
 
   const setting = /^set (eating|focus|site) (\S+)$/.exec(line);
   if (setting) return { kind: 'move', move: { set: { [setting[1]]: setting[2] } } };
+
+  // "ask orrin": ask about your focus (#1495). "ask orrin where does the iron come from?": a free
+  // question in your own words (#1575), sent as typed, case and all.
+  const asking = /^ask\s+(\S+)(?:\s+(.+))?$/i.exec(input.trim());
+  if (asking) {
+    const person = personIn(asking[1], moves);
+    return { kind: 'move', move: asking[2] ? { ask: { person, question: asking[2].trim() } } : { do: `ask:${person}` } };
+  }
 
   const plan = /^plan (.+)$/.exec(line);
   if (plan) return { kind: 'move', move: { plan: plan[1].split(/[ ,]+/).filter(Boolean) } };
@@ -96,6 +107,20 @@ export function parseCommand(input: string, moves: MoveOption[]): Command {
   return { kind: 'move', move: { do: line } };
 }
 
+/**
+ * Who "orrin" or "hf-orrin" is, from the people the moves list offers a talk with ("Talk with Orrin",
+ * `talk:hf-orrin`). Anyone not found is passed on as typed, and the game says who's here.
+ */
+function personIn(word: string, moves: MoveOption[]): string {
+  const w = word.toLowerCase().replace(/[,:]$/, '');
+  for (const m of moves) {
+    const id = 'do' in m.move && typeof m.move.do === 'string' && m.move.do.startsWith('talk:') ? m.move.do.slice(5) : null;
+    // The label is the game's language (#1713): "Talk with Orrin", or "Prata med Orrin" in a Swedish game.
+    if (id && (id === w || norm(m.label.replace(/^(?:talk with|prata med) /i, '')) === w)) return id;
+  }
+  return w;
+}
+
 /** What Tab can complete `prefix` to: the console's words, action ids, move labels and option ids. */
 export function completions(prefix: string, moves: MoveOption[]): string[] {
   const p = prefix.toLowerCase();
@@ -126,6 +151,10 @@ export const HELP = [
   '  end day                        sleep; the night passes',
   '  set eating half                free settings: eating full|half|none, focus goal:larder|none, site cave …',
   '  plan water gather wood         a whole day in one line, once your Warden has learned to plan',
+  '  ask orrin                      on the road: ask someone about your focus',
+  '  ask orrin where is the iron?   a question in your own words, once per person per stay. Questions are',
+  '                                 kept to improve the game: don\'t write your name or anything about you.',
   '  look   rules   new [name]      the full view, how the valley works, a fresh game',
+  '  new weekly [name]              this week\'s world: the one everyone, people and AIs, plays this week',
   'Tab completes a word; ↑ and ↓ bring back what you typed.',
 ].join('\n');

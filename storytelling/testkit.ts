@@ -64,10 +64,24 @@ export function canonHash(w: World): string {
 
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
+// Last rebaselined for #1608 (regions push back into the simulation): from
+// year 1 the regional level moves province populations and wealth, which
+// World.power, scarcity, harvest and plague tolls read, so every config's log
+// diverges in its first few years. Rebaselined again for #1608's wealth
+// tuning (wealthPull 0.12, wealthDrift 0.02). Rebaselined for #1617: hard
+// winters and famine carry off named people (new DEATH events, from the
+// regional stream) and a succession sweep after the regional pass passes their
+// titles the same year; the guild-founding spec also stopped listing a master
+// already in another guild. Rebaselined for #1633 (odd patches of humans):
+// the two frontier configs (the only ones with a human race) gain
+// STRANGE_GROWTH events (frontier·s5: years 1039 and 1080; with magic and
+// prehistory: 1039 and 1080), and the logs match the old ones event for event
+// up to the first of them. The default configs have no peoples, so no humans,
+// and their hashes are unchanged.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "7f582fbe" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "4b13928d" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "47987fa8" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "e46be681" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "3429d6c0" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "957db3d2" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -75,11 +89,11 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "ea8ecdf4",
+    hash: "24cb2e29",
   },
   // --ether on. The four cases above must NOT change when the Ether layer does —
   // it is opt-in and draws no RNG when off. These two pin the Ether itself.
-  { name: "default·ether·s42·200y", world: "default", seed: 42, years: 200, ether: true, hash: "9052554a" },
+  { name: "default·ether·s42·200y", world: "default", seed: 42, years: 200, ether: true, hash: "989e1f62" },
   {
     name: "frontier·magic·ether·s5·200y",
     world: "frontier",
@@ -87,7 +101,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 200,
     magic: true,
     ether: true,
-    hash: "1e18277b",
+    hash: "6e2a9b1e",
   },
 ];
 
@@ -96,6 +110,42 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
 // checkInvariants runs them all and returns every violation found.
 export function checkInvariants(w: World): string[] {
   const v: string[] = [];
+
+  // Regions (#1598): every province in exactly one region, each region in one
+  // piece, state in bounds, and the regional log in year order.
+  const regionCount = new Map<string, number>();
+  for (const r of w.regions.values()) {
+    for (const pid of r.provinceIds) {
+      regionCount.set(pid, (regionCount.get(pid) ?? 0) + 1);
+      if (w.regionOf.get(pid) !== r.id) v.push(`province ${pid} listed in ${r.id} but regionOf says ${w.regionOf.get(pid)}`);
+    }
+    const inside = new Set(r.provinceIds), reached = new Set([r.centreId]);
+    let frontier = [r.centreId];
+    while (frontier.length) {
+      const next: string[] = [];
+      for (const id of frontier) for (const n of w.province(id)?.neighbors ?? []) if (inside.has(n) && !reached.has(n)) { reached.add(n); next.push(n); }
+      frontier = next;
+    }
+    if (reached.size !== inside.size) v.push(`region ${r.id} is not in one piece`);
+    for (const [k, x] of [["prosperity", r.prosperity], ["levy", r.levy], ["tax", r.tax], ["venture", r.venture.health], ["unsettled", r.unsettled]] as const) {
+      if (!(x >= 0 && x <= 1)) v.push(`region ${r.id} ${k} out of bounds: ${x}`);
+    }
+  }
+  for (const p of w.provinces.values()) if (regionCount.get(p.id) !== 1) v.push(`province ${p.id} is in ${regionCount.get(p.id) ?? 0} regions`);
+  // Regional feedback (#1608): province wealth in bounds, the population floor
+  // the engine keeps (50) never broken, and every flared feud's claim is real.
+  for (const p of w.provinces.values()) {
+    if (p.wealth !== undefined && !(p.wealth >= 0 && p.wealth <= 1)) v.push(`province ${p.id} wealth out of [0,1]: ${p.wealth}`);
+    if (!(p.population >= 50) || !Number.isInteger(p.population)) v.push(`province ${p.id} population ${p.population} below the floor or not whole`);
+  }
+  for (const e of w.regionalEvents) {
+    if (e.kind !== "FEUD_FLARES") continue;
+    if (!e.titleId || !w.title(e.titleId)) v.push(`feud flare ${e.id} names no title`);
+    if (e.actorId === e.targetId) v.push(`feud flare ${e.id} is a lord against himself`);
+  }
+  for (let i = 1; i < w.regionalEvents.length; i++) {
+    if (w.regionalEvents[i].year < w.regionalEvents[i - 1].year) { v.push(`regional event ${w.regionalEvents[i].id} out of year order`); break; }
+  }
 
   // A held title's holder must exist and be alive.
   for (const t of w.titles.values()) {

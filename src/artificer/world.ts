@@ -7,6 +7,8 @@
  * to check one mechanic at a time. That's a test convenience, never a game path.
  */
 
+import { validFeatures } from './features';
+
 /** A day's weather (#1282). */
 export type WeatherId = 'clear' | 'overcast' | 'rain' | 'fog' | 'wind' | 'storm' | 'snow';
 
@@ -26,6 +28,20 @@ export interface WorldConfig {
    * (#1347) and the AI harness (#1348) can answer one; tests and later issues switch it on.
    */
   encounters?: boolean;
+  /**
+   * The run's rule features (#1579), fixed when it starts: features.ts `ruleFeatures`. Absent in a
+   * run from before the switches; `featureOn` reads that as each feature's `absent`.
+   */
+  features?: Record<string, boolean>;
+}
+
+/**
+ * A saved world's rule features, checked on their own (#1579): a malformed set is dropped (and reads
+ * as each feature's `absent`) rather than costing the whole world, which would switch encounters off.
+ */
+export function withValidFeatures(w: WorldConfig): WorldConfig {
+  const { features, ...rest } = w;
+  return validFeatures(features) ? { ...rest, features: { ...features } } : rest;
 }
 
 export const FULL_WORLD: Readonly<WorldConfig> = { darkness: true, weather: 'seeded', accidents: true, luck: true, carrying: true, encounters: false };

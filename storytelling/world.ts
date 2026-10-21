@@ -48,6 +48,9 @@ import type {
   InventionId,
   Province,
   ProvinceId,
+  Region,
+  RegionId,
+  RegionalEvent,
   Scheme,
   Siege,
   Title,
@@ -204,11 +207,52 @@ export class World {
   treaties: Treaty[] = [];
   events: WorldEvent[] = [];
 
+  // Regional level (regions.ts, #1598): regions by id, the region of each
+  // province, and the regional event log. The log is kept apart from `events`
+  // on purpose: `events` is the canon the golden hashes pin, and regional
+  // events are a reading of it (plus a little weather and luck of their own),
+  // so keeping them apart lets the level grow without moving a hash.
+  regions = new Map<RegionId, Region>();
+  regionOf = new Map<ProvinceId, RegionId>();
+  regionalEvents: RegionalEvent[] = [];
+  // The regional level's own random stream, derived from the world seed. A
+  // second, independent mulberry32: drawing from it never shifts `rng`, so the
+  // main simulation reads exactly the numbers it always did.
+  regionRng: RNG;
+  // How far into `events` the regional level has read (#1617). It reads the
+  // year at the end of tick(), but a few engine events come after that read:
+  // the named people a hard winter or famine carries off (logged by the
+  // regional pass itself) and the successions the sweep after it runs. The
+  // next year's read starts here, so those late events are heard (a year on,
+  // but dated when they happened) instead of falling between two years' reads.
+  // null until the first regional pass: that one starts at the year's start.
+  regionalCursor: number | null = null;
+  private nextRegionalEventId = 1;
+
+  // The odd-patches stream (odd-patches.ts, #1633): a third independent
+  // mulberry32, derived from the world seed with its own salt. The rolls for
+  // "do strangers turn up this year, and where" come only from here, so a world
+  // with no humans in it never draws from it at all, and in a world with humans
+  // the main stream reads the same numbers it always did until the strangers
+  // themselves start living (marrying, ageing, dying) in it.
+  oddPatchRng: RNG;
+
   private nextEventId = 1;
   private nextEntityId = 1;
 
   constructor(seed: number) {
     this.rng = new RNG(seed);
+    this.regionRng = new RNG(regionalSeed(seed));
+    this.oddPatchRng = new RNG(oddPatchSeed(seed));
+  }
+
+  // Log a regional event (regions.ts). Like `log`, but to the regional log.
+  // `year` defaults to now; a reading of an engine event passes the event's own
+  // year, which differs only for the late events the cursor above carries over.
+  logRegional(fields: Omit<RegionalEvent, "id" | "year">, year: number = this.year): RegionalEvent {
+    const ev: RegionalEvent = { id: this.nextRegionalEventId++, year, ...fields };
+    this.regionalEvents.push(ev);
+    return ev;
   }
 
   // A monotonic id source for generated characters, goals, schemes, etc.
@@ -653,7 +697,11 @@ export class World {
     let p = 0;
     for (const t of this.titlesHeldBy(c.id)) {
       const prov = this.province(t.provinceId);
-      if (prov) p += prov.population;
+      // A rich province raises more than its headcount (arms, horses, hired
+      // swords), a poor one less (#1608: the regional level sets its wealth
+      // from trade and prosperity, so the region's fortunes reach its lords).
+      // At 0.5, "getting by", it's exactly the headcount, as before.
+      if (prov) p += Math.round(prov.population * (1 + WEALTH_POWER * ((prov.wealth ?? 0.5) - 0.5)));
       // Higher tiers project authority beyond their own seat.
       p += t.tier === "kingdom" ? 600 : t.tier === "duchy" ? 250 : 60;
     }
@@ -665,6 +713,10 @@ export class World {
     return p;
   }
 }
+
+// How much a province's wealth (0..1) moves what it raises for its holder:
+// at 1 (rich) its people count 20% more, at 0 (destitute) 20% less.
+export const WEALTH_POWER = 0.4;
 
 // How much a person's own prowess weighs in a war, in the same units as levies.
 // Grows super-linearly with level so the very top tier is genuinely decisive,
@@ -705,4 +757,25 @@ export function personalCombat(c: Character): number {
     for (const s of c.skills) p += SKILL_COMBAT[s] ?? 0;
   }
   return p;
+}
+
+// The regional stream's seed: the world seed run through a 32-bit mix (the
+// "murmur3 finaliser") with a fixed salt, so seeds 1 and 2 give unrelated
+// regional streams rather than streams one step apart.
+export function regionalSeed(seed: number): number {
+  return mixSeed(seed, 0x5eed4e91);
+}
+
+// The odd-patches stream's seed (#1633): the same mix with a different salt,
+// so it shares nothing with the main or the regional stream.
+export function oddPatchSeed(seed: number): number {
+  return mixSeed(seed, 0x0dd9a7c4);
+}
+
+// A world seed and a salt, mixed into an unrelated 32-bit seed.
+function mixSeed(seed: number, salt: number): number {
+  let h = (seed ^ salt) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
 }

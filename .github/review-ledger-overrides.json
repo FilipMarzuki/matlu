@@ -1,0 +1,4 @@
+{
+  "$comment": "Owner corrections for the review ledger (#1779, .github/scripts/review-ledger.mjs). Key: '<pr>:<reviewId>:<n>' for one finding (the ids are in the ledger's Findings table), or '<pr>:<reviewId>' for every finding of that review. Value: 'acted-on', 'dismissed' or 'unclear', or { \"label\": ..., \"note\": \"why\" }.",
+  "overrides": {}
+}

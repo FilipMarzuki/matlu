@@ -31,6 +31,10 @@ export interface ProvinceSpec {
   mineralWealth?: number; // 0..1; carrying capacity base when subsurface
   zoneFlags?: string[];   // authored tags: "port", "sanctuary", "battlefield" etc.
   veil?: number;          // 0..1 Ether veil (1 = sealed, the default); only read with --ether
+  // Borders a lake (fishing water, not a sea coast). Read only by the regional
+  // economy (regions.ts, #1598); mineralWealth on a surface province likewise
+  // only tells the regional economy how much rock there is to mine.
+  lake?: boolean;
 }
 
 export interface TitleSpec {
@@ -99,6 +103,19 @@ export interface RaceSpec {
   name: string;
   affinities?: Record<string, number>; // otherRaceId -> opinion delta
   biology?: RaceBiology;
+  // Humans (#1633). Throughout history odd patches of extra humans turn up
+  // where nobody expected them, and human settlements sometimes grow faster
+  // than births allow (odd-patches.ts). Only races marked human take part.
+  // Omitted, a race whose id is "human" counts as human and every other race
+  // doesn't, so a spec must opt its own human Peoples in (the Reach's
+  // Riksfolk and Strandfolk, say) with `human: true`.
+  human?: boolean;
+  // What this People says when strangers turn up or a human village swells:
+  // one sentence, told after the event (render.ts oddHumansSaying). Omitted,
+  // the renderer falls back to what it knows of the People by name (the
+  // Lövfolk, the Bergfolk, the goblins...) or to a plain "humans come; they
+  // do not grow". It must never name the cause: nobody in the world knows it.
+  oddHumansSaying?: string;
 }
 
 // A faith can be hostile to others — a holy-war axis and a source of grudges.

@@ -283,12 +283,16 @@ const GUILD_FOUNDED: EventSpec = {
       const p = item as { id: string; population: number };
       if (p.population < 200) return false;
       // Any craft with 2+ level-8+ masters in this province, no active guild.
+      // Only masters not already in a guild count: someone can be in one guild
+      // at a time (Character.guildId), and a master whose class changed after
+      // joining one would otherwise be listed by two (#1617 met this once its
+      // history shifted: a testkit invariant caught it).
       for (const cls of ["merchant", "scholar", "soldier", "knight"] as CharClass[]) {
         const craft = craftForClass(cls);
         if (!craft) continue;
         if (w.guildAt(p.id, craft)) continue;
         const masters = w.living().filter(
-          (c) => c.provinceId === p.id && c.charClass === cls && c.level >= 8,
+          (c) => c.provinceId === p.id && c.charClass === cls && c.level >= 8 && c.guildId === null,
         );
         if (masters.length >= 2) return true;
       }
@@ -303,7 +307,7 @@ const GUILD_FOUNDED: EventSpec = {
         if (!craft) continue;
         if (w.guildAt(p.id, craft)) continue;
         const masters = w.living().filter(
-          (c) => c.provinceId === p.id && c.charClass === cls && c.level >= 8,
+          (c) => c.provinceId === p.id && c.charClass === cls && c.level >= 8 && c.guildId === null,
         );
         if (masters.length < 2) continue;
         const provinceName = w.province(p.id)?.name ?? "the province";

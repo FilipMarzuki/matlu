@@ -11,6 +11,8 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { makeHandler } from './vercel-handler';
 import { memoryStore, type GameRecord } from './api';
 import { clientFromSessionId, sessionIdFor, toMove } from './mcp';
+import { serialize } from './session';
+import { hollowfordGame } from './fixtures';
 
 let server: Server;
 let base = '';
@@ -38,10 +40,10 @@ const rowFor = (id: string): GameRecord => store.rows.get(id)!;
 
 describe('The Artificer over MCP (#1556)', () => {
   for (const era of ['legacy', 'modern'] as const) {
-    it(`${era}: lists the six tools, each with a description and an input schema`, async () => {
+    it(`${era}: lists the seven tools, each with a description and an input schema`, async () => {
       const client = await connect(era);
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(['act', 'choose', 'look', 'new_game', 'plan_day', 'rules']);
+      expect(tools.map(t => t.name).sort()).toEqual(['act', 'ask_question', 'choose', 'look', 'new_game', 'plan_day', 'rules']);
       for (const t of tools) {
         expect(t.description?.length).toBeGreaterThan(40);
         expect(t.inputSchema.type).toBe('object');
@@ -59,9 +61,9 @@ describe('The Artificer over MCP (#1556)', () => {
       expect(rowFor(id).client).toBe(`player-${era}`);
       expect(rowFor(id).model).toBe('some-model');
 
-      const scout = await client.callTool({ name: 'act', arguments: { game_id: id, move: 'scout' } });
+      const scout = await client.callTool({ name: 'act', arguments: { game_id: id, move: 'explore' } });
       expect(isError(scout)).toBe(false);
-      expect(textOf(scout)).toMatch(/Scouted/);
+      expect(textOf(scout)).toMatch(/Walked out and looked around/);
       expect(textOf(scout)).toMatch(/Day 1 · [\d.]+\/14h/);
 
       // A move object exactly as the moves list shows it works too.
@@ -70,7 +72,7 @@ describe('The Artificer over MCP (#1556)', () => {
       expect(isError(night)).toBe(false);
       const look = await client.callTool({ name: 'look', arguments: { game_id: id } });
       expect(textOf(look)).toContain('DAY 2');
-      expect(rowFor(id).moves).toEqual([{ do: 'scout' }, { do: 'water' }, { endDay: true }]);
+      expect(rowFor(id).moves).toEqual([{ do: 'explore' }, { do: 'water' }, { endDay: true }]);
       await client.close();
     });
   }
@@ -84,7 +86,7 @@ describe('The Artificer over MCP (#1556)', () => {
     expect(textOf(r)).toContain('MOVES NOW');
     expect(rowFor(id).moves).toEqual([]);
     // Planning a day is refused until the Warden has learned to plan.
-    const plan = await client.callTool({ name: 'plan_day', arguments: { game_id: id, actions: ['scout', 'water'] } });
+    const plan = await client.callTool({ name: 'plan_day', arguments: { game_id: id, actions: ['explore', 'water'] } });
     expect(isError(plan)).toBe(true);
     expect(textOf(plan)).toMatch(/plan/i);
     await client.close();
@@ -95,7 +97,7 @@ describe('The Artificer over MCP (#1556)', () => {
     const nope = await client.callTool({ name: 'look', arguments: { game_id: '00000000-0000-0000-0000-000000000000' } });
     expect(isError(nope)).toBe(true);
     expect(textOf(nope)).toMatch(/404/);
-    expect(textOf(await client.callTool({ name: 'rules', arguments: {} }))).toContain('Greywind Reach');
+    expect(textOf(await client.callTool({ name: 'rules', arguments: {} }))).toContain('an unnamed valley');
     await client.close();
   });
 
@@ -119,6 +121,21 @@ describe('The Artificer over MCP (#1556)', () => {
     await client.close();
   });
 
+  it('asks a villager a free question, which is kept as asked over MCP (#1575)', async () => {
+    const client = await connect('modern', 'asker');
+    const id = idIn(textOf(await client.callTool({ name: 'new_game', arguments: { name: 'Vega' } })));
+    // Move the game on to Hollowford, as if it had been ridden there.
+    store.rows.set(id, { ...rowFor(id), session: serialize(hollowfordGame()), phase: 'road' });
+    const r = await client.callTool({ name: 'ask_question', arguments: { game_id: id, person: 'hf-orrin', question: 'Where does the ore come from?' } });
+    expect(isError(r)).toBe(false);
+    expect(textOf(r)).toContain('Sabine at Kestrel Gate');
+    expect(rowFor(id).moves.at(-1)).toEqual({ do: 'question:hf-orrin:material:iron' });
+    expect(store.questions.at(-1)).toMatchObject({ person: 'hf-orrin', topic: 'material:iron', surface: 'mcp', question: 'Where does the ore come from?' });
+    // Once per stay.
+    expect(isError(await client.callTool({ name: 'ask_question', arguments: { game_id: id, person: 'hf-orrin', question: 'And smiths?' } }))).toBe(true);
+    await client.close();
+  });
+
   it('answers a browser preflight for /mcp, exposing the session header', async () => {
     const r = await fetch(`${base}/mcp`, { method: 'OPTIONS' });
     expect(r.status).toBe(204);
@@ -134,5 +151,13 @@ describe('The Artificer over MCP (#1556)', () => {
     expect(clientFromSessionId(sessionIdFor('Claude Desktop'))).toBe('Claude Desktop');
     expect(clientFromSessionId('someone-elses-id')).toBeNull();
     expect(clientFromSessionId(null)).toBeNull();
+  });
+
+  it("starts this week's world when new_game asks for it (#1559), and says so", async () => {
+    const client = await connect('modern');
+    const t = textOf(await client.callTool({ name: 'new_game', arguments: { weekly: true } }));
+    expect(t).toMatch(/weekly world, \d{4}-W\d{2}/);
+    expect(JSON.parse(rowFor(idIn(t)).session).id).toMatch(/^play-wk-\d{4}-W\d{2}-[0-9a-f]{8}$/);
+    await client.close();
   });
 });

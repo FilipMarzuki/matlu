@@ -165,8 +165,24 @@ function campSite(cells: readonly Cell[], w: number, h: number, rnd: () => numbe
   return best;
 }
 
-/** Hours on foot from camp to every cell (Dijkstra over the crossing cost of each cell entered). */
-function walkingHours(cells: readonly Cell[], w: number, h: number, camp: { x: number; y: number }): number[] {
+// A walk from any square to every other, for the camp sites (#1732) and the distances from camp
+// (#1752). A few milliseconds each, and the app and the AI ask often, so the last few are kept.
+const walks = new Map<string, number[]>();
+/** Hours on foot from this square of the Reach to every cell: its own `hours` from the camp square, else a kept walk. */
+export function walkFrom(r: Reach, x: number, y: number): number[] {
+  if (x === r.camp.x && y === r.camp.y) return r.hours;
+  const key = `${r.seed}|${x},${y}`;
+  let w = walks.get(key);
+  if (!w) {
+    w = walkingHours(r.cells, r.w, r.h, { x, y });
+    if (walks.size >= 16) walks.delete(walks.keys().next().value as string);
+    walks.set(key, w);
+  }
+  return w;
+}
+
+/** Hours on foot from camp (or any square) to every cell (Dijkstra over the crossing cost of each cell entered). */
+export function walkingHours(cells: readonly Cell[], w: number, h: number, camp: { x: number; y: number }): number[] {
   const hours = cells.map(() => Infinity);
   const start = camp.y * w + camp.x;
   hours[start] = 0;

@@ -1,7 +1,10 @@
 /**
  * The play API's games, kept in Supabase (#1555): tables `artificer_games` and
  * `artificer_play_usage` (supabase/migrations/20261010000000_artificer_games.sql), and the run
- * records of finished games, `artificer_runs` (#1558, 20261010220000_artificer_runs.sql).
+ * records of finished games, `artificer_runs` (#1558, 20261010220000_artificer_runs.sql), and the
+ * free questions players ask, `artificer_questions` (#1575, 20261011050000_artificer_questions.sql),
+ * and feedback reports from the 💬 panel, `artificer_feedback` (#1773, 20261016090000_artificer_feedback.sql),
+ * with their images in the private Storage bucket `artificer-feedback`.
  *
  * All have row-level security on and no policies, so the browser's publishable key can't read
  * or write them at all: only this server code can, with the service-role key. That matters because
@@ -11,7 +14,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { GameRecord, GameStore } from './api';
-import { rankKey, type Run, type RunSummary, type StoredRun } from './records';
+import { rankKey, type AiRun, type Run, type RunSummary, type StoredRun } from './records';
+import type { Question } from './questions';
+import { IMAGE_BUCKET, type Feedback } from './feedback';
 
 /** A row as Postgres has it: snake_case, moves as jsonb, and the move count kept for `update`. */
 interface Row {
@@ -78,6 +83,12 @@ const RUNS = 'artificer_runs';
 const SUMMARY_COLUMNS = 'id, created_at, player_kind, model, client, surface, game_version, nickname, outcome, grade, stage, end_day, ready_day, larder_midwinter, shelter_tier, skill_levels, concept_ranks, recipes, milestones, moves, cost_usd';
 /** One record in full: the summary and its `detail`. */
 const RUN_COLUMNS = `${SUMMARY_COLUMNS}, detail`;
+/**
+ * What the lists send: the summary, and `features:detail->features` picks just the rule features out
+ * of the jsonb (#1579), `week:detail->week` the weekly world a run was played on (#1559). Reading
+ * the week out of `detail` keeps it off the table's columns, so it needed no migration.
+ */
+const LIST_COLUMNS = `${SUMMARY_COLUMNS}, features:detail->features, week:detail->week`;
 
 /** Whole numbers for the integer columns: Postgres refuses 2.5 for an integer, and the record would be lost. */
 const int = (x: number): number => Math.round(x);
@@ -91,16 +102,33 @@ export const runToRow = (sourceKey: string, r: Run): Omit<RunRow, 'id' | 'create
   cost_usd: r.costUsd, rank_key: rankKey(r), detail: r.detail,
 });
 
-const summaryFromRow = (r: Omit<RunRow, 'detail'>): RunSummary => ({
+const summaryFromRow = (r: Omit<RunRow, 'detail'> & { features?: Record<string, boolean> | null; week?: string | null }): RunSummary => ({
   id: r.id, createdAt: r.created_at, playerKind: r.player_kind, model: r.model, client: r.client, surface: r.surface,
   gameVersion: r.game_version, nickname: r.nickname, outcome: r.outcome, grade: r.grade, stage: r.stage, endDay: r.end_day,
   readyDay: r.ready_day, larderMidwinter: r.larder_midwinter, shelterTier: r.shelter_tier, skillLevels: r.skill_levels,
   conceptRanks: r.concept_ranks, recipes: r.recipes, milestones: r.milestones, moves: r.moves,
   // Postgres numeric comes back as a string, to keep its precision.
   costUsd: r.cost_usd === null ? null : Number(r.cost_usd),
+  ...(r.features !== undefined ? { features: r.features } : {}),
+  ...(r.week !== undefined ? { week: r.week } : {}),
 });
 
 const runFromRow = (r: RunRow): StoredRun => ({ ...summaryFromRow(r), detail: r.detail });
+
+const QUESTIONS = 'artificer_questions';
+
+export const questionToRow = (q: Question) => ({
+  question: q.question, person: q.person, topic: q.topic, answered: q.answered,
+  // The column allows 0-100: a trust outside it would cost the question.
+  trust: Math.min(100, Math.max(0, Math.round(q.trust))), game_version: q.gameVersion, surface: q.surface,
+});
+
+const FEEDBACK = 'artificer_feedback';
+
+export const feedbackToRow = (f: Feedback) => ({
+  ref: f.ref, kind: f.kind, text: f.text, warden_id: f.wardenId, run_id: f.runId, context: f.context, picks: f.picks, save: f.save,
+  images: f.images, contact_email: f.contactEmail, surface: f.surface, build: f.build, ip_week_hash: f.ipWeekHash,
+});
 
 export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
   // A server has no user session to keep or refresh: each call is the service role.
@@ -144,19 +172,69 @@ export function supabaseStore(url: string, serviceRoleKey: string): GameStore {
       return data as number;
     },
     async insertRun(sourceKey, run) {
-      // A second record for the same source is turned away by the unique key, and that's fine.
-      const { error } = await db.from(RUNS).upsert(runToRow(sourceKey, run), { onConflict: 'source_key', ignoreDuplicates: true });
+      // A second record for the same source is turned away by the unique key, and that's fine; the
+      // rows that come back say whether this one was added.
+      const { data, error } = await db.from(RUNS).upsert(runToRow(sourceKey, run), { onConflict: 'source_key', ignoreDuplicates: true }).select('id');
       check(error, 'insert run');
+      return (data?.length ?? 0) > 0;
     },
     async recentRuns(limit, version) {
-      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version).order('created_at', { ascending: false }).limit(limit);
       check(error, 'recent runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
     },
     async bestRuns(limit, version) {
-      const { data, error } = await db.from(RUNS).select(SUMMARY_COLUMNS).eq('game_version', version).order('rank_key', { ascending: false }).order('created_at').limit(limit);
+      // Ranked runs only (records.ts isRanked): not a web run on a world the page picked itself.
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version)
+        .or('surface.neq.web,detail->>week.not.is.null')
+        .order('rank_key', { ascending: false }).order('created_at').limit(limit);
       check(error, 'best runs');
       return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
+    },
+    async weekRuns(week, version, limit) {
+      // `detail->>week` compares the week as text inside the jsonb. Without an index on it this reads
+      // the version's rows, which is fine at hobby scale; an expression index can come with traffic.
+      const { data, error } = await db.from(RUNS).select(LIST_COLUMNS).eq('game_version', version).eq('detail->>week', week)
+        .order('rank_key', { ascending: false }).order('created_at').limit(limit);
+      check(error, 'week runs');
+      return ((data ?? []) as unknown as RunRow[]).map(summaryFromRow);
+    },
+    async aiRuns({ bench, outside }) {
+      // `milestoneDays:detail->milestones` picks one field out of the jsonb, so the rest of detail stays home.
+      const columns = `${SUMMARY_COLUMNS}, milestoneDays:detail->milestones`;
+      const [mine, theirs] = await Promise.all([
+        db.from(RUNS).select(columns).eq('surface', 'bench').order('created_at', { ascending: false }).limit(bench),
+        db.from(RUNS).select(columns).eq('player_kind', 'ai').neq('surface', 'bench').order('created_at', { ascending: false }).limit(outside),
+      ]);
+      check(mine.error, 'ai runs (bench)');
+      check(theirs.error, 'ai runs (outside)');
+      return ([...(mine.data ?? []), ...(theirs.data ?? [])] as unknown as (RunRow & { milestoneDays: AiRun['milestoneDays'] })[])
+        .map(r => ({ ...summaryFromRow(r), milestoneDays: r.milestoneDays ?? null }));
+    },
+    async insertQuestion(q) {
+      const { error } = await db.from(QUESTIONS).insert(questionToRow(q));
+      check(error, 'insert question');
+    },
+    async insertFeedback(f) {
+      const { error } = await db.from(FEEDBACK).insert(feedbackToRow(f));
+      if (!error) return true;
+      const code = (error as { code?: string }).code;
+      // 23505 is Postgres's unique violation: the ref is taken, and the caller draws another.
+      if (code === '23505') return false;
+      // Only the code goes to the function's log: Postgres's message and details can quote the
+      // row, and the row holds the email (#1773: it must never reach a log).
+      throw new Error(`insert feedback: Postgres error ${code ?? 'unknown'}`);
+    },
+    async uploadFeedbackImage(path, bytes, type) {
+      const { error } = await db.storage.from(IMAGE_BUCKET).upload(path, bytes, { contentType: type, upsert: false });
+      check(error, 'upload feedback image');
+    },
+    async countFeedbackSince(ipWeekHash, sinceIso) {
+      let q = db.from(FEEDBACK).select('id', { count: 'exact', head: true }).gte('created_at', sinceIso);
+      if (ipWeekHash !== null) q = q.eq('ip_week_hash', ipWeekHash);
+      const { count, error } = await q;
+      check(error, 'count feedback');
+      return count ?? 0;
     },
     async runBySource(sourceKey) {
       const { data, error } = await db.from(RUNS).select(RUN_COLUMNS).eq('source_key', sourceKey).maybeSingle();

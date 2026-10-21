@@ -1,0 +1,168 @@
+/**
+ * English for the opening (#1707, phase 2 of #1685): the hike page, the portal and the voice, the
+ * pack screen and character creation. Spread into `en` (../en.ts), so these keys are `Key`s too.
+ *
+ * The pack's own items (names, what each is for, the scout's note) aren't written here: they're
+ * the kit's data (kit.ts), turned into keys in ./kit.ts so there's one English copy of them.
+ */
+export const opening = {
+  // ── The intro's pages (intro.ts) ───────────────────────────────────────────
+  'intro.hike1': 'Friday afternoon. Your patrol is heading out for a weekend hike in the forest.',
+  'intro.hike2': 'Two nights in tents, back on Sunday.',
+  'intro.hike3': "You've been looking forward to it all week.",
+  'intro.pack': 'What will you pack?',
+  // The creation screen when it comes before the pack (#1872, `stats-before-pack`): the scout's own
+  // question, before the hike, not the portal's voice.
+  'intro.whoAreYou': 'Who are you?',
+  'intro.seam1': 'A seam opens in the air.',
+  'intro.seam2': 'Light folds inward — and you fall through it.',
+  'intro.stone1': 'Cold stone under your hands.',
+  'intro.stone2': 'Wind with no smell. A sky the colour of an old bruise.',
+  'intro.arrival': '⟨ ARRIVAL DETECTED ⟩',
+  'intro.scanning': 'Scanning…',
+  'intro.threshold': 'Crafting knowledge exceeds threshold.',
+  'intro.class': 'CLASS DESIGNATED: ARTIFICER',
+  'intro.rank': 'RANK: {rank}',
+  'intro.identify': 'IDENTIFY YOURSELF, ARTIFICER.',
+  // `{name}` is left for fillName (intro.ts) to fill once the Warden has one.
+  'intro.registered': 'Registered: {name}.',
+  // With creation before the pack (#1872): the voice no longer asks, it reads the name it found.
+  'intro.identified': 'IDENTITY CONFIRMED. Registered: {name}.',
+  'intro.winter': 'Winter is coming. Survive!',
+  'intro.before': 'Someone was here before you.',
+  'intro.left': 'They left: {list}.',
+  'intro.heirloom': 'a {grade} {item}',
+  'intro.close1': 'SURVIVE.',
+  'intro.close2': 'THRIVE.',
+  'intro.close3': 'MASTER YOUR NEW REALITY.',
+  // What an unnamed Warden is called.
+  'intro.noName': 'Artificer',
+
+  // ── The pack screen ────────────────────────────────────────────────────────
+  'pack.free': "The backpack comes free, and the clothes you're wearing. Everything else has to fit in {kg} kg.",
+  'pack.wontFit': "won't fit — take something out first",
+  // With creation before the pack (#1872): how much fits is this Warden's, and the list is ticked for them.
+  'pack.freeStr': "The backpack comes free, and the clothes you're wearing. With your strength, everything else has to fit in {kg} kg.",
+  'pack.forYou': "The list is ticked for someone like you: your strength, and what you're good at. Change anything.",
+  'pack.forYouBtn': 'TICKED FOR YOU',
+  'pack.weight': 'Pack weight',
+  'pack.kg': '{n} kg',
+  'pack.leader': "THE LEADER'S LIST",
+  'pack.empty': 'EMPTY IT',
+  'pack.rule': 'rule: {rule}',
+  'pack.ruleTip': 'Dev mode (?dev=truths): the rule this item plays',
+  'kitgroup.sleep': 'Sleep',
+  'kitgroup.fire-food': 'Fire and food',
+  'kitgroup.clothes': 'Clothes',
+  'kitgroup.tools': 'Tools',
+  'kitgroup.other': 'Other',
+  'kitgroup.personal': 'Personal',
+  // A section heading's summary (#1801): how many of its things are packed, of how many, and their weight.
+  'pack.groupSum': '{n} of {m} packed · {kg} kg',
+  // The button above the sections (#1801): opens them all, or closes them all once they're all open.
+  'pack.openAll': 'Open all',
+  'pack.closeAll': 'Close all',
+  // ── The pack with volume and straps (#1871, `pack-volume`) ────────────────
+  'pack.freeVol': "The backpack comes free, and the clothes you're wearing. Everything else goes inside it, or strapped on the outside if it can be.",
+  // A greyed item's tag, and the room line when nothing more goes in.
+  'pack.wontClose': "won't close",
+  'pack.room': 'Room inside',
+  'pack.room.roomy': 'Plenty of room left.',
+  'pack.room.filling': "It's filling up.",
+  'pack.room.nearly': 'Nearly full.',
+  'pack.room.full': "It's full: it won't close with anything more.",
+  'pack.straps': 'Straps: {n} of {m}',
+  'pack.in': 'Inside',
+  'pack.out': 'Strapped on',
+  'pack.noStrap': 'no strap place left',
+  'pack.noRoom': "it won't fit inside",
+  'pack.feelLabel': 'How the pack feels',
+  // How heavy it feels, in the Warden's words: never a number (kit.ts PACK_FEELS, lightest first).
+  'pack.feel.feather': 'Light as anything.',
+  'pack.feel.barely': 'I barely notice it.',
+  'pack.feel.good': 'A good weight. I could carry this all day.',
+  'pack.feel.manage': "It's heavy, but I'll manage.",
+  'pack.feel.really': 'This is really heavy…',
+  'pack.feel.hardly': 'I can hardly lift it!',
+  // A section's summary without the weight, and dev mode's numbers (?dev).
+  'pack.groupSumVol': '{n} of {m} packed',
+  'pack.dev': '{kg} kg · {l} L',
+
+  // ── Character creation ─────────────────────────────────────────────────────
+  'create.name': 'NAME — write it',
+  'create.placeholder': 'What are you called?',
+  'create.talents': 'TALENTS — choose up to {n}',
+  // Difficulty (#1728): a talent pick left unchosen is a choice, worth a higher multiplier ({m} is "×1.25").
+  'create.unchosen': 'Unchosen: {n} · difficulty {m}',
+  'create.unknown': '…and something else in you, not yet known.',
+  'create.age': 'AGE — how old you are, the weekend it began',
+  'create.grow': "You're young still: you start below the stats you'd grow up to, and they grow with use.",
+  'create.stats': "STATS — who you'll grow up to be · spend {n} points",
+  // Difficulty (#1728): points left unspent are a choice, worth a higher multiplier ({m} is "×1.30").
+  'create.unspent': 'Unspent: {n} · difficulty {m}',
+  'create.rules': ' · above 13 costs 2 · lower one to 7 to buy more',
+  'create.now': '{n} now, at {age}',
+  'create.lower': 'Lower {stat}',
+  'create.raise': 'Raise {stat} (costs {n})',
+  'create.costs1': 'costs 1 point',
+  'create.costs2': 'costs 2 points',
+
+  // Talents (talents.ts), offered four at a time.
+  'talent.hardy': 'Hardy',
+  'talent.hardy.blurb': 'physical work tires the body less',
+  'talent.sharp': 'Sharp-minded',
+  'talent.sharp.blurb': 'all work tires the mind less',
+  'talent.lightEater': 'Light Eater',
+  'talent.lightEater.blurb': 'hunger costs you less',
+  'talent.carefulHands': 'Careful Hands',
+  'talent.carefulHands.blurb': 'finer crafts, and more saved from a failed one',
+  'talent.quickLearner': 'Quick Learner',
+  'talent.quickLearner.blurb': 'skills improve faster',
+  'talent.coldBlooded': 'Cold-blooded',
+  'talent.coldBlooded.blurb': 'cold nights cost you less',
+  'talent.tough': 'Tough',
+  'talent.tough.blurb': 'hardship and overwork cost less Condition — and in time, you cling on when you should fall',
+  'talent.keenEye': 'Keen Eye',
+  'talent.keenEye.blurb': 'a born scout: scouting tires you less, and you start with a little practice',
+  'talent.forager': 'Forager',
+  'talent.forager.blurb': 'gathering trips bring back more',
+  'talent.hunter': "Hunter's Patience",
+  'talent.hunter.blurb': 'hunts bring back more, and tracking tires you less',
+  'talent.waterfinder': 'Waterfinder',
+  'talent.waterfinder.blurb': 'water trips bring back more',
+  'talent.silverTongue': 'Silver Tongue',
+  'talent.silverTongue.blurb': 'people warm to you and deal fairer (on the caravan road)',
+  'talent.steady': 'Steady',
+  'talent.steady.blurb': "your hands stay still when everyone else's shake",
+  'talent.surge': 'Surge',
+  'talent.surge.blurb': 'fear makes you faster, not smaller — and the shaking after costs you less',
+
+  // Stats (stats.ts): name, the three-letter short, what it does, and the note for a score.
+  'stat.str': 'Strength',
+  'stat.str.short': 'STR',
+  'stat.str.blurb': 'heavy work — wood, stone, building — tires the body less',
+  'stat.con': 'Constitution',
+  'stat.con.short': 'CON',
+  'stat.con.blurb': 'hunger and thirst cost less Condition; you heal faster',
+  'stat.agi': 'Agility',
+  'stat.agi.short': 'AGI',
+  'stat.agi.blurb': 'hunting, tracking, scouting, handcraft and walking cost less',
+  'stat.int': 'Intelligence',
+  'stat.int.short': 'INT',
+  'stat.int.blurb': 'more insight from study; finer crafts',
+  'stat.wil': 'Willpower',
+  'stat.wil.short': 'WIL',
+  'stat.wil.blurb': 'work wears the mind less; focus holds at lower Clarity',
+  'stat.cha': 'Charisma',
+  'stat.cha.short': 'CHA',
+  'stat.cha.blurb': 'people trust you sooner, you read them truer, and they deal fairer (on the caravan road)',
+  'statnote.average': 'average',
+  'statnote.str': 'heavy work {n}% Vigor',
+  'statnote.con': 'hunger & thirst {n}% Condition · healing {m}%',
+  'statnote.agi': 'nimble work & walking {n}% effort',
+  'statnote.int': 'study {n}% insight',
+  'statnote.intGrade': 'study {n}% insight · craft grade {m}',
+  'statnote.wil': 'mind strain {n}% · focus holds to {m} Clarity',
+  'statnote.chaUp': 'warmer welcome · truer read of people · prices {n}% (on the road)',
+  'statnote.chaDown': 'cooler welcome · poorer read of people · prices {n}% (on the road)',
+} as const satisfies Record<string, string>;

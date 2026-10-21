@@ -11,6 +11,11 @@
  *   node scripts/pixellab-burn.mjs --dry-run         # log actions without calling API
  *   node scripts/pixellab-burn.mjs --limit 10        # stop after 10 items
  *   node scripts/pixellab-burn.mjs --skip-download   # generate only, no download/commit
+ *   node scripts/pixellab-burn.mjs --artificer-icons # only the Artificer item icon pass (#1674)
+ *
+ * Pass flags (--idle-run, --extras, --birds, --tiles, --npcs, --art,
+ * --artificer-icons) are handed to pixellab-queue-generate.mjs, so the burn
+ * works on just that pass instead of the whole queue.
  *
  * Requires:
  *   PIXELLAB_API_KEY in .env or environment
@@ -55,6 +60,8 @@ const DRY_RUN = args.includes('--dry-run');
 const SKIP_DOWNLOAD = args.includes('--skip-download');
 const limitIdx = args.indexOf('--limit');
 const LIMIT = limitIdx >= 0 ? parseInt(args[limitIdx + 1], 10) : Infinity;
+const PASS_FLAGS = ['--idle-run', '--extras', '--birds', '--tiles', '--npcs', '--art', '--artificer-icons'];
+const passArgs = args.filter(a => PASS_FLAGS.includes(a));
 
 // ── MCP HTTP client ──────────────────────────────────────────────────────────
 // PixelLab MCP is a JSON-RPC 2.0 server over HTTP at https://api.pixellab.ai/mcp
@@ -86,7 +93,9 @@ async function mcpCall(tool, params) {
   // SSE lines look like: "event: message\ndata: {json}\n\n"
   // Extract the last JSON data line.
   let json;
-  if (raw.startsWith('event:') || raw.startsWith('data:')) {
+  // A slow call can also open with SSE keep-alive comments (": ping - …")
+  // before its data line, so look for a data line anywhere, not only first.
+  if (/^(event|data):/m.test(raw)) {
     const dataLines = raw.split('\n').filter(l => l.startsWith('data: '));
     const lastData = dataLines[dataLines.length - 1];
     if (!lastData) throw new Error(`No data in SSE response: ${raw.slice(0, 200)}`);
@@ -286,7 +295,7 @@ function commitItem(item, animType) {
 function generateQueue() {
   log('Generating queue from current state...');
   try {
-    execSync('node scripts/pixellab-queue-generate.mjs', { cwd: ROOT, stdio: 'pipe' });
+    execSync(['node scripts/pixellab-queue-generate.mjs', ...passArgs].join(' '), { cwd: ROOT, stdio: 'pipe' });
   } catch (e) {
     log(`⚠ Queue generation failed: ${e.message}`);
   }
@@ -308,6 +317,83 @@ function saveQueue(queue) {
 // ── All 8 directions ─────────────────────────────────────────────────────────
 
 const ALL_8_DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'];
+
+// ── Raw images: icons (#1674) ────────────────────────────────────────────────
+// create_image_pixflux returns a job id at once; get_image reports progress
+// until the job is done, then gives a no-auth download URL. Icons are not
+// committed here: the pass is reviewed as a contact sheet first (see
+// docs/art-pipeline.md), then committed with the manifest and briefs.
+
+let sharpLib = null;
+async function sharp() {
+  // Loaded lazily so the animation passes never need the native module.
+  if (!sharpLib) sharpLib = (await import('sharp')).default;
+  return sharpLib;
+}
+
+/** A 1-pixel-per-colour PNG: pixflux reads only its colours, as a forced palette. */
+async function paletteImageBase64(hexes) {
+  const raw = Buffer.alloc(hexes.length * 3);
+  hexes.forEach((h, i) => {
+    raw[i * 3] = parseInt(h.slice(1, 3), 16);
+    raw[i * 3 + 1] = parseInt(h.slice(3, 5), 16);
+    raw[i * 3 + 2] = parseInt(h.slice(5, 7), 16);
+  });
+  const S = await sharp();
+  const png = await S(raw, { raw: { width: hexes.length, height: 1, channels: 3 } }).png().toBuffer();
+  return png.toString('base64');
+}
+
+function findJobId(text) {
+  const m = text.match(/job[_ ]?id[^0-9a-f]*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+    || text.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return m ? m[1] : null;
+}
+
+async function waitForImage(jobId, pollInterval = 8000, timeout = 300000) {
+  const deadline = Date.now() + timeout;
+  await new Promise(r => setTimeout(r, 5000));
+  while (Date.now() < deadline) {
+    const text = await mcpCall('get_image', { job_id: jobId });
+    const url = text.match(/https:\/\/[^\s)"'\]]+\.png[^\s)"'\]]*/i) || text.match(/https:\/\/[^\s)"'\]]+/i);
+    if (/fail|error/i.test(text) && !url) return { status: 'failed', text };
+    if (/complete|succeeded|done/i.test(text) && url) return { status: 'done', url: url[0], text };
+    await new Promise(r => setTimeout(r, pollInterval));
+  }
+  return { status: 'timeout' };
+}
+
+/** Download a generated icon; if it isn't width×height, scale it nearest-neighbour so pixels stay crisp. */
+async function saveIcon(url, outputPath, width, height) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`download ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const S = await sharp();
+  const meta = await S(buf).metadata();
+  let out = buf;
+  if (meta.width !== width || meta.height !== height) {
+    log(`  resizing ${meta.width}x${meta.height} → ${width}x${height} (nearest)`);
+    out = await S(buf).resize(width, height, { kernel: 'nearest', fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  }
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, out);
+}
+
+/**
+ * Record an item's icon URL in art-briefs.json. The file is hand-formatted
+ * (one item per line), so this edits that one line instead of re-serialising
+ * the whole file.
+ */
+function recordBriefIcon(itemId, iconUrl) {
+  const file = join(ROOT, 'src/artificer/content/art-briefs.json');
+  const lines = readFileSync(file, 'utf8').split('\n');
+  const key = `"${itemId}": {`;
+  const i = lines.findIndex(l => l.trimStart().startsWith(key));
+  if (i < 0) { log(`  ⚠ no brief line for ${itemId}; icon not recorded`); return; }
+  if (lines[i].includes('"icon"')) return;
+  lines[i] = lines[i].replace(/\s*\}(,?)\s*$/, `, "icon": "${iconUrl}" }$1`);
+  writeFileSync(file, lines.join('\n'));
+}
 
 // ── Main loop ────────────────────────────────────────────────────────────────
 
@@ -412,6 +498,41 @@ async function main() {
           });
           log(`  Response: ${text.slice(0, 200)}`);
           item.status = 'done';
+          item.completedAt = new Date().toISOString();
+        } else {
+          item.status = 'done';
+        }
+
+      } else if (item.type === 'create_image_pixflux') {
+        log(`  create_image_pixflux: ${item.description?.slice(0, 80)}`);
+        if (!DRY_RUN) {
+          const params = {
+            description: item.description,
+            width: item.width || 32,
+            height: item.height || 32,
+            no_background: item.noBackground ?? true,
+          };
+          if (item.outline) params.outline = item.outline;
+          if (item.shading) params.shading = item.shading;
+          if (item.detail) params.detail = item.detail;
+          if (item.palette) params.color_image_base64 = await paletteImageBase64(item.palette);
+          const text = await mcpCallWithRetry('create_image_pixflux', params);
+          const jobId = findJobId(text);
+          if (!jobId) throw new Error(`no job id in: ${text.slice(0, 200)}`);
+          log(`  job ${jobId}`);
+          if (SKIP_DOWNLOAD) {
+            item.jobId = jobId;
+            item.status = 'done';
+          } else {
+            const result = await waitForImage(jobId);
+            if (result.status !== 'done') throw new Error(`image ${result.status}: ${(result.text || '').slice(0, 200)}`);
+            await saveIcon(result.url, item.outputPath, item.width || 32, item.height || 32);
+            log(`  ✓ Saved ${item.outputPath.slice(ROOT.length + 1)}`);
+            if (item.itemId) {
+              recordBriefIcon(item.itemId, '/' + item.outputPath.slice(join(ROOT, 'public').length + 1));
+            }
+            item.status = 'done';
+          }
           item.completedAt = new Date().toISOString();
         } else {
           item.status = 'done';

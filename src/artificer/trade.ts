@@ -6,8 +6,13 @@
  * Gate. Simpler for players and the AI than barter: every item has one base
  * value, and the price is that value times a few plain multipliers:
  *
- *   selling  = base × grade × (wanted ? 1.5 : 1) × (trust ≥ 50 ? 1.1 : 1) ÷ CHA factor
- *   buying   = base × 1.25 × (trust ≥ 50 ? 0.9 : 1) × CHA factor
+ *   selling  = base × grade × (wanted ? 1.5 : 1) × (trust ≥ 50 ? 1.1 : 1) × local ÷ CHA factor
+ *   buying   = base × 1.25 × (trust ≥ 50 ? 0.9 : 1) × local × CHA factor
+ *
+ * `local` is the village's own market (#1599, economy.ts, with the `village-economies` switch):
+ * ×0.75 for a good the village makes (plentiful), ×1.25 for what it lacks (scarce), 1 otherwise
+ * and in every run without the switch; a market town also sells at a lower markup (×1.1). With
+ * the switch, a trader also pays at most ×0.8 of their own price for a good they sell (#1627).
  *
  * The total for a lot is rounded once (not per unit), so ten cheap things
  * aren't rounded away to nothing.
@@ -16,6 +21,7 @@
  */
 
 import type { Grade } from './crafting';
+import { BUY_BACK, MARKET_MARKUP, PLENTIFUL, SCARCE, type LocalMarket } from './economy';
 import type { Stores } from './region1';
 
 /** A store good: what you carry by the heap rather than as a tool. */
@@ -59,7 +65,8 @@ export const TRADER_STOCK: Readonly<Record<string, TraderStock>> = {
   'hf-tobin': { wants: ['leather', 'tools'], sells: ['rawFood', 'water', 'materials', 'hides'] },
   // Salt fish and the mere's weavers: she wants food to salt and cloth to sell on.
   'sm-hedda': { wants: ['food', 'cloth'], sells: ['rations', 'rawFood', 'water', 'firewood'] },
-  // "Mistheim buys Reach-made tools for silly money." And the Gate burns a lot of wood.
+  // "Mistheim buys Reach-made tools for silly money." And the Gate burns a lot of wood: it cuts
+  // its own on the slopes below the pass (economy.ts, #1627), and Arvid buys what he can besides.
   'kg-arvid': { wants: ['tools', 'fuel'], sells: ['rawFood', 'water', 'firewood', 'materials', 'stone'] },
   // The caravan's merchant (#1355): she buys what a winter leaves you with — timber, stone, warm things — and sells road food.
   'cv-runa': { wants: ['raw', 'cloth'], sells: ['rawFood', 'rations', 'materials'] },
@@ -79,21 +86,63 @@ export const SALE_TRUST = 1;
 /** The base value of `qty` of `item` at `grade` (store goods have no grade: sound). */
 export const valueOf = (item: string, grade: Grade = 'sound', qty = 1): number => (BASE_VALUE[item] ?? 0) * PRICE_GRADE[grade] * qty;
 
-/** What the deal looks like from this trader: their wants, your trust with them, and your Charisma's price factor. */
-export interface Terms { wants: readonly Kind[]; trust: number; priceFactor: number }
+/**
+ * What the deal looks like from this trader: their wants, your trust with them, your Charisma's
+ * price factor, and the village's own market (#1599), when the run has village economies.
+ * `buyBack` (#1627, with village economies too): the trader pays at most ×BUY_BACK of their own
+ * price for a good they sell (`sells`), so no heap is bought and sold straight back at a profit.
+ */
+export interface Terms {
+  wants: readonly Kind[]; trust: number; priceFactor: number; local?: LocalMarket | null;
+  sells?: readonly string[]; buyBack?: boolean;
+  /**
+   * Your track record with this trader (#1663, consistency.ts, with the `consistency` switch):
+   * `hedge` (above 1 for an erratic record) is how much more they charge and less they pay, and
+   * `regular` (a record that earns their trust) gives the friend's rate whatever the trust number.
+   * Absent, today's terms.
+   */
+  hedge?: number; regular?: boolean;
+}
+
+/**
+ * What the village's market does to the price of `item` (#1599): plentiful goods are cheap and
+ * fetch little, scarce ones are dear and fetch more. A village can lack a whole kind (tools) or
+ * one good (#1627: Saltmere lacks wood, so firewood, not fuel). A plentiful good is checked
+ * first, so a village that makes a good and lacks its kind (none does today) treats it as plentiful.
+ */
+export function localFactor(item: string, local: LocalMarket | null | undefined): number {
+  if (!local) return 1;
+  if ((local.plentiful as readonly string[]).includes(item)) return PLENTIFUL;
+  const scarce = local.scarce as readonly string[];
+  return scarce.includes(item) || scarce.includes(KIND_OF[item]) ? SCARCE : 1;
+}
+
+/** Whether this trader gives you the friend's rate: trust enough, or a record that earned it (#1663). */
+export const friendly = (t: Pick<Terms, 'trust' | 'regular'>): boolean => t.trust >= FRIEND_TRUST || t.regular === true;
 
 /** Marks you're paid for `qty` of `item` at `grade`. */
 export function sellPrice(item: string, grade: Grade, qty: number, t: Terms): number {
   const wanted = t.wants.includes(KIND_OF[item]) ? WANTED : 1;
-  const friend = t.trust >= FRIEND_TRUST ? 1 + FRIEND_RATE : 1;
-  return Math.round((valueOf(item, grade, qty) * wanted * friend) / t.priceFactor);
+  const friend = friendly(t) ? 1 + FRIEND_RATE : 1;
+  const offered = (valueOf(item, grade, qty) * wanted * friend * localFactor(item, t.local)) / t.priceFactor / (t.hedge ?? 1);
+  // Buy-back (#1627): a good the trader sells themselves fetches at most ×BUY_BACK of what they'd
+  // charge for it. Without the cap, the ×1.5 for a wanted kind (or a friend's rate at a market
+  // town's keen markup, or a high Charisma) paid more than the stall charged, and buying a heap
+  // and selling it straight back made marks every hour. Compared before rounding, and rounded
+  // once, so the cap can never round up past the price you paid.
+  const cap = t.buyBack && isGood(item) && t.sells?.includes(item) ? buyCost(item, qty, t) * BUY_BACK : Infinity;
+  return Math.round(Math.min(offered, cap));
+}
+
+/** What `qty` of a good costs from this trader, before rounding. */
+function buyCost(item: Good, qty: number, t: Terms): number {
+  const friend = friendly(t) ? 1 - FRIEND_RATE : 1;
+  const markup = t.local?.market ? MARKET_MARKUP : MARKUP;
+  return valueOf(item, 'sound', qty) * markup * friend * localFactor(item, t.local) * t.priceFactor * (t.hedge ?? 1);
 }
 
 /** Marks you pay for `qty` of a good. */
-export function buyPrice(item: Good, qty: number, t: Terms): number {
-  const friend = t.trust >= FRIEND_TRUST ? 1 - FRIEND_RATE : 1;
-  return Math.round(valueOf(item, 'sound', qty) * MARKUP * friend * t.priceFactor);
-}
+export const buyPrice = (item: Good, qty: number, t: Terms): number => Math.round(buyCost(item, qty, t));
 
 /** The trader among these people, or null — "No one here is trading". */
 export const traderAmong = <P extends { id: string; role: string }>(people: readonly P[]): P | null =>

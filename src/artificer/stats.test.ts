@@ -28,6 +28,7 @@ describe('Stats creation helpers (#1258)', () => {
     expect(statNote('int', 13)).toBe('study +15% insight · craft grade +1');
     expect(statNote('int', 11)).toBe('study +5% insight');
     expect(statNote('wil', 15)).toBe('mind strain −10% · focus holds to 20 Clarity');
-    expect(statNote('cha', 7)).toBe('trust −3 · prices +6% (on the road)');
+    expect(statNote('cha', 7)).toBe('cooler welcome · poorer read of people · prices +6% (on the road)');
+    expect(statNote('cha', 12)).toBe('warmer welcome · truer read of people · prices −4% (on the road)');
   });
 });

@@ -47,7 +47,7 @@ serialize(game) / deserialize(text), GAME_VERSION
    - Per-IP limits on games started and moves made.
 2. **Remote MCP server** (phase 3) at `artificer.corewarden.app/mcp`.
    - Anyone adds it in claude.ai as a custom connector, or in any client that speaks remote MCP.
-   - Tools: `new_game`, `look`, `act`, `plan_day`, `choose`, `rules`.
+   - Tools: `new_game`, `look`, `act`, `plan_day`, `choose`, `ask_question` (#1575), `rules`.
 3. **Text console for people** (phase 4) at `/console`. The same text game in the browser, played through the API.
 
 **Run records** (phase 5): every finished game writes a row in `artificer_runs`.
@@ -57,10 +57,22 @@ serialize(game) / deserialize(text), GAME_VERSION
 
 The nightly AI playtest uploads its runs too. Two pages read them live from Supabase, through the play API (`GET /api/v1/runs`, cached a minute at Vercel's edge): **Records** on the Artificer site for players, and an **AI page** on the dev site for progression and cost by model.
 
-**Fair comparisons and achievements** (phase 6):
+**Free questions** (#1575, plan #1574): on the road a player may ask each person one question in their own words per stay, as the move `{ ask: { person, question } }` (the web game plays on the page and keeps its questions through `POST /api/v1/questions`). The server matches it to what that person knows, plays it as `question:<person>:<topic>`, and keeps the question, cleaned, in `artificer_questions`. The game and its stored moves see only the matched topic, never the words.
+
+**Feature switches** (#1579): experimental rule features are set per game (`POST /api/v1/games { features }`, MCP `new_game`), saved in the run's world so replays match, listed in `GET /api/v1/rules`, and stored in each run record; the Records page marks those runs 🧪.
+
+**Fair comparisons and achievements** (phase 6, #1559):
 - **Web-game runs** are submitted with their seed and moves, and **re-simulated** on the server before they count. The sim is deterministic, so a replay is exact.
+  - The page keeps a log from the start (`src/artificer-play/web-log.ts`): the Warden it made (the creation screen's choices, the pack, the rule features, any heirlooms) and every move, in the session's move format.
+  - At the end the player may send it with a nickname: `POST /api/v1/runs/submit { log, claim, name }`. The server replays it through the same controller calls (`web-run.ts`) and writes a record (surface `web`, a person) only if the replay ends the way the claim says; otherwise 422.
+  - Heirlooms count only from a run the server has checked (`heirloomsFrom`, a run that was sent).
 - **A weekly shared seed** means everyone plays the same world.
-- **Achievements** are percentiles over the records.
+  - An ISO week in UTC (`weekly.ts`). Start it with `POST /api/v1/games { weekly: true }`, the console's `new weekly`, MCP `new_game` with `weekly`, or the web game's 📅 button (`/?weekly`).
+  - The web game needs the seed to run the world, so `GET /api/v1/weekly` hands this week's out. Next week's stays secret (`PLAY_WEEKLY_SALT`).
+  - **Only the weekly world ranks web runs** (owner, 2026-10-11). A web run on a world the page picked itself is kept and shown as the player's run, marked 🏕, but it's left off the best board and out of every comparison and achievement (`records.ts` `isRanked`), so trying worlds offline and sending only an easy one gains nothing. Games the server starts (API, MCP, console, playtest) choose their world on the server and rank as before. A monthly or longer world can come later as the world grows.
+  - Records carry the week in `detail.week`, so no migration was needed. `GET /api/v1/runs/week` is the week's board.
+- **Achievements** are percentiles over the records (`achievements.ts`): outlasted the median AI, top 10%, top 10% larder at midwinter, ready early, quick study, reached Mistheim. A weekly run is compared within its week. They're shown on the run's end in every surface and on the Records page.
+- **Owner step:** set `PLAY_WEEKLY_SALT` in the `matlu-artificer` project's environment, once, and never change it mid-week, because it changes the week's world.
 
 ## Decisions
 

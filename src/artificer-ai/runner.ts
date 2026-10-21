@@ -7,10 +7,12 @@
  * `parseDecision`, whoever made it.
  */
 
-import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
-import { validStats, type Stats } from '../artificer/stats';
+import type { FeatureSwitches } from '../artificer/features';
+import { suggestedPack, volumeOn, packWorldOf, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
+import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
+import { campAsActionOn } from '../artificer/camp-sites';
 import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, focusRefusal, FOCUS_OPEN, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
@@ -28,8 +30,20 @@ import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
 import { todayHours } from '../artificer-app/controller';
+import { foundLine } from '../artificer-app/explore-finds';
+import { tellHistoriesWith } from '../artificer/history-in-play';
+import { runHistory } from '../artificer/world/history';
+
+// The road's people answer from their villages' history (#1656), as on the page and through the
+// API: an AI game is played here, with no page worker, so its history is told on first need and
+// kept per seed (history-in-play.ts).
+tellHistoriesWith(runHistory);
+
+/** The note for a reply that sets "site" in a game where making camp is an action (#1732). */
+export const SITE_IGNORED = 'Your "site" did nothing: in this game you make camp with the "camp" action, at one of the places its "spot" option lists.';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
+
 export interface Usage {
   input: number; output: number; cacheRead: number; cacheWrite: number;
   /** Actual billed USD, summed over the run's calls; null when the player doesn't report it (#1231). */
@@ -68,7 +82,7 @@ export interface Player {
 }
 
 /** What a player packed (#1401): the pack, why, and — if two replies wouldn't do — that the last pack was kept instead. */
-export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[] }
+export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[]; /** Strapped on (#1871), as the run holds it. */ outside?: KitId[] }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
 export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
@@ -410,6 +424,11 @@ export interface PlayOptions {
    * on for model players.
    */
   fillDay?: boolean;
+  /**
+   * Rule features to play with (features.ts). Absent, the world has none written down, so each
+   * reads as runs from before its switch did (`absent`), as the playtests always have.
+   */
+  features?: FeatureSwitches;
 }
 
 /** How many single actions a locked day asks for before it ends anyway (#1350). */
@@ -506,8 +525,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // A spread a person couldn't pick never reaches the sim (#1259). A legacy's own stats win over it;
   // a legacy of heirlooms alone (#1455) has none, so the spread still applies.
   const spreadApplies = !!opts.stats && !opts.legacy?.stats;
+  // The pack is ticked for the Warden's stats now (#1872): the spread grown to 12, as createRegion1 makes them.
   if (spreadApplies && !validStats(opts.stats!)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: suggestedPack(opts.features, grownStats((spreadApplies ? opts.stats : opts.legacy?.stats) ?? DEFAULT_STATS, DEFAULT_AGE), chosen) }) });
   const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
@@ -516,6 +536,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
+  /**
+   * What the land trips since the last observation turned up (#1869): its FOUND line, as the page says
+   * the finds (artificer-app/explore-finds.ts). Words only: the run is the same with or without it.
+   */
+  let observedAt = s;
+  const observeNow = (): string => { const f = foundLine(observedAt, s); observedAt = s; return observe(s, notes, f ? [f] : []); };
 
   /** What this run's last call cost: its estimate for the next one (#1491). */
   let lastCost: number | undefined;
@@ -572,16 +598,20 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let packed: PackRecord | undefined;
   if (player.decidePack) {
     const decidePack = player.decidePack.bind(player);
+    // The Warden is made first (#1872): the turn sees their stats and the pack ticked for them, and
+    // a pack is checked against what they can carry.
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply);
+    let d = parsePackDecision(reply, packWorldOf(s));
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
-      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply);
+      // With the pack's volume (#1871) the reply may say what's strapped on.
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${volumeOn(s) ? ', "outside"' : ''}}.`, decidePack);
+      d = parsePackDecision(reply, packWorldOf(s));
       if (!d.ok) errors.push(...d.errors);
     }
-    if (d.ok) s = repack(s, d.decision.pack);
-    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}) } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors };
+    if (d.ok) s = repack(s, d.decision.pack, d.decision.outside);
+    const straps = s.kit?.outside?.length ? { outside: [...s.kit.outside] } : {};
+    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}), ...straps } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors, ...straps };
   }
 
   // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.
@@ -654,7 +684,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       stepped = done;
       let thoughts = '', invalid = false, lastReply = '', errors: string[] | undefined;
       for (let asks = 0; asks < LOCKED_ASKS && !s.outcome && s.day === day && !s.canPlan; asks++) {
-        lastReply = await ask(observe(s, notes));
+        lastReply = await ask(observeNow());
         notes = [];
         let p = decideFor(s, lastReply);
         if (!p.ok) {
@@ -663,6 +693,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         }
         if (!p.ok) { invalid = true; errors = p.errors; s = runDay(s, []).state; notes.push(`Your reply for day ${day} was invalid twice, so the day ended.`); break; }
         const d = p.decision;
+        if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
         thoughts = d.thoughts || thoughts;
         if (d.focus) s = setFocus(s, parseFocus(d.focus));
         if (d.eating) s = setEating(s, d.eating);
@@ -685,7 +716,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       }
       // Planning opened mid-day: the rest of today is planned as usual, below.
     }
-    let reply = await ask(observe(s, notes));
+    let reply = await ask(observeNow());
     let parsed = decideFor(s, reply);
     notes = [];
     if (!parsed.ok) {
@@ -718,6 +749,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
     s = applyPinOrders(s, d);
+    // Camp as an action (#1732): the "site" field sets nothing (chooseSite refuses it); say so, once a day.
+    if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
     // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);

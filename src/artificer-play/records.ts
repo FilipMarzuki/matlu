@@ -9,13 +9,25 @@
  * from a finished game is record-of.ts.
  *
  * Nothing personal goes in a record. The audience includes kids, so a nickname is cut to one word
- * of letters (no digits: they could be an age, a birth year or a phone number) and dropped if it
- * holds a blocked word, and there's no address, account or free text.
+ * of letters (no digits: they could be an age, a birth year or a phone number), and there's no
+ * address, account or free text. There's no word filter: a list of bad words can't be made complete
+ * and catches ordinary names, so the owner chose the shape rule alone (#1575).
  */
 
 export type PlayerKind = 'person' | 'ai';
-/** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or (#1559) the web game. */
+/** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or the web game (#1559, re-simulated before it counts). */
 export type Surface = 'api' | 'mcp' | 'console' | 'bench' | 'web';
+
+/**
+ * Does a run count on the boards and for achievements (#1559)? Every game the server chose the world
+ * for does: API, MCP, console and playtest games, and the weekly world. A web run on a world the page
+ * picked itself doesn't: anyone could try worlds offline and send only an easy one (seed-shopping).
+ * It's still kept and shown as the player's run, marked as their own world, just not ranked.
+ * The week is on a summary (`week`) or in a stored record's `detail.week`.
+ */
+export function isRanked(r: { surface: Surface; week?: string | null; detail?: { week?: string } }): boolean {
+  return r.surface !== 'web' || !!(r.week ?? r.detail?.week);
+}
 
 /** A finished game, as the Records pages read it. */
 export interface Run {
@@ -61,7 +73,39 @@ export interface RunDetail {
   topConcept: { id: string; rank: number } | null;
   skills: Record<string, number>;
   road?: { villages: string[]; quests: number; marks: number };
+  // The full progress (#1558): absent on records written before it.
+  /** The Warden's stats where the run ended. */
+  stats?: Record<string, number>;
+  /** What was in store: at the end in the Reach, or at the thaw for a run that rode on. */
+  stores?: Record<string, number>;
+  /** Each concept's rank. */
+  concepts?: Record<string, number>;
+  /** How much of the land was known: every ring × domain level summed (0–3 each), per ring, and finds. */
+  exploration?: { total: number; byRing: Record<string, number>; finds: number };
+  /** Winter readiness: each pillar's progress (0–1) and their mean. */
+  readiness?: { pillars: Record<string, number>; overall: number };
+  vitals?: { vigor: number; clarity: number; condition: number };
+  /** The day each milestone was first reached, in the order they came: the time to any milestone. */
+  milestones?: { name: string; day: number }[];
+  /** The run's rule features (#1579), each on or off. Absent on the playtest's records and older ones. */
+  features?: Record<string, boolean>;
+  /** The weekly world it was played on (#1559), "2026-W41"; absent for any other world. */
+  week?: string;
+  /**
+   * Difficulty (#1728): the multiplier the Warden was made with — stat points and talent picks left
+   * unspent at creation — for a future leaderboard. Written on every record from then on (1 for a
+   * full spend); absent on older records, which read ×1.00 (`runDifficulty`).
+   */
+  difficulty?: number;
+  /** Played with the web page's dev mode on (#1735), so a board can leave it out; absent otherwise. */
+  dev?: true;
 }
+
+/** A record's difficulty multiplier (#1728): its own, or ×1.00 for one from before it (or not a number ≥ 1). */
+export const runDifficulty = (r: { detail?: { difficulty?: unknown } | null }): number => {
+  const d = r.detail?.difficulty;
+  return typeof d === 'number' && Number.isFinite(d) && d >= 1 ? Math.round(d * 100) / 100 : 1;
+};
 
 /** A stored record: a Run plus its row id and when it was written. The game id never leaves the server. */
 export interface StoredRun extends Run {
@@ -69,27 +113,18 @@ export interface StoredRun extends Run {
   createdAt: string;
 }
 
-/** A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't read. */
-export type RunSummary = Omit<StoredRun, 'detail'>;
+/**
+ * A record as the lists send it (GET /api/v1/runs): everything but `detail`, which the boards don't
+ * read, except its rule features (#1579), which mark experimental runs, and its week (#1559), which
+ * marks a run of the weekly world.
+ */
+export type RunSummary = Omit<StoredRun, 'detail'> & { features?: Record<string, boolean> | null; week?: string | null };
+
+/** An AI's record for the dev site's AI page (GET /api/v1/runs/ai): the summary and when each milestone came. */
+export type AiRun = RunSummary & { milestoneDays: { name: string; day: number }[] | null };
 
 // ── Nicknames ───────────────────────────────────────────────────────────────
 
-/**
- * Blocked words, checked against the nickname with symbols squeezed out and look-alike digits read
- * as letters ("sh1t" → "shit"). Short on purpose: it catches what a kid shouldn't see on a public
- * board, and a false hit only costs the nickname (the run still counts, as "a Warden").
- *
- * Stems that never sit inside an ordinary name are blocked anywhere in it; short ones that do
- * ("Thora" holds "hora", "Peacock" holds "cock") only as the whole word, or its plural.
- */
-const BLOCKED_ANYWHERE = [
-  'fuck', 'shit', 'cunt', 'bitch', 'whore', 'slut', 'pussy', 'penis', 'vagina', 'porn', 'nigg', 'retard', 'nazi',
-  'hitler', 'suicid', 'wank', 'twat',
-  // Swedish, since the owner is
-  'fitta', 'knull', 'jävla', 'javla', 'helvete',
-];
-const BLOCKED_WORDS = ['dick', 'cock', 'sex', 'rape', 'kill', 'anal', 'boob', 'tit', 'tits', 'piss', 'fag', 'kkk', 'kuk', 'hora', 'neger', 'bög', 'mongo'];
-const LOOK_ALIKES: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i' };
 /** Long enough for a name, short enough not to be a message. */
 const NICKNAME_CHARS = 16;
 
@@ -99,10 +134,8 @@ const NICKNAME_CHARS = 16;
  * too easily someone's real name. "Warden" (the default) counts as no nickname.
  */
 export function nicknameOf(raw: string | null | undefined): string | null {
-  // Only the first word is kept, so only the first word is checked.
+  // Only the first word is kept.
   const token = raw?.trim().split(/\s+/)[0] ?? '';
-  const squeezed = token.toLowerCase().replace(/[0134578@$!]/g, c => LOOK_ALIKES[c] ?? c).replace(/[^\p{L}]/gu, '');
-  if (BLOCKED_ANYWHERE.some(w => squeezed.includes(w)) || BLOCKED_WORDS.some(w => squeezed === w || squeezed === `${w}s`)) return null;
   // Cut by characters, not UTF-16 units: half of a letter outside the basic plane is invalid text
   // that Postgres refuses, and the record would be lost.
   const word = [...token.replace(/[^\p{L}'-]/gu, '').replace(/^['-]+|['-]+$/g, '')].slice(0, NICKNAME_CHARS).join('');

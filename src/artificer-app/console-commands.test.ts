@@ -19,10 +19,11 @@ const moveOf = (line: string, moves = day1) => {
 
 describe('The console command line (#1557)', () => {
   it('reads action ids, rings, and the start of a move name', () => {
-    expect(moveOf('scout')).toEqual({ do: 'scout' });
-    expect(moveOf('  Scout  ')).toEqual({ do: 'scout' });
-    expect(moveOf('scout 1')).toEqual({ do: 'scout' });
-    expect(moveOf('scout 2')).toEqual({ do: 'scout@2' });
+    // A new game's exploring action is Explore (#1689).
+    expect(moveOf('explore')).toEqual({ do: 'explore' });
+    expect(moveOf('  Explore  ')).toEqual({ do: 'explore' });
+    expect(moveOf('explore 1')).toEqual({ do: 'explore' });
+    expect(moveOf('explore 2')).toEqual({ do: 'explore@2' });
     expect(moveOf('gather wood')).toEqual({ do: 'wood' });
     expect(moveOf('fetch water')).toEqual({ do: 'water' });
   });
@@ -44,6 +45,9 @@ describe('The console command line (#1557)', () => {
     expect(parseCommand('help', day1)).toEqual({ kind: 'help' });
     expect(parseCommand('new Vega', day1)).toEqual({ kind: 'new', name: 'Vega' });
     expect(parseCommand('new game', day1)).toEqual({ kind: 'new', name: undefined });
+    // This week's world (#1559), with or without a name.
+    expect(parseCommand('new weekly', day1)).toEqual({ kind: 'new', name: undefined, weekly: true });
+    expect(parseCommand('New Week Vega', day1)).toEqual({ kind: 'new', name: 'Vega', weekly: true });
     expect(moveOf('help', encounter)).toEqual({ choose: 'help' });
     expect(moveOf('walk on', encounter)).toEqual({ choose: 'leave' });
     expect(parseCommand('', day1).kind).toBe('error');
@@ -62,8 +66,25 @@ describe('The console command line (#1557)', () => {
     expect(c.kind === 'error' && c.message).toContain('"new"');
   });
 
+  it('asks on the road: about your focus, or a free question in your own words (#1575)', () => {
+    const road: MoveOption[] = [
+      { move: { do: 'rest' }, label: 'Rest' },
+      { move: { do: 'talk:hf-orrin' }, label: 'Talk with Orrin' },
+      { move: { do: 'talk:hf-tobin' }, label: 'Talk with Tobin' },
+    ];
+    expect(moveOf('ask orrin', road)).toEqual({ do: 'ask:hf-orrin' });
+    // The question goes as typed, case and all; the person by name or id.
+    expect(moveOf('ask Orrin Where does the Iron come from?', road)).toEqual({ ask: { person: 'hf-orrin', question: 'Where does the Iron come from?' } });
+    expect(moveOf('ask hf-tobin, what is the Compact?', road)).toEqual({ ask: { person: 'hf-tobin', question: 'what is the Compact?' } });
+    // Someone not here is sent as typed, and the game says who is.
+    expect(moveOf('ask sabine iron?', road)).toEqual({ ask: { person: 'sabine', question: 'iron?' } });
+    expect(completions('as', road)).toContain('ask ');
+    // A Swedish game (#1713) labels the talks in Swedish: the name still finds the person.
+    expect(moveOf('ask orrin', [{ move: { do: 'talk:hf-orrin' }, label: 'Prata med Orrin' }])).toEqual({ do: 'ask:hf-orrin' });
+  });
+
   it('completes words from the moves and its own commands', () => {
-    expect(completions('sc', day1)).toContain('scout');
+    expect(completions('expl', day1)).toContain('explore');
     expect(completions('gather', day1)).toEqual(expect.arrayContaining(['gather food', 'gather wood']));
     expect(completions('end', day1)).toContain('end day');
     expect(completions('wa', encounter)).toContain('walk on');

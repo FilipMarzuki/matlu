@@ -9,7 +9,7 @@
 // lives — deliberately separate from rendering, so judgment and prose decouple.
 
 import { SPEC_REGISTRY } from "./event-spec.js";
-import type { CharId, EventType, WorldEvent } from "./types.js";
+import type { CharId, EventType, RegionalEventKind, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
 // ---------------------------------------------------------------------------
@@ -165,6 +165,42 @@ function seatKingdom(w: World, charId: string | null): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Regional events (regions.ts, #1598) — how much each is worth telling, on the
+// same scale as BASE below. Kept here so the sifter stays the one judge of
+// significance; regions.ts asks when it logs an event. Regional events are a
+// countryside's news, not court drama, so most sit below the chronicle's usual
+// cutoff (4–5): they're for what people in the region know (facts), and only
+// the great ones (famine, plague, a house falling) would make a chronicle.
+// ---------------------------------------------------------------------------
+const REGIONAL_BASE: Record<RegionalEventKind, number> = {
+  LORD_DIED: 4, SEAT_VACANT: 5, SEAT_SEIZED: 6, HOUSE_RISES: 4, HOUSE_FALLS: 5,
+  FEUD: 5, FEUD_FLARES: 4, BORDER_WAR: 4, ALLIANCE: 3, LEVY_RAISED: 3, TAXES_RAISED: 3, TAXES_EASED: 2,
+  HARVEST_GOOD: 2, HARVEST_POOR: 3, SHORTAGE: 3, BOOM: 3, SLUMP: 4,
+  VENTURE_OPENED: 3, VENTURE_THRIVES: 3, VENTURE_FAILING: 3, VENTURE_CLOSED: 4,
+  ROAD_THRIVES: 2, ROAD_FAILS: 3,
+  FAMINE: 6, PLAGUE: 6, BANDITRY: 3, HARD_WINTER: 3, FAIR: 2, FESTIVAL: 2, MIGRATION: 3, UNREST: 4,
+};
+
+export function regionalSignificance(kind: RegionalEventKind, data: Record<string, string | number | boolean>): number {
+  let s = REGIONAL_BASE[kind];
+  // A great lord's death, a famine or plague that took most of the region, a
+  // named outlaw: each worth a point more.
+  if (kind === "LORD_DIED" && data["tier"] !== "county") s += 1;
+  if (kind === "FAMINE" && Number(data["provinces"] ?? 1) >= 2) s += 1;
+  if (kind === "PLAGUE" && Number(data["provinces"] ?? 1) * 2 > Number(data["of"] ?? 1)) s += 1;
+  if (kind === "BANDITRY" && data["named"]) s += 1;
+  if (kind === "SEAT_SEIZED" && data["lowborn"]) s += 1;
+  // A killing winter (#1608: winters now cost lives, most in a poor region): one
+  // that took nearly 2% of the region's people is remembered for longer. Still
+  // under the chronicle's 5, so it's told in the region's own lines, not the
+  // chronicle (the #1605 threshold rule). One that carried off someone named
+  // (#1617) is remembered the same way, but it's still one point, not two: the
+  // lord it took is told on his own (LORD_DIED).
+  if (kind === "HARD_WINTER" && (Number(data["share"] ?? 0) >= 0.018 || Number(data["named_dead"] ?? 0) > 0)) s += 1;
+  return s;
+}
+
 // Baseline drama by type before context adjustments. Partial because events
 // registered via the EventSpec catalog (event-spec.ts) get their base score
 // from the spec instead — they don't need a BASE entry here.
@@ -265,6 +301,11 @@ const BASE: Partial<Record<EventType, number>> = {
   DOOM_FULFILLED:               10,
   LEGEND_INSCRIBED:             9,  // a figure passes into cultural memory
   LEGEND_INVOKED:               6,  // a later character calls the old name
+  // Odd patches of humans (odd-patches.ts, #1633) — mysteries the whole
+  // countryside talks about for a generation. A patch (strangers with no past)
+  // sits with plague; a village swelling with no arrivals is a step quieter.
+  ODD_PATCH:                    7,
+  STRANGE_GROWTH:               5,
 };
 
 export interface SiftResult {
@@ -422,6 +463,19 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
         if (ev.data["trait"] === "slavery") s += 2;
         if (ev.data["adopted"] === false) s += 1; // abandonment is harder to tell
         if (ev.data["tier"] === "both") s += 1;   // cross-tier establishment
+        break;
+      }
+      case "ODD_PATCH": {
+        // Strangers where there were no humans at all are the stranger story.
+        if (ev.data["unexpected"]) {
+          s += 1;
+          tags.push("unexplained");
+        }
+        break;
+      }
+      case "STRANGE_GROWTH": {
+        // A village that grew by a sixth or more in a year is remembered.
+        if (Number(ev.data["share"] ?? 0) >= 0.15) s += 1;
         break;
       }
       case "ASH_SUMMER": {

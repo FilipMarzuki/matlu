@@ -73,17 +73,22 @@ export interface NewCharacterOpts {
   // Sim-born characters set this so their drives pull toward their culture's
   // temperament. Authored (seed) characters leave it off — their drives stand.
   biasCulture?: boolean;
+  // The stream to draw this character's name, drives and starting psyche from.
+  // Defaults to the main stream (w.rng). The odd-patches pass (#1633) passes
+  // its own stream, so planting strangers in a year doesn't shift the numbers
+  // the rest of the simulation draws that year.
+  rng?: RNG;
 }
 
 // Pick a given name from the character's culture pool, falling back to the
 // global pool. Exactly one rng draw either way, so a world without cultures
 // consumes the RNG identically to before (byte-stable determinism).
-function pickName(w: World, culture: CultureSpec | undefined, sex: Sex): string {
+function pickName(rng: RNG, culture: CultureSpec | undefined, sex: Sex): string {
   if (culture) {
     const pool = sex === "male" ? culture.namesMale : culture.namesFemale;
-    if (pool && pool.length) return w.rng.pick(pool);
+    if (pool && pool.length) return rng.pick(pool);
   }
-  return givenName(w.rng, sex);
+  return givenName(rng, sex);
 }
 
 // Pull a drive vector toward a culture's target temperament (no rng — a
@@ -127,9 +132,10 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
   const id = w.freshId("c");
   const dyn = w.dynasties.get(opts.dynastyId);
   const culture = dyn?.cultureId ? w.cultures.get(dyn.cultureId) : undefined;
+  const rng = opts.rng ?? w.rng;
   const c: Character = {
     id,
-    name: opts.name ?? pickName(w, culture, opts.sex),
+    name: opts.name ?? pickName(rng, culture, opts.sex),
     sex: opts.sex,
     dynastyId: opts.dynastyId,
     birthYear: opts.birthYear,
@@ -141,11 +147,11 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     spouseId: null,
     childrenIds: [],
     provinceId: opts.provinceId,
-    drives: biasDrives(opts.drives ?? randomDrives(w.rng), opts.biasCulture ? culture : undefined),
+    drives: biasDrives(opts.drives ?? randomDrives(rng), opts.biasCulture ? culture : undefined),
     claims: [],
     grudges: [],
     opinion: {},
-    reputation: { schemer: 0, just: w.rng.float(0.2, 0.6) },
+    reputation: { schemer: 0, just: rng.float(0.2, 0.6) },
     lowborn: opts.lowborn ?? false,
     quirk: null,
     // Magic/leveling defaults — everyone starts ordinary. The magic layer
@@ -165,7 +171,7 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
   };
   // Apply cultural/faith bias seeds and universal baselines AFTER the character
   // is constructed so we can read their final blended drives.
-  c.psyche = buildPsyche(w, c.drives, culture, w.faiths.get(dyn?.faithId ?? ""));
+  c.psyche = buildPsyche(rng, c.drives, culture, w.faiths.get(dyn?.faithId ?? ""));
   w.characters.set(id, c);
   // Wire the child into its parents' child lists so the family graph is whole.
   const father = w.char(opts.fatherId ?? null);
@@ -187,7 +193,7 @@ function biasDrives(d: Drives, culture: CultureSpec | undefined): Drives {
 //   3. Universal baselines — sunk_cost and loss_aversion are non-zero in
 //      everyone, derived from drives + a small random spread.
 function buildPsyche(
-  w: World,
+  rng: RNG,
   drives: Drives,
   culture: CultureSpec | undefined,
   faith: import("./world-spec.js").FaithSpec | undefined,
@@ -197,23 +203,23 @@ function buildPsyche(
   // Cultural seeds — each entry adds a base value with individual noise.
   if (culture?.biasSeed) {
     for (const [bias, base] of Object.entries(culture.biasSeed) as [PerceptualBias, number][]) {
-      p.biases[bias] = clamp01((base as number) + w.rng.float(-0.15, 0.15));
+      p.biases[bias] = clamp01((base as number) + rng.float(-0.15, 0.15));
     }
   }
   // Faith seeds stack on top of the cultural layer.
   if (faith?.biasSeed) {
     for (const [bias, base] of Object.entries(faith.biasSeed) as [PerceptualBias, number][]) {
-      p.biases[bias] = clamp01(p.biases[bias] + (base as number) + w.rng.float(-0.12, 0.12));
+      p.biases[bias] = clamp01(p.biases[bias] + (base as number) + rng.float(-0.12, 0.12));
     }
   }
 
   // Universal baselines — everyone has some sunk_cost and loss_aversion.
   // Fear amplifies both: a fearful character holds on harder and hurts more.
   p.biases.sunk_cost = clamp01(
-    Math.max(p.biases.sunk_cost, 0.12 + w.rng.float(0, 0.22) + drives.fear * 0.1),
+    Math.max(p.biases.sunk_cost, 0.12 + rng.float(0, 0.22) + drives.fear * 0.1),
   );
   p.biases.loss_aversion = clamp01(
-    Math.max(p.biases.loss_aversion, 0.12 + w.rng.float(0, 0.3) + drives.fear * 0.2),
+    Math.max(p.biases.loss_aversion, 0.12 + rng.float(0, 0.3) + drives.fear * 0.2),
   );
 
   return p;

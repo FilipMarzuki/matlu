@@ -18,20 +18,22 @@ import { sift } from '../../../storytelling/sifter';
 import { extractArcs } from '../../../storytelling/arcs';
 import { renderEvent, renderLayeredChronicle } from '../../../storytelling/render';
 import type { World } from '../../../storytelling/world';
-import type { WorldEvent } from '../../../storytelling/types';
+import type { RegionalEvent, WorldEvent } from '../../../storytelling/types';
 import type { CharacterSpec, DynastySpec, TitleSpec, WorldSpec } from '../../../storytelling/world-spec';
 import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
 import { provincesOf, type Province, type Provinces } from './provinces';
-import { PEOPLES_OF, REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, type ReachCulture } from './peoples';
-import { HISTORY_VERSION, type ReachHistory } from './history-format';
+import { REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, racesOf, type ReachCulture } from './peoples';
+import { HISTORY_VERSION, LIVING_MEMORY, type HistoryOrg, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
+import { remembered, type Remembered } from './remembered';
+import { renderRegionalEvent, renderRegionalEventNamed } from '../../../storytelling/render';
+import { nameRegions, regionLabel } from '../../../storytelling/regions';
+import { hasAlliance } from '../../../storytelling/diplomacy';
 
-export { HISTORY_VERSION, type ReachHistory, type ProvinceHistory, type HistoryLine } from './history-format';
+export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory, type HistoryLine, type RegionHistory, type RegionLine, type HistoryOrg } from './history-format';
 
 /** How long the engine runs. Year 1 is when the oldest houses of the Reach first held land. */
 export const HISTORY_YEARS = 150;
-/** The last this many years are told event by event ("living memory"); older years as threads. */
-export const LIVING_MEMORY = 40;
 /** How significant an event must be to be told (the sifter's scale; the engine's own default is 4). */
 const TELL_THRESHOLD = 5;
 /** What each province remembers: its most significant events, at most this many. */
@@ -79,7 +81,7 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
     const pool = cultureOf(p.culture).surnames!.filter(s => !usedSurnames.has(s));
     const name = pool.length ? pool[Math.floor(rnd() * pool.length)] : p.name;
     usedSurnames.add(name);
-    return { id: `d_${t.id}`, name, culture: p.culture, race: weighted(rnd, PEOPLES_OF[p.culture]) };
+    return { id: `d_${t.id}`, name, culture: p.culture, race: weighted(rnd, racesOf(p.culture)) };
   });
 
   // Each house starts as a holder, a spouse and their children. Parents come before children: the
@@ -126,6 +128,12 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
       // voyages to new lands, and the Reach is inland.
       id: p.id, name: p.name, terrain: p.terrain, fertility: p.fertility, coastal: false, river: p.river,
       neighbors: p.neighbors, population: p.population, mana: p.mana,
+      // For the engine's regional economy only (#1598): a lake to fish, and how much of the land is
+      // bare rock (scree and fell) to mine. Nothing else in the engine reads either on a surface
+      // province, but since #1608 the regional economy pushes back (a thriving mine makes its
+      // province rich, and its lord stronger), so they shape the history too.
+      lake: p.lakeside,
+      mineralWealth: Math.round(rockShare(reach, p) * 100) / 100,
     })),
     titles,
     dynasties,
@@ -142,6 +150,9 @@ export function simulateReach(seed: number, years = HISTORY_YEARS): { reach: Rea
   // The engine gets its own seed, derived like the grid's streams, so it shares no stream with the sim.
   const world = loadWorld(reachSpec(reach, provinces), seedOf(`${seed}|world|history`));
   for (let y = 0; y < years; y++) tick(world);
+  // Name the regions from the history just lived (a mine, a hero, a hardship, a quarrel, or the
+  // market town). After the last tick and RNG-free, so the event log stays as it was.
+  nameRegions(world);
   return { reach, provinces, world };
 }
 
@@ -150,7 +161,11 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
   const { provinces, world } = simulateReach(seed, years);
   const { chronicle } = sift(world, TELL_THRESHOLD);
   const arcs = extractArcs(world, chronicle);
-  const text = renderLayeredChronicle(world, chronicle, arcs, { living: LIVING_MEMORY, chronicle: years });
+  // The big regional events join the told chronicle here, at the telling layer: they're read from
+  // the regional log after the history is lived, so nothing goes into World.events or draws from
+  // World.rng, and the event log (and every hash) stays as it was.
+  const extra = regionalChronicle(world, new Set(chronicle.map(e => e.id)));
+  const text = renderLayeredChronicle(world, chronicle, arcs, { living: LIVING_MEMORY, chronicle: years, extra });
 
   // Which province an event happened in: its own, or the seat of the title it's about.
   const where = (ev: WorldEvent) => ev.provinceId ?? world.title(ev.titleId)?.provinceId ?? null;
@@ -161,29 +176,190 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
     provinces: provinces.list.map(p => {
       const title = world.province(p.id)?.titleId ? world.title(world.province(p.id)!.titleId) : undefined;
       const holder = title?.holderId ? world.char(title.holderId) : undefined;
-      // One line per deed: the engine often logs a deed twice (a murder, and the kinslaying it was),
-      // so keep only the most significant event per person per year.
-      const seen = new Set<string>();
-      const lines = chronicle
-        .filter(ev => where(ev) === p.id)
-        .sort((a, b) => b.significance - a.significance || a.id - b.id)
-        .filter(ev => { const k = `${ev.year}|${ev.actorId ?? ev.id}`; if (seen.has(k)) return false; seen.add(k); return true; })
-        .slice(0, LINES_PER_PROVINCE)
-        .sort((a, b) => a.year - b.year || a.id - b.id)
-        .map(ev => ({ year: ev.year, text: renderEvent(world, ev) }));
+      const lines = pickLines(chronicle.filter(ev => where(ev) === p.id), world.year)
+        .map(ev => ({ year: ev.year, text: renderEvent(world, ev), kind: ev.type, house: houseOf(world, ev) }));
       return {
         id: p.id,
         name: p.name,
         culture: cultureName(p.culture),
         title: title?.name ?? p.name,
         holder: holder ? fullName(world, holder.id) : null,
+        house: holder ? world.dynasty(holder.dynastyId)?.name ?? null : null,
         lines,
       };
     }),
+    regions: regionsOf(world),
+    orgs: orgsOf(world),
     chronicle: text,
     logged: world.events.length,
     told: chronicle.length,
   };
+}
+
+/**
+ * What each road village remembers (remembered.ts), from nothing but the seed: for a game that
+ * has no told history to hand, like a server game (API, MCP, console), where no worker ran.
+ * Telling the history is nearly all the cost (a quarter to half a second in Node: the engine's
+ * 150 years), and reading it is a few milliseconds. So a caller that already has the history
+ * (the page keeps it) passes it to `remembered` instead, and one that doesn't should keep the
+ * history, or this result, per seed rather than call this on every request: both are plain data.
+ */
+export function rememberedOf(seed: number): Remembered {
+  return remembered(runHistory(seed));
+}
+
+/**
+ * How significant a regional event must be to join the chronicle (the sifter's scale,
+ * sifter.ts regionalSignificance). Within living memory 5: famine and plague (6–7), a house
+ * losing its last seat in a region (5), a seat seized or left empty, a feud, a great lord's death
+ * (5). Not a fair or festival (2), a hard winter, bandits or a bad harvest (3), a failing mine
+ * (3–4). Older than living memory 6: only famine, plague and seizures are still told.
+ */
+export const REGION_CHRONICLE_THRESHOLD = 5;
+export const REGION_CHRONICLE_LEGEND_THRESHOLD = 6;
+
+/**
+ * The regional events the chronicle tells (#1598), oldest first, each naming its region. One
+ * that only retells an event the chronicle already tells (a seizure, a lord's death) is left out,
+ * unless it's a famine or plague across more than one of the region's lands: that's news the
+ * province lines don't give.
+ */
+export function regionalChronicleEvents(world: World, told: ReadonlySet<number>): RegionalEvent[] {
+  const present = world.year;
+  return world.regionalEvents
+    .filter(e => e.significance >= (present - e.year <= LIVING_MEMORY ? REGION_CHRONICLE_THRESHOLD : REGION_CHRONICLE_LEGEND_THRESHOLD))
+    .filter(e => {
+      if (e.causeEventId === null || !told.has(e.causeEventId)) return true;
+      return (e.kind === 'FAMINE' || e.kind === 'PLAGUE') && Number(e.data['provinces'] ?? 1) > 1;
+    })
+    .sort((a, b) => a.year - b.year || a.id - b.id);
+}
+
+/** Those events as the chronicle's extra lines (render.ts renderLayeredChronicle `extra`). */
+export function regionalChronicle(world: World, told: ReadonlySet<number>): { year: number; text: string }[] {
+  return regionalChronicleEvents(world, told).map(e => ({ year: e.year, text: renderRegionalEventNamed(world, e) }));
+}
+
+/** Regional events told per region: the most notable of living memory, and of the years before. */
+const REGION_LIVING_LINES = 16;
+const REGION_LEGEND_LINES = 5;
+/** Notable enough to tell: within living memory a lord's death or a bad harvest (3) and up; older, only the great events (5). */
+const REGION_LIVING_THRESHOLD = 3;
+const REGION_LEGEND_THRESHOLD = 5;
+/** A feud is still "lately" this many years after the lords last fought. */
+const FEUD_YEARS = 10;
+
+/** The engine's regions (storytelling/regions.ts, #1598) at the end of the history, as plain data. */
+export function regionsOf(world: World): RegionHistory[] {
+  const present = world.year;
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const idOf = (rid: string) => `${slug(world.regions.get(rid)!.name)}-country`;
+  const provName = (id: string | null) => (id ? world.province(id)?.name ?? null : null);
+  const houseName = (d: string) => world.dynasty(d)?.name ?? d;
+  return [...world.regions.values()].map(r => {
+    const mine = world.regionalEvents.filter(e => e.regionId === r.id);
+    const notable = (living: boolean, threshold: number, cap: number, category?: string) => mine
+      .filter(e => (present - e.year <= LIVING_MEMORY) === living && e.significance >= threshold && (!category || e.category === category))
+      .sort((a, b) => b.significance - a.significance || b.year - a.year || a.id - b.id)
+      .slice(0, cap);
+    // Living memory gets a share per kind, so a turbulent run of lords' deaths and seizures
+    // doesn't crowd out the famines, failing mines and fairs people also talk about.
+    const perKind = Math.floor(REGION_LIVING_LINES / 3);
+    const lines: RegionLine[] = [
+      ...notable(false, REGION_LEGEND_THRESHOLD, REGION_LEGEND_LINES),
+      ...(['politics', 'economy', 'event'] as const).flatMap(k => notable(true, REGION_LIVING_THRESHOLD, perKind, k)),
+    ]
+      .sort((a, b) => a.year - b.year || a.id - b.id)
+      .map(e => ({ year: e.year, kind: e.kind, category: e.category, significance: e.significance, province: provName(e.provinceId), text: renderRegionalEvent(world, e) }));
+    const holders = r.provinceIds.flatMap(pid => {
+      const t = world.title(world.province(pid)?.titleId ?? null);
+      return t?.holderId && world.char(t.holderId)?.alive ? [{ title: t, holder: t.holderId }] : [];
+    });
+    const alliances: [string, string][] = [];
+    holders.forEach((a, i) => holders.slice(i + 1).forEach(b => {
+      if (a.holder !== b.holder && hasAlliance(world, a.holder, b.holder) && !alliances.some(([x, y]) => x === fullName(world, a.holder) && y === fullName(world, b.holder))) alliances.push([fullName(world, a.holder), fullName(world, b.holder)]);
+    }));
+    return {
+      id: idOf(r.id),
+      name: regionLabel(r),
+      centre: { id: r.centreId, name: r.name },
+      provinces: r.provinceIds.map(id => ({ id, name: provName(id)!, livelihood: r.livelihoods[id], secondary: [...r.secondary[id]], founding: r.founding[id], wealth: world.province(id)?.wealth ?? 0.5 })),
+      primary: r.primary,
+      venture: { kind: r.venture.kind, province: provName(r.venture.provinceId)!, state: r.venture.state, since: r.venture.since },
+      prosperity: r.prosperity,
+      price: r.price,
+      harvest: r.harvest,
+      levy: r.levy,
+      tax: r.tax,
+      unsettled: r.unsettled,
+      leadingHouse: r.leadingHouse ? houseName(r.leadingHouse) : null,
+      lords: holders.map(h => ({ province: provName(h.title.provinceId)!, text: `${fullName(world, h.holder)} holds the ${h.title.name}.` })),
+      feuds: Object.entries(r.feuds)
+        // Lately, and still live: both houses have people left, and one still holds a seat here.
+        .filter(([key, year]) => present - year <= FEUD_YEARS
+          && key.split('|').every(d => world.dynastyMembers(d).length > 0)
+          && key.split('|').some(d => (r.houses[d] ?? 0) > 0))
+        .map(([key, year]) => ({ houses: key.split('|').map(houseName) as [string, string], year })),
+      alliances,
+      roads: Object.entries(r.roads).map(([to, trade]) => ({ to: idOf(to), name: regionLabel(world.regions.get(to)!), trade })),
+      lines,
+    };
+  });
+}
+
+/**
+ * Which of a province's told events it keeps: its LINES_PER_PROVINCE most significant, oldest
+ * first, with one place reserved for living memory (#1586). The most significant events tend to
+ * be old (across 24 seeds only a fifth of kept events were within LIVING_MEMORY, and half the road
+ * villages had nothing true and recent to tell), so when none of the top ones is within living
+ * memory but some event is, the most significant recent one takes the last place. A province with
+ * no recent event keeps its top ones as before.
+ *
+ * Only chooses among events already logged and sifted: the engine's random stream and event log
+ * are untouched (history.test.ts pins the log), so only what's told changes (HISTORY_VERSION 5).
+ */
+export function pickLines<E extends Pick<WorldEvent, 'id' | 'year' | 'significance' | 'actorId'>>(events: readonly E[], present: number, n = LINES_PER_PROVINCE): E[] {
+  // One line per deed: the engine often logs a deed twice (a murder, and the kinslaying it was),
+  // so keep only the most significant event per person per year.
+  const seen = new Set<string>();
+  const ranked = [...events]
+    .sort((a, b) => b.significance - a.significance || a.id - b.id)
+    .filter(ev => { const k = `${ev.year}|${ev.actorId ?? ev.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  // The same test as the chronicle's LIVING MEMORY section and remembered.ts `recall`.
+  const living = (ev: E) => present - ev.year <= LIVING_MEMORY;
+  const kept = ranked.slice(0, n);
+  const recent = ranked.find(living);
+  // (If fewer than n were told, all are kept, recent included, so this only ever swaps out the last.)
+  if (n > 0 && recent && !kept.some(living)) kept[kept.length - 1] = recent;
+  return kept.sort((a, b) => a.year - b.year || a.id - b.id);
+}
+
+/**
+ * Server games (API, MCP, console) have no told history to hand, and telling one costs a quarter
+ * to half a second, too much for every new game (PR #1592's timings). So they're to compute what
+ * the villages remember lazily, the first time a road question needs a regional fact, and keep it
+ * per seed: this is that keeping, a small LRU of the last `size` seeds (most games are played by
+ * the seed that started them, and a handful of live games per instance is the common case).
+ * Play keeps the told history itself (history-in-play.ts, #1656), since its facts depend on the
+ * run's switches as well as the seed; this stays for callers that want what the villages remember. `tell` is for tests.
+ */
+export function rememberedCache(size = 4, tell: (seed: number) => Remembered = rememberedOf): (seed: number) => Remembered {
+  const kept = new Map<number, Remembered>(); // insertion order = least recently used first
+  return seed => {
+    let r = kept.get(seed);
+    if (r) kept.delete(seed);
+    else r = tell(seed);
+    kept.set(seed, r);
+    while (kept.size > Math.max(1, size)) kept.delete(kept.keys().next().value!);
+    return r;
+  };
+}
+
+/** The house a deed touches: its doer's (or, with no doer, the one it was done to), for who has a stake in telling it. */
+function houseOf(world: World, ev: WorldEvent): string | null {
+  const who = world.char(ev.actorId ?? ev.targetId);
+  const id = who?.dynastyId ?? (typeof ev.data.dynasty === 'string' ? ev.data.dynasty : null);
+  return id ? world.dynasty(id)?.name ?? null : null;
 }
 
 /** A fingerprint of the event log: the same seed must always log the same events (tests pin it). */
@@ -191,11 +367,42 @@ export function eventLogKey(events: readonly WorldEvent[]): string {
   return events.map(e => `${e.id}|${e.year}|${e.type}|${e.actorId}|${e.targetId}|${e.titleId}|${e.provinceId}`).join('\n');
 }
 
+/**
+ * The engine's organisations as they stand at the end (#1587): its guilds, academies and companies,
+ * as plain data for the road's bridge (organisations.ts). Read off the world after it's lived, so
+ * nothing is drawn from World.rng and the event log stays as it was.
+ */
+export function orgsOf(world: World): HistoryOrg[] {
+  // A head the engine names who has since died may be gone from the roster: name them only if known.
+  const named = (id: string | null): string | null => (id && world.char(id) ? fullName(world, id) : null);
+  return [
+    ...[...world.guilds.values()].map(g => ({
+      id: g.id, name: g.name, kind: 'guild' as const, craft: g.craft, province: g.provinceId, founded: g.foundedYear, ended: g.disbandedYear,
+      members: g.memberIds.length, head: named(g.masterId), monopoly: g.monopolyInventionId ? world.inventions.get(g.monopolyInventionId)?.name ?? null : null,
+    })),
+    ...[...world.academies.values()].map(a => ({
+      id: a.id, name: a.name, kind: 'academy' as const, craft: null, province: a.provinceId, founded: a.foundedYear, ended: a.closedYear,
+      members: a.memberIds.length, head: named(a.masterId), monopoly: null,
+    })),
+    ...[...world.companies.values()].map(c => ({
+      id: c.id, name: c.name, kind: 'company' as const, craft: c.kind, province: c.homeProvinceId, founded: c.formedYear, ended: c.disbandedYear,
+      members: c.memberCount, head: named(c.captainId), monopoly: null,
+    })),
+  ];
+}
+
 /** "Ivar of Hedlund", the way the engine's chronicle names people. */
 function fullName(world: World, id: string): string {
   const c = world.char(id)!;
   const house = world.dynasty(c.dynastyId);
   return house ? `${c.name} of ${house.name}` : c.name;
+}
+
+/** The share of a province's land that's scree, fell or snow: rock, not soil. */
+function rockShare(reach: Reach, p: Province): number {
+  const land = p.cells.filter(i => reach.cells[i].biome !== 'lake' && reach.cells[i].biome !== 'river');
+  if (!land.length) return 0;
+  return land.filter(i => ['scree', 'fell', 'snow'].includes(reach.cells[i].biome)).length / land.length;
 }
 
 const cultureOf = (c: ReachCulture) => REACH_CULTURES.find(s => s.id === c)!;
