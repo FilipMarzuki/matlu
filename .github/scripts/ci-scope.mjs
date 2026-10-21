@@ -30,7 +30,7 @@ export const AREAS = [
   ['wiki', [/^wiki\//]],
   ['dev', [/^dev\//]],
   ['artificer', [/^src\/artificer(-app|-ai|-play)?\//, /^artificer\.html$/, /^artificer\//, /^tests\/artificer-[^/]+\.spec\.ts$/, /^scripts\/(ai-[^/]+|build-artificer\.mjs)$/]],
-  ['engines', [/^storytelling\//, /^mapgen\//]],
+  ['engines', [/^storytelling\//, /^mapgen\//, /^worldmap\//]],
   ['game', [/^src\//, /^public\//, /^index\.html$/, /^crafting\.html$/, /^tests\//, /^macro-world\//]],
   ['docs', [/^docs\//, /^screenshots\//, /\.md$/]],
 ];
