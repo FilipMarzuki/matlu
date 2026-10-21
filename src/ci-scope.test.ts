@@ -35,6 +35,7 @@ describe('CI scope (#1533)', () => {
   it("runs the engines and the game's checks for an engines change (src/ imports them)", () => {
     expect(flags(['mapgen/SettlementGenerator.ts'])).toEqual({ ...none, engines: true, game: true });
     expect(flags(['storytelling/tick.ts'])).toEqual({ ...none, engines: true, game: true });
+    expect(flags(['worldmap/coords.ts'])).toEqual({ ...none, engines: true, game: true });
   });
 
   it('runs only the site build for a wiki or dev change, Markdown content included', () => {
