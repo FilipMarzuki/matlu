@@ -2,6 +2,9 @@
  * Acceptance tests for #1891 — the key survival box under FOCUS (key-box.ts), the night chip with
  * the shelter in it, the PROGRESS rows against the winter outlook (progress-view.ts) and the CAMP
  * tab's full stores list (camp-blocks.ts). Drawn as HTML strings, in English and Swedish.
+ *
+ * #1915 folds the PROGRESS rows into the winter outlook block itself (`outlookBlock`), one row per
+ * key metric, one unit each — no more separate "KEY STORES FOR THE WINTER" list.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -12,7 +15,7 @@ import { STEADY_WORLD } from '../artificer/test-helpers';
 import { newGame } from './controller';
 import { outlookNights } from '../artificer/key-metrics';
 import { foodKinds, keyBox, nightChip } from './key-box';
-import { keyNeedsBlock, progressTab } from './progress-view';
+import { outlookBlock, progressTab } from './progress-view';
 import { storesRow } from './camp-blocks';
 
 const en = makeT('en');
@@ -87,21 +90,23 @@ describe('the night chip with the shelter (#1891)', () => {
   });
 });
 
-describe('PROGRESS: the key metrics against the winter outlook (#1891)', () => {
+describe('PROGRESS: the key metrics folded into the winter outlook, one unit each (#1915)', () => {
   it('Given a run, Then food and firewood read "n of ~need" from the outlook, each tagged holding or short', () => {
     const s = camp(20, { rawFood: 4, rations: 0, firewood: 12 });
     const o = winterOutlook(s);
-    const block = text(keyNeedsBlock(s, en));
+    const nights = o.fuelDays === 1 ? '1 night' : `${o.fuelDays} nights`;
+    const block = text(outlookBlock(s, en));
     expect(block).toContain(`FOOD 4 of ~${outlookNights(s)} days FALLING SHORT`);
-    expect(block).toContain(`FIREWOOD 12 of ~${o.fuelToThaw} FALLING SHORT`);
+    expect(block).toContain(`FIREWOOD 12 of ~${o.fuelToThaw} (${nights}) FALLING SHORT`);
     expect(block).toContain('WATER 6 · fetched as you go');
-    expect(text(keyNeedsBlock(s, sv))).toContain(`VED 12 av ~${o.fuelToThaw} RÄCKER INTE`);
+    const nightsSv = o.fuelDays === 1 ? '1 natt' : `${o.fuelDays} nätter`;
+    expect(text(outlookBlock(s, sv))).toContain(`VED 12 av ~${o.fuelToThaw} (${nightsSv}) RÄCKER INTE`);
   });
 
   it('Given plenty laid by, Then they read holding', () => {
-    const block = text(keyNeedsBlock(camp(20, { rawFood: 0, rations: 80, firewood: 400 }), en));
+    const block = text(outlookBlock(camp(20, { rawFood: 0, rations: 80, firewood: 400 }), en));
     expect(block).toMatch(/FOOD 80 of ~\d+ days HOLDING/);
-    expect(block).toMatch(/FIREWOOD 400 of ~\d+ HOLDING/);
+    expect(block).toMatch(/FIREWOOD 400 of ~\d+ \(\d+ nights?\) HOLDING/);
   });
 
   it('Given a camp that needs no firewood to the thaw (a cave, with the thermal model), Then it says none is needed rather than "of ~0"', () => {
@@ -109,13 +114,14 @@ describe('PROGRESS: the key metrics against the winter outlook (#1891)', () => {
     const sim = newGame().sim;
     const s: Region1State = { ...sim, site: 'cave', day: 20, hoursToday: 0, weatherToday: 'overcast', tier: 1, shelterGrade: 'sound', shelter: { type: 'leanto', walls: null }, stores: { ...sim.stores, firewood: 12 } };
     expect(winterOutlook(s).fuelToThaw).toBe(0);
-    expect(text(keyNeedsBlock(s, en))).toContain('FIREWOOD 12 · none needed to the thaw HOLDING');
+    expect(text(outlookBlock(s, en))).toContain('FIREWOOD 12 · none needed to the thaw HOLDING');
   });
 
-  it('Given the PROGRESS tab, Then the rows sit under the winter outlook', () => {
+  it('Given the PROGRESS tab, Then the key rows sit inside the winter outlook, with no separate heading', () => {
     const tab = progressTab(camp(20, {}), [], '', en);
-    expect(tab.indexOf('KEY STORES FOR THE WINTER')).toBeGreaterThan(tab.indexOf('WINTER OUTLOOK'));
-    expect(tab.indexOf('KEY STORES FOR THE WINTER')).toBeLessThan(tab.indexOf('MILESTONES'));
+    expect(tab).not.toContain('KEY STORES FOR THE WINTER');
+    expect(tab.indexOf('FIREWOOD')).toBeGreaterThan(tab.indexOf('WINTER OUTLOOK'));
+    expect(tab.indexOf('FIREWOOD')).toBeLessThan(tab.indexOf('MILESTONES'));
   });
 });
 
