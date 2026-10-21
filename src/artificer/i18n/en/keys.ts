@@ -34,13 +34,13 @@ export const keys = {
   'keys.openCamp': 'no shelter built',
 
   // ── PROGRESS: each key metric against the winter outlook ───────────────────
-  'keys.head': 'KEY STORES FOR THE WINTER',
   'keys.row.food': 'FOOD',
   'keys.row.water': 'WATER',
   'keys.row.firewood': 'FIREWOOD',
   'keys.of.food.one': '{n} of ~{m} day',
   'keys.of.food.other': '{n} of ~{m} days',
-  'keys.of.firewood': '{n} of ~{m}',
+  'keys.of.firewoodNights.one': '{n} of ~{m} ({k} night)',
+  'keys.of.firewoodNights.other': '{n} of ~{m} ({k} nights)',
   'keys.asYouGo': '{n} · fetched as you go',
   'keys.noneNeeded': '{n} · none needed to the thaw',
 } as const satisfies Record<string, string>;

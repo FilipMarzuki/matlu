@@ -8,12 +8,12 @@
  */
 
 import type { Key, T } from '../artificer/i18n';
-import { REGION1_MILESTONES, warmth, winterOutlook, FIRE_WARMTH, type Region1State } from '../artificer/region1';
+import { REGION1_MILESTONES, warmth, winterOutlook, FIRE_WARMTH, type Region1State, type WinterOutlook } from '../artificer/region1';
 import { MIDWINTER_AFTER } from '../artificer/winter';
 import { nightTemp, coldNightNeeds } from '../artificer/weather';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { seasonView, weatherReport } from '../artificer/weather-words';
-import { keyMetrics, outlookNights } from '../artificer/key-metrics';
+import { keyMetrics, outlookNights, type KeyMetric } from '../artificer/key-metrics';
 import { esc, pct } from './html';
 
 const plural = (t: T, key: string, n: number, vars: Record<string, string | number> = {}): string => t(`${key}.${n === 1 ? 'one' : 'other'}` as Key, { n, ...vars });
@@ -59,38 +59,39 @@ export function outlookWarnings(s: Region1State, t: T): string[] {
   return out;
 }
 
-/** The winter outlook (#1308): food, fuel and warmth against the nights to the thaw. Replaces the readiness pillars. */
+/**
+ * One key metric's row (#1915): its bar against the winter outlook's need, its amount in one unit —
+ * food in days, firewood in pieces with the nights it lasts in brackets, water as a plain count — and
+ * its HOLDING / FALLING SHORT tag. A need of 0 (a cave's steady air asks no fire, #1770) is said in
+ * words, not "12 of ~0". Water, fetched as you go, has no bar and no tag.
+ */
+function keyRow(m: KeyMetric, o: WinterOutlook, t: T): string {
+  const name = t(`keys.row.${m.id}` as Key);
+  if (m.need === null) return `<div class="pillar nobar"><span class="pn">${esc(name)}</span><span class="kn">${esc(t('keys.asYouGo', { n: m.value }))}</span></div>`;
+  const text = m.need === 0 ? t('keys.noneNeeded', { n: m.value })
+    : m.id === 'food' ? t(`keys.of.food.${m.need === 1 ? 'one' : 'other'}`, { n: m.value, m: m.need })
+      : t(`keys.of.firewoodNights.${o.fuelDays === 1 ? 'one' : 'other'}`, { n: m.value, m: m.need, k: o.fuelDays });
+  const ok = m.holding !== false;
+  const amt = `<span class="amt"><span class="kn">${esc(text)}</span><span class="st ${ok ? 'done' : 'short'}">${esc(t(ok ? 'status.holding' : 'status.short'))}</span></span>`;
+  return `<div class="pillar"><span class="pn">${esc(name)}</span><div class="track"><div class="fill ${ok ? 'done' : 'short'}" style="width:${pct(m.need ? m.value / m.need : 1)}%"></div></div>${amt}</div>`;
+}
+
+/**
+ * The winter outlook (#1308, folded together with the key stores in #1915): each key metric
+ * (key-metrics.ts) against the winter's need — food, firewood and water, each in one unit — then
+ * warmth against the year's hardest night, the warnings and the "enough" line.
+ */
 export function outlookBlock(s: Region1State, t: T): string {
   const cal = s.config.calendar;
   const o = winterOutlook(s);
-  const need = outlookNights(s);
   const warmNeed = coldNightNeeds(nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal));
   const row = (name: string, progress: number, status: string, ok: boolean): string =>
     `<div class="pillar"><span class="pn">${esc(name)}</span><div class="track"><div class="fill ${ok ? 'done' : 'short'}" style="width:${pct(progress)}%"></div></div><span class="st ${ok ? 'done' : 'short'}">${esc(status)}</span></div>`;
   const warnings = outlookWarnings(s, t);
-  return row(t('progress.food'), need ? o.foodDays / need : 1, t('progress.nights', { n: o.foodDays, m: need }), o.foodDays >= need)
-    + row(t('progress.fuel'), need ? o.fuelDays / need : 1, t('progress.nights', { n: o.fuelDays, m: need }), o.fuelDays >= need)
+  return keyMetrics(s).map(m => keyRow(m, o, t)).join('')
     // Warmth is judged against the year's hardest kind of night: clear, at midwinter.
     + row(t('progress.warmth'), (warmth(s) + FIRE_WARMTH) / warmNeed, `${Math.floor((warmth(s) + FIRE_WARMTH) * 100)}% / ${Math.ceil(warmNeed * 100)}%`, o.warmthMargin >= 0)
-    + `<p class="mood" style="margin:6px 0 0">${esc(plural(t, 'progress.water', o.waterDays))}</p>`
     + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">${esc(t('progress.enough'))}</p>`);
-}
-
-/**
- * The key survival metrics against the winter outlook (#1891): "firewood 12 of ~40", "food 4 of ~30
- * days", each tagged holding or short by the outlook's own rule, so its verdict can be read. The
- * needs are the outlook's (key-metrics.ts, from `winterOutlook`); water, fetched as you go, has none.
- */
-export function keyNeedsBlock(s: Region1State, t: T): string {
-  const rows = keyMetrics(s).map(m => {
-    const name = t(`keys.row.${m.id}` as Key);
-    // A need of 0 (a cave's steady air asks no fire, #1770): said in words, not "12 of ~0".
-    const text = m.need === null ? t('keys.asYouGo', { n: m.value }) : m.need === 0 ? t('keys.noneNeeded', { n: m.value })
-      : m.id === 'food' ? t(`keys.of.food.${m.need === 1 ? 'one' : 'other'}`, { n: m.value, m: m.need }) : t('keys.of.firewood', { n: m.value, m: m.need });
-    const tag = m.holding === null ? '' : `<span class="st ${m.holding ? 'done' : 'short'}">${esc(t(m.holding ? 'status.holding' : 'status.short'))}</span>`;
-    return `<li class="k-${m.id}${m.holding === false ? ' short' : ''}"><span class="pn">${esc(name)}</span><span class="kn">${esc(text)}</span>${tag}</li>`;
-  }).join('');
-  return `<ul class="keyneeds">${rows}</ul>`;
 }
 
 /** The milestones, done or still to do. */
@@ -121,7 +122,6 @@ export function progressTab(s: Region1State, history: readonly RunRecord[], jour
   return `<div class="cols">
         <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t)}
-          <p class="eyebrow" style="margin-top:12px">${esc(t('keys.head'))}</p>${keyNeedsBlock(s, t)}
           <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t)}
           ${history.length ? `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}` : ''}</section>
         <section class="box log">${journalHead ?? `<p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p>`}<ul class="full">${journalHtml}</ul></section>

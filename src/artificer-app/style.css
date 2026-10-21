@@ -67,6 +67,11 @@
   .pillar .fill.done { background: var(--green); }
   .pillar .st { font-family: var(--display); font-size: 7px; letter-spacing: .5px; min-width: 70px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
   .pillar .st.done { color: var(--green); }
+  /* A key metric row (#1915): the amount (water's grows into the track's column too) and, when there's a need, its HOLDING/FALLING SHORT tag beside it. */
+  .pillar .kn { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13px; }
+  .pillar .amt { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .pillar .amt .st { min-width: 0; }
+  .pillar.nobar .kn { grid-column: 2 / -1; }
   .verdict-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-family: var(--display); font-size: 9px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
   .verdict-row .tag { padding: 3px 9px; border-radius: 6px; }
   .tag.no { color: var(--warn); border: 1px solid var(--warn); }
@@ -1474,10 +1479,3 @@ header.tworow { display: block; }
 .tag.nightq { border: 1px solid var(--border2); color: var(--dim); cursor: help; }
 .tag.nightq.q-cold { border-color: rgba(255,170,51,.5); color: var(--warn); }
 .tag.nightq.q-dangerous { border-color: rgba(255,90,90,.6); color: var(--danger); }
-/* PROGRESS: each key metric against the winter outlook (#1891, progress-view.ts keyNeedsBlock). */
-.keyneeds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.keyneeds li { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 10px; }
-.keyneeds .pn { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
-.keyneeds .kn { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13px; }
-.keyneeds .st { font-family: var(--display); font-size: 7px; letter-spacing: .5px; text-align: right; color: var(--green); }
-.keyneeds .st.short { color: var(--warn); }

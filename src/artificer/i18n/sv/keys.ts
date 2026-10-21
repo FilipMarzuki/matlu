@@ -29,13 +29,13 @@ export const keysSv: Record<keyof typeof keys, string> = {
   'keys.nightTip': 'I natt: {shelter}, {warmth}.',
   'keys.openCamp': 'inget skydd byggt',
 
-  'keys.head': 'VIKTIGASTE FÖRRÅDEN FÖR VINTERN',
   'keys.row.food': 'MAT',
   'keys.row.water': 'VATTEN',
   'keys.row.firewood': 'VED',
   'keys.of.food.one': '{n} av ~{m} dag',
   'keys.of.food.other': '{n} av ~{m} dagar',
-  'keys.of.firewood': '{n} av ~{m}',
+  'keys.of.firewoodNights.one': '{n} av ~{m} ({k} natt)',
+  'keys.of.firewoodNights.other': '{n} av ~{m} ({k} nätter)',
   'keys.asYouGo': '{n} · hämtas efter hand',
   'keys.noneNeeded': '{n} · inget behövs till tövädret',
 };
