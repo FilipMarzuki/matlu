@@ -4,8 +4,8 @@
  *
  * The world beyond the Reach is one world-wide noise field in world cell units, so neighbouring
  * hexes join by construction: there are no per-hex maps to stitch. The Reach is laid over it,
- * untouched, as the start patch, and a 6-cell band around it blends the Reach's edge into the
- * world's height, so there's no cliff where one ends and the other begins.
+ * untouched, as the start patch, and an 8-cell band around it (`PATCH_BLEND`) blends the Reach's
+ * edge into the world's height, so there's no cliff where one ends and the other begins.
  *
  * Seeds: every stream here is `seedOf(\`${seed}|hexworld|${salt}\`)`. The Reach draws from
  * `|world|` streams, so these can't collide with them, and making the world never moves a draw of
@@ -19,8 +19,13 @@ import { generator, seedOf } from './rng';
 import type { CellXY } from './coords';
 import { generateReach, biomeOf, fbm, REACH_W, REACH_H, type Cell } from './reach';
 
-/** Cells from the Reach's edge over which its height fades into the world's. */
-export const PATCH_BLEND = 6;
+/**
+ * Cells from the Reach's edge over which its height fades into the world's. 8, not the plan's 6
+ * (owner decision on #1896): the world's gentle tilt (see `worldHeight`) sits further from the
+ * Reach's high north and low south edges, and a wider band spreads that difference over more,
+ * smaller steps.
+ */
+export const PATCH_BLEND = 8;
 
 // A local copy: reach.ts keeps its own clamp01 private, and that file is pinned unchanged.
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -69,20 +74,23 @@ const reachCells = (seed: number): readonly Cell[] =>
 /**
  * The world's height at a cell, 0 (lowest) to 1 (highest), before the Reach is laid over it.
  *
- * Gentle noise (landforms about two hexes across), plus a continental trend: higher to the north
- * (the fells beyond the pass), lower to the south (towards Mistheim's lowlands). The trend is zero
- * at the start hex's centre row (cy = 19.5).
+ * Noise at about 1/24 cells (about one landform a hex), plus a gentle continental trend: higher to
+ * the north (the fells beyond the pass), lower to the south (towards Mistheim's lowlands). The
+ * trend is zero at the start hex's centre row (cy = 19.5) and moves the height 0.002 a cell, so
+ * 0.2 over 100 cells: `fbm` averages about 0.5, so on average the land stays above lake level
+ * (0.16) to about cy ≈ 177 (hex (0, 10)), past Mistheim, which the plan puts at hex (0, 8).
  *
- * Tuned from the issue's starting point `0.55 * fbm(cx / 16) + 0.25 - 0.002 * (cy - 19.5)` (#1896),
- * which left no lakes around the start hex and a step past the band's limit on 3 of 20 seeds. The
- * Reach is high on its north edge and low on its south edge, and the band can only blend over 6
- * cells, so the world has to match both edges closely: a steeper trend does that, and lower, longer
- * noise keeps each step small. The price: on average the land reaches lake level two hexes south
- * of the start hex (cy ≈ 51), so the far south is open water; a later step that wants dry
- * lowlands there (Mistheim) has to revisit these numbers.
+ * These are the owner's numbers (decision on #1896, 2026-10-22). The plan started from
+ * `0.55 * fbm(cx / 16) + 0.25 - 0.002 * (cy - 19.5)`, which broke the band's step limit on some
+ * seeds and left under 1% lake around the start hex. None of the 2,192 combinations tried (blend
+ * bands 6 to 16 cells) gave lakes there and kept the south dry: the tunings that gave lakes did it
+ * with a steep trend that sinks the whole south, e.g. `0.0045` a cell reaches lake level two hexes
+ * south (cy ≈ 51), so Mistheim's lowlands would be open water. The owner chose dry lowlands: the
+ * gentle trend here, which leaves few lakes near the start (0 to 1.3% of its cells over 150
+ * seeds). Lakes there come with the rivers that feed them (#1897), not from the height field.
  */
 export function worldHeight(seed: number, cx: number, cy: number): number {
-  return clamp01(0.3 * fbm(fields(seed).height, cx / 32, cy / 32, 5) + 0.15 - 0.0045 * (cy - 19.5));
+  return clamp01(0.45 * fbm(fields(seed).height, cx / 24, cy / 24, 5) + 0.25 - 0.002 * (cy - 19.5));
 }
 
 /** The world's moisture at a cell, 0 (dry) to 1 (wet): the Reach's moisture formula (4 octaves, offset +7, +3) in world cell units. */
@@ -105,9 +113,9 @@ function reachDistance(cx: number, cy: number): number {
  *
  * - **Inside the Reach** (0 ≤ cx < 48, 0 ≤ cy < 32): the Reach's own cell, untouched, rivers and
  *   all. World cell (x, y) is Reach cell (x, y).
- * - **In the band** (1 to `PATCH_BLEND` cells out): the height runs from the nearest Reach edge
- *   cell's height (at distance 0) to the world's (at distance 6) in equal steps, so the Reach's
- *   edge eases into the world instead of ending in a cliff.
+ * - **In the band** (1 to `PATCH_BLEND` = 8 cells out): the height runs from the nearest Reach
+ *   edge cell's height (at distance 0) to the world's (at distance 8) in equal steps, so the
+ *   Reach's edge eases into the world instead of ending in a cliff.
  * - **Beyond the band:** the world's height.
  *
  * Outside the Reach the biome comes from the Reach's own `biomeOf`, so both speak one biome list.

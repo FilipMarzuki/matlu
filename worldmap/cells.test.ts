@@ -1,17 +1,19 @@
 /**
  * #1896 — the world beyond the Reach: world-wide cell fields, with the Reach laid over them as the
- * start patch and a 6-cell band blending one into the other (docs/spikes/artificer-hex-world.md §3).
+ * start patch and an 8-cell band (`PATCH_BLEND`) blending one into the other
+ * (docs/spikes/artificer-hex-world.md §3; 8 and the gentle tilt are the owner's decision on #1896).
  *
  * One test per acceptance scenario. The Reach must come through untouched (1, 2), the fields must
  * be pure (3), the band must not leave a cliff at the Reach's edge (4), and the land around the
  * start hex must look like land (5) that tilts from the northern fells to the southern lowlands (6).
+ * Scenario 5 sets no lake floor: lakes near the start come with rivers (#1897).
  *
  * (A test may import from src/: tests are not part of worldmap's build, see worldmap/tsconfig.json.)
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { worldCell, worldHeight } from './cells';
+import { worldCell, worldHeight, PATCH_BLEND } from './cells';
 import { generateReach, REACH_W, REACH_H, type Biome, type Reach } from './reach';
 import { cellsOfHex, hexDistance, type CellXY, type Hex } from './coords';
 import { seedOf } from './rng';
@@ -45,12 +47,16 @@ describe('worldmap/cells: world cell fields and the Reach start patch (#1896)', 
   });
 
   it("scenario 2: given w-vega, after 1,000 worldCell calls outside the Reach, the Reach's golden hash is unchanged", () => {
-    // The first 1,000 cells outside the Reach in the box around it: the whole 6-cell band (which
-    // reads the Reach's edge) and two rings beyond it (pure world noise).
+    // The first 1,000 cells outside the Reach, row by row, in a box two cells wider than the band:
+    // band cells (which read the Reach's edge) and cells beyond it (pure world noise).
     const outside: CellXY[] = [];
-    for (let cy = -8; cy < REACH_H + 8 && outside.length < 1000; cy++)
-      for (let cx = -8; cx < REACH_W + 8 && outside.length < 1000; cx++) if (!inReach(cx, cy)) outside.push({ cx, cy });
+    const box = PATCH_BLEND + 2;
+    for (let cy = -box; cy < REACH_H + box && outside.length < 1000; cy++)
+      for (let cx = -box; cx < REACH_W + box && outside.length < 1000; cx++) if (!inReach(cx, cy)) outside.push({ cx, cy });
     expect(outside).toHaveLength(1000);
+    const inBand = outside.filter(c => reachDistance(c.cx, c.cy) <= PATCH_BLEND).length;
+    expect(inBand).toBeGreaterThan(0);
+    expect(inBand).toBeLessThan(1000);
 
     for (const [name, golden] of [['w-vega', 'f9779a07a1a21ff9'], ['w-astrid', '585e1925ea7025e5']] as const) {
       const seed = seedOf(name);
@@ -89,7 +95,8 @@ describe('worldmap/cells: world cell fields and the Reach start patch (#1896)', 
     expect([m2.worldCell(seed, a), m2.worldCell(seed, b), m2.worldCell(seed, band)]).toEqual(first);
   });
 
-  it("scenario 4: given 20 seeds, every 4-neighbour step touching the band is at most max(0.12, the Reach's largest step)", () => {
+  it("scenario 4: given 20 seeds, every 4-neighbour step touching the band (distance 1–8) is at most max(0.12, the Reach's largest step)", () => {
+    expect(PATCH_BLEND).toBe(8);
     for (const seed of HW_SEEDS) {
       const reach = generateReach(seed);
       let reachStep = 0;
@@ -102,13 +109,14 @@ describe('worldmap/cells: world cell fields and the Reach start patch (#1896)', 
           }
       const allowed = Math.max(0.12, reachStep);
 
-      // Every cell in the band (Chebyshev distance 1–6), against each of its 4 neighbours, which
-      // may be in the Reach (distance 0), in the band, or just beyond it (distance 7).
+      // Every cell in the band (Chebyshev distance 1–8), against each of its 4 neighbours, which
+      // may be in the Reach (distance 0), in the band, or just beyond it (distance 9). That covers
+      // every pair with at least one cell in the band.
       let worst = 0, at = '';
-      for (let cy = -6; cy < REACH_H + 6; cy++)
-        for (let cx = -6; cx < REACH_W + 6; cx++) {
+      for (let cy = -PATCH_BLEND; cy < REACH_H + PATCH_BLEND; cy++)
+        for (let cx = -PATCH_BLEND; cx < REACH_W + PATCH_BLEND; cx++) {
           const d = reachDistance(cx, cy);
-          if (d < 1 || d > 6) continue;
+          if (d < 1 || d > PATCH_BLEND) continue;
           const h = worldCell(seed, { cx, cy }).height;
           for (const [dx, dy] of STEPS) {
             const step = Math.abs(h - worldCell(seed, { cx: cx + dx, cy: cy + dy }).height);
@@ -119,7 +127,7 @@ describe('worldmap/cells: world cell fields and the Reach start patch (#1896)', 
     }
   });
 
-  it('scenario 5: given 20 seeds, the cells of hexes within 2 of (0,0) outside the Reach have 1–35% lake, no biome over 60%, 5+ biomes, no river', () => {
+  it('scenario 5: given 20 seeds, the cells of hexes within 2 of (0,0) outside the Reach have at most 35% lake, no biome over 60%, 5+ biomes, no river', () => {
     const hexes: Hex[] = [];
     for (let q = -2; q <= 2; q++) for (let r = -2; r <= 2; r++) if (hexDistance({ q, r }, { q: 0, r: 0 }) <= 2) hexes.push({ q, r });
     expect(hexes).toHaveLength(19);
@@ -134,7 +142,7 @@ describe('worldmap/cells: world cell fields and the Reach start patch (#1896)', 
       }
       const share = (b: Biome) => (counts.get(b) ?? 0) / cells.length;
       const shares = [...counts.entries()].map(([b, n]) => `${b} ${((100 * n) / cells.length).toFixed(1)}%`).join(', ');
-      expect(share('lake'), `lake, seed ${seed}: ${shares}`).toBeGreaterThanOrEqual(0.01);
+      // No floor on lake (owner decision on #1896): lakes near the start come with rivers (#1897).
       expect(share('lake'), `lake, seed ${seed}: ${shares}`).toBeLessThanOrEqual(0.35);
       expect(Math.max(...[...counts.values()]) / cells.length, `largest biome, seed ${seed}: ${shares}`).toBeLessThanOrEqual(0.6);
       expect(counts.size, `distinct biomes, seed ${seed}: ${shares}`).toBeGreaterThanOrEqual(5);
