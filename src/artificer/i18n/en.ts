@@ -122,6 +122,7 @@ const core = {
   'status.short': 'FALLING SHORT',
   'status.holding': 'HOLDING',
   'status.outlookTip': 'The winter outlook',
+  'status.more': 'More',
 
   // ── Tabs ───────────────────────────────────────────────────────────────────
   'tab.plan': 'PLAN',

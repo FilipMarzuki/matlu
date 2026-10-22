@@ -16,8 +16,9 @@
 # The paths: the Artificer's own code and page, its play API (src/artificer-play, since #1555),
 # its build, the dependencies, and what it imports or ships from outside src/artificer*: the
 # history engine (storytelling/, since #1540), the settlement generator and the Building Forge's
-# data (mapgen/, building-registry.json and cultures.json, since #1541), rank-names.ts, and the
-# sprites scripts/build-artificer.mjs copies.
+# data (mapgen/, building-registry.json and cultures.json, since #1541), the world generator,
+# which makes the Reach (worldmap/, since #1895), rank-names.ts, and the sprites
+# scripts/build-artificer.mjs copies.
 #
 # A redeploy always builds (#1563). It rebuilds the commit already live, so the diff below is
 # empty, yet it's how new environment variables reach the site: Vercel only gives them to new
@@ -28,5 +29,5 @@ cd .. || exit 1
 git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- \
   src/artificer src/artificer-app src/artificer-ai src/artificer-play artificer.html artificer \
   scripts/build-artificer.mjs package.json package-lock.json \
-  storytelling mapgen public/macro-world/building-registry.json macro-world/cultures.json \
+  storytelling mapgen worldmap public/macro-world/building-registry.json macro-world/cultures.json \
   src/rank-names.ts public/assets/sprites/characters || exit 1

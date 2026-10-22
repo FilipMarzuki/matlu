@@ -296,6 +296,32 @@
 .tabbtn { flex: 1 1 110px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 9px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 9px 10px; font-family: var(--display); font-size: 9px; letter-spacing: 2px; }
 .tabbtn:hover { border-color: var(--teal); }
 .tabbtn.on { color: var(--gold); border-color: var(--gold); background: rgba(255,224,102,.06); }
+/* The ⚙ repeated in the tab bar (#1924, main.ts navMenyBtn): hidden unless the narrow-screen media
+   query below shows it in place of the header's own gear. */
+.navmeny { display: none; }
+
+/* ── The compact status line (#1924, ui switch `compact-status`) ───────────────
+   One line: the day, the three vitals as dots and the key box. Everything else (FOCUS, rations,
+   pain, injuries, the night, the outlook) sits behind the ⋯ in `.compactmore`, which opens into the
+   page's own flow below the sticky bar instead of growing it. */
+.statusbar.compact { display: block; padding: 4px 10px; }
+.cline { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+/* The Warden's button (#1924): with the two-row header, which otherwise gives it a whole row of its
+   own, it rides in the compact line instead; its name shrinks before the line wraps, and under
+   360px it's the portrait alone (still the same button, still opens the Warden's view). */
+.cline .who { flex: 0 1 auto; min-width: 0; }
+.cline .who > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cday { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--faint); white-space: nowrap; flex: none; }
+.cday b { color: var(--ink); font-weight: 400; font-size: 11px; }
+.vdots { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.vdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.vdot.fresh { background: var(--green); } .vdot.ok { background: var(--teal); } .vdot.warn { background: var(--warn); } .vdot.low { background: var(--danger); }
+.statusbar.compact .keybox { flex: none; gap: 8px; padding: 2px 8px; }
+.morebtn { margin-left: auto; flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--sub); color: var(--dim); font-size: 14px; line-height: 1; padding: 4px 11px; cursor: pointer; min-height: 32px; min-width: 32px; }
+.morebtn:hover { border-color: var(--teal); }
+@media (max-width: 420px) { .cline .who > span { display: none; } .cline .who { gap: 0; padding: 3px; } }
+.morebtn[aria-expanded="true"] { color: var(--gold); border-color: var(--gold); }
+.compactmore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px; background: color-mix(in srgb, var(--panel) 94%, transparent); position: relative; }
 
 /* Plan: actions beside the queue on a landscape tablet, stacked when narrow. */
 .plan { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
@@ -312,9 +338,10 @@
    status bar. Phone in portrait (under 700px): the queue is a frozen strip over the actions, which
    take the full width. The journal + camp-site picker are in a box of their own below, never frozen.
    `--stick-top` is the status bar's height, set by main.ts syncStickTop() (the default here is the
-   desktop bar's), so a change to the header or the bar moves the frozen part with it. A queue
-   taller than the screen scrolls inside its frozen box, with the Run bar pinned to its foot. */
-:root { --stick-top: 64px; }
+   compact one-line bar's, #1924 — the default status bar before that first measurement), so a
+   change to the header or the bar moves the frozen part with it. A queue taller than the screen
+   scrolls inside its frozen box, with the Run bar pinned to its foot. */
+:root { --stick-top: 46px; }
 /* The queue's zone is stretched to the actions' height (the row's), and the frozen queue travels
    inside it, so it stays in view the whole way down the actions. The box below starts where the
    actions end: under the queue on desktop, across both columns on a tablet. */
@@ -400,6 +427,22 @@ html { background: var(--bg); }
 body { min-height: 100vh; }
 /* Four tabs fit across a phone. */
 @media (max-width: 520px) { .tabbtn { flex-basis: 60px; letter-spacing: 1px; padding: 9px 4px; } }
+
+/* ── Tabs at the bottom under 900px (#1924, ui switch `compact-status`) ────────
+   The tab row the thumb can already reach, with the ⚙ moved into it (main.ts navMenyBtn): the
+   header keeps its own gear at any wider size, where the row stays at the top as before. */
+@media (max-width: 900px) {
+  .compactnav { padding-bottom: calc(52px + env(safe-area-inset-bottom) + 14px); }
+  .compactnav .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; margin: 0; gap: 4px;
+    padding: 2px 10px calc(2px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--panel) 96%, transparent); backdrop-filter: blur(6px);
+    border-top: 1px solid var(--border); box-shadow: 0 -4px 14px rgba(0,0,0,.28);
+  }
+  .compactnav .tabbar .tabbtn { flex: 1 1 0; padding: 2px 4px; }
+  .compactnav .tabbar .navmeny { display: inline-flex; flex: none; margin-left: 4px; }
+  .compactnav header .menybtn { display: none; }
+}
 
 /* Run history (#1224). */
 .runfacts { margin: 10px 0 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
@@ -1491,7 +1534,7 @@ header.tworow { display: block; }
    `@container planq (max-width: 330px)`) shrinks the ✕ back down; this comes later in the file so it
    wins that tie on a narrow phone. */
 @media (pointer: coarse) {
-  .menybtn, .fbbtn, .guideok, .introbar [data-intro="skip"], .wxonerow, .focuschip, .tabbtn {
+  .menybtn, .fbbtn, .guideok, .introbar [data-intro="skip"], .wxonerow, .focuschip, .tabbtn, .morebtn {
     min-height: 44px;
   }
   .focuschip { align-items: center; }

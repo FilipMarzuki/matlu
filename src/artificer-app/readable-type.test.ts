@@ -104,11 +104,11 @@ function tinySelectors(css: string): string[] {
 }
 
 describe('the readable-type ui feature (#1923)', () => {
-  it('is a ui feature, experimental, on by default, registered last after the finds, and no run saves it', () => {
+  it('is a ui feature, experimental, on by default, registered after the compact status bar, and no run saves it', () => {
     expect(featureById(READABLE_TYPE_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1923 });
     expect(uiFeatureOn({}, READABLE_TYPE_FEATURE)).toBe(true);
     expect(uiFeatureOn({ [READABLE_TYPE_FEATURE]: false }, READABLE_TYPE_FEATURE)).toBe(false);
-    expect(FEATURES.findIndex(f => f.id === READABLE_TYPE_FEATURE)).toBe(FEATURES.findIndex(f => f.id === 'explore-finds') + 1);
+    expect(FEATURES.findIndex(f => f.id === READABLE_TYPE_FEATURE)).toBe(FEATURES.findIndex(f => f.id === 'compact-status') + 1);
     expect(READABLE_TYPE_FEATURE in ruleFeatures()).toBe(false);
     expect(ruleFeatures({ [READABLE_TYPE_FEATURE]: false })).toEqual(ruleFeatures());
   });

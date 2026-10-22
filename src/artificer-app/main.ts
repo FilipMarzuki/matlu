@@ -102,7 +102,7 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { TWO_ROW_FEATURE, wardenRow, type VitalReading } from './vital-words';
+import { TWO_ROW_FEATURE, wardenRow, vitalDot, type VitalReading } from './vital-words';
 import { NOTES_FEATURE, howtoBody, journalHead, notesShown, journalBoxShown } from './journal-notes';
 import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
 import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
@@ -378,6 +378,12 @@ function loadBar(l: TripLoad, guess?: string): string {
 /** Whether the status bar's focus picker is open (#1758): the page's alone, never saved. */
 let focusPopOpen = false;
 
+/** A one-line status bar and the tabs at the bottom on phones (#1924): a ui feature, on unless switched off in the features panel. */
+const COMPACT_STATUS_FEATURE = 'compact-status';
+const compactOn = (): boolean => uiFeatureOn(loadChoices(), COMPACT_STATUS_FEATURE);
+/** Whether the compact bar's "more" panel (FOCUS, pain, injuries, the night, the outlook) is open: the page's alone, never saved. */
+let compactMoreOpen = false;
+
 // The eating plan's chip (#1305) and its row in the Warden's view (#1848) are drawn by rations-view.ts.
 
 /** Rations with the Warden (#1848): a ui feature, on unless switched off in the features panel. */
@@ -559,7 +565,8 @@ function stripBlock(a: AppState, preview: Preview): string {
  * resources) is the sticky bar's top line, so the resources stay in view while the page scrolls, as
  * the bars did, and the frozen queue (#1826, `syncStickTop`) still stops right under it.
  */
-function statusBar(a: AppState, preview: Preview, row2 = ''): string {
+function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): string {
+  if (compactOn()) return compactStatusBar(a, preview, warden);
   const s = a.sim;
   const mini = (label: string, cur: number, cap: number, max: number): string => {
     const b = band(cap > 0 ? cur / cap : 0);
@@ -593,6 +600,53 @@ function statusBar(a: AppState, preview: Preview, row2 = ''): string {
     ${keyColumn(focusChip(s, t, focusPopOpen, focusUi()), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${nightChip(s, t)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
     ${outlookTag(s, ready)}
+  </div>`;
+}
+
+/**
+ * The compact status line (#1924, ui switch `compact-status`): the Warden's button (with the
+ * two-row header, which otherwise gives it a whole row of its own), the day, the three vitals as
+ * small dots and the key box (food/water/firewood), all on one line, so the sticky bar stays to
+ * that line's height. Everything else the full bar carries — FOCUS and its picker, rations, pain,
+ * injuries, the night and the day's outlook — sits behind the ⋯ toggle (`compactMoreOpen`,
+ * `compactMorePanel`), in a panel under the bar that scrolls away with the page instead of staying
+ * frozen.
+ */
+function compactStatusBar(a: AppState, preview: Preview, warden: string): string {
+  const s = a.sim;
+  const g = guide;
+  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return warden ? `<div class="statusbar compact"><div class="cline">${warden}</div></div>` : '';
+  const dots = g.shows('vitals') ? `<span class="vdots"${g.mark('vitals')}>${vitalReadings(a.sim).map(v => vitalDot(v, t)).join('')}</span>` : '';
+  const stores = g.shows('stores') ? markFirst(keyBox(s, t), 'stores') : '';
+  const hasMore = g.shows('focus') || g.shows('vitals');
+  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
+  const more = hasMore
+    ? `<button class="morebtn" data-cmd="compactmore" aria-expanded="${compactMoreOpen}" aria-controls="compactmore" aria-label="${esc(t('status.more'))}" title="${esc(t('status.more'))}">⋯</button>`
+    : '';
+  return `<div class="statusbar compact">
+    <div class="cline">
+      ${warden}<span class="cday">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
+      ${dots}${stores}${more}
+    </div>
+    ${compactMoreOpen ? compactMorePanel(a, preview) : ''}
+  </div>${tips}`;
+}
+
+/**
+ * The compact bar's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
+ * and the day's outlook — what the one-line bar leaves out. Not frozen: it opens into the page's own
+ * flow, under the sticky bar, and shuts again at the same ⋯.
+ */
+function compactMorePanel(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  const g = guide;
+  const focus = g.shows('focus') ? markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock') : '';
+  const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
+  return `<div id="compactmore" class="compactmore">
+    ${focus}${focusPop}
+    ${g.shows('stores') ? statusEating(s) : ''}${g.shows('vitals') ? `${nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}` : ''}
+    <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
+    ${g.shows('focus') ? outlookTag(s, winterReady(s)) : ''}
   </div>`;
 }
 
@@ -742,7 +796,11 @@ function setMeny(open: boolean): void {
   idCopied = false;
   render(state);
   // Into the page's heading on the way in; back to the ⚙ on the way out (the redraw drops focus).
-  root.querySelector<HTMLElement>(open ? '#meny-title' : '[data-cmd="meny"]')?.focus({ preventScroll: !open });
+  // With the gear in both the header and the bottom bar (#1924), CSS shows only one by width: pick
+  // whichever is actually visible, so focus doesn't land on a hidden copy.
+  const gear = open ? root.querySelector<HTMLElement>('#meny-title')
+    : [...root.querySelectorAll<HTMLElement>('[data-cmd="meny"]')].find(el => el.offsetParent !== null) ?? root.querySelector<HTMLElement>('[data-cmd="meny"]');
+  gear?.focus({ preventScroll: !open });
 }
 
 /** The Menu's page, on the Reach or the road. */
@@ -789,6 +847,13 @@ function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'we
     ...p, dev: devChip(), weekly: weeklyButton(t), features: featuresButton(), look: lookSwitcher(a), reset: newSaveButton(t),
   }, on ? menyButton(menyShown(), t, dev ? devTag() : '') : '');
 }
+
+/**
+ * The ⚙ repeated inside the tab bar (#1924): under 900px (style.css), CSS hides the header's own ⚙
+ * and shows this one instead, so it sits in the bar within thumb reach at the bottom of the screen.
+ * At any other width, or with the Menu off, the header keeps its gear and this stays hidden.
+ */
+const navMenyBtn = (): string => (compactOn() && menyOn() ? `<span class="navmeny">${menyButton(menyShown(), t, dev ? devTag() : '', true)}</span>` : '');
 
 // ── The two-row header (#1824, vital-words.ts) ──────────────────────────────
 // A ui feature on top of the Menu: row 1 the place, the day, the ⚙ and feedback; row 2 the Warden
@@ -1091,6 +1156,7 @@ function drawPage(a: AppState): void {
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
   root.classList.toggle('winter', winter);
+  root.classList.toggle('compactnav', compactOn());
   root.style.setProperty('--snow', String(winter ? Math.max(0.25, a.sim.snowDepth ?? 0) : 0));
   const fresh = a.sim.log.length === 0;
   // Which tabs show (#1688, #1691), and the open one settled against them: a CAMP tab kept from an
@@ -1128,9 +1194,11 @@ function drawPage(a: AppState): void {
       }, a, '')}
     ${menyOn() ? '' : featuresPanel(a)}
     ${!notesOn() && ((fresh && !guide.active) || showHelp) ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
-    ${statusBar(a, preview, twoRowOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '')}
+    ${statusBar(a, preview,
+      twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
+      twoRowOn() && compactOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>${TAB_TIPS.map(guideTip).join('')}
+    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${navMenyBtn()}</nav>${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -1448,6 +1516,7 @@ const roadJournal = (r: RoadState, limit: number): string => journalItems(r.log,
 
 function renderRoad(a: AppState, r: RoadState): void {
   root.classList.remove('winter');
+  root.classList.toggle('compactnav', compactOn());
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
@@ -1468,7 +1537,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}${navMenyBtn()}</nav>
     ${meny ? menyView(a) : body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }
@@ -2250,6 +2319,8 @@ root.addEventListener('click', e => {
   if (d.cmd === 'feedback') { feedback.toggle(); return; }
   // The phone's queue strip (#1826): unfold or fold it. Presentation only, so mid-day too.
   if (d.cmd === 'qstrip') { stripOpen = !stripOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="qstrip"]')?.focus({ preventScroll: true }); return; }
+  // The compact status bar's ⋯ (#1924): FOCUS, pain, injuries and the rest, a tap away. Presentation only, so mid-day too.
+  if (d.cmd === 'compactmore') { compactMoreOpen = !compactMoreOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="compactmore"]')?.focus({ preventScroll: true }); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {

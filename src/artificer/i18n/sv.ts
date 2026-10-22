@@ -147,6 +147,7 @@ const core: Catalog = {
   'status.short': 'RÄCKER INTE',
   'status.holding': 'RÄCKER',
   'status.outlookTip': 'Hur vintern ser ut',
+  'status.more': 'Mer',
 
   // ── Flikar ─────────────────────────────────────────────────────────────────
   'tab.plan': 'PLAN',

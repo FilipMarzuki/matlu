@@ -476,6 +476,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'After an Explore, a scout, a survey or a look-out, what it turned up appears one line at a time in the day\'s log as it plays ("Found birch trees", "A good source of smooth rocks"), and the journal keeps one line per trip.',
   },
   {
+    // A ui feature (#1924): the status bar collapses to one line (artificer-app/main.ts
+    // compactStatusBar), and under 900px the tabs move to a bottom bar with the ⚙ in it
+    // (style.css), so it switches live and no run saves it. Off, both are as #1826/#1808 left them.
+    id: 'compact-status', name: 'A one-line status bar, tabs at the bottom on phones', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1924,
+    note: 'The status bar shows only the day, the three vitals as small dots, and food/water/firewood; FOCUS, pain and injuries are a tap away. Under 900px the tabs sit in a bar at the bottom of the screen, with the ⚙ in it.',
+  },
+  {
     // A ui feature (#1923, roadmap item 1 of #1914): only how the page's text is set (a class on
     // <html> that artificer-app/readable-type.css keys on), so it switches live and no run saves it.
     // The play API, the console and AI players never see it. Off, every font is exactly as before.
