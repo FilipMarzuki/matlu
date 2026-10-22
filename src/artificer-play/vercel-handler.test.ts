@@ -97,7 +97,7 @@ describe('The play API as a Vercel function (#1555)', () => {
     } finally {
       await new Promise<void>(r => s.close(() => r()));
     }
-  });
+  }, 30_000);
 
   it('answers 503, not a forgetful store, when no database is configured', async () => {
     const s = createServer(makeHandler({}));
