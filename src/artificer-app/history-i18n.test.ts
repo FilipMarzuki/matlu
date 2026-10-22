@@ -156,6 +156,8 @@ describe('A people\'s and a culture\'s ways, in Swedish (#1711)', () => {
     return [...groups.values()].map(cs => loreKeyOf(cs)!).filter(Boolean);
   };
 
+  // A sweep of every phrase in Swedish: about 5.4 s on a CI runner, right at Vitest's 5 s default,
+  // so a busy runner timed it out (#1957). 30 s, as #1937 gave the play-API test.
   it('says every claim anyone on the road can voice, at every trust, in Swedish', () => {
     let answers = 0;
     for (const p of played) {
@@ -174,7 +176,7 @@ describe('A people\'s and a culture\'s ways, in Swedish (#1711)', () => {
       }
     }
     expect(answers).toBeGreaterThan(1000);
-  });
+  }, 30_000);
 
   it('keeps names and reads the hedges', () => {
     const maren = everyone.find(p => p.id === 'hf-maren')!;
