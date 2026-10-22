@@ -17,7 +17,9 @@
  * Why only tokens can differ: players should never relearn where things are (the epic's rule 4), so
  * a look may change colours, backgrounds, border colours and shadows, nothing that moves a box. The
  * tokens hold colours, gradient images and shadows only, and looks.test.ts checks that, and that
- * style.css only feeds tokens into paint properties.
+ * style.css only feeds tokens into paint properties. So fonts aren't per look either (type moves
+ * boxes): `--display` and `--body` are style.css's, the same in every look, and the `readable-type`
+ * ui switch (#1923, readable-type.css) changes the type for all nine at once.
  *
  * Presentation only: the look is worked out when the page is drawn (`lookOfGame`), never saved in
  * the sim, the save or the run log. Dev mode can preview any look on top (`shownLook`).

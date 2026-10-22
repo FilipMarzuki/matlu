@@ -13,6 +13,8 @@
  */
 
 import './style.css';
+// After style.css, so its overrides win the ties (#1923): it only acts with the `readable-type` switch on.
+import './readable-type.css';
 import { mapMode } from '../artificer/descriptive-map';
 import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId, type EatingPlan } from '../artificer/region1';
 import { type Ring } from '../artificer/exploration';
@@ -94,6 +96,7 @@ import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
+import { READABLE_TYPE_FEATURE, applyReadableType } from './readable-type';
 import { installFeedback } from './feedback-panel';
 import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
@@ -655,6 +658,13 @@ const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATUR
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
+// ── Readable type (#1923, readable-type.ts) ──────────────────────────────────
+// A ui feature: the labels in the body font at 14–16 px and nothing under 12 px (readable-type.css).
+// Set here once so the language picker and the intro have it from their first paint, and again on
+// every draw (drawPage), so flipping the switch in the features panel shows at once.
+const readableTypeOn = (): boolean => uiFeatureOn(loadChoices(), READABLE_TYPE_FEATURE);
+applyReadableType(readableTypeOn());
+
 // ── The living backdrop (#1802) ───────────────────────────────────────────────
 // The page behind the boxes: the season, today's weather, the time of day, the place and the
 // Warden's mood, drawn on a canvas from the state (backdrop.ts says what, backdrop-view.ts draws
@@ -1070,6 +1080,7 @@ function drawPage(a: AppState): void {
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim.character.id);
   applyLook(shownLook(lookOfGame(a), lookPreview));
+  applyReadableType(readableTypeOn());
   // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).
   drawBackdrop(a);
   updateSound(a);
