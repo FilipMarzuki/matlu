@@ -20,6 +20,8 @@
  *   FOCUS chip kept it; survival's lock takes "Next"'s place, as it took the chip's.
  *
  * The line is a button that opens the focus picker, as the FOCUS chip was: one control, not two.
+ * With the full status bar it sits in the bar, where the FOCUS chip was; with the one-line compact
+ * bar it has a row of its own just under it (`standingRow`, #1951), not behind the ⋯.
  * Pure functions of the run and `t`, no DOM, so a unit test can read them. Nothing new is worked
  * out: every fact comes from a function the page already called. The play API, the console and
  * the AI players never see it.
@@ -149,6 +151,18 @@ export function standingLine(s: Region1State, t: T, opts: { open: boolean; night
   const tip = [t('stand.tip'), night?.tip ?? ''].filter(Boolean).join(' ');
   const aria = `data-cmd="focuspop" aria-haspopup="dialog" aria-expanded="${opts.open}" aria-controls="${FOCUS_POP_ID}"`;
   return `<button class="standline${st.lock ? ' locked' : ''}" ${aria} title="${esc(tip)}">${parts.join(' ')}</button>`;
+}
+
+/**
+ * The line's own row under the compact status bar (#1951). With the one-line bar (#1924, ui feature
+ * `compact-status`) the line used to sit behind the ⋯, where a player who never taps it never saw
+ * it. Here it's drawn just under the bar, after the bar's sticky element, so it's in the page's own
+ * flow: it scrolls away with the page and the frozen chrome stays the one line. `pop` is the focus
+ * picker the line opens: the row holds it (style.css `.standrow`), so it opens just under the line.
+ * Empty when the line is (the run is over), so no empty row is left behind.
+ */
+export function standingRow(line: string, pop = ''): string {
+  return line ? `<div class="standrow">${line}${pop}</div>` : '';
 }
 
 /**
