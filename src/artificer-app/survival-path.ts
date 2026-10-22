@@ -22,6 +22,7 @@ import { pillars } from '../artificer/readiness';
 import { readinessInput, winterOutlook, winterReady, type Region1State } from '../artificer/region1';
 import type { GoalId } from '../artificer/focus';
 import { hasCamp } from './camp-view';
+import { outlookShortfalls } from './progress-view';
 
 /** The ui feature this lives behind (features.ts): switch it off and the chip is as it was. */
 export const GUIDE_FEATURE = 'guide';
@@ -69,15 +70,23 @@ export const hasRoof = (s: Region1State): boolean => hasCamp(s) && (s.tier > 0 |
 /** Step 4's fact: at least `FOOD_LAID_BY` nights of food in the stores. */
 export const foodLaidBy = (s: Region1State): boolean => winterOutlook(s).foodDays >= FOOD_LAID_BY;
 
+/**
+ * How the path is read. `outlook` (the `standing-line` ui feature, #1926): step 5 is done only while
+ * the winter outlook holds too (progress-view.ts `outlookShortfalls`), so the path never reads as
+ * done beside a PROGRESS tab that says the food or the firewood falls short. Without it, step 5 is
+ * the four readiness pillars alone, as before.
+ */
+export interface PathOptions { outlook?: boolean }
+
 /** The Survival path for this state. */
-export function survivalPath(s: Region1State): SurvivalPath {
+export function survivalPath(s: Region1State, opts: PathOptions = {}): SurvivalPath {
   const camp = hasCamp(s);
   const facts: Record<PathStepId, boolean> = {
     site: camp || suitableSiteKnown(s),
     camp,
     roof: hasRoof(s),
     food: foodLaidBy(s),
-    winter: winterReady(s),
+    winter: winterReady(s) && !(opts.outlook && outlookShortfalls(s).length > 0),
   };
   const steps = PATH_STEPS.map(id => ({ id, done: facts[id] }));
   // Ready for winter is the goal itself: once it holds, the path is done, whatever else wobbles.
@@ -89,15 +98,18 @@ export function survivalPath(s: Region1State): SurvivalPath {
  * The goal focus that helps with a step, if one does: exploring finds a site, Shelter builds the
  * roof, Larder lays food by. Making camp has none (it's one action). For winter, the first of
  * winter's pillars still short: the larder → Larder, the shelter or the woodpile → Shelter (its
- * actions are build and wood); the body's isn't a goal's.
+ * actions are build and wood); the body's isn't a goal's. With `outlook` (#1926), what the winter
+ * outlook says falls short comes first: food → Larder, firewood or warmth → Shelter.
  */
-export function stepGoal(s: Region1State, id: PathStepId): GoalId | null {
+export function stepGoal(s: Region1State, id: PathStepId, opts: PathOptions = {}): GoalId | null {
   switch (id) {
     case 'site': return 'explore';
     case 'camp': return null;
     case 'roof': return 'shelter';
     case 'food': return 'larder';
     case 'winter': {
+      const out = opts.outlook ? outlookShortfalls(s)[0]?.what : undefined;
+      if (out) return out === 'food' ? 'larder' : 'shelter';
       const short = pillars(readinessInput(s), s.config.thresholds).find(p => !p.done)?.key;
       return short === 'larder' ? 'larder' : short === 'shelter' || short === 'fuel' ? 'shelter' : null;
     }

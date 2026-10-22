@@ -29,6 +29,7 @@ import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
 import { GUIDE_FEATURE } from './survival-path';
+import { STANDING_FEATURE, standingLine, standingNote } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -584,7 +585,8 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
   // The Warden's button shows from the start (#1818), so with the two rows the bar is never empty.
   if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return row2 ? `<div class="statusbar">${row2}</div>` : '';
   const vitals = g.shows('vitals');
-  const focus = g.shows('focus') ? markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock') : '';
+  const line = lineShown(g);
+  const focus = g.shows('focus') ? markFirst(focusOrLine(s, vitals), 'focus', 'lock') : '';
   const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
   // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
   // (an injury's chip, the weather) may be on another tab, or gone again (the injury healed).
@@ -594,16 +596,16 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
     return `<div class="statusbar">${row2}
     ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
     ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
-    ${stores ? statusEating(s) : ''}${vitals ? `${nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
+    ${stores ? statusEating(s) : ''}${vitals ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
-    ${g.shows('focus') ? outlookTag(s, ready) : ''}
+    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}
   </div>${tips}`;
   }
   return `<div class="statusbar">${row2}
     ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
-    ${keyColumn(focusChip(s, t, focusPopOpen, focusUi()), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${nightChip(s, t)}${painChip(s)}${injuryChips(s)}
+    ${keyColumn(focusOrLine(s, true), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${lineShown(g) ? '' : nightChip(s, t)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
-    ${outlookTag(s, ready)}
+    ${lineShown(g) ? '' : outlookTag(s, ready)}
   </div>`;
 }
 
@@ -644,13 +646,14 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
 function compactMorePanel(a: AppState, preview: Preview): string {
   const s = a.sim;
   const g = guide;
-  const focus = g.shows('focus') ? markFirst(focusChip(s, t, focusPopOpen, focusUi()), 'focus', 'lock') : '';
+  const line = lineShown(g);
+  const focus = g.shows('focus') ? markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock') : '';
   const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
   return `<div id="compactmore" class="compactmore">
     ${focus}${focusPop}
-    ${g.shows('stores') ? statusEating(s) : ''}${g.shows('vitals') ? `${nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}` : ''}
+    ${g.shows('stores') ? statusEating(s) : ''}${g.shows('vitals') ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}` : ''}
     <span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>
-    ${g.shows('focus') ? outlookTag(s, winterReady(s)) : ''}
+    ${g.shows('focus') && !line ? outlookTag(s, winterReady(s)) : ''}
   </div>`;
 }
 
@@ -659,6 +662,16 @@ function compactMorePanel(a: AppState, preview: Preview): string {
  * firewood. The full stores list (materials, stone, hides…) is the CAMP tab's.
  */
 const keyColumn = (focus: string, box: string): string => (focus || box ? `<div class="keycol">${focus}${box}</div>` : '');
+
+/**
+ * The "where you stand" line (#1926, standing-line.ts): with it, one sentence takes the place of
+ * the FOCUS chip, the night chip and the readiness tag, and opens the focus picker as the chip did.
+ * Shown where the FOCUS chip would be, so once the guide shows FOCUS (`lineShown`).
+ */
+const focusOrLine = (s: AppState['sim'], night: boolean): string =>
+  (standingOn() ? standingLine(s, t, { open: focusPopOpen, night }) : focusChip(s, t, focusPopOpen, focusUi()));
+/** Whether the line is drawn, so the night chip and the readiness tag it says are left out. */
+const lineShown = (g: GuideView): boolean => standingOn() && g.shows('focus');
 
 /** Pain (#1409): what you feel, always — sharper when you've worked through an injury. */
 function painChip(s: AppState['sim']): string {
@@ -712,7 +725,9 @@ installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
 /** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
-const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE), standing: standingOn() });
+/** The "where you stand" line (#1926): a ui feature, on unless switched off; it reads the guide's Survival path, so it needs `guide` on too. */
+const standingOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE) && uiFeatureOn(loadChoices(), STANDING_FEATURE);
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 
@@ -1115,7 +1130,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'warden':
       return wardenTab(a, t, truths, wardenRations(a.sim));
     case 'progress':
-      return progressTab(a.sim, history, journal(a, 200), t, jHead(t('head.journal'), LATEST_STYLE, a, a.sim.log.length === 0));
+      return progressTab(a.sim, history, journal(a, 200), t, jHead(t('head.journal'), LATEST_STYLE, a, a.sim.log.length === 0), standingOn() ? standingNote(a.sim, t) : undefined);
   }
 }
 

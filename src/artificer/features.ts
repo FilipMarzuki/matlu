@@ -490,6 +490,14 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Action names, tabs, status tags, vital labels and milestones in the body font at 14–16 px, and no words under 12 px anywhere (the map drawn in characters keeps its size). The pixel font stays only for headings of 16 px and up.',
   },
   {
+    // A ui feature (#1926, roadmap item 4 of #1914): one sentence drawn from what the run already
+    // computes (artificer-app/standing-line.ts), so it switches live and no run saves it. It builds
+    // on the guide's Survival path, so it shows only with `guide` on too. The play API, the console
+    // and AI players never see it. Off, the FOCUS chip, night chip and readiness tag are as before.
+    id: 'standing-line', name: 'One "where you stand" line', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1926,
+    note: 'The FOCUS chip, the night chip and the readiness tag become one sentence, e.g. "Next: lay in food — 17 of ~30 nights. Tonight: warm." It never says ready while the winter outlook falls short; tap it for the survival steps and your focus. Needs The guide on.',
+  },
+  {
     // A ui feature (#1925, roadmap item 3 of #1914): only how PLAN's action cards are drawn
     // (artificer-app/fewer-cards.ts, camp-blocks.ts paletteBlock); what can be done is still
     // action-visibility's to say, so it switches live and no run saves it. The play API, the console
