@@ -1269,6 +1269,20 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .keyfold { margin-top: 12px; }
 .keyfold > summary { font-size: 12px; color: var(--dim); }
 .keyfold .legend { margin-top: 0; }
+/* Fewer cards (#1925, fewer-cards.ts, ui switch `fewer-cards`). The guide's suggestion comes first in
+   its group, on a card the group's whole width with its name a size up (readable-type.css has its
+   bigger twin). Under a group, one fold.ts <details> holds what can't be done now: its line is at
+   least 44px tall so a thumb finds it (#1927's touch size), and it opens to each action with the
+   reason its greyed card gave. Off, none of these classes is drawn. */
+.act.lifted { flex-basis: 100%; padding: 10px 12px; }
+.act.lifted .t { font-size: 10px; }
+.cantyet { margin-top: 2px; }
+.cantyet > summary { min-height: 44px; align-items: center; padding: 4px 2px; font-size: 13px; color: var(--dim); }
+.cantyet > summary:hover { color: var(--ink); }
+.cantyet .cantlist { list-style: none; margin: 0; padding: 0 0 8px 18px; display: grid; gap: 6px; font-size: 12px; }
+.cantyet .cantlist li { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.cantyet .cantlist .cn { color: var(--ink); }
+.cantyet .cantlist .gate { color: var(--warn); }
 /* What a land trip turned up (#1730, land-news.ts): a small "new" until the viewer has seen the tab,
    and the link from the trip's line to its ring. */
 .newmark { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; vertical-align: middle; }

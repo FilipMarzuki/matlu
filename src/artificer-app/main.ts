@@ -67,6 +67,7 @@ import { wardenTab } from './warden-view';
 import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
+import { FEWER_CARDS_FEATURE } from './fewer-cards';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
 import { drawnMapBlock, reachMapSection } from './map-view';
@@ -170,11 +171,14 @@ function closeRingPick(refocus: boolean): void {
   if (refocus && id) root.querySelector<HTMLElement>(`[data-chooser="${id}"]`)?.focus();
 }
 
-/** What the palette needs from the page: dev mode, the language, and this Warden's chooser state. */
+/**
+ * What the palette needs from the page: dev mode, the language, this Warden's chooser state, and
+ * whether it folds what can't be done now (#1925, the `fewer-cards` ui feature, fewer-cards.ts).
+ */
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE) };
 };
 
 // ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
@@ -2806,6 +2810,15 @@ root.addEventListener('input', e => {
 root.addEventListener('toggle', e => {
   const d = e.target as HTMLDetailsElement;
   if (d.dataset?.fold) setFold(d.dataset.fold, d.open);
+}, true);
+// The same tap can redraw the page before `toggle` arrives: inside the actions box (#1925's folds), a
+// first tap also dismisses the guide's line, which redraws on a timeout. So a tap on a fold's heading
+// (a click, or Enter/Space, which click it) notes where it's going at once, and that redraw keeps it.
+root.addEventListener('click', e => {
+  const target = e.target as HTMLElement;
+  const summary = target.closest('summary');
+  const d = summary?.parentElement;
+  if (summary && d instanceof HTMLDetailsElement && d.dataset.fold && target.closest('a, button, input, summary') === summary) setFold(d.dataset.fold, !d.open);
 }, true);
 
 // ── The weekly world (#1559) ────────────────────────────────────────────────

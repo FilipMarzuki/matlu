@@ -497,6 +497,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'standing-line', name: 'One "where you stand" line', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1926,
     note: 'The FOCUS chip, the night chip and the readiness tag become one sentence, e.g. "Next: lay in food — 17 of ~30 nights. Tonight: warm." It never says ready while the winter outlook falls short; tap it for the survival steps and your focus. Needs The guide on.',
   },
+  {
+    // A ui feature (#1925, roadmap item 3 of #1914): only how PLAN's action cards are drawn
+    // (artificer-app/fewer-cards.ts, camp-blocks.ts paletteBlock); what can be done is still
+    // action-visibility's to say, so it switches live and no run saves it. The play API, the console
+    // and AI players never see it. Off, the cards are exactly as before.
+    id: 'fewer-cards', name: 'Fewer cards', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1925,
+    note: 'PLAN shows only the actions you can do now. In each section the rest fold into one line, "4 more you can\'t do yet", that opens to each one with the reason. The guide\'s suggestion comes first in its section, on a card as wide as the section with its name a size up.',
+  },
 ];
 
 /** Switches by feature id. */

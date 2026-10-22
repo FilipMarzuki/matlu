@@ -31,6 +31,7 @@ import { vitalCostLabel } from './feature-choices';
 import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { chevron } from './fold';
+import { cantYetFold, splitCards } from './fewer-cards';
 import { actionName, buildsWords, conceptName, distanceT, gradeWord, landDescribedHead, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { campBadges, siteBadge } from './rating-badges';
@@ -227,7 +228,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -239,7 +240,8 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   const known = GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => shown(preview.projected, id)) })).filter(g => g.ids.length);
   // Forecasts (#1827): judged in the queue's projection, from what the Warden has really done (a.sim);
   // a card's word is seeded by the run, the day and the card, so editing the queue never redraws it.
-  return known.map(g => `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4><div class="acts">${g.ids.map(id => {
+  /** One action's card (with its chooser under it while open), and why it can't be done now; null when it's hidden. */
+  const card = (id: ActionId): PaletteCard | null => {
     const def = ACTIONS[id];
     // A land action is shown at the distance its chooser would preselect.
     const options = def.ringed ? distanceOptions(preview.projected, id, defaults, t, id === 'explore' && opts.chooser === 'explore' ? opts.way : undefined, a.sim) : null;
@@ -248,26 +250,44 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     // What the Warden knows how to do (#1690): hidden if not, greyed out (with why) if not right now.
     // With the switch off a blocked action stays tappable, as before: it would just be skipped.
     const vis = visibilityOf(preview.projected, id, r);
-    if (vis.status === 'hidden') return '';
+    if (vis.status === 'hidden') return null;
     const why = vis.reason ? simLine(vis.reason, t) : null;
     const greyed = !!why && !greyedTappable(preview.projected);
     // Which vitals it spends: a dev-mode view (#1688); players plan by hours and read the bars.
     const spends = vitalCostLabel(def, dev);
     // The first-morning guide's suggestion (#1792, reveal.ts): it glows until a place to camp is known.
     const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
+    // With fewer cards (#1925) the suggestion also comes first in its group, as wide as the group.
+    const lifted = suggested && opts.fewer ? ' lifted' : '';
     // A land action's tap opens its chooser (data-chooser); any other queues itself (data-q).
     const open = !!options && opts.chooser === id && !resolved && !greyed;
     const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
     const exact = yieldText(id, preview.projected, r, t);
     const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact);
     const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t)?.text ?? exact;
-    return `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
+    const html = `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${lifted}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
       + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(line)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t, craftFc)}</button>`
       + (open && options ? distanceChooser(a, preview, id, options, t, dev) : '');
-  }).join('')}</div></div>`).join('');
+    return { id, why, html };
+  };
+  return known.map(g => {
+    const cards = g.ids.map(card).filter((c): c is PaletteCard => c !== null);
+    const head = `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4>`;
+    // The switch off: every card, greyed ones too, as before.
+    if (!opts.fewer) return `${head}<div class="acts">${cards.map(c => c.html).join('')}</div></div>`;
+    // Fewer cards (#1925, fewer-cards.ts): the cards you can do now (the guide's suggestion first),
+    // then one line that opens to the rest, each with the reason its card would have said.
+    const split = splitCards(cards, opts.suggest ?? null);
+    const drawn = split.shown.map(id => cards.find(c => c.id === id)?.html ?? '').join('');
+    const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t);
+    return `${head}${drawn ? `<div class="acts">${drawn}</div>` : ''}${rest}</div>`;
+  }).join('');
 }
+
+/** One drawn card of the palette: its action, why it can't be done now (null: it can), and its HTML. */
+interface PaletteCard { id: ActionId; why: string | null; html: string }
 
 // ── The season strip and the weather ────────────────────────────────────────
 
