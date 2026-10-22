@@ -1,0 +1,270 @@
+/* ── Readable type (#1923, ui feature `readable-type`, readable-type.ts) ─────────────────────────
+   With the switch on, <html class="readable-type">. Then:
+   - the names a player reads first (actions, tabs, status tags, vital labels, milestones) are in
+     the body font at 14–16 px;
+   - every other label that was Silkscreen under 16 px is in the body font at 13 px;
+   - no text is under 12 px, and no caps are letter-spaced under 12 px (nothing is under 12 px);
+   - Silkscreen stays for headings of 16 px and up (the title, the intro's titles, the clock, big numbers).
+   Off, nothing here matches, and the page is exactly as before.
+
+   Every rule starts with `:where(.readable-type)`. `:where()` counts for nothing in specificity, so
+   each selector below ties with the style.css rule of the same name and wins only because this file
+   comes later (main.ts imports it after style.css). A more specific rule in style.css that sets a
+   bigger size (the stat steppers' 16 px, say) still wins, as it did. Each selector here is copied
+   from a style.css rule that set a font under 12 px or Silkscreen; readable-type.test.ts checks that
+   none is missed, so a new tiny label in style.css fails the tests until it gets a line here.
+
+   Only fonts change (family, size, weight, letter-spacing, line-height), plus three heights that are
+   measured in rows of text and the two end labels of the road's route line, so bigger text still fits
+   where the smaller did. No layout: the boxes grow with their text, nothing else moves. */
+
+:root.readable-type {
+  --rt-name: 15px;  /* an action's name: the line the eye should land on */
+  --rt-key: 14px;   /* tabs, status tags, vital labels, milestones, the queue's names */
+  --rt-label: 13px; /* what was a small Silkscreen label: buttons, pills, chips, section heads, day stamps */
+  --rt-min: 12px;   /* the floor for any other text */
+}
+
+/* ── Names, 15 px: an action's name, a choice's, and the action playing on the timer ── */
+:where(.readable-type) .act .t,
+:where(.readable-type) .choice .t,
+:where(.readable-type) .timer .tname {
+  font-family: var(--body); font-size: var(--rt-name); font-weight: 600; letter-spacing: 0; line-height: 1.25;
+}
+
+/* ── Key labels, 14 px: the issue's list, and the names that sit beside them ── */
+:where(.readable-type) .tabbtn,
+:where(.readable-type) .statusbar .tag,
+:where(.readable-type) .mini .ml,
+:where(.readable-type) .vital .vl,
+:where(.readable-type) .vital .vn,
+:where(.readable-type) .miles li .mn,
+:where(.readable-type) .phase,
+:where(.readable-type) .cday b,
+:where(.readable-type) .queue li .n,
+:where(.readable-type) .siteopt .t,
+:where(.readable-type) .rpopt .rpn,
+:where(.readable-type) .opt b,
+:where(.readable-type) .pillar .pn,
+:where(.readable-type) .resolve h3,
+:where(.readable-type) .outcome .head,
+:where(.readable-type) .sheethead h3 {
+  font-family: var(--body); font-size: var(--rt-key); font-weight: 600; letter-spacing: .02em; line-height: 1.3;
+}
+/* The tabs' names are capitals: a little air between them reads better at this size. */
+:where(.readable-type) .tabbtn { letter-spacing: .05em; }
+/* A phone: four tabs across (style.css gives each about 85 px), so no extra spacing for FRAMSTEG / PROGRESS.
+   The header's first row never wraps (style.css `.hrow1`): its counters and pills at the floor size, so
+   on the road (MARKS, ROAD DAY, the 🧪 and two pills) the 💬 still fits on the screen. */
+@media (max-width: 520px) {
+  :where(.readable-type) .tabbtn { letter-spacing: 0; }
+  :where(.readable-type) .hrow1 .ctl,
+  :where(.readable-type) .hrow1 .pill { font-size: var(--rt-min); letter-spacing: 0; }
+}
+
+/* ── Labels, 13 px: everything else that was Silkscreen under 16 px ── */
+:where(.readable-type) .ctl,
+:where(.readable-type) .pill,
+:where(.readable-type) .btn,
+:where(.readable-type) .wxack,
+:where(.readable-type) .timeline .lbl,
+:where(.readable-type) .pillar .st,
+:where(.readable-type) .verdict-row,
+:where(.readable-type) .vital .vs,
+:where(.readable-type) .r .streak,
+:where(.readable-type) .sstores .streak,
+:where(.readable-type) .miles li .mk,
+:where(.readable-type) .siteopt .warm,
+:where(.readable-type) .campspots .rate,
+:where(.readable-type) .mapl-place .rate,
+:where(.readable-type) .log li .d,
+:where(.readable-type) .choice .req,
+:where(.readable-type) .queue li .dayn,
+:where(.readable-type) .cday,
+:where(.readable-type) .r.tool b,
+:where(.readable-type) .rphead,
+:where(.readable-type) .cphead,
+:where(.readable-type) .cpb,
+:where(.readable-type) .cpnote b,
+:where(.readable-type) .ringhead,
+:where(.readable-type) .optlabel,
+:where(.readable-type) .mini .mv,
+:where(.readable-type) .shours,
+:where(.readable-type) .runs .rn,
+:where(.readable-type) .runs .rb,
+:where(.readable-type) .skill .sl,
+:where(.readable-type) .stat .sk,
+:where(.readable-type) .tchoice b,
+:where(.readable-type) .trait b,
+:where(.readable-type) .wrank,
+:where(.readable-type) .trait .found,
+:where(.readable-type) .focuschip,
+:where(.readable-type) .focuschip b,
+:where(.readable-type) .seasonstrip .sm,
+:where(.readable-type) .thaw .grade,
+:where(.readable-type) .thaw .worst .d,
+:where(.readable-type) .carrystats,
+:where(.readable-type) .deadline,
+:where(.readable-type) .rbar .rk,
+:where(.readable-type) .flist .stage,
+:where(.readable-type) .tlist .pr,
+:where(.readable-type) .want,
+:where(.readable-type) .g,
+:where(.readable-type) .qlog .due,
+:where(.readable-type) .odds,
+:where(.readable-type) .meet-line b,
+:where(.readable-type) .lordships th,
+:where(.readable-type) .timer .tday,
+:where(.readable-type) .timer .tcount,
+:where(.readable-type) .timer .tspeed .pill,
+:where(.readable-type) .timer .tskip,
+:where(.readable-type) .timer .tstop,
+:where(.readable-type) .devtag,
+:where(.readable-type) .tabbtn .devtag,
+:where(.readable-type) .langswitch,
+:where(.readable-type) .newmark,
+:where(.readable-type) .fbpill,
+:where(.readable-type) .fbpanel[data-sheet="peek"] .fbgrab,
+:where(.readable-type) .menyvol,
+:where(.readable-type) .menyexp summary,
+:where(.readable-type) .queue .forecast .fchead,
+:where(.readable-type) .queue .qc .qcn,
+:where(.readable-type) .queue .runbar .btn,
+:where(.readable-type) .queue .runbar .btn.go {
+  font-family: var(--body); font-size: var(--rt-label); font-weight: 600; letter-spacing: .02em;
+}
+/* Section heads (THE QUEUE, EXPLORE, CAMPING…): capitals, so a little more air, and the same size everywhere. */
+:where(.readable-type) .eyebrow,
+:where(.readable-type) .wxintrobox .eyebrow,
+:where(.readable-type) .arrive .eyebrow,
+:where(.readable-type) .queue > .eyebrow,
+:where(.readable-type) .group h4,
+:where(.readable-type) .fgroup,
+:where(.readable-type) .clabel,
+:where(.readable-type) .enc-kind,
+:where(.readable-type) .fbtitle {
+  font-family: var(--body); font-size: var(--rt-label); font-weight: 600; letter-spacing: .06em;
+}
+/* The compass letters round the map-drawing grid (#1754) sit in its 14–16 px padding: at the floor
+   size and one line high, they stay out of the squares. */
+:where(.readable-type) .mapl-gridwrap > span { font-family: var(--body); font-size: var(--rt-min); font-weight: 600; letter-spacing: 0; line-height: 1; }
+/* The caravan road's route line (#1252): the stops' names under their dots, at the floor size and
+   regular weight, so five fit across a phone. They are wider than the 7 px ones, so the first and
+   last are nudged inwards by style.css's own 30 % to stay in the box (style.css meant to with
+   :first-of-type / :last-of-type, which never match: the track and the wagon are divs too). On a
+   phone the names wrap at 58 px (style.css), so the line is a row taller there. */
+:where(.readable-type) .rl-stop .nm { font-family: var(--body); font-size: var(--rt-min); font-weight: 400; letter-spacing: 0; line-height: 1.2; }
+:where(.readable-type) .rl-done + .rl-stop .nm { transform: translateX(30%); }
+:where(.readable-type) .rl-stop:has(+ .rl-wagon) .nm { transform: translateX(-30%); }
+@media (max-width: 520px) {
+  :where(.readable-type) .routeline { height: 62px; }
+}
+/* The empty portrait's "?" and the intro's spoken lines: Silkscreen under 16 px, in the body font now. */
+:where(.readable-type) .portrait.blank { font-family: var(--body); }
+:where(.readable-type) .intro .beat.voice p { font-family: var(--body); font-size: clamp(14px, 2vw, 16px); font-weight: 600; letter-spacing: .06em; }
+/* The intro title's second line can be 13 px on a phone: a heading, so it keeps Silkscreen at 16 px and up. */
+:where(.readable-type) .intro .beat.title p:last-child { font-size: clamp(16px, 3vw, 22px); }
+
+/* ── The floor, 12 px: body text that was under it. Family and weight as they were. ── */
+:where(.readable-type) .tl-legend,
+:where(.readable-type) .mood,
+:where(.readable-type) .miles li,
+:where(.readable-type) .siteopt .d,
+:where(.readable-type) .eyebrow .cbadges,
+:where(.readable-type) .act .t .h,
+:where(.readable-type) .act .t .cbadges,
+:where(.readable-type) .act .t .h.tw,
+:where(.readable-type) .act .y,
+:where(.readable-type) .act .ingr,
+:where(.readable-type) .queue li,
+:where(.readable-type) .queue li .meta,
+:where(.readable-type) .queue li .why,
+:where(.readable-type) .queue .chosen,
+:where(.readable-type) .queue .timenow,
+:where(.readable-type) .queue .qc .qcd,
+:where(.readable-type) .queue .qc .qch,
+:where(.readable-type) .queue .qup,
+:where(.readable-type) .queue .qtot,
+:where(.readable-type) .queue .forecast,
+:where(.readable-type) .qtot,
+:where(.readable-type) .qschip,
+:where(.readable-type) .qsnote,
+:where(.readable-type) .qstot,
+:where(.readable-type) .loadrow,
+:where(.readable-type) .log li,
+:where(.readable-type) .choice .d,
+:where(.readable-type) footer,
+:where(.readable-type) .r.concept,
+:where(.readable-type) .res .kind,
+:where(.readable-type) .rpopt .rplast,
+:where(.readable-type) .rpopt .rpt,
+:where(.readable-type) .rpopt .y,
+:where(.readable-type) .cpb.look,
+:where(.readable-type) .cpb.camp,
+:where(.readable-type) .cpnote,
+:where(.readable-type) .ringtag,
+:where(.readable-type) .chip,
+:where(.readable-type) .opt span,
+:where(.readable-type) .legend,
+:where(.readable-type) .runs .rd,
+:where(.readable-type) .introfb .fbbtn,
+:where(.readable-type) .tech,
+:where(.readable-type) .sname .snote,
+:where(.readable-type) .sname .snow,
+:where(.readable-type) .stat .sd,
+:where(.readable-type) .stat .sg,
+:where(.readable-type) .kchoice .khead i,
+:where(.readable-type) .kchoice .kkg,
+:where(.readable-type) .kchoice .knote,
+:where(.readable-type) .kplace,
+:where(.readable-type) .trait .note,
+:where(.readable-type) .focuschip span,
+:where(.readable-type) .rbar .rv,
+:where(.readable-type) .prole,
+:where(.readable-type) .tnum,
+:where(.readable-type) .rapport,
+:where(.readable-type) .sheetpart .qnote,
+:where(.readable-type) .devtruth,
+:where(.readable-type) .devdot,
+:where(.readable-type) .tlist .btn,
+:where(.readable-type) .qlog .qwho,
+:where(.readable-type) .eo-meta,
+:where(.readable-type) .eo-shaken,
+:where(.readable-type) .enc-wait,
+:where(.readable-type) .mapl-ok,
+:where(.readable-type) .mapl-where,
+:where(.readable-type) .mapl-how,
+:where(.readable-type) .pin-meta,
+:where(.readable-type) .pin-fx,
+:where(.readable-type) .pinbtn,
+:where(.readable-type) .landexplore,
+:where(.readable-type) .timer .tlog li.find::before,
+:where(.readable-type) .keybox .kfood > summary::after,
+:where(.readable-type) .keybox .kkinds li > span:last-child,
+:where(.readable-type) .keybox .kkinds i,
+:where(.readable-type) .keybox .kall,
+:where(.readable-type) .fbkind,
+:where(.readable-type) .fbcount,
+:where(.readable-type) .fbnote,
+:where(.readable-type) .fbctx summary,
+:where(.readable-type) .fbval,
+:where(.readable-type) .fbstatus,
+:where(.readable-type) .fblink {
+  font-size: var(--rt-min); letter-spacing: 0;
+}
+/* What sits inside a name's or a label's row (an action's time, the Make camp card's badges, the
+   FOCUS chip's detail) would take the row's semibold: back to the body weight, so the name leads. */
+:where(.readable-type) .act .t .h,
+:where(.readable-type) .act .t .cbadges,
+:where(.readable-type) .focuschip span { font-weight: 400; }
+/* The vitals as words (Energized, Alert, Well) are the status itself: a step above the floor. */
+:where(.readable-type) .vword { font-size: var(--rt-label); }
+
+/* Two heights measured in rows of text follow the text, so a box shows as many rows as before:
+   - the phone's queue strip shows two rows of chips (style.css `.qschips`): two rows of 12 px chips
+     (12 × 1.3 line + 4 px of padding and border each, and the 3 px gap) so the second isn't cut;
+   - PROGRESS's milestones scroll past 210 px (style.css `.miles`), about 13 rows at 8 px; at 14 px a
+     row is about half as tall again, so 310 px keeps the 13, and the ones still to do (at the
+     bottom) stay in view. */
+:where(.readable-type) .qschips { max-height: 43px; }
+:where(.readable-type) .miles { max-height: 310px; }

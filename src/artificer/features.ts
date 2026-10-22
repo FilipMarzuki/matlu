@@ -482,6 +482,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'compact-status', name: 'A one-line status bar, tabs at the bottom on phones', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1924,
     note: 'The status bar shows only the day, the three vitals as small dots, and food/water/firewood; FOCUS, pain and injuries are a tap away. Under 900px the tabs sit in a bar at the bottom of the screen, with the ⚙ in it.',
   },
+  {
+    // A ui feature (#1923, roadmap item 1 of #1914): only how the page's text is set (a class on
+    // <html> that artificer-app/readable-type.css keys on), so it switches live and no run saves it.
+    // The play API, the console and AI players never see it. Off, every font is exactly as before.
+    id: 'readable-type', name: 'Readable type', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1923,
+    note: 'Action names, tabs, status tags, vital labels and milestones in the body font at 14–16 px, and no words under 12 px anywhere (the map drawn in characters keeps its size). The pixel font stays only for headings of 16 px and up.',
+  },
 ];
 
 /** Switches by feature id. */
