@@ -41,7 +41,7 @@ interface Args {
   prehistory: boolean; // generate a mythic deep past before the sim
   prehistorySpan: number; // years of prehistory to reach back over
   catastrophes: boolean;
-  ether: boolean; // enable the Ether layer (spirit realm merging into Mistheim) // enable exogenous world shocks (blight, portals, mana ruptures)
+  ether: boolean; // enable the Ether layer (spirit realm merging into Mistheim)
   focus: string | null; // entity name to focus the chronicle on
   focusScale: FocusScale | null; // override auto-detected scale
 }

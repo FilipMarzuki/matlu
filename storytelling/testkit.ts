@@ -93,7 +93,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
   },
   // --ether on. The four cases above must NOT change when the Ether layer does —
   // it is opt-in and draws no RNG when off. These two pin the Ether itself.
-  { name: "default·ether·s42·200y", world: "default", seed: 42, years: 200, ether: true, hash: "989e1f62" },
+  { name: "default·ether·s42·200y", world: "default", seed: 42, years: 200, ether: true, hash: "6e920e7b" },
   {
     name: "frontier·magic·ether·s5·200y",
     world: "frontier",
@@ -101,7 +101,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 200,
     magic: true,
     ether: true,
-    hash: "6e2a9b1e",
+    hash: "38fc759e",
   },
 ];
 

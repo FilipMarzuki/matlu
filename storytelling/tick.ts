@@ -201,11 +201,6 @@ export function tick(w: World): void {
   // No-op when the queue is empty.
   runSieges(w);
 
-  // --- the Ether (--ether) — veils thin, the dead linger or move on. Runs
-  // last so it sees every death this year, whichever pass caused it. No-op
-  // when etherEnabled is false.
-  runEther(w);
-
   // End-of-tick sweep: runChallenges can kill title-holders (challenger
   // slain by a hostile kind), and the last resolvePendingSuccessions call
   // was before that. Without this the "title held by dead char" invariant
@@ -227,6 +222,12 @@ export function tick(w: World): void {
   // so no seat is held by the dead into the next. The regional level hears of
   // these deaths and successions next year (World.regionalCursor).
   resolvePendingSuccessions(w);
+
+  // --- the Ether (--ether) — veils thin, the dead linger or move on. After the
+  // regional pass, which can kill (hard winters, famine: #1617), so it sees every
+  // death this year whichever pass caused it. runOddPatches below kills nobody.
+  // No-op (and no draws) when etherEnabled is false.
+  runEther(w);
 
   // --- odd patches of humans (#1633) — a rare year, humans with no past turn
   // up somewhere unexpected, or a human settlement grows past what births
