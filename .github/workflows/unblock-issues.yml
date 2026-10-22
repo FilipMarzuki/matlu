@@ -29,6 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  contents: read   # actions/checkout needs it; unnamed scopes are none
   issues: write
 
 jobs:
