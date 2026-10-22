@@ -65,12 +65,42 @@ export function keyBox(s: Region1State, t: T): string {
   return `<div class="keybox sstores" role="group" aria-label="${esc(t('keys.box'))}">${cells}</div>`;
 }
 
+/**
+ * Tonight as the night chip (#1364, #1891) and the "where you stand" line (#1926, standing-line.ts)
+ * both say it, so they read the same night: the warmth once there's a camp (the thermal model's
+ * quality, #1770, else the shelter's warmth as a share, `quality: 'pct'`), the fright if tonight
+ * looks frightening, and the tooltip that says both in full. Null when there's nothing to say:
+ * before camp on a calm night, and once the run is over.
+ */
+export interface Tonight {
+  warmth: { quality: string; pct: number } | null;
+  fright: 'shaken' | 'panicked' | null;
+  tip: string;
+}
+
 /** Tonight's warmth in a word: the thermal model's quality (#1770), else the shelter's warmth as a share. */
-function warmthWords(s: Region1State, t: T): { short: string; long: string; quality: string } {
+function warmthWords(s: Region1State, t: T): { short: string; long: string; quality: string; pct: number } {
   const n = tonightThermal(s);
-  if (n) return { short: t(`keys.warm.${n.quality}` as Key), long: t(`night.q.${n.quality}` as Key), quality: n.quality };
+  if (n) return { short: t(`keys.warm.${n.quality}` as Key), long: t(`night.q.${n.quality}` as Key), quality: n.quality, pct: 0 };
   const pctWarm = Math.round(warmth(s) * 100);
-  return { short: t('keys.warmPct', { n: pctWarm }), long: t('site.warm', { n: pctWarm }), quality: 'pct' };
+  return { short: t('keys.warmPct', { n: pctWarm }), long: t('site.warm', { n: pctWarm }), quality: 'pct', pct: pctWarm };
+}
+
+/** Tonight (see `Tonight`), or null when there's nothing to say. */
+export function tonight(s: Region1State, t: T): Tonight | null {
+  if (s.outcome) return null;
+  const f = tonightsFright(s);
+  const fright = f && f.state !== 'calm' ? { ...f, state: f.state } : null;
+  if (!s.site && !fright) return null;
+  const tips: string[] = [];
+  let warm: Tonight['warmth'] = null;
+  if (s.site) {
+    const w = warmthWords(s, t);
+    warm = { quality: w.quality, pct: w.pct };
+    tips.push(t('keys.nightTip', { shelter: s.tier > 0 ? t('site.shelter', { tier: s.tier }) : t('keys.openCamp'), warmth: w.long }));
+  }
+  if (fright) tips.push(nightTip({ state: fright.state, perceived: fright.perceived, reasons: fright.reasons }, t));
+  return { warmth: warm, fright: fright?.state ?? null, tip: tips.join(' ') };
 }
 
 /**
@@ -79,25 +109,18 @@ function warmthWords(s: Region1State, t: T): { short: string; long: string; qual
  * Empty before camp on a calm night, and once the run is over.
  */
 export function nightChip(s: Region1State, t: T): string {
-  if (s.outcome) return '';
-  const f = tonightsFright(s);
-  const fright = f && f.state !== 'calm' ? { ...f, state: f.state } : null;
-  if (!s.site && !fright) return '';
+  const n = tonight(s, t);
+  if (!n) return '';
   const parts: string[] = [];
-  const tips: string[] = [];
-  let quality = '';
-  if (s.site) {
-    const w = warmthWords(s, t);
-    quality = w.quality;
-    parts.push(s.tier > 0 ? t('keys.shelter.tier', { tier: s.tier }) : t('keys.shelter.none'), w.short);
-    tips.push(t('keys.nightTip', { shelter: s.tier > 0 ? t('site.shelter', { tier: s.tier }) : t('keys.openCamp'), warmth: w.long }));
+  if (n.warmth) {
+    const w = n.warmth;
+    parts.push(s.tier > 0 ? t('keys.shelter.tier', { tier: s.tier }) : t('keys.shelter.none'), w.quality === 'pct' ? t('keys.warmPct', { n: w.pct }) : t(`keys.warm.${w.quality}` as Key));
   }
-  if (fright) {
+  if (n.fright) {
     // Beside the shelter the short word; alone (no camp yet), the chip's old words.
-    parts.push(s.site ? t(fright.state === 'shaken' ? 'keys.uneasy' : 'keys.sleepless') : t(fright.state === 'shaken' ? 'night.uneasy' : 'night.sleepless'));
-    tips.push(nightTip({ state: fright.state, perceived: fright.perceived, reasons: fright.reasons }, t));
+    parts.push(n.warmth ? t(n.fright === 'shaken' ? 'keys.uneasy' : 'keys.sleepless') : t(n.fright === 'shaken' ? 'night.uneasy' : 'night.sleepless'));
   }
   // Frightened, it keeps the fear colours it always had; otherwise it takes the night's quality.
-  const cls = fright ? `fear s-${fright.state}` : `nightq q-${quality}`;
-  return `<span class="tag ${cls}" title="${esc(tips.join(' '))}">🌑 ${esc(parts.join(' · '))}</span>`;
+  const cls = n.fright ? `fear s-${n.fright}` : `nightq q-${n.warmth?.quality ?? ''}`;
+  return `<span class="tag ${cls}" title="${esc(n.tip)}">🌑 ${esc(parts.join(' · '))}</span>`;
 }

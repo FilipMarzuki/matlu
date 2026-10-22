@@ -25,4 +25,40 @@ export const survival = {
   'path.suggest': 'Focus: {goal}',
   'path.suggestTip': 'Set your focus to {goal}: it helps with this step',
   'path.focused': 'Your focus: {goal}',
+
+  // ── The "where you stand" line (#1926, artificer-app/standing-line.ts, ui feature `standing-line`) ──
+  // One sentence in place of the FOCUS chip, the readiness tag and the night chip: "Next: lay in
+  // food — 17 of ~30 nights. Tonight: warm." Short enough for a phone. Never "ready" while the
+  // winter outlook falls short.
+  'stand.next.site': 'Next: find a camp site.',
+  'stand.next.camp': 'Next: make camp.',
+  'stand.next.roof': 'Next: build a shelter.',
+  'stand.next.week': "Next: a week's food — {n} of {m} nights.",
+  'stand.next.food.one': 'Next: lay in food — {n} of ~{m} night.',
+  'stand.next.food.other': 'Next: lay in food — {n} of ~{m} nights.',
+  'stand.next.fuel.one': 'Next: lay in firewood — {n} of ~{m} night.',
+  'stand.next.fuel.other': 'Next: lay in firewood — {n} of ~{m} nights.',
+  'stand.next.cold': 'Next: a shelter warm enough for midwinter.',
+  'stand.next.larder': 'Next: smoke or dry food — {n} of {m} rations.',
+  'stand.next.woodpile': 'Next: a woodpile — {n} of {m} firewood.',
+  'stand.next.shelter': 'Next: a warmer shelter.',
+  'stand.next.body': 'Next: get your strength back.',
+  'stand.ready': 'Ready for winter.',
+  'stand.holding': 'Holding to the thaw.',
+  'stand.thaw': 'The thaw has come.',
+  'stand.lock': 'Survival first: {why}.',
+  'stand.tonight': 'Tonight: {what}.',
+  'stand.night.warm': 'warm',
+  'stand.night.cool': 'cool',
+  'stand.night.cold': 'cold',
+  'stand.night.dangerous': 'dangerously cold',
+  'stand.night.pct': '{n}% warm',
+  'stand.night.uneasy': 'uneasy',
+  'stand.night.sleepless': 'sleepless',
+  'stand.focus': 'Focus: {name}.',
+  'stand.focusFrayed': 'Focus: {name} (frayed).',
+  'stand.tip': 'Where you stand. Tap for the survival steps and your focus.',
+  // PROGRESS, so it agrees with the line.
+  'stand.progress.notYet': 'Not ready for winter yet. {next}',
+  'stand.progress.notNow': 'not now',
 };
