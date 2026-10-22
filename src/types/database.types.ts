@@ -334,21 +334,21 @@ export type Database = {
           author: string | null
           biome_slug: string
           body: string
-          created_at: string | null
+          created_at: string
           id: string
         }
         Insert: {
           author?: string | null
           biome_slug: string
           body: string
-          created_at?: string | null
+          created_at?: string
           id?: string
         }
         Update: {
           author?: string | null
           biome_slug?: string
           body?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
         }
         Relationships: []

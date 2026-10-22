@@ -1,12 +1,17 @@
-create table if not exists biome_comments (
+-- Per-biome comments on the Codex's /biomes page (#325). Public and login-free like the
+-- playtest form: anyone may read and add a comment. Length limits keep a spammed row small.
+create table if not exists public.biome_comments (
   id          uuid        primary key default gen_random_uuid(),
-  biome_slug  text        not null,
-  author      text,
-  body        text        not null,
-  created_at  timestamptz default now()
+  biome_slug  text        not null check (char_length(biome_slug) between 1 and 64),
+  author      text                 check (author is null or char_length(author) <= 80),
+  body        text        not null check (char_length(body) between 1 and 2000),
+  created_at  timestamptz not null default now()
 );
 
-alter table biome_comments enable row level security;
+create index if not exists biome_comments_slug_created_idx
+  on public.biome_comments (biome_slug, created_at desc);
 
-create policy "public read"  on biome_comments for select using (true);
-create policy "public write" on biome_comments for insert with check (true);
+alter table public.biome_comments enable row level security;
+
+create policy "public read"  on public.biome_comments for select to anon, authenticated using (true);
+create policy "public write" on public.biome_comments for insert to anon, authenticated with check (true);

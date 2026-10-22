@@ -126,6 +126,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
               <textarea
                 name="body"
                 rows={2}
+                maxlength="2000"
                 placeholder={t(lang, 'Leave a comment…', 'Lämna en kommentar…')}
                 required
               />
