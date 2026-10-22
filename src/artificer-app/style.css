@@ -1479,3 +1479,25 @@ header.tworow { display: block; }
 .tag.nightq { border: 1px solid var(--border2); color: var(--dim); cursor: help; }
 .tag.nightq.q-cold { border-color: rgba(255,170,51,.5); color: var(--warn); }
 .tag.nightq.q-dangerous { border-color: rgba(255,90,90,.6); color: var(--danger); }
+
+/* ── Touch targets ≥ 44px tall (#1927) ───────────────────────────────────────
+   A mouse pointer is forgiving down to a few pixels; a finger on Android isn't — the platform's
+   own guideline is 48×48dp, and WCAG 2.2 sets a 24×24px floor. `pointer: coarse` (true on touch
+   screens, false for a mouse/trackpad even on a touch-capable laptop) targets just the devices that
+   need the extra room, so the desktop layout measured with a mouse stays exactly as it was. Scoped
+   to the specific rows the design review measured too small, rather than every `.pill`/`.btn` in
+   the file: several of those (the age/stat +/- steppers, the feedback kind tags) are already sized
+   on purpose and would distort if forced to 44px here. The queue's narrow-container rule (above,
+   `@container planq (max-width: 330px)`) shrinks the ✕ back down; this comes later in the file so it
+   wins that tie on a narrow phone. */
+@media (pointer: coarse) {
+  .menybtn, .fbbtn, .guideok, .introbar [data-intro="skip"], .wxonerow, .focuschip, .tabbtn {
+    min-height: 44px;
+  }
+  .focuschip { align-items: center; }
+  .tabbtn, .queue li .x { display: inline-flex; align-items: center; justify-content: center; }
+  .queue li .x { min-height: 44px; min-width: 32px; }
+  .tabbar { gap: 8px; }
+  .keycol { gap: 8px; }
+  .queue ol { gap: 8px; }
+}
