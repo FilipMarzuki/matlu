@@ -323,6 +323,23 @@ the `EventSpec` pattern (`event-spec.ts`).
 - No Skill or class action produces a breach event.
 - With `--ether` off, the event log is byte-identical to before.
 
+### Acceptance (Phase 1, #1573)
+
+Each scenario is checked by a test in `storytelling/engine.test.ts` (the checks
+themselves live in `storytelling/testkit.ts`).
+
+| Given | When | Then | Test |
+|---|---|---|---|
+| a world with `--ether` off | it runs 200 years | the event log hashes exactly as before the Ether existed | golden master: the four base cases |
+| `--ether` on, seed 42 (default world) and seed 5 (frontier, magic) | each runs 200 years | the event log hashes to its pinned value | golden master: `default·ether·s42·200y`, `frontier·magic·ether·s5·200y` |
+| `--ether` on | the same config runs twice | the two histories are identical | determinism: `frontier·magic·ether·s5·200y is reproducible` |
+| `--ether` off, across 32 seeds and both worlds | the sim runs | no Ether event is ever logged | invariants: "ether event … with --ether off" |
+| `--ether` on | Ether events are logged | none comes before `ETHER_CONVERGENCE`, and convergence fires at most once | invariants: "before ETHER_CONVERGENCE", "fired N times" |
+| a spirit has moved on | a later Ether event is logged | that spirit is never its actor | invariants: "acts in … after moving on" |
+| a spirit moves on | `SPIRIT_MOVES_ON` is logged | it follows that spirit's own `SPIRIT_LINGERS`, and no spirit lingers twice | invariants: "moved on without having lingered", "lingered twice" |
+| any province | any year with `--ether` on | its veil stays within [0, 1] | invariants: "veil … out of [0,1]" |
+| a character still alive | — | it has no lingering spirit | invariants: "living character … has a lingering spirit" |
+
 ### Phases
 
 1. **Foundation**: `veil`, `ETHER_CONVERGENCE`, `THIN_PLACE_RECOGNIZED`, the
