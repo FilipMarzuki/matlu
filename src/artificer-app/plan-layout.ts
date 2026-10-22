@@ -6,6 +6,11 @@
  * queue, and the actions take the full width. The latest journal and the camp-site picker sit in
  * their own box below, never in the frozen part.
  *
+ * At 1000px wide and up (#1931, `JOURNAL_BESIDE_QUERY`) the journal moves into the frozen column,
+ * under the queue: a landscape tablet then shows the choice (the actions), the plan (the queue) and
+ * the result (the journal) on one screen, and the page no longer ends in a journal box under the
+ * cards. The camp-site picker stays below.
+ *
  * With the switch off it draws exactly what the page drew before: the actions, then one side
  * column (`.planside`) with the queue, the journal and the site picker.
  *
@@ -21,6 +26,14 @@ import { DAY_START } from '../artificer/clock';
 import { esc, hrs } from './html';
 
 export const SIDE_QUEUE_FEATURE = 'side-queue';
+
+/**
+ * The screens where the journal sits under the queue (#1931). main.ts watches it with `matchMedia`
+ * and redraws when the width crosses it, as the journal is drawn in one place or the other (it holds
+ * the notes' ids, so it can't be drawn twice and one copy hidden). style.css lays the column out
+ * with the same media query: plan-layout.test.ts checks the two say the same width.
+ */
+export const JOURNAL_BESIDE_QUERY = '(min-width: 1000px)';
 
 /** The PLAN tab's parts, each already drawn (empty when the guide hasn't brought it in yet). */
 export interface PlanParts {
@@ -42,8 +55,13 @@ export interface PlanParts {
  * The PLAN tab's body. On: a grid of the actions (`.planacts`), the frozen queue column (`.planq`)
  * and the box below (`.planmore`); with no queue to show yet (the guide), the actions alone take
  * the width (`.noq`). Off: as before.
+ *
+ * `journalBeside` (on a screen that matches JOURNAL_BESIDE_QUERY, #1931): the journal goes under the
+ * queue, the two frozen together (`.planstick`), and the box below holds only the camp-site picker.
+ * Only with a queue to sit under; without one (the guide's first steps) the journal stays below.
+ * Not passed (or false), the HTML is exactly what it was before.
  */
-export function planLayout(p: PlanParts, sideQueue: boolean, t: T): string {
+export function planLayout(p: PlanParts, sideQueue: boolean, t: T, journalBeside = false): string {
   if (!sideQueue) {
     const side = p.queue || p.journal || p.camp ? `<section class="box planside">${p.queue}${p.journal}${p.camp}</section>` : '';
     return p.actions || side ? `<div class="plan">${p.actions}${side}</div>` : '';
@@ -53,10 +71,17 @@ export function planLayout(p: PlanParts, sideQueue: boolean, t: T): string {
   // On a phone (style.css, under 700px) the zone steps aside and the queue is a strip over the actions:
   // the folded strip shows, and the whole queue (`.planqfull`) only once it's unfolded.
   const open = p.stripOpen ? ' stripopen' : '';
-  const queue = p.queue
-    ? `<div class="planqzone"><section class="box planq${open}" aria-label="${esc(t('qc.label'))}">${p.strip ?? ''}<div class="planqfull">${p.queue}</div></section></div>`
+  const qbox = p.queue
+    ? `<section class="box planq${open}" aria-label="${esc(t('qc.label'))}">${p.strip ?? ''}<div class="planqfull">${p.queue}</div></section>`
     : '';
-  const more = p.journal || p.camp ? `<section class="box planmore">${p.journal}${p.camp}</section>` : '';
+  // The journal joins the frozen column: one sticky box (`.planstick`) holds both, so the journal
+  // travels with the queue instead of sticking on its own at a height it can't know.
+  const beside = journalBeside && !!qbox && !!p.journal;
+  const queue = !qbox ? ''
+    : beside ? `<div class="planqzone"><div class="planstick">${qbox}<section class="box planlog">${p.journal}</section></div></div>`
+    : `<div class="planqzone">${qbox}</div>`;
+  const below = beside ? p.camp : p.journal + p.camp;
+  const more = below ? `<section class="box planmore">${below}</section>` : '';
   if (!p.actions && !queue && !more) return '';
   return `<div class="plan sideq${queue ? '' : ' noq'}"><div class="planacts">${p.actions}</div>${queue}${more}</div>`;
 }

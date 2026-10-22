@@ -84,7 +84,7 @@ import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, 
 import { nowTotal, queueTimes, timeWordsShown, timerClock } from './time-view';
 import { endWords, partShort } from '../artificer/time-words';
 import { LAND_ASSESS_FEATURE } from './land-assessment';
-import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
+import { JOURNAL_BESIDE_QUERY, SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
@@ -802,6 +802,16 @@ let showHelp = false;
 const menyOn = (): boolean => uiFeatureOn(loadChoices(), MENY_FEATURE);
 /** The queue beside the actions, frozen while they scroll (#1826, plan-layout.ts): a ui feature, so it switches live. */
 const sideQueueOn = (): boolean => uiFeatureOn(loadChoices(), SIDE_QUEUE_FEATURE);
+/**
+ * A wide screen (#1931): the journal sits under the queue, in its frozen column. The journal is drawn
+ * in one place or the other, so when the width crosses the line (a tablet turned, a window resized)
+ * the page is drawn again; CSS alone can't move it between the two boxes. `matchMedia` is the CSS
+ * media query from script: `.matches` says whether it holds now, and its `change` event fires only
+ * when that flips, so a resize that stays on one side of the line doesn't redraw anything.
+ */
+const journalBesideMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(JOURNAL_BESIDE_QUERY) : null;
+const journalBeside = (): boolean => journalBesideMq?.matches ?? false;
+journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(state); });
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1100,7 +1110,7 @@ function guidedPlan(a: AppState, preview: Preview): string {
   const log = journalBoxShown(g.shows('journal'), notesOn(), notesChosen) ? `<div class="log"${g.mark('journal')}>${jHead(t('head.latest'), LATEST_STYLE, a, s.log.length === 0)}${guideTip('journal')}<ul>${journal(a, 6)}</ul></div>` : '';
   const camp = hasCamp(s) ? '' : beforeCamp(a);
   const strip = queue && sideQueueOn() ? stripBlock(a, preview) : '';
-  return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t);
+  return planLayout({ actions, queue, journal: log, camp, strip, stripOpen }, sideQueueOn(), t, journalBeside());
 }
 
 function tabBody(a: AppState, preview: Preview): string {
@@ -1115,7 +1125,7 @@ function tabBody(a: AppState, preview: Preview): string {
         camp: hasCamp(a.sim) ? '' : beforeCamp(a),
         strip: sideQueueOn() ? stripBlock(a, preview) : '',
         stripOpen,
-      }, sideQueueOn(), t)}`;
+      }, sideQueueOn(), t, journalBeside())}`;
     case 'camp':
       return `<div class="cols">
         <section class="box"><p class="eyebrow">${esc(t('head.warden'))}</p>${vitalsBlock(a.sim, t)}
