@@ -1,0 +1,50 @@
+name: Auto-unblock issues
+
+# Removes `blocked` from an open issue once every issue its body says it's
+# "Blocked by" / "Waits on" / "Depends on" is closed as completed, and comments
+# "Unblocked: #N closed." (#1934). The nightly agent skips `blocked` issues, so
+# this keeps dependency chains moving. A blocker closed as not planned keeps the
+# label and is listed in the run summary. The logic lives in
+# .github/scripts/unblock-issues.mjs (unit-tested in src/unblock-issues.test.ts).
+#
+# GITHUB_TOKEN is enough: removing a label doesn't need to trigger other workflows.
+
+on:
+  issues:
+    types: [closed]
+  schedule:
+    # Daily safety net (05:17 UTC), for closes the event missed.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report only, change nothing'
+        type: boolean
+        default: false
+
+# One run at a time, queued rather than cancelled, so two closes in a row
+# can't both comment on the same issue.
+concurrency:
+  group: unblock-issues
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  unblock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Unblock issues whose blockers are closed
+        run: node .github/scripts/unblock-issues.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
