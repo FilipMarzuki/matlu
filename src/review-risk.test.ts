@@ -32,6 +32,14 @@ describe('Review risk score (#1431)', () => {
     }
   });
 
+  // 2b. The shared world generator (#1873, #1921) is seeded too: worldmap/ gets the determinism lens.
+  it('scores the shared world generator high, with the determinism lens', () => {
+    const r = scoreRisk(files('worldmap/coords.ts', 'worldmap/coords.test.ts'), rules);
+    expect(r.tier).toBe('high');
+    expect(r.lenses).toContain('determinism');
+    expect(r.reasons.some(x => x.startsWith('seeded randomness / golden hashes') && x.includes('worldmap/coords.ts'))).toBe(true);
+  });
+
   // 3. The save controller with no test changes: both reasons.
   it('names the save format and the missing tests', () => {
     const r = scoreRisk(files('src/artificer-app/controller.ts'), rules);

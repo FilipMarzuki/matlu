@@ -3,7 +3,7 @@
   "tiers": { "medium": 3, "high": 6 },
   "rules": [
     { "id": "determinism", "label": "seeded randomness / golden hashes", "weight": 6, "lens": "determinism",
-      "paths": ["src/artificer/rng.ts", "storytelling/**", "mapgen/**"] },
+      "paths": ["src/artificer/rng.ts", "storytelling/**", "mapgen/**", "worldmap/**"] },
     { "id": "sim-core", "label": "Artificer sim core", "weight": 3, "lens": "determinism",
       "paths": ["src/artificer/*.ts"], "exclude": ["**/*.test.ts"] },
     { "id": "saves", "label": "save format", "weight": 4, "lens": "saves",
@@ -33,7 +33,7 @@
   ],
   "size": [ { "lines": 400, "weight": 1 }, { "lines": 1000, "weight": 2 } ],
   "untested": { "label": "no test changes", "weight": 2,
-    "codePaths": ["src/**/*.ts", "storytelling/**/*.ts", "mapgen/**/*.ts", "scripts/**"],
+    "codePaths": ["src/**/*.ts", "storytelling/**/*.ts", "mapgen/**/*.ts", "worldmap/**/*.ts", "scripts/**"],
     "testPaths": ["**/*.test.ts", "tests/**"] },
   "lowRisk": { "label": "docs, styles or assets only",
     "paths": ["**/*.md", "wiki/**", "dev/**", "**/*.css", "public/**", "screenshots/**"] },
