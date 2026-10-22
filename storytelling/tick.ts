@@ -15,6 +15,7 @@
 import { runCatastrophes } from "./catastrophe.js";
 import { runChallenges } from "./challenges.js";
 import { runEmergence } from "./emergence.js";
+import { runEther } from "./ether.js";
 import { runFate } from "./fate.js";
 import { runSpecs } from "./event-spec.js";
 import "./specs/index.js"; // side-effect: registers all catalog specs
@@ -221,6 +222,12 @@ export function tick(w: World): void {
   // so no seat is held by the dead into the next. The regional level hears of
   // these deaths and successions next year (World.regionalCursor).
   resolvePendingSuccessions(w);
+
+  // --- the Ether (--ether) — veils thin, the dead linger or move on. After the
+  // regional pass, which can kill (hard winters, famine: #1617), so it sees every
+  // death this year whichever pass caused it. runOddPatches below kills nobody.
+  // No-op (and no draws) when etherEnabled is false.
+  runEther(w);
 
   // --- odd patches of humans (#1633) — a rare year, humans with no past turn
   // up somewhere unexpected, or a human settlement grows past what births

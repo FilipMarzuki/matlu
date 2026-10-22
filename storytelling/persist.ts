@@ -19,6 +19,7 @@ export interface RunMeta {
   seed: number;
   years: number;
   magic: boolean;
+  ether?: boolean;
   version: string;
 }
 
@@ -27,7 +28,7 @@ export function saveRun(w: World, meta: RunMeta, arcs: Arc[]): string {
   const dir = join(
     "storytelling",
     "runs",
-    `seed${meta.seed}-y${meta.years}${meta.magic ? "-magic" : ""}`,
+    `seed${meta.seed}-y${meta.years}${meta.magic ? "-magic" : ""}${meta.ether ? "-ether" : ""}`,
   );
   mkdirSync(dir, { recursive: true });
 

@@ -184,6 +184,7 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - Design for landscape tablet (800×600 minimum)
 - Keep game logic in scene classes; don't add abstractions speculatively
 - Run `npm run typecheck` and `npm run build` before pushing
+- **Mistheim is the base world.** The unified multiworld is built on Mistheim; every merging realm (Spinolandet, the Ether, …) merges *into* Mistheim, and all generated history happens in/to Mistheim by default. See `docs/ETHER_REALM.md` for the Ether (spirit realm).
 - **Settlements live in Mistheim.** There is no separate worldgen for other realms — the 22 cultures (`macro-world/cultures.json`) all populate Mistheim. Spinolandet, Earth, and other narrative realms exist as lore but have no procedural settlement system.
 - **Cultures are race-agnostic.** Many races can share a culture. Culture IDs have no race prefix (e.g. `coastborn`, not `human-seafaring`). `racePreferences` is an optional weighted hint; absent means sample from regional demographics.
 - **New Artificer features that change play go behind a switch** while they're experiments: register them in `src/artificer/features.ts` (#1579), read them from the run's state with `featureOn` (never a global), and the 🧪 marker, dev panel (`?dev`), API and records follow.

@@ -30,6 +30,7 @@ export interface ProvinceSpec {
   subsurface?: boolean;   // underground hall; uses mineralWealth instead of fertility
   mineralWealth?: number; // 0..1; carrying capacity base when subsurface
   zoneFlags?: string[];   // authored tags: "port", "sanctuary", "battlefield" etc.
+  veil?: number;          // 0..1 Ether veil (1 = sealed, the default); only read with --ether
   // Borders a lake (fishing water, not a sea coast). Read only by the regional
   // economy (regions.ts, #1598); mineralWealth on a surface province likewise
   // only tells the regional economy how much rock there is to mine.

@@ -45,6 +45,7 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
       zoneFlags: [...(p.zoneFlags ?? [])],
       subsurface: p.subsurface ?? false,
       mineralWealth: p.mineralWealth ?? 0,
+      veil: p.veil ?? 1,
       lake: p.lake ?? false,
       wealth: 0.5, // getting by; the regional level moves it from year one (#1608)
       // classStructure is filled in a second pass below, after cultures are
