@@ -90,6 +90,8 @@ describe('The sim\'s words in the viewer\'s language (#1707)', () => {
     expect(same).toEqual([]);
   });
 
+  // A sweep of every phrase in Swedish: about 5.4 s on a CI runner, right at Vitest's 5 s default,
+  // so a busy runner timed it out (#1957). 30 s, as #1937 gave the play-API test.
   it('says every option of a queued action in Swedish, and English back unchanged', () => {
     expect(options.length).toBeGreaterThan(20);
     for (const o of options) {
@@ -110,7 +112,7 @@ describe('The sim\'s words in the viewer\'s language (#1707)', () => {
     expect(simLine('needs 2 materials (have 0)', svT)).toBe('kräver 2 material (du har 0)');
     // A line no template knows is shown as it came, not guessed at.
     expect(simLine('a wholly new reason', svT)).toBe('a wholly new reason');
-  });
+  }, 30_000);
 
   it('names things as the sim does, in English', () => {
     for (const id of IDS) expect(en[`act.${id}`]).toBe(ACTIONS[id].name);
