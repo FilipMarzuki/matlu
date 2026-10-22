@@ -63,6 +63,17 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
   </div>
 
   <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+  {/* The client <script> below can't call t() (it runs in the browser, after the
+      page is built), so the strings it shows are rendered here in the page's
+      language and read back from these data-* attributes. */}
+  <div
+    id="comments-text"
+    data-lang={lang}
+    data-empty={t(lang, 'No comments yet.', 'Inga kommentarer än.')}
+    data-error={t(lang, 'Could not load comments.', 'Kunde inte ladda kommentarerna.')}
+    data-anonymous={t(lang, 'Anonymous', 'Anonym')}
+    hidden
+  ></div>
 
   <div class="grid">
     {biomes.map((b) => (
@@ -149,27 +160,36 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
   // Untyped client — wiki doesn't import the game's database.types.ts
   const supabase = createClient(url, key);
 
+  // Strings rendered server-side in the page's language (see #comments-text).
+  const text = (document.getElementById('comments-text') as HTMLElement).dataset;
+  const lang = text.lang ?? 'en';
+
   interface BiomeCommentRow {
     author: string | null;
     body: string;
     created_at: string | null;
   }
 
+  // Intl.RelativeTimeFormat is built into every browser and already knows
+  // Swedish, so "3 days ago" becomes "för 3 dagar sedan" without a word list.
+  // numeric: 'auto' gives "yesterday"/"igår" instead of "1 day ago".
+  const relative = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+
   function relativeTime(iso: string | null): string {
     if (!iso) return '';
     const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-    const units: [string, number][] = [
+    const units: [Intl.RelativeTimeFormatUnit, number][] = [
       ['year', 31536000],
       ['month', 2592000],
       ['day', 86400],
       ['hour', 3600],
       ['minute', 60],
     ];
-    for (const [label, secs] of units) {
+    for (const [unit, secs] of units) {
       const value = Math.floor(seconds / secs);
-      if (value >= 1) return `${value} ${label}${value > 1 ? 's' : ''} ago`;
+      if (value >= 1) return relative.format(-value, unit);
     }
-    return 'just now';
+    return relative.format(0, 'second');
   }
 
   function renderComments(listEl: HTMLElement, comments: BiomeCommentRow[]): void {
@@ -177,7 +197,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     if (comments.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'comments-status';
-      empty.textContent = 'No comments yet.';
+      empty.textContent = text.empty ?? '';
       listEl.appendChild(empty);
       return;
     }
@@ -186,7 +206,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
       item.className = 'comment';
       const meta = document.createElement('div');
       meta.className = 'comment-meta';
-      meta.textContent = `${c.author?.trim() || 'Anonymous'} · ${relativeTime(c.created_at)}`;
+      meta.textContent = `${c.author?.trim() || (text.anonymous ?? '')} · ${relativeTime(c.created_at)}`;
       const body = document.createElement('p');
       body.className = 'comment-body';
       body.textContent = c.body;
@@ -209,7 +229,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
       listEl.innerHTML = '';
       const status = document.createElement('li');
       status.className = 'comments-status';
-      status.textContent = 'Could not load comments.';
+      status.textContent = text.error ?? '';
       listEl.appendChild(status);
       return;
     }
