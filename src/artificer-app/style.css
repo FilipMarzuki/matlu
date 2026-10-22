@@ -305,21 +305,42 @@
    pain, injuries, the night, the outlook) sits behind the ⋯ in `.compactmore`, which opens into the
    page's own flow below the sticky bar instead of growing it. */
 .statusbar.compact { display: block; padding: 4px 10px; }
-.cline { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+/* Not a scroll container (#1947): with `overflow-x: auto` a line too long for a phone scrolled its
+   end, the ⋯, out of view instead of making room, and (overflow-x forces overflow-y too) it clipped
+   the food popover under the 🍖. The line makes room instead: the stores box gives way (below). */
+.cline { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 /* The Warden's button (#1924): with the two-row header, which otherwise gives it a whole row of its
-   own, it rides in the compact line instead; its name shrinks before the line wraps, and under
-   360px it's the portrait alone (still the same button, still opens the Warden's view). */
+   own, it rides in the compact line instead; its name shrinks before the line wraps, and on a phone
+   (520px and under, #1947) it's the portrait alone (still the same button, still opens the Warden's view). */
 .cline .who { flex: 0 1 auto; min-width: 0; }
-.cline .who > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cline .who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cday { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--faint); white-space: nowrap; flex: none; }
 .cday b { color: var(--ink); font-weight: 400; font-size: 11px; }
 .vdots { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .vdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .vdot.fresh { background: var(--green); } .vdot.ok { background: var(--teal); } .vdot.warn { background: var(--warn); } .vdot.low { background: var(--danger); }
-.statusbar.compact .keybox { flex: none; gap: 8px; padding: 2px 8px; }
+/* The stores box is what gives way when the line is short of room (#1947); the ⋯, the dots and, on
+   a phone, the portrait never do (`flex: none`). A flex item never shrinks below its min-content width by default
+   (`min-width: auto`), so the room comes from making that min-content small without cutting anything:
+   - the box may shrink (`flex-shrink: 1`, where #1924 had `flex: none`);
+   - its icons are drawn anywhere from 32px down to 20px. `width: auto` + `max-width: 100%` make an
+     <img> count as 0 wide when the browser works out the min-content width (then `min-width` 20px),
+     while `flex-basis: 32px` keeps the full 32px box whenever there's room, even before the PNG loads;
+   - each store starts from its min-content width (`flex-basis: min-content`) and grows by the same
+     share up to its natural width, so the three icons shrink evenly; only when even that doesn't fit
+     (a hunger or thirst streak on a phone) does the box wrap onto a second row (`.sstores` wraps);
+   - the counts never wrap or shrink (a number is never cut). */
+.statusbar.compact .keybox { flex: 0 1 auto; gap: 8px; padding: 2px 8px; }
+.statusbar.compact .keybox > * { flex: 1 1 min-content; max-width: max-content; }
+.statusbar.compact .keybox .iicon { flex: 0 1 32px; width: auto; height: auto; aspect-ratio: 1; min-width: 20px; max-width: 100%; }
+.statusbar.compact .keybox .kv { flex: none; white-space: nowrap; }
 .morebtn { margin-left: auto; flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--sub); color: var(--dim); font-size: 14px; line-height: 1; padding: 4px 11px; cursor: pointer; min-height: 32px; min-width: 32px; }
 .morebtn:hover { border-color: var(--teal); }
-@media (max-width: 420px) { .cline .who > span { display: none; } .cline .who { gap: 0; padding: 3px; } }
+/* A phone (#1947): the Warden's name goes first, as the line has no room for it beside the stores.
+   `:last-child` is the name: `> span` alone also matched the portrait (a <span> too), which left an
+   empty pill. Under 420px the day goes as well: the header's first row, right above, says the same. */
+@media (max-width: 520px) { .cline .who > span:last-child { display: none; } .cline .who { flex: none; gap: 0; padding: 3px; } }
+@media (max-width: 420px) { .cline .cday { display: none; } .statusbar.compact .keybox { gap: 6px; padding: 2px 6px; } }
 .morebtn[aria-expanded="true"] { color: var(--gold); border-color: var(--gold); }
 .compactmore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px; background: color-mix(in srgb, var(--panel) 94%, transparent); position: relative; }
 
