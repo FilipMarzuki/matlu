@@ -4,7 +4,8 @@
  * runs, and the journal beside them.
  *
  * Moved out of main.ts so it can be drawn in a unit test, as a pure function of the run, the
- * finished runs and `t`. The status bar's verdict (`outlookShort`) reads the same warnings.
+ * finished runs and `t`. The status bar's verdict (`outlookTag` in main.ts) and the "where you
+ * stand" line (#1926) read the same shortfalls (`outlookShortfalls`).
  */
 
 import type { Key, T } from '../artificer/i18n';
@@ -47,17 +48,45 @@ export function timeline(s: Region1State, t: T): string {
     + `<div class="tl-legend"><span>${t('progress.autumnHtml', { a: 1, b: cal.winterDay - 1 })}</span><span>${t('progress.winterHtml', { a: cal.winterDay, b: cal.thawDay - 1 })}</span><span>${t('progress.thawHtml', { n: cal.thawDay })}</span></div>`;
 }
 
-/** What falls short of the thaw, in plain words (empty when nothing does). */
-export function outlookWarnings(s: Region1State, t: T): string[] {
+/**
+ * One thing the winter outlook says falls short of the thaw: the food or the firewood (the nights
+ * it lasts, `have`, against the nights to last, `need`; for firewood also the wood still to find),
+ * or the shelter too cold for a clear midwinter night.
+ */
+export type Shortfall =
+  | { what: 'food'; have: number; need: number }
+  | { what: 'fuel'; have: number; need: number; more: number }
+  | { what: 'cold' };
+
+/**
+ * What falls short of the thaw, as data (empty when nothing does), in the order PROGRESS lists it:
+ * food, firewood, warmth. The one rule for "short": the warnings below, the status bar's verdict and
+ * the "where you stand" line (#1926, standing-line.ts) all read it, so they can't disagree.
+ */
+export function outlookShortfalls(s: Region1State): Shortfall[] {
   const o = winterOutlook(s);
   const need = outlookNights(s);
-  const out: string[] = [];
+  const out: Shortfall[] = [];
   if (need === 0) return out; // the thaw: nothing left to last
-  if (o.foodDays < need) out.push(plural(t, 'progress.foodShort', o.foodDays, { m: need - o.foodDays }));
-  if (o.fuelDays < need) out.push(plural(t, 'progress.fuelShort', o.fuelDays, { m: Math.max(0, o.fuelToThaw - s.stores.firewood) }));
-  if (o.warmthMargin < 0) out.push(t('progress.tooCold'));
+  if (o.foodDays < need) out.push({ what: 'food', have: o.foodDays, need });
+  if (o.fuelDays < need) out.push({ what: 'fuel', have: o.fuelDays, need, more: Math.max(0, o.fuelToThaw - s.stores.firewood) });
+  if (o.warmthMargin < 0) out.push({ what: 'cold' });
   return out;
 }
+
+/** What falls short of the thaw, in plain words (empty when nothing does). */
+export function outlookWarnings(s: Region1State, t: T): string[] {
+  return outlookShortfalls(s).map(f => (f.what === 'food' ? plural(t, 'progress.foodShort', f.have, { m: f.need - f.have })
+    : f.what === 'fuel' ? plural(t, 'progress.fuelShort', f.have, { m: f.more })
+      : t('progress.tooCold')));
+}
+
+/**
+ * What the "where you stand" line says (#1926, standing-line.ts `standingNote`), for PROGRESS to agree
+ * with it: whether it says you're ready, and, when it doesn't, its "Next: …" sentence. Left out
+ * (the switch off), PROGRESS is drawn exactly as before.
+ */
+export interface StandingNote { ready: boolean; next: string }
 
 /**
  * One key metric's row (#1915): its bar against the winter outlook's need, its amount in one unit —
@@ -81,7 +110,7 @@ function keyRow(m: KeyMetric, o: WinterOutlook, t: T): string {
  * (key-metrics.ts) against the winter's need — food, firewood and water, each in one unit — then
  * warmth against the year's hardest night, the warnings and the "enough" line.
  */
-export function outlookBlock(s: Region1State, t: T): string {
+export function outlookBlock(s: Region1State, t: T, note?: StandingNote): string {
   const cal = s.config.calendar;
   const o = winterOutlook(s);
   const warmNeed = coldNightNeeds(nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal));
@@ -91,15 +120,23 @@ export function outlookBlock(s: Region1State, t: T): string {
   return keyMetrics(s).map(m => keyRow(m, o, t)).join('')
     // Warmth is judged against the year's hardest kind of night: clear, at midwinter.
     + row(t('progress.warmth'), (warmth(s) + FIRE_WARMTH) / warmNeed, `${Math.floor((warmth(s) + FIRE_WARMTH) * 100)}% / ${Math.ceil(warmNeed * 100)}%`, o.warmthMargin >= 0)
-    + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">${esc(t('progress.enough'))}</p>`);
+    + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">${esc(t('progress.enough'))}</p>`)
+    // Enough laid by, but the line still has a step for you (the larder of rations, the body…): say
+    // the same here, so "enough" never reads as "ready" beside it (#1926).
+    + (note && !note.ready && !warnings.length ? `<p class="mood standnote">${esc(t('stand.progress.notYet', { next: note.next }))}</p>` : '');
 }
 
-/** The milestones, done or still to do. */
-export function milesBlock(s: Region1State, t: T): string {
+/**
+ * The milestones, done or still to do. Milestones latch (readiness.ts): once reached they stay
+ * ticked. With the "where you stand" line (#1926) a ticked Winter-ready that the line doesn't
+ * agree with now says "(not now)", so the two can't contradict each other.
+ */
+export function milesBlock(s: Region1State, t: T, note?: StandingNote): string {
   return `<ol class="miles">${REGION1_MILESTONES.map(m => {
     const done = s.milestones.includes(m.id);
     const name = t(`w.mile.${m.id}` as Key);
-    return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc((name === `w.mile.${m.id}` ? m.name : name).toUpperCase())}</span></li>`;
+    const lapsed = done && m.id === 'ready' && note && !note.ready ? ` <span class="mnow">(${esc(t('stand.progress.notNow'))})</span>` : '';
+    return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc((name === `w.mile.${m.id}` ? m.name : name).toUpperCase())}</span>${lapsed}</li>`;
   }).join('')}</ol>`;
 }
 
@@ -116,13 +153,14 @@ export function pastRuns(history: readonly RunRecord[], t: T): string {
  * The PROGRESS tab: the season, the outlook, the milestones and the past runs (only once a winter has
  * been finished, #1866); the journal (already
  * drawn) beside them. `journalHead` is the journal's heading when the page draws it itself (with the
- * 📖 and the notes, #1838); left out, the plain JOURNAL heading.
+ * 📖 and the notes, #1838); left out, the plain JOURNAL heading. `note` is what the "where you stand"
+ * line says (#1926), with that switch on; left out, the tab is as before.
  */
-export function progressTab(s: Region1State, history: readonly RunRecord[], journalHtml: string, t: T, journalHead?: string): string {
+export function progressTab(s: Region1State, history: readonly RunRecord[], journalHtml: string, t: T, journalHead?: string, note?: StandingNote): string {
   return `<div class="cols">
         <section class="box"><p class="eyebrow ice">${esc(t('head.season'))}</p>${timeline(s, t)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t)}
-          <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t)}
+          <p class="eyebrow" style="margin-top:16px">${esc(t('head.outlook'))}</p>${outlookBlock(s, t, note)}
+          <p class="eyebrow" style="margin-top:16px">${esc(t('head.milestones'))}</p>${milesBlock(s, t, note)}
           ${history.length ? `<p class="eyebrow" style="margin-top:16px">${esc(t('head.pastRuns'))}</p>${pastRuns(history, t)}` : ''}</section>
         <section class="box log">${journalHead ?? `<p class="eyebrow" style="color:var(--faint);margin-bottom:7px">${esc(t('head.journal'))}</p>`}<ul class="full">${journalHtml}</ul></section>
       </div>`;

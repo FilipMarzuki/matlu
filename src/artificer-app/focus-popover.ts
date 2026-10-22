@@ -22,10 +22,14 @@ import { statEffects } from '../artificer/stats';
 import { esc } from './html';
 import { focusName, lockText } from './sim-words';
 import { focusBlock } from './warden-view';
-import { FOOD_LAID_BY, PATH_STEPS, stepGoal, survivalPath } from './survival-path';
+import { FOOD_LAID_BY, PATH_STEPS, stepGoal, survivalPath, type PathOptions } from './survival-path';
 
-/** What the page's switches say about the chip and picker: the `guide` ui feature (survival-path.ts). */
-export interface FocusUi { guide?: boolean }
+/**
+ * What the page's switches say about the chip and picker: the `guide` ui feature (survival-path.ts),
+ * and `standing-line` (#1926), with which the picker's path reads step 5 against the winter outlook
+ * too, as the "where you stand" line that opens it does.
+ */
+export interface FocusUi { guide?: boolean; standing?: boolean }
 
 /** The popover's element id, which the chip names in `aria-controls`. */
 export const FOCUS_POP_ID = 'focuspop';
@@ -67,7 +71,7 @@ export function focusChip(s: Region1State, t: T, open: boolean, ui: FocusUi = {}
 export function focusPopover(s: Region1State, t: T, ui: FocusUi = {}): string {
   return `<div class="focuspop" id="${FOCUS_POP_ID}" role="dialog" aria-modal="false" aria-labelledby="${FOCUS_POP_ID}-h">
     <div class="fphead"><p class="eyebrow" id="${FOCUS_POP_ID}-h">${esc(t('head.focus'))}</p><button class="fpclose" data-cmd="focuspopclose" aria-label="${esc(t('status.focusClose'))}" title="${esc(t('status.focusClose'))}">✕</button></div>
-    ${ui.guide ? pathBlock(s, t) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
+    ${ui.guide ? pathBlock(s, t, { outlook: ui.standing }) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
   </div>`;
 }
 
@@ -76,10 +80,11 @@ export function focusPopover(s: Region1State, t: T, ui: FocusUi = {}): string {
  * step ticked or not, the current one marked with what it asks and, when a goal focus helps with
  * it, a button that sets that focus. The button is the same `data-focus` choice as the goal chips
  * below, so main.ts sets it with the same move and closes the picker. Disabled, like them, while
- * survival has taken over; replaced by a note when that goal is already the focus.
+ * survival has taken over; replaced by a note when that goal is already the focus. With
+ * `opts.outlook` (#1926) step 5 stays the current one while the winter outlook falls short.
  */
-export function pathBlock(s: Region1State, t: T): string {
-  const path = survivalPath(s);
+export function pathBlock(s: Region1State, t: T, opts: PathOptions = {}): string {
+  const path = survivalPath(s, opts);
   if (path.current === null) return '';
   const lock = survivalLockOf(s);
   const items = path.steps.map((st, i) => {
@@ -89,7 +94,7 @@ export function pathBlock(s: Region1State, t: T): string {
     let extra = '';
     if (now) {
       const hint = st.id === 'food' ? t('path.hint.food', { n: FOOD_LAID_BY, have: winterOutlook(s).foodDays }) : t(`path.hint.${st.id}`);
-      const goal = stepGoal(s, st.id);
+      const goal = stepGoal(s, st.id, opts);
       const key = goal ? focusKey({ kind: 'goal', id: goal }) : '';
       const name = goal ? t(`goal.${goal}`) : '';
       const act = !goal ? ''
