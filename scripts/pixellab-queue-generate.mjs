@@ -10,6 +10,7 @@
  *   node scripts/pixellab-queue-generate.mjs --idle-run   # only idle+run pass
  *   node scripts/pixellab-queue-generate.mjs --extras     # only extra anims (walk/eat/sleep/death/drink)
  *   node scripts/pixellab-queue-generate.mjs --birds      # only bird pro animations
+ *   node scripts/pixellab-queue-generate.mjs --artificer-icons  # only Artificer item icons (#1674)
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -88,7 +89,8 @@ const onlyIdleRun = args.includes('--idle-run');
 const onlyExtras = args.includes('--extras');
 const onlyBirds = args.includes('--birds');
 const onlyTiles = args.includes('--tiles');
-const all = !onlyIdleRun && !onlyExtras && !onlyBirds && !onlyTiles;
+const onlyArtificerIcons = args.includes('--artificer-icons');
+const all = !onlyIdleRun && !onlyExtras && !onlyBirds && !onlyTiles && !onlyArtificerIcons;
 
 // ── Build queue ──────────────────────────────────────────────────────────────
 
@@ -1017,6 +1019,45 @@ if (all || onlyTiles) {
         pass: 'rare-variants',
       });
     }
+  }
+}
+
+// ── Artificer item icons (#1674) ─────────────────────────────────────────────
+// One 32 px icon per Artificer item that has no `icon` in its visual brief.
+// The brief (src/artificer/content/art-briefs.json) is the prompt; the style
+// guide (art-style.json) supplies the size, outline, shading, detail, the
+// prompt suffix and the 32-colour palette. create_image_pixflux is the same
+// generator (and the same knobs) the kept Homestead icons were made with
+// (src/ai/asset-spec.json), at 1 generation per icon. It takes no style or
+// reference images, only a forced palette, so the palette (which was itself
+// extracted from the reference icons) is how the style's look travels.
+// The burn script downloads each result to outputPath and records `icon` in
+// the brief. Items whose PNG is already on disk are skipped, so an
+// interrupted burn resumes where it stopped.
+if (all || onlyArtificerIcons) {
+  const briefs = JSON.parse(readFileSync(join(ROOT, 'src/artificer/content/art-briefs.json'), 'utf8')).items;
+  const style = JSON.parse(readFileSync(join(ROOT, 'src/artificer/content/art-style.json'), 'utf8'));
+  for (const [id, b] of Object.entries(briefs)) {
+    if (b.icon) continue;
+    const outputPath = join(ROOT, `public/assets/sprites/icons/items/${id}.png`);
+    if (existsSync(outputPath)) continue;
+    queue.push({
+      type: 'create_image_pixflux',
+      name: `artificer-icon-${id}`,
+      itemId: id,
+      tier: b.tier,
+      description: `${b.brief} Front view, lit from the top left. ${style.pixellab.promptSuffix}`,
+      width: style.icon.size,
+      height: style.icon.size,
+      outline: style.outline.pixellab,
+      shading: style.pixellab.shading,
+      detail: style.pixellab.detail,
+      palette: style.palette,
+      noBackground: style.background === 'transparent',
+      outputPath,
+      status: 'pending',
+      pass: 'artificer-icons',
+    });
   }
 }
 

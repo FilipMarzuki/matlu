@@ -19,7 +19,7 @@ import type { Ring } from './exploration';
 import type { Season } from './winter';
 import type { Stores } from './region1';
 import type { Grade, Tool } from './crafting';
-import type { Stats, StatId } from './stats';
+import { statEffects, type Stats, type StatId } from './stats';
 import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
@@ -43,7 +43,24 @@ export interface Requirement {
   marks?: number;
   /** Something from the hike kit (#1400). */
   kit?: KitId;
+  /** Your mind on this (#1499): a focus key, `material:stone`, `group:compact`, `skill:scouting`. */
+  focus?: string;
+  /** Knowing about this (#1499): a topic you've heard named or been told about when you asked. */
+  knows?: string;
+  /** Having done this (#1499): a deed an earlier encounter recorded, e.g. `fed-the-stranger`. */
+  deed?: string;
 }
+
+/** What each deed was, in words, for an option it opens ("only if you've put a lost herald right"). */
+export const DEED_WORDS: Readonly<Record<string, string>> = {
+  'herald-owes-you': 'put a lost herald right',
+  'warmed-the-scholar': 'brought an old scholar firewood',
+  'fed-the-stranger': 'fed a starving stranger',
+  'heard-road-early': 'asked a Hollowford hunter about the road',
+};
+
+/** A focus or topic key as words: `place:kestrel-gate` → "kestrel gate". (No topic registry here: it would close an import loop.) */
+const keyWords = (key: string): string => key.slice(key.indexOf(':') + 1).replace(/-/g, ' ');
 
 /** What an outcome does. Numbers are changes (negative costs). */
 export interface Effect {
@@ -528,6 +545,10 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'cross', label: 'Cross it quickly', odds: 0.6, response: 'fight', mods: { stats: { agi: 0.03, con: 0.03 } },
         success: { text: 'Quick, light steps. The ground rings under your feet, and lets you go.' },
         fail: { text: 'Halfway over, the stone cuts through your boot. The wound burns cold and won\'t close clean.', wound: 15, killedBy: 'corrupted ground' } },
+      // With stone on your mind (#1499), you can read what it's become.
+      { id: 'read-stone', label: 'Read it as stone', requires: { focus: 'material:stone' }, cost: { hours: 1 }, odds: 1, careful: true,
+        success: { text: 'With stone on your mind, you see it: the grain runs wrong, folded back on itself like a knot pulled tight. It isn\'t broken. It\'s more itself than stone should ever be.', insight: { concept: 'sealing', amount: 3 } },
+        fail: { text: 'You look until your eyes ache. Stone, gone strange.' } },
       { id: 'sample', label: 'Take a sample', cost: { hours: 1 }, odds: 0.7, careful: true, mods: { stats: { int: 0.03 } },
         success: { text: 'You chip a flake of it off into a fold of hide. It is warm. It is more stone than stone should be — more of what it was, as the herald said.', insight: { concept: 'sealing', amount: 2 } },
         fail: { text: 'It flakes into your hand and burns. You drop it, and the burn doesn\'t fade until evening.', condition: -5, clarity: -10 } },
@@ -686,6 +707,10 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
       { id: 'sing', label: 'Trade her a story of the winter for a song', odds: 0.6, persuasion: true, mods: { stats: { cha: 0.04 } },
         success: { text: 'She makes a verse of it on the spot, and by evening half the caravan is singing about you.', trust: { 'cv-bodil': 3, 'cv-runa': 6, 'cv-pim': 3 } },
         fail: { text: 'She listens politely. "Every winter is the hardest winter," she says, and moves on.' } },
+      // What you did in the Reach (#1499): heralds talk to each other.
+      { id: 'the-lost-herald', label: 'Ask after the herald you put right', requires: { deed: 'herald-owes-you' }, odds: 1,
+        success: { text: '"The one turning circles by the ley-line? She\'s my cousin. She told the whole valley someone up there knew east from west." She sings you the road ahead, verse by verse, and won\'t take a mark for it.', clarity: 6, trust: { 'cv-runa': 6 } },
+        fail: { text: 'She smiles. "So that was you."' } },
     ],
   },
   {
@@ -723,6 +748,13 @@ export interface Encounterer {
   kit?: { items: readonly KitId[] };
   /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
   pending?: PendingEncounter | null;
+  /** What your mind is on (#1499): `{ kind, id }`, as a focus. */
+  focus?: { kind: string; id: string } | null;
+  /** What you've done (#1346, read by #1499). */
+  deeds?: readonly string[];
+  /** Topics heard named, and what each person has answered (#1494, #1495): what you know about, on the road. */
+  heard?: readonly string[];
+  asked?: Readonly<Record<string, readonly string[]>>;
 }
 
 /** Why you can't choose an option, or null if you can. */
@@ -742,6 +774,10 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
   if (r?.stat && w.character.stats[r.stat.id] < r.stat.min) return `needs ${r.stat.id.toUpperCase()} ${r.stat.min}`;
   if (r?.tool && !w.tools.some(t => t.item === r.tool)) return `needs a ${r.tool.replace(/-/g, ' ')}`;
   if (r?.kit && !w.kit?.items.includes(r.kit)) return `needs a ${kitItem(r.kit).name.toLowerCase()}`;
+  // Focus, knowledge and deeds (#1499): the same gate village asks use.
+  if (r?.focus && (w.focus ? `${w.focus.kind}:${w.focus.id}` : null) !== r.focus) return `needs your mind on ${keyWords(r.focus)}`;
+  if (r?.knows && !(w.heard ?? []).includes(r.knows) && !Object.values(w.asked ?? {}).some(a => a.includes(r.knows!))) return `needs you to know about ${keyWords(r.knows)}`;
+  if (r?.deed && !(w.deeds ?? []).includes(r.deed)) return `only if you've ${DEED_WORDS[r.deed] ?? 'done something you haven\'t'}`;
   const marks = Math.max(r?.marks ?? 0, o.cost?.marks ?? 0);
   if (marks && (w.marks ?? 0) < marks) return `needs ${marks} marks`;
   for (const [k, n] of Object.entries(needs)) if (w.stores[k as keyof Stores] < (n ?? 0)) return `needs ${n} ${k === 'rawFood' ? 'food' : k}`;
@@ -752,6 +788,13 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
  * An option's chance of success for this Warden, 0.02–0.98 (1 stays 1: a sure thing is sure).
  * Shaken or worse (#1360), a careful option loses one odds word.
  */
+/**
+ * Succeeding more often (#1490): an option that counts a skill is this much likelier when that
+ * skill is the focus, half that when focus is unreliable. (Here rather than in focus.ts: importing
+ * focus.ts would close an import loop through topics and quests.)
+ */
+export const FOCUS_ODDS = 0.05;
+
 export function chanceOf(w: Encounterer, o: EncounterOption): number {
   if (o.odds >= 1) return 1;
   // Sure for those who meet it (#1344) — however shaken.
@@ -764,6 +807,11 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   const surge = w.pending?.state === 'shaken' || w.pending?.state === 'panicked' ? ADRENALINE * talentEffects(w.character.talents).adrenaline : 0;
   for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10 + (id === 'str' || id === 'agi' ? surge : 0));
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
+  // A focused skill the option counts (#1490): the same reliability rule as every focus effect.
+  if (w.focus?.kind === 'skill' && m.skills && w.focus.id in m.skills) {
+    const clear = (w.vitals?.clarity.current ?? 100) >= statEffects(w.character.stats).unreliableBelow;
+    p += FOCUS_ODDS * (clear ? 1 : 0.5);
+  }
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
   if (m.lowClarity && w.vitals && w.vitals.clarity.current < m.lowClarity.below) p += m.lowClarity.add;

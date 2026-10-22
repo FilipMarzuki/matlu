@@ -5,8 +5,10 @@
  * testing the harness without an API key.
  */
 
-import { SUGGESTED_PACK } from '../../artificer/kit';
-import { blockedReason, queueHours, queueId, winterOutlook, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
+import { suggestedPackOf } from '../../artificer/kit';
+import { blockedReason, nightFuel, queueHours, queueId, runAction, winterOutlook, openMeatOf, meatPlaceFor, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
+import { campAsActionOn } from '../../artificer/camp-sites';
+import { BANK_FIREWOOD } from '../../artificer/camp-scavengers';
 import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
 import { seasonOf } from '../../artificer/winter';
@@ -18,6 +20,7 @@ import { buyPrice } from '../../artificer/trade';
 import { canBeTaught, techniqueById } from '../../artificer/techniques';
 import { skillLevel } from '../../artificer/skills';
 import { encounterById, safestOption } from '../../artificer/encounters';
+import { shown } from '../../artificer/action-visibility';
 import { meetingOptions, safestMeetingOption } from '../../artificer/caravan-meeting';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
@@ -70,6 +73,30 @@ function routineDay(s: Region1State): Entry[] {
   return WINTER[s.day % WINTER.length].map(e => (e.action === 'fish' && !iceThick(s.day, s.config.calendar) ? a('hunt') : e));
 }
 
+/**
+ * Traps first; hunting and fishing need gear (#1821, `hunting-gear`): a hunt the Warden can't do yet
+ * becomes a sling made (once), else a line of traps (one per distance), else foraging; once the bow
+ * opens (Hunting enough, and the sinew from those catches) a hunt becomes the bow made; a fishing trip
+ * without a hook and line becomes one made, else foraging. With the switch off nothing is hidden and
+ * the plan is as it always was.
+ */
+function withGear(queue: Entry[], s: Region1State): Entry[] {
+  const used = new Set<string>();
+  const first = (action: string, ring = 1): Entry | null => {
+    const key = `${action}@${ring}`;
+    if (used.has(key) || !shown(s, action as ActionId) || blockedReason(s, action as ActionId, ring as Ring) !== null) return null;
+    used.add(key);
+    return a(action, ring);
+  };
+  return queue.map(e => {
+    // Once it knows hunting well enough and has the sinew (from the traps and sling hunts), a bow (once).
+    if (e.action === 'hunt' && shown(s, 'bow')) { const bow = first('bow'); if (bow) return bow; }
+    if (e.action === 'hunt' && !shown(s, 'hunt')) return first('sling') ?? first('traps', e.ring) ?? a('gather', e.ring);
+    if (e.action === 'fish' && !shown(s, 'fish')) return first('hookline') ?? a('gather', e.ring);
+    return e;
+  });
+}
+
 /** Half rations when the food won't reach the thaw at a meal a night; full again once it will (#1305). */
 const eatingFor = (s: Region1State): 'full' | 'half' => {
   const o = winterOutlook(s);
@@ -92,7 +119,132 @@ const dayHours = (day: Entry[], s: Region1State): number =>
  * it trades places with a later wood trip. Each run gets a
  * fresh player, so the plan is per run.
  */
-export const scriptedPlayer = (): Player => stepwise(scriptedPlanner());
+export const scriptedPlayer = (): Player => {
+  const old = stepwise(scriptedPlanner());
+  // With camp as an action (#1732) the fixed plan never makes camp, so it never builds or fetches
+  // water and dies of thirst in the first fortnight (#1852): those games are played by needs instead.
+  return { ...old, async decide(message, s) { return campAsActionOn(s) ? needsDay(s) : old.decide(message, s); } };
+};
+
+// ── Playing by needs (#1852) ────────────────────────────────────────────────
+
+/** Vigor and Clarity the needs player won't work below: under them, it rests or ends the day. */
+const VIGOR_FLOOR = 20, CLARITY_FLOOR = 15;
+
+const optsOf = (e: Entry): ActionOpts => Object.fromEntries(e.options.map(o => [o.key, o.value])) as ActionOpts;
+const itemOf = (e: Entry): QueueItem => {
+  const q = queueId(e.action as ActionId, e.ring as Ring);
+  return e.options.length ? { q, opts: optsOf(e) } : q;
+};
+
+/** Firewood the next `n` nights ask, as the sim works it out (a cave asks for little; a frost a lot). */
+const fuelFor = (s: Region1State, n: number): number => {
+  let need = 0;
+  for (let d = s.day; d < Math.min(s.day + n, s.config.calendar.thawDay); d++) need += nightFuel(s, d);
+  return need;
+};
+
+/** Is this action open now, in this ring? (Hidden, blocked or wasted by the weather: no.) */
+const open = (s: Region1State, e: Entry): boolean =>
+  shown(s, e.action as ActionId) && blockedReason(s, e.action as ActionId, e.ring as Ring, optsOf(e)) === null && !spoiled(e, s);
+
+/**
+ * What the needs player wants next, most urgent first (#1852): camp, the near ground known, water
+ * for tonight and tomorrow, wood for the nights ahead (a winter's worth by late autumn), a roof, then
+ * food (traps first, a sling and a hook and line when it can make them, then hunting, fishing and
+ * foraging), then smoking the spare, cold gear and a better shelter. Each is checked against the
+ * state the day's earlier actions leave, so the list adapts as the day goes.
+ */
+function wants(s: Region1State): Entry[] {
+  const winter = seasonOf(s.day, s.config.calendar) === 'winter';
+  const toWinter = Math.max(0, s.config.calendar.winterDay - s.day);
+  const food = s.stores.rawFood + s.stores.rations;
+  const nightsLeft = Math.max(0, s.config.calendar.thawDay - s.day);
+  const out: Entry[] = [];
+  if (!s.campSpot) out.push(a('camp'));
+  if (!scouted(s.explore, 1)) out.push(a('scout'), a('explore'));
+  // Water: two nights' worth in hand, three once the streams freeze (melting snow needs a fire).
+  if (s.stores.water < (winter ? 3 : 2)) out.push(a('water'));
+  // Wood: tonight and the next two nights, always; in late autumn, a growing share of the winter.
+  const fuelNow = fuelFor(s, 3) + 1;
+  if (s.stores.firewood < fuelNow) out.push(a('wood'));
+  // Meat lying out it can't store (no cord, no stone) and firewood to spare beyond the next nights:
+  // bank the fire before the day's trips (#1865), so a fox finds it guarded. Refused, so skipped,
+  // when there's no meat, it's banked already, or the switch is off.
+  if (openMeatOf(s) > 0 && meatPlaceFor(s) === null && s.stores.firewood >= fuelNow + BANK_FIREWOOD) out.push(a('bankfire'));
+  if (s.tier === 0) out.push(a('build'));
+  // Food: keep a few nights in hand, and in autumn lay in toward the winter.
+  const foodTarget = Math.min(nightsLeft, winter ? 4 : 3 + Math.max(0, 30 - toWinter) / 2);
+  if (food < foodTarget) {
+    out.push(a('traps'), a('traps', 2), a('sling'), a('hookline'), a('bow'));
+    out.push(a('hunt', 1, { target: 'small' }), a('fish'), a('gather'), a('hunt', 2, { target: 'small' }), a('gather', 2));
+  }
+  // Once there's a roof, a look further out: more places to camp, forage and game, and the map's places.
+  if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
+  if (s.stores.rawFood >= 4) out.push(a('preserve'));
+  // Meat lying out at camp draws animals (#1823): put it out of reach (refused, so skipped, with nothing to store or the switch off).
+  out.push(a('storemeat'));
+  if (s.stores.water < 4) out.push(a('water'));
+  const fuelSoon = toWinter <= 20 ? Math.min(winterOutlook(s).fuelToThaw, fuelFor(s, 20 - toWinter + 3)) : fuelNow;
+  if (s.stores.firewood < fuelSoon) out.push(a('wood'));
+  // A lid on the cold pit once there is one (#1857): Store the meat then puts the meat in it first (refused, so skipped, with no pit or the switch off).
+  out.push(a('coldGear'), a('build'), a('coldPit'), a('lidpit'), a('bedroll'), a('drawmap'));
+  // A better roof before the frosts: short of materials for it, cut timber (wood brings both).
+  if (s.tier < 2 && /needs \d+ materials/.test(blockedReason(s, 'build', 1) ?? '')) out.push(a('wood'));
+  out.push(a('sling'), a('hookline'));
+  if (food < nightsLeft) out.push(a('traps'), a('hunt', 1, { target: 'small' }), a('fish'), a('gather'));
+  if (s.stores.firewood < winterOutlook(s).fuelToThaw + 4) out.push(a('wood'));
+  return out;
+}
+
+/** One action played forward on the plan's dice-free copy. */
+const tryAction = (s: Region1State, e: Entry): Region1State => runAction(s, itemOf(e));
+
+/** Would this action leave the Warden spent, or cost Condition (overwork, a danger)? */
+const tooHard = (before: Region1State, after: Region1State): boolean =>
+  after.vitals.vigor.current < VIGOR_FLOOR || after.vitals.clarity.current < CLARITY_FLOOR || after.vitals.condition < before.vitals.condition
+  || after.hoursToday > DAY_HOURS || !!after.outcome;
+
+/**
+ * The day as the needs player plans it: the most urgent want that it can do without going past its
+ * floors, played forward, then the next, until the day is spent or nothing else is worth doing.
+ * A rest comes in when the Warden is worn and the day still has hours. Until it can plan ahead the
+ * runner runs only the first entry and asks again, so each call plans from where the day stands.
+ */
+function planNeeds(start: Region1State): Entry[] {
+  // Planned without the dice (#1852): no luck, accidents or encounters on the copy it plays forward,
+  // so the plan weighs what a person could expect, never the seeded rolls still to come.
+  let s: Region1State = { ...start, config: { ...start.config, world: { ...start.config.world, luck: false, accidents: false, encounters: false } } };
+  const day: Entry[] = [];
+  while (s.hoursToday < DAY_HOURS && day.length < 10 && !s.outcome) {
+    let picked: { e: Entry; next: Region1State } | null = null;
+    for (const e of wants(s)) {
+      if (!open(s, e)) continue;
+      const next = tryAction(s, e);
+      if (next.hoursToday === s.hoursToday || tooHard(s, next)) continue;
+      picked = { e, next };
+      break;
+    }
+    if (!picked) {
+      // Nothing it can do without overworking: rest if there's time and it helps, else end the day.
+      const rest = a('rest');
+      if (s.vitals.vigor.current < s.vitals.vigor.cap * 0.6 && open(s, rest) && DAY_HOURS - s.hoursToday >= queueHours('rest', s)) {
+        day.push(rest); s = tryAction(s, rest); continue;
+      }
+      break;
+    }
+    day.push(picked.e);
+    s = picked.next;
+  }
+  return day;
+}
+
+/** A day by needs, replied as JSON like any player's. A blizzard keeps it in, as the fixed plan does. */
+function needsDay(s: Region1State): { text: string; usage: { cost: number } } {
+  const eating = eatingFor(s);
+  const queue = isBlizzard(s.weatherToday, s.day, s.config.calendar) ? blizzardDay(s) : planNeeds(s);
+  return { text: JSON.stringify({ thoughts: `Day ${s.day}: what's needed most.`, site: null, eating, queue }), usage: { cost: 0 } };
+}
 
 /**
  * Learned planning (#1350): the planner still plans a whole day, but until the Warden can
@@ -161,6 +313,7 @@ const scriptedPlanner = (): Player => {
           queue = [...(short ? [a('wood'), a('wood')] : []), a('build', 1, site ? { site } : {})];
         }
       }
+      queue = withGear(queue, s);
       return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, eating, queue }), usage: { cost: 0 } };
     },
     async decideRoad(_message, r) {
@@ -173,9 +326,10 @@ const scriptedPlanner = (): Player => {
       const choice = ['hail', 'hides', 'rations', 'work'].find(id => open.includes(id)) ?? safestMeetingOption(reach, m).id;
       return { text: JSON.stringify({ thoughts: 'Pay my way, or work it.', choice }), usage: { cost: 0 } };
     },
-    // Packing (#1401): the leader's list, as every scout should.
-    async decidePack() {
-      return { text: JSON.stringify({ thoughts: "The leader's packing list.", pack: SUGGESTED_PACK }), usage: { cost: 0 } };
+    // Packing (#1401): the list as ticked — the leader's, or with `stats-before-pack` (#1872) the
+    // leader's shaped by this Warden's stats and talents, which the runner already packed.
+    async decidePack(_message, s) {
+      return { text: JSON.stringify({ thoughts: "The leader's packing list.", pack: suggestedPackOf(s) }), usage: { cost: 0 } };
     },
     // An encounter (#1348): the best odds, ties going to the cheapest — never a gamble it can avoid.
     async decideEncounter(_message, s) {

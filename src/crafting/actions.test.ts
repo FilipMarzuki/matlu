@@ -134,7 +134,7 @@ describe('resolveHarvest (#1135 acceptance)', () => {
         nodeTypes: { id: string; yields: ResourceNodeYield[] }[];
       };
       const plants = new Set(['plant-fiber', 'herb-green', 'berries']);
-      const minerals = new Set(['wood-log', 'stone', 'iron-ore', 'copper-ore', 'freshwater']);
+      const minerals = new Set(['wood-log', 'stone', 'iron-ore', 'copper-ore', 'coal', 'freshwater']);
       const yields = nodeTypes.flatMap(n => n.yields.map(y => ({ node: n.id, ...y })));
       expect(yields.length).toBeGreaterThan(0);
       for (const y of yields) {

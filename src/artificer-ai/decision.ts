@@ -8,7 +8,8 @@
  * without schema enforcement can still drift.
  */
 
-import { packProblem, type KitId } from '../artificer/kit';
+import { packProblem, PACK_VOLUME, type KitId, type PackWorld } from '../artificer/kit';
+import { featureOn } from '../artificer/features';
 import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
 import type { RoadActionId } from '../artificer/road';
@@ -162,7 +163,7 @@ export function parseDecision(text: string): ParseResult {
 export interface RoadDecision { thoughts: string; actions: RoadActionId[] }
 
 /** The shapes a road action can take (validated before the sim sees it; the sim then explains what it can't do). */
-const ROAD_ACTION = /^(rest|wait|tend|help|(talk|heal|accept|complete|appraise|craft|study):[\w-]+|(sell|buy):[\w-]+(:[\w-]+)?|learn:[\w-]+:[\w-]+)$/;
+const ROAD_ACTION = /^(rest|wait|tend|help|(talk|ask|heal|accept|complete|appraise|craft|study):[\w-]+|(sell|buy):[\w-]+(:[\w-]+)?|(learn|tell):[\w-]+:[\w-]+)$/;
 
 /** JSON Schema for a road day (strict-mode friendly). */
 export const ROAD_DECISION_SCHEMA = {
@@ -173,7 +174,7 @@ export const ROAD_DECISION_SCHEMA = {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
     actions: {
       type: 'array',
-      description: 'Road actions in order, e.g. "craft:waterskin", "study:joinery", "help", "tend", "talk:hf-maren", "sell:cold-gear", "buy:rawFood:3", "accept:hf-forge-wood", "complete:hf-forge-wood", "learn:hf-orrin:seasoning", "appraise:hf-orrin", "heal:cv-ottilia", "rest", "wait".',
+      description: 'Road actions in order, e.g. "craft:waterskin", "study:joinery", "help", "tend", "talk:hf-maren", "ask:hf-orrin", "sell:cold-gear", "buy:rawFood:3", "accept:hf-forge-wood", "complete:hf-forge-wood", "learn:hf-orrin:seasoning", "appraise:hf-orrin", "heal:cv-ottilia", "rest", "wait".',
       items: { type: 'string' },
     },
   },
@@ -190,7 +191,7 @@ export function parseRoadDecision(text: string): { ok: true; decision: RoadDecis
   if (o.queue !== undefined && o.actions === undefined) errors.push('on the road, reply with "actions" (a list of road action ids), not "queue"');
   else if (!Array.isArray(o.actions)) errors.push('actions must be an array of strings');
   else o.actions.forEach((a, i) => {
-    if (typeof a !== 'string' || !ROAD_ACTION.test(a)) errors.push(`actions[${i}] "${String(a)}" is not a road action (rest, wait, help, tend, craft:<recipe>, study:<concept>, talk:<person>, sell:<item>[:<qty|grade>], buy:<good>[:<qty>], accept:<quest>, complete:<quest>, learn:<teacher>:<thing>, appraise:<teacher>, heal:<healer>)`);
+    if (typeof a !== 'string' || !ROAD_ACTION.test(a)) errors.push(`actions[${i}] "${String(a)}" is not a road action (rest, wait, help, tend, craft:<recipe>, study:<concept>, talk:<person>, ask:<person>, tell:<person>:<deed>, sell:<item>[:<qty|grade>], buy:<good>[:<qty>], accept:<quest>, complete:<quest>, learn:<teacher>:<thing>, appraise:<teacher>, heal:<healer>)`);
     else actions.push(a as RoadActionId);
   });
   return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', actions } };
@@ -236,23 +237,36 @@ export function parseEncounterDecision(text: string, options: readonly { id: str
 export const PACK_DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'pack'],
+  // `outside` is required for strict structured-output modes (every property must be); a game
+  // without the pack's volume (#1871) ignores it, and [] packs everything inside.
+  required: ['thoughts', 'pack', 'outside'],
   properties: {
     thoughts: { type: 'string', description: 'One or two sentences: what you packed and why.' },
     pack: { type: 'array', items: { type: 'string' }, description: 'The ids of the items you pack, exactly as listed.' },
+    outside: { type: 'array', items: { type: 'string' }, description: 'The packed items you strap on the outside (only ones that can be strapped on); [] for none.' },
   },
 } as const;
 
-export interface PackDecision { thoughts: string; pack: KitId[] }
+export interface PackDecision { thoughts: string; pack: KitId[]; outside?: KitId[] }
 
-/** Validate a packing reply: a list of known ids, none twice, within what the pack holds. Never throws. */
-export function parsePackDecision(text: string): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
+/**
+ * Validate a packing reply: a list of known ids, none twice, within what the pack holds. Against
+ * the run's `world` when given (#1870): what it offers, and with `pack-volume` (#1871) the room
+ * inside and the straps instead of weight, as `repack` checks; with it off, the world's `limit` kg
+ * (#1872: this Warden's carry weight, kit.ts packWorldOf; 9 kg unless the run says otherwise). Never throws.
+ */
+export function parsePackDecision(text: string, world?: PackWorld): { ok: true; decision: PackDecision } | { ok: false; errors: string[] } {
   let raw: unknown;
   try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.pack) || !o.pack.every(x => typeof x === 'string')) return { ok: false, errors: ['"pack" must be a list of item ids'] };
-  const problem = packProblem(o.pack as string[]);
+  // Against the run's world when given (#1870): a hand axe in a world without its switch isn't on the list.
+  // With the pack's volume on (#1871) what's strapped on counts too; absent there, the default straps.
+  const volume = world !== undefined && featureOn(world.features, PACK_VOLUME);
+  if (volume && o.outside !== undefined && !(Array.isArray(o.outside) && o.outside.every(x => typeof x === 'string'))) return { ok: false, errors: ['"outside" must be a list of item ids'] };
+  const outside = volume && Array.isArray(o.outside) ? [...(o.outside as KitId[])] : undefined;
+  const problem = packProblem(o.pack as string[], world ? { ...world, ...(outside ? { outside } : {}) } : undefined);
   if (problem) return { ok: false, errors: [`your pack won't do: ${problem}`] };
-  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])] } };
+  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', pack: [...(o.pack as KitId[])], ...(outside ? { outside } : {}) } };
 }

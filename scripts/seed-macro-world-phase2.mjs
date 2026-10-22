@@ -6,8 +6,19 @@
  * Usage:
  *   node --env-file=.env scripts/seed-macro-world-phase2.mjs
  *
+ * Superseded for a live database by scripts/macro-sync.mjs (#1642): refuses to run without
+ * --empty-database.
+ *
  * Issue: #793
  */
+
+// #1642: the JSON is master and Supabase is changed only by migration files (npm run macro:sync).
+// This script writes the tables directly, so it is for bootstrapping an EMPTY database only.
+if (!process.argv.includes('--empty-database')) {
+  console.error('This seed writes the macro-world tables directly. Since #1642 they change only by migration');
+  console.error('(npm run macro:sync, docs/canon.md). For an empty database only: pass --empty-database.');
+  process.exit(1);
+}
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
@@ -36,7 +47,9 @@ async function insert(table, rows) {
 // ---------------------------------------------------------------------------
 
 const PEOPLE_TO_ANCESTRY = {
-  'Markfolk':    'human',
+  'Markfolk':    'markfolk',
+  'Riksfolk':    'riksfolk',
+  'Strandfolk':  'strandfolk',
   'Bergfolk':    'dvergr',
   'Lövfolk':     'sylphari',
   'Deepwalkers': 'deepwalkers',
@@ -62,7 +75,7 @@ async function main() {
   console.log('Seeding phase 2: buildings, archetypes, ancestry body...\n');
 
   // ── 1. Buildings ──────────────────────────────────────────────────────
-  const buildingData = load('macro-world/building-registry.json');
+  const buildingData = load('public/macro-world/building-registry.json');
   const buildingRows = buildingData.buildings
     .filter(b => b.id) // skip _section markers
     .map(b => ({

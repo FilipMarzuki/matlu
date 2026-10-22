@@ -20,7 +20,7 @@ import { placeBuildings } from '../SettlementPlacement';
 import { emitSettlementMap } from '../SettlementMapEmitter';
 import type { Geography, SettlementTier, SettlementSite } from '../SettlementSpec';
 import culturesData from '../../macro-world/cultures.json';
-import buildingRegistryData from '../../macro-world/building-registry.json';
+import buildingRegistryData from '../../public/macro-world/building-registry.json';
 
 /** Mulberry32 — fast, high-quality 32-bit seeded PRNG. Returns values in [0, 1). */
 function mulberry32(seed: number): () => number {

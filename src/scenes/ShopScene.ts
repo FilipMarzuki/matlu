@@ -1,5 +1,8 @@
 import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
+import type { RegistryItem } from '../lib/items';
+import itemRegistryData from '../../macro-world/item-registry.json';
+import shopInventoriesData from '../../macro-world/shop-inventories.json';
 
 /**
  * ShopScene — vendor shop overlay (FIL-93).
@@ -37,6 +40,7 @@ import { t } from '../lib/i18n';
 
 // ─── Item catalogue ───────────────────────────────────────────────────────────
 
+/** One resolved shop row — vendor-specific cost merged with the registry entry. */
 interface ShopItem {
   id:     string;
   /** Display name. */
@@ -54,26 +58,60 @@ interface ShopItem {
   value:  number;
 }
 
+/** Shape of one entry in macro-world/shop-inventories.json's per-vendor lists. */
+interface VendorEntry {
+  itemId: string;
+  cost:   number;
+}
+
+const itemRegistry: Map<string, RegistryItem> = new Map(
+  (itemRegistryData.items as RegistryItem[]).map(item => [item.id, item]),
+);
+
+const vendorInventories: Record<string, VendorEntry[]> = shopInventoriesData.vendors;
+
+/** Short effect description shown in the shop row, derived from the registry's shopEffect/shopValue. */
+function describeEffect(effect: string, value: number): string {
+  switch (effect) {
+    case 'heal':        return `Restore ${value} HP`;
+    case 'cleanse_pct':  return `+${value}% Cleanse`;
+    default:             return '';
+  }
+}
+
 /**
- * One catalogue per vendor (keyed by vendorId passed from GameScene).
- * Different settlements carry different inventories — Skogsgläntan (the
- * trading village) stocks the widest range; the smaller hamlets keep basics.
+ * Resolve a vendor's shop-inventories.json entries against the item registry.
+ * Entries whose itemId is missing from the registry, or whose registry item
+ * has no shopEffect/shopValue, are skipped (and logged) rather than crashing
+ * the shop — bad JSON data shouldn't break the scene for every other item.
  */
-const VENDOR_INVENTORIES: Record<string, ShopItem[]> = {
-  strandviken: [
-    { id: 'heal_small', label: 'Herbal remedy',  desc: 'Restore 25 HP',    cost:  8, effect: 'heal',       value: 25 },
-    { id: 'heal_large', label: 'Root tonic',     desc: 'Restore 60 HP',    cost: 18, effect: 'heal',       value: 60 },
-  ],
-  skogsglanten: [
-    { id: 'heal_small',    label: 'Forest herb',     desc: 'Restore 25 HP',      cost:  8, effect: 'heal',        value: 25 },
-    { id: 'heal_large',    label: 'Root tonic',      desc: 'Restore 60 HP',      cost: 18, effect: 'heal',        value: 60 },
-    { id: 'cleanse_boost', label: 'Grove blessing',  desc: '+5% Cleanse',         cost: 22, effect: 'cleanse_pct', value:  5 },
-  ],
-  klippbyn: [
-    { id: 'heal_large',    label: 'Mountain herb',  desc: 'Restore 60 HP',  cost: 18, effect: 'heal',        value: 60 },
-    { id: 'cleanse_boost', label: 'Spring water',   desc: '+5% Cleanse',     cost: 22, effect: 'cleanse_pct', value:  5 },
-  ],
-};
+function resolveVendorItems(vendorId: string): ShopItem[] {
+  const entries = vendorInventories[vendorId] ?? [];
+  const resolved: ShopItem[] = [];
+
+  for (const entry of entries) {
+    const item = itemRegistry.get(entry.itemId);
+    if (!item) {
+      console.warn(`ShopScene: unknown itemId "${entry.itemId}" for vendor "${vendorId}"`);
+      continue;
+    }
+    if (item.shopEffect !== 'heal' && item.shopEffect !== 'cleanse_pct') {
+      console.warn(`ShopScene: item "${entry.itemId}" has no valid shopEffect`);
+      continue;
+    }
+    const value = item.shopValue ?? 0;
+    resolved.push({
+      id:     item.id,
+      label:  item.name,
+      desc:   describeEffect(item.shopEffect, value),
+      cost:   entry.cost,
+      effect: item.shopEffect,
+      value,
+    });
+  }
+
+  return resolved;
+}
 
 // ─── Scene ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +142,7 @@ export class ShopScene extends Phaser.Scene {
     // GameScene applies the authoritative deduction via 'shop-purchased' events.
     let currentGold = initialGold;
 
-    const items = VENDOR_INVENTORIES[vendorId] ?? [];
+    const items = resolveVendorItems(vendorId);
 
     // ── Panel geometry ────────────────────────────────────────────────────────
     const panelW = 380;

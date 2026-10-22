@@ -28,7 +28,7 @@ const NIGHT = 15; // 21:00
 describe('The hike kit (#1400)', () => {
   // 1. A pack within 9 kg: accepted, and day 1 has its tools and stores.
   it('turns a pack into day 1', () => {
-    expect(KIT.length).toBe(27);
+    expect(KIT.length).toBe(59); // the scout's list (#1400), the 30 odd things (#1727), and the hand axe and fishing kit (#1870)
     expect(packWeight(SUGGESTED_PACK)).toBeLessThanOrEqual(PACK_CAPACITY);
     expect(packWeight(KIT_IDS)).toBeGreaterThan(PACK_CAPACITY); // you can't take everything
     expect(validPack(SUGGESTED_PACK)).toBe(true);
@@ -110,7 +110,7 @@ describe('The hike kit (#1400)', () => {
     // The next run of the same character packs the same again.
     const next = createRegion1({}, legacyOf(g), { id: g.character.id });
     expect(next.kit?.items).toEqual(SUGGESTED_PACK);
-    expect(observe(g)).toMatch(/PACK \(what you brought on the hike\): Mora knife — a fine knife/);
+    expect(observe(g)).toMatch(/PACK \(what you brought on the hike\): Mora knife — For cutting, carving and whittling\./);
     expect(observe(g)).toMatch(/LEFT: 3 dressings, headlamp 8h/);
     expect(kitSupplies(startFromPack(['thermos', 'sweets']).kit)).toEqual(['thermos 2 drinks', 'sweets saved']);
   });
@@ -178,5 +178,29 @@ describe('What each thing does (#1400)', () => {
       return 100 - runDay(out, ['rest']).state.vitals.condition;
     };
     expect(night(['wool-underlayer'])).toBeLessThan(night([]));
+  });
+});
+
+// #1684: the pack says what each thing is for, never its bonus. The player finds out by playing.
+describe('What each thing is for (#1684)', () => {
+  it('every kit item says what it is for', () => {
+    for (const k of KIT) expect(k.does.trim(), k.id).not.toBe('');
+  });
+
+  it('no "does" line gives away a number or a game term', () => {
+    for (const k of KIT) {
+      expect(k.does, k.id).not.toMatch(/[0-9%+]/);
+      expect(k.does, k.id).not.toMatch(/clarity|vigor|firewood|insight/i);
+    }
+  });
+
+  it('the AI sees what a player sees: the PACK line says what each thing is for, not its rule', () => {
+    const g = newGame().sim;
+    const text = observe(g);
+    for (const id of g.kit?.items ?? []) {
+      const k = KIT.find(x => x.id === id)!;
+      expect(text).toContain(`${k.name} — ${k.does}`);
+      expect(text).not.toContain(k.effect);
+    }
   });
 });

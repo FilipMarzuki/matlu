@@ -143,7 +143,7 @@ export function bestGear(tools: readonly GearTool[], ctx: CarryContext, haul: Ha
   return options.reduce((best, g) => { const [a, b] = score(g), [c, d] = score(best); return a > c || (a === c && b > d) ? g : best; });
 }
 
-const NAMES: Readonly<Record<LoadItem, [string, string]>> = {
+export const NAMES: Readonly<Record<LoadItem, [string, string]>> = {
   rawFood: ['raw food', 'raw food'], rations: ['ration', 'rations'], water: ['water', 'water'], firewood: ['firewood', 'firewood'],
   materials: ['materials', 'materials'], stone: ['stone', 'stone'], hides: ['hide', 'hides'],
 };

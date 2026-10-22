@@ -25,6 +25,7 @@
 import { GRADES, type ConceptProgress, type Grade, type Tool } from './crafting';
 import type { Stores } from './region1';
 import { skillLevel, type SkillPractice } from './skills';
+import { featureOn, type FeatureSwitches } from './features';
 
 export type QuestKind = 'fetch' | 'craft' | 'repair' | 'scout' | 'deliver';
 
@@ -56,6 +57,8 @@ export interface QuestTemplate {
   thanks: string;
   needs: QuestNeeds;
   reward: QuestReward;
+  /** Offered only in runs with this rule feature on (features.ts): a quest that came with an experiment. */
+  feature?: string;
 }
 
 /** Trust a giver needs before they'll ask you for anything. */
@@ -127,6 +130,29 @@ export const QUESTS: readonly QuestTemplate[] = [
     thanks: 'Feverfew, and not a stem bruised. Let me show you how the hold makes a parka.',
     needs: { kind: 'scout', hours: 5, walk: 3, minScouting: 1 }, reward: { marks: 8, recipe: 'hide-parka' },
   }),
+  // ── Each village's trade (#1599, economy.ts) ──
+  // One job per village that comes from what it lives on, with the `village-economies` switch:
+  // Hollowford's barley terraces (it's spring: the seed is in), Saltmere's smoke-racks (the
+  // steppe has no trees, and "a ration smoked well lasts the winter", Hedda: the hearths burn
+  // reed and peat, #1627, but smoking wants wood), Kestrel Gate's ore off the passes.
+  q({
+    id: 'hf-terrace', giver: 'hf-isa', village: 'hollowford', title: 'Stones for the terraces', feature: 'village-economies',
+    offer: 'The thaw brought down a wall on the barley terraces, and the seed is already in. If the rain gets at it before the wall is up, the soil goes into the river. Bring me five good stones and I\'ll lay them.',
+    thanks: 'The wall will hold, and so will the barley. Take a sack of last autumn\'s; every house here owes the terraces a little.',
+    needs: { kind: 'fetch', item: 'stone', qty: 5 }, reward: { marks: 4, item: { item: 'rawFood', qty: 4 } },
+  }),
+  q({
+    id: 'sm-smoke-racks', giver: 'sm-hedda', village: 'saltmere', title: 'Wood for the smoke-racks', feature: 'village-economies',
+    offer: 'The salt we rake for nothing, and reed and peat keep the hearths going, but there isn\'t a tree between here and the steppe\'s end, and fish salted without wood-smoke keeps a week. Bring me six armfuls and I\'ll pay you in salt fish.',
+    thanks: 'Smell that? That\'s a winter\'s worth of fish, done properly. Here, for the road, as promised.',
+    needs: { kind: 'fetch', item: 'firewood', qty: 6 }, reward: { marks: 4, item: { item: 'rations', qty: 3 } },
+  }),
+  q({
+    id: 'kg-ore-track', giver: 'kg-arvid', village: 'kestrel-gate', title: 'The ore track', feature: 'village-economies',
+    offer: 'The ore-carts from the high diggings are late, and every day they\'re late the lowland buyers pay me less. Walk up the track and tell me what\'s holding them.',
+    thanks: 'A slip across the track, and the carters waiting it out on the far side. Good — that I can price. Your share.',
+    needs: { kind: 'scout', hours: 4, walk: 2 }, reward: { marks: 9 },
+  }),
 ];
 
 export const questById = (id: string): QuestTemplate | undefined => QUESTS.find(x => x.id === id);
@@ -134,9 +160,12 @@ export const questById = (id: string): QuestTemplate | undefined => QUESTS.find(
 /** Where a quest stands. Absent from the map: not taken. */
 export type QuestStatus = 'active' | 'done' | 'failed' | 'expired';
 
-/** The quests offered in a village right now: givers trust you enough, and you haven't taken them. */
-export function availableQuests(village: string | null, trust: Readonly<Record<string, number>>, status: Readonly<Record<string, QuestStatus>>): QuestTemplate[] {
-  return QUESTS.filter(x => x.village === village && status[x.id] === undefined && (trust[x.giver] ?? 0) >= OFFER_TRUST);
+/**
+ * The quests offered in a village right now: givers trust you enough, you haven't taken them, and
+ * any feature a quest came with is on in this run.
+ */
+export function availableQuests(village: string | null, trust: Readonly<Record<string, number>>, status: Readonly<Record<string, QuestStatus>>, features?: FeatureSwitches): QuestTemplate[] {
+  return QUESTS.filter(x => x.village === village && status[x.id] === undefined && (trust[x.giver] ?? 0) >= OFFER_TRUST && (!x.feature || featureOn(features, x.feature)));
 }
 
 /** What `canComplete` looks at. */

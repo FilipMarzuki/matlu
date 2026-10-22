@@ -10,6 +10,7 @@
  * skipped — re-run those models to include them.
  */
 
+import { playtimeText } from '../src/artificer-ai/playtime';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { aggregate, wins, WIN_KINDS, METRICS, EVENTS, type ModelSummary, type Transcript } from '../src/artificer-ai/report';
@@ -52,6 +53,7 @@ for (const m of models) {
   const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;
   console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
   console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
+  if (m.playtime) console.log(`  ${''.padEnd(34)} a person would take ${playtimeText(m.playtime)} per run (typical, fast–careful; median of ${m.playtime.runs})`);
   if (m.meetings) console.log(`  ${''.padEnd(34)} caravan met ${m.meetings.runs}× — fares: ${Object.entries(m.meetings.fares).map(([k, n]) => `${k} ${n}`).join(', ')}${m.meetings.forced ? ` · ${m.meetings.forced} forced answers` : ''}`);
   if (m.road) console.log(`  ${''.padEnd(34)} ${roadLine(m)}`);
   if (m.encounters.perRun) console.log(`  ${''.padEnd(34)} ${encounterLine(m)}`);
@@ -156,15 +158,15 @@ function markdown(models: ModelSummary[], runs: number, spend: number): string {
   const pct = (m: ModelSummary): string => `${Math.round(100 * wins(m.outcomes) / m.runs)}%`;
   const last = (m: ModelSummary, k: keyof ModelSummary['series']): string => String(m.series[k].filter(v => v !== null).at(-1) ?? '—');
   const grades = (m: ModelSummary): string => (['hale', 'worn', 'broken'] as const).map(g => m.survival.grades[g]).join(' / ');
-  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${grades(m)} | ${m.survival.deathDay ?? '—'} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} |`);
+  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${grades(m)} | ${m.survival.deathDay ?? '—'} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} | ${m.playtime ? playtimeText(m.playtime) : '—'} |`);
   return [
     `### Artificer AI playtest — ${runs} runs, ${models.length} players, $${spend.toFixed(2)} spent`,
     '',
-    '| Player | Runs | Survived | Hale / worn / broken | Died (median day) | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Player | Runs | Survived | Hale / worn / broken | Died (median day) | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game | Playtime (est.) |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ...rows,
     '',
-    'End-of-run values are means over runs. The full report (charts, milestone days, action mix) is in the `ai-playtest` artifact.',
+    'End-of-run values are means over runs. Playtime is an estimate of how long a person would take per run (typical, fast–careful), priced from what the run did — `src/artificer-ai/playtime.ts`. The full report (charts, milestone days, action mix) is in the `ai-playtest` artifact.',
     '',
     rosterCost(models),
     '',

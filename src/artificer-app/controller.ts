@@ -10,23 +10,40 @@
  * and the browser storage.
  */
 
-import { ACTIONS, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
+import { ACTIONS, refusalOf, chooseOption, forgetPin, setInterest, SITES, blockedReason, dangerOf, tripLoad, tripUnease, sessionNote, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId, type WardenSpec } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, heirloomsOf, addRun, runNumberFor, type Legacy, type RunRecord } from '../artificer/legacy';
-import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, type RoadActionId, type RoadState } from '../artificer/road';
+import { createRoad, endRoadDay, runRoadAction, runRoadDay, chooseRoadOption, setRoadFocus, type RoadActionId, type RoadState } from '../artificer/road';
+import { DEED_KINDS, type HelpDeed } from '../artificer/help';
+import { leadOnLoad, type Lead } from '../artificer/asks';
+import { factsFor } from '../artificer/facts';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
-import { FULL_WORLD, validWorld, type WorldConfig } from '../artificer/world';
+import { difficultyRead } from '../artificer/difficulty';
+import { FULL_WORLD, validWorld, withValidFeatures, type WorldConfig } from '../artificer/world';
+import { featureOn, ruleFeatures, validFeatures, type FeatureSwitches } from '../artificer/features';
+import { FORECASTS } from '../artificer/forecasts';
+import { validExperiments } from '../artificer/experiment';
+import { validCampSpot } from '../artificer/camp-sites';
+import { validAfield, validSeenOut, DIRECTED_EXPLORE } from '../artificer/directed-explore';
+import { validTrail, WALK_THE_MAP } from '../artificer/walk-the-map';
+import { validNeedleCompass, COMPASS_HEADING } from '../artificer/compass-heading';
+import { CAMP_SCAVENGERS, COLD_PIT_LID } from '../artificer/camp-scavengers';
+import { validMapLearned, MAP_LEARNING } from '../artificer/map-learning';
+import { validSiteBuilds, CAMP_BUILDS_PER_SITE } from '../artificer/camp-builds';
+import { validPatches } from '../artificer/action-length';
+import { stopOn, type DayStop } from '../artificer/stop-action';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 import { startingQuirks, type Quirk } from '../artificer/quirks';
-import { SUGGESTED_PACK, validPack, readKit, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
+import { suggestedPack, readKit, savedPackProblem, autoOutside, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { BACKGROUNDS, type Background } from '../artificer/scout';
 import { skillLevel } from '../artificer/skills';
 import { readInjury, riskFor, HARM_NAME, type Harm, type Injury } from '../artificer/injuries';
+import { moveQueueItem } from './queue-drag';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -61,13 +78,22 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
  * app makes a sim: a new game, and the creation screen's remake from the draft, both come here,
  * so what a legacy seeds can't be dropped by one and kept by the other.
  */
-export function makeWarden(who: WardenSpec, legacy?: Legacy): AppState {
-  // A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with the leader's packing list (#1400).
-  return { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, legacy, { background: 'scout', age: DEFAULT_AGE, pack: [...SUGGESTED_PACK], ...who }), queue: [], stage: 'reach' };
+export function makeWarden(who: WardenSpec, legacy?: Legacy, features?: FeatureSwitches): AppState {
+  // The run's rule features (#1579): each default, with the player's own switches on top, fixed for
+  // the whole run. A new Warden learns to plan as they go (#1350); a scout (#1398), 12 (#1399), with
+  // the leader's packing list (#1400).
+  const world: WorldConfig = { ...GAME_WORLD, features: ruleFeatures(features) };
+  // The pack ticked for them (#1872): the leader's list, or with `stats-before-pack` on, the list
+  // shaped by the talents chosen and the stats this Warden has now (kit.ts suggestedPack): the
+  // chosen ones grown to their age, as createRegion1 makes them, since a child carries with the arms
+  // they have today. So it always fits what this Warden can carry. A pack in `who` (the page's) wins.
+  const now = grownStats(who.stats ?? legacy?.stats ?? DEFAULT_STATS, who.age ?? DEFAULT_AGE);
+  const pack = suggestedPack(world.features, now, who.chosen ?? []);
+  return { sim: createRegion1({ planning: 'learned', world }, legacy, { background: 'scout', age: DEFAULT_AGE, pack, ...who }), queue: [], stage: 'reach' };
 }
 
 /** A brand-new Warden: a new character, knowing nothing — with whatever `legacy` leaves them. */
-export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharacterId() }, legacy);
+export const newGame = (legacy?: Legacy, features?: FeatureSwitches): AppState => makeWarden({ id: newCharacterId() }, legacy, features);
 
 /**
  * Start the next run (#1455): one run per Warden, so whoever comes next is someone new —
@@ -75,9 +101,12 @@ export const newGame = (legacy?: Legacy): AppState => makeWarden({ id: newCharac
  * road, whose tools pass on as heirlooms; nothing of the mind goes with a stranger. No run,
  * or one still going: a plain new Warden with nothing.
  */
-export function newRun(from?: Region1State | RoadState): AppState {
-  return newGame(from?.outcome ? heirloomsOf(from) : undefined);
+export function newRun(from?: Region1State | RoadState, features?: FeatureSwitches): AppState {
+  return newGame(legacyFor(from), features);
 }
+
+/** What a run leaves the next Warden (#1455): its tools, once it's over; nothing from a run still going. */
+export const legacyFor = (from?: Region1State | RoadState): Legacy | undefined => (from?.outcome ? heirloomsOf(from) : undefined);
 
 /** Where the run ended up: the road once it has begun, else the Reach. What `newRun` takes the heirlooms from. */
 export const currentRun = (a: AppState): Region1State | RoadState => (a.stage === 'road' && a.road ? a.road : a.sim);
@@ -198,9 +227,11 @@ export const queueLocked = (a: AppState): string | null =>
  * Do one thing now (#1350): before planning is learned, each action runs as it's chosen.
  * Nothing happens once the run is over or the day's hours are spent.
  */
-export function act(a: AppState, item: QueueItem): AppState {
+export function act(a: AppState, item: QueueItem, stop?: number): AppState {
   if (a.sim.outcome || a.stage === 'road' || a.sim.hoursToday >= DAY_HOURS) return a;
-  return { ...a, sim: runAction(a.sim, item) };
+  // Stopped partway (#1815): only with the run's `stop-action` switch on; off, a stop is no move at all.
+  if (stop !== undefined && !stopOn(a.sim)) return a;
+  return { ...a, sim: runAction(a.sim, item, stop) };
 }
 
 /** Choose an option in the encounter that's waiting (#1347). The day stays where it was until you carry on. */
@@ -241,6 +272,23 @@ export function dequeueAt(a: AppState, index: number): AppState {
 }
 
 /**
+ * Move a planned task to another place in the queue (#1743): the task at `from` ends up at `to`.
+ * Only the order changes, and the sim never sees anything but the order it's given, so a run with
+ * the same seed and the same final order plays the same.
+ *
+ * Every entry in the queue is still a plan: whatever already ran today is in the sim (its hours in
+ * `hoursToday`), not here, and while a day plays out on the timer the page takes no edits (#1669).
+ * So any entry can move, but only when the queue is open at all — the same rule as `enqueue`: not
+ * before planning is learned (`queueLocked`, #1350), not once the run is over, not on the road.
+ * The same place, or an index out of range, gives the state back unchanged.
+ */
+export function moveQueued(a: AppState, from: number, to: number): AppState {
+  if (a.sim.outcome || a.stage === 'road' || queueLocked(a)) return a;
+  if (from === to || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= a.queue.length || to >= a.queue.length) return a;
+  return { ...a, queue: moveQueueItem(a.queue, from, to) };
+}
+
+/**
  * Choose an option on one queued action (e.g. the location of a build). The
  * entry becomes `{ q, opts }`; other entries are untouched.
  */
@@ -265,18 +313,38 @@ export function runQueuedDay(a: AppState): AppState {
   return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
 }
 
-/** Run day after day until the queue is empty (or the region resolves). */
-export function runWholeQueue(a: AppState): AppState {
+/**
+ * Today's queue with one of its actions stopped partway (#1815): the day played again from the
+ * morning with action `stop.action` cut `stop.hours` in. The day pauses after it (no night), and
+ * the rest of the queue stays queued. With the run's `stop-action` switch off, nothing happens.
+ */
+export function stopQueuedDay(a: AppState, stop: DayStop): AppState {
+  if (a.sim.outcome || !stopOn(a.sim)) return a;
+  const r = runDay(a.sim, a.queue, stop);
+  return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
+}
+
+/**
+ * Run day after day until the queue is empty (or the region resolves). `onDay` sees each day as it
+ * runs, before and after: the web game writes each one down as that day's plan (#1559).
+ */
+export function runWholeQueue(a: AppState, onDay?: (before: AppState, after: AppState) => void): AppState {
   let s = a;
   // A waiting encounter (#1343) stops the run of days: the choice comes first.
   for (let i = 0; i < MAX_DAYS_PER_RUN && s.queue.length > 0 && !s.sim.outcome && !s.sim.pending; i++) {
-    s = runQueuedDay(s);
+    const next = runQueuedDay(s);
+    onDay?.(s, next);
+    s = next;
   }
   return s;
 }
 
-/** Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. */
+/**
+ * Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. On the road it's the
+ * road's focus (#1479): the road carries its own copy, and that's the one its nights charge for.
+ */
 export function chooseFocus(a: AppState, focus: Focus | null): AppState {
+  if (a.stage === 'road' && a.road) return { ...a, road: setRoadFocus(a.road, focus) };
   return { ...a, sim: setFocus(a.sim, focus) };
 }
 
@@ -305,6 +373,8 @@ export interface QueuePreview {
   unease: ({ state: 'shaken' | 'panicked'; reasons: string[] } | null)[];
   /** What each ringed trip would bring home and how heavy it is to carry (#1296); null for camp work. */
   loads: (TripLoad | null)[];
+  /** A session of chosen length (#1668): its plan in words ("3 trips, about 14 firewood, the deadfall is getting thin"); null for a usual trip. */
+  plans: (string | null)[];
   /** A danger the Warden can see coming (a blizzard, with Intelligence 12+, #1315) — or null. The action still runs. */
   dangers: (string | null)[];
   /** Work that could make a serious, untreated injury worse (#1395) — or null. */
@@ -325,13 +395,19 @@ export function previewQueue(a: AppState): QueuePreview {
   const dangers: (string | null)[] = [];
   const strains: (string | null)[] = [];
   const loads: (TripLoad | null)[] = [];
+  const plans: (string | null)[] = [];
   const unease: QueuePreview['unease'] = [];
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
   const before: Region1State[] = [];
   for (const item of a.queue) {
-    if (hours >= DAY_HOURS) { day += 1; hours = 0; }
+    if (hours >= DAY_HOURS) {
+      day += 1; hours = 0;
+      // With chosen lengths (#1668), "the rest of the day" means tomorrow's whole day for an entry that
+      // spills over, so the projection starts the new day's clock again (the nights still aren't run).
+      if (featureOn(projected.config.world.features, 'action-length')) projected = { ...projected, hoursToday: 0 };
+    }
     dayOffset.push(day);
     before.push(projected);
     const { id, ring, opts } = parseItem(item);
@@ -344,6 +420,8 @@ export function previewQueue(a: AppState): QueuePreview {
     strains.push(reason ? null : riskFor(projected.injuries, id, ring, craft, skillLevel(projected.skills, 'firstaid')));
     // What the trip would bring home, and how heavy it is to carry (#1296).
     loads.push(reason ? null : tripLoad(projected, item));
+    // How a session of chosen length will go (#1668): its trips, what it brings in, what thins.
+    plans.push(reason ? null : sessionNote(projected, item));
     // How it will feel out there at that hour (#1364): the dark, the weather, the distance.
     const u = reason ? null : tripUnease(projected, item);
     unease.push(u && u.state !== 'calm' ? { state: u.state, reasons: u.reasons } : null);
@@ -351,7 +429,15 @@ export function previewQueue(a: AppState): QueuePreview {
     if (!reason) hours += queueHours(item, projected);
     projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, dangers, strains, unease, loads, projected, before };
+  return { dayOffset, warnings, dangers, strains, unease, loads, plans, projected, before };
+}
+
+/**
+ * Today's planned hours: those already used, plus every entry that would run today and not be
+ * refused. The app's TODAY bar, and the number the AI harness asks a model about (#1473).
+ */
+export function todayHours(a: AppState, preview: QueuePreview = previewQueue(a)): number {
+  return a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), a.sim.hoursToday);
 }
 
 // ── Save / load ─────────────────────────────────────────────────────────────
@@ -364,6 +450,10 @@ export function serialize(a: AppState): string {
  * Parse a saved road (#1250), filling in fields a later Region 1.5 issue added. Null when
  * it isn't one — the same shape checks as the Reach: what the sim reads, then trust the rest.
  */
+/** A help deed as saved (#1659): a day, who, and a kind the road records (#1663: any of `DEED_KINDS`). */
+const isHelpDeed = (h: unknown): h is HelpDeed =>
+  isObj(h) && isNum(h.day) && typeof h.who === 'string' && (DEED_KINDS as readonly unknown[]).includes(h.kind) && (h.quest === undefined || typeof h.quest === 'string');
+
 function parseRoad(x: unknown): RoadState | null {
   if (!isObj(x)) return null;
   const v = x.vitals;
@@ -371,14 +461,72 @@ function parseRoad(x: unknown): RoadState | null {
   if (!isObj(x.stores) || !Array.isArray(x.tools) || !Array.isArray(x.log) || !isObj(x.trust) || !isObj(x.character)) return null;
   const obj = (y: unknown) => (isObj(y) ? y : {});
   const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
+  // The optional fields below are only ever loaded checked: left out of the spread, so one saved in
+  // the wrong shape (a string where a list belongs) loads as absent instead of as itself.
+  const { heard: _heard, asked: _asked, questioned: _questioned, noticed: _noticed, leads: _leads, deeds: _deeds, features: _features, readings: _readings, helps: _helps, ...rest } = x;
   return {
-    ...(x as unknown as RoadState),
+    ...(rest as unknown as RoadState),
     told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
     marks: isNum(x.marks) ? x.marks : 0, contacts: strs(x.contacts), quests: obj(x.quests) as RoadState['quests'],
     discovery: obj(x.discovery) as RoadState['discovery'], appraised: strs(x.appraised),
     // Injuries (#1392): an older save's `daysLeft` reads as a minor one.
     injuries: Array.isArray(x.injuries) ? (x.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : undefined,
+    // The road's focus is the player's to set (#1479), so it's checked on load like the Reach's.
+    focus: readFocus(x.focus, x),
+    // Topics heard named (#1494) and what each person has answered (#1495); a road from before has
+    // neither, and loads without them (as it was saved).
+    ...(Array.isArray(x.heard) ? { heard: strs(x.heard) } : {}),
+    ...(isObj(x.asked) ? { asked: Object.fromEntries(Object.entries(x.asked).map(([k, v]) => [k, strs(v)])) } : {}),
+    // The run's rule features (#1579); a road from before has none, and reads as each feature's `absent`.
+    ...(validFeatures(x.features) ? { features: { ...x.features } } : {}),
+    // Free questions asked this stay (#1575); a road from before has none.
+    ...(Array.isArray(x.questioned) ? { questioned: strs(x.questioned) } : {}),
+    // Signs noticed (#1496); a road from before has none.
+    ...(isObj(x.noticed) ? { noticed: Object.fromEntries(Object.entries(x.noticed).map(([k, v]) => [k, strs(v)])) } : {}),
+    // Leads (#1497); likewise.
+    ...(Array.isArray(x.leads) ? { leads: readLeads(x.leads, x.features) } : {}),
+    // Deeds carried out of the Reach (#1499); likewise.
+    ...(Array.isArray(x.deeds) ? { deeds: strs(x.deeds) } : {}),
+    // What's left of each misreading (#1578), a share from 0 to 1; anything else is dropped, and
+    // a person missing from it reads as all of it — as does a road from before rapport.
+    ...(isObj(x.readings) ? { readings: Object.fromEntries(Object.entries(x.readings).filter((e): e is [string, number] => isNum(e[1]) && e[1] >= 0 && e[1] <= 1)) } : {}),
+    // Your dealings with people (#1659), in order; a road from before, or without the switch, has none.
+    // A deed in the wrong shape is dropped, so the rest still read.
+    ...(Array.isArray(x.helps) ? { helps: (x.helps as unknown[]).filter(isHelpDeed).map(h => ({ ...h })) } : {}),
   };
+}
+
+/**
+ * A stored focus, re-validated (#1238, #1478, #1494): a goal, skill, concept or topic that exists;
+ * a concept only if this Warden can still turn it over, a topic only if they've still come across
+ * it. Anything else loads as no focus. The Reach's and the road's (#1479) both come through here.
+ */
+/**
+ * Saved leads (#1497): each needs who, about and from, and is kept only if that person's answer
+ * really gives it (`leadOnLoad`), rebuilt from the data. Undefined if never saved. The answers
+ * are the run's (`features`, the road's saved switches): with the scope facts (#1610) only if it had them.
+ */
+function readLeads(x: unknown, features: unknown): Lead[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const facts = factsFor(validFeatures(features) ? features : undefined);
+  return x.filter((l): l is Record<string, string> => isObj(l) && typeof l.who === 'string' && typeof l.about === 'string' && typeof l.from === 'string')
+    .map(l => leadOnLoad(l.who, l.about, l.from, facts))
+    .filter((l): l is Lead => l !== undefined);
+}
+
+function readFocus(f: unknown, from: Record<string, unknown>): Focus | null {
+  const parsed = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  const obj = (y: unknown) => (isObj(y) ? y : {});
+  // What the come-across rule reads (#1494), as saved: a topic is kept only if it still holds.
+  const saved = {
+    concepts: obj(from.concepts) as Region1State['concepts'],
+    stores: obj(from.stores) as unknown as Region1State['stores'],
+    trust: obj(from.trust) as Record<string, number>,
+    quests: obj(from.quests),
+    heard: Array.isArray(from.heard) ? from.heard.filter((x): x is string => typeof x === 'string') : [],
+    leads: readLeads(from.leads, from.features) ?? [],
+  };
+  return refusalOf(saved, parsed) ? null : parsed;
 }
 
 /** A saved meeting (#1356): the fields the screen and the boarding read. */
@@ -456,8 +604,14 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const harms = harmList.length ? { harms: harmList } : {};
   // Background (#1398): a scout, if the save says so.
   const background = isObj(ch) && BACKGROUNDS.includes(ch.background as Background) ? { background: ch.background as Background } : {};
-  // The hike pack (#1400): kept if it's a pack we know.
-  const pack = isObj(ch) && Array.isArray(ch.pack) && validPack(ch.pack as string[]) ? { pack: [...(ch.pack as KitId[])] } : {};
+  // The hike pack (#1400): kept if it's a pack we know — by the run's own rules (#1871): with
+  // `pack-volume` on a heavy pack is a real one. Read off the saved world before `config` is checked
+  // below; a world that doesn't check out reads as no switches, today's rules.
+  const savedWorld = isObj(sim.config) && isObj(sim.config.world) ? sim.config.world : undefined;
+  const savedFeatures = savedWorld && validFeatures(savedWorld.features) ? savedWorld.features : undefined;
+  // The strapped-on list isn't the character's; the pack's check here is the room (straps as saved in the kit, else the defaults).
+  const kitOutside = isObj(sim.kit) && Array.isArray(sim.kit.outside) && sim.kit.outside.every(x => typeof x === 'string') ? sim.kit.outside as string[] : undefined;
+  const pack = isObj(ch) && Array.isArray(ch.pack) && savedPackProblem(ch.pack as string[], savedFeatures, kitOutside ?? autoOutside(ch.pack as KitId[])) === null ? { pack: [...(ch.pack as KitId[])] } : {};
   // Growth by use and wear (#1257): kept if they're numbers.
   const partial = (x: unknown): Partial<Stats> | undefined => {
     if (!isObj(x)) return undefined;
@@ -467,12 +621,14 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const tr = isObj(ch) ? partial(ch.trained) : undefined, exer = isObj(ch) ? partial(ch.exercise) : undefined;
   const pend = isObj(ch) ? partial(ch.pending) : undefined;
   const growth = { ...(tr ? { trained: tr } : {}), ...(exer ? { exercise: exer } : {}), ...(pend ? { pending: pend } : {}), ...(isObj(ch) && Number.isInteger(ch.wear) && (ch.wear as number) > 0 ? { wear: ch.wear as number } : {}) };
+  // Difficulty (#1728): kept if it's a multiplier above ×1.00; anything else (absent, old saves) reads ×1.00.
+  const difficulty = isObj(ch) && difficultyRead(ch.difficulty) > 1 ? { difficulty: difficultyRead(ch.difficulty) } : {};
   const character = isObj(ch) && typeof ch.name === 'string'
-    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth }
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats, ...grown, ...quirks, ...harms, ...background, ...pack, ...growth, ...difficulty }
     : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
-  // …and saves from before focus (#1238) have none; a stored focus is re-validated.
-  const f = sim.focus;
-  const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  // …and saves from before focus (#1238) have none; a stored focus is re-validated — a concept
+  // only if this Warden can still turn it over (#1478).
+  const focus = readFocus(sim.focus, sim);
   // …and saves from before techniques/manuals (#1243) start with none.
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
   // …and saves from before the living world (#1279) play the full world.
@@ -480,7 +636,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // …and saves from before the 60-day year (#1301) keep their calendar, with a 30-day winter after it.
   const cal = cfg.calendar as Region1State['config']['calendar'];
   const calendar = isNum(cal.thawDay) ? { ...cal } : { ...cal, thawDay: cal.winterDay + 30 };
-  const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
+  const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? withValidFeatures(cfg.world) : { ...FULL_WORLD } };
   // …and saves from before land supply (#1304) get it from their trip counts.
   const ex = sim.explore as Record<string, unknown>;
   const explore = isObj(ex.supply) ? { ...(ex as unknown as Region1State['explore']) } : { ...(ex as unknown as Region1State['explore']), supply: supplyFromWorked(ex.worked as Region1State['explore']['worked']) };
@@ -492,9 +648,47 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
   // …and a cold pit only at a real site (#1295); none before it.
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
+  // …and the cold pit's carried rot (#1757): a fraction 0..1, only with `cold-pit-slows` on; else none owed.
+  const pitRot = typeof sim.pitRot === 'number' && Number.isFinite(sim.pitRot) && sim.pitRot > 0 && sim.pitRot < 1 && featureOn(config.world.features, 'cold-pit-slows') ? sim.pitRot : undefined;
   // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
   // Injuries (#1392): read as saved; an older save's `daysLeft` sprain is a minor one.
   const injuries = Array.isArray(sim.injuries) ? (sim.injuries as unknown[]).map(readInjury).filter((i): i is Injury => i !== null) : [];
-  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  // Worked patches (#1668): written only by a session of chosen length; kept if well-formed, else
+  // dropped — a dropped set reads as every patch fresh, which is how a save from before it plays.
+  const patches = validPatches(sim.patches) && Object.keys(sim.patches).length ? { ...sim.patches } : undefined;
+  // Experiment progress (#1690): kept if well-formed, else dropped — as if none had been made yet.
+  const experiments = validExperiments(sim.experiments) && Object.keys(sim.experiments).length ? { ...sim.experiments } : undefined;
+  // Familiarity (#1827): counts kept if well-formed (whole numbers above 0) and the switch is on, else dropped — as if nothing were done yet.
+  const familiar = isObj(sim.familiar) && featureOn(config.world.features, FORECASTS) && Object.values(sim.familiar).every(v => Number.isInteger(v) && (v as number) > 0) && Object.keys(sim.familiar).length
+    ? { ...(sim.familiar as Record<string, number>) } : undefined;
+  // Where camp is on the Reach (#1732): kept if well-formed, else dropped — as a camp made before it.
+  const campSpot = validCampSpot(sim.campSpot) ? { at: sim.campSpot.at, camped: [...sim.campSpot.camped] } : undefined;
+  // The map-drawing session done (#1754): only `true`, and only with `map-learning` on; anything else is dropped (not yet).
+  const mapLearned = validMapLearned(sim.mapLearned) && featureOn(config.world.features, MAP_LEARNING) ? true as const : undefined;
+  // The camps you're away from (#1753): kept if well-formed and the switch is on, else dropped — a
+  // dropped record reads as a save from before it, whose builds are the current camp's.
+  const siteBuilds = campSpot && featureOn(config.world.features, CAMP_BUILDS_PER_SITE) && validSiteBuilds(sim.siteBuilds) && Object.keys(sim.siteBuilds).length
+    ? JSON.parse(JSON.stringify(sim.siteBuilds)) as Region1State['siteBuilds'] : undefined;
+  // The cold pit's lid (#1857): only `true`, only on a pit at a real site, and only with `cold-pit-lid`
+  // (and the scavengers it builds on) on; anything else is dropped (no lid). The meat in the lidded
+  // pit: a whole number above 0 with a lid, else dropped (it lies out). A lid kept on a pit at a camp
+  // you left goes the same way.
+  const lidRun = featureOn(config.world.features, CAMP_SCAVENGERS) && featureOn(config.world.features, COLD_PIT_LID);
+  const pitLid = lidRun && coldPitAt && sim.pitLid === true ? true as const : undefined;
+  const meatPit = pitLid && Number.isInteger(sim.meatPit) && (sim.meatPit as number) > 0 ? sim.meatPit as number : undefined;
+  if (siteBuilds && !lidRun) for (const b of Object.values(siteBuilds)) if (b.pit) delete b.pit.lid;
+  // Where you stand out on the land, and the squares seen heading out (#1839): kept if well-formed and
+  // the switch is on, else dropped — dropped, you're at camp (or the start) and know the land by its rings.
+  // Walking the map (#1876) puts the Warden out there too (a stop on the path), and sees the squares walked.
+  const walking = featureOn(config.world.features, WALK_THE_MAP);
+  const directed = featureOn(config.world.features, DIRECTED_EXPLORE) || walking;
+  const afield = directed && validAfield(sim.afield) ? { x: sim.afield.x, y: sim.afield.y } : undefined;
+  const seenOut = directed && validSeenOut(sim.seenOut) && sim.seenOut.length ? [...sim.seenOut] : undefined;
+  // The last few days' paths (#1876): kept if well-formed and the switch is on, else dropped — dropped, none kept yet.
+  const trail = walking && validTrail(sim.trail) && sim.trail.length ? sim.trail.map(d => ({ day: d.day, path: [...d.path] })) : undefined;
+  // The needle compass (#1868): kept if well-formed and the switch is on, else dropped — dropped, none was made.
+  const needleCompass = featureOn(config.world.features, COMPASS_HEADING) && validNeedleCompass(sim.needleCompass)
+    ? { made: sim.needleCompass.made, tool: sim.needleCompass.tool, ...(sim.needleCompass.trips ? { trips: sim.needleCompass.trips } : {}) } : undefined;
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, pitLid, meatPit, mapLearned, afield, seenOut, trail, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

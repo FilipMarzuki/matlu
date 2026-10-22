@@ -66,6 +66,7 @@ dev/.cache/
 # Vercel deployment artifacts
 wiki/.vercel/
 dev/.vercel/
+artificer/.vercel/
 
 # IDE workspace settings
 .vscode/

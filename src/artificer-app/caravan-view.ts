@@ -6,28 +6,33 @@
  *
  * Presentation only: the rules live in `src/artificer/caravan-meeting.ts`.
  * Buttons carry `data-meet="<optionId>"`, `data-cmd="board"` and `data-cmd="stay"`.
+ *
+ * In the viewer's language (#1709): what's said and each answer come from the catalog (`meet.*`),
+ * read back from the English the meeting keeps (sim-words.ts `simLine`).
  */
 
 import { meetingOptions, meetingStep, type Meeting, type MeetingOption } from '../artificer/caravan-meeting';
 import { TRAVELLERS } from '../artificer/villages';
 import type { Region1State } from '../artificer/region1';
+import { makeT, type Key, type T } from '../artificer/i18n';
 import { badge } from './road-view';
+import { esc } from './html';
+import { isKey, simLine } from './sim-words';
+import { peopleName, roleName } from './road-words';
 
-const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-
-const ODDS_NOTE = { safe: 'nothing can go wrong', likely: 'it should go well', risky: 'it could go either way', desperate: 'it will probably go badly' } as const;
+const EN: T = makeT('en');
 
 /** What an answer costs, in a few words. */
-function costOf(o: MeetingOption): string {
-  const parts = Object.entries(o.cost?.stores ?? {}).map(([k, n]) => `${n} ${k === 'rawFood' ? 'food' : k}`);
-  if (o.cost?.marks) parts.push(`${o.cost.marks} marks`);
+function costOf(o: MeetingOption, t: T): string {
+  const parts = Object.entries(o.cost?.stores ?? {}).map(([k, n]) => `${n} ${t(`storeword.${k}` as Key)}`);
+  if (o.cost?.marks) parts.push(t('encui.marks', { n: o.cost.marks }));
   return parts.join(' · ');
 }
 
-const person = (id: string | null) => (id ? TRAVELLERS.find(t => t.id === id) : undefined);
+const person = (id: string | null) => (id ? TRAVELLERS.find(x => x.id === id) : undefined);
 
 /** The modal, or nothing when no meeting is open. */
-export function meetingModal(s: Region1State, m: Meeting | undefined): string {
+export function meetingModal(s: Region1State, m: Meeting | undefined, t: T = EN): string {
   if (!m) return '';
   const step = meetingStep(m);
   const speaker = person(step.speaker);
@@ -35,19 +40,23 @@ export function meetingModal(s: Region1State, m: Meeting | undefined): string {
   const lines = m.lines.slice(-6).map(l => {
     const who = person(l.speaker);
     return who
-      ? `<p class="meet-line"><b>${esc(who.name)}</b> ${esc(l.text)}</p>`
-      : `<p class="meet-line you"><b>You</b> ${esc(l.text)}</p>`;
+      ? `<p class="meet-line"><b>${esc(who.name)}</b> ${esc(simLine(l.text, t))}</p>`
+      : `<p class="meet-line you"><b>${esc(t('meetui.you'))}</b> ${esc(simLine(l.text, t))}</p>`;
   }).join('');
-  const head = `<div class="meet-head">${speaker ? badge(speaker, 48) : ''}<div><p class="enc-kind">🛞 THE SPRING CARAVAN · DAY ${s.day}</p>
-    <p class="meet-who"><b>${esc(speaker?.name ?? 'The caravan')}</b>${speaker ? ` · ${esc(speaker.role)} · ${esc(speaker.people)}` : ''}</p></div></div>`;
-  const refused = m.last && !m.last.success && m.last.text.startsWith('Not possible') ? `<p class="enc-wait">${esc(m.last.label)}: ${esc(m.last.text)}</p>` : '';
+  const head = `<div class="meet-head">${speaker ? badge(speaker, 48) : ''}<div><p class="enc-kind">${esc(t('meetui.head', { n: s.day }))}</p>
+    <p class="meet-who"><b>${esc(speaker?.name ?? t('meetui.caravan'))}</b>${speaker ? ` · ${esc(roleName(speaker.role, t))} · ${esc(peopleName(speaker.people, t))}` : ''}</p></div></div>`;
+  const refused = m.last && !m.last.success && m.last.text.startsWith('Not possible') ? `<p class="enc-wait">${esc(simLine(m.last.label, t))}: ${esc(simLine(m.last.text, t))}</p>` : '';
+  const label = (o: MeetingOption): string => (isKey(`meet.opt.${o.id}`) ? t(`meet.opt.${o.id}` as Key) : o.label);
   const body = m.ended
     ? `<div class="runbar">${m.ended === 'board'
-      ? `<button class="btn go" data-cmd="board">🛞 CLIMB ABOARD${m.owesHelp ? ` — YOU OWE ${m.owesHelp} DAYS' HELP` : ''}</button>`
-      : '<button class="btn" data-cmd="stay">WATCH THEM GO</button>'}</div>`
-    : `<div class="enc-options">${meetingOptions(s, m).map(({ option, unmet, odds }) => `<button class="enc-opt" data-meet="${esc(option.id)}" ${unmet ? `disabled title="${esc(unmet)}"` : ''}>
-        <span class="eo-label">${esc(option.label)}</span>
-        <span class="eo-meta">${costOf(option) && !unmet ? `<span class="eo-cost">${esc(costOf(option))}</span>` : ''}${unmet ? `<span class="eo-need">${esc(unmet)}</span>` : `<span class="odds o-${odds}" title="${ODDS_NOTE[odds]}">${odds}</span>`}</span>
-      </button>`).join('')}</div>${refused}`;
-  return `<div class="enc-backdrop"><section class="enc meet box" role="dialog" aria-modal="true" aria-label="Meeting the caravan">${head}<div class="meet-lines">${lines}</div>${body}</section></div>`;
+      ? `<button class="btn go" data-cmd="board">${m.owesHelp ? t("meetui.boardOwes", { n: m.owesHelp }) : t("meetui.board")}</button>`
+      : `<button class="btn" data-cmd="stay">${esc(t('meetui.stay'))}</button>`}</div>`
+    : `<div class="enc-options">${meetingOptions(s, m).map(({ option, unmet, odds }) => {
+        const need = unmet ? simLine(unmet, t) : null;
+        return `<button class="enc-opt" data-meet="${esc(option.id)}" ${need ? `disabled title="${esc(need)}"` : ''}>
+        <span class="eo-label">${esc(label(option))}</span>
+        <span class="eo-meta">${costOf(option, t) && !need ? `<span class="eo-cost">${esc(costOf(option, t))}</span>` : ''}${need ? `<span class="eo-need">${esc(need)}</span>` : `<span class="odds o-${odds}" title="${esc(t(`encui.${odds}Tip` as Key))}">${esc(t(`encui.${odds}` as Key))}</span>`}</span>
+      </button>`;
+      }).join('')}</div>${refused}`;
+  return `<div class="enc-backdrop"><section class="enc meet box" role="dialog" aria-modal="true" aria-label="${esc(t('meetui.label'))}">${head}<div class="meet-lines">${lines}</div>${body}</section></div>`;
 }

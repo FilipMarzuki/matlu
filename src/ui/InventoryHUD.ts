@@ -20,7 +20,7 @@ import {
   INVENTORY_CHANGED,
   type ItemCategory,
 } from '../systems/InventorySystem';
-import { playerItems, type RegistryItem } from '../lib/items';
+import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { Color, TextColor, Font, Depth, Space } from './theme';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -382,10 +382,8 @@ export class InventoryHUD {
   // ── Resource defs ─────────────────────────────────────────────────────
 
   private _loadResourceDefs(): void {
-    const data = this.scene.cache.json.get('item-registry') as
-      { items: RegistryItem[] } | undefined;
-    if (!data?.items) return;
-    for (const r of playerItems(data.items)) {
+    // Bundled, so it's there in every scene: no JSON cache entry to wait for (#1512).
+    for (const r of playerItems(REGISTRY_ITEMS)) {
       this.resourceDefs.set(r.id, { name: r.name, category: r.category as ItemCategory });
     }
   }

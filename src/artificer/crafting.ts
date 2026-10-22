@@ -2,8 +2,9 @@
  * Crafting & tools — the artificer's core loop (#1211).
  *
  * Part of the artificer sim core: pure, deterministic, no Phaser, no
- * randomness. Implements docs/crafting-tools-design.md on top of the real
- * registries in public/macro-world/ (recipes.json, concepts.json):
+ * randomness. Implements docs/crafting-tools-design.md. Artificer is the master
+ * for its materials and concepts (#1531): recipes are its own (region1.ts), and
+ * concepts come from src/artificer/content/concepts.json.
  *
  *   - **Grades** (crude → masterwork) scale what a crafted item does.
  *   - **Effects** live on items: cheaper / faster actions, bigger yields,
@@ -121,8 +122,8 @@ export interface Tool {
 }
 
 /**
- * Starter effects for Region 1's tier-0/1 craftables, keyed by registry item
- * id (a test keeps these honest against recipes.json). Action ids are Region
+ * Starter effects for Region 1's tier-0/1 craftables, keyed by item id
+ * (they started from the Homestead's draft recipes.json). Action ids are Region
  * 1's; `sleep` and `craft` are the other activities effects can touch.
  */
 export const DEFAULT_EFFECTS: Readonly<Record<string, ItemEffects>> = {
@@ -237,11 +238,22 @@ export interface QualityInput {
  * real station plus most of the other factors maxed.
  */
 export function craftGrade(q: QualityInput): Grade | null {
-  const score = q.band + q.benchTier + q.tools + q.conceptRank - Math.max(0, q.recipeTier - 1);
+  const score = craftScore(q);
   if (score <= 0) return null;
   const raw: Grade = score >= 9 ? 'masterwork' : score >= 6 ? 'fine' : score >= 3 ? 'sound' : 'crude';
   const cap = BENCH_GRADE_CAP[Math.min(BENCH_GRADE_CAP.length - 1, Math.max(0, q.benchTier))];
   return gradeIndex(raw) > gradeIndex(cap) ? cap : raw;
+}
+
+/**
+ * The quality score a craft is judged on (#1827 reads it for forecasts): above 0 it succeeds, and
+ * the higher it is, the better the grade and the further from failing. `craftGrade` turns it into a grade.
+ */
+export const craftScore = (q: QualityInput): number => q.band + q.benchTier + q.tools + q.conceptRank - Math.max(0, q.recipeTier - 1);
+
+/** What a crafter brings to this recipe at the bench: the inputs `craftGrade` judges (`craft` uses the same). */
+export function craftQuality(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = craftWorld()): QualityInput {
+  return { band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: meanConceptRank(s, recipe), recipeTier: recipe.tier };
 }
 
 /** Fraction of inputs recovered from a failed craft (never all of them). */
@@ -269,6 +281,15 @@ export const STUDY_INSIGHT = 8;
 export const STUDY_HOURS = 3;
 /** Insight an heirloom's maker passes to whoever leans on it, per rank of a concept it was made with — once per item, the first time it's used (#1456). */
 export const HEIRLOOM_INSIGHT = 3;
+
+/**
+ * What an heirloom has to teach, concept by concept (#1456): the maker's rank × HEIRLOOM_INSIGHT ×
+ * the grade it was *made* at where that's known (#1469) — an accident dents the tool, not what
+ * its maker understood. Nothing for a tool with no `made`, or for concepts made at rank 0.
+ */
+export function heirloomLesson(t: Tool): { concept: string; insight: number }[] {
+  return Object.entries(t.made ?? {}).filter(([, rank]) => rank > 0).map(([concept, rank]) => ({ concept, insight: rank * HEIRLOOM_INSIGHT * GRADE_MULT[t.crafted ?? t.grade] }));
+}
 
 const rankOf = (concepts: Readonly<Record<string, ConceptProgress>>, id: string): number => concepts[id]?.rank ?? 0;
 
@@ -422,7 +443,7 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
 
   const next = clone(s);
   const rank = meanConceptRank(s, recipe);
-  const grade = craftGrade({ band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: rank, recipeTier: recipe.tier });
+  const grade = craftGrade(craftQuality(s, recipe, world));
 
   // The session's cost — your tools can make bench work itself cheaper.
   const mod = modifiersFor(s.tools, 'craft', world.effects);
@@ -447,7 +468,8 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
       const made = recipe.concepts?.length && recipe.concepts.some(c => rankOf(s.concepts, c) > 0)
         ? Object.fromEntries(recipe.concepts.map(c => [c, rankOf(s.concepts, c)]))
         : undefined;
-      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made } : {}) });
+      // Each copy gets its own record (#1469), so nothing that edits one can change another.
+      for (let n = 0; n < out.qty; n++) next.tools.push({ item: out.item, grade, ...(made ? { made: { ...made } } : {}) });
     } else {
       next.inventory[out.item] = (next.inventory[out.item] ?? 0) + out.qty;
     }
@@ -503,13 +525,16 @@ export function newCraftDay(s: CrafterState): CrafterState {
  * `craft`, one that helps at the bench). Null when the work uses none.
  */
 export function toolInUse(tools: readonly Tool[], action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): Tool | null {
-  const used = bestPerItem(tools).filter(t => {
-    const e = effects[t.item];
-    if (!e) return false;
-    if (action === 'craft') return (e.craftBonus ?? 0) > 0;
-    return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
-  });
+  const used = bestPerItem(tools).filter(t => toolServes(t, action, effects));
   return used.sort((a, b) => gradeIndex(b.grade) - gradeIndex(a.grade))[0] ?? null;
+}
+
+/** Does this tool's effects serve `action` (for `craft`, does it help at the bench)? */
+export function toolServes(t: Tool, action: string, effects: Readonly<Record<string, ItemEffects>> = DEFAULT_EFFECTS): boolean {
+  const e = effects[t.item];
+  if (!e) return false;
+  if (action === 'craft') return (e.craftBonus ?? 0) > 0;
+  return (e.actionCost ?? []).some(c => c.action === action) || (e.yield ?? []).some(y => y.action === action);
 }
 
 /** A tool knocked about in an accident: the best copy of `item` drops one grade, and a crude one breaks. */
@@ -519,5 +544,7 @@ export function damageTool(tools: readonly Tool[], item: string): { tools: Tool[
   const i = tools.indexOf(best);
   if (best.grade === 'crude') return { tools: tools.filter((_, j) => j !== i), broke: true, grade: null };
   const grade = GRADES[gradeIndex(best.grade) - 1];
-  return { tools: tools.map((t, j) => (j === i ? { ...t, grade } : t)), broke: false, grade };
+  // The first knock records the grade it was made at (#1469) — what `crafted` is for: tending brings it back up,
+  // and an heirloom's lesson follows it. Nothing set it before, so road `tend` never had anything to mend.
+  return { tools: tools.map((t, j) => (j === i ? { ...t, grade, crafted: t.crafted ?? t.grade } : t)), broke: false, grade };
 }

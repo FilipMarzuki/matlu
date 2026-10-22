@@ -23,7 +23,7 @@ import {
   type BuildingRegistryEntry,
 } from './SettlementGenerator';
 import culturesData from '../macro-world/cultures.json';
-import buildingRegistryData from '../macro-world/building-registry.json';
+import buildingRegistryData from '../public/macro-world/building-registry.json';
 
 // mapgen/ takes culture + building data as a plain argument — tests read the
 // bundled JSON registries directly rather than going through Supabase.

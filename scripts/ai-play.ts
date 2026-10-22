@@ -1,7 +1,7 @@
 /**
  * Let an AI play the Artificer (#1226).
  *
- *   npm run ai:play -- --player claude      [--model claude-opus-5-5] [--effort medium]
+ *   npm run ai:play -- --player claude      [--model claude-haiku-5-5] [--effort low]   (the defaults: cheap; ANTHROPIC_API_KEY)
  *   npm run ai:play -- --player openrouter  [--model anthropic/claude-haiku-4.5]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
@@ -17,11 +17,12 @@
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
 
+import { playtimeOf, playtimeSummaryOf, playtimeText } from '../src/artificer-ai/playtime';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, aiCharacterId, BudgetExceeded, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
+import { playRun, aiCharacterId, BudgetExceeded, fillTally, type Player, type RunResult, type SpendLedger } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
-import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
+import { claudePlayer, CLAUDE_PRICES, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { heirloomsOf } from '../src/artificer/legacy';
@@ -66,7 +67,8 @@ async function main(): Promise<void> {
   const violations: string[] = [];
   let spent = 0;
   const ledger: SpendLedger = { spent: 0, budget };
-  if (Number.isFinite(budget) && which === 'claude') console.log('⚠ --budget: the Claude player reports no cost, so the budget is not enforced for it.');
+  // The Claude player prices its calls (#1506), so --budget caps it; only a model with no price goes unchecked.
+  if (Number.isFinite(budget) && which === 'claude' && flag('model') && !CLAUDE_PRICES[flag('model')!]) console.log(`⚠ --budget: ${flag('model')} has no price in CLAUDE_PRICES, so the budget can't count its calls.`);
   let carry: RunResult | undefined;
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
@@ -93,6 +95,8 @@ async function main(): Promise<void> {
       // A spread given with --stats; else the random baseline rolls one per run (seeded), and others keep all 10s.
       stats: parsedStats?.stats ?? (which === 'random' ? randomSpread(seed + n - 1) : undefined),
       road: has('road'),
+      // Model players are asked once about a day left mostly idle (#1473); the baselines play as before.
+      fillDay: which === 'claude' || which === 'openrouter',
       onRoadTurn: t => {
         if (quiet) return;
         console.log(`  R${String(t.day).padStart(2)} ${t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : t.actions.join(', ') || '—'}`);
@@ -132,9 +136,12 @@ async function main(): Promise<void> {
     const { final: _final, road, ...rest } = result;
     const saved = road ? { ...rest, road: { turns: road.turns, start: road.start, record: road.record } } : rest;
     writeFileSync(file, JSON.stringify(saved, null, 2));
-    if (!quiet && result.roadStopped) console.log('  → road: not played — budget reached at the thaw');
+    if (!quiet && result.roadStopped) console.log(`  → road: stopped — budget reached ${result.meeting ? 'on the road (the caravan meeting is kept)' : 'at the thaw'}`);
     if (!quiet && road) console.log(`  → road: ${road.record.kind} · ${road.record.road?.villages.length ?? 0} villages · ${road.record.road?.quests ?? 0} quests · ${road.record.road?.marks ?? 0} marks`);
     if (!quiet && result.spread) console.log(`  → stats: made ${spreadText(result.spread)} · started ${spreadText(result.start.stats ?? result.spread)} · ended ${spreadText(result.road?.turns.at(-1)?.progress.stats ?? result.turns.at(-1)?.progress.stats ?? result.spread)}`);
+    if (!quiet) console.log(`  → a person would take about ${playtimeText(playtimeOf(result))} to play this run (#1471)`);
+    const fills = fillTally(result.turns);
+    if (!quiet && fills.asked) console.log(`  → asked about ${fills.asked} short day(s); ${fills.filled} filled on the second answer (#1473)`);
     if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }
@@ -151,6 +158,9 @@ async function main(): Promise<void> {
     const u = r.usage;
     console.log(`  run ${i + 1}: ${r.record.kind.padEnd(10)} day ${String(r.record.day).padStart(2)} · ready ${r.record.readyDay ?? '—'} · invalid days ${r.turns.filter(t => t.invalid).length} · tokens in ${u.input} (cache read ${u.cacheRead}, write ${u.cacheWrite}) out ${u.output} · ${usd(u.cost)}`);
   }
+  // How long a person would take (#1471): the same median the report gives.
+  const pt = playtimeSummaryOf(results);
+  if (pt) console.log(`  playtime: a person would take about ${playtimeText(pt)} per run (median of ${pt.runs}${pt.runs < results.length ? `; ${results.length - pt.runs} cut off at the thaw left out` : ''})`);
   const known = results.filter(r => r.usage.cost !== null);
   if (known.length) console.log(`  spend: $${spent.toFixed(3)} total · $${(spent / known.length).toFixed(3)} per game${known.length < results.length ? ` (${results.length - known.length} run(s) didn't report cost)` : ''}`);
   if (crashes.length) { console.log(`\nCRASHES (${crashes.length}):`); for (const c of crashes) console.log(`  ${c}`); }

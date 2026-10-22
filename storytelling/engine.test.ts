@@ -27,6 +27,22 @@ describe("determinism — same config, same history", () => {
   }, 15000);
 });
 
+describe("regional level (#1598, #1608) — deterministic", () => {
+  // The level keeps its own log and draws only from its own stream, but since
+  // #1608 it pushes back into provinces and people, so the golden hashes above
+  // include its consequences. These pin that its own output is reproducible
+  // too, and that it has something to say.
+  test.each([GOLDEN[0], GOLDEN[2]])("$name tells the same regional history twice", (c) => {
+    const key = (w: ReturnType<typeof runSim>) =>
+      JSON.stringify([[...w.regions.values()], w.regionalEvents]);
+    const a = runSim(c);
+    expect(key(a)).toBe(key(runSim(c)));
+    expect(a.regions.size).toBeGreaterThan(0);
+    const categories = new Set(a.regionalEvents.map((e) => e.category));
+    expect([...categories].sort()).toEqual(["economy", "event", "politics"]);
+  }, 15000);
+});
+
 describe("invariants — hold across seeds, worlds and flags", () => {
   const cases: SimConfig[] = [];
   for (let seed = 1; seed <= 16; seed++) {

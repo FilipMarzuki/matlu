@@ -8,16 +8,25 @@
     --gold: #ffe066; --teal: #4dd4f0; --amber: #c8922a;
     --green: #88ff88; --warn: #ffaa33; --danger: #ff5a5a; --ice: #9fd8ff;
     --lilac: #c9b4ff;
+    /* The resources' four levels (#1824, vital-words.ts), full to nearly gone: borders drawn from
+       the status colours every era look sets (looks.ts), so they read on paper and on dark panels
+       alike. The second is a yellow-green between the good and the warning colour. */
+    --lv-0: var(--green); --lv-1: color-mix(in srgb, var(--green) 55%, var(--warn));
+    --lv-2: var(--warn); --lv-3: var(--danger);
+    /* Era looks (#1719): these are the defaults, the look of a page with no look (the records page,
+       play-with-ai). The game sets <html data-look="…"> and looks.ts sets every colour token above
+       and these for that look. Only colours, images and shadows: a look never moves a box. */
+    --plate: #22243a; --ornament: rgba(159,216,255,.18); --grain: rgba(159,216,255,.03);
+    --page-texture: radial-gradient(1100px 520px at 70% -10%, rgba(159,216,255,.06), transparent),
+      radial-gradient(900px 500px at 10% 110%, rgba(200,146,42,.05), transparent);
+    --box-ornament: none; --box-glow: none;
     --display: "Silkscreen", "Courier New", monospace;
     --body: "Chakra Petch", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background:
-      radial-gradient(1100px 520px at 70% -10%, rgba(159,216,255,.06), transparent),
-      radial-gradient(900px 500px at 10% 110%, rgba(200,146,42,.05), transparent),
-      var(--bg);
+    background: var(--page-texture), var(--bg);
     color: var(--ink); font-family: var(--body); line-height: 1.5;
   }
   .wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px; padding-inline: 16px; }
@@ -28,6 +37,7 @@
   .ctl { display: inline-flex; align-items: center; gap: 7px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); cursor: pointer; font-family: var(--display); font-size: 8px; letter-spacing: 1px; }
   .pill:hover { border-color: var(--teal); }
+  a.pill { text-decoration: none; }
   .counter b { color: var(--gold); font-size: 14px; font-variant-numeric: tabular-nums; }
   .lede { color: var(--dim); font-size: 12.5px; margin: 0 0 14px; max-width: 70ch; }
   .lede b { color: var(--ink); }
@@ -35,7 +45,7 @@
   /* Winter timeline + readiness strip */
   .strip { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-bottom: 14px; }
   @media (max-width: 820px) { .strip { grid-template-columns: 1fr; } }
-  .box { background: var(--panel); border: 1px solid var(--border); border-radius: 13px; padding: 14px; min-width: 0; }
+  .box { background-color: var(--panel); background-image: var(--box-ornament); box-shadow: var(--box-glow); border: 1px solid var(--border); border-radius: 13px; padding: 14px; min-width: 0; }
   .eyebrow { font-family: var(--display); font-size: 9px; letter-spacing: 2px; color: var(--teal); margin: 0 0 11px; }
   .eyebrow.ice { color: var(--ice); }
 
@@ -57,6 +67,11 @@
   .pillar .fill.done { background: var(--green); }
   .pillar .st { font-family: var(--display); font-size: 7px; letter-spacing: .5px; min-width: 70px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
   .pillar .st.done { color: var(--green); }
+  /* A key metric row (#1915): the amount (water's grows into the track's column too) and, when there's a need, its HOLDING/FALLING SHORT tag beside it. */
+  .pillar .kn { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13px; }
+  .pillar .amt { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .pillar .amt .st { min-width: 0; }
+  .pillar.nobar .kn { grid-column: 2 / -1; }
   .verdict-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-family: var(--display); font-size: 9px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
   .verdict-row .tag { padding: 3px 9px; border-radius: 6px; }
   .tag.no { color: var(--warn); border: 1px solid var(--warn); }
@@ -105,6 +120,15 @@
   .siteopt .t { font-family: var(--display); font-size: 8px; letter-spacing: 1px; display: flex; gap: 6px; align-items: center; }
   .siteopt .d { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .siteopt .warm { float: right; color: var(--ice); font-family: var(--display); font-size: 7px; }
+  /* How good a place to camp you believe it is (#1756): ★ great in gold, ✓ good in green. */
+  .siteopt .rate { white-space: nowrap; }
+  .siteopt .rate.great, .act .t .cbadges { color: var(--gold); }
+  .siteopt .rate.good { color: var(--green); }
+  /* The same badges on the LAND tab's places to camp and the map-drawing list (#1798, rating-badges.ts). */
+  .campspots .rate, .mapl-place .rate { white-space: nowrap; margin-left: 6px; font-family: var(--display); font-size: 9px; letter-spacing: 1px; }
+  .campspots .rate.great, .mapl-place .rate.great, .eyebrow .cbadges { color: var(--gold); }
+  .campspots .rate.good, .mapl-place .rate.good { color: var(--green); }
+  .eyebrow .cbadges { margin-left: 8px; font-family: var(--body); font-size: 11px; letter-spacing: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
@@ -115,6 +139,11 @@
   .act:disabled { opacity: .38; cursor: not-allowed; }
   .act .t { font-family: var(--display); font-size: 8px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
   .act .t .h { margin-left: auto; color: var(--faint); font-size: 7px; }
+  /* The Make camp card's badges (#1756): one short run of text in the title row, so the card keeps its height. */
+  .act .t .cbadges { font-family: var(--body); font-size: 10px; letter-spacing: 0; white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
+  /* The length in words (#1740, `time-words`): a line of its own under the name, in the body font. */
+  .act .t:has(.tw) { flex-wrap: wrap; row-gap: 1px; }
+  .act .t .h.tw { flex-basis: 100%; margin-left: 0; font-family: var(--body); font-size: 10px; letter-spacing: 0; }
   .act .y { color: var(--dim); font-size: 10.5px; margin-top: 2px; }
   .act .y .yield { color: var(--green); } .act .y .vc { color: var(--warn); }
 
@@ -170,6 +199,7 @@
 .queue li .why.danger { font-weight: 700; }
 .queue li .dayn { font-family: var(--display); font-size: 7px; color: var(--teal); min-width: 34px; }
 .act.soft { border-style: dashed; }
+.act.greyed { opacity: .45; cursor: not-allowed; }
 .act .y .gate { color: var(--warn); }
 .log li.skip { color: var(--faint); }
 .resolve .btn { margin-top: 12px; }
@@ -180,13 +210,38 @@
 .r.tool.fine b { color: var(--green); } .r.tool.masterwork b { color: var(--gold); }
 .r.concept { font-size: 11px; color: var(--dim); } .r.concept b { color: var(--ice); }
 
-/* Exploration rings: palette tabs + the land map's confidence chips (design §3). */
-.rings { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
-.ringtab { flex: 1 1 110px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 7px 9px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; text-align: left; }
-.ringtab span { display: block; font-family: var(--body); font-size: 10px; letter-spacing: 0; color: var(--faint); margin-top: 2px; }
-.ringtab.on { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
-.ringtab.locked { opacity: .5; }
-.ringnote { color: var(--teal); letter-spacing: .5px; }
+/* Exploration rings: the palette's distance chooser (#1814) + the land map's confidence chips (design §3). */
+/* The chooser takes a whole row of the card grid (.acts wraps), so it sits right under its card's row. */
+.act.picking { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.ringpick { flex: 1 1 100%; min-width: 0; border: 1px solid var(--teal); border-radius: 9px; background: var(--sub2); padding: 7px 9px 9px; }
+.rphead { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--teal); margin-bottom: 6px; }
+.rpx { margin-left: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--sub); color: var(--dim); cursor: pointer; font-size: 12px; line-height: 1; min-width: 32px; min-height: 28px; }
+.rpx:hover { border-color: var(--teal); color: var(--ink); }
+.rpopts { display: flex; gap: 6px; flex-wrap: wrap; }
+.rpopt { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); color: var(--ink); cursor: pointer; padding: 7px 9px; font-family: inherit; }
+.rpopt:hover:not(:disabled) { border-color: var(--teal); background: var(--sub2); }
+.rpopt.on { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.rpopt.soft { border-style: dashed; }
+.rpopt.locked { opacity: .45; cursor: not-allowed; }
+.rpopt .rpn { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--ink); }
+.rpopt.on .rpn { color: var(--teal); }
+.rpopt .rplast { font-family: var(--body); font-size: 9.5px; letter-spacing: 0; color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
+.rpopt .rpt { font-size: 10px; color: var(--faint); }
+.rpopt .y { font-size: 10.5px; color: var(--dim); }
+.rpopt .y .yield { color: var(--green); } .rpopt .y .gate { color: var(--warn); }
+/* Explore's compass (#1839): which way, a 3 × 3 grid of small buttons above the distances, look around in the middle. */
+.compass { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 8px; }
+.cphead { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--teal); }
+.cpgrid { display: grid; grid-template-columns: repeat(3, minmax(44px, 1fr)); gap: 4px; width: min(100%, 240px); }
+.cpb { min-height: 36px; min-width: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--sub); color: var(--ink); cursor: pointer; font-family: var(--display); font-size: 9px; letter-spacing: 1px; padding: 4px; }
+.cpb.look, .cpb.camp { font-family: var(--body); font-size: 10.5px; letter-spacing: 0; }
+.cpb:hover { border-color: var(--teal); background: var(--sub2); }
+.cpb.on { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.cpcamp { width: min(100%, 240px); } .cpcamp .cpb { width: 100%; }
+/* No heading to keep (#1868): the eight ways greyed, and a note on what's missing. */
+.cpb.locked, .cpb.locked:hover { opacity: .4; cursor: not-allowed; border-style: dashed; background: var(--sub); border-color: var(--border); }
+.cpnote { max-width: 340px; margin: 2px 0 0; font-size: 10.5px; line-height: 1.4; color: var(--warn); }
+.cpnote b { font-family: var(--display); font-size: 8px; letter-spacing: 1px; font-weight: normal; display: block; color: var(--dim); }
 .ringtag { font-size: 7px; color: var(--teal); border: 1px solid var(--teal); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 .ringhead { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); margin: 8px 0 4px; }
 .ringhead span { color: var(--faint); margin-left: 4px; }
@@ -252,6 +307,92 @@
   .planside { position: static; }
   .shours { margin-left: 0; }
 }
+/* ── The queue beside the actions (#1826, ui feature `side-queue`, plan-layout.ts) ──────────────
+   Tablet and desktop: the actions left, the queue right, its column frozen just below the sticky
+   status bar. Phone in portrait (under 700px): the queue is a frozen strip over the actions, which
+   take the full width. The journal + camp-site picker are in a box of their own below, never frozen.
+   `--stick-top` is the status bar's height, set by main.ts syncStickTop() (the default here is the
+   desktop bar's), so a change to the header or the bar moves the frozen part with it. A queue
+   taller than the screen scrolls inside its frozen box, with the Run bar pinned to its foot. */
+:root { --stick-top: 64px; }
+/* The queue's zone is stretched to the actions' height (the row's), and the frozen queue travels
+   inside it, so it stays in view the whole way down the actions. The box below starts where the
+   actions end: under the queue on desktop, across both columns on a tablet. */
+.plan.sideq { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "acts q" ". more"; align-items: stretch; }
+.plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+.plan.sideq > .planacts { grid-area: acts; min-width: 0; }
+.plan.sideq > .planqzone { grid-area: q; min-width: 0; }
+.plan.sideq > .planmore { grid-area: more; min-width: 0; align-self: start; }
+.planq {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--stick-top));
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+  overflow-y: auto; overscroll-behavior: contain;
+  container: planq / inline-size;
+}
+.planq .queue ol { max-height: none; overflow: visible; }
+.planq .runbar { position: sticky; bottom: 0; padding-block: 6px; background: var(--sub2); z-index: 1; }
+.planmore > .log:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.planmore > .camp-scene:first-child { margin-top: 0 !important; }
+/* The cards in the narrower column: their words wrap, nothing pokes out. */
+.plan.sideq .act { min-width: 0; overflow-wrap: anywhere; }
+.plan.sideq .act .t { flex-wrap: wrap; row-gap: 2px; }
+/* The compact queue's own parts, shown only when the column is narrow; the strip only on a phone. */
+.queue .qc, .queue .qup, .queue .qct, .qstrip { display: none; }
+/* A tablet: about 60/40, and the box below spans both columns. */
+@media (max-width: 900px) {
+  .plan.sideq { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-areas: "acts q" "more more"; gap: 8px; }
+  .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "acts" "more"; }
+}
+/* A phone in portrait: one column, the queue's strip first. Its zone steps aside, so the strip is
+   the grid's own item and stays frozen the whole way down the plan; the actions scroll under it. */
+@media (max-width: 699px) {
+  .plan.sideq, .plan.sideq.noq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "q" "acts" "more"; gap: 8px; }
+  .plan.sideq > .planqzone { display: contents; }
+  .plan.sideq .planq { grid-area: q; align-self: start; z-index: 4; padding: 7px 8px; box-shadow: 0 6px 14px rgba(0,0,0,.28); }
+  .plan.sideq .planq:not(.stripopen) > .planqfull { display: none; }
+  .plan.sideq .planq.stripopen > .planqfull { margin-top: 8px; }
+  .plan.sideq .qstrip { display: flex; align-items: center; gap: 8px; }
+}
+.qsbar { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border2); border-radius: 9px; background: var(--sub2); color: var(--ink); padding: 5px 8px; font-family: inherit; min-height: 44px; }
+.qsbar:hover, .qsbar:focus-visible { border-color: var(--teal); }
+.qschips { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 3px 4px; min-width: 0; max-height: 39px; overflow: hidden; } /* two rows of chips; the total says the rest */
+.qschip { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; font-size: 10.5px; line-height: 1.3; padding: 1px 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--sub); }
+.qschip b { font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
+.qsnote { font-size: 11px; color: var(--dim); font-style: italic; }
+.qstot { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.qsfold { margin-left: auto; color: var(--teal); font-size: 12px; }
+.qstrip > .btn.go { flex: 0 0 auto; align-self: stretch; padding: 8px 10px; max-width: 38%; white-space: normal; }
+/* A narrow queue column: each task in a few words on a line of its own (icon, short name, the
+   distance, hours), its controls (grip, options, ▲, ×) on the line under it. */
+@container planq (max-width: 330px) {
+  .queue { padding: 6px; }
+  .queue > .eyebrow { font-size: 8px; letter-spacing: 1px; }
+  .queue .timenow { font-size: 10.5px; line-height: 1.35; }
+  .queue ol { gap: 4px; }
+  .queue li { padding: 4px 5px; font-size: 11px; }
+  .queue li .row { gap: 2px; flex-wrap: wrap; }
+  .queue li .n, .queue li .meta, .queue li .chosen, .queue li .why, .queue li .dayn.now, .queue .qfull,
+  .queue li .loadrow:not(.over) { display: none; }
+  .queue li .dayn { min-width: 0; }
+  .queue .qc { display: flex; order: -1; flex: 1 1 100%; align-items: baseline; flex-wrap: wrap; gap: 0 4px; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+  .queue .qc .qcn { font-family: var(--display); font-size: 8px; color: var(--ink); }
+  .queue .qc .qcd { font-size: 9.5px; color: var(--teal); }
+  .queue .qc .qch { margin-left: auto; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .queue .qup { display: inline-block; cursor: pointer; border: none; background: none; color: var(--faint); font-size: 10px; padding: 0 2px; min-height: 26px; min-width: 20px; }
+  .queue .qup:hover, .queue .qup:focus-visible { color: var(--gold); }
+  .planq .queue .grip, .planq .queue .tog { min-height: 26px; min-width: 20px; padding: 0 2px; margin: 0; }
+  .queue li .x { margin-left: auto; min-height: 26px; min-width: 20px; }
+  .queue .qct { display: inline; }
+  .queue .qtot { font-size: 10.5px; margin-bottom: 6px; }
+  .queue .runbar { gap: 4px; }
+  .queue .runbar .btn { flex: 1 1 auto; padding: 6px 5px; font-size: 7px; letter-spacing: .5px; }
+  .queue .runbar .btn.go { flex-basis: 100%; padding-block: 9px; font-size: 8px; }
+  .queue .opt span { display: none; }
+  .queue .optchoices { flex-wrap: wrap; }
+}
 .log ul.full { max-height: 70vh; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 11px; color: var(--faint); }
 /* Paint the whole viewport, even when a tab is shorter than the screen. */
@@ -278,10 +419,24 @@ body { min-height: 100vh; }
   .intro {
     position: fixed; inset: 0; z-index: 50;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    /* Room at the top for the 💬 corner (#1845) and at the bottom for the bar, so a tall beat
+       (create, pack: at most 100vh−140px) never runs under either, even when the panel's sheet
+       shortens the overlay on a phone. */
+    padding: calc(56px + env(safe-area-inset-top, 0px)) 16px calc(72px + env(safe-area-inset-bottom, 0px));
     background: radial-gradient(800px 520px at 50% 45%, #15122b, #05050b 70%);
+    /* The intro keeps the default night colours whatever the era look (looks.ts sets the tokens on
+       .intro), but `color` would still be inherited, already worked out, from the body's look: dark
+       ink on a paper look. Set it here, so text without its own colour reads light (#1844). */
+    color: var(--ink);
     cursor: pointer; overflow: hidden;
   }
+  /* The 💬 button on every beat (#1845): its own top-right corner, above the beat and clear of the
+     bottom bar's Skip / Next. The overlay's top padding keeps every beat below it. */
+  .introfb { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 2; }
+  .introfb .fbbtn { min-height: 36px; padding: 6px 12px; font-size: 9px; background: var(--panel); border-color: var(--border2); }
+  .introfb .fbbtn:hover, .introfb .fbbtn[aria-pressed="true"] { border-color: var(--teal); }
+  /* The panel's minimized pill sits beside the 💬 at the top during the intro, not over Next at the bottom. */
+  html.intro-on .fbpill { top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; right: 64px; }
   .intro[hidden] { display: none; }
   .intro .portal {
     position: absolute; left: 50%; top: 42%; width: min(70vmin, 420px); aspect-ratio: 1; max-width: 100%;
@@ -320,7 +475,7 @@ body { min-height: 100vh; }
 
   @media (prefers-reduced-motion: reduce) {
     .intro .portal { animation: none; transition: none; }
-    .intro .beat p { animation: none !important; opacity: 1; }
+    .intro .beat p, .intro .beat .packq { animation: none !important; opacity: 1; }
   }
 
   /* Skills (#1236): name, level pips, level name, progress to the next level */
@@ -386,20 +541,53 @@ body { min-height: 100vh; }
   .harms li span { color: var(--dim); }
   /* The packing screen (#1401): the list by group, the weight bar pinned to the bottom of the beat. */
   .intro .beat.pack { max-width: min(760px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px 0; }
+  /* "What will you pack?" (#1844): the intro's strongest heading. Large display type in the gold
+     accent (about 14:1 on the night sky, intro.test.ts checks AA), on its own soft panel, centred,
+     and pinned to the top of the beat so the question stays in view while the pack scrolls under it. */
+  .intro .beat .packq {
+    position: sticky; top: 0; z-index: 1; justify-self: center; margin: 0 0 4px; padding: 10px 22px;
+    font-family: var(--display); font-weight: 700; font-size: clamp(22px, 6vw, 36px); line-height: 1.15; letter-spacing: 2px;
+    color: var(--gold); text-align: center; text-wrap: balance;
+    text-shadow: 0 0 18px rgba(255,224,102,.35), 0 2px 0 #05050b;
+    background: rgba(13,14,26,.92); border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    opacity: 0; animation: line-in .7s ease forwards; animation-delay: calc(var(--n) * 650ms + 150ms);
+  }
   .kchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+  /* Each pack section folds (#1727). The whole heading is one band (#1801): at least 48px tall, a
+     background on hover and press, the shared chevron (.foldhead/.chev, below, turns it when the
+     <details> is open), the name, and the section's summary pushed to the right. */
+  .kfolds { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .kgroup > summary.foldhead { display: flex; width: 100%; min-height: 48px; gap: 8px; padding: 6px 10px; margin-top: 4px; border-radius: 8px; list-style: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .kgroup > summary::-webkit-details-marker { display: none; }
+  .kgroup > summary .kname { font-weight: 400; }
+  .kgroup > summary .ksum { margin-left: auto; text-align: right; font-family: var(--body); letter-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .kgroup > summary:hover { background: var(--sub); }
+  .kgroup > summary:active { background: var(--sub2); }
+  .kgroup[open] > .kchoices { margin: 4px 0 6px; }
   .kchoice { display: grid; gap: 3px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); cursor: pointer; min-width: 0; }
   .kchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .kchoice:disabled { opacity: .4; cursor: default; }
   .kchoice .khead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .kchoice .khead i { color: var(--dim); font-size: 11px; }
   .kchoice .kkg { margin-left: auto; color: var(--teal); font-variant-numeric: tabular-nums; font-size: 11px; }
-  .kchoice .keffect { color: var(--green); }
+  .kchoice .kdoes { color: var(--green); }
   .kchoice .knote { color: var(--dim); font-style: italic; font-size: 11px; }
   .kfoot { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 10px 0; margin-top: 8px; background: var(--bg); border-top: 1px solid var(--border); }
   .kbar { flex: 1 1 140px; height: 8px; border-radius: 999px; background: var(--sub); border: 1px solid var(--border); overflow: hidden; }
   .kbar span { display: block; height: 100%; background: var(--gold); }
   .kweight { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 12px; }
   .kweight b { color: var(--ink); }
+  /* The pack's volume and straps (#1871): a strappable item packed carries its inside / strapped-on
+     choice under it, as one grid cell; the foot leads with the Warden's own words for the weight. */
+  .kitem { display: grid; gap: 4px; min-width: 0; align-content: start; }
+  .kstrap { display: flex; gap: 4px; }
+  .kplace { flex: 1 1 0; min-height: 32px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 11px/1.2 var(--body); cursor: pointer; }
+  .kplace[aria-pressed="true"] { color: var(--ink); border-color: var(--gold); }
+  .kplace:disabled { opacity: .4; cursor: default; }
+  .kfeel { flex: 1 1 100%; margin: 0; color: var(--gold); font: italic 14px/1.35 var(--body); }
+  .kroom { color: var(--ink); font-size: 12px; }
+  .kroom.full, .kchoice:disabled .kkg { color: var(--danger); }
+  .kbar.full span { background: var(--danger); }
   /* The hike pack (#1400). */
   .packlist { display: flex; flex-wrap: wrap; gap: 6px; }
   .packitem { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 12px; }
@@ -431,9 +619,13 @@ body { min-height: 100vh; }
   .concepts span { color: var(--dim); }
   .who { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 12px var(--body); cursor: pointer; }
   .who b { color: var(--ink); }
+  /* The header button is the one way into the Warden's view (#1807): while that view is open it wears an open tab's gold. */
+  .who:hover { border-color: var(--teal); }
+  .who.on { color: var(--gold); border-color: var(--gold); background: rgba(255,224,102,.06); }
+  .who.on b { color: var(--gold); }
   .who .portrait { border-radius: 50%; }
   /* Re-drawing the same intro screen (a creation pick) shows it as-is, without replaying the fade-in. */
-  .intro.settled .beat p, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }
+  .intro.settled .beat p, .intro.settled .beat .packq, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }
 
   /* ── Focus (#1238): status chip, picker chips, lock banner ── */
   .focuschip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--teal); background: rgba(77,212,240,.07); color: var(--dim); font-family: var(--display); font-size: 8px; letter-spacing: 1px; cursor: pointer; }
@@ -449,6 +641,30 @@ body { min-height: 100vh; }
   .fchip:hover { border-color: var(--teal); }
   .fchip[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
   .lockbanner { margin: 0 0 8px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--danger); background: rgba(255,90,90,.08); color: var(--ink); font-size: 12px; }
+  /* The status bar's focus picker (#1758): laid over the page under the bar (the bar is sticky, so
+     it holds this absolute box), never pushing the tabs down; as wide as a phone allows. */
+  .focuspop { position: absolute; top: calc(100% + 6px); left: 8px; z-index: 30; width: min(440px, calc(100% - 16px)); max-height: min(70vh, 560px); overflow: auto; padding: 10px 12px 12px; border: 1px solid var(--teal); border-radius: 11px; background: var(--panel); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .focuspop .fphead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .focuspop .fphead .eyebrow { margin: 0; }
+  .fpclose { border: 1px solid var(--border); border-radius: 8px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 4px 9px; font-size: 12px; line-height: 1; }
+  .fpclose:hover { border-color: var(--teal); color: var(--ink); }
+  .fchip:disabled { opacity: .45; cursor: not-allowed; }
+  .fchip:disabled:hover { border-color: var(--border); }
+  .focuschip[aria-expanded="true"] { box-shadow: 0 0 0 1px var(--teal) inset; }
+  /* The Survival path (#1793, ui feature `guide`): the chip names the step, the picker lists them. */
+  .focuschip.path span { color: var(--ink); }
+  .fppath { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); }
+  .fppath .fgroup { margin-top: 0; }
+  .fppath ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 12px; color: var(--dim); }
+  .fppath li.done { color: var(--faint); }
+  .fppath li.done .fpmark { color: var(--teal); }
+  .fppath li.now { color: var(--ink); }
+  .fppath li.now .fpmark { color: var(--teal); }
+  .fpmark { display: inline-block; width: 1em; text-align: center; }
+  .fpnow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 3px 0 4px 1.3em; }
+  .fpnow .mood { margin: 0; font-size: 12px; }
+  .fpsuggest { border-color: var(--teal); color: var(--teal); }
+  .fpfocused { color: var(--teal); font-size: 12px; }
   .skill .sl.super { color: #c9a8ff; text-shadow: 0 0 8px rgba(160,120,255,.6); }
 
 /* Season strip, winter outlook and thaw summary (#1308) */
@@ -465,6 +681,58 @@ body { min-height: 100vh; }
 .seasonstrip .wx { color: var(--ink); font-weight: 600; }
 .seasonstrip .wx.danger { color: var(--danger); }
 .seasonstrip .lockbanner { margin: 8px 0 0; }
+/* The weather in words (#1729): a few lines, as a scout would say them, until the strip is earned. */
+.wxwords .eyebrow { margin-bottom: 4px; }
+.wxwords p:not(.eyebrow) { margin: 0 0 2px; font-size: 13px; line-height: 1.45; color: var(--dim); }
+.wxwords .eyebrow + p { color: var(--ink); }
+.wxbox .seasonstrip { margin-top: 10px; }
+.wxbox .lockbanner { margin: 8px 0 0; }
+/* A fold's heading (#1788, fold.ts chevron): a real button that looks like the heading it is, with a
+   drawn chevron in the text's colour that turns when open. Shared, so the pack list's fold can take
+   the same look in one change. */
+.foldhead { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 2px 0; border: 0; background: none; line-height: 1.3; text-align: left; cursor: pointer; }
+.foldhead .chev, details > summary .chev { flex: none; color: var(--ink); transition: transform .15s ease; }
+.foldhead[aria-expanded="true"] .chev, details[open] > summary .chev { transform: rotate(90deg); }
+.foldhead:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .foldhead .chev, details > summary .chev { transition: none; } }
+.wxwords .wxtoggle { margin-bottom: 4px; }
+.wxbox > .wxtoggle { margin-bottom: 6px; }
+/* Condensed (#1788): the heading and a wrapping row of icon chips; a tap anywhere on the row opens it. */
+.wxrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; cursor: pointer; }
+.wxrow .wxtoggle { margin: 0; }
+.wxchips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.wxchip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 12px; line-height: 1.3; white-space: nowrap; }
+.wxhint { font-size: 12px; color: var(--faint); font-style: italic; }
+/* The first time (#1788): the full box as a wide card at the top of Plan, centred and larger, ending
+   in "Got it". In the page, not over it, so the game under it still works. */
+.seasonbox.wxintrobox { max-width: 680px; margin: 6px auto 18px; padding: 20px 24px; border-color: var(--gold); text-align: center; }
+.wxintrobox .eyebrow { font-size: 11px; margin-bottom: 10px; }
+.wxintrobox .wxwords p:not(.eyebrow) { font-size: 16px; line-height: 1.55; margin-bottom: 4px; }
+.wxintrobox .seasonstrip { text-align: left; }
+.wxackrow { margin-top: 14px; }
+.wxack { font-size: 11px; padding: 11px 22px; }
+@media (max-width: 520px) { .seasonbox.wxintrobox { padding: 16px 14px; } .wxintrobox .wxwords p:not(.eyebrow) { font-size: 15px; } }
+/* The first-morning guide (#1792, reveal.ts): the element appearing for the first time glows with a
+   soft gold border, and the scout's line sits beside it with an OK. Nothing over the page, nothing
+   blocking; under reduced motion the border stays still. The suggested action glows the same way. */
+[data-glow], .act.guide-suggest { border-radius: 10px; box-shadow: 0 0 0 2px var(--gold); animation: guide-glow 2.6s ease-in-out infinite; }
+.act.guide-suggest { border-color: var(--gold); }
+@keyframes guide-glow { 0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 0 rgba(255,224,102,0); } 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(255,224,102,.45); } }
+@media (prefers-reduced-motion: reduce) { [data-glow], .act.guide-suggest { animation: none; } }
+/* The tip has its own opaque plate (#1855): it often sits on the page itself, and with the living
+   backdrop on that's a night scene, so a see-through tint left the look's ink (dark on paper looks)
+   on a dark sky. The look's panel colour under its ink is AA in every look (looks.test.ts). */
+.guidetip { display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 10px 8px 12px; border: 1px solid var(--gold); border-radius: 8px; background: var(--panel); text-align: left; }
+.guidetip p { margin: 0; flex: 1; color: var(--ink); font-size: 13px; line-height: 1.45; font-style: italic; }
+.wxintrobox .guidetip { margin: 0 0 12px; }
+.guidetip .guideok { flex: none; }
+/* The first meal's note (#1848): a small card at the top of PLAN, the morning after the first night. */
+.rationsnote { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; margin: 0 0 14px; border-color: var(--gold); }
+.rationsnote .eyebrow { grid-column: 1 / -1; margin-bottom: 4px; }
+.rationsnote .rnline { grid-column: 1; margin: 0; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.rationsnote .rnwhere { grid-column: 1; margin: 4px 0 0; color: var(--dim); font-size: 13px; line-height: 1.45; font-style: italic; }
+.rationsnote .guideok { grid-column: 2; grid-row: 2 / span 2; }
+.guidectl { flex-wrap: wrap; }
 .pillar .fill.short { background: var(--warn); }
 .pillar .st.short { color: var(--warn); }
 .warnlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; color: var(--warn); font-size: 12px; }
@@ -478,7 +746,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .thaw .runbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 
 /* The winter look: panels frost over with the snow cover; the camp scene gets falling snow. */
-#app.winter .box { background-image: linear-gradient(180deg, rgba(220,238,255,calc(var(--snow, 0) * .09)), transparent 70%); border-color: rgba(159,216,255,calc(.15 + var(--snow, 0) * .25)); }
+#app.winter .box { background-image: linear-gradient(180deg, rgba(220,238,255,calc(var(--snow, 0) * .09)), transparent 70%), var(--box-ornament); border-color: rgba(159,216,255,calc(.15 + var(--snow, 0) * .25)); }
 #app.winter .camp-scene {
   background-image:
     radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.7), transparent),
@@ -551,10 +819,12 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .pinfo { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pinfo b { font-size: 13px; }
 .prole { font-size: 11px; color: var(--dim); text-transform: capitalize; margin: 0; }
-.tbar { display: block; height: 6px; border-radius: 3px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; margin-top: 3px; }
-.tbar span { display: block; height: 100%; background: var(--teal); }
-.tbar span.friend { background: var(--gold); }
 .tnum { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* Rapport (#1578): how someone seems with you, a word in place of the old trust bar, cooler to warmer. */
+.rapport { font-size: 11px; font-style: italic; letter-spacing: .3px; color: var(--dim); text-transform: none; cursor: help; }
+.rapport.rp-civil, .rapport.rp-cordial { color: var(--ice); }
+.rapport.rp-friendly, .rapport.rp-warm { color: var(--teal); }
+.rapport.rp-trusted, .rapport.rp-close { color: var(--gold); }
 .picons { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .vbadge { position: relative; display: inline-grid; place-items: center; border-radius: 9px; border: 2px solid var(--border2); font-family: var(--display); font-size: 16px; color: var(--ink); background: var(--sub2); flex: none; }
 .vbadge i { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-size: 13px; }
@@ -571,6 +841,27 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .sheethead h3 { margin: 0; font-family: var(--display); font-size: 13px; color: var(--gold); letter-spacing: 1px; }
 .sheetpart { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .sheetpart .mood { margin: 0; }
+/* Ask anything (#1575): the box takes the row, the button keeps its size; they stack on a phone. */
+.freeq { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+.freeq .qin { flex: 1 1 220px; min-width: 0; font: 500 13px var(--body); color: var(--ink); background: var(--sub); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 10px; }
+.freeq .qin:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.freeq .qin::placeholder { color: var(--faint); }
+.freeq .qin:disabled { opacity: .5; }
+.sheetpart .qnote { font-size: 10.5px; }
+/* Feature switches (#1579): the 🧪 marks an experiment wherever it shows; the panel is dev mode only. */
+.pill.exp { border-color: var(--amber); color: var(--amber); cursor: help; }
+/* "DEV" in the header while dev mode is on (#1735): filled amber, so it shows in any screenshot. */
+.pill.devchip { border-color: var(--amber); background: var(--amber); color: var(--bg); font-weight: bold; cursor: help; }
+.exptag { margin-left: 6px; color: var(--amber); letter-spacing: 1px; }
+.devtruth { font-family: var(--body); font-size: 10px; color: var(--amber); letter-spacing: 0; text-transform: none; }
+.features { margin: 12px 0; }
+.flist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.flist li { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.flist li > div { min-width: 0; }
+.flist .stage { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); margin-left: 6px; }
+.flist .stage.s-experimental { color: var(--amber); }
+.flist .faint { color: var(--faint); font-style: normal; }
+.flist .pill[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
 .say { margin: 0; font-size: 12.5px; color: var(--ink); font-style: italic; }
 .warn { color: var(--warn); } .ok { color: var(--green); }
 .tcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; width: 100%; }
@@ -578,6 +869,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .tlist li { display: grid; grid-template-columns: minmax(0, 1fr) 34px auto auto; gap: 6px; align-items: center; font-size: 12px; }
 .tlist .it { min-width: 0; text-transform: capitalize; }
+.tlist .it .q { text-transform: none; } /* a note, not a name: "gott om här", not "Gott Om Här" (#1709) */
 .tlist .q { color: var(--faint); }
 .tlist .pr { color: var(--gold); font-variant-numeric: tabular-nums; text-align: right; font-family: var(--display); font-size: 9px; }
 .tlist .pr::after { content: ' m'; color: var(--faint); }
@@ -634,6 +926,43 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc .runbar { margin-top: 12px; }
 @media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }
 
+/* Drawing your map (#1754): the encounter modal's frame, with a list of finds and a blank grid, camp in the middle */
+/* Every tap redraws the modal, so it doesn't replay the encounter's entrance each time. */
+.mapl { position: relative; width: min(760px, 100%); animation: none; }
+.mapl-x { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border2); background: var(--sub); color: var(--dim); font-size: 14px; cursor: pointer; }
+.mapl-how { margin: -6px 0 12px; font-size: 12px; }
+.mapl-body { display: flex; gap: 16px; align-items: flex-start; }
+.mapl-side { flex: 1 1 220px; min-width: 0; }
+.mapl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mapl-place { width: 100%; min-height: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border2); background: var(--sub); color: var(--ink); font-family: var(--body); font-size: 13px; cursor: pointer; }
+.mapl-place.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.mapl-place.placed { opacity: .6; cursor: default; }
+.mapl-place .mk { width: 1.4em; text-align: center; }
+.mapl-ok { margin-left: auto; color: var(--green); font-size: 11px; }
+.mapl-where { flex-basis: 100%; padding-left: 1.7em; color: var(--dim); font-size: 11.5px; }
+.mapl-note { margin: 10px 0 0; padding: 8px 11px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 13px; }
+.mapl-note.hint { border-left-color: var(--warn); }
+.mapl-note.right { border-left-color: var(--green); }
+.mapl-gridwrap { position: relative; flex: 0 1 auto; width: min(400px, 100%); padding: 16px; box-sizing: border-box; }
+.mapl-gridwrap > span { position: absolute; font-family: var(--display); font-size: 9px; color: var(--amber); }
+.mapl-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.mapl-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.mapl-e { right: 3px; top: 50%; transform: translateY(-50%); }
+.mapl-w { left: 3px; top: 50%; transform: translateY(-50%); }
+.mapl-grid { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; padding: 4px; border-radius: 8px; border: 1px solid var(--border2); background: var(--sub2); }
+.mapl-cell { aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 4px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font-size: 13px; line-height: 1; cursor: pointer; }
+.mapl-cell:hover { border-color: var(--teal); }
+.mapl-cell:focus-visible, .mapl-cell.cur:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.mapl-cell.camp { background: rgba(200,146,42,.18); border-color: var(--amber); cursor: default; }
+.mapl-cell.has { background: rgba(136,255,136,.12); border-color: rgba(136,255,136,.5); }
+.mapl-invite { margin: 10px 0 0; }
+.lookland { display: block; margin-top: 4px; color: var(--dim); font-style: italic; }
+@media (max-width: 640px) {
+  .mapl-body { flex-direction: column; align-items: stretch; gap: 8px; } .mapl-gridwrap { width: 100%; padding: 14px; } .mapl-side { flex: none; }
+  .mapl .enc-text { font-size: 13px; margin-bottom: 8px; padding-right: 36px; } .mapl-how { font-size: 11px; margin: 0 0 8px; }
+  .mapl-list { grid-template-columns: 1fr 1fr; gap: 5px; } .mapl-place { font-size: 12px; padding: 6px 8px; } .mapl-where { padding-left: 0; font-size: 10.5px; }
+}
+
 /* Meeting the caravan (#1356): a dialogue in the encounter modal's style */
 .meet-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
 .meet-who { margin: 0; font-size: 13px; color: var(--dim); }
@@ -682,3 +1011,493 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc-memory.full { color: var(--warn); }
 .enc-memory .pinbtn { margin: 0 0 0 6px; }
 .queue li .why.pinnote { color: var(--amber); }
+.queue li .why.plan { color: var(--teal); }
+
+/* The Reach map (#1539): one character per square, coloured by the land. */
+.mapwrap { overflow-x: auto; margin: 4px 0 8px; }
+/* letter-spacing widens each character to about one em, so with line-height 1 the squares are square. */
+.reachmap { margin: 0; font-family: "Courier New", ui-monospace, monospace; font-size: clamp(9px, 1.45vw, 15px); line-height: 1; letter-spacing: .38em; user-select: none; }
+.reachmap span { cursor: pointer; }
+.reachmap .sel { outline: 1px solid var(--gold); background: rgba(255,224,102,.18); }
+.mapinfo { margin: 0 0 10px; color: var(--ink); font-size: 13px; min-height: 1.5em; }
+.maplegend { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.maplegend b { font-family: "Courier New", ui-monospace, monospace; }
+.m-lake, .m-river { color: var(--teal); }
+.m-marsh { color: #6fa58f; }
+.m-meadow { color: #a8c97f; }
+.m-heath { color: #b9a26a; }
+.m-birch { color: #8fd18f; }
+.m-pine { color: #4f9a5f; }
+.m-scree { color: var(--dim); }
+.m-fell { color: #c8c8d8; }
+.m-snow { color: var(--ink); }
+.m-camp { color: var(--gold); font-weight: 700; }
+.m-fog { color: var(--faint); opacity: .55; }
+.reachmap .dim { opacity: .6; }
+
+/* The Reach's history (#1540): a square's province under the map, and the HISTORY tab. */
+.provinfo { margin-top: -4px; }
+.provlines { margin: 0 0 10px; padding-left: 18px; color: var(--dim); font-size: 12.5px; line-height: 1.45; }
+.provlines b, .chron b { color: var(--gold); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.tablewrap { overflow-x: auto; margin-bottom: 14px; }
+.lordships { border-collapse: collapse; width: 100%; font-size: 13px; }
+.lordships th { text-align: left; color: var(--faint); font-weight: normal; font-size: 11px; letter-spacing: 1px; padding: 4px 10px 4px 0; }
+.lordships td { padding: 4px 10px 4px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.chronicle { max-width: 72ch; }
+.chronhead { margin-top: 14px; }
+.chron { margin: 0 0 5px; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.chron.regional { color: var(--dim); overflow-wrap: anywhere; }
+.regmark { color: var(--gold); }
+.provinfo .dim { color: var(--faint); }
+.lordships .faint { color: var(--faint); }
+
+/* Settlements (#1541): '#' on the map, and a settlement's layout as text. */
+.reachmap .m-seat, .maplegend .m-seat { color: var(--gold); font-weight: bold; }
+.settlemap .s-ground { color: var(--border); }
+.settlemap .s-road { color: var(--faint); }
+.settlemap .s-bldg { color: var(--teal); font-weight: bold; }
+.settlemap .s-bldg.sel { color: var(--gold); background: rgba(255,224,102,.18); outline: none; }
+.mood .s-road { font-family: "Courier New", ui-monospace, monospace; }
+.settlekey { display: flex; flex-wrap: wrap; gap: 4px; }
+.settlekey .keyitem { border: 1px solid var(--border); background: var(--sub); color: var(--ink); border-radius: 7px; padding: 3px 7px; font-size: 12px; cursor: pointer; }
+.settlekey .keyitem b { font-family: "Courier New", ui-monospace, monospace; color: var(--teal); margin-right: 3px; }
+.settlekey .keyitem.on { border-color: var(--gold); }
+.settlekey .keyitem.on b { color: var(--gold); }
+
+/* Achievements (#1559): how a finished run compares, on the Records page and the game's end screen.
+   Shared here because both pages load style.css. Earned ones are lit gold and starred (the star is
+   text, so the status isn't told by colour alone). */
+.achlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+.achlist li { display: grid; gap: 2px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--sub2); }
+.achlist li b { font-size: 13.5px; font-weight: 600; color: var(--dim); }
+.achlist li span { font-size: 12px; color: var(--faint); line-height: 1.35; }
+.achlist li.earned { border-color: var(--gold); background: rgba(255,224,102,.06); }
+.achlist li.earned b { color: var(--gold); }
+.achlist li.earned span { color: var(--dim); }
+.ach-head { margin-top: 16px; }
+/* The end of a run's records box in the web game (#1559): achievements, and sending the run. */
+.runrecord { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.box > .runrecord:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.runrecord form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.runrecord form .btn { margin-top: 0; }
+.runrecord input { flex: 1 1 160px; min-width: 0; max-width: 260px; background: var(--sub); border: 1px solid var(--border2); border-radius: 7px; color: var(--ink); font: inherit; font-size: 14px; padding: 6px 9px; }
+.runrecord .note { font-size: 12px; color: var(--faint); margin: 8px 0 0; }
+.runrecord .note.warn { color: var(--warn); }
+.runrecord a { color: var(--teal); }
+/* The weekly world's chip in the header (#1559). */
+.weekchip { cursor: help; }
+.weekchip b { color: var(--teal); }
+/* The day on a timer (#1669): a sheet along the bottom while the queue plays out — the clock,
+   the day's strip from 06:00 to 20:00, this action's bar (teal walking, gold working on a trip
+   session) and the lines each action wrote as it finished. Speed 1×/2×/4× and Skip on the right. */
+.playing { padding-bottom: min(54vh, 380px); }
+.playing .runbar, .playing .acts, .playing .rings, .playing .queue .x, .playing .queue .tog { opacity: .45; pointer-events: none; }
+.timer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 1180px; margin: 0 auto; display: grid; gap: 8px;
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px)); background: var(--panel); border: 1px solid var(--border2); border-bottom: 0;
+  border-radius: 14px 14px 0 0; box-shadow: 0 -8px 28px rgba(0,0,0,.45); animation: timer-up .25s ease-out; }
+@keyframes timer-up { from { transform: translateY(24px); opacity: 0; } }
+.timer .trow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.timer .tday { font-family: var(--display); font-size: 9px; letter-spacing: 2px; color: var(--teal); }
+.timer .tclock { font-family: var(--display); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: 1px; margin-right: auto; }
+.timer.night .tclock { color: var(--ice); }
+.timer .tspeed { display: inline-flex; gap: 4px; }
+.timer .tspeed .pill { min-width: 44px; min-height: 40px; justify-content: center; font-size: 10px; }
+.timer .tspeed .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.08); }
+.timer .tskip { min-height: 40px; font-size: 10px; }
+.timer .tstop { min-height: 40px; font-size: 10px; align-self: center; border-color: var(--danger); color: var(--danger); }
+.timer .tstrip { position: relative; height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border);
+  background: repeating-linear-gradient(90deg, var(--sub2) 0 calc(100% / 7 - 1px), var(--border) calc(100% / 7 - 1px) calc(100% / 7)); }
+.timer .tsfill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, rgba(255,224,102,.35), rgba(255,224,102,.7)); }
+.timer.night .tsfill { background: linear-gradient(90deg, rgba(159,216,255,.25), rgba(159,216,255,.55)); }
+.timer .tnow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.timer .tname { font-family: var(--display); font-size: 11px; letter-spacing: 1px; color: var(--ink); }
+.timer .tphase { font-size: 13px; color: var(--dim); }
+.timer .tcount { margin-left: auto; font-family: var(--display); font-size: 8px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.timer .tbar { height: 14px; border-radius: 7px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.timer .tfill { display: block; height: 100%; width: 0; background: var(--green); }
+.timer .tfill[data-phase="out"], .timer .tfill[data-phase="back"] { background: var(--teal); }
+.timer .tfill[data-phase="work"] { background: var(--gold); }
+.timer.night .tfill { background: var(--ice); }
+.timer .tlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; max-height: min(22vh, 150px); overflow-y: auto; }
+.timer .tlog li { font-size: 12.5px; color: var(--dim); animation: timer-line .4s ease-out; }
+.timer .tlog li.bad { color: var(--warn); } .timer .tlog li.good { color: var(--green); } .timer .tlog li.skip, .timer .tlog li.wait { color: var(--faint); }
+.timer .tlog li.hint { color: var(--lilac); font-style: italic; }
+/* What a land trip turned up (#1869, `explore-finds`): one find a line, after the trip's own lines. */
+.timer .tlog li.find { color: var(--ink); position: relative; padding-left: 14px; }
+.timer .tlog li.find::before { content: '✦'; position: absolute; left: 2px; color: var(--gold); font-size: 10px; top: 1px; }
+@keyframes timer-line { from { opacity: 0; transform: translateY(4px); } }
+/* Reduced motion: the timer still advances (the bars and the clock are the content), with no flourishes. */
+@media (prefers-reduced-motion: reduce) { .timer, .timer .tlog li { animation: none; } }
+
+/* The DEV tag (#1688): on a tab or button only dev mode shows. Small and amber, like the dev truths. */
+.devtag { display: inline-block; margin-left: 5px; padding: 1px 4px; border: 1px solid var(--amber); border-radius: 4px; color: var(--amber); font-family: var(--display); font-size: 7px; letter-spacing: 1px; line-height: 1.3; vertical-align: middle; }
+@media (max-width: 520px) { .tabbtn .devtag { margin-left: 2px; padding: 0 2px; font-size: 6px; } }
+
+/* The dev gate (#1688): a faint ⚙ in the help panel's corner, and its in-page password field. */
+.ledewrap { position: relative; }
+.devdot { position: absolute; right: 2px; bottom: 2px; padding: 2px 4px; border: 0; background: transparent; color: var(--faint); font-size: 11px; line-height: 1; opacity: 0.35; cursor: pointer; }
+.devdot:hover, .devdot:focus-visible, .devdot[aria-expanded="true"] { opacity: 0.9; }
+.devgate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 12px; }
+.devform { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.devform input { min-width: 0; width: 160px; max-width: 100%; padding: 4px 6px; border: 1px solid var(--faint); border-radius: 4px; background: transparent; color: inherit; font: inherit; }
+
+/* The land in words (#1686): what you know of it before you have drawn a map, one place per line. */
+.landwords { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 6px; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.landwords li { padding-left: 14px; position: relative; }
+.landwords li::before { content: "\203A"; position: absolute; left: 0; color: var(--gold); }
+
+/* The language picker (#1704): the very first screen, over everything, before the hike begins.
+   It shares the arrival intro's night-sky backdrop, but it's its own element: the intro's
+   tap-anywhere-to-advance handler must never fire on it. */
+.langpick { cursor: default; }
+.langpick .pickbox { position: relative; display: grid; gap: 18px; justify-items: center; width: min(560px, 100%); text-align: center; }
+.langpick .picktitle { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(16px, 3.6vw, 26px); letter-spacing: 2px; color: var(--gold); text-shadow: 0 0 18px rgba(255,224,102,.35); }
+.langpick .picktitle .sep { color: var(--faint); margin-inline: 8px; }
+.langpick .langchoices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; width: 100%; }
+.langchoice { display: grid; gap: 6px; justify-items: center; padding: 22px 16px; border: 1px solid var(--border2); border-radius: 12px; background: rgba(21,22,40,.85); color: var(--ink); cursor: pointer; font: inherit; }
+.langchoice b { font-family: var(--display); font-size: 16px; letter-spacing: 2px; color: var(--ice); }
+.langchoice span { color: var(--dim); font-size: 14px; }
+.langchoice:hover, .langchoice:focus-visible { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset, 0 0 22px rgba(255,224,102,.18); outline: none; }
+.langpick .picknote { margin: 0; color: var(--faint); font-size: 12px; display: grid; gap: 2px; }
+
+/* The language switch in the help panel (#1704). */
+.langswitch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+.langswitch .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+/* Item icons (#1675): 32 px pixel art in place of the emoji. The box is fixed (and the <img> has
+   width/height attributes), so the row is already its final size before the PNG arrives: no layout
+   shift. `pixelated` scales by whole pixels (none here, at 1×, but on a 2× tablet screen too) so
+   the art stays crisp instead of being smoothed into a blur. */
+.iicon { width: 32px; height: 32px; flex: none; image-rendering: pixelated; vertical-align: middle; }
+/* The icon's slot plate (#1719, #1693): a faint tile in the dark looks, so dark-drawn icons don't sink
+   into slate; transparent on the parchment looks (#1749), where the icon sits right on the paper. */
+/* A soft round pool of the plate colour, fading out before the slot's edge, so on the dark looks
+   a dark-drawn icon still stands out without sitting on a visible square (#1749). The paper looks
+   set `plate` transparent, so there it paints nothing. */
+.iicon { background-image: radial-gradient(closest-side, var(--plate) 45%, transparent); }
+/* A chip with an icon: less padding on the icon's side, so the chip grows as little as it can. */
+.r:has(.iicon), .chip:has(.iicon), .packitem:has(.iicon) { padding-top: 1px; padding-bottom: 1px; padding-left: 3px; gap: 4px; }
+.packitem:has(.iicon) { display: inline-flex; align-items: center; }
+/* The compact status bar: icon then count, tight. */
+.sstores > span { display: inline-flex; align-items: center; gap: 2px; }
+/* The pack screen: the icon leads the item's name. */
+.kchoice .khead { align-items: center; }
+.kchoice .khead .iicon { margin: -4px 0; }
+/* Trade lists: icon, name, count on one line. */
+.tlist .it { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+/* A craft's ingredients under its card. */
+.act .ingr { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 10.5px; color: var(--dim); }
+.act .ingr span { display: inline-flex; align-items: center; gap: 3px; }
+.act .ingr b { color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+/* Folds (#1730, fold.ts): the merged LAND tab's ring sections and keys. A plain <details>, so it
+   opens with a tap or the keyboard with no script; the marker is drawn here so it reads the same in
+   every browser. A ring out of reach is the same row with no marker and nothing to open. */
+.fold { border-top: 1px solid var(--border); }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "\25B8"; color: var(--gold); width: 10px; flex: none; }
+.fold[open] > summary::before { content: "\25BE"; }
+.fold > summary .ringhead, .fold.shut .ringhead { margin: 0; }
+.fold.shut { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 8px 0 8px 18px; }
+.fold .foldnote { font-size: 12px; color: var(--faint); }
+.ringfold[open] { padding-bottom: 8px; }
+.keyfold { margin-top: 12px; }
+.keyfold > summary { font-size: 12px; color: var(--dim); }
+.keyfold .legend { margin-top: 0; }
+/* What a land trip turned up (#1730, land-news.ts): a small "new" until the viewer has seen the tab,
+   and the link from the trip's line to its ring. */
+.newmark { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; vertical-align: middle; }
+.chip.new { border-color: var(--gold); }
+.landwords li.new { color: var(--gold); }
+.seeland { background: none; border: 0; padding: 0 2px; color: var(--teal); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tripnews { margin: 0 0 8px; }
+/* How well you know an area (#1835, land-assessment.ts): a small word after the ring's heading, its
+   tooltip saying what would raise it. Brighter as you know the area better. */
+.assess { font-size: 12px; color: var(--faint); font-style: italic; cursor: help; }
+.assess.a2, .assess.a3 { color: var(--dim); }
+.assess.a4, .assess.a5 { color: var(--gold); }
+/* LAND as only what you've found (#1836): its boxes stacked, whichever there are, and the Explore button. */
+.landfound > * + * { margin-top: 14px; }
+.landexplore { min-height: 40px; padding: 8px 14px; font-size: 9px; }
+.landexplore[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* What an area holds (#1847, land-icons.ts): small icons after its heading; dimmed when scarce. */
+.landicons { margin-left: 4px; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+.licon { cursor: help; }
+.licon.dim { opacity: 0.4; filter: grayscale(0.6); }
+.tripnews .landwords { margin: 0 0 6px; }
+
+/* The look picker (dev mode, #1719): preview any of the nine era looks. */
+.lookpick { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.lookpills { display: flex; flex-wrap: wrap; gap: 6px; }
+.lookdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; flex: none; }
+.lookpick .pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+/* The look switcher (#1736): temporary, for reviewing era looks. In the header's own row of
+   controls, so it never covers anything; compact, and it wraps with the header at phone width. */
+.lookswitch { gap: 3px; }
+.lookswitch .pill { padding: 6px 8px; }
+.lookswitch .lsname { margin-inline: 3px 2px; }
+.lookswitch select.pill { max-width: 15em; padding-block: 5px; appearance: auto; }
+
+/* Reordering the queue (#1743): the grip on each row takes the drag. `touch-action: none` is on the
+   grip only, so a finger there drags the task instead of scrolling, and anywhere else scrolls as usual.
+   While a row is lifted, the others slide (transform) to open a gap where it will land. */
+.queue .grip { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; border: none; background: none;
+  color: var(--faint); font-size: 13px; letter-spacing: -3px; line-height: 1; padding: 6px 7px 6px 3px; margin: -5px 0 -5px -6px; border-radius: 5px; }
+.queue .grip:hover, .queue .grip:focus-visible { color: var(--gold); }
+.queue .grip:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.queue ol.sorting li { transition: transform .15s ease; }
+.queue ol.sorting li.lifted { transition: none; position: relative; z-index: 2; cursor: grabbing; border-color: var(--gold);
+  box-shadow: 0 8px 22px rgba(0,0,0,.5); background: var(--sub2); }
+.queue ol.sorting li.lifted .grip { cursor: grabbing; color: var(--gold); }
+.playing .queue .grip { opacity: .45; pointer-events: none; }
+/* Words only a screen reader hears (the queue's "moved to place 2 of 5"). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* The living backdrop (#1802, backdrop-view.ts): two canvases and three mood layers fixed behind
+   #app (first in <body>, z-index -1), shown only with the `backdrop` ui switch on (html.backdrop).
+   The body's own texture steps aside so the scene shows; <html> keeps var(--bg) under it, for the
+   moment before the first draw. The boxes stay opaque, so their text keeps its contrast; the few
+   lines that sit on the page itself (the header, the tabs, the help) get a plate of the look's own
+   background, drawn with a box-shadow so nothing moves. */
+html.backdrop body { background: transparent; }
+.bd { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
+.bdmood { opacity: 0; transition: opacity .8s ease; }
+.bdvignette { background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(6,5,8,.9) 100%); }
+.bdfear { background: radial-gradient(ellipse at 50% 40%, transparent 38%, rgba(70,8,8,.55) 82%, rgba(14,0,0,.92) 100%); }
+.bdfrost {
+  background:
+    radial-gradient(circle at 0 0, rgba(220,238,255,.7), rgba(190,218,240,.28) 14%, transparent 30%),
+    radial-gradient(circle at 100% 0, rgba(220,238,255,.65), rgba(190,218,240,.24) 12%, transparent 28%),
+    radial-gradient(circle at 0 100%, rgba(220,238,255,.65), rgba(190,218,240,.24) 12%, transparent 28%),
+    radial-gradient(circle at 100% 100%, rgba(220,238,255,.7), rgba(190,218,240,.28) 14%, transparent 30%);
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) { .bdmood { transition: none; } }
+html.backdrop #app > header, html.backdrop #app > .ledewrap, html.backdrop #app > .tabbar {
+  background: var(--bg); box-shadow: 0 0 0 8px var(--bg); border-radius: 4px;
+}
+html.backdrop .statusbar { background: var(--panel); }
+html.backdrop .resolve { background: linear-gradient(rgba(255,224,102,.05), rgba(255,224,102,.05)), var(--bg); }
+html.backdrop .resolve.ice { background: linear-gradient(rgba(159,216,255,.05), rgba(159,216,255,.05)), var(--bg); }
+
+/* ── The 💬 feedback panel (#1773) ─────────────────────────────────────────────
+   Docked, never an overlay: on a desktop it takes a column on the right and the page narrows
+   (html.fb-docked pads the body), so every game button stays clickable beside it. At phone width
+   it's a bottom sheet (peek, half, full) and the page is padded clear of it. No backdrop. */
+.fbbtn .fblabel { margin-left: 2px; }
+@media (max-width: 720px) { .fbbtn .fblabel { display: none; } }
+.fbpanel { position: fixed; z-index: 60; display: flex; flex-direction: column; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--border2); box-shadow: -8px 0 28px rgba(0,0,0,.35); font-family: var(--body); }
+.fbpanel[hidden], .fbpill[hidden] { display: none; }
+.fbpanel.fbdrop { outline: 2px dashed var(--teal); outline-offset: -6px; }
+.fbhead { display: flex; align-items: center; gap: 6px; padding: 10px 10px 8px 14px; border-bottom: 1px solid var(--border); }
+.fbtitle { flex: 1 1 auto; margin: 0; font-family: var(--display); font-size: 10px; letter-spacing: 2px; color: var(--teal); font-weight: 400; }
+.fbicon { min-width: 32px; min-height: 32px; border: 1px solid var(--border); border-radius: 7px; background: var(--sub); color: var(--ink); cursor: pointer; font-size: 14px; line-height: 1; }
+.fbicon:hover, .fbicon:focus-visible { border-color: var(--teal); }
+.fbicon[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
+.fbgrab { display: none; }
+.fbsheet { display: none; gap: 4px; }
+.fbbody { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px 16px; display: grid; gap: 10px; align-content: start; }
+.fbkinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbkind { font-size: 9px; padding: 8px 12px; }
+.fbkind[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.08); }
+.fbtext { width: 100%; min-height: 120px; resize: vertical; padding: 9px 10px; border: 1px solid var(--border2); border-radius: 9px;
+  background: var(--sub2); color: var(--ink); font: 13px/1.45 var(--body); }
+.fbtext:focus, .fbemail input:focus { outline: none; border-color: var(--teal); }
+.fbrow { display: flex; align-items: center; gap: 8px; }
+.fbrow .pill[disabled] { opacity: .45; cursor: default; }
+.fbcount { margin-left: auto; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.fbthumbs { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.fbthumbs:empty { display: none; }
+.fbthumbs li { position: relative; }
+.fbthumbs img { display: block; width: 84px; height: 64px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border2); }
+.fbthumbs .fbrm { position: absolute; top: -8px; right: -8px; min-width: 26px; min-height: 26px; border-radius: 50%; font-size: 13px; }
+.fbnote { margin: 0; font-size: 11px; color: var(--dim); line-height: 1.45; }
+.fbnote:empty, .fbnote[hidden] { display: none; }
+.fbctx summary { cursor: pointer; font-size: 11.5px; color: var(--dim); }
+.fbticks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.fbticks label { display: flex; gap: 7px; align-items: baseline; font-size: 12px; cursor: pointer; }
+.fbval { margin: 2px 0 0 22px; font-size: 10.5px; color: var(--faint); white-space: pre-line; overflow-wrap: anywhere; }
+.fbval:empty { display: none; }
+.fbemail { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
+.fbemail input { padding: 8px 10px; border: 1px solid var(--border2); border-radius: 8px; background: var(--sub2); color: var(--ink); font: 13px var(--body); }
+.fbsend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fbstatus { font-size: 11.5px; color: var(--dim); }
+.fblink { justify-self: start; border: 0; background: none; padding: 0; color: var(--faint); font: 11px var(--body); text-decoration: underline; cursor: pointer; }
+.fbpill { position: fixed; z-index: 60; right: 16px; bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding: 10px 14px; border-radius: 999px;
+  border: 1px solid var(--teal); background: var(--panel); color: var(--ink); font-family: var(--display); font-size: 9px; letter-spacing: 1px;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+
+/* Desktop: a column on the right; the page and the game's own fixed layers stop at its edge. */
+@media (min-width: 721px) {
+  .fbpanel { top: 0; right: 0; bottom: 0; width: 340px; border-width: 0 0 0 1px; }
+  html.fb-docked body { padding-right: 340px; }
+  html.fb-docked .enc-backdrop, html.fb-docked .intro { right: 340px; }
+  html.fb-docked .timer { right: 340px; }
+}
+
+/* Phone: a bottom sheet. Peek is the 56px bar; half and full show the form. The page is padded by
+   the sheet's height at peek and half, so the game above it can still be scrolled and played. */
+@media (max-width: 720px) {
+  .fbpanel { left: 0; right: 0; bottom: 0; border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -8px 28px rgba(0,0,0,.45);
+    padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .fbpanel[data-sheet="peek"] { height: 56px; }
+  .fbpanel[data-sheet="half"] { height: 50vh; height: 50dvh; }
+  .fbpanel[data-sheet="full"] { height: calc(100vh - 32px); height: calc(100dvh - 32px); }
+  .fbpanel[data-sheet="peek"] .fbbody, .fbpanel[data-sheet="peek"] .fbtitle { display: none; }
+  .fbhead { min-height: 54px; padding: 8px 8px 8px 10px; }
+  .fbsheet { display: inline-flex; }
+  .fbpanel[data-sheet="peek"] .fbgrab { display: block; flex: 1 1 auto; text-align: left; min-height: 38px; border: 0; background: none; color: var(--ink);
+    font-family: var(--display); font-size: 10px; letter-spacing: 1px; cursor: pointer; }
+  .fbpanel[data-sheet="peek"] .fbgrab::before { content: "💬 "; }
+  html.fb-sheet-peek body { padding-bottom: 56px; }
+  html.fb-sheet-half body { padding-bottom: 50vh; padding-bottom: 50dvh; }
+  html.fb-docked .timer { bottom: var(--fb-sheet, 0px); }
+  /* The intro stops above the sheet too (#1845), so its Skip / Next stay reachable while writing. */
+  html.fb-sheet-peek .intro { bottom: 56px; }
+  html.fb-sheet-half .intro { bottom: 50vh; bottom: 50dvh; }
+  /* Scrolling to something (focus, scrollIntoView) stops it above the sheet, not under it. */
+  html.fb-sheet-peek { --fb-sheet: 56px; scroll-padding-bottom: 56px; }
+  html.fb-sheet-half { --fb-sheet: 50dvh; scroll-padding-bottom: 50dvh; }
+}
+
+/* ── The ⚙ Menu (#1808) ────────────────────────────────────────────────────────
+   A page in place of the tab body, like the Warden's view: one column of sections, tap targets of
+   44px, and nothing wider than a phone (the run's id wraps). The ⚙ wears an open tab's gold while
+   it shows. */
+.menybtn.on { border-color: var(--gold); color: var(--gold); background: rgba(255,224,102,.06); }
+.meny { margin-top: 10px; display: grid; gap: 4px; min-width: 0; }
+.menyhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.menyhead h2 { margin: 0; font-size: 12px; }
+.menyhead h2:focus { outline: none; }
+.menyhead h2:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.menysec { padding: 12px 0 4px; border-top: 1px solid var(--border); min-width: 0; }
+.menysec > .eyebrow { margin: 0 0 10px; }
+.menysec .pill, .menysec .btn { min-height: 44px; }
+.menysec .langswitch { margin-bottom: 8px; }
+.menysec .mood { margin: 0 0 8px; }
+.menysec .features { margin-top: 10px; }
+.menyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.menyconfirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--amber); border-radius: 7px; }
+.menyconfirm p { flex-basis: 100%; margin: 0; }
+.menyid code { overflow-wrap: anywhere; word-break: break-all; }
+/* Sound (#1828): the volume slider takes the row's room beside the switch. */
+.menysec .pill[data-sound="toggle"][aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.menyvol { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+.menyvol input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--gold); }
+.menysec .lookswitch select.pill { max-width: min(15em, 52vw); }
+/* The section names the look already. */
+.menysec .lookswitch .lsname { display: none; }
+.menyexp { margin: 0 0 8px; }
+.menyexp summary { cursor: pointer; display: list-item; padding: 14px 0; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); }
+
+/* ── The two-row header (#1824, meny.ts headerRows, vital-words.ts) ─────────── */
+/* Row 1 (place, day, ⚙, feedback) never wraps: the title shrinks first, then the ⚙ drops its word. */
+header.tworow { display: block; }
+.hrow { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
+.hrow1 { flex-wrap: nowrap; }
+.hrow1 h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.hrow1 > :not(h1):not(.spacer) { flex: none; }
+.hrow2 { flex-wrap: wrap; margin-top: 8px; }
+/* On the Reach row 2 is the sticky status bar's top line (main.ts statusBar), so the resources stay in view. */
+.statusbar > .hrow2 { flex: 1 1 100%; margin: 0; }
+.hrow2 .who { min-width: 0; max-width: 100%; }
+.hrow2 .who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hvitals { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vital { display: inline-flex; align-items: center; gap: 5px; }
+.vital .vl { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); }
+/* The word keeps the ink; its border carries the level's colour (and the word the meaning). */
+.vword { padding: 1px 8px; border: 1.5px solid var(--border2); border-radius: 999px; background: var(--sub); color: var(--ink); font: 600 11.5px var(--body); line-height: 1.5; white-space: nowrap; }
+.vword.lv-0 { border-color: var(--lv-0); } .vword.lv-1 { border-color: var(--lv-1); }
+.vword.lv-2 { border-color: var(--lv-2); } .vword.lv-3 { border-color: var(--lv-3); }
+/* From day 8 the old bar comes back beside the word. */
+.vital .mt { width: 52px; height: 7px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.vital .mf { display: block; height: 100%; }
+.vital .mf.fresh { background: var(--lv-0); } .vital .mf.ok { background: var(--lv-1); } .vital .mf.warn { background: var(--lv-2); } .vital .mf.low { background: var(--lv-3); }
+@media (max-width: 520px) {
+  .hrow { gap: 6px 8px; }
+  .hrow1 .menyword { display: none; }
+  .hrow1 .counter { gap: 4px; }
+  .vital .vl { display: none; }
+  .vital .mt { width: 36px; }
+}
+.menyword { margin-left: 5px; }
+/* Silkscreen draws the ⚙ tiny at the pills' 8px: bigger on its own, so the bare gear is an easy target. */
+.menygear { font-family: var(--body); font-size: 13px; line-height: 1; }
+
+/* ── The weather and the time of day in one row (#1825, weather-row.ts) ───── */
+.wxone .wxonerow { display: flex; width: 100%; gap: 8px; font: 600 13px var(--body); letter-spacing: 0; color: var(--ink); text-transform: none; }
+.wxone .wxonetext { min-width: 0; overflow-wrap: anywhere; }
+.wxone .wxhint { display: block; margin: 2px 0 0 18px; }
+.wxone .wxonedetails { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* ── How to play in the journal (#1838, journal-notes.ts) ───────────────── */
+/* The 📖 sits on the journal's heading: small, but a full finger-sized target. */
+.eyebrow.jhead { display: flex; align-items: center; gap: 6px; }
+.noteslink { min-width: 32px; min-height: 32px; margin: -8px 0 -8px auto; padding: 0 6px; border: 1px solid transparent; border-radius: 8px; background: none; color: inherit; font: 15px/1 var(--body); cursor: pointer; }
+.noteslink:hover, .noteslink:focus-visible { border-color: var(--border2); }
+.noteslink.on { border-color: var(--gold); background: rgba(255,224,102,.08); }
+/* The notes: the Warden's own hand, at the front of the journal. */
+.notes { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 8px; background: rgba(255,224,102,.04); }
+.notes .notestitle { color: var(--gold); margin: 0 0 6px; }
+.notes .notelist { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: none; overflow: visible; }
+.notes .notelist li { font-size: 12.5px; line-height: 1.45; color: var(--ink); font-style: italic; }
+
+/* Forecasts (#1827, `forecasts`): a craft's rough cost and its waste warning, and the queue's forecast of the day. */
+.act .ingr.fc b { font-style: italic; }
+.act .ingr .waste { color: var(--amber); font-style: italic; }
+.queue .forecast { margin: 0 0 9px; padding: 6px 8px; border-left: 2px solid var(--teal); background: rgba(77,212,240,.06); font-size: 11.5px; color: var(--ink); }
+.queue .forecast .fchead { display: block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--teal); margin-bottom: 3px; }
+.queue .forecast p { margin: 0 0 2px; font-style: italic; }
+
+/* ── The key survival box under FOCUS (#1891, key-box.ts) ─────────────────── */
+.keycol { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.keybox { align-items: center; gap: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); }
+.keybox > span, .keybox .kfood > summary { display: inline-flex; align-items: center; gap: 3px; }
+.keybox .kv { font-variant-numeric: tabular-nums; }
+.keybox .kfood { position: relative; }
+.keybox .kfood > summary { cursor: pointer; list-style: none; }
+.keybox .kfood > summary::-webkit-details-marker { display: none; }
+.keybox .kfood > summary::after { content: '▾'; font-size: 9px; color: var(--faint); margin-left: 2px; }
+.keybox .kfood[open] > summary::after { content: '▴'; }
+.keybox .kpop { position: absolute; top: calc(100% + 6px); left: -8px; z-index: 31; width: max-content; max-width: min(320px, calc(100vw - 32px)); padding: 8px 10px; border: 1px solid var(--border2); border-radius: 9px; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.4); color: var(--ink); }
+.keybox .kpop .eyebrow { margin: 0 0 6px; }
+.keybox .kkinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.keybox .kkinds li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: center; }
+.keybox .kkinds li > span:first-child { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.keybox .kkinds li > b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.keybox .kkinds li > span:last-child { grid-column: 1 / -1; font-size: 11px; padding-left: 2px; }
+.keybox .kkinds .spoils { color: var(--warn); }
+.keybox .kkinds .keeps { color: var(--dim); }
+.keybox .kkinds i { font-style: normal; color: var(--dim); font-size: 11px; }
+.keybox .kall { margin: 6px 0 0; font-size: 11px; color: var(--faint); }
+.keybox .low { color: var(--danger); }
+.res .kind { font-size: 11px; color: var(--dim); }
+/* The night chip with the shelter in it (#1891): coloured by tonight's quality unless it's a fearful night. */
+.tag.nightq { border: 1px solid var(--border2); color: var(--dim); cursor: help; }
+.tag.nightq.q-cold { border-color: rgba(255,170,51,.5); color: var(--warn); }
+.tag.nightq.q-dangerous { border-color: rgba(255,90,90,.6); color: var(--danger); }
+
+/* ── Touch targets ≥ 44px tall (#1927) ───────────────────────────────────────
+   A mouse pointer is forgiving down to a few pixels; a finger on Android isn't — the platform's
+   own guideline is 48×48dp, and WCAG 2.2 sets a 24×24px floor. `pointer: coarse` (true on touch
+   screens, false for a mouse/trackpad even on a touch-capable laptop) targets just the devices that
+   need the extra room, so the desktop layout measured with a mouse stays exactly as it was. Scoped
+   to the specific rows the design review measured too small, rather than every `.pill`/`.btn` in
+   the file: several of those (the age/stat +/- steppers, the feedback kind tags) are already sized
+   on purpose and would distort if forced to 44px here. The queue's narrow-container rule (above,
+   `@container planq (max-width: 330px)`) shrinks the ✕ back down; this comes later in the file so it
+   wins that tie on a narrow phone. */
+@media (pointer: coarse) {
+  .menybtn, .fbbtn, .guideok, .introbar [data-intro="skip"], .wxonerow, .focuschip, .tabbtn {
+    min-height: 44px;
+  }
+  .focuschip { align-items: center; }
+  .tabbtn, .queue li .x { display: inline-flex; align-items: center; justify-content: center; }
+  .queue li .x { min-height: 44px; min-width: 32px; }
+  .tabbar { gap: 8px; }
+  .keycol { gap: 8px; }
+  .queue ol { gap: 8px; }
+}

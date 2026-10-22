@@ -90,7 +90,7 @@ the world grows.
 `Neutrality`, `Patience`, `Depth`, `Possibility`, `Witnessing`,
 `Territory`, `Hoard`, `Recognition`, `Stillness`, `Long-knowing`,
 `Exchange`, `Bargain`, `Solidity`, `Work`, `Honesty`, `Trust`,
-`Preservation`, `Purpose`, `Persistence`, `Inscrutability`.
+`Preservation`, `Purpose`, `Persistence`, `Inscrutability`, `Kinship`.
 
 ## Layering: how a character's values are computed
 
@@ -166,6 +166,9 @@ First-pass scores from WORLD.md. Verify and revise.
 | **Everstill** | 0 | +2 | +1 | +1 | Dignity | Knowledge, Preservation, Continuity, Patience |
 | **Constructs** | 0 | +1 | 0 | 0 | Dignity | Purpose, Persistence, Recognition, Craft-lineage |
 | **Remnants** | +2 | +2 | 0 | +2 | (n/a) | Inscrutability, Stillness, Long-knowing |
+| **Wildkin** | +1 | 0 | +1 | +1 | Honor | Kinship, Continuity, Territory, Memory |
+| **Riksfolk** | -1 | -1 | +1 | -1 | Honor | Sovereignty, Territory, Work, Oath |
+| **Strandfolk** | -1 | -1 | -1 | -1 | Dignity | Hospitality, Mutual-aid, Exchange, Mobility |
 
 ### Notes on individual scores
 
@@ -186,6 +189,29 @@ First-pass scores from WORLD.md. Verify and revise.
   example.
 - **Giants & Remnants** Mode is awkward; left as Dignity / n/a because
   they don't compete for status in any scene-relevant sense.
+- **Wildkin** (added 2026-10-11, #1606) Tradition is +1, not +2: "founding blood,
+  founding right" holds the council, and the den-songs are law, but iron hinges and square
+  walls are changing every settlement and the argument about it is open. Score the Great
+  Clans +2 and Longburrow's young -1; the divergence is the Clan Question. Survival is 0:
+  an old, stable kingdom with enough to eat, but walled in, with nowhere left to roam.
+  Tight is +1 on belonging, not on roles: being clanless is the true bottom, but the role
+  shadow is jokes and looks, not law. Cats score -1 and know it. Context is +1: you name your
+  clan before yourself, and a clan cord's beads, a hem's burnt pattern or a chief's teeth say
+  more than the speaker does. Mode is Honor: trophies and deed-beads
+  are worn, "more teeth than kills" is the worst thing said of a chief, and the border clans'
+  defensiveness is honor talk. `Kinship` is added to the vocabulary for them.
+- **Riksfolk** (added 2026-10-11, #1623) Tradition is -1: the Landslag is old, but the
+  Realm has torn up and rebuilt its government often enough that nothing but the
+  written law is sacred. Tight is +1 and rising: historically the Realm was loose (feuding
+  lords, a republic), and the Marshal's consolidation is pulling it tighter, with the
+  corruption's help. Score the March families 0, the Marshal's hall +2. Mode is Honor: a
+  March lord's standing rests on visible deeds and answered insults, and the border's
+  harsher rhetoric is honor talk.
+- **Strandfolk** (added 2026-10-11, #1623) Tight is -1: free harbour towns, a league that
+  meets only when it must. The exception is storm-right, which is enforced absolutely;
+  note it rather than raising the score. Context is -1: sea talk is plain because a
+  misunderstood order drowns people. Mode is Dignity: a crew's worth is whether the boat
+  comes home, not who saw it leave.
 - **Constructs** scores are tentative because the population is
   heterogeneous (older vs. Bergfolk-made), and individual constructs
   may need their own Character entries that override.

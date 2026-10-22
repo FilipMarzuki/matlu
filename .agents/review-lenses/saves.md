@@ -16,3 +16,7 @@ in this one. Look for anything that breaks that:
 - `JSON.parse` on stored data without a try/catch, or data from storage trusted
   as if the types guaranteed it.
 - Something cleared from storage too early (a draft, a save) so a reload loses it.
+
+**High here means:** a save written by last week's build fails to load, loads
+wrong (`NaN`, a lost field, a reset run) or is lost, on a path a real player
+takes. A missing guard that no stored save can reach is medium.

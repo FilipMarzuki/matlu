@@ -94,6 +94,8 @@ arrive from many sources in one year (plague, age, murder, war).
 | `world-spec.ts` | `WorldSpec` schema + `DEFAULT_SPEC` (the world as DATA) |
 | `seed.ts` | `loadWorld(spec)` — turn a WorldSpec into a live World |
 | `tick.ts` | One year, in canonical order |
+| `odd-patches.ts` | Odd patches of humans and strangely growing human settlements (#1633), never explained; its own random stream |
+| `regions.ts` | The regional level (#1598): provinces grouped around market towns, a running political and economic state, regional events in their own log (`docs/regional-level.md`) |
 | `sifter.ts` | Story sifting (significance + shapes) |
 | `arcs.ts` | Group significant events into story arcs (threads) |
 | `render.ts` | Stub templated prose renderer |
@@ -160,6 +162,33 @@ Matlu world, write small adapters that emit a `WorldSpec`:
   drive/temperament biases (so regions read as *places*);
 - **resources** ← `macro-world/item-registry.json`;
 - **dynasties/characters** ← lore (WORLD.md / Notion).
+
+#### Odd patches of humans (`odd-patches.ts`, #1633)
+
+Humans are native to Mistheim, and nobody in the world knows any more than
+that. What people know is the pattern: all through the histories, odd patches
+of extra humans turn up in places nobody expected them, and some human
+settlements grow faster than any birth rate. The engine shows both and never
+explains either:
+
+- **`ODD_PATCH`** (about 1% of years, a third as common as plague): a few dozen
+  humans no one has seen before are found somewhere unexpected (weighted toward
+  places with no humans, remote places and shores). A few of them are named
+  people with no parents, in a new low-born house of a human People, with the
+  culture and faith of whoever holds the place.
+- **`STRANGE_GROWTH`** (about 1.2% of years): a human settlement grows by a tenth
+  to a fifth in one year, with no named newcomers and no migration.
+
+Both are told as mysteries, followed by what the neighbours said, which
+differs by People (the Lövfolk say humans root like weeds, the Bergfolk that
+the deep rock coughs them up, the goblins that humans breed when nobody's
+looking; a People the engine doesn't know says humans come, they don't grow).
+No event or line names a cause. A race takes part only if it's human: `human:
+true` on its `RaceSpec`, or an id of `human` when the flag is left out. A
+`RaceSpec` can carry its own `oddHumansSaying`. The pass draws only from
+`World.oddPatchRng`, its own stream, and a world with no human race never draws
+from it, so the default world's history is unchanged. Over 30 frontier seeds of
+200 years: about 2.2 patches and 2.7 growths a run, against 6.5 plagues.
 
 The engine never changes — each new world is just a different `WorldSpec`. (That
 spec is also the byte-stable "world bible" you'd freeze as the LLM's cached prefix.)

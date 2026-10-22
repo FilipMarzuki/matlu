@@ -7,11 +7,13 @@
  * `parseDecision`, whoever made it.
  */
 
-import { SUGGESTED_PACK, type KitId } from '../artificer/kit';
-import { DEFAULT_AGE } from '../artificer/growing';
-import { validStats, type Stats } from '../artificer/stats';
+import type { FeatureSwitches } from '../artificer/features';
+import { suggestedPack, volumeOn, packWorldOf, type KitId } from '../artificer/kit';
+import { DEFAULT_AGE, grownStats } from '../artificer/growing';
+import { validStats, DEFAULT_STATS, type Stats } from '../artificer/stats';
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { campAsActionOn } from '../artificer/camp-sites';
+import { setFocus, setEating, forgetPin, setInterest, createRegion1, repack, chooseSite, chooseOption, SPOOK_LINE, runDay, runAction, DAY_HOURS, focusRefusal, FOCUS_OPEN, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { FULL_WORLD } from '../artificer/world';
 import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, stepOf, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import { QUIRKS, isFear, type Quirk } from '../artificer/quirks';
@@ -27,8 +29,21 @@ import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './
 import { invariantViolations, roadInvariantViolations } from './invariants';
 import { parseDecision, parseRoadDecision, parseEncounterDecision, parsePackDecision, type Decision, type ParseResult } from './decision';
 import { maxInterest, type Pin, type PinKind } from '../artificer/pins';
+import { todayHours } from '../artificer-app/controller';
+import { foundLine } from '../artificer-app/explore-finds';
+import { tellHistoriesWith } from '../artificer/history-in-play';
+import { runHistory } from '../artificer/world/history';
+
+// The road's people answer from their villages' history (#1656), as on the page and through the
+// API: an AI game is played here, with no page worker, so its history is told on first need and
+// kept per seed (history-in-play.ts).
+tellHistoriesWith(runHistory);
+
+/** The note for a reply that sets "site" in a game where making camp is an action (#1732). */
+export const SITE_IGNORED = 'Your "site" did nothing: in this game you make camp with the "camp" action, at one of the places its "spot" option lists.';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
+
 export interface Usage {
   input: number; output: number; cacheRead: number; cacheWrite: number;
   /** Actual billed USD, summed over the run's calls; null when the player doesn't report it (#1231). */
@@ -67,7 +82,7 @@ export interface Player {
 }
 
 /** What a player packed (#1401): the pack, why, and — if two replies wouldn't do — that the last pack was kept instead. */
-export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[] }
+export interface PackRecord { pack: KitId[]; thoughts: string; forced?: true; errors?: string[]; /** Strapped on (#1871), as the run holds it. */ outside?: KitId[] }
 
 /** What fear did in a turn (#1365): spooks on the land, fearful nights, and fears gained or faded. */
 export interface TurnFright { spooks: number; uneasyNights: number; sleeplessNights: number; fearsGained: string[]; fearsLost: string[] }
@@ -113,11 +128,21 @@ export function pinOrderErrors(s: Region1State, d: Decision): string[] {
   return errors;
 }
 
-/** A day reply, parsed and checked against the state (its pin orders, #1381). */
+/**
+ * What's wrong with a reply's focus against this state (#1478): a concept the Warden can't turn over
+ * now. Shown back as an invalid reply, so the model hears it at once instead of in the journal.
+ */
+export function focusErrors(s: Region1State, d: Decision): string[] {
+  const f = d.focus ? parseFocus(d.focus) : null;
+  const why = f?.kind === 'concept' ? focusRefusal(s, f.id) : null;
+  return why ? [`focus: ${why} — concepts you can focus on now: ${FOCUS_OPEN(s).join(', ') || 'none'}`] : [];
+}
+
+/** A day reply, parsed and checked against the state (its pin orders, #1381, and its focus, #1478). */
 function decideFor(s: Region1State, text: string): ParseResult {
   const p = parseDecision(text);
   if (!p.ok) return p;
-  const errors = pinOrderErrors(s, p.decision);
+  const errors = [...pinOrderErrors(s, p.decision), ...focusErrors(s, p.decision)];
   return errors.length ? { ok: false, errors } : p;
 }
 
@@ -272,6 +297,8 @@ export interface Turn {
   fright?: TurnFright;
   /** Places remembered and let go this turn, and those held at its end, by kind (#1381). */
   pins?: TurnPins;
+  /** A short plan asked about (#1473): the hours it filled, the hours of the plan that then ran, and whether the answer was invalid (the first plan ran). */
+  fill?: { planned: number; then: number; invalid?: true };
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -296,7 +323,10 @@ export interface RunResult {
   gifts?: GiftRecord;
   /** The adult stat spread the Warden was made with (#1259) — chosen, or carried from the last run. */
   spread?: Stats;
-  /** The budget ran out before or during the caravan road (#1449): the Reach is whole, the road isn't recorded. */
+  /**
+   * The budget ran out before or during the caravan road (#1449): the Reach is whole, the road isn't
+   * recorded. The caravan meeting is, if it finished (#1491).
+   */
   roadStopped?: 'budget';
 }
 
@@ -388,10 +418,61 @@ export interface PlayOptions {
    * playtests stay a fair picture of the game; off gives the world the sim tests use.
    */
   encounters?: boolean;
+  /**
+   * Ask once about a plan that leaves most of the day idle (#1473). Off by default, so the scripted
+   * and random baselines (and the random one's seeded choices) play as before; the scripts turn it
+   * on for model players.
+   */
+  fillDay?: boolean;
+  /**
+   * Rule features to play with (features.ts). Absent, the world has none written down, so each
+   * reads as runs from before its switch did (`absent`), as the playtests always have.
+   */
+  features?: FeatureSwitches;
 }
 
 /** How many single actions a locked day asks for before it ends anyway (#1350). */
 const LOCKED_ASKS = 10;
+
+const round1 = (h: number): number => Math.round(h * 10) / 10;
+
+/**
+ * A plan filling fewer hours than this is asked about once (#1473). Llama 4 Maverick planned a
+ * median 5 of the day's 14 hours and froze around day 30; Haiku planned 12 and was ready for
+ * winter. A person sees the empty hour bar before ending the day; a model has to be told.
+ */
+export const FILL_MIN_HOURS = 8;
+
+/** How a run's short days went (#1473): how many were asked about, and how many the second answer filled. */
+export function fillTally(turns: readonly Turn[]): { asked: number; filled: number } {
+  const asked = turns.filter(t => t.fill);
+  return { asked: asked.length, filled: asked.filter(t => t.fill!.then >= FILL_MIN_HOURS).length };
+}
+
+/**
+ * Hours a day's plan would fill: exactly what the app's TODAY bar shows a person — the hours used,
+ * plus each entry that would run today, judged in the state the entries before it leave. A refused
+ * action (a site not chosen, a ring not scouted) fills nothing.
+ */
+export function plannedHours(s: Region1State, queue: readonly QueueItem[]): number {
+  return todayHours({ sim: s, queue: [...queue] });
+}
+
+/**
+ * A short plan (#1473), or null when the plan isn't one: it fills under {@link FILL_MIN_HOURS},
+ * has no rest in it (a light day on purpose), and the Warden has at least half their Vigor to spend
+ * (under that, a short day is sense, not waste). Returns the hours it fills and the question.
+ */
+export function fillQuestion(s: Region1State, queue: readonly QueueItem[]): { planned: number; text: string } | null {
+  const planned = plannedHours(s, queue);
+  const v = s.vitals.vigor, c = s.vitals.clarity;
+  if (planned >= FILL_MIN_HOURS || v.current < v.cap / 2 || queue.some(item => parseItem(item).id === 'rest')) return null;
+  const h = Math.round(planned);
+  return {
+    planned,
+    text: `Your plan for day ${s.day} fills about ${h} of the ${DAY_HOURS} waking hours, leaving ${DAY_HOURS - h} idle — hours you don't plan are simply lost. You have Vigor ${Math.round(v.current)}/${Math.round(v.cap)} and Clarity ${Math.round(c.current)}/${Math.round(c.cap)}. Add actions to use the day (READINESS and the WINTER OUTLOOK show what's short), or send the same plan again if a short day is what you want. Reply with only the JSON object for day ${s.day}, with the whole day's queue: the actions you keep and the ones you add.`,
+  };
+}
 
 function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn['after'] {
   return {
@@ -402,7 +483,25 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
 }
 
 /** What a batch has spent, and may spend (USD), across all its runs (#1449). */
-export interface SpendLedger { spent: number; budget: number }
+export interface SpendLedger {
+  spent: number;
+  budget: number;
+  /**
+   * The estimated cost of calls in flight (#1491). ai:bench plays its games at once against one
+   * ledger; each call reserves its estimate before waiting on the model, so the others count it.
+   */
+  reserved?: number;
+  /**
+   * Calls in flight that started before any call had a known cost (#1491), so they reserved
+   * nothing. They count at `dearest` once a price is known.
+   */
+  unpriced?: number;
+  /** The dearest call the batch has paid for so far: a run's estimate for its first call (#1491). */
+  dearest?: number;
+}
+
+/** What the batch has spent plus what its calls in flight are expected to cost (#1491). */
+export const committed = (l: SpendLedger): number => l.spent + (l.reserved ?? 0) + (l.unpriced ?? 0) * (l.dearest ?? 0);
 
 /** A run stopped because it reached its budget (#1449). `partial` is the run so far, record kind "stopped". */
 export class BudgetExceeded extends Error {
@@ -426,8 +525,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // A spread a person couldn't pick never reaches the sim (#1259). A legacy's own stats win over it;
   // a legacy of heirlooms alone (#1455) has none, so the spread still applies.
   const spreadApplies = !!opts.stats && !opts.legacy?.stats;
+  // The pack is ticked for the Warden's stats now (#1872): the spread grown to 12, as createRegion1 makes them.
   if (spreadApplies && !validStats(opts.stats!)) throw new Error(`invalid stat spread: ${JSON.stringify(opts.stats)}`);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: [...SUGGESTED_PACK] }) });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true, ...(opts.features ? { features: { ...opts.features } } : {}) } }, opts.legacy, { id, name: player.name, chosen, background: 'scout', age: DEFAULT_AGE, ...(spreadApplies ? { stats: { ...opts.stats! } } : {}), ...(opts.legacy?.pack ? {} : { pack: suggestedPack(opts.features, grownStats((spreadApplies ? opts.stats : opts.legacy?.stats) ?? DEFAULT_STATS, DEFAULT_AGE), chosen) }) });
   const spread: Stats = { ...(s.character.adult ?? s.character.stats) };
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
@@ -436,17 +536,45 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
+  /**
+   * What the land trips since the last observation turned up (#1869): its FOUND line, as the page says
+   * the finds (artificer-app/explore-finds.ts). Words only: the run is the same with or without it.
+   */
+  let observedAt = s;
+  const observeNow = (): string => { const f = foundLine(observedAt, s); observedAt = s; return observe(s, notes, f ? [f] : []); };
 
+  /** What this run's last call cost: its estimate for the next one (#1491). */
+  let lastCost: number | undefined;
   /**
    * Every model call goes through here (#1449) — the Reach, the caravan meeting and the road:
    * the budget is checked before the call (so no paid reply is thrown away), and its usage and
    * cost are counted after, in this run's usage and in the batch's shared ledger.
+   *
+   * Parallel games (#1491): the check counts the calls other games have in flight, by the cost
+   * each reserved, so the batch goes at most about one call over, not one call per game. The check
+   * and the reservation happen before the first `await`, so no other game can run between them.
+   * A call that starts before the batch knows any price reserves nothing, and is counted at the
+   * dearest price once one is known; only the batch's very first calls can't be counted at all.
    */
   const call = async (make: () => Promise<{ text: string; usage?: Partial<Usage> }>): Promise<string> => {
-    if (opts.ledger && opts.ledger.spent >= opts.ledger.budget) {
+    const ledger = opts.ledger;
+    if (ledger && committed(ledger) >= ledger.budget) {
       throw new BudgetExceeded({ player: player.name, turns, usage, start, record: { kind: 'stopped', choice: 'budget', day: s.day, readyDay: null } });
     }
-    const r = await make();
+    const estimate = lastCost ?? ledger?.dearest;
+    if (ledger) {
+      if (estimate === undefined) ledger.unpriced = (ledger.unpriced ?? 0) + 1;
+      else ledger.reserved = (ledger.reserved ?? 0) + estimate;
+    }
+    let r: { text: string; usage?: Partial<Usage> };
+    try {
+      r = await make();
+    } finally {
+      if (ledger) {
+        if (estimate === undefined) ledger.unpriced = Math.max(0, (ledger.unpriced ?? 0) - 1);
+        else ledger.reserved = Math.max(0, (ledger.reserved ?? 0) - estimate);
+      }
+    }
     usage.input += r.usage?.input ?? 0;
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
@@ -454,7 +582,12 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
     if (r.usage?.cost !== undefined && r.usage.cost !== null) {
       usage.cost = (usage.cost ?? 0) + r.usage.cost;
-      if (opts.ledger) opts.ledger.spent += r.usage.cost;
+      if (ledger) ledger.spent += r.usage.cost;
+      // A free call (a scripted step, a cached reply) says nothing about what the next one costs.
+      if (r.usage.cost > 0) {
+        lastCost = r.usage.cost;
+        if (ledger) ledger.dearest = Math.max(ledger.dearest ?? 0, r.usage.cost);
+      }
     }
     return r.text;
   };
@@ -465,16 +598,20 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let packed: PackRecord | undefined;
   if (player.decidePack) {
     const decidePack = player.decidePack.bind(player);
+    // The Warden is made first (#1872): the turn sees their stats and the pack ticked for them, and
+    // a pack is checked against what they can carry.
     let reply = await ask(observePack(s), decidePack);
-    let d = parsePackDecision(reply);
+    let d = parsePackDecision(reply, packWorldOf(s));
     const errors = d.ok ? [] : [...d.errors];
     if (!d.ok) {
-      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"}.`, decidePack);
-      d = parsePackDecision(reply);
+      // With the pack's volume (#1871) the reply may say what's strapped on.
+      reply = await ask(`Your pack was invalid:\n- ${d.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "pack"${volumeOn(s) ? ', "outside"' : ''}}.`, decidePack);
+      d = parsePackDecision(reply, packWorldOf(s));
       if (!d.ok) errors.push(...d.errors);
     }
-    if (d.ok) s = repack(s, d.decision.pack);
-    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}) } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors };
+    if (d.ok) s = repack(s, d.decision.pack, d.decision.outside);
+    const straps = s.kit?.outside?.length ? { outside: [...s.kit.outside] } : {};
+    packed = d.ok ? { pack: [...d.decision.pack], thoughts: d.decision.thoughts, ...(errors.length ? { errors } : {}), ...straps } : { pack: [...(s.kit?.items ?? [])], thoughts: '', forced: true, errors, ...straps };
   }
 
   // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.
@@ -547,7 +684,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       stepped = done;
       let thoughts = '', invalid = false, lastReply = '', errors: string[] | undefined;
       for (let asks = 0; asks < LOCKED_ASKS && !s.outcome && s.day === day && !s.canPlan; asks++) {
-        lastReply = await ask(observe(s, notes));
+        lastReply = await ask(observeNow());
         notes = [];
         let p = decideFor(s, lastReply);
         if (!p.ok) {
@@ -556,6 +693,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         }
         if (!p.ok) { invalid = true; errors = p.errors; s = runDay(s, []).state; notes.push(`Your reply for day ${day} was invalid twice, so the day ended.`); break; }
         const d = p.decision;
+        if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
         thoughts = d.thoughts || thoughts;
         if (d.focus) s = setFocus(s, parseFocus(d.focus));
         if (d.eating) s = setEating(s, d.eating);
@@ -578,7 +716,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       }
       // Planning opened mid-day: the rest of today is planned as usual, below.
     }
-    let reply = await ask(observe(s, notes));
+    let reply = await ask(observeNow());
     let parsed = decideFor(s, reply);
     notes = [];
     if (!parsed.ok) {
@@ -593,10 +731,26 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       continue;
     }
 
-    const d = parsed.decision;
+    let d = parsed.decision;
+    // A plan that leaves most of the day idle is asked about once (#1473). The answer's queue
+    // replaces the plan if it parses (anything else the answer leaves unset — site, focus, eating,
+    // pin orders — keeps the first reply's); one that doesn't keeps the first plan, so the question
+    // never costs a day. It's an extra, optional call: with the budget spent, the paid plan just runs.
+    let fill: Turn['fill'];
+    const short = opts.fillDay && !(opts.ledger && opts.ledger.spent >= opts.ledger.budget) ? fillQuestion(s, d.queue) : null;
+    if (short) {
+      const again = decideFor(s, await ask(short.text));
+      if (again.ok) {
+        const a = again.decision;
+        d = { ...d, ...a, site: a.site ?? d.site, focus: a.focus ?? d.focus, eating: a.eating ?? d.eating, forget: a.forget ?? d.forget, interest: a.interest ?? d.interest, thoughts: a.thoughts || d.thoughts };
+      } else notes.push(`Your answer about day ${day}'s short plan was invalid (${again.errors[0]}), so your first plan ran.`);
+      fill = { planned: round1(short.planned), then: round1(plannedHours(s, d.queue)), ...(again.ok ? {} : { invalid: true }) };
+    }
     if (d.focus) s = setFocus(s, parseFocus(d.focus));
     if (d.eating) s = setEating(s, d.eating);
     s = applyPinOrders(s, d);
+    // Camp as an action (#1732): the "site" field sets nothing (chooseSite refuses it); say so, once a day.
+    if (d.site && campAsActionOn(s)) notes.push(SITE_IGNORED);
     // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);
@@ -620,7 +774,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     }
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
+    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, ...(fill ? { fill } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
     turns.push(t); opts.onTurn?.(t);
   }
 
@@ -641,8 +795,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (result.road) result.gifts = giftsOf(s, giftStart, result.road.final);
   } catch (err) {
     // Out of budget on the road (#1449): the Reach year is whole and paid for — keep it, say why the road isn't there.
+    // A caravan meeting that finished is kept too (#1491): `result.meeting` is only set once it has.
     if (!(err instanceof BudgetExceeded)) throw err;
-    delete result.meeting;
     result.roadStopped = 'budget';
   }
   return result;

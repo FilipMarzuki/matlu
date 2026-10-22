@@ -921,6 +921,147 @@ export interface Province {
   // trade routes + mercantile drift, falls with wars and famines. Only
   // meaningful when classStructure ∈ {urban_patriciate, mixed}.
   burgherStrength: number;
+
+  // --- Read by the regional level (regions.ts, #1598) -----------------------
+  // Optional so worlds and tests that build provinces by hand needn't set them.
+  // Borders a lake: inland fishing water (not a sea coast, so no ports, pirates
+  // or voyages). Authored in the spec; only the regional economy reads it.
+  lake?: boolean;
+  // This year's harvest yield (about 1.0 in a normal year), written by
+  // phenomena.ts runHarvest from the roll it already makes, so the regional
+  // economy can tell a bumper year from a fair one without drawing again.
+  lastHarvest?: number;
+  // The last year plague struck here, written by runPlague for every province
+  // it reached (its PLAGUE event only names where it started).
+  plaguedYear?: number;
+  // How well-off the province is, 0..1 (0.5 = getting by): its stores, coin and
+  // trade. Written by the regional level each year (regions.ts pushBack, #1608):
+  // it eases toward the region's prosperity and its roads' trade, and a levy,
+  // a hard winter, famine or bandits take from it. Read by World.power (a rich
+  // province raises more for its holder) and by the magic layer's treasury.
+  // Optional (read as 0.5) so hand-built provinces needn't set it; seed.ts does.
+  wealth?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Regions (#1598, regions.ts) — the level between a province and the realm: a
+// few neighbouring provinces, a few days across, that share a market town,
+// weather, trade, rivalries and news. Formed once from the neighbour graph at
+// seed time; each year regions.ts reads what the year did to their provinces
+// and holders and keeps a running political and economic state, logging
+// regional events to their own log (World.regionalEvents), never to
+// World.events, and drawing only from their own random stream. Adding the level
+// (#1598) moved no golden hash; letting it push back into provinces and people
+// (#1608: Province.wealth, populations, opinions, claims) did.
+// ---------------------------------------------------------------------------
+export type RegionId = string;
+
+// What a place lives on. `trading` is the market town's; the rest come from the land.
+export type Livelihood = "farming" | "lumber" | "mining" | "fishing" | "herding" | "peat" | "trading";
+// What a settlement grew up around: a trade its land gave, or a river crossing
+// (a market town on a river grew at the ford). It can differ from what the
+// place lives on now: a ford that became a market, a farm village that took
+// up timber because its neighbours already farmed.
+export type Founding = Exclude<Livelihood, "trading"> | "crossing";
+
+// The region's big enterprise, named for what it lives on: a mine for a mining
+// country, a lumber camp for a forest one. Its fortunes are the region's
+// "a mine opening or failing".
+export type VentureState = "thriving" | "steady" | "failing" | "closed";
+
+export type HarvestGrade = "bumper" | "good" | "fair" | "poor" | "failed";
+
+export interface Region {
+  id: RegionId; // `r_<market centre's province id>`
+  name: string; // the market centre's name; told as "the <name> country" until named
+  // What people call it once its history is lived (regions.ts nameRegions): its
+  // market town, a mine, a hero, a hardship or a quarrel. "the Ironvein",
+  // "Doran's Land". Display only; the id never changes. Unset: "the <name> country".
+  label?: string;
+  centreId: ProvinceId; // the market town
+  provinceIds: ProvinceId[]; // the centre first, then by id
+  livelihoods: Record<ProvinceId, Livelihood>; // what each of its provinces lives on (its dominant trade)
+  secondary: Record<ProvinceId, Livelihood[]>; // other trades its land supports, best first (at most 2)
+  founding: Record<ProvinceId, Founding>; // what the settlement first grew up around
+  primary: Livelihood; // what the region as a whole lives on (never `trading`)
+  venture: { kind: string; provinceId: ProvinceId; health: number; state: VentureState; since: number };
+
+  // --- Running economic state (updated every year) ---
+  prosperity: number; // 0..1: how well the region is doing (0.5 = getting by)
+  price: number; // bread price index: 1 = usual, 2 = twice the usual
+  harvest: HarvestGrade;
+  // Road trade with each neighbouring region, 0..1 (keyed by the other region's id).
+  roads: Record<RegionId, number>;
+
+  // --- Running political state ---
+  levy: number; // 0..1: how many of its men are called up for its lords' wars
+  tax: number; // 0..1: how heavy its lords' dues are
+  houses: Record<string, number>; // dynasty id → titles seated in the region it holds
+  leadingHouse: string | null; // the dynasty holding the most (ties: the higher title)
+  feuds: Record<string, number>; // "dynA|dynB" (sorted) → the last year their lords fought
+  // 0..1: how unsettled its politics are (#1608). A lord's death, an empty seat
+  // or a seized one raises it; it fades over a few quiet years. While it's up,
+  // its lords trust each other less, bandits find it easier, and an old feud
+  // can flare into a fresh claim (regions.ts pushBack).
+  unsettled: number;
+
+  // Hysteresis flags and cooldowns, so a state crossing a line is told once
+  // rather than every year it hovers there.
+  flags: Record<string, number>;
+}
+
+export type RegionalCategory = "politics" | "economy" | "event";
+
+export type RegionalEventKind =
+  // politics
+  | "LORD_DIED" // a lord seated in the region died and the title passed
+  | "SEAT_VACANT" // a lord died with no clear heir
+  | "SEAT_SEIZED" // a title in the region was usurped or taken by a lowborn
+  | "HOUSE_RISES" // a house became the region's leading house
+  | "HOUSE_FALLS" // a house lost its last seat in the region
+  | "FEUD" // two of the region's lords went to war with each other
+  | "FEUD_FLARES" // an old feud flared up again: one lord laid claim to the other's seat (#1608)
+  | "BORDER_WAR" // an outside lord fought for a title in the region
+  | "ALLIANCE" // one of its lords made an alliance or a dynastic union
+  | "LEVY_RAISED" // its men were called up for war
+  | "TAXES_RAISED"
+  | "TAXES_EASED"
+  // economy
+  | "HARVEST_GOOD"
+  | "HARVEST_POOR"
+  | "SHORTAGE" // bread dear without outright famine
+  | "BOOM" // prosperity rose into good times
+  | "SLUMP" // prosperity fell into hard times
+  | "VENTURE_OPENED"
+  | "VENTURE_THRIVES"
+  | "VENTURE_FAILING"
+  | "VENTURE_CLOSED"
+  | "ROAD_THRIVES" // trade on the road to a neighbouring region flourishes
+  | "ROAD_FAILS" // and dies away
+  // regional events
+  | "FAMINE"
+  | "PLAGUE"
+  | "BANDITRY"
+  | "HARD_WINTER"
+  | "FAIR"
+  | "FESTIVAL"
+  | "MIGRATION"
+  | "UNREST"; // a riot or revolt
+
+export interface RegionalEvent {
+  id: number;
+  year: number;
+  regionId: RegionId;
+  kind: RegionalEventKind;
+  category: RegionalCategory;
+  provinceId: ProvinceId | null; // where in the region, when it's one place
+  actorId: CharId | null;
+  targetId: CharId | null;
+  titleId: TitleId | null;
+  otherRegionId: RegionId | null; // the far end of a road, where migrants came from
+  causeEventId: number | null; // the engine event it was read from, if any
+  data: Record<string, string | number | boolean>;
+  significance: number; // set when logged, by sifter.ts regionalSignificance
 }
 
 export type ClassStructure =
@@ -1397,7 +1538,13 @@ export type EventType =
   | "CIVIC_CHARTER_GRANTED"     // city elevated to charter/free-status
   | "NOBLE_HOSTAGE_TAKEN"       // burghers seize a lord to extract concessions
   | "SUMPTUARY_LAW_PASSED"      // nobles restrict burgher displays of wealth
-  | "PATRONAGE_EXTENDED";       // patrician family bankrolls a scholar/artist
+  | "PATRONAGE_EXTENDED"        // patrician family bankrolls a scholar/artist
+  // --- Odd patches of humans (odd-patches.ts, #1633) ---
+  // Throughout history extra humans turn up where nobody expected them, and
+  // human settlements sometimes grow faster than births allow. Nobody in the
+  // world knows why, and the chronicle never says: both are told as mysteries.
+  | "ODD_PATCH"                 // a group of humans with no past is found somewhere unexpected
+  | "STRANGE_GROWTH";           // a human settlement swells with no arrivals from any known place
 
 export interface WorldEvent {
   id: number;

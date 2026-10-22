@@ -28,6 +28,12 @@ import type { InventorySystem } from '../systems/InventorySystem';
 import type { TinkerTraySystem } from '../systems/TinkerTraySystem';
 import { resolveHarvest, type ResourceNodeYield } from '../crafting/actions';
 
+/**
+ * Emitted on game.events after every harvest, with what it yielded (`{ itemId, qty }[]`). The
+ * DiscoverySystem counts it toward memory recipes (#1515); the node doesn't need to know who listens.
+ */
+export const RESOURCE_GATHERED = 'resource-gathered';
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 // The yield type now lives with the pure harvest rules in src/crafting/actions.ts;
@@ -220,6 +226,7 @@ export class ResourceNode extends InteractiveObject {
     for (const { itemId, qty } of outcome.items) {
       this.inventory.add(itemId, qty);
     }
+    if (outcome.items.length > 0) this.scene.game.events.emit(RESOURCE_GATHERED, outcome.items);
 
     // Deplete
     this._nodeState = 'depleted';

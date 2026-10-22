@@ -5,10 +5,17 @@ import { resolve } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /**
+ * Where Building Forge's saves land: the file behind the URL it loads the registry from
+ * (`/macro-world/building-registry.json`). It's under public/ so the built site ships it (#1518).
+ */
+export const SAVED_REGISTRY = 'public/macro-world/building-registry.json';
+
+/**
  * Dev-only plugin: POST /__save-registry writes building-registry.json to disk.
  * Used by BuildingForgeScene to persist sprite assignments without a manual download step.
+ * `root` is the project root; a test passes a scratch directory.
  */
-function devSaveRegistryPlugin(): Plugin {
+export function devSaveRegistryPlugin(root: string = __dirname): Plugin {
   return {
     name: 'dev-save-registry',
     apply: 'serve',
@@ -20,7 +27,7 @@ function devSaveRegistryPlugin(): Plugin {
         req.on('end', () => {
           try {
             const data = JSON.parse(body);
-            const dest = resolve(__dirname, 'macro-world/building-registry.json');
+            const dest = resolve(root, SAVED_REGISTRY);
             writeFileSync(dest, JSON.stringify(data, null, 2) + '\n');
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true }));
@@ -153,7 +160,7 @@ export default defineConfig({
     port: 3000,
     watch: {
       // Don't reload when the building registry is saved from BuildingForge
-      ignored: ['**/macro-world/building-registry.json'],
+      ignored: [`**/${SAVED_REGISTRY}`],
     },
   },
   build: {

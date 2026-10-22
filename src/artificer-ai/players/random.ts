@@ -15,9 +15,12 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { KIT_IDS, PACK_CAPACITY, packWeight, type KitId } from '../../artificer/kit';
+import { offeredKit, PACK_CAPACITY, PACK_VOLUME, packWeight, autoOutside, fitProblem, carryLimit, type KitId } from '../../artificer/kit';
+import { featureOn, type FeatureSwitches } from '../../artificer/features';
+import { shuffledBy } from '../../artificer/rng';
 import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
+import { shown } from '../../artificer/action-visibility';
 import type { Player } from '../runner';
 import { villageOf, ROAD_CRAFTS, type RoadActionId, type RoadState } from '../../artificer/road';
 import { peopleOf, VILLAGES } from '../../artificer/villages';
@@ -31,11 +34,27 @@ export type RandomMode = 'uniform' | 'legal';
 /** Salt for the random player's packing stream (#1401). */
 const PACK_SALT = 7919;
 
-/** A random pack that fits (#1401): the list in a random order, each item taken half the time if it still fits. */
-export function randomPack(rand: () => number): KitId[] {
-  const order = [...KIT_IDS].sort(() => rand() - 0.5);
+/**
+ * A random pack that fits (#1401): the list in a random order, each item taken half the time if it
+ * still fits. The list is the run's (#1870): `features` are its world's switches, so a switch that
+ * adds or removes kit changes the list, and so the shuffle and the pack. The order is a seeded
+ * Fisher–Yates shuffle (#1877, rng.ts shuffledBy), not `sort(() => rand() - 0.5)`, whose order
+ * depends on the engine's sort algorithm.
+ * Within `limit` kg either way: this Warden's carry weight (#1872, kit.ts carryLimit), 9 kg unless
+ * the run says otherwise. So with `pack-volume` on (#1871) the random Warden is never slowed by a
+ * heavy pack; there it must also close, with the default straps. The draws are the same either way
+ * and whatever the limit (an item that won't close is skipped after its coin), so a seed packs as
+ * before unless the weight or the room inside turns something away.
+ */
+export function randomPack(rand: () => number, features?: FeatureSwitches, limit: number = PACK_CAPACITY): KitId[] {
+  const volume = featureOn(features, PACK_VOLUME);
+  const order = shuffledBy(offeredKit(features).map(k => k.id), rand);
   const pack: KitId[] = [];
-  for (const id of order) if (rand() < 0.5 && packWeight([...pack, id]) <= PACK_CAPACITY) pack.push(id);
+  for (const id of order) {
+    if (!(rand() < 0.5 && packWeight([...pack, id]) <= limit)) continue;
+    if (volume && fitProblem([...pack, id], autoOutside([...pack, id])) !== null) continue;
+    pack.push(id);
+  }
   return pack;
 }
 
@@ -80,7 +99,8 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
   function uniformDay(s: Region1State): Entry[] {
     const n = 2 + Math.floor(rand() * 5);
     return Array.from({ length: n }, () => {
-      const id = pick(ACTION_IDS);
+      // Any action the Warden knows of (#1690): with the switch off, exactly the list it always was.
+      const id = pick(ACTION_IDS.filter(x => shown(s, x)));
       return toEntry(id, ACTIONS[id].ringed ? 1 + Math.floor(rand() * 3) : 1, randomOpts(s, id, false));
     });
   }
@@ -119,7 +139,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     const options: RoadActionId[] = [
       'rest', 'wait', 'tend', 'help',
       ...Object.keys(ROAD_CRAFTS).map(id => `craft:${id}` as const),
-      ...STUDY_CONCEPTS.map(c => `study:${c}` as const),
+      ...STUDY_CONCEPTS(r).map(c => `study:${c}` as const),
       ...(mode === 'uniform' ? (['gather', 'wood', 'build', 'scout'] as const) : []),
       ...here.map(p => `talk:${p.id}` as const),
       ...[...goods, ...tools].map(g => `sell:${g}` as const),
@@ -145,8 +165,8 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
       return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: encounterOption(s) }), usage: { cost: 0 } };
     },
     // Packing (#1401): a random pack that fits — from its own stream, so the rest of the run's picks don't shift.
-    async decidePack() {
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT)) }), usage: { cost: 0 } };
+    async decidePack(_message, s) {
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, pack: randomPack(rng((opts.seed ?? 1) + PACK_SALT), s.config.world.features, carryLimit(s)) }), usage: { cost: 0 } };
     },
     // The caravan meeting (#1357): any open answer — letting them pass included — or, uniform, any at all.
     async decideMeeting(_message, reach, m) {

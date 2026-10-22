@@ -16,7 +16,7 @@ import type { CultureDef, BuildingRegistryEntry, MapgenData } from '../../mapgen
 // ── JSON fallback (bundled by Vite, used when Supabase unavailable) ─────────
 
 import culturesDataFallback from '../../macro-world/cultures.json';
-import buildingRegistryData from '../../macro-world/building-registry.json';
+import buildingRegistryData from '../../public/macro-world/building-registry.json';
 
 /** Map a Supabase Culture row to the internal CultureDef shape. */
 function cultureToDef(c: Culture): CultureDef {

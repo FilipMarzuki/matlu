@@ -1145,7 +1145,7 @@ export class GameScene extends Phaser.Scene {
 
     this.tinkerTraySystem = new TinkerTraySystem(this);
     this.perceptionSystem = new PerceptionSystem(this);
-    this.discoverySystem = new DiscoverySystem(this);
+    this.discoverySystem = DiscoverySystem.of(this);
     this.projectSystem = new ProjectSystem(this);
 
     // Level 1 starts at dawn (FIL-37)

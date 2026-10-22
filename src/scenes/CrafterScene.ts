@@ -18,7 +18,7 @@
  */
 
 import * as Phaser from 'phaser';
-import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
+import { ActionQueue, queueRecipes, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
 import { rankByName, offersGoals, type Automation } from '../crafting/planner';
 import { WorldFeed } from '../crafting/WorldFeed';
@@ -30,7 +30,7 @@ import { DEFAULT_SPEC } from '../../storytelling/world-spec.js';
 import { localStorageStore, nullEmitter, type SaveStore } from '../crafting/ports';
 import { playerItems, itemIconPath, type RegistryItem } from '../lib/items';
 import { Color, TextColor, Font } from '../ui/theme';
-import recipesData from '../../macro-world/recipes.json';
+import recipesData from '../../public/macro-world/recipes.json';
 import itemRegistryData from '../../macro-world/item-registry.json';
 
 // ── Design canvas ───────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ export class CrafterScene extends Phaser.Scene {
     // Only offer recipes the player can actually reach from what the nodes
     // yield (directly or via other craftable items) — the rest would just be
     // permanently greyed-out noise in a prototype.
-    const all = (recipesData.recipes as Recipe[]);
+    const all = queueRecipes(recipesData.recipes);
     const reachable = new Set(this.sources.flatMap(s => s.yields.map(y => y.itemId)));
     let grew = true;
     while (grew) {

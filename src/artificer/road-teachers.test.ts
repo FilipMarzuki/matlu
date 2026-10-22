@@ -106,3 +106,18 @@ describe('Teachers (#1249)', () => {
     expect(hidden.character.talents[0].known).toBe(false);
   });
 });
+
+/** #1469 — with the concept web loaded, sealing stops at 2: a teacher doesn't charge for a concept you've taken as far as it goes. */
+describe('Concept lessons and rank caps (#1469)', () => {
+  it('refuses a concept lesson at its full rank, at no cost, and teaches below it', () => {
+    const full = { ...at('saltmere'), marks: 10, concepts: { sealing: { rank: 2, insight: 0 } } };
+    const refused = runRoadAction(full, 'learn:sm-anselm:sealing');
+    expect(lastLine(refused)).toMatch(/already understand sealing as far as it goes/);
+    expect(refused.marks).toBe(10);
+    expect(refused.hoursToday).toBe(full.hoursToday);
+    const below = { ...full, concepts: { sealing: { rank: 1, insight: 0 } } };
+    const taught = runRoadAction(below, 'learn:sm-anselm:sealing');
+    expect(taught.marks).toBe(10 - LESSON_FEE);
+    expect(taught.concepts.sealing.insight).toBeGreaterThan(0);
+  });
+});

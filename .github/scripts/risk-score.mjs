@@ -3,16 +3,17 @@
 //
 // The score comes from a script, not a model: weights in .github/review-risk.json
 // for the paths a PR touches, its size, and whether code changed without tests.
-// The tier decides the review — low: the review agent; medium: + the OpenRouter
-// second opinion; high: + focused lens passes on a stronger model, and a human
-// approves before DevCycle 4 merges.
+// The tier decides which review models must agree before a merge (#1481) — low:
+// the review agent; medium: + the OpenRouter second opinion approves; high: + every
+// focused lens pass (a stronger model) finds nothing high-severity (#1780). People decide game design;
+// implementation merges on the models' reviews, never on a person's label.
 //
 // Usage:
 //   node .github/scripts/risk-score.mjs --pr 123 [--apply] [--gate]
 //     --apply   label the PR risk:<tier> and post/update a comment with the reasons
 //     --gate    may this PR be merged now? Exits 0 if yes, 3 if it must wait: CI must
-//               have passed on the head commit, and a high-risk PR needs a
-//               `human-approved` label added by a person after its last commit.
+//               have passed on the head commit, and the tier's model reviews must
+//               have reported on it with nothing blocking (see mergeGate).
 //               Every merge path (DevCycle 4, DevCycle 5 — Grooming) runs this.
 //   node .github/scripts/risk-score.mjs --local [base]
 //     score this branch's commits since it left `base` (default origin/main), the same
@@ -31,7 +32,8 @@ export const RULES_PATH = path.resolve(__dirname, '..', 'review-risk.json');
 export const TIERS = ['low', 'medium', 'high'];
 const MARKER = '<!-- risk-score -->';
 export const CI_WORKFLOW = 'DevCycle 2 — CI';
-export const HUMAN_LABEL = 'human-approved';
+/** Who posts the reviews the gate reads: the review agent and run-second-review.js both post as the workflow's GITHUB_TOKEN. */
+export const REVIEW_BOT = 'github-actions[bot]';
 
 /** A path glob as a regex: `**` crosses folders (and `**​/` may match nothing), `*` stays within one. */
 export function globToRegex(glob) {
@@ -48,9 +50,63 @@ export function globToRegex(glob) {
 }
 const matchesAny = (file, globs = []) => globs.some(g => globToRegex(g).test(file));
 
+const compiled = new Map();
+const re = (src) => { if (!compiled.has(src)) compiled.set(src, new RegExp(src)); return compiled.get(src); };
+/** The first capture group that matched, else the whole match. */
+const captured = (m) => m.slice(1).find(g => g !== undefined) ?? m[0];
+
+/** Does a rule's `content` block cover this file, so its diff text is read (#1781)? */
+export const contentCovers = (file, content) => !!content && matchesAny(file, content.paths) && !matchesAny(file, content.exclude);
+
 /**
- * Score a PR's changed files (pure). `files`: [{ filename, additions, deletions }].
+ * What one file's diff touches, by a rule's content patterns (pure, #1781). `patch` is the unified
+ * diff of that file: the GitHub files API's `patch`, or `git diff` output (anything before the
+ * first `@@` is skipped). Only added and removed lines count, never the context around them.
+ *
+ * A pattern has `line` (a regex on the changed line) and/or `within` (a regex on the top-level
+ * declaration the line sits in). The declaration is the last line in the hunk that starts at
+ * column 0 with a letter, `$`, `_` or `@`, or, before there is one, the hunk header's context,
+ * where git names the enclosing function. A `}` at column 0 closes it. So an edit deep inside
+ * `deserialize` matches `within: "function (deserialize)"` though the line itself never names it.
+ *
+ * Returns the matched names in first-seen order: the `within` capture and the `line` capture joined
+ * by a dot (`Region1State.pitRot`), or whichever of them the pattern has.
+ */
+export function contentHits(patch, patterns) {
+  const found = new Set();
+  let inHunk = false;
+  let decl = null;
+  for (const raw of patch.split('\n')) {
+    if (raw.startsWith('@@')) { inHunk = true; decl = /^@@ [^@]*@@ ?(.*)$/.exec(raw)?.[1] || null; continue; }
+    if (!inHunk) continue;
+    if (raw.startsWith('diff --git ')) { inHunk = false; continue; } // a second file's header in `git diff` output
+    const c = raw[0];
+    if (c !== '+' && c !== '-' && c !== ' ') continue; // `\ No newline at end of file`
+    const text = raw.slice(1);
+    if (/^[A-Za-z_$@]/.test(text)) decl = text;
+    else if (text.startsWith('}')) { decl = null; if (c === ' ') continue; }
+    if (c === ' ') continue;
+    for (const p of patterns) {
+      const w = p.within ? (decl ? re(p.within).exec(decl) : null) : true;
+      if (!w) continue;
+      const l = p.line ? re(p.line).exec(text) : true;
+      if (!l) continue;
+      const name = [w === true ? null : captured(w), l === true ? null : captured(l)].filter(Boolean).join('.');
+      found.add(name || text.trim().slice(0, 40));
+    }
+  }
+  return [...found];
+}
+
+/**
+ * Score a PR's changed files (pure). `files`: [{ filename, additions, deletions, patch? }].
  * Returns the score, the tier, the reasons, and the lenses a high tier runs.
+ *
+ * A rule matches a file by its `paths` (any edit counts), or, for a file its `content` block
+ * covers, only when the file's diff touches one of `content.patterns` (#1781): adding a queue
+ * helper to controller.ts isn't a save-format change, an edit inside `deserialize` is. A covered
+ * file with no diff text counts (GitHub leaves `patch` out of very large diffs): nothing shows
+ * it's safe.
  */
 export function scoreRisk(files, config) {
   // A rename counts for both paths: moving rng.ts out of its folder still touches the RNG.
@@ -62,11 +118,20 @@ export function scoreRisk(files, config) {
 
   for (const rule of config.rules) {
     const hit = names.filter(n => matchesAny(n, rule.paths) && !matchesAny(n, rule.exclude));
+    if (rule.content) {
+      for (const f of files) {
+        if (hit.includes(f.filename) || !(contentCovers(f.filename, rule.content) || (f.previous_filename && contentCovers(f.previous_filename, rule.content)))) continue;
+        const what = typeof f.patch === 'string' ? contentHits(f.patch, rule.content.patterns) : ['diff not shown'];
+        if (what.length) hit.push(`${f.filename} — ${what.slice(0, 3).join(', ')}${what.length > 3 ? ` +${what.length - 3} more` : ''}`);
+      }
+    }
     if (!hit.length) continue;
     score += rule.weight;
     ruleHit = true;
     if (rule.lens) lenses.add(rule.lens);
-    reasons.push(`${rule.label} (+${rule.weight}): ${hit.slice(0, 3).join(', ')}${hit.length > 3 ? `, +${hit.length - 3} more` : ''}`);
+    // A content hit lists its own names with commas, so its files are kept apart with semicolons.
+    const sep = rule.content ? '; ' : ', ';
+    reasons.push(`${rule.label} (+${rule.weight}): ${hit.slice(0, 3).join(sep)}${hit.length > 3 ? `${sep}+${hit.length - 3} more` : ''}`);
   }
 
   const lines = files.reduce((n, f) => n + (f.additions ?? 0) + (f.deletions ?? 0), 0);
@@ -113,17 +178,69 @@ export function parseNumstatZ(text) {
 export const loadRules = () => JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
 
 /**
- * May a PR be merged now (pure)? `ciOk`: CI passed on the head commit. `approval`: the
- * latest time `human-approved` was added — who added it and when — or null if it isn't on
- * the PR. `headAt`: when the head commit was made. Returns { merge, reason }.
+ * The reviews on the head commit (pure, #1481). Only reviews by {@link REVIEW_BOT} pinned to
+ * `headSha` count — another bot's review isn't ours, and a review of an older commit says nothing
+ * about this one.
+ * - `agent`: the review agent's latest verdict (its APPROVED / CHANGES_REQUESTED review state).
+ * - `second`: the second opinion — the worst verdict on this commit. A request-changes holds until
+ *   a new commit, so re-running the reviewer can't wash it out; a re-run can replace an `unclear`
+ *   or a failed run with a real verdict.
+ * - `focused[lens]`: the most high-severity findings any focused review of that lens reported on
+ *   this commit (#1780: `findings=N high=H` counts H; an old marker with no `high=` counts all N);
+ *   null when none of them gave a count. Medium and low findings don't hold the merge.
+ * Verdicts are read only from the marker on line 2 of a body that starts with the
+ * run-second-review.js header, so a review quoting a marker can't stand in for one.
  */
-export function mergeGate({ tier, ciOk, approval, headAt }) {
+export function tierReviews(reviews, headSha) {
+  const out = { agent: null, second: null, focused: {} };
+  const rank = { 'request-changes': 3, approve: 2, unclear: 1 };
+  const inOrder = [...reviews].sort((a, b) => Date.parse(a.submitted_at ?? 0) - Date.parse(b.submitted_at ?? 0));
+  for (const r of inOrder) {
+    // Only our own workflows' reviews: another bot's approval or comment mustn't stand in for theirs.
+    if (r.commit_id !== headSha || r.user?.login !== REVIEW_BOT) continue;
+    if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') { out.agent = r.state === 'APPROVED' ? 'approved' : 'changes-requested'; continue; }
+    const body = r.body ?? '';
+    // ` key=<hash>` names the diff, model and instructions the review read (#1654), so a carried-over
+    // verdict, re-posted on the head commit, reads exactly like a fresh one here.
+    // The verdict already applies the severity gate (#1780): approve unless a high finding is present.
+    const so = /^## Second opinion[^\n]*\n<!-- second-opinion verdict=(approve|request-changes|unclear)(?: findings=(?:\d+|\?) high=(?:\d+|\?))?(?: key=[0-9a-f]+)? -->/.exec(body);
+    if (so) { if (!out.second || rank[so[1]] > rank[out.second]) out.second = so[1]; continue; }
+    const fo = /^## Focused review — ([a-z][a-z0-9-]*)[^\n]*\n<!-- focused lens=\1 findings=(\d+|\?)(?: high=(\d+|\?))?(?: key=[0-9a-f]+)? -->/.exec(body);
+    if (!fo) continue;
+    // What blocks: the high count, or every finding for an old-format marker (#1780).
+    const blocking = fo[3] ?? fo[2];
+    const n = blocking === '?' ? null : Number(blocking);
+    const had = out.focused[fo[1]];
+    out.focused[fo[1]] = had === undefined ? n : n === null ? had : had === null ? n : Math.max(had, n);
+  }
+  return out;
+}
+
+/**
+ * May a PR be merged now (pure, #1481)? The tier decides which models must agree on the head commit:
+ * - low: CI passed, and the review agent approves;
+ * - medium: + the second opinion approves;
+ * - high: + every lens the tier runs has a focused review with no high-severity finding.
+ * A request-changes, an unclear verdict, a high finding or a missing review holds it (#1780: a
+ * medium or low finding is posted but doesn't hold it); a new commit
+ * re-runs the reviews. No person's label is involved. Returns { merge, reason }.
+ */
+export function mergeGate({ tier, ciOk, open = true, sameRepo = true, lenses = [], reviews = { agent: null, second: null, focused: {} } }) {
+  if (!open) return { merge: false, reason: 'the PR is not open' };
   if (!ciOk) return { merge: false, reason: `${CI_WORKFLOW} has not passed on the head commit` };
-  if (tier !== 'high') return { merge: true, reason: `risk:${tier}` };
-  if (!approval) return { merge: false, reason: `risk:high — waiting for a person to add \`${HUMAN_LABEL}\`` };
-  if (approval.actorType !== 'User') return { merge: false, reason: `\`${HUMAN_LABEL}\` was added by ${approval.actor} (a ${approval.actorType}), not a person` };
-  if (headAt && Date.parse(approval.at) < Date.parse(headAt)) return { merge: false, reason: `\`${HUMAN_LABEL}\` predates the latest commit — approve again` };
-  return { merge: true, reason: `risk:high, ${HUMAN_LABEL} by ${approval.actor}` };
+  if (reviews.agent !== 'approved') return { merge: false, reason: reviews.agent ? 'the review agent requests changes on the head commit' : 'waiting for the review agent to approve the head commit' };
+  if (tier === 'low') return { merge: true, reason: 'risk:low, the review agent approves' };
+  if (!sameRepo) return { merge: false, reason: `risk:${tier} — the model reviews don't run for PRs from forks; a person merges it` };
+  if (!reviews.second) return { merge: false, reason: `risk:${tier} — waiting for the second opinion on the head commit` };
+  if (reviews.second !== 'approve') return { merge: false, reason: `risk:${tier} — the second opinion says ${reviews.second}` };
+  if (tier === 'medium') return { merge: true, reason: 'risk:medium, the review agent and the second opinion approve' };
+  for (const lens of lenses) {
+    const n = reviews.focused[lens];
+    if (n === undefined) return { merge: false, reason: `risk:high — waiting for the focused review (${lens}) on the head commit` };
+    if (n === null) return { merge: false, reason: `risk:high — the focused review (${lens}) gave no finding count; re-run it` };
+    if (n > 0) return { merge: false, reason: `risk:high — the focused review (${lens}) has ${n} high-severity finding(s)` };
+  }
+  return { merge: true, reason: `risk:high, the review agent and the second opinion approve and ${lenses.length ? `the focused reviews (${lenses.join(', ')}) find nothing high` : 'no lens applies'}` };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -149,7 +266,18 @@ async function main() {
       console.error(`Could not diff ${base}...HEAD (see git's error above). If ${base} is missing, \`git fetch origin main\`; in a shallow clone with no merge base, \`git fetch --unshallow origin\`.`);
       process.exit(2);
     }
-    const result = scoreRisk(parseNumstatZ(out), loadRules());
+    const rules = loadRules();
+    const changed = parseNumstatZ(out);
+    // Content rules (#1781) read the diff text of the files they cover, as the PR files API's
+    // `patch` gives it: one `git diff` per covered file (both paths for a rename).
+    for (const f of changed) {
+      const paths = f.previous_filename ? [f.previous_filename, f.filename] : [f.filename];
+      if (!rules.rules.some(r => paths.some(p => contentCovers(p, r.content)))) continue;
+      try {
+        f.patch = execFileSync('git', ['diff', '-M', '--no-color', '--no-ext-diff', '-U3', `${base}...HEAD`, '--', ...paths], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      } catch { /* no patch: the rule counts the file, as for a PR diff GitHub doesn't show */ }
+    }
+    const result = scoreRisk(changed, rules);
     console.log(`risk:${result.tier} (score ${result.score}) — commits since ${base}`);
     for (const r of result.reasons) console.log(`  - ${r}`);
     if (result.lenses.length) console.log(`  lenses: ${result.lenses.join(', ')}`);
@@ -171,6 +299,7 @@ async function main() {
   };
 
   const pr = await gh(`/pulls/${prNumber}`);
+  // Each file comes with its `patch` (the diff text), which content rules read (#1781).
   const files = [];
   for (let page = 1; page <= 30; page++) {
     const batch = await gh(`/pulls/${prNumber}/files?per_page=100&page=${page}`);
@@ -181,35 +310,37 @@ async function main() {
   const sameRepo = pr.head?.repo?.full_name === repo;
   const headSha = pr.head.sha;
 
-  // CI: the latest run of the CI workflow on this exact commit must have succeeded.
+  // CI: the latest run of the CI workflow on this exact commit must have succeeded — the PR's own
+  // run where there is one: a branch CI also runs on push (bender/**) has a second run on the
+  // same commit, and a newer one still in progress mustn't hide the PR run's pass (#1481).
   const runs = (await gh(`/actions/runs?head_sha=${headSha}&per_page=100`))?.workflow_runs ?? [];
-  const ci = runs.filter(r => r.name === CI_WORKFLOW).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+  const ciRuns = runs.filter(r => r.name === CI_WORKFLOW);
+  const prRuns = ciRuns.filter(r => r.event === 'pull_request');
+  const ci = (prRuns.length ? prRuns : ciRuns).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
   const ciOk = ci?.conclusion === 'success';
   console.log(JSON.stringify({ pr: prNumber, ...result, sameRepo, draft: pr.draft, headSha, ciOk }, null, 2));
 
   let verdict;
   if (gate) {
-    const has = pr.labels.some(l => l.name === HUMAN_LABEL);
-    let approval = null;
-    if (has) {
-      const events = [];
-      for (let page = 1; page <= 10; page++) {
-        const batch = await gh(`/issues/${prNumber}/events?per_page=100&page=${page}`) ?? [];
-        events.push(...batch);
-        if (batch.length < 100) break;
-      }
-      const last = events.filter(e => e.event === 'labeled' && e.label?.name === HUMAN_LABEL).at(-1);
-      if (last) approval = { actor: last.actor?.login, actorType: last.actor?.type, at: last.created_at };
+    // The tier's model reviews (#1481): every review on the PR, filtered to the head commit.
+    const reviews = [];
+    for (let page = 1; page <= 10; page++) {
+      const batch = await gh(`/pulls/${prNumber}/reviews?per_page=100&page=${page}`) ?? [];
+      reviews.push(...batch);
+      if (batch.length < 100) break;
     }
-    const commit = await gh(`/commits/${headSha}`);
-    verdict = mergeGate({ tier: result.tier, ciOk, approval, headAt: commit?.commit?.committer?.date });
+    verdict = mergeGate({ tier: result.tier, ciOk, open: pr.state === 'open', sameRepo, lenses: result.lenses, reviews: tierReviews(reviews, headSha) });
     console.log(`Merge gate: ${verdict.merge ? 'may merge' : 'hold'} — ${verdict.reason}`);
   }
 
   if (apply) {
     for (const t of TIERS) if (t !== result.tier && pr.labels.some(l => l.name === `risk:${t}`)) await gh(`/issues/${prNumber}/labels/${encodeURIComponent(`risk:${t}`)}`, { method: 'DELETE' });
     await gh(`/issues/${prNumber}/labels`, { method: 'POST', body: { labels: [`risk:${result.tier}`] } });
-    const what = { low: 'the review agent', medium: 'the review agent + a second opinion from another model family', high: `the review agent + a second opinion + focused passes (${result.lenses.join(', ')}); merge waits for a \`human-approved\` label` }[result.tier];
+    const what = {
+      low: 'the review agent',
+      medium: 'the review agent + a second opinion from another model family, which must approve',
+      high: `the review agent + a second opinion, which must approve + focused passes (${result.lenses.join(', ')}) on a stronger model, which must find nothing high-severity`,
+    }[result.tier];
     const body = [MARKER, `**Review risk: ${result.tier}** (score ${result.score}) — reviews: ${what}.`, '', ...result.reasons.map(r => `- ${r}`), '', '_Rules: `.github/review-risk.json` (#1431)._'].join('\n');
     const comments = await gh(`/issues/${prNumber}/comments?per_page=100`);
     const mine = comments.find(c => c.body?.startsWith(MARKER));

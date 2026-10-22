@@ -15,8 +15,10 @@
 
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
-import { playerItems, type RegistryItem } from '../lib/items';
+import { playerItems, REGISTRY_ITEMS } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
+import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { DiscoveryToast } from '../ui/DiscoveryToast';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
@@ -26,8 +28,9 @@ import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
-import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, type TreeSize } from '../world/CollisionGrid';
+import { bufferShoreline, blockTreeFootprint, roadOverlayVisible, blockDenseForestZones, type TreeSize } from '../world/CollisionGrid';
 import { isCliffBlocked, buildRampSet, buildRampMap, effectiveElevation, type RampDef } from '../world/ElevationWalk';
+import { scatterRocks, hashTile } from '../world/RockScatter';
 
 // ── Grid ──────────────────────────────────────────────────────────────────
 // The 60×60 grid (meadow left half, WorldForge terrain right half, mountain
@@ -38,6 +41,15 @@ const TILE_SIZE = 32;
 const PLAYER_SPEED = 120;
 const INTERACT_RADIUS = 50;
 const DEFAULT_MAP_ID = 'homestead';
+
+// ── Dense forest zones (#935) ────────────────────────────────────────────
+// Candidate cutoff on the 0-1 cluster-noise value used by scatterTrees() —
+// only the thickest canopy patches become impassable. Tuned so roughly half
+// of the pure-forest tiles qualify, leaving the rest as natural clearings.
+const DENSE_CANOPY_CLUSTER_MIN = 0.5;
+// Minimum connected-tile count before a canopy patch is blocked. Filters out
+// single-tile/sliver noise so only genuine clusters funnel the player.
+const MIN_FOREST_ZONE_SIZE = 12;
 
 // ── Iso projection ────────────────────────────────────────────────────────
 // 2:1 diamond. ISO_ORIGIN_X/ISO_W/ISO_H depend on grid size, so they're
@@ -254,7 +266,7 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.json('item-registry', '/macro-world/item-registry.json');
+    // The item registry is bundled (REGISTRY_ITEMS), not loaded here: it isn't in the build's public/ (#1512).
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
     this.load.json('homestead-map', `/assets/maps/${DEFAULT_MAP_ID}.json`);
 
@@ -445,9 +457,11 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
+    // Recipe discovery starts now, not when the crafting menu first opens: every harvest from
+    // here on counts toward memory recipes like healing salve (#1515).
+    DiscoverySystem.of(this);
     // Load item definitions from the unified registry.
-    const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
-    if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
+    inv.loadResourceDefs(playerItems(REGISTRY_ITEMS) as never[]);
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 
@@ -673,14 +687,27 @@ export class HomesteadScene extends Phaser.Scene {
     // ── Tree scatter (forest zone + sparse homestead trees) ──────────
     this.scatterTrees();
 
+    // ── Dense forest zones become impassable barriers (#935) ───────────
+    // Flood-fill the thickest canopy patches and block any cluster above
+    // the size threshold, funnelling the player through clearings, gaps,
+    // and the road instead of straight through the deep forest.
+    blockDenseForestZones(
+      this.walkGrid,
+      this.buildDenseCanopyMask(this.buildResourceNodeSet()),
+      this.gridW,
+      this.gridH,
+      MIN_FOREST_ZONE_SIZE,
+    );
+
     // ── Placeholder textures ──────────────────────────────────────────────
     const textures: [string, number, number, number][] = [
-      ['rn-tree',  24, 40, 0x3a7a28],
-      ['rn-rock',  20, 16, 0x7a7265],
-      ['rn-ore',   18, 20, 0xd4793a],
-      ['rn-herb',  16, 16, 0x7ab33a],
-      ['rn-berry', 18, 20, 0x8b3ab3],
-      ['rn-water', 22, 14, 0x3a7ab3],
+      ['rn-tree',    24, 40, 0x3a7a28],
+      ['rn-rock',    20, 16, 0x7a7265],
+      ['rn-boulder', 40, 32, 0x6b6358],
+      ['rn-ore',     18, 20, 0xd4793a],
+      ['rn-herb',    16, 16, 0x7ab33a],
+      ['rn-berry',   18, 20, 0x8b3ab3],
+      ['rn-water',   22, 14, 0x3a7ab3],
     ];
     for (const [key, w, h, colour] of textures) {
       if (!this.textures.exists(key)) {
@@ -764,6 +791,11 @@ export class HomesteadScene extends Phaser.Scene {
       });
     }
 
+    // ── Rock / boulder scatter (#937) ────────────────────────────────────
+    // Runs after resource nodes so it can skip tiles they occupy, and after
+    // the player's spawn tile is known so it never blocks the spawn point.
+    this.scatterRocks(15, 20);
+
     // ── Tap-to-target ────────────────────────────────────────────────────
     this.events.on('resource-node:targeted', (node: ResourceNode) => {
       if (this.targetNode && this.targetNode !== node) {
@@ -809,6 +841,9 @@ export class HomesteadScene extends Phaser.Scene {
     // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
     const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
     uiCam.setScroll(0, 0);
+
+    // "New recipe" toasts (#1529), drawn on the UI camera at native size.
+    new DiscoveryToast(this, uiCam);
 
     // Helper: mark game objects as UI-only (visible on uiCam, hidden on main).
     const addUi = (...objs: Phaser.GameObjects.GameObject[]) => {
@@ -1430,6 +1465,74 @@ export class HomesteadScene extends Phaser.Scene {
     }
   }
 
+  /** Resource-node tile coordinates, as `"tx,ty"` keys — shared by scatterTrees() and the dense-canopy mask so neither places/blocks on top of a node. */
+  private buildResourceNodeSet(): Set<string> {
+    const nodeSet = new Set<string>();
+    for (const n of this.resourceNodes) {
+      const nwx = n.getData('worldX') as number;
+      const nwy = n.getData('worldY') as number;
+      nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
+    }
+    return nodeSet;
+  }
+
+  /**
+   * Shared exclusions for tree placement and dense-forest-zone candidacy:
+   * walkable, off-road, not water/rock, not hugging a cliff, and not sitting
+   * on a resource node.
+   */
+  private isForestEligible(tx: number, ty: number, nodeSet: Set<string>): boolean {
+    // Skip non-walkable tiles and roads
+    if (this.walkGrid[ty * this.gridW + tx] === 1) return false;
+    if (this.isRoad(tx, ty)) return false;
+
+    // Only spawn on flat meadow — skip water, rock, granite, summit tiles
+    const tileElev = intGridGet(this.heightGrid, tx, ty);
+    const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+    const hsIsWater = tileElev === 0 && ty > shoreEdge;
+    if (hsIsWater) return false;
+    if (tileElev >= 1) return false; // rock/granite/summit — no trees
+
+    // 1-tile buffer from cliff faces: skip if any neighbour has elevation
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = tx + dx, ny = ty + dy;
+        if (nx >= 0 && nx < this.gridW && ny >= 0 && ny < this.gridH) {
+          if (intGridGet(this.heightGrid, nx, ny) > 0) return false;
+        }
+      }
+    }
+
+    // Skip tiles occupied by resource nodes
+    if (nodeSet.has(`${tx},${ty}`)) return false;
+
+    return true;
+  }
+
+  /**
+   * Candidate mask for the thickest forest canopy (#935): pure forest
+   * (blend === 0) tiles whose cluster noise reads as "very high" density.
+   * Fed to `blockDenseForestZones()`, which flood-fills it and blocks
+   * clusters above the size threshold — smaller patches and the gaps
+   * between clusters stay walkable as natural clearings.
+   */
+  private buildDenseCanopyMask(nodeSet: Set<string>): Uint8Array {
+    const mask = new Uint8Array(this.gridW * this.gridH);
+    for (let tx = 1; tx < this.gridW - 1; tx++) {
+      for (let ty = 1; ty < this.gridH - 1; ty++) {
+        if (!this.isForestEligible(tx, ty, nodeSet)) continue;
+        if (forestMeadowBlend(tx, ty) !== 0) continue; // transition + meadow stay walkable-around
+
+        const n1 = Math.sin(tx * 0.35 + ty * 0.25) * Math.cos(ty * 0.4 - tx * 0.15);
+        const n2 = Math.sin(tx * 0.18 - ty * 0.32) * Math.cos(tx * 0.28 + ty * 0.12);
+        const cluster = (n1 + n2 + 2) / 4; // same cluster noise as scatterTrees(), normalised to 0-1
+        if (cluster >= DENSE_CANOPY_CLUSTER_MIN) mask[ty * this.gridW + tx] = 1;
+      }
+    }
+    return mask;
+  }
+
   private scatterTrees(): void {
     // Species pool: key prefix + mature count.  Forest zone heavily favours
     // conifers (pine, spruce) with deciduous (oak, birch, elm) mixed in.
@@ -1446,42 +1549,11 @@ export class HomesteadScene extends Phaser.Scene {
     const hash = (a: number, b: number, salt: number) =>
       (((a * 2654435761 + b * 2246822519 + salt) >>> 0) & 0x7fffffff);
 
-    // Mark tiles that already have resource nodes so trees don't overlap.
-    const nodeSet = new Set<string>();
-    for (const n of this.resourceNodes) {
-      const nwx = n.getData('worldX') as number;
-      const nwy = n.getData('worldY') as number;
-      nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
-    }
+    const nodeSet = this.buildResourceNodeSet();
 
     for (let tx = 1; tx < this.gridW - 1; tx++) {
       for (let ty = 1; ty < this.gridH - 1; ty++) {
-        // Skip non-walkable tiles and roads
-        if (this.walkGrid[ty * this.gridW + tx] === 1) continue;
-        if (this.isRoad(tx, ty)) continue;
-
-        // Only spawn on flat meadow — skip water, rock, granite, summit tiles
-        const tileElev = intGridGet(this.heightGrid, tx, ty);
-        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
-        const hsIsWater = tileElev === 0 && ty > shoreEdge;
-        if (hsIsWater) continue;
-        if (tileElev >= 1) continue; // rock/granite/summit — no trees
-
-        // 1-tile buffer from cliff faces: skip if any neighbour has elevation
-        let nearCliff = false;
-        for (let dx = -1; dx <= 1 && !nearCliff; dx++) {
-          for (let dy = -1; dy <= 1 && !nearCliff; dy++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = tx + dx, ny = ty + dy;
-            if (nx >= 0 && nx < this.gridW && ny >= 0 && ny < this.gridH) {
-              if (intGridGet(this.heightGrid, nx, ny) > 0) nearCliff = true;
-            }
-          }
-        }
-        if (nearCliff) continue;
-
-        // Skip tiles occupied by resource nodes
-        if (nodeSet.has(`${tx},${ty}`)) continue;
+        if (!this.isForestEligible(tx, ty, nodeSet)) continue;
 
         // Forest/meadow blend drives tree density:
         //   forest (blend=0) → ~85% coverage, dense canopy
@@ -1563,6 +1635,63 @@ export class HomesteadScene extends Phaser.Scene {
           blockTreeFootprint(this.walkGrid, this.gridW, this.gridH, tx, ty, treeSize);
         }
       }
+    }
+  }
+
+  // ── Rock / boulder scatter (#937) ───────────────────────────────────
+  // Natural obstacles along cliff edges and the shore, plus a sparse
+  // meadow scatter for variety. Placement decisions live in the pure
+  // RockScatter module (unit-tested without Phaser); this method only
+  // applies them: mark the walkGrid blocked and render a sprite.
+
+  /** @param spawnTx/@param spawnTy — player spawn tile, kept clear of rocks. */
+  private scatterRocks(spawnTx: number, spawnTy: number): void {
+    // Tiles already claimed by a node, so rocks don't overlap gatherables.
+    const nodeSet = new Set<string>();
+    for (const n of this.resourceNodes) {
+      const nwx = n.getData('worldX') as number;
+      const nwy = n.getData('worldY') as number;
+      nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
+    }
+
+    const placements = scatterRocks({
+      gridW: this.gridW,
+      gridH: this.gridH,
+      elevationAt: (tx, ty) => intGridGet(this.heightGrid, tx, ty),
+      isBlocked: (tx, ty) => this.walkGrid[ty * this.gridW + tx] === 1,
+      isRoad: (tx, ty) => this.isRoad(tx, ty),
+      isOccupied: (tx, ty) => this.occupied[ty * this.gridW + tx] === 1,
+      isResourceNode: (tx, ty) => nodeSet.has(`${tx},${ty}`),
+      // Same wavy shoreline formula as the water check in scatterTrees —
+      // true for dry land within 2 tiles of the water's edge.
+      isNearShore: (tx, ty) => {
+        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+        const distToShore = shoreEdge - ty;
+        return distToShore >= 0 && distToShore <= 2;
+      },
+      spawnTx,
+      spawnTy,
+    });
+
+    for (const { tx, ty, size } of placements) {
+      for (let dx = 0; dx < size; dx++) {
+        for (let dy = 0; dy < size; dy++) {
+          this.walkGrid[(ty + dy) * this.gridW + (tx + dx)] = 1;
+        }
+      }
+
+      const jx = ((hashTile(tx, ty, 0x7A1) % 16) - 8) * 0.5;
+      const jy = ((hashTile(tx, ty, 0x7A2) % 16) - 8) * 0.5;
+      const footPx = size * TILE_SIZE;
+      const wx = tx * TILE_SIZE + footPx / 2 + jx;
+      const wy = ty * TILE_SIZE + footPx / 2 + jy;
+      const { x: isoX, y: isoY } = this.worldToIso(wx, wy);
+
+      const rock = this.add.image(isoX, isoY, size === 2 ? 'rn-boulder' : 'rn-rock');
+      rock.setOrigin(0.5, 0.8);
+      rock.setDepth(hsIsoDepth(wx, wy));
+      const scaleJitter = 1 + ((hashTile(tx, ty, 0x7A3) % 20) - 10) * 0.01;
+      rock.setScale((size === 2 ? 1.0 : 0.8) * scaleJitter);
     }
   }
 

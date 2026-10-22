@@ -55,9 +55,10 @@ for (const item of items) {
 
 // ── 2. Recipe ID resolution ──────────────────────────────────────────────────
 
-const recipesPath = join(ROOT, 'macro-world/recipes.json');
+const recipesPath = join(ROOT, 'public/macro-world/recipes.json');
 if (existsSync(recipesPath)) {
-  const recipes = JSON.parse(readFileSync(recipesPath, 'utf8')).recipes;
+  // Skip the file's `{ "_tier": "=== … ===" }` section headers.
+  const recipes = JSON.parse(readFileSync(recipesPath, 'utf8')).recipes.filter((r) => r.id);
   for (const r of recipes) {
     if (r.output?.item && !idSet.has(r.output.item)) {
       err(`Recipe "${r.id}" output "${r.output.item}" not in registry`);

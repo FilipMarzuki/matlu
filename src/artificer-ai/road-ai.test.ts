@@ -9,6 +9,7 @@ import { createRegion1, type Region1State } from '../artificer/region1';
 import { createVitals } from '../artificer/vitality';
 import { createRoad, endRoadDay, villageOf, ROUTE, type RoadState } from '../artificer/road';
 import { peopleOf } from '../artificer/villages';
+import { feltWord } from '../artificer/rapport';
 import { observeRoad } from './observe';
 import { playRoad, playRun, aiCharacterId } from './runner';
 import { scriptedPlayer } from './players/scripted';
@@ -29,11 +30,12 @@ function inFirstVillage(): RoadState {
 }
 
 describe('The AI plays the road (#1251)', () => {
-  // 1. Village 1: the observation lists each person (role, trust), the open quests and what they need, and the marks.
+  // 1. Village 1: the observation lists each person (role, how they seem — never the trust number, #1578), the open quests and what they need, and the marks.
   it('observes the village, its people, quests and marks', () => {
     const r = { ...inFirstVillage(), marks: 7 };
     const text = observeRoad(r);
-    for (const p of peopleOf('hollowford')) expect(text).toContain(`${p.id} · ${p.name}, ${p.role} · trust ${r.trust[p.id]}`);
+    for (const p of peopleOf('hollowford')) expect(text).toContain(`${p.id} · ${p.name}, ${p.role} · ${feltWord(r, p.id)} · `);
+    expect(text).not.toMatch(/\btrust \d/i);
     expect(text).toContain('QUESTS ON OFFER:');
     expect(text).toContain('hf-forge-wood "Wood for the forge" from Orrin — bring 4 firewood');
     expect(text).toContain('MARKS: 7');
