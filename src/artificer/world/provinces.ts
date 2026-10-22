@@ -62,8 +62,11 @@ const SEAT_SPACING = 8;
 /** And this far from camp: the Warden camps in the wilds, not in someone's village. */
 const CAMP_CLEARANCE = 4;
 
-/** How good a cell is to settle on. Rivers and lakes next to it count extra (see `seatScore`). */
-const SETTLE: Readonly<Partial<Record<Biome, number>>> = {
+/**
+ * How good a cell is to settle on. Rivers and lakes next to it count extra (see `seatWater`).
+ * Exported so worldmap/hex-summary.test.ts can pin worldmap's copy of it equal to this one (#1898).
+ */
+export const SETTLE: Readonly<Partial<Record<Biome, number>>> = {
   meadow: 1, birch: 0.8, heath: 0.7, pine: 0.6, marsh: 0.25, scree: 0.3, fell: 0.1,
 };
 
