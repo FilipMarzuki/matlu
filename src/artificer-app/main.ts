@@ -29,7 +29,7 @@ import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
 import { GUIDE_FEATURE } from './survival-path';
-import { STANDING_FEATURE, standingLine, standingNote } from './standing-line';
+import { STANDING_FEATURE, standingLine, standingNote, standingRow } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
@@ -386,7 +386,7 @@ let focusPopOpen = false;
 /** A one-line status bar and the tabs at the bottom on phones (#1924): a ui feature, on unless switched off in the features panel. */
 const COMPACT_STATUS_FEATURE = 'compact-status';
 const compactOn = (): boolean => uiFeatureOn(loadChoices(), COMPACT_STATUS_FEATURE);
-/** Whether the compact bar's "more" panel (FOCUS, pain, injuries, the night, the outlook) is open: the page's alone, never saved. */
+/** Whether the compact bar's "more" panel (FOCUS, pain, injuries, the night, the outlook; with the line, pain, injuries and TODAY) is open: the page's alone, never saved. */
 let compactMoreOpen = false;
 
 // The eating plan's chip (#1305) and its row in the Warden's view (#1848) are drawn by rations-view.ts.
@@ -615,8 +615,9 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
  * small dots and the key box (food/water/firewood), all on one line, so the sticky bar stays to
  * that line's height. Everything else the full bar carries — FOCUS and its picker, rations, pain,
  * injuries, the night and the day's outlook — sits behind the ⋯ toggle (`compactMoreOpen`,
- * `compactMorePanel`), in a panel under the bar that scrolls away with the page instead of staying
- * frozen.
+ * `compactMorePanel`), in a panel inside the bar, under its line (frozen with it while it's open).
+ * The "where you stand" line is the exception (#1951): it has a row of its own right after the
+ * bar's sticky element (`standingUnder`), so it's seen without a tap and scrolls away with the page.
  */
 function compactStatusBar(a: AppState, preview: Preview, warden: string): string {
   const s = a.sim;
@@ -635,20 +636,35 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
       ${dots}${stores}${more}
     </div>
     ${compactMoreOpen ? compactMorePanel(a, preview) : ''}
-  </div>${tips}`;
+  </div>${standingUnder(a)}${tips}`;
+}
+
+/**
+ * The "where you stand" line under the compact bar (#1951, standing-line.ts `standingRow`): once
+ * the guide shows FOCUS, as in the full bar. Outside `.statusbar`, which is the sticky element, so
+ * the row is in the page's flow and scrolls away, and `syncStickTop` still measures the one line.
+ * With the line off, nothing: FOCUS stays in the ⋯ panel, as before.
+ */
+function standingUnder(a: AppState): string {
+  const g = guide;
+  if (!lineShown(g)) return '';
+  const s = a.sim;
+  return standingRow(markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock'), focusPopOpen ? focusPopover(s, t, focusUi()) : '');
 }
 
 /**
  * The compact bar's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
- * and the day's outlook — what the one-line bar leaves out. Not frozen: it opens into the page's own
- * flow, under the sticky bar, and shuts again at the same ⋯.
+ * and the day's outlook — what the one-line bar leaves out. It opens inside the bar, under its line,
+ * and shuts again at the same ⋯. With the "where you stand" line (#1951), the line and its picker
+ * are in their own row under the bar instead (`standingUnder`), and the panel keeps rations, pain,
+ * injuries and TODAY.
  */
 function compactMorePanel(a: AppState, preview: Preview): string {
   const s = a.sim;
   const g = guide;
   const line = lineShown(g);
-  const focus = g.shows('focus') ? markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock') : '';
-  const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
+  const focus = g.shows('focus') && !line ? markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock') : '';
+  const focusPop = g.shows('focus') && !line && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
   return `<div id="compactmore" class="compactmore">
     ${focus}${focusPop}
     ${g.shows('stores') ? statusEating(s) : ''}${g.shows('vitals') ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}` : ''}

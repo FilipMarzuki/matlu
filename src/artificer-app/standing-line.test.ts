@@ -5,10 +5,12 @@
  * can't prove for every state: the line never says ready (or holding) while the winter outlook
  * falls short, and says so when the run is ready. Then what it says at each step, the night, the
  * lock and a focus of your own, what PROGRESS says beside it, and that with the switch off nothing
- * changes. In English and Swedish.
+ * changes. In English and Swedish. And the row the compact status bar draws it in (#1951).
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { makeT } from '../artificer/i18n';
 import { en as EN } from '../artificer/i18n/en';
 import { sv as SV } from '../artificer/i18n/sv';
@@ -23,8 +25,9 @@ import { survivalPath } from './survival-path';
 import { focusPopover, FOCUS_POP_ID } from './focus-popover';
 import { nightChip, tonight } from './key-box';
 import { milesBlock, outlookBlock, outlookShortfalls, outlookWarnings, progressTab } from './progress-view';
-import { STANDING_FEATURE, nextOf, standing, standingLine, standingNote } from './standing-line';
+import { STANDING_FEATURE, nextOf, standing, standingLine, standingNote, standingRow } from './standing-line';
 
+const STYLE = readFileSync(join(__dirname, 'style.css'), 'utf8');
 const en = makeT('en');
 const sv = makeT('sv');
 const text = (html: string): string => html.replace(/<[^>]*>/g, ' ').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
@@ -230,6 +233,42 @@ describe('tonight, the lock and a focus of your own (#1926)', () => {
     expect(pop).toContain('data-focus="goal:larder"');
     // Without the line the picker is as before: the path done, no checklist.
     expect(focusPopover(pillarsReady(), en, { guide: true })).not.toContain('fppath');
+  });
+});
+
+describe('the line\'s row under the compact status bar (#1951)', () => {
+  it('Given the line, When it is drawn under the compact bar, Then the row holds it, still the button that opens the focus picker', () => {
+    const line = standingLine(pillarsReady(), en, { open: false });
+    const row = standingRow(line);
+    expect(row).toBe(`<div class="standrow">${line}</div>`);
+    expect(row).toMatch(/^<div class="standrow"><button class="standline" data-cmd="focuspop" aria-haspopup="dialog"/);
+    expect(text(row)).toBe('Next: lay in food — 24 of ~30 nights. Tonight: warm.');
+    expect(text(standingRow(standingLine(pillarsReady(), sv, { open: false })))).toBe('Nästa: lägg undan mat — 24 av ~30 nätter. I natt: varmt.');
+  });
+
+  it('Given the picker open, Then it is drawn in the row, right after the line, so it opens under it', () => {
+    const s = pillarsReady();
+    const line = standingLine(s, en, { open: true });
+    const pop = focusPopover(s, en, { guide: true, standing: true });
+    const row = standingRow(line, pop);
+    expect(row).toBe(`<div class="standrow">${line}${pop}</div>`);
+    expect(row).toContain('aria-expanded="true"');
+    expect(row).toContain(`id="${FOCUS_POP_ID}"`);
+  });
+
+  it('Given the run over (the line empty), Then there is no row at all, not an empty one', () => {
+    const over = { ...ready(), outcome: { kind: 'survived', day: 60, text: '' } as unknown as Region1State['outcome'] };
+    expect(standingRow(standingLine(over, en, { open: false }))).toBe('');
+    expect(standingRow('', 'a picker')).toBe('');
+  });
+
+  it('the row is never sticky or fixed, so it scrolls away with the page and the frozen bar stays one line', () => {
+    // Each rule whose selector (one line, not a comment) names the row: none of them freezes it.
+    const rules = [...STYLE.matchAll(/\n([^{}\n/*]*\.standrow[^{}\n]*)\{([^}]*)\}/g)];
+    expect(rules.map(r => r[1].trim())).toContain('.standrow');
+    for (const [, , body] of rules) expect(body).not.toMatch(/position:\s*(sticky|fixed)/);
+    // It holds the picker (absolute) under the line, so the row is the picker's containing block.
+    expect(STYLE).toMatch(/\n\.standrow \{ position: relative;/);
   });
 });
 

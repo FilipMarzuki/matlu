@@ -17,20 +17,23 @@ test.use({ hasTouch: true });
 const planned = (): { saveKey: string; guideKey: string; save: string } =>
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-planned-save.ts', import.meta.url))], { encoding: 'utf8' }));
 
-async function openPlan(page: Page, width: number, height: number, o: { compact?: boolean; lang?: string } = {}): Promise<string[]> {
+async function openPlan(page: Page, width: number, height: number, o: { compact?: boolean; standing?: boolean; lang?: string } = {}): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height });
   await page.goto('/artificer.html');
-  await page.evaluate(({ saveKey, guideKey, save, compact, lang }) => {
+  await page.evaluate(({ saveKey, guideKey, save, compact, standing, lang }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang ?? 'en');
     localStorage.setItem(saveKey, save);
     // Through the first-morning guide already, so every part of the bar shows.
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
-    if (compact !== undefined) localStorage.setItem('artificer.features', JSON.stringify({ 'compact-status': compact }));
-  }, { ...planned(), compact: o.compact, lang: o.lang });
+    const features: Record<string, boolean> = {};
+    if (compact !== undefined) features['compact-status'] = compact;
+    if (standing !== undefined) features['standing-line'] = standing;
+    if (Object.keys(features).length) localStorage.setItem('artificer.features', JSON.stringify(features));
+  }, { ...planned(), compact: o.compact, standing: o.standing, lang: o.lang });
   await page.reload();
   await expect(page.locator('.plan.sideq .planq, .plan .planside')).toBeVisible();
   return errors;
@@ -112,8 +115,25 @@ for (const [label, width, height] of [['tablet', 1024, 700], ['phone', 400, 860]
   });
 }
 
-test('the ⋯ opens FOCUS, pain and injuries behind the one-line bar, and closes again', async ({ page }) => {
+// With the standing line on (the default, #1951), the line that opens the focus picker sits in its
+// own row under the one-line bar, so the ⋯ panel holds pain, injuries and TODAY but not the line.
+test('the ⋯ opens and closes its panel, and the standing line sits under the bar, not in it', async ({ page }) => {
   await openPlan(page, 400, 860, { compact: true });
+  await expect(page.locator('.standrow [data-cmd="focuspop"]')).toBeVisible();
+  const more = page.locator('[data-cmd="compactmore"]');
+  await expect(more).toBeVisible();
+  await expect(page.locator('#compactmore')).toBeHidden();
+  await more.click();
+  await expect(page.locator('#compactmore')).toBeVisible();
+  await expect(page.locator('#compactmore [data-cmd="focuspop"]')).toHaveCount(0);
+  await more.click();
+  await expect(page.locator('#compactmore')).toBeHidden();
+});
+
+// With the standing line off, the ⋯ panel holds FOCUS, pain and injuries, as #1924 left it.
+test('standing line off: the ⋯ opens FOCUS, pain and injuries behind the one-line bar, and closes again', async ({ page }) => {
+  await openPlan(page, 400, 860, { compact: true, standing: false });
+  await expect(page.locator('.standrow')).toHaveCount(0);
   const more = page.locator('[data-cmd="compactmore"]');
   await expect(more).toBeVisible();
   await expect(page.locator('#compactmore')).toBeHidden();
