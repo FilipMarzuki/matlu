@@ -212,6 +212,8 @@ const core: Catalog = {
   'group.craft': 'TILLVERKA VERKTYG',
   'group.carry': 'BÄRUTRUSTNING',
   'group.think': 'TÄNKA & VILA',
+  'group.cantYet.one': '{n} till som du inte kan göra än',
+  'group.cantYet.other': '{n} till som du inte kan göra än',
   'focus.goal': 'MÅL',
   'focus.skill': 'FÄRDIGHET',
   'focus.concept': 'BEGREPP',

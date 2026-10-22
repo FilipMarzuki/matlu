@@ -31,6 +31,8 @@
 :where(.readable-type) .timer .tname {
   font-family: var(--body); font-size: var(--rt-name); font-weight: 600; letter-spacing: 0; line-height: 1.25;
 }
+/* The guide's suggestion with fewer cards on (#1925, style.css `.act.lifted`): a size up from the other names. */
+:where(.readable-type) .act.lifted .t { font-size: 17px; }
 
 /* ── Key labels, 14 px: the issue's list, and the names that sit beside them ── */
 :where(.readable-type) .tabbtn,
