@@ -71,6 +71,17 @@ export function vitalChip(r: VitalReading, day: number, t: T): string {
 }
 
 /**
+ * One resource as a dot (#1924, the compact status line): the level's colour, no word or bar, so
+ * three resources fit beside the day and the key box on one line. The word and the number still
+ * reach a screen reader (and a hover), exactly as `vitalChip`'s label does.
+ */
+export function vitalDot(r: VitalReading, t: T): string {
+  const lv = vitalLevel(r.current, r.cap);
+  const label = `${t(NAME[r.id])}: ${vitalWord(r.id, lv, t)}, ${Math.round(r.current)}`;
+  return `<span class="vdot ${BAND[lv]}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>`;
+}
+
+/**
  * Row 2 of the header: the Warden's button on the left, then the three resources. The guide (#1813)
  * holds the resources back until the first action (`shown`), but never the Warden (#1818). `attrs`
  * is the guide's mark on the resources (its glow and what a tap on them dismisses).
