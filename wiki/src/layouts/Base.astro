@@ -170,8 +170,11 @@ function t(l: Lang, key: keyof typeof footerStrings.en): string {
        * html[lang] is set server-side from the `lang` prop and can be flipped
        * client-side by the Nav toggle (updates html.lang = 'sv'/'en').
        * Default state shows EN; flipping html[lang] to "sv" swaps the content.
+       *
+       * The first rule is scoped to `body` on purpose: a bare [lang="sv"] also
+       * matches <html lang="sv"> itself, which hid every /sv/ page (#1941).
        */
-      [lang="sv"] { display: none; }
+      body [lang="sv"] { display: none; }
       html[lang="sv"] [lang="en"] { display: none; }
       html[lang="sv"] [lang="sv"] { display: inline; }
 
