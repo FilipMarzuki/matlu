@@ -2,16 +2,18 @@
  * The queue beside the actions (#1826, ui feature `side-queue`): the look is exempt (screenshots),
  * but the structure isn't. With the switch on the queue has its own column beside the actions and
  * the journal and camp-site picker are outside it; off, the PLAN tab is drawn as before. The compact
- * queue's words, in English and Swedish.
+ * queue's words, in English and Swedish. On a wide screen (#1931) the journal joins the queue's
+ * frozen column.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { FEATURES, featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import { makeT, type Key } from '../artificer/i18n';
 import { DISTANCE_NOT_RINGS } from '../artificer/distance-words';
 import { ICON } from './camp-blocks';
 import { distanceT } from './sim-words';
-import { SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactItemText, compactTotal, planLayout, queueStrip, type PlanParts } from './plan-layout';
+import { JOURNAL_BESIDE_QUERY, SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactItemText, compactTotal, planLayout, queueStrip, type PlanParts } from './plan-layout';
 import type { ActionId } from '../artificer/region1';
 
 const en = makeT('en');
@@ -88,6 +90,58 @@ describe('the PLAN layout (#1826)', () => {
     expect(html).toBe(`<div class="plan">${parts.actions}<section class="box planside">${parts.queue}${parts.journal}${parts.camp}</section></div>`);
     expect(html).not.toMatch(/sideq|planq|planmore|planacts/);
     expect(planLayout({ actions: '', queue: '', journal: '', camp: '' }, false, en)).toBe('');
+  });
+});
+
+describe('the journal under the queue on a wide screen (#1931)', () => {
+  it('beside: the journal sits under the queue, the two in one frozen box; the site picker stays below', () => {
+    const html = planLayout(parts, true, en, true);
+    expect(html).toMatch(/^<div class="plan sideq">/);
+    // In order: the frozen box, the queue's box, the journal's box (closing the frozen box), then the box below.
+    const order = ['<div class="planqzone"><div class="planstick"><section class="box planq"', 'QUEUE', `<section class="box planlog">${parts.journal}</section></div></div>`, '<section class="box planmore">'];
+    const at = order.map(s => html.indexOf(s));
+    expect(at.every(i => i > -1)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(section(html, 'planq')).not.toContain('JOURNAL');
+    expect(section(html, 'planlog')).toBe(parts.journal);
+    expect(section(html, 'planmore')).toBe(parts.camp);
+    // Camp made: nothing is left for the box below, so there is none.
+    const made = planLayout({ ...parts, camp: '' }, true, en, true);
+    expect(made).toContain('class="box planlog"');
+    expect(made).not.toContain('planmore');
+  });
+
+  it('beside: the phone\'s strip and its fold are drawn as before, in the queue\'s box', () => {
+    const html = planLayout({ ...parts, strip: '<div class="qstrip">S</div>', stripOpen: true }, true, en, true);
+    expect(section(html, 'planq stripopen')).toBe(`<div class="qstrip">S</div><div class="planqfull">${parts.queue}</div>`);
+  });
+
+  it('with no queue to sit under (the guide\'s first steps), or no journal yet, the layout is the narrow one', () => {
+    expect(planLayout({ ...parts, queue: '' }, true, en, true)).toBe(planLayout({ ...parts, queue: '' }, true, en));
+    expect(planLayout({ ...parts, journal: '' }, true, en, true)).toBe(planLayout({ ...parts, journal: '' }, true, en));
+    expect(planLayout({ actions: '', queue: '', journal: '', camp: '' }, true, en, true)).toBe('');
+  });
+
+  it('narrow, or with the switch off, the HTML is exactly what it was', () => {
+    // The layout #1826 drew, character for character.
+    const before = `<div class="plan sideq"><div class="planacts">${parts.actions}</div>`
+      + `<div class="planqzone"><section class="box planq" aria-label="The queue"><div class="planqfull">${parts.queue}</div></section></div>`
+      + `<section class="box planmore">${parts.journal}${parts.camp}</section></div>`;
+    expect(planLayout(parts, true, en)).toBe(before);
+    expect(planLayout(parts, true, en, false)).toBe(before);
+    expect(planLayout(parts, false, en, true)).toBe(planLayout(parts, false, en));
+  });
+
+  it('the screens it\'s for are the ones style.css lays the column out on', () => {
+    expect(JOURNAL_BESIDE_QUERY).toBe('(min-width: 1000px)');
+    const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const at = css.indexOf(`@media ${JOURNAL_BESIDE_QUERY} {`);
+    expect(at).toBeGreaterThan(-1);
+    // The frozen box and the journal's own scroll are laid out inside that query, not outside it.
+    const block = css.slice(at, css.indexOf('\n}\n', at));
+    expect(block).toContain('.planstick {');
+    expect(block).toContain('.planstick > .planlog');
+    expect(css.slice(0, at)).not.toMatch(/\.planstick|\.planlog/);
   });
 });
 

@@ -413,9 +413,10 @@ export const FEATURES: readonly FeatureDef[] = [
   {
     // A ui feature (#1826): where the PLAN tab puts the queue (artificer-app/plan-layout.ts), so it
     // switches live and no run saves it. The play API, the console and AI players never see it.
-    // Off, the PLAN tab is laid out exactly as before.
+    // Off, the PLAN tab is laid out exactly as before. At 1000px and up it also puts the latest
+    // journal under the queue (#1931).
     id: 'side-queue', name: 'The queue beside the actions', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1826,
-    note: 'On PLAN the queue stays beside the actions on every screen, phones too, and stays in view while you scroll through the actions. On a narrow screen it is compact: each task\'s icon, short name and hours, the day\'s total and when it ends. The latest journal and the camp-site picker sit below.',
+    note: 'On PLAN the queue stays beside the actions on every screen, phones too, and stays in view while you scroll through the actions. On a narrow screen it is compact: each task\'s icon, short name and hours, the day\'s total and when it ends. The latest journal and the camp-site picker sit below; on a screen 1000px wide or more the journal sits under the queue instead, in view with it.',
   },
   {
     // A ui feature (#1828): the Menu's Sound section and the ambience it plays (artificer-app/ambience*.ts),

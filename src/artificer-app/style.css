@@ -402,6 +402,35 @@
   .plan.sideq .planq.stripopen > .planqfull { margin-top: 8px; }
   .plan.sideq .qstrip { display: flex; align-items: center; gap: 8px; }
 }
+/* ── The journal under the queue (#1931, still `side-queue`; plan-layout.ts JOURNAL_BESIDE_QUERY) ──
+   1000px and up: the latest journal leaves the box under the cards and joins the frozen column, so a
+   landscape tablet shows the actions, the queue and the day's result on one screen. The queue and
+   the journal freeze together in one sticky box (`.planstick`), as tall as the screen at most:
+   - the queue keeps its own scroll (the Run bar pinned to its foot), but stops 160px short of the
+     screen, so the journal always has room for its heading and a few lines;
+   - the journal takes the rest. It's the first to give way when both don't fit (a shrink weight
+     far above the queue's), and scrolls inside itself; its newest lines are at the top.
+   Nothing is out of reach: each part scrolls on its own, and the column never runs off the screen.
+   The queue's column also stops at 440px wide, so on a wider screen the cards get the rest (four to a
+   row at 1280px). Up to about 1040px it's the 1.25 : 1 split as before: a 1024px tablet keeps its
+   435px queue, as a narrower one wraps its rows and grows taller, which the journal under it can't spare. */
+@media (min-width: 1000px) {
+  .plan.sideq { grid-template-columns: minmax(0, 1fr) min(440px, calc((100% - 14px) / 2.25)); }
+  .planstick {
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--stick-top));
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .planstick > .planq {
+    position: static; flex: 0 1 auto; min-height: 0;
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px - 160px);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--stick-top) - var(--fb-sheet, 0px) - 8px - 160px);
+  }
+  .planstick > .planlog { flex: 0 1000 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .planlog > .log { margin-top: 0; border-top: 0; padding-top: 0; }
+  .planlog > .log ul { max-height: none; overflow: visible; }
+}
 .qsbar { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; text-align: left; cursor: pointer;
   border: 1px solid var(--border2); border-radius: 9px; background: var(--sub2); color: var(--ink); padding: 5px 8px; font-family: inherit; min-height: 44px; }
 .qsbar:hover, .qsbar:focus-visible { border-color: var(--teal); }
