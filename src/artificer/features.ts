@@ -383,6 +383,15 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Once camp\'s shelter has walls (timber or stone-banked), raw meat kept loose in it is safe from foxes, ravens, wolves and bears, day and night, whether you are there or not. A roof alone doesn\'t count. Only mice get in: wild mice are shy of people, so none come for the first four days at a site; then, more often the longer camp stands there, they nibble 5–10% of the loose meat on some nights. Moving camp starts the count again. Hung meat and smoked or dried rations are safe from them; the lidded cold pit mostly.',
   },
   {
+    // A rules feature, step 6 of the hex world (#1873, plan: docs/spikes/artificer-hex-world.md §4):
+    // it changes where the sim's walking window sits (world/hex-window.ts `landOfRun`: a 72×56
+    // window of world cells instead of the 48×32 Reach), so a run from before it (absent: false)
+    // keeps the Reach as its land on replay. Off by default while it's being built: nothing reads
+    // the window yet (#1901 wires it into play).
+    id: 'hex-world', name: 'The world beyond the Reach', stage: 'experimental', kind: 'rules', default: false, absent: false, issue: 1899,
+    note: 'The land goes on past the Reach: a day out can take you into the next hex, a day\'s walk across.',
+  },
+  {
     // A ui feature, and temporary (#1736): it only shows a control on the page, so it switches live
     // and no run saves it. Remove it (and the switcher in main.ts / looks.ts) once #1723 picks the
     // look from the game.
