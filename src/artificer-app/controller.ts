@@ -26,6 +26,10 @@ import { FORECASTS } from '../artificer/forecasts';
 import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
 import { validAfield, validSeenOut, DIRECTED_EXPLORE } from '../artificer/directed-explore';
+import { HEX_WORLD } from '../artificer/world/hex-window';
+import { validSeenWorld, validHeardHexes, validAfieldWorld } from '../artificer/world/hex-knowledge';
+import { REACH_W, REACH_H } from '../artificer/world/reach';
+import { WORLDGEN_VERSION } from '../../worldmap/version';
 import { validTrail, WALK_THE_MAP } from '../artificer/walk-the-map';
 import { validNeedleCompass, COMPASS_HEADING } from '../artificer/compass-heading';
 import { CAMP_SCAVENGERS, COLD_PIT_LID } from '../artificer/camp-scavengers';
@@ -683,12 +687,25 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // Walking the map (#1876) puts the Warden out there too (a stop on the path), and sees the squares walked.
   const walking = featureOn(config.world.features, WALK_THE_MAP);
   const directed = featureOn(config.world.features, DIRECTED_EXPLORE) || walking;
-  const afield = directed && validAfield(sim.afield) ? { x: sim.afield.x, y: sim.afield.y } : undefined;
+  // The world beyond the Reach (#1900, hex world step 7): with `hex-world` on, `afield` may lie
+  // outside the Reach rectangle, and `seenWorld`/`worldGen` name what's been seen there. A
+  // `worldGen` that doesn't match today's generator means the land outside the Reach changed shape
+  // under the save, so `seenWorld` is dropped, and so is an `afield` the mismatch leaves stranded
+  // outside the Reach — one inside it is still good, since the Reach itself never moves.
+  const hexWorld = featureOn(config.world.features, HEX_WORLD);
+  const worldGenMatches = sim.worldGen === WORLDGEN_VERSION;
+  const inReach = (a: { x: number; y: number }) => a.x >= 0 && a.x < REACH_W && a.y >= 0 && a.y < REACH_H;
+  const afield = hexWorld
+    ? directed && validAfieldWorld(sim.afield) && (inReach(sim.afield) || worldGenMatches) ? { x: sim.afield.x, y: sim.afield.y } : undefined
+    : directed && validAfield(sim.afield) ? { x: sim.afield.x, y: sim.afield.y } : undefined;
   const seenOut = directed && validSeenOut(sim.seenOut) && sim.seenOut.length ? [...sim.seenOut] : undefined;
+  const seenWorld = hexWorld && validSeenWorld(sim.seenWorld) && worldGenMatches && sim.seenWorld.length ? [...sim.seenWorld] : undefined;
+  const worldGen = seenWorld ? WORLDGEN_VERSION : undefined;
+  const heardHexes = hexWorld && validHeardHexes(sim.heardHexes) && sim.heardHexes.length ? [...new Set(sim.heardHexes)].sort() : undefined;
   // The last few days' paths (#1876): kept if well-formed and the switch is on, else dropped — dropped, none kept yet.
   const trail = walking && validTrail(sim.trail) && sim.trail.length ? sim.trail.map(d => ({ day: d.day, path: [...d.path] })) : undefined;
   // The needle compass (#1868): kept if well-formed and the switch is on, else dropped — dropped, none was made.
   const needleCompass = featureOn(config.world.features, COMPASS_HEADING) && validNeedleCompass(sim.needleCompass)
     ? { made: sim.needleCompass.made, tool: sim.needleCompass.tool, ...(sim.needleCompass.trips ? { trips: sim.needleCompass.trips } : {}) } : undefined;
-  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, pitLid, meatPit, mapLearned, afield, seenOut, trail, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), patches, experiments, familiar, campSpot, siteBuilds, pitLid, meatPit, mapLearned, afield, seenOut, seenWorld, heardHexes, worldGen, trail, needleCompass, canPlan, eating, coldPitAt, pitRot, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast, ...(injuries.length ? { injuries } : { injuries: undefined }), kit: readKit(sim.kit, config.world.features), dressings: typeof sim.dressings === 'number' && sim.dressings > 0 ? sim.dressings : undefined }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

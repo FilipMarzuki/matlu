@@ -310,6 +310,26 @@ export interface Region1State {
    */
   seenOut?: number[];
   /**
+   * Seen cells outside the Reach (#1900, hex world step 7), as sorted, unique `packCell` values
+   * (worldmap/coords.ts): `seenOut` only ever holds Reach indices, so cells past its edge live here
+   * instead. Written only with the `hex-world` switch on. Absent: none seen outside the Reach.
+   */
+  seenWorld?: number[];
+  /**
+   * Hexes told of by people or seen on the skyline but not visited (#1900, hex world step 7), as
+   * sorted, unique `hexKey`s (worldmap/coords.ts). Nothing writes it yet: the format is fixed now,
+   * people telling of hexes comes later. Written only with the `hex-world` switch on. Absent: none
+   * heard of.
+   */
+  heardHexes?: string[];
+  /**
+   * The `worldmap/` generator version (worldmap/version.ts) `seenWorld` was gathered under (#1900,
+   * hex world step 7). A version mismatch on load means the land outside the Reach changed shape
+   * under the save, so `seenWorld` (and an `afield` outside the Reach) is dropped. Written only with
+   * the `hex-world` switch on, alongside `seenWorld`. Absent: no cells seen outside the Reach yet.
+   */
+  worldGen?: number;
+  /**
    * The last few days' walking (#1876, `walk-the-map`): each day's squares stepped on, in order, for
    * a live map later (walk-the-map.ts). Written only with the switch on. Absent: none kept.
    */

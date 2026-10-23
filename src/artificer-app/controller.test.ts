@@ -5,11 +5,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { supplied, SHORT_YEAR } from '../artificer/test-helpers';
-import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
+import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, makeWarden, SAVE_VERSION, type AppState } from './controller';
 import { scouted } from '../artificer/exploration';
-import { createRegion1 } from '../artificer/region1';
+import { createRegion1, type Region1State } from '../artificer/region1';
 import { bestPerItem } from '../artificer/crafting';
 import { FLAT_WORLD } from '../artificer/world';
+import { HEX_WORLD } from '../artificer/world/hex-window';
+import { packCell } from '../../worldmap/coords';
+import { WORLDGEN_VERSION } from '../../worldmap/version';
 
 /** A new game in the flat world: a fresh game's random character id would otherwise roll random weather (fog blinds a scout, #1284). */
 const flatGame = (): AppState => ({ ...newGame(), sim: createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }, undefined, { id: 'w-controller' }) });
@@ -155,4 +158,78 @@ describe('Artificer controller', () => {
     expect(deserializeHistory('{oops')).toEqual([]);
     expect(deserializeHistory(JSON.stringify({ version: 1, runs: [{ run: 'x' }] }))).toEqual([]);
   });
+});
+
+/** A fresh hex-world (#1900) game, with the switch forced on or off. */
+const hexGame = (on: boolean): AppState => makeWarden({ id: on ? 'w-hexsave' : 'w-hexoff' }, undefined, { [HEX_WORLD]: on });
+const rawSave = (sim: Region1State, queue: AppState['queue'] = []): string => JSON.stringify({ version: SAVE_VERSION, sim, queue });
+
+describe('hex-world saves: seenWorld, heardHexes and worldGen (#1900)', () => {
+  // 2. Given that state (seenOut/seenWorld/worldGen from noteSeenCells), plus afield and heardHexes,
+  // serialize → deserialize brings them back equal, with heardHexes sorted.
+  it('round-trips seenWorld, heardHexes, worldGen and a world afield, sorting heardHexes', () => {
+    const a = hexGame(true);
+    const sim: Region1State = {
+      ...a.sim,
+      afield: { x: -5, y: 3 },
+      seenWorld: [packCell({ cx: -2, cy: 5 }), packCell({ cx: 50, cy: 40 })],
+      heardHexes: ['0,2', '-1,3'],
+      worldGen: WORLDGEN_VERSION,
+    };
+    const back = deserialize(rawSave(sim, a.queue))!;
+    expect(back.sim.seenWorld).toEqual(sim.seenWorld);
+    expect(back.sim.worldGen).toBe(WORLDGEN_VERSION);
+    expect(back.sim.afield).toEqual(sim.afield);
+    expect(back.sim.heardHexes).toEqual(['-1,3', '0,2']);
+  });
+
+  // 3. Malformed values drop just that field; the rest of the save still loads.
+  it('drops malformed seenWorld, heardHexes and afield values, keeping the rest of the save', () => {
+    const a = hexGame(true);
+    const bad = (sim: Partial<Region1State>): AppState => deserialize(rawSave({ ...a.sim, ...sim } as Region1State, a.queue))!;
+
+    const badSeenWorld = bad({ seenWorld: [1.5] });
+    expect(badSeenWorld.sim.seenWorld).toBeUndefined();
+    expect(badSeenWorld).not.toBeNull();
+
+    const notArray = bad({ seenWorld: 'x' as unknown as number[] });
+    expect(notArray.sim.seenWorld).toBeUndefined();
+
+    const badHeard = bad({ heardHexes: ['north'] });
+    expect(badHeard.sim.heardHexes).toBeUndefined();
+
+    const fracAfield = bad({ afield: { x: -5.5, y: 0 } });
+    expect(fracAfield.sim.afield).toBeUndefined();
+
+    const farAfield = bad({ afield: { x: 500, y: 0 } });
+    expect(farAfield.sim.afield).toBeUndefined();
+  });
+
+  // 4. A worldGen mismatch drops seenWorld/worldGen, and an afield the mismatch strands outside the
+  // Reach — but an afield inside the Reach rectangle is unaffected, since the Reach never moves.
+  it('drops seenWorld, worldGen and an out-of-Reach afield on a worldGen mismatch, keeping one inside the Reach', () => {
+    const a = hexGame(true);
+    const stranded = deserialize(rawSave({ ...a.sim, worldGen: 0, seenWorld: [packCell({ cx: -2, cy: 5 })], afield: { x: -5, y: 3 } } as Region1State, a.queue))!;
+    expect(stranded.sim.seenWorld).toBeUndefined();
+    expect(stranded.sim.worldGen).toBeUndefined();
+    expect(stranded.sim.afield).toBeUndefined();
+
+    const athome = deserialize(rawSave({ ...a.sim, worldGen: 0, seenWorld: [packCell({ cx: -2, cy: 5 })], afield: { x: 10, y: 10 } } as Region1State, a.queue))!;
+    expect(athome.sim.afield).toEqual({ x: 10, y: 10 });
+  });
+
+  // 5. With hex-world off, noteSeenCells is covered in hex-knowledge.test.ts; here, a save holding
+  // all three fields loads with none of them, and afield is dropped as it is today.
+  it('drops seenWorld, heardHexes, worldGen and afield with hex-world off', () => {
+    const a = hexGame(false);
+    const sim: Region1State = { ...a.sim, afield: { x: -5, y: 3 }, seenWorld: [packCell({ cx: -2, cy: 5 })], heardHexes: ['0,2'], worldGen: WORLDGEN_VERSION };
+    const back = deserialize(rawSave(sim, a.queue))!;
+    expect(back.sim.seenWorld).toBeUndefined();
+    expect(back.sim.heardHexes).toBeUndefined();
+    expect(back.sim.worldGen).toBeUndefined();
+    expect(back.sim.afield).toBeUndefined();
+  });
+
+  // 6. An existing save (this file's own round-trip fixture, with no hex-world fields at all)
+  // deep-equals today's load: see "round-trips a save and rejects corrupt or wrong-version data" above.
 });
