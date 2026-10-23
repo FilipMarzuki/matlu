@@ -158,7 +158,7 @@ const walks = new Map<string, number[]>();
 /** Hours on foot from this square of the Reach to every cell: its own `hours` from the camp square, else a kept walk. */
 export function walkFrom(r: Reach, x: number, y: number): number[] {
   if (x === r.camp.x && y === r.camp.y) return r.hours;
-  const key = `${r.seed}|${x},${y}`;
+  const key = `${r.seed}|${r.w}x${r.h}|${x},${y}`;
   let w = walks.get(key);
   if (!w) {
     w = walkingHours(r.cells, r.w, r.h, { x, y });
