@@ -38,6 +38,11 @@
  * the AI runner, which have no worker, tell it on first need (`tellHistoriesWith(runHistory)`) and
  * keep it per seed. This file never imports the engine, so the page's bundle stays small.
  *
+ * **Per seed and setting (#1905).** With `hex-world` on, the road villages sit out on the hex map,
+ * and the history is told over provinces with none of them in the Reach (world/provinces.ts
+ * `roadAnchors`). A Warden's seed is the same whichever way their run is played, so a history is
+ * kept, asked for and told by its seed and that setting together, never by the seed alone.
+ *
  * **Told better (#1658), with the `history-retold` switch on too** (off, as #1656 left it):
  * - **An eyewitness says so.** A teller whose own People and culture still have someone who saw it
  *   (its `heldBy` group retold it 0 times, world/old-history.ts) says "I saw it myself" in the
@@ -65,7 +70,9 @@ import { KIND_TOPICS, PAST, eventNoun, memorabilityOf, pastSlug } from './past-t
 import { seedOf } from './rng';
 import { topicDef } from './topics';
 import { TRAVELLERS, VILLAGES, asPlayed } from './villages';
-import type { ReachHistory } from './world/history-format';
+import { roadAnchorsOfHistory, type ReachHistory } from './world/history-format';
+import { roadAnchorsOf } from './world/hex-window';
+import { worldKey, type RoadAnchors, type WorldOpts } from './world/provinces';
 import { regionHolders, villageHolders } from './world/old-history';
 import { factsOfRegion } from './world/regional-facts';
 import { NORTH_ROAD } from './world/regions';
@@ -76,13 +83,21 @@ import { runRumourFacts } from './run-rumours';
 
 /** How many seeds' histories are kept: one run is played at a time, a handful on a server. */
 const KEPT = 4;
-const histories = new Map<number, ReachHistory>(); // insertion order = least recently used first
-let teller: ((seed: number) => ReachHistory) | null = null;
+// By `worldKey(seed, roadAnchors)`; insertion order = least recently used first.
+const histories = new Map<string, ReachHistory>();
 
-/** Keep `h` as its seed's history, the most recently used: the page's worker hands it in here. */
+/**
+ * How a history is told when none was handed in: the engine's `runHistory` (world/history.ts),
+ * whose shape this is, so the server and the AI runner pass it as it is.
+ */
+export type HistoryTeller = (seed: number, years?: number, opts?: WorldOpts) => ReachHistory;
+let teller: HistoryTeller | null = null;
+
+/** Keep `h` as its seed's history told its way (`roadAnchors`), the most recently used: the page's worker hands it in here. */
 export function keepHistory(h: ReachHistory): void {
-  histories.delete(h.seed);
-  histories.set(h.seed, h);
+  const key = worldKey(h.seed, roadAnchorsOfHistory(h));
+  histories.delete(key);
+  histories.set(key, h);
   while (histories.size > KEPT) histories.delete(histories.keys().next().value!);
 }
 
@@ -90,13 +105,19 @@ export function keepHistory(h: ReachHistory): void {
  * How to tell a seed's history when none was handed in: the server and the AI runner pass the
  * engine's `runHistory` (world/history.ts). Not set, a run with no history kept plays without it.
  */
-export function tellHistoriesWith(tell: ((seed: number) => ReachHistory) | null): void {
+export function tellHistoriesWith(tell: HistoryTeller | null): void {
   teller = tell;
 }
 
-/** A seed's history: kept, or told now if a teller is set; null if neither. */
-export function historyFor(seed: number): ReachHistory | null {
-  const h = histories.get(seed) ?? teller?.(seed) ?? null;
+/**
+ * A seed's history told with the villages seated `roadAnchors` (the run's, `roadAnchorsOf`):
+ * kept, or told now if a teller is set; null if neither. The other setting's history of the same
+ * seed is never handed out for it: its provinces aren't this run's.
+ */
+export function historyFor(seed: number, roadAnchors: RoadAnchors = 'reach'): ReachHistory | null {
+  // No years given: the teller's own default (HISTORY_YEARS), which this file can't import
+  // without bringing the engine into the page's bundle.
+  const h = histories.get(worldKey(seed, roadAnchors)) ?? teller?.(seed, undefined, { roadAnchors }) ?? null;
   if (h) keepHistory(h);
   return h;
 }
@@ -334,7 +355,7 @@ export function playFacts(run: RunOf): readonly Fact[] {
   const key = `${seed}|${JSON.stringify(featuresOf(run.features))}`;
   let facts = SETS.get(key);
   if (facts) { SETS.delete(key); SETS.set(key, facts); return facts; }
-  const h = historyFor(seed);
+  const h = historyFor(seed, roadAnchorsOf(run.features));
   if (!h) return base;
   // With `run-rumours` on (#1662), the run's own rumours after its history: made from that history
   // and the road's people, so they come with it, and heard in passing, so they add answers only.
