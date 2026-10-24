@@ -27,20 +27,36 @@ export const RIVER_MAX = 60;
 /**
  * `traceRiver`'s pull south, half of `generateReach`'s 0.04: the Reach's land slopes about 0.032 a
  * cell, the world's only about 0.016, so the same pull would win out here and send most steps
- * south in near-straight lines. At 0.02 the world's rivers wind the way the Reach's do (#1963).
+ * south in near-straight lines (#1963).
+ *
+ * What 0.02 does, over seeds hw0…hw149: near the start (springs in hexes within 3 of it) 35% of
+ * steps go south, against 62% at 0.04, and the rivers there wind. Further out (hexes 4 to 8) 60%
+ * still do, against 87%: those rivers lean south less than they did, but they still lean south.
  */
 export const WORLD_SOUTH_PULL = 0.02;
+
+/**
+ * The Reach's own pull south: `generateReach`'s 0.04. reach.ts writes it inline and stays pinned
+ * unchanged (every Reach and Artificer replay hangs on it), so it's repeated here rather than
+ * exported from there. `tiles.test.ts` checks it on a Reach river mouth where 0.02 would pick the
+ * other lake.
+ */
+const REACH_SOUTH_PULL = 0.04;
 
 /**
  * How many hexes away a river's spring may be and still reach a hex. The plan's 3 was too few: the
  * nearest cells of two hexes 4 apart (due north) are 48 steps apart, under `RIVER_MAX`, so a spring
  * 4 hexes off can reach H. Due north or south, hexes 5 apart are 64 steps apart, out of reach.
  *
- * East or west it's closer: hexes 5 apart there (e.g. (0,0) and (5,-3)) are 55 steps apart, so a
- * river that ran 55 cells sideways could reach a hex 5 off and be missed. Rivers here don't: the
- * pull south (see `traceRiver`) keeps them heading downhill to the south, and none of 13,567 traces
- * (150 seeds, springs in hexes within 8 of the start) moved more than 29 cells east or west.
- * `rivers.test.ts` scenario 3 pins the radius on 20 seeds.
+ * East or west it's closer: hexes 5 apart there (e.g. (0,0) and (5,-3)) are 55 steps apart, at
+ * least 50 of them east or west, so a river that spent 50 of its 59 steps going one way sideways
+ * could reach a hex 5 off and be missed. Rivers here don't come close, though the gentler world
+ * pull (`WORLD_SOUTH_PULL`, #1963) lets them wander east and west further than 0.04 did: a river
+ * that winds spends its steps going south, north and back as well, not 50 the same way. None of
+ * 13,524 traces (seeds hw0…hw149, springs in hexes within 8 of the start) moved more than 37 cells
+ * east or west (27 at 0.04), 13 short of 50, and none reached a hex more than 4 from its spring's.
+ * `rivers.test.ts` scenario 3 pins the radius on 20 seeds. If the pull or `RIVER_MAX` changes,
+ * measure this again.
  */
 export const RIVER_RADIUS = 4;
 
@@ -113,9 +129,28 @@ export function edgeSprings(seed: number): CellXY[] {
 const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /**
+ * How a river on `from` scores the step to its 4-neighbour `to`: `to`'s height less the pull
+ * south (`height − pull · dy`). A river steps to the lowest score, so on flat ground the pull
+ * keeps it moving south instead of stopping in a small dip.
+ *
+ * The pull is that of the river `from` lies on. A cell inside the Reach is only ever on one of the
+ * Reach's own rivers (a trace never steps into it), so it scores by `generateReach`'s 0.04; any
+ * other cell is on a trace and scores by `WORLD_SOUTH_PULL`. The cell stepped *to* doesn't choose:
+ * a trace beside the Reach still scores a Reach cell with the world's pull.
+ *
+ * One rule in one place: `traceRiver` steps by it, and tiles.ts picks the lake a river runs into by
+ * it, so the two can't drift apart (#1963: tiles.ts had kept its own copy of 0.04).
+ */
+export function riverStepScore(seed: number, from: CellXY, to: CellXY): number {
+  const pull = inReach(from) ? REACH_SOUTH_PULL : WORLD_SOUTH_PULL;
+  return worldCell(seed, to).height - pull * (to.cy - from.cy);
+}
+
+/**
  * A river's course from `start`, downhill over the world's height. Each step is `generateReach`'s
- * rule: the lowest 4-neighbour not yet on this course, scored by height with a pull south
- * (`- WORLD_SOUTH_PULL * dy`), so a river carves through small dips instead of stopping in them.
+ * rule with the world's pull (`riverStepScore`): the lowest 4-neighbour not yet on this course,
+ * scored by height less `WORLD_SOUTH_PULL · dy`, so a river carves through small dips instead of
+ * stopping in them.
  *
  * It stops, without taking the step, when the next cell is a lake (`lake`) or inside the Reach
  * (`reach`: the Reach draws its own rivers, so a world river never enters it). It stops when every
@@ -139,7 +174,7 @@ export function traceRiver(seed: number, start: CellXY): River {
     for (const [dx, dy] of STEPS) {
       const n = { cx: at.cx + dx, cy: at.cy + dy };
       if (course.has(packCell(n))) continue;
-      const score = worldCell(seed, n).height - WORLD_SOUTH_PULL * dy;
+      const score = riverStepScore(seed, at, n);
       if (score < nextScore) {
         next = n;
         nextScore = score;
