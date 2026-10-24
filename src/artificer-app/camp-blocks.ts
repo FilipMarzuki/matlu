@@ -274,15 +274,18 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   };
   return known.map(g => {
     const cards = g.ids.map(card).filter((c): c is PaletteCard => c !== null);
-    const head = `<div class="group"><h4>${esc(t(`group.${g.key}`))}</h4>`;
+    const title = `<h4>${esc(t(`group.${g.key}`))}</h4>`;
     // The switch off: every card, greyed ones too, as before.
-    if (!opts.fewer) return `${head}<div class="acts">${cards.map(c => c.html).join('')}</div></div>`;
+    if (!opts.fewer) return `<div class="group">${title}<div class="acts">${cards.map(c => c.html).join('')}</div></div>`;
     // Fewer cards (#1925, fewer-cards.ts): the cards you can do now (the guide's suggestion first),
-    // then one line that opens to the rest, each with the reason its card would have said.
+    // then one line that opens to the rest, each with the reason its card would have said. The fold's
+    // line sits at the end of the heading row (#1965), beside the group's name, not its own row under
+    // the cards; opening it lists the rest between the heading row and the cards.
     const split = splitCards(cards, opts.suggest ?? null);
     const drawn = split.shown.map(id => cards.find(c => c.id === id)?.html ?? '').join('');
     const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t);
-    return `${head}${drawn ? `<div class="acts">${drawn}</div>` : ''}${rest}</div>`;
+    const head = rest ? `<div class="ghead">${title}${rest}</div>` : title;
+    return `<div class="group">${head}${drawn ? `<div class="acts">${drawn}</div>` : ''}</div>`;
   }).join('');
 }
 

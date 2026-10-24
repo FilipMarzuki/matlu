@@ -133,6 +133,8 @@
   /* Action palette + queue */
   .group { margin-bottom: 10px; }
   .group h4 { font-family: var(--display); font-size: 8px; letter-spacing: 2px; color: var(--faint); margin: 0 0 6px; }
+  .ghead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
+  .ghead h4 { margin: 0; }
   .acts { display: flex; flex-wrap: wrap; gap: 6px; }
   .act { text-align: left; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); color: var(--ink); cursor: pointer; padding: 7px 9px; font-family: inherit; flex: 1 1 150px; min-width: 140px; }
   .act:hover:not(:disabled) { border-color: var(--teal); background: var(--sub2); }
@@ -1301,13 +1303,15 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .keyfold .legend { margin-top: 0; }
 /* Fewer cards (#1925, fewer-cards.ts, ui switch `fewer-cards`). The guide's suggestion comes first in
    its group, on a card the group's whole width with its name a size up (readable-type.css has its
-   bigger twin). Under a group, one fold.ts <details> holds what can't be done now: its line is at
-   least 44px tall so a thumb finds it (#1927's touch size), and it opens to each action with the
-   reason its greyed card gave. Off, none of these classes is drawn. */
+   bigger twin). One fold.ts <details> holds what can't be done now, at the end of the group's
+   heading row (#1965, .ghead): its line is at least 44px tall so a thumb finds it (#1927's touch
+   size), and it opens to each action with the reason its greyed card gave, between the heading row
+   and the cards. If the heading and the line don't both fit on one row, the line wraps under the
+   heading (.ghead's flex-wrap). Off, none of these classes is drawn. */
 .act.lifted { flex-basis: 100%; padding: 10px 12px; }
 .act.lifted .t { font-size: 10px; }
-.cantyet { margin-top: 2px; }
-.cantyet > summary { min-height: 44px; align-items: center; padding: 4px 2px; font-size: 13px; color: var(--dim); }
+.cantyet { flex: 1 1 auto; min-width: 0; margin-top: 0; border-top: none; }
+.cantyet > summary { min-height: 44px; align-items: center; justify-content: flex-end; padding: 4px 2px; font-size: 13px; color: var(--dim); }
 .cantyet > summary:hover { color: var(--ink); }
 .cantyet .cantlist { list-style: none; margin: 0; padding: 0 0 8px 18px; display: grid; gap: 6px; font-size: 12px; }
 .cantyet .cantlist li { display: flex; flex-wrap: wrap; gap: 2px 8px; }
