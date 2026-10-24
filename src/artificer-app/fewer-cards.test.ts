@@ -121,6 +121,20 @@ describe('the palette with fewer cards (#1925)', () => {
     expect(on.match(/<details/g)?.length).toBe(counts.length);
   });
 
+  it('Given a group with something folded, When the switch is on, Then its fold line sits in the heading row, before the cards (#1965)', () => {
+    const on = palette(day1, true);
+    expect(on).toMatch(/<div class="group"><div class="ghead"><h4>[^<]*<\/h4><details class="fold cantyet"[^>]*>.*?<\/details><\/div>(?:<div class="acts">|<\/div>)/);
+    expect(on).not.toMatch(/<\/div><details class="fold cantyet"/); // not its own row under the cards
+  });
+
+  it('Given a group with nothing folded, When the switch is on, Then its heading is a plain h4 with no empty ghead wrapper', () => {
+    // EXPLORE has nothing to fold on a fresh Warden's first morning: its own group div has no ghead.
+    const on = palette(day1, true);
+    const exploreGroup = on.match(/<div class="group"><h4>EXPLORE<\/h4>.*?<\/div><\/div>/)?.[0];
+    expect(exploreGroup).not.toContain('ghead');
+    expect(exploreGroup).not.toContain('cantyet');
+  });
+
   it('Given the guide suggests Explore, When the switch is on, Then Explore is the first card, glowing and wide', () => {
     const on = palette(day1, true, 'explore');
     expect(cardsIn(on)[0].id).toBe('explore');
