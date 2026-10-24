@@ -27,8 +27,7 @@ import { validExperiments } from '../artificer/experiment';
 import { validCampSpot } from '../artificer/camp-sites';
 import { validAfield, validSeenOut, DIRECTED_EXPLORE } from '../artificer/directed-explore';
 import { HEX_WORLD } from '../artificer/world/hex-window';
-import { validSeenWorld, validHeardHexes, validAfieldWorld } from '../artificer/world/hex-knowledge';
-import { REACH_W, REACH_H } from '../artificer/world/reach';
+import { readSeenWorld, readHeardHexes, validAfieldWorld, inReach } from '../artificer/world/hex-knowledge';
 import { WORLDGEN_VERSION } from '../../worldmap/version';
 import { validTrail, WALK_THE_MAP } from '../artificer/walk-the-map';
 import { validNeedleCompass, COMPASS_HEADING } from '../artificer/compass-heading';
@@ -694,14 +693,19 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // outside the Reach — one inside it is still good, since the Reach itself never moves.
   const hexWorld = featureOn(config.world.features, HEX_WORLD);
   const worldGenMatches = sim.worldGen === WORLDGEN_VERSION;
-  const inReach = (a: { x: number; y: number }) => a.x >= 0 && a.x < REACH_W && a.y >= 0 && a.y < REACH_H;
   const afield = hexWorld
-    ? directed && validAfieldWorld(sim.afield) && (inReach(sim.afield) || worldGenMatches) ? { x: sim.afield.x, y: sim.afield.y } : undefined
+    ? directed && validAfieldWorld(sim.afield) && (inReach(sim.afield.x, sim.afield.y) || worldGenMatches) ? { x: sim.afield.x, y: sim.afield.y } : undefined
     : directed && validAfield(sim.afield) ? { x: sim.afield.x, y: sim.afield.y } : undefined;
-  const seenOut = directed && validSeenOut(sim.seenOut) && sim.seenOut.length ? [...sim.seenOut] : undefined;
-  const seenWorld = hexWorld && validSeenWorld(sim.seenWorld) && worldGenMatches && sim.seenWorld.length ? [...sim.seenWorld] : undefined;
-  const worldGen = seenWorld ? WORLDGEN_VERSION : undefined;
-  const heardHexes = hexWorld && validHeardHexes(sim.heardHexes) && sim.heardHexes.length ? [...new Set(sim.heardHexes)].sort() : undefined;
+  // `noteSeenCells` (hex-knowledge.ts) puts Reach cells in `seenOut` with `hex-world` on alone, so
+  // `seenOut` is kept with that switch on too: else a reload would forget the Reach squares seen and
+  // keep the cells outside. With `hex-world` off it reads exactly as before.
+  const seenOut = (directed || hexWorld) && validSeenOut(sim.seenOut) && sim.seenOut.length ? [...sim.seenOut] : undefined;
+  // Read entry by entry, sorted and without repeats (hex-knowledge.ts): a stray entry costs only itself.
+  const seenWorld = hexWorld && worldGenMatches ? readSeenWorld(sim.seenWorld) : undefined;
+  // `worldGen` is kept whenever it matches, not only beside a surviving `seenWorld`: it vouches for an
+  // `afield` outside the Reach too, and without it that `afield` would be dropped on the next load.
+  const worldGen = hexWorld && worldGenMatches ? WORLDGEN_VERSION : undefined;
+  const heardHexes = hexWorld ? readHeardHexes(sim.heardHexes) : undefined;
   // The last few days' paths (#1876): kept if well-formed and the switch is on, else dropped — dropped, none kept yet.
   const trail = walking && validTrail(sim.trail) && sim.trail.length ? sim.trail.map(d => ({ day: d.day, path: [...d.path] })) : undefined;
   // The needle compass (#1868): kept if well-formed and the switch is on, else dropped — dropped, none was made.

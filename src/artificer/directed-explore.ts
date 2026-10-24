@@ -280,8 +280,8 @@ export function wayOptions(s: Run, opts: ActionOpts): OptionGroup[] {
 
 // ── Doing it ────────────────────────────────────────────────────────────────
 
-/** Merge squares into the seen set (sorted, no repeats). */
-const merged = (had: readonly number[] | undefined, more: readonly number[]): number[] => [...new Set([...(had ?? []), ...more])].sort((a, b) => a - b);
+/** Merge squares into the seen set (sorted, no repeats). Also hex-knowledge.ts's, for `seenWorld`. */
+export const merged = (had: readonly number[] | undefined, more: readonly number[]): number[] => [...new Set([...(had ?? []), ...more])].sort((a, b) => a - b);
 
 /** Set where the Warden stands: back at camp (or the start, before camp) is no longer afield. Mutates `s`. */
 function standAt(s: Region1State, at: At): void {

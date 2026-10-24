@@ -25,6 +25,20 @@ describe('noteSeenCells (#1900)', () => {
     expect(s.worldGen).toBe(WORLDGEN_VERSION);
   });
 
+  // Review fix: the writer keeps only what the loader accepts, so a cell past the #1899 window
+  // (x −12..59, y −12..43) is never written, and can't cost the save the rest of seenWorld.
+  it('with hex-world on, skips cells outside the #1899 window, which the save cannot hold', () => {
+    const s = runWith(true);
+    noteSeenCells(s, [{ cx: -13, cy: 0 }, { cx: 60, cy: 5 }, { cx: 0, cy: 44 }, { cx: -2, cy: 5 }, { cx: 59, cy: -12 }]);
+    expect(s.seenWorld).toEqual([packCell({ cx: -2, cy: 5 }), packCell({ cx: 59, cy: -12 })].sort((a, b) => a - b));
+    expect(s.worldGen).toBe(WORLDGEN_VERSION);
+    // Nothing in the window at all: nothing written, and no worldGen stamped for it.
+    const t = runWith(true);
+    noteSeenCells(t, [{ cx: -13, cy: 0 }]);
+    expect(t.seenWorld).toBeUndefined();
+    expect(t.worldGen).toBeUndefined();
+  });
+
   it('with hex-world off, leaves the state unchanged', () => {
     const s = runWith(false);
     const before = { ...s };

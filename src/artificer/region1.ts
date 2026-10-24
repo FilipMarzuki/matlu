@@ -323,10 +323,13 @@ export interface Region1State {
    */
   heardHexes?: string[];
   /**
-   * The `worldmap/` generator version (worldmap/version.ts) `seenWorld` was gathered under (#1900,
-   * hex world step 7). A version mismatch on load means the land outside the Reach changed shape
-   * under the save, so `seenWorld` (and an `afield` outside the Reach) is dropped. Written only with
-   * the `hex-world` switch on, alongside `seenWorld`. Absent: no cells seen outside the Reach yet.
+   * The `worldmap/` generator version (worldmap/version.ts) `seenWorld` and an `afield` outside the
+   * Reach were gathered under (#1900, hex world step 7). A version mismatch on load means the land
+   * outside the Reach changed shape under the save, so `seenWorld` (and an `afield` outside the
+   * Reach) is dropped; a match is kept on its own, with or without `seenWorld`. Written only with
+   * the `hex-world` switch on, by `noteSeenCells` (world/hex-knowledge.ts); whatever puts the Warden
+   * outside the Reach must stamp it too, or that `afield` is dropped on load. Absent: nothing known
+   * outside the Reach yet.
    */
   worldGen?: number;
   /**

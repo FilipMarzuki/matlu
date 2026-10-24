@@ -11,6 +11,9 @@ import { createRegion1, type Region1State } from '../artificer/region1';
 import { bestPerItem } from '../artificer/crafting';
 import { FLAT_WORLD } from '../artificer/world';
 import { HEX_WORLD } from '../artificer/world/hex-window';
+import { noteSeenCells } from '../artificer/world/hex-knowledge';
+import { DIRECTED_EXPLORE } from '../artificer/directed-explore';
+import { WALK_THE_MAP } from '../artificer/walk-the-map';
 import { packCell } from '../../worldmap/coords';
 import { WORLDGEN_VERSION } from '../../worldmap/version';
 
@@ -232,4 +235,79 @@ describe('hex-world saves: seenWorld, heardHexes and worldGen (#1900)', () => {
 
   // 6. An existing save (this file's own round-trip fixture, with no hex-world fields at all)
   // deep-equals today's load: see "round-trips a save and rejects corrupt or wrong-version data" above.
+  // That fixture is a flat world with no switches, so here is one with directed-explore and
+  // walk-the-map's fields too (afield, seenOut, trail), with hex-world (#1899) off and on.
+  it('loads a save from before #1900 exactly as saved, with hex-world off or on', () => {
+    for (const on of [false, true]) {
+      const a = hexGame(on);
+      const old: AppState = { ...a, sim: { ...a.sim, afield: { x: 10, y: 10 }, seenOut: [5, 100], trail: [{ day: 1, path: [1, 2] }] } };
+      expect(deserialize(serialize(old))).toEqual(old);
+    }
+  });
+});
+
+describe('hex-world saves: what the writer writes, the loader keeps (#1900 review)', () => {
+  const reload = (a: AppState): AppState => deserialize(serialize(a))!;
+
+  // A stray seenWorld entry (past the window, not a cell at all) costs only itself, and a cell past
+  // the window is never written by noteSeenCells, so everything it did write loads back.
+  it('loads back all noteSeenCells wrote, and keeps the rest of seenWorld past a stray entry', () => {
+    const a = hexGame(true);
+    noteSeenCells(a.sim, [{ cx: -2, cy: 5 }, { cx: 50, cy: 40 }, { cx: -13, cy: 0 }]);
+    const back = reload(a);
+    expect(back.sim.seenWorld).toEqual([packCell({ cx: -2, cy: 5 }), packCell({ cx: 50, cy: 40 })]);
+    expect(back.sim.worldGen).toBe(WORLDGEN_VERSION);
+
+    const strays = [packCell({ cx: -2, cy: 5 }), packCell({ cx: 100, cy: 0 }), 1.5, 'x', -1, null];
+    const stray = deserialize(rawSave({ ...a.sim, seenWorld: strays as number[], worldGen: WORLDGEN_VERSION }, a.queue))!;
+    expect(stray.sim.seenWorld).toEqual([packCell({ cx: -2, cy: 5 })]);
+  });
+
+  // A worldGen that matches is kept on its own, not only beside a surviving seenWorld: else a Warden
+  // outside the Reach keeps their afield on the first load, loses worldGen, and is sent back to camp
+  // on the next one.
+  it('keeps an out-of-Reach afield and worldGen through two reloads, with or without seenWorld', () => {
+    const a = hexGame(true);
+    for (const seenWorld of [[1.5], undefined]) {
+      const once = deserialize(rawSave({ ...a.sim, worldGen: WORLDGEN_VERSION, seenWorld, afield: { x: -5, y: 3 } } as Region1State, a.queue))!;
+      expect(once.sim.afield).toEqual({ x: -5, y: 3 });
+      const twice = reload(once);
+      expect(twice.sim.afield).toEqual({ x: -5, y: 3 });
+      expect(twice.sim.worldGen).toBe(WORLDGEN_VERSION);
+      expect(twice).toEqual(once);
+    }
+  });
+
+  // noteSeenCells puts Reach cells in seenOut with hex-world on alone, so the load keeps seenOut with
+  // hex-world on alone too: else a reload forgets the Reach sightings and remembers the outside ones.
+  it('keeps seenOut with hex-world on, even with directed-explore and walk-the-map off', () => {
+    const only = { [HEX_WORLD]: true, [DIRECTED_EXPLORE]: false, [WALK_THE_MAP]: false };
+    const a = makeWarden({ id: 'w-hexonly' }, undefined, only);
+    noteSeenCells(a.sim, [{ cx: 3, cy: 4 }, { cx: -2, cy: 5 }]);
+    const back = reload(a);
+    expect(back.sim.seenOut).toEqual([4 * 48 + 3]);
+    expect(back.sim.seenWorld).toEqual([packCell({ cx: -2, cy: 5 })]);
+    // With all three off, a stray seenOut is dropped, as before #1900.
+    const off = makeWarden({ id: 'w-hexonly' }, undefined, { ...only, [HEX_WORLD]: false });
+    expect(reload({ ...off, sim: { ...off.sim, seenOut: [3] } }).sim.seenOut).toBeUndefined();
+  });
+
+  // seenWorld's doc promises sorted, unique cells outside the Reach; the load makes it so, as it does heardHexes.
+  it('sorts and dedupes seenWorld on load, dropping Reach cells', () => {
+    const a = hexGame(true);
+    const mixed = [packCell({ cx: 50, cy: 40 }), packCell({ cx: -2, cy: 5 }), packCell({ cx: 50, cy: 40 }), packCell({ cx: 3, cy: 4 })];
+    const back = deserialize(rawSave({ ...a.sim, worldGen: WORLDGEN_VERSION, seenWorld: mixed }, a.queue))!;
+    expect(back.sim.seenWorld).toEqual([packCell({ cx: -2, cy: 5 }), packCell({ cx: 50, cy: 40 })]);
+    const reachOnly = deserialize(rawSave({ ...a.sim, worldGen: WORLDGEN_VERSION, seenWorld: [packCell({ cx: 3, cy: 4 })] }, a.queue))!;
+    expect(reachOnly.sim.seenWorld).toBeUndefined();
+  });
+
+  // heardHexes keys load as `hexKey` writes them, so '01,2' and '1,2' are one hex and a lookup by hexKey finds it.
+  it('canonicalises heardHexes keys on load, dropping ones that do not parse', () => {
+    const a = hexGame(true);
+    const back = deserialize(rawSave({ ...a.sim, heardHexes: ['01,2', '-0,3', '0,3', '1,2'] }, a.queue))!;
+    expect(back.sim.heardHexes).toEqual(['0,3', '1,2']);
+    const rough = deserialize(rawSave({ ...a.sim, heardHexes: ['-1,-0', 'north', '99999999999999999999,0', '2,1'] }, a.queue))!;
+    expect(rough.sim.heardHexes).toEqual(['-1,0', '2,1']);
+  });
 });
