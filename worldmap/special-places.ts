@@ -32,9 +32,10 @@ export interface SpecialPlace {
  * Start with Level1 only (levels 2–5 and Spinolandet are later issues, once Level1 looks right).
  *
  * Placed at the origin of Reach cell (20, 21): inside the start hex (`worldmap/coords.ts`
- * `HEX_ORIGIN` sits at cell (24.5, 19.5)), and away from the camp cell — `generateReach`'s
- * `campSite` draws from a window centred on cell (24, ~19.2), so (20, 21) sits a few cells off
- * that centre whichever way the per-seed jitter lands.
+ * `HEX_ORIGIN` sits at cell (24.5, 19.5)). Away from camp by construction, whichever cell camp
+ * lands in: `GameScene.createWorldMode` spawns at its cell's *centre* (tile offset 1024, 1024 of
+ * the cell's 2048 × 2048), while this rectangle sits in its cell's *origin corner* (tiles 0..140,
+ * 0..93) — about 900 tiles short of the centre on both axes even if camp's cell is (20, 21) itself.
  */
 export const SPECIAL_PLACES: readonly SpecialPlace[] = [
   { id: 'level1', at: { tx: 20 * 2048, ty: 21 * 2048 }, w: 141, h: 94, source: 'level1' },
