@@ -157,6 +157,23 @@ describe('worldmap/rivers: rivers across hexes (#1897)', () => {
       for (const c of outs) expect(['river', 'lake'], `seed ${seed}, (${c.cx}, ${c.cy})`).toContain(landAt(seed, c).biome);
   });
 
+  it("#1963: given 20 seeds, every step of every trace from springsOfHex (hexes within 3 of (0,0)) classified by direction goes south at most 50% of the time", () => {
+    let south = 0, steps = 0;
+    for (const seed of HW_SEEDS) {
+      for (const h of hexesWithin(3)) {
+        for (const spring of springsOfHex(seed, h)) {
+          const { cells } = traceRiver(seed, spring);
+          for (let i = 1; i < cells.length; i++) {
+            steps++;
+            if (cells[i].cy - cells[i - 1].cy === 1) south++;
+          }
+        }
+      }
+    }
+    expect(steps).toBeGreaterThan(0);
+    expect(south / steps).toBeLessThanOrEqual(0.5);
+  });
+
   it('scenario 6: given the same seed and hex, springsOfHex twice gives identical springs: 0–3 of them, all scree or fell, outside the Reach', () => {
     let some = 0;
     for (const seed of HW_SEEDS)
