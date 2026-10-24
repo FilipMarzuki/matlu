@@ -196,6 +196,22 @@ describe('worldmap/tiles: tile chunks for Core Warden (#1907)', () => {
     expect(picked, 'a river cell with 2+ river neighbours across the tried seeds').toBeDefined();
   }, 60_000);
 
+  it("a caller's write into a returned chunk doesn't reach the next call (the cache hands out copies)", () => {
+    const seed = seedOf('tiles-copy');
+    const cell: CellXY = { cx: 3, cy: 40 };
+    const chunk = { x: 2, y: 7 };
+    const first = tileChunk(seed, cell, chunk);
+    const biome = Array.from(first.biome), water = Array.from(first.water);
+    first.biome.fill(255);
+    first.water.fill(1);
+    const again = tileChunk(seed, cell, chunk); // a cache hit
+    expect(again.biome).not.toBe(first.biome);
+    expect(Array.from(again.biome)).toEqual(biome);
+    expect(Array.from(again.water)).toEqual(water);
+    again.biome[0] = 254; // and a write into a hit's copy doesn't reach the cache either
+    expect(tileChunk(seed, cell, chunk).biome[0]).toBe(biome[0]);
+  });
+
   // Scenario 5 (cw-biomes.ts pinned equal to src/world/biomes.ts) lives in cw-biomes.test.ts.
 
   it('scenario 6: tiles.ts imports nothing from src/', async () => {

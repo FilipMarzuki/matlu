@@ -209,7 +209,7 @@ export function tileChunk(seed: number, cell: CellXY, chunk: { x: number; y: num
   if (hit !== undefined) {
     chunkCache.delete(key);
     chunkCache.set(key, hit);
-    return hit;
+    return copyChunk(hit);
   }
 
   const land = cellLand(seed, cell);
@@ -252,5 +252,15 @@ export function tileChunk(seed: number, cell: CellXY, chunk: { x: number; y: num
   const oldest = chunkCache.keys().next();
   if (chunkCache.size >= CHUNK_CACHE_SIZE && !oldest.done) chunkCache.delete(oldest.value);
   chunkCache.set(key, result);
-  return result;
+  return copyChunk(result);
+}
+
+/**
+ * A caller gets its own copy, never the cached arrays: a caller that wrote into a returned chunk
+ * (`tc.water[0] = 1`) would otherwise change what every later call with the same key returns, and
+ * with it every replay's bytes. A typed array can't be frozen, so copying is the only guard; a
+ * chunk is 2 × 4 KB, so the copy costs next to nothing beside drawing one.
+ */
+function copyChunk(c: TileChunk): TileChunk {
+  return { biome: c.biome.slice(), water: c.water.slice() };
 }
