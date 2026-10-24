@@ -74,9 +74,11 @@ import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
-import { tileChunk, CHUNK as WORLD_CHUNK } from '../../worldmap/tiles';
-import { cellOrigin, CELL_TILES as WORLD_CELL_TILES } from '../../worldmap/coords';
+import { tileChunk, CHUNK as WORLD_CHUNK, REACH_TO_CW_BIOME } from '../../worldmap/tiles';
+import { cellOrigin, cellOfTile, tileInCell, hexOfCell, hexKey, CELL_TILES as WORLD_CELL_TILES } from '../../worldmap/coords';
 import { generateReach } from '../../worldmap/reach';
+import { outerProvinces, type OuterProvince } from '../../worldmap/provinces';
+import { settlementForProvince, settlementTileOrigin, MAPGEN_TILE, type ProvinceSettlement } from '../../worldmap/settlements';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
@@ -157,6 +159,31 @@ const WORLD_CHUNK_ISO_ORIGIN_X = WORLD_CHUNK * (ISO_TILE_W / 2);
 const WORLD_CHUNK_ISO_W = WORLD_CHUNK * ISO_TILE_W;
 const WORLD_CHUNK_ISO_H = WORLD_CHUNK * ISO_TILE_H + ISO_TILE_H;
 const WORLD_CHUNKS_PER_CELL = WORLD_CELL_TILES / WORLD_CHUNK;
+
+// ── World settlements (#1910, hex world step 17) ─────────────────────────────
+// Outer-province villages (worldmap/settlements.ts) are drawn from the Ikibeki
+// building-objects pack (public/assets/packs/building-objects/ikibeki/):
+// today's only pack with art for most of the building registry. None of the
+// four outer cultures (mountainhold, waterstead, fieldborn, ridgefolk) has its
+// own pack yet, so every building falls back to it — noted in the PR for a
+// separate art issue. "Unknown kinds fall back to the nearest existing
+// sprite" (the issue's words) means: the registry id if Ikibeki has it, else
+// a stand-in for its category.
+const IKIBEKI_BUILDING_IDS: ReadonlySet<string> = new Set([
+  'brewery', 'granary', 'barn', 'palisade-gate', 'barracks', 'armory', 'smokehouse', 'temple',
+  'root-cellar', 'campfire', 'well', 'cottage', 'longhouse', 'market-hall', 'inn', 'tavern',
+  'merchant-stall', 'warehouse', 'stables', 'smithy', 'sawmill', 'guard-post', 'watchtower',
+  'shrine', 'town-hall', 'farmstead',
+]);
+const BUILDING_CATEGORY_FALLBACK: Readonly<Record<string, string>> = {
+  civic: 'town-hall', military: 'barracks', religious: 'shrine', commerce: 'merchant-stall',
+  industry: 'smithy', residential: 'cottage', infrastructure: 'well', anomaly: 'shrine',
+};
+/** The Ikibeki sprite key (loaded in preload()) for a registry building id + category. */
+function worldBuildingSpriteKey(id: string, category: string): string {
+  const spriteId = IKIBEKI_BUILDING_IDS.has(id) ? id : BUILDING_CATEGORY_FALLBACK[category] ?? 'cottage';
+  return `iki-${spriteId}`;
+}
 
 // ── Dash mechanic (FIL-123) ───────────────────────────────────────────────────
 // Short burst of high speed with invincibility frames. Double-tap the joystick
@@ -724,6 +751,13 @@ export class GameScene extends Phaser.Scene {
   private worldWindowOriginGcy = 0;
   private worldWindowReady = false;
   private worldChunks = new Map<string, Phaser.GameObjects.RenderTexture>();
+  // Outer provinces keyed by their seat hex (#1910) — built once in createWorldMode(); a province
+  // only has a settlement to draw at its own seat, so this is the one lookup syncWorldSettlements()
+  // needs per chunk's hex.
+  private worldProvinceBySeatHex = new Map<string, OuterProvince>();
+  // Live building sprites per province id, with the world tile each is centred on (fixed — only
+  // its screen position moves when the window re-bases, like the hero).
+  private worldSettlementSprites = new Map<string, { img: Phaser.GameObjects.Image; worldTx: number; worldTy: number }[]>();
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
@@ -937,6 +971,14 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       'assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
+
+    // World settlement buildings (#1910) — Ikibeki pack, the fallback for every outer-province
+    // culture (see IKIBEKI_BUILDING_IDS). Loaded once regardless of mode, same as the rest of
+    // preload(); world mode is off by default so this costs nothing unreached.
+    {
+      const ikiBase = 'assets/packs/building-objects/ikibeki';
+      for (const id of IKIBEKI_BUILDING_IDS) this.load.image(`iki-${id}`, `${ikiBase}/${id}.png`);
+    }
 
     // SBS Isometric Pathways Pack — one spritesheet per road type.
     // Pre-converted from 128×64 magenta-keyed to 32×16 RGBA by convert-road-tiles.mjs.
@@ -9525,6 +9567,12 @@ export class GameScene extends Phaser.Scene {
     this.worldTileX = this.worldStartTile?.tx ?? campOrigin.tx + WORLD_CELL_TILES / 2;
     this.worldTileY = this.worldStartTile?.ty ?? campOrigin.ty + WORLD_CELL_TILES / 2;
 
+    // Outer provinces (#1904), keyed by their seat hex, for syncWorldSettlements() (#1910). One
+    // call for the whole known world — cheap next to a single settlement's own generation, and
+    // every chunk load would otherwise repeat it.
+    this.worldProvinceBySeatHex.clear();
+    for (const p of outerProvinces(this.runSeed)) this.worldProvinceBySeatHex.set(hexKey(p.seat), p);
+
     // Hero — the same Pixel Crawler Body_A animations as wilderview (already
     // loaded in preload() regardless of mode), minus the physics body.
     if (!this.anims.exists('pc-idle-down')) {
@@ -9660,6 +9708,8 @@ export class GameScene extends Phaser.Scene {
         this.worldChunks.delete(key);
       }
     }
+
+    this.syncWorldSettlements();
   }
 
   /**
@@ -9715,5 +9765,98 @@ export class GameScene extends Phaser.Scene {
     if (!rt) return;
     const { x, y } = this.worldLocalToIso(dx * WORLD_CHUNK, dy * WORLD_CHUNK);
     rt.setPosition(x, y).setDepth(dx + dy);
+  }
+
+  // ─── World settlements (#1910, hex world step 17) ────────────────────────────
+
+  /**
+   * Spawns, repositions and drops the one outer-province settlement (if any) whose hex the loaded
+   * window currently touches — a village (40–120 m, worldmap/settlements.ts) is tiny next to a hex
+   * (~30 km), so at most one is ever in view. Called from syncWorldWindow() only when the window
+   * actually moved, same as the chunks it draws over.
+   */
+  private syncWorldSettlements(): void {
+    const windowTx0 = this.worldWindowOriginGcx * WORLD_CHUNK;
+    const windowTy0 = this.worldWindowOriginGcy * WORLD_CHUNK;
+    const windowTx1 = windowTx0 + WORLD_WINDOW_SPAN_TILES;
+    const windowTy1 = windowTy0 + WORLD_WINDOW_SPAN_TILES;
+
+    const seatHexesInView = new Set<string>();
+    for (let dy = 0; dy < WORLD_WINDOW_SPAN_CHUNKS; dy++) {
+      for (let dx = 0; dx < WORLD_WINDOW_SPAN_CHUNKS; dx++) {
+        const gcx = this.worldWindowOriginGcx + dx;
+        const gcy = this.worldWindowOriginGcy + dy;
+        const cellCx = Math.floor(gcx / WORLD_CHUNKS_PER_CELL);
+        const cellCy = Math.floor(gcy / WORLD_CHUNKS_PER_CELL);
+        seatHexesInView.add(hexKey(hexOfCell({ cx: cellCx, cy: cellCy })));
+      }
+    }
+
+    const keep = new Set<string>();
+    for (const hexKeyInView of seatHexesInView) {
+      const province = this.worldProvinceBySeatHex.get(hexKeyInView);
+      if (!province) continue;
+      const settlement = settlementForProvince(this.runSeed, province);
+      const origin = settlementTileOrigin(province, settlement);
+      const span = settlement.gridSize * MAPGEN_TILE;
+      if (origin.tx + span <= windowTx0 || origin.tx >= windowTx1 || origin.ty + span <= windowTy0 || origin.ty >= windowTy1) continue;
+      keep.add(province.id);
+      if (!this.worldSettlementSprites.has(province.id)) {
+        this.worldSettlementSprites.set(province.id, this.spawnWorldSettlementSprites(settlement, origin));
+      }
+    }
+
+    for (const [id, sprites] of this.worldSettlementSprites) {
+      if (keep.has(id)) continue;
+      for (const s of sprites) s.img.destroy();
+      this.worldSettlementSprites.delete(id);
+    }
+
+    for (const sprites of this.worldSettlementSprites.values()) {
+      for (const s of sprites) {
+        const localTx = s.worldTx - windowTx0;
+        const localTy = s.worldTy - windowTy0;
+        const { x, y } = this.worldLocalToIso(localTx, localTy);
+        // A flat layer above every terrain chunk (whose own depth is dx + dy, at most 4), ordered
+        // among themselves by iso row — not full painter's-sort against the hero or each other's
+        // height, which world mode doesn't do for anything yet.
+        s.img.setPosition(x, y).setDepth(5 + (localTx + localTy) * 0.001);
+      }
+    }
+  }
+
+  /**
+   * One settlement's buildings as sprites, at their fixed world-tile centres (MAPGEN_TILE scale,
+   * window-local — syncWorldSettlements() re-projects them on every window shift, same as the
+   * hero). Skips a building whose centre tile is water or lake ("buildings sit on land", #1910):
+   * a village's footprint can reach past its seat cell into one the land score never saw.
+   */
+  private spawnWorldSettlementSprites(
+    settlement: ProvinceSettlement,
+    origin: { tx: number; ty: number },
+  ): { img: Phaser.GameObjects.Image; worldTx: number; worldTy: number }[] {
+    const out: { img: Phaser.GameObjects.Image; worldTx: number; worldTy: number }[] = [];
+    for (const b of settlement.buildings) {
+      const worldTx = origin.tx + b.tx * MAPGEN_TILE;
+      const worldTy = origin.ty + b.ty * MAPGEN_TILE;
+      if (this.isWorldTileWater(worldTx, worldTy)) continue;
+      const key = worldBuildingSpriteKey(b.building.id, b.building.category);
+      // Ikibeki's sprites are drawn at 32 px/iso-block, the same as MAPGEN_TILE (2 world tiles) ×
+      // ISO_TILE_W/2 (16 px/world tile) — native size needs no scaling.
+      const img = this.add.image(0, 0, key).setOrigin(0.5, 1);
+      out.push({ img, worldTx, worldTy });
+    }
+    return out;
+  }
+
+  /** Is the world tile (tx, ty) open water — a river or a lake (worldmap/tiles.ts's TileChunk)? */
+  private isWorldTileWater(tx: number, ty: number): boolean {
+    const cell = cellOfTile(tx, ty);
+    const { lx, ly } = tileInCell(tx, ty);
+    const chunkX = Math.floor(lx / WORLD_CHUNK);
+    const chunkY = Math.floor(ly / WORLD_CHUNK);
+    const chunk = tileChunk(this.runSeed, cell, { x: chunkX, y: chunkY });
+    const idx = (ly - chunkY * WORLD_CHUNK) * WORLD_CHUNK + (lx - chunkX * WORLD_CHUNK);
+    return chunk.water[idx] === 1 || chunk.biome[idx] === REACH_TO_CW_BIOME.lake;
   }
 }
