@@ -143,10 +143,13 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
   };
 }
 
+/** Where this run seats the three road villages (#1905): inside the Reach (today), or on the hex map. */
+export interface WorldOpts { roadAnchors?: 'reach' | 'hexes'; }
+
 /** The Reach, its provinces and the engine's world after HISTORY_YEARS: everything `runHistory` summarises. */
-export function simulateReach(seed: number, years = HISTORY_YEARS): { reach: Reach; provinces: Provinces; world: World } {
+export function simulateReach(seed: number, years = HISTORY_YEARS, opts: WorldOpts = {}): { reach: Reach; provinces: Provinces; world: World } {
   const reach = generateReach(seed);
-  const provinces = provincesOf(reach);
+  const provinces = provincesOf(reach, opts);
   // The engine gets its own seed, derived like the grid's streams, so it shares no stream with the sim.
   const world = loadWorld(reachSpec(reach, provinces), seedOf(`${seed}|world|history`));
   for (let y = 0; y < years; y++) tick(world);
@@ -157,8 +160,8 @@ export function simulateReach(seed: number, years = HISTORY_YEARS): { reach: Rea
 }
 
 /** Run the Reach's history for a seed and write it up as plain data. */
-export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
-  const { provinces, world } = simulateReach(seed, years);
+export function runHistory(seed: number, years = HISTORY_YEARS, opts: WorldOpts = {}): ReachHistory {
+  const { provinces, world } = simulateReach(seed, years, opts);
   const { chronicle } = sift(world, TELL_THRESHOLD);
   const arcs = extractArcs(world, chronicle);
   // The big regional events join the told chronicle here, at the telling layer: they're read from
@@ -173,6 +176,7 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
     version: HISTORY_VERSION,
     seed,
     year: world.year,
+    ...(opts.roadAnchors === 'hexes' ? { roadAnchors: 'hexes' as const } : {}),
     provinces: provinces.list.map(p => {
       const title = world.province(p.id)?.titleId ? world.title(world.province(p.id)!.titleId) : undefined;
       const holder = title?.holderId ? world.char(title.holderId) : undefined;
@@ -204,8 +208,8 @@ export function runHistory(seed: number, years = HISTORY_YEARS): ReachHistory {
  * (the page keeps it) passes it to `remembered` instead, and one that doesn't should keep the
  * history, or this result, per seed rather than call this on every request: both are plain data.
  */
-export function rememberedOf(seed: number): Remembered {
-  return remembered(runHistory(seed));
+export function rememberedOf(seed: number, opts: WorldOpts = {}): Remembered {
+  return remembered(runHistory(seed, HISTORY_YEARS, opts));
 }
 
 /**

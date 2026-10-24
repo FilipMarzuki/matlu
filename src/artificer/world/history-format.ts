@@ -143,6 +143,13 @@ export interface ReachHistory {
   /** The regions the provinces are grouped in (#1598). */
   regions: RegionHistory[];
   /**
+   * Set when this history was told with the three road villages seated on the hex map (#1905,
+   * `provincesOf`'s `roadAnchors` option) rather than inside the Reach. Absent means today's
+   * `'reach'` setting, so a kept history from before this option existed reads the same as one
+   * told with it off.
+   */
+  roadAnchors?: 'hexes';
+  /**
    * The organisations the engine founded (#1587). Absent in a history kept before them: read as
    * none. Telling them changes nothing else in the history (they're read after it's lived), so the
    * version stays: a kept history without them simply has none until it's told again.
@@ -155,12 +162,18 @@ export interface ReachHistory {
   told: number;
 }
 
-/** A kept history, if it's this seed's and from this version of the generator. */
-export function keptHistory(raw: string | null, seed: number): ReachHistory | null {
+/**
+ * A kept history, if it's this seed's, from this version of the generator, and told with the same
+ * `roadAnchors` setting the caller wants now (#1905): a history told with the villages on the hex
+ * map isn't a 'reach' run's, and a 'reach' history (or one kept from before this option existed,
+ * which carries no field) isn't a hex-world run's, so either mismatch is told again.
+ */
+export function keptHistory(raw: string | null, seed: number, roadAnchors?: 'hexes'): ReachHistory | null {
   if (!raw) return null;
   try {
     const h = JSON.parse(raw) as Partial<ReachHistory>;
-    return h.version === HISTORY_VERSION && h.seed === seed && Array.isArray(h.provinces) && Array.isArray(h.regions) && typeof h.chronicle === 'string' ? h as ReachHistory : null;
+    if (h.version !== HISTORY_VERSION || h.seed !== seed || !Array.isArray(h.provinces) || !Array.isArray(h.regions) || typeof h.chronicle !== 'string') return null;
+    return h.roadAnchors === roadAnchors ? h as ReachHistory : null;
   } catch {
     return null;
   }

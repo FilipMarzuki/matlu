@@ -8,8 +8,8 @@
  * imports, the engine included, into a separate script, so the page's own bundle stays small.
  */
 
-import { runHistory } from '../artificer/world/history';
+import { runHistory, HISTORY_YEARS, type WorldOpts } from '../artificer/world/history';
 
-self.onmessage = (e: MessageEvent<{ seed: number }>) => {
-  self.postMessage(runHistory(e.data.seed));
+self.onmessage = (e: MessageEvent<{ seed: number } & WorldOpts>) => {
+  self.postMessage(runHistory(e.data.seed, HISTORY_YEARS, { roadAnchors: e.data.roadAnchors }));
 };

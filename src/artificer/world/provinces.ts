@@ -82,8 +82,16 @@ const TERRAIN: Readonly<Partial<Record<Biome, Terrain>>> = {
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
-/** Split a Reach into provinces. Every cell, open water included, belongs to exactly one. */
-export function provincesOf(reach: Reach): Provinces {
+/**
+ * Split a Reach into provinces. Every cell, open water included, belongs to exactly one.
+ *
+ * With `roadAnchors: 'hexes'` (#1905), `placeAnchors` is skipped: the three road villages move out
+ * onto the hex map (`worldmap/road.ts`) instead, so no Reach province gets an anchor, a village
+ * name or a village culture. The provinces otherwise come out exactly as they do today (their
+ * names are drawn before `placeAnchors` runs, so that stream is untouched); default `'reach'` is
+ * today's behaviour.
+ */
+export function provincesOf(reach: Reach, opts: { roadAnchors?: 'reach' | 'hexes' } = {}): Provinces {
   const { w, h, cells } = reach;
   const rnd = generator(seedOf(`${reach.seed}|world|provinces`));
   const seats = pickSeats(reach, rnd);
@@ -148,7 +156,7 @@ export function provincesOf(reach: Reach): Provinces {
     for (const j of around(i, w, h)) if (at[j] !== at[i]) { touching[at[i]].add(at[j]); touching[at[j]].add(at[i]); }
   }
   list.forEach((p, k) => { p.neighbors = [...touching[k]].sort((a, b) => a - b).map(n => `p${n}`); });
-  placeAnchors(list, reach);
+  if (opts.roadAnchors !== 'hexes') placeAnchors(list, reach);
   return { list, at };
 }
 

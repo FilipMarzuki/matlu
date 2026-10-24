@@ -14,6 +14,7 @@ import { drawnSight, reachOfRun } from '../artificer/descriptive-map';
 import { hasKit } from '../artificer/kit';
 import { mapRows, sightFor, GLYPH, type Biome, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
+import { hexWorldOn } from '../artificer/world/hex-window';
 import type { Region1State } from '../artificer/region1';
 import type { T } from '../artificer/i18n';
 import { esc } from './html';
@@ -27,7 +28,10 @@ export interface MapUi { cell: { x: number; y: number } | null; provinceInfo?: (
 
 const SEAT_GLYPH = '#';
 
-const worldOf = (s: Region1State): MapWorld => { const reach = reachOfRun(s); return { reach, provinces: provincesOf(reach) }; };
+const worldOf = (s: Region1State): MapWorld => {
+  const reach = reachOfRun(s);
+  return { reach, provinces: provincesOf(reach, { roadAnchors: hexWorldOn(s) ? 'hexes' : 'reach' }) };
+};
 
 /** The map's key, in the viewer's language. */
 export const mapLegend = (t: T): string => `<div class="legend maplegend">${(['meadow', 'heath', 'birch', 'pine', 'marsh', 'river', 'lake', 'scree', 'fell', 'snow'] as Biome[])
