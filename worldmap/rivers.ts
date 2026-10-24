@@ -25,6 +25,13 @@ import { REACH_W, REACH_H, type Biome, type Cell } from './reach';
 export const RIVER_MAX = 60;
 
 /**
+ * `traceRiver`'s pull south, half of `generateReach`'s 0.04: the Reach's land slopes about 0.032 a
+ * cell, the world's only about 0.016, so the same pull would win out here and send most steps
+ * south in near-straight lines. At 0.02 the world's rivers wind the way the Reach's do (#1963).
+ */
+export const WORLD_SOUTH_PULL = 0.02;
+
+/**
  * How many hexes away a river's spring may be and still reach a hex. The plan's 3 was too few: the
  * nearest cells of two hexes 4 apart (due north) are 48 steps apart, under `RIVER_MAX`, so a spring
  * 4 hexes off can reach H. Due north or south, hexes 5 apart are 64 steps apart, out of reach.
@@ -108,9 +115,7 @@ const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 /**
  * A river's course from `start`, downhill over the world's height. Each step is `generateReach`'s
  * rule: the lowest 4-neighbour not yet on this course, scored by height with a pull south
- * (`- 0.04 * dy`), so a river carves through small dips instead of stopping in them. (The world's
- * slopes are gentler than the Reach's, about 0.016 a cell against 0.032, so out here the pull
- * weighs more: about two steps in three go south.)
+ * (`- WORLD_SOUTH_PULL * dy`), so a river carves through small dips instead of stopping in them.
  *
  * It stops, without taking the step, when the next cell is a lake (`lake`) or inside the Reach
  * (`reach`: the Reach draws its own rivers, so a world river never enters it). It stops when every
@@ -134,7 +139,7 @@ export function traceRiver(seed: number, start: CellXY): River {
     for (const [dx, dy] of STEPS) {
       const n = { cx: at.cx + dx, cy: at.cy + dy };
       if (course.has(packCell(n))) continue;
-      const score = worldCell(seed, n).height - 0.04 * dy;
+      const score = worldCell(seed, n).height - WORLD_SOUTH_PULL * dy;
       if (score < nextScore) {
         next = n;
         nextScore = score;
