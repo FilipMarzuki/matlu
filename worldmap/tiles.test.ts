@@ -10,15 +10,16 @@
  * is unbroken across its own chunks (4). Scenario 5 (the `cw-biomes.ts` pin) lives in
  * `cw-biomes.test.ts`, and scenario 6 (no `src/` imports) is read by eye below. The tests between
  * scenario 4 and 6 pin what review found: chunk range checks, fields read from the cells' own
- * height and moisture, a river cell's land, lakes as open water, rivers reaching their lakes, and
- * crossings exactly 3 tiles wide on both sides of every edge.
+ * height and moisture, a river cell's land, lakes as open water, rivers reaching their lakes (the
+ * lake their own river's step rule picks, #1963), and crossings exactly 3 tiles wide on both sides
+ * of every edge.
  *
  * (A test may import from src/: tests are not part of worldmap's build, see worldmap/tsconfig.json.)
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { tileChunk, riverLineTiles, cellMoist, CHUNK, REACH_TO_CW_BIOME, type TileChunk, type RiverCrossing } from './tiles';
-import { hexCells } from './rivers';
+import { hexCells, traceRiver, WORLD_SOUTH_PULL } from './rivers';
 import { worldCell } from './cells';
 import { hexOfCell, packCell, CELL_TILES, type CellXY } from './coords';
 import { seedOf } from './rng';
@@ -368,6 +369,71 @@ describe('worldmap/tiles: tile chunks for Core Warden (#1907)', () => {
       checked++;
     }
     expect(checked, 'a river mouth beside a lake, across the tried seeds').toBeGreaterThan(0);
+  }, 60_000);
+
+  it("#1963: a river's mouth runs into the lake its own river's step rule picks: the world's pull (WORLD_SOUTH_PULL) outside the Reach, the Reach's 0.04 inside it", () => {
+    // Two mouths, each with two lakes beside it that the two pulls rank differently, so tiles.ts
+    // can only pass both by scoring with the pull of the river it's drawing (found by searching
+    // the hw seeds):
+    // - hw9, (25, 32), just south of the Reach: the last cell of the trace from the edge spring at
+    //   (24, 32). North is a Reach lake at 0.124, east a world lake at 0.149: the world's 0.02
+    //   picks north (0.144 against 0.149), the Reach's 0.04 would pick east (0.164 against 0.149).
+    // - hw12, (21, 27), inside the Reach: a Reach river's last cell. West is a lake at 0.153, north
+    //   one at 0.120: generateReach's own 0.04 picks west (0.153 against 0.160), 0.02 would pick north.
+    const last = CELL_TILES - 1;
+    const DIRS4 = [['e', 1, 0], ['w', -1, 0], ['s', 0, 1], ['n', 0, -1]] as const; // traceRiver's step order
+    const REACH_PULL = 0.04; // generateReach's own, written inline in reach.ts
+    const cases = [
+      { name: 'hw9', mouth: { cx: 25, cy: 32 }, pull: WORLD_SOUTH_PULL, other: REACH_PULL },
+      { name: 'hw12', mouth: { cx: 21, cy: 27 }, pull: REACH_PULL, other: WORLD_SOUTH_PULL },
+    ];
+    for (const { name, mouth, pull, other } of cases) {
+      const seed = seedOf(name);
+      const at = `${name}, (${mouth.cx}, ${mouth.cy})`;
+      expect(cellLand(seed, mouth), at).toBe('river');
+      let rivers = 0;
+      const lakes: Array<{ dir: RiverCrossing['dir']; n: CellXY; dy: number }> = [];
+      for (const [dir, dx, dy] of DIRS4) {
+        const n = { cx: mouth.cx + dx, cy: mouth.cy + dy };
+        const land = cellLand(seed, n);
+        if (land === 'river') rivers++;
+        else if (land === 'lake') lakes.push({ dir, n, dy });
+      }
+      // A mouth (one river neighbour) with both lakes beside it.
+      expect(rivers, at).toBe(1);
+      expect(lakes.length, at).toBe(2);
+
+      // The lake a river with this pull would step into: the lowest by height − pull · dy, the
+      // first in step order on a tie.
+      const pick = (p: number) => {
+        let best = lakes[0], bestScore = Infinity;
+        for (const l of lakes) {
+          const score = worldCell(seed, l.n).height - p * l.dy;
+          if (score < bestScore) { best = l; bestScore = score; }
+        }
+        return best;
+      };
+      const want = pick(pull);
+      // Not vacuous: the other pull would have picked the other lake.
+      expect(pick(other).dir, `${at}: the other pull's lake`).not.toBe(want.dir);
+
+      // The water holds the crossing point on exactly the side of the lake picked. (The border line
+      // holds water only at a crossing, pinned by the "every crossing point" test, so one tile per
+      // side, read from its own chunk, tells which way the line runs.)
+      const reached = lakes.filter(({ dir, n }) => {
+        const e = edgePoint(seed, mouth, n);
+        const p = dir === 'n' ? { x: e, y: 0 } : dir === 's' ? { x: e, y: last } : dir === 'w' ? { x: 0, y: e } : { x: last, y: e };
+        const tc = tileChunk(seed, mouth, { x: Math.floor(p.x / CHUNK), y: Math.floor(p.y / CHUNK) });
+        return tc.water[(p.y % CHUNK) * CHUNK + (p.x % CHUNK)] === 1;
+      });
+      expect(reached.map(l => l.dir), `${at}: lake sides its water reaches`).toEqual([want.dir]);
+    }
+
+    // And hw9's mouth is a trace's last cell: the trace from the edge spring stops there, short
+    // of a lake (a trace never steps into one).
+    const trace = traceRiver(seedOf('hw9'), { cx: 24, cy: 32 });
+    expect(trace.end).toBe('lake');
+    expect(trace.cells[trace.cells.length - 1]).toEqual({ cx: 25, cy: 32 });
   }, 60_000);
 
   it('every crossing point, on every side: the border line holds water at exactly at − 1..at + 1, the other border lines none, and the line is unbroken', () => {
