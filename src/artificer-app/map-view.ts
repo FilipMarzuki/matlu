@@ -14,7 +14,7 @@ import { drawnSight, reachOfRun } from '../artificer/descriptive-map';
 import { hasKit } from '../artificer/kit';
 import { mapRows, sightFor, GLYPH, type Biome, type Reach } from '../artificer/world/reach';
 import { provincesOf, type Provinces } from '../artificer/world/provinces';
-import { hexWorldOn } from '../artificer/world/hex-window';
+import { roadAnchorsOf } from '../artificer/world/hex-window';
 import type { Region1State } from '../artificer/region1';
 import type { T } from '../artificer/i18n';
 import { esc } from './html';
@@ -30,7 +30,7 @@ const SEAT_GLYPH = '#';
 
 const worldOf = (s: Region1State): MapWorld => {
   const reach = reachOfRun(s);
-  return { reach, provinces: provincesOf(reach, { roadAnchors: hexWorldOn(s) ? 'hexes' : 'reach' }) };
+  return { reach, provinces: provincesOf(reach, { roadAnchors: roadAnchorsOf(s.config.world.features) }) };
 };
 
 /** The map's key, in the viewer's language. */

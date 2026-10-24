@@ -22,7 +22,7 @@ import type { RegionalEvent, WorldEvent } from '../../../storytelling/types';
 import type { CharacterSpec, DynastySpec, TitleSpec, WorldSpec } from '../../../storytelling/world-spec';
 import { generator, seedOf } from '../rng';
 import { generateReach, type Reach } from './reach';
-import { provincesOf, type Province, type Provinces } from './provinces';
+import { provincesOf, type Province, type Provinces, type WorldOpts } from './provinces';
 import { REACH_CULTURES, REACH_PEOPLES, TITLE_WORDS, cultureName, lawOf, racesOf, type ReachCulture } from './peoples';
 import { HISTORY_VERSION, LIVING_MEMORY, type HistoryOrg, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { remembered, type Remembered } from './remembered';
@@ -142,9 +142,6 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
     races: [...REACH_PEOPLES],
   };
 }
-
-/** Where this run seats the three road villages (#1905): inside the Reach (today), or on the hex map. */
-export interface WorldOpts { roadAnchors?: 'reach' | 'hexes'; }
 
 /** The Reach, its provinces and the engine's world after HISTORY_YEARS: everything `runHistory` summarises. */
 export function simulateReach(seed: number, years = HISTORY_YEARS, opts: WorldOpts = {}): { reach: Reach; provinces: Provinces; world: World } {

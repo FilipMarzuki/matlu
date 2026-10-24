@@ -32,11 +32,12 @@ import { GUIDE_FEATURE } from './survival-path';
 import { STANDING_FEATURE, standingLine, standingNote, standingRow } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
-import { provincesOf, type Provinces } from '../artificer/world/provinces';
-import { hexWorldOn } from '../artificer/world/hex-window';
-import { settlementOf, TIER_NAME, type Settlement } from '../artificer/world/settlements';
+import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
+import { roadAnchorsOf } from '../artificer/world/hex-window';
+import { TIER_NAME } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
-import { keptHistory, type ReachHistory } from '../artificer/world/history-format';
+import { keptHistory, roadAnchorsOfHistory, type ReachHistory } from '../artificer/world/history-format';
+import { provincesFor, settlementFor } from './run-world';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
 import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, carryLimit, packWorldOf, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
@@ -221,28 +222,25 @@ const reachFor = (characterId: string): Reach => {
 let mapCell: { x: number; y: number } | null = null;
 
 // ── The Reach's history (#1540) ──────────────────────────────────────────────
-// The provinces come straight from the map (quick), but their history takes the engine a second or
-// more, so a worker tells it in the background as soon as the run's seed is known, and the page
-// keeps the result: a reload reads it back instead of telling it again. Until it's ready, the MAP
-// and HISTORY tabs say it's still being told.
-let provincesCache: Provinces | null = null;
-let provincesSeed: number | null = null;
-const provincesFor = (s: Region1State): Provinces => {
-  const r = reachFor(s.character.id);
-  if (provincesSeed !== r.seed || !provincesCache) { provincesCache = provincesOf(r, { roadAnchors: hexWorldOn(s) ? 'hexes' : 'reach' }); provincesSeed = r.seed; }
-  return provincesCache;
-};
+// The provinces come straight from the map (quick, run-world.ts `provincesFor`), but their history
+// takes the engine a second or more, so a worker tells it in the background as soon as the run's
+// seed is known, and the page keeps the result: a reload reads it back instead of telling it again.
+// Until it's ready, the MAP and HISTORY tabs say it's still being told.
 const CHRONICLE_KEY = 'artificer.chronicle';
 let chronicle: ReachHistory | null = null;
-/** The seed whose history is told or being told. */
-let chronicleSeed: number | null = null;
+/**
+ * The seed and road-village setting whose history is told or being told (`worldKey`, #1905): a
+ * Warden's seed is the same with `hex-world` on or off, and their histories aren't.
+ */
+let chronicleKey: string | null = null;
 
 /** This run's history, or null while the worker is still telling it (asking starts it). */
 function chronicleFor(s: Region1State): ReachHistory | null {
   const seed = seedOf(s.character.id);
-  const roadAnchors = hexWorldOn(s) ? 'hexes' : undefined;
-  if (chronicleSeed === seed) return chronicle;
-  chronicleSeed = seed;
+  const roadAnchors = roadAnchorsOf(s.config.world.features);
+  const key = worldKey(seed, roadAnchors);
+  if (chronicleKey === key) return chronicle;
+  chronicleKey = key;
   chronicle = (() => { try { return keptHistory(localStorage.getItem(CHRONICLE_KEY), seed, roadAnchors); } catch { return null; } })();
   // The road's people answer from it (#1656, history-in-play.ts), so the sim gets it as soon as the page has it.
   if (chronicle) keepHistory(chronicle);
@@ -250,9 +248,10 @@ function chronicleFor(s: Region1State): ReachHistory | null {
   return chronicle;
 }
 
-function tellHistory(seed: number, roadAnchors: 'hexes' | undefined): void {
+function tellHistory(seed: number, roadAnchors: RoadAnchors): void {
   const told = (h: ReachHistory) => {
-    if (h.seed !== chronicleSeed) return; // a new run started meanwhile
+    // A new run started meanwhile, or this one's switches changed where the villages sit.
+    if (worldKey(h.seed, roadAnchorsOfHistory(h)) !== chronicleKey) return;
     chronicle = h;
     keepHistory(h);
     try { localStorage.setItem(CHRONICLE_KEY, JSON.stringify(h)); } catch { /* kept for this visit only */ }
@@ -274,19 +273,8 @@ function tellHistory(seed: number, roadAnchors: 'hexes' | undefined): void {
 
 // ── Settlements (#1541) ──────────────────────────────────────────────────────
 // One at each province's seat, drawn as '#' on the map where you can see it. Laying one out takes
-// a few milliseconds, so each is built the first time it's opened and kept for the run.
-let settlementCache = new Map<string, Settlement>();
-let settlementSeed: number | null = null;
-function settlementFor(sim: Region1State, provinceId: string): Settlement {
-  const r = reachFor(sim.character.id);
-  if (settlementSeed !== r.seed) { settlementCache = new Map(); settlementSeed = r.seed; }
-  let s = settlementCache.get(provinceId);
-  if (!s) {
-    s = settlementOf(r, provincesFor(sim).list.find(p => p.id === provinceId)!);
-    settlementCache.set(provinceId, s);
-  }
-  return s;
-}
+// a few milliseconds, so each is built the first time it's opened and kept for the run
+// (run-world.ts `settlementFor`).
 /** The settlement open from the LAND tab's map (its province id), and the building last tapped in it. */
 let mapSettlement: string | null = null;
 let settlementPick: string | null = null;

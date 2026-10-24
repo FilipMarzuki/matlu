@@ -12,7 +12,7 @@
  */
 
 import { hexKey, type Hex } from './coords';
-import { outerProvinces, type OuterProvince } from './provinces';
+import { ROAD_SEAT_HEXES, outerProvinces, type OuterProvince } from './provinces';
 
 /** Mistheim's hex: the road's end, two hexes past Kestrel Gate. Never a generated province. */
 export const MISTHEIM_HEX: Hex = { q: 0, r: 8 };
@@ -22,11 +22,14 @@ export const ROAD_HEXES: readonly Hex[] = Array.from({ length: 9 }, (_, r) => ({
 
 export type RoadVillageId = 'hollowford' | 'saltmere' | 'kestrel-gate';
 
-/** The three hand-written road villages' hexes (`outerProvinces`'s road seats), south in order. */
+/**
+ * The three hand-written road villages' hexes, south in order: `outerProvinces`'s road seats
+ * (provinces.ts `ROAD_SEAT_HEXES`) named, so the two can't drift apart.
+ */
 export const ROAD_VILLAGE_HEXES: Readonly<Record<RoadVillageId, Hex>> = {
-  hollowford: { q: 0, r: 2 },
-  saltmere: { q: 0, r: 4 },
-  'kestrel-gate': { q: 0, r: 6 },
+  hollowford: ROAD_SEAT_HEXES[0],
+  saltmere: ROAD_SEAT_HEXES[1],
+  'kestrel-gate': ROAD_SEAT_HEXES[2],
 };
 
 /** The outer province seated at a road village's hex (`h0`, `h1` or `h2`): where it moves to with `hex-world` on. */

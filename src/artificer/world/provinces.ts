@@ -55,6 +55,25 @@ export interface Provinces {
   at: Int16Array;
 }
 
+/**
+ * Where a run seats the three road villages (#1905): `'reach'`, inside the Reach (today's, and
+ * every run's with `hex-world` off), or `'hexes'`, out on the hex map (worldmap/road.ts). A run's
+ * setting is read from its switches with hex-window.ts `roadAnchorsOf`; a told history's with
+ * history-format.ts `roadAnchorsOfHistory`.
+ */
+export type RoadAnchors = 'reach' | 'hexes';
+
+/** The option `provincesOf`, and the history told over its provinces (history.ts), take. Absent is `'reach'`. */
+export interface WorldOpts { roadAnchors?: RoadAnchors }
+
+/**
+ * What a run's provinces are made from, and so everything made from them (their settlements, the
+ * history told over them), as one key: its seed and where it seats the road villages. A cache of
+ * any of them keyed by the seed alone would hand a run the other setting's, since a Warden's id
+ * (and with it the seed) carries over from one run to the next whether `hex-world` is on or off.
+ */
+export const worldKey = (seed: number, roadAnchors: RoadAnchors): string => `${seed}|${roadAnchors}`;
+
 /** About one province per this many cells: 1,536 cells → about 11. */
 const CELLS_PER_PROVINCE = 140;
 /** Seats at least this far apart (in cells, straight line), so provinces come out a fair size. */
@@ -91,7 +110,7 @@ const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
  * names are drawn before `placeAnchors` runs, so that stream is untouched); default `'reach'` is
  * today's behaviour.
  */
-export function provincesOf(reach: Reach, opts: { roadAnchors?: 'reach' | 'hexes' } = {}): Provinces {
+export function provincesOf(reach: Reach, opts: WorldOpts = {}): Provinces {
   const { w, h, cells } = reach;
   const rnd = generator(seedOf(`${reach.seed}|world|provinces`));
   const seats = pickSeats(reach, rnd);

@@ -13,7 +13,9 @@ import { seedOf } from '../rng';
 import { generateReach } from './reach';
 import { provincesOf } from './provinces';
 import { reachSpec, simulateReach, runHistory, eventLogKey, HISTORY_YEARS } from './history';
-import { keptHistory } from './history-format';
+import { keptHistory, roadAnchorsOfHistory } from './history-format';
+import { remembered } from './remembered';
+import { roadRegions } from './regions';
 
 const SEEDS = Array.from({ length: 12 }, (_, i) => seedOf(`w-test-${i}`));
 const logHash = (seed: number) => createHash('sha256').update(eventLogKey(simulateReach(seed).world.events)).digest('hex').slice(0, 16);
@@ -147,5 +149,29 @@ describe('Road anchors move out with hex-world (#1905)', () => {
     for (const p of h.provinces) expect(['Hollowford', 'Saltmere', 'Kestrel Gate']).not.toContain(p.name);
     // Today's setting (absent) writes no field, as before this option existed.
     expect(runHistory(seedOf('w-vega'), HISTORY_YEARS).roadAnchors).toBeUndefined();
+  });
+
+  // Review of PR #1970. A 'hexes' history has no province for any road village: they sit out on
+  // the hex map, and telling their own history there is #1906's. So the villages remember nothing of
+  // it. Before, `remembered` rebuilt the provinces the 'reach' way whatever the history said and
+  // threw ("has no province Hollowford"), and `roadRegions` threw on provinces with no village seated.
+  it("a history told with roadAnchors: 'hexes' is remembered as the hexes provinces have it: no road village in the Reach, and no throw", () => {
+    const seed = seedOf('w-vega');
+    const h = runHistory(seed, HISTORY_YEARS, { roadAnchors: 'hexes' });
+    const hexes = provincesOf(generateReach(seed), { roadAnchors: 'hexes' });
+
+    expect(roadRegions(hexes, undefined, 'hexes')).toEqual([]);
+    // With today's setting the guard still guards: 'reach' provinces always seat all three.
+    expect(() => roadRegions(hexes)).toThrow(/No province is seated at hollowford/);
+
+    // The provinces rebuilt from the history's own setting, or handed in.
+    expect(remembered(h)).toEqual({ seed, year: h.year, villages: [] });
+    expect(remembered(h, hexes)).toEqual({ seed, year: h.year, villages: [] });
+
+    // The setting a kept history was told with, read back: absent is today's 'reach'.
+    expect(roadAnchorsOfHistory(h)).toBe('hexes');
+    expect(roadAnchorsOfHistory(runHistory(seed, HISTORY_YEARS))).toBe('reach');
+    // Asking for 'reach' by name is asking with no setting: one encoding of today's.
+    expect(keptHistory(JSON.stringify(h), seed, 'reach')).toBeNull();
   });
 });
