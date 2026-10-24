@@ -76,6 +76,10 @@ import { CrafterScene } from './scenes/CrafterScene';
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
   const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, DungeonForgeScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, PlotForgeScene, BaseForgeScene, HomesteadScene, AssetViewerScene, SettlementScene, SettlementEditorScene, RecolorTestScene, MapForgeScene, CraftingMenuScene, CraftForgeScene, CrafterScene];
+  // #1908: ?world=<seed> reaches GameScene's world mode on any path (not just
+  // /world, the older terrain-scatter dev route) — GameScene.init() reads the
+  // query string itself to tell world mode from the other two.
+  if (new URLSearchParams(window.location.search).has('world')) return [GameScene, ...all.filter(s => s !== GameScene)];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/sf' || path === '/settlementforge') return [SettlementForgeScene, ...all.filter(s => s !== SettlementForgeScene)];

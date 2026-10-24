@@ -74,6 +74,9 @@ import { initSettlementData, getMapgenData } from '../world/mapgenData';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
+import { tileChunk, CHUNK as WORLD_CHUNK } from '../../worldmap/tiles';
+import { cellOrigin, CELL_TILES as WORLD_CELL_TILES } from '../../worldmap/coords';
+import { generateReach } from '../../worldmap/reach';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
@@ -134,6 +137,26 @@ const SPAWN_Y = 2650;
 
 // Player movement speed in px/s
 const PLAYER_SPEED = 180;
+
+// ── World mode (#1908, hex world step 15) ────────────────────────────────────
+// A window of chunks around the hero's own chunk: his chunk plus a ring of
+// neighbours. One chunk (WORLD_CHUNK = 64 tiles, worldmap/tiles.ts) already
+// dwarfs the camera's view at this zoom, so this window is always a superset
+// of "camera view + 1 chunk" — the margin the design calls for.
+const WORLD_WINDOW_RADIUS_CHUNKS = 1;
+const WORLD_WINDOW_SPAN_CHUNKS = WORLD_WINDOW_RADIUS_CHUNKS * 2 + 1; // 3
+const WORLD_WINDOW_SPAN_TILES = WORLD_WINDOW_SPAN_CHUNKS * WORLD_CHUNK; // 192
+// Window-local isometric projection, parallel to IsoTransform's worldToIso but
+// sized to the window instead of the old 141×94 map, and taking tile units
+// directly (never raw world tiles, which reach the millions — see worldLocalToIso).
+const WORLD_WINDOW_ISO_ORIGIN_X = WORLD_WINDOW_SPAN_TILES * (ISO_TILE_W / 2);
+const WORLD_WINDOW_ISO_W = WORLD_WINDOW_SPAN_TILES * ISO_TILE_W;
+const WORLD_WINDOW_ISO_H = WORLD_WINDOW_SPAN_TILES * ISO_TILE_H + ISO_TILE_H;
+// One chunk's own render texture, in the same local-projection units.
+const WORLD_CHUNK_ISO_ORIGIN_X = WORLD_CHUNK * (ISO_TILE_W / 2);
+const WORLD_CHUNK_ISO_W = WORLD_CHUNK * ISO_TILE_W;
+const WORLD_CHUNK_ISO_H = WORLD_CHUNK * ISO_TILE_H + ISO_TILE_H;
+const WORLD_CHUNKS_PER_CELL = WORLD_CELL_TILES / WORLD_CHUNK;
 
 // ── Dash mechanic (FIL-123) ───────────────────────────────────────────────────
 // Short burst of high speed with invincibility frames. Double-tap the joystick
@@ -683,8 +706,24 @@ export class GameScene extends Phaser.Scene {
   private npcDialogActive = false;
   private interactKey?: Phaser.Input.Keyboard.Key;
 
-  // Dev mode switcher — 'wilderview' for terrain/world, 'arena' for combat/Tinkerer
-  private gameMode: 'wilderview' | 'arena' = 'wilderview';
+  // Dev mode switcher — 'wilderview' for terrain/world, 'arena' for combat/Tinkerer,
+  // 'world' for the hex-world terrain walk (#1908)
+  private gameMode: 'wilderview' | 'arena' | 'world' = 'wilderview';
+
+  // ─── World mode (#1908) ───────────────────────────────────────────────────────
+  // Off by default; reached via init({ mode: 'world', worldSeed }) or ?world=<seed>.
+  // runSeed doubles as the world seed in this mode (see createWorldMode()).
+  private worldSeed = 0;
+  private worldStartTile?: { tx: number; ty: number };
+  // Authoritative hero position, in world tiles (floats, never pixels) — the
+  // single source of truth. Everything drawn is re-derived from this each frame.
+  private worldTileX = 0;
+  private worldTileY = 0;
+  // The loaded window's NW chunk, in global chunk units (gcx = floor(tx / WORLD_CHUNK)).
+  private worldWindowOriginGcx = 0;
+  private worldWindowOriginGcy = 0;
+  private worldWindowReady = false;
+  private worldChunks = new Map<string, Phaser.GameObjects.RenderTexture>();
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
@@ -803,8 +842,27 @@ export class GameScene extends Phaser.Scene {
   // This is where we read the requested game mode so preload() can branch on it.
   private skipAttract = false;
 
-  init(data?: { mode?: 'wilderview' | 'arena'; skipAttract?: boolean }): void {
-    this.gameMode    = data?.mode ?? 'wilderview';
+  init(data?: { mode?: 'wilderview' | 'arena' | 'world'; skipAttract?: boolean; worldSeed?: number }): void {
+    // ?world=<seed>(&at=<tx>,<ty>) reaches world mode however the scene was
+    // started (menu, direct route, or scene.start data) — read here so both
+    // paths agree on what "world mode" means.
+    const params = new URLSearchParams(window.location.search);
+    const worldParam = params.get('world');
+    this.worldStartTile = undefined;
+    if (worldParam !== null) {
+      this.gameMode  = 'world';
+      this.worldSeed = Number(worldParam) || 0;
+      const at = params.get('at');
+      if (at) {
+        const [txStr, tyStr] = at.split(',');
+        const tx = Number(txStr);
+        const ty = Number(tyStr);
+        if (Number.isFinite(tx) && Number.isFinite(ty)) this.worldStartTile = { tx, ty };
+      }
+    } else {
+      this.gameMode  = data?.mode ?? 'wilderview';
+      this.worldSeed = data?.worldSeed ?? 0;
+    }
     this.skipAttract = data?.skipAttract ?? false;
   }
 
@@ -1122,6 +1180,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // World mode is a terrain walk over the hex world's tile chunks, on its own
+    // branch end-to-end (#1908): it skips enemies, waves, scatter, corruption,
+    // the hand-made levels, and every other system below.
+    if (this.gameMode === 'world') {
+      this.createWorldMode();
+      return;
+    }
+
     // FIL-444: physics world expanded to isometric canvas size.
     this.physics.world.setBounds(0, 0, ISO_WORLD_W, ISO_WORLD_H);
 
@@ -1712,6 +1778,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    if (this.gameMode === 'world') {
+      this.updateWorldMode(time, delta);
+      return;
+    }
     this.communityEncounter.update();
     this.worldClock.update(delta);
     this.worldState.update(delta);
@@ -9432,5 +9502,218 @@ export class GameScene extends Phaser.Scene {
     this.settlementOverlayLabels = [];
     this.settlementOverlayHud?.destroy();
     this.settlementOverlayHud = undefined;
+  }
+
+  // ─── World mode (#1908, hex world step 15) ───────────────────────────────────
+
+  /**
+   * Sets up the hero, camera, joystick and the first loaded window of chunks.
+   * No physics bodies, no collision, no enemies/scatter/corruption — "it's a
+   * terrain walk" (the issue's words). Movement is hand-integrated in tile
+   * units (updateWorldMode) rather than an Arcade body.
+   */
+  private createWorldMode(): void {
+    // runSeed IS the world seed here (not Math.random()) so Core Warden can
+    // stand in the same world as an Artificer run on the same seed.
+    this.runSeed = this.worldSeed;
+
+    // Default start: the centre of the Reach's camp cell. World cell (0,0) is
+    // the Reach's own (0,0) (worldmap/reach.ts), so the camp's Reach x/y IS a
+    // world cell.
+    const camp = generateReach(this.runSeed).camp;
+    const campOrigin = cellOrigin({ cx: camp.x, cy: camp.y });
+    this.worldTileX = this.worldStartTile?.tx ?? campOrigin.tx + WORLD_CELL_TILES / 2;
+    this.worldTileY = this.worldStartTile?.ty ?? campOrigin.ty + WORLD_CELL_TILES / 2;
+
+    // Hero — the same Pixel Crawler Body_A animations as wilderview (already
+    // loaded in preload() regardless of mode), minus the physics body.
+    if (!this.anims.exists('pc-idle-down')) {
+      this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
+    }
+    this.playerSprite = this.add.sprite(0, 0, 'pc-idle-down');
+    this.playerSprite.play('pc-idle-down');
+    this.player = this.add.container(0, 0, [this.playerSprite]);
+    this.player.setDepth(500);
+    this.playerShadow = this.add.ellipse(0, 6, 22, 10, 0x000000, 0.22).setDepth(499);
+
+    this.syncWorldWindow();
+    this.repositionWorldPlayer();
+
+    this.cameras.main.setBounds(0, 0, WORLD_WINDOW_ISO_W, WORLD_WINDOW_ISO_H);
+    this.cameras.main.setZoom(3);
+    // Hard (lerp 1) follow: a chunk-edge crossing re-bases every loaded chunk's
+    // and the hero's window-local position in the same frame (see
+    // syncWorldWindow), so the camera must snap with them, not glide — a
+    // smoothed follow would reveal the re-basing as a one-frame scene-wide slide.
+    this.cameras.main.startFollow(this.player, true, 1, 1);
+
+    const JOY_X = 120;
+    const JOY_Y = this.scale.height - 120;
+    const JOY_RADIUS = 50;
+    const base  = this.add.circle(JOY_X, JOY_Y, JOY_RADIUS, 0x444444, 0.45).setScrollFactor(0).setDepth(9999);
+    const thumb = this.add.circle(JOY_X, JOY_Y, 22,          0xcccccc, 0.55).setScrollFactor(0).setDepth(9999);
+    this.joystick = new SimpleJoystick(this, JOY_X, JOY_Y, JOY_RADIUS, thumb);
+    const isTouchDevice = navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) {
+      base.setVisible(false);
+      thumb.setVisible(false);
+    }
+
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.wasd = this.input.keyboard!.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as Record<string, Phaser.Input.Keyboard.Key>;
+  }
+
+  /** Joystick/keyboard → tile-unit movement, then re-syncs the window and redraws the hero. */
+  private updateWorldMode(_time: number, delta: number): void {
+    let dx = 0;
+    let dy = 0;
+    if (this.joystick.force > 10) {
+      const worldAngle = this.joystick.rotation - Math.PI / 4;
+      dx = Math.cos(worldAngle);
+      dy = Math.sin(worldAngle);
+    } else {
+      const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
+      const left  = this.cursors.left.isDown  || this.wasd['left'].isDown  ? 1 : 0;
+      const down  = this.cursors.down.isDown  || this.wasd['down'].isDown  ? 1 : 0;
+      const up    = this.cursors.up.isDown    || this.wasd['up'].isDown    ? 1 : 0;
+      const sx = right - left;
+      const sy = down - up;
+      dx = (sx - sy) * Math.SQRT1_2;
+      dy = (sx + sy) * Math.SQRT1_2;
+    }
+
+    const moving = dx !== 0 || dy !== 0;
+    if (moving) {
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const tilesPerSecond = PLAYER_SPEED / TILE_SIZE;
+      this.worldTileX += (dx / len) * tilesPerSecond * (delta / 1000);
+      this.worldTileY += (dy / len) * tilesPerSecond * (delta / 1000);
+    }
+    this.updatePlayerAnimation(dx, dy, moving);
+
+    this.syncWorldWindow();
+    this.repositionWorldPlayer();
+  }
+
+  /**
+   * Window-local isometric projection, in tile units (never raw world tiles —
+   * those reach the millions, and the GPU's 32-bit floats would make sprites
+   * jitter). Parallel to IsoTransform's worldToIso, but sized to the window.
+   */
+  private worldLocalToIso(localTx: number, localTy: number): { x: number; y: number } {
+    return {
+      x: WORLD_WINDOW_ISO_ORIGIN_X + (localTx - localTy) * (ISO_TILE_W / 2),
+      y: (localTx + localTy) * (ISO_TILE_H / 2),
+    };
+  }
+
+  /** Re-derives the hero's screen position from worldTileX/Y and the current window — never stored. */
+  private repositionWorldPlayer(): void {
+    const localTx = this.worldTileX - this.worldWindowOriginGcx * WORLD_CHUNK;
+    const localTy = this.worldTileY - this.worldWindowOriginGcy * WORLD_CHUNK;
+    const { x, y } = this.worldLocalToIso(localTx, localTy);
+    this.player.setPosition(x, y);
+    this.playerShadow.setPosition(x + 6, y + 8);
+  }
+
+  /**
+   * Keeps the hero's chunk plus its ring of neighbours loaded, dropping
+   * everything else — "nothing is stored" (#1908). Only does any work when
+   * the hero's chunk actually changed (cheap per-frame check otherwise).
+   */
+  private syncWorldWindow(): void {
+    const heroChunkX = Math.floor(this.worldTileX / WORLD_CHUNK);
+    const heroChunkY = Math.floor(this.worldTileY / WORLD_CHUNK);
+    const originGcx = heroChunkX - WORLD_WINDOW_RADIUS_CHUNKS;
+    const originGcy = heroChunkY - WORLD_WINDOW_RADIUS_CHUNKS;
+    if (this.worldWindowReady && originGcx === this.worldWindowOriginGcx && originGcy === this.worldWindowOriginGcy) {
+      return;
+    }
+    this.worldWindowReady = true;
+    this.worldWindowOriginGcx = originGcx;
+    this.worldWindowOriginGcy = originGcy;
+
+    const keep = new Set<string>();
+    for (let dy = 0; dy < WORLD_WINDOW_SPAN_CHUNKS; dy++) {
+      for (let dx = 0; dx < WORLD_WINDOW_SPAN_CHUNKS; dx++) {
+        const gcx = originGcx + dx;
+        const gcy = originGcy + dy;
+        const key = `${gcx},${gcy}`;
+        keep.add(key);
+        if (this.worldChunks.has(key)) this.repositionWorldChunk(key, dx, dy);
+        else this.loadWorldChunk(gcx, gcy, dx, dy);
+      }
+    }
+    for (const [key, rt] of this.worldChunks) {
+      if (!keep.has(key)) {
+        rt.destroy();
+        this.worldChunks.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Bakes one chunk's tiles into its own small RenderTexture (cheap: built
+   * once per chunk load, same "bake, don't keep live sprites" pattern as
+   * drawProceduralTerrain's main-map bake) and places it at the window-local
+   * position for its chunk offset (dx, dy) within the loaded window.
+   */
+  private loadWorldChunk(gcx: number, gcy: number, dx: number, dy: number): void {
+    const cellCx = Math.floor(gcx / WORLD_CHUNKS_PER_CELL);
+    const cellCy = Math.floor(gcy / WORLD_CHUNKS_PER_CELL);
+    const chunkX = gcx - cellCx * WORLD_CHUNKS_PER_CELL;
+    const chunkY = gcy - cellCy * WORLD_CHUNKS_PER_CELL;
+    const chunk = tileChunk(this.runSeed, { cx: cellCx, cy: cellCy }, { x: chunkX, y: chunkY });
+
+    const rt = this.add.renderTexture(0, 0, WORLD_CHUNK_ISO_W, WORLD_CHUNK_ISO_H)
+      .setOrigin(WORLD_CHUNK_ISO_ORIGIN_X / WORLD_CHUNK_ISO_W, 0);
+    // Phaser 4's RenderTexture only queues .stamp() calls into a command buffer —
+    // nothing appears until render() flushes it, and that must happen inside a
+    // live frame (a chunk's first load, from createWorldMode(), runs before the
+    // first frame). 'all' mode flushes automatically every frame; once the
+    // buffer is empty the flush is a cheap no-op, so this costs nothing after
+    // the chunk's first real frame.
+    rt.setRenderMode('all');
+    const stampOrigin = { originX: 0.5, originY: 0 };
+
+    for (let ly = 0; ly < WORLD_CHUNK; ly++) {
+      for (let lx = 0; lx < WORLD_CHUNK; lx++) {
+        const idx = ly * WORLD_CHUNK + lx;
+        const px = WORLD_CHUNK_ISO_ORIGIN_X + (lx - ly) * (ISO_TILE_W / 2);
+        const py = (lx + ly) * (ISO_TILE_H / 2);
+        if (chunk.water[idx] === 1) {
+          rt.stamp('iso-tiles', ISO_RIVER_FRAME, px, py, stampOrigin);
+        } else {
+          // Deterministic per (seed, world tile) so frame variety never flickers
+          // on reload — tileChunk itself exposes no elevation to vary by.
+          const tx = gcx * WORLD_CHUNK + lx;
+          const ty = gcy * WORLD_CHUNK + ly;
+          const hash = ((tx * 374761393 + ty * 668265263) ^ Math.imul(this.runSeed, 69069)) >>> 0;
+          const frame = isoTileFrame(chunk.biome[idx], (hash % 1000) / 1000);
+          rt.stamp('iso-tiles', frame, px, py, stampOrigin);
+        }
+      }
+    }
+    const { x, y } = this.worldLocalToIso(dx * WORLD_CHUNK, dy * WORLD_CHUNK);
+    rt.setPosition(x, y).setDepth(dx + dy);
+    this.worldChunks.set(`${gcx},${gcy}`, rt);
+  }
+
+  /** Moves an already-baked chunk to match a shifted window — its pixels never change. */
+  private repositionWorldChunk(key: string, dx: number, dy: number): void {
+    const rt = this.worldChunks.get(key);
+    if (!rt) return;
+    const { x, y } = this.worldLocalToIso(dx * WORLD_CHUNK, dy * WORLD_CHUNK);
+    rt.setPosition(x, y).setDepth(dx + dy);
   }
 }
