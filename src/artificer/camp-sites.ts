@@ -40,6 +40,7 @@ import { level, type Domain, type Ring } from './exploration';
 import { skillLevel } from './skills';
 import { reachOfRun, directionWords, directionIndex, timeWord, timeWords, type TimeWord } from './descriptive-map';
 import { walkFrom, ringOfHours, type Biome, type Reach } from './world/reach';
+import { landOfRun, toLocal } from './world/hex-window';
 import type { Region1State, SiteId } from './region1';
 
 /** The rule switch (features.ts). */
@@ -172,16 +173,21 @@ export function knownSpots(s: Run): CampSpot[] {
   const at = s.campSpot ? parseSpotId(s.campSpot.at) : null;
   if (at && !found.some(f => f.i === at.y * r.w + at.x)) found.push({ kind: at.kind, i: at.y * r.w + at.x, start: false });
 
-  // Out on the land (#1839), the walks are from where you stand; `here` stays camp's own square.
+  // Out on the land (#1839), possibly past the Reach's edge with `hex-world` on (#1901): the walks
+  // are from where you stand, on the land (`landOfRun`'s window, `afield` a world cell there); `here`
+  // stays camp's own square. Sites themselves stay the Reach's own (no spot outside it yet).
+  const land = landOfRun(s);
   const from = s.afield ?? whereYouAre(s, r);
-  const walk = walkFrom(r, from.x, from.y);
+  const fromLocal = toLocal(land, from.x, from.y) ?? from;
+  const walk = walkFrom(land, fromLocal.x, fromLocal.y);
   const campId = s.campSpot?.at;
   const compass = hasKit(s, 'map-compass');
   const spots = found.map(f => {
     const x = f.i % r.w, y = Math.floor(f.i / r.w);
     const atYou = x === from.x && y === from.y;
     const here = spotId(f.kind, x, y) === campId;
-    const hours = atYou ? 0 : walk[f.i];
+    const siteLocal = toLocal(land, x, y) ?? { x, y };
+    const hours = atYou ? 0 : walk[siteLocal.y * land.w + siteLocal.x];
     const bearing = bearingFrom(from.x, from.y, x, y);
     // Surveyed ground gives a sure walking time, as #1686's descriptions do; the start you walked yourself.
     const ring: Ring = ringOfHours(r.hours[f.i]) ?? 3;
