@@ -34,19 +34,32 @@ export { HISTORY_VERSION, LIVING_MEMORY, type ReachHistory, type ProvinceHistory
 
 /** How long the engine runs. Year 1 is when the oldest houses of the Reach first held land. */
 export const HISTORY_YEARS = 150;
-/** How significant an event must be to be told (the sifter's scale; the engine's own default is 4). */
-const TELL_THRESHOLD = 5;
+/** How significant an event must be to be told (the sifter's scale; the engine's own default is 4). Exported for outer-history.ts (#1906), which sifts the wider world's chronicle the same way. */
+export const TELL_THRESHOLD = 5;
 /** What each province remembers: its most significant events, at most this many. */
 const LINES_PER_PROVINCE = 3;
 
+/** The year the engine's history starts: when the oldest houses first held their land (`housesOf`). */
+export const HOUSE_START_YEAR = 1;
+
+/** A province as `housesOf` needs it: enough to seat realms and houses over it, whoever built it. */
+export interface HouseProvince {
+  id: string;
+  name: string;
+  population: number;
+  culture: ReachCulture;
+  neighbors: string[];
+}
+
 /**
- * The starting world for the engine: every province, a lordship over each, and the houses that
- * hold them. Realms: the two or three most populous provinces (not next door to each other) seat
- * a realm, and every other province owes fealty to the nearest realm seat.
+ * The lordships and houses the engine starts with, over any set of provinces joined by a
+ * neighbour graph (shared by `reachSpec` and `outer-history.ts`'s `outerSpec`, #1906). Realms:
+ * the two or three most populous provinces (not next door to each other) seat a realm, and every
+ * other province owes fealty to the nearest realm seat; a house for each lordship, named from its
+ * culture, starts as a holder, a spouse and their children. Takes its own stream (`rnd`) so a
+ * caller's houses never share a draw with another's.
  */
-export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
-  const rnd = generator(seedOf(`${reach.seed}|world|houses`));
-  const P = provinces.list;
+export function housesOf(rnd: () => number, P: readonly HouseProvince[]): { titles: TitleSpec[]; dynasties: DynastySpec[]; characters: CharacterSpec[] } {
   const hops = provinceHops(P);
 
   const realmCount = P.length <= 8 ? 2 : 3;
@@ -61,7 +74,7 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
   });
 
   const titles: TitleSpec[] = [];
-  const holdsOf = new Map<string, Province>(); // title id → its seat
+  const holdsOf = new Map<string, HouseProvince>(); // title id → its seat
   realmSeats.forEach((r, k) => {
     const p = P[r];
     titles.push({ id: `t_r${k}`, name: `${TITLE_WORDS[p.culture].duchy} of ${p.name}`, tier: 'duchy', law: lawOf(p.culture), seat: p.id, liege: null });
@@ -86,7 +99,6 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
 
   // Each house starts as a holder, a spouse and their children. Parents come before children: the
   // engine creates characters in this order, which also fixes its random stream.
-  const start = 1;
   const characters: CharacterSpec[] = [];
   let n = 0;
   const person = (o: Omit<CharacterSpec, 'id' | 'father' | 'mother' | 'spouse' | 'founds' | 'holds' | 'claims'> & Partial<CharacterSpec>): CharacterSpec => {
@@ -103,14 +115,14 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
     const name = (sex: 'male' | 'female') => { const pool = sex === 'male' ? culture.namesMale : culture.namesFemale; return pool[Math.floor(rnd() * pool.length)]; };
     const sex = rnd() < 0.75 ? 'male' : 'female';
     const other = sex === 'male' ? 'female' : 'male';
-    const born = start - 28 - Math.floor(rnd() * 25);
+    const born = HOUSE_START_YEAR - 28 - Math.floor(rnd() * 25);
     const head = person({ name: name(sex), sex, dynasty, birthYear: born, province: p.id, drives: drives(), founds: dynasty, holds: t.id });
     const spouse = person({ name: name(other), sex: other, dynasty, birthYear: born + Math.floor(rnd() * 9) - 4, province: p.id, drives: drives(), spouse: head.id });
     const [father, mother] = sex === 'male' ? [head, spouse] : [spouse, head];
     const kids = 1 + Math.floor(rnd() * 3);
     for (let k = 0; k < kids; k++) {
       const s = rnd() < 0.5 ? 'male' : 'female';
-      person({ name: name(s), sex: s, dynasty, birthYear: start - Math.floor(rnd() * 18), province: p.id, drives: drives(), father: father.id, mother: mother.id });
+      person({ name: name(s), sex: s, dynasty, birthYear: HOUSE_START_YEAR - Math.floor(rnd() * 18), province: p.id, drives: drives(), father: father.id, mother: mother.id });
     }
     heads.set(t.id, head);
   }
@@ -118,11 +130,22 @@ export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
   // line and the realm should be theirs. A weak claim, but the engine's lords act on claims.
   realmSeats.forEach((_r, k) => {
     const vassals = titles.filter(t => t.liege === `t_r${k}`).sort((a, b) => holdsOf.get(b.id)!.population - holdsOf.get(a.id)!.population);
-    if (vassals.length >= 2) heads.get(vassals[0].id)!.claims.push({ title: `t_r${k}`, strength: 'weak', basis: 'the elder line', year: start - 5 });
+    if (vassals.length >= 2) heads.get(vassals[0].id)!.claims.push({ title: `t_r${k}`, strength: 'weak', basis: 'the elder line', year: HOUSE_START_YEAR - 5 });
   });
 
+  return { titles, dynasties, characters };
+}
+
+/**
+ * The starting world for the engine: every province, a lordship over each, and the houses that
+ * hold them (`housesOf`).
+ */
+export function reachSpec(reach: Reach, provinces: Provinces): WorldSpec {
+  const P = provinces.list;
+  const { titles, dynasties, characters } = housesOf(generator(seedOf(`${reach.seed}|world|houses`)), P);
+
   return {
-    startYear: start,
+    startYear: HOUSE_START_YEAR,
     provinces: P.map(p => ({
       // Not `coastal`, even by a lake: to the engine a coast is the sea, with ports, pirates and
       // voyages to new lands, and the Reach is inland.
@@ -356,8 +379,8 @@ export function rememberedCache(size = 4, tell: (seed: number) => Remembered = r
   };
 }
 
-/** The house a deed touches: its doer's (or, with no doer, the one it was done to), for who has a stake in telling it. */
-function houseOf(world: World, ev: WorldEvent): string | null {
+/** The house a deed touches: its doer's (or, with no doer, the one it was done to), for who has a stake in telling it. Exported for outer-history.ts (#1906), which tells its lines the same way. */
+export function houseOf(world: World, ev: WorldEvent): string | null {
   const who = world.char(ev.actorId ?? ev.targetId);
   const id = who?.dynastyId ?? (typeof ev.data.dynasty === 'string' ? ev.data.dynasty : null);
   return id ? world.dynasty(id)?.name ?? null : null;
@@ -392,8 +415,8 @@ export function orgsOf(world: World): HistoryOrg[] {
   ];
 }
 
-/** "Ivar of Hedlund", the way the engine's chronicle names people. */
-function fullName(world: World, id: string): string {
+/** "Ivar of Hedlund", the way the engine's chronicle names people. Exported for outer-history.ts (#1906), same reason as `houseOf`. */
+export function fullName(world: World, id: string): string {
   const c = world.char(id)!;
   const house = world.dynasty(c.dynastyId);
   return house ? `${c.name} of ${house.name}` : c.name;
@@ -415,8 +438,8 @@ function weighted<T extends string>(rnd: () => number, options: readonly [T, num
   return options[options.length - 1][0];
 }
 
-/** Borders crossed between every pair of provinces (breadth-first from each). */
-function provinceHops(P: readonly Province[]): number[][] {
+/** Borders crossed between every pair of provinces (breadth-first from each). Generalised to any id+neighbours shape (#1906: `housesOf` runs it over `HouseProvince` too, not only `Province`). */
+export function provinceHops(P: readonly { id: string; neighbors: readonly string[] }[]): number[][] {
   const index = new Map(P.map((p, i) => [p.id, i]));
   return P.map((_p, from) => {
     const d = P.map(() => Infinity);

@@ -184,3 +184,30 @@ export function keptHistory(raw: string | null, seed: number, roadAnchors: RoadA
     return null;
   }
 }
+
+/**
+ * The wider world's history (#1906, outer-history.ts `runOuterHistory`): a second history run over
+ * the outer provinces (`worldmap/provinces.ts` `outerProvinces`), beside the Reach's, so the
+ * Reach's own history stays byte-identical. Only the per-province lines are told — no chronicle
+ * text, regions or organisations (out of scope for #1906): the road's people telling this, and
+ * regional chronicles for the outer provinces, are later work.
+ */
+export interface OuterHistory {
+  version: number;
+  seed: number;
+  /** Set when told with the road villages seated on the hex map (#1905). Absent means `'reach'`; read it with `roadAnchorsOfHistory`. */
+  roadAnchors?: Exclude<RoadAnchors, 'reach'>;
+  provinces: ProvinceHistory[];
+}
+
+/** A kept outer history, if it's this seed's, from this version, and told with the same `roadAnchors` setting the caller wants now: works like `keptHistory`, over `OuterHistory`'s smaller shape. */
+export function keptOuterHistory(raw: string | null, seed: number, roadAnchors: RoadAnchors = 'reach'): OuterHistory | null {
+  if (!raw) return null;
+  try {
+    const h = JSON.parse(raw) as Partial<OuterHistory>;
+    if (h.version !== HISTORY_VERSION || h.seed !== seed || !Array.isArray(h.provinces)) return null;
+    return roadAnchorsOfHistory(h) === roadAnchors ? h as OuterHistory : null;
+  } catch {
+    return null;
+  }
+}

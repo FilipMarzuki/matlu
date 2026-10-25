@@ -33,10 +33,10 @@ import { STANDING_FEATURE, standingLine, standingNote, standingRow } from './sta
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
-import { roadAnchorsOf } from '../artificer/world/hex-window';
+import { roadAnchorsOf, hexWorldOn } from '../artificer/world/hex-window';
 import { TIER_NAME } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
-import { keptHistory, roadAnchorsOfHistory, type ReachHistory } from '../artificer/world/history-format';
+import { keptHistory, keptOuterHistory, roadAnchorsOfHistory, type ReachHistory, type OuterHistory } from '../artificer/world/history-format';
 import { provincesFor, settlementFor } from './run-world';
 import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
@@ -266,6 +266,45 @@ function tellHistory(seed: number, roadAnchors: RoadAnchors): void {
     worker.onmessage = (e: MessageEvent<ReachHistory>) => { worker.terminate(); told(e.data); };
     worker.onerror = () => { worker.terminate(); here(); };
     worker.postMessage({ seed, roadAnchors });
+  } catch {
+    here();
+  }
+}
+
+// ── The wider world's history (#1906) ────────────────────────────────────────
+// Told the same way as the Reach's, beside it, only with hex-world on: its own key, so it never
+// collides with the Reach's chronicle above. Nothing in play reads it yet.
+const OUTER_CHRONICLE_KEY = 'artificer.chronicle.outer';
+let outerChronicle: OuterHistory | null = null;
+let outerChronicleKey: string | null = null;
+
+/** Starts telling this run's outer history in the background if it isn't told yet, with hex-world on. */
+function outerChronicleFor(s: Region1State): void {
+  if (!hexWorldOn(s)) return;
+  const seed = seedOf(s.character.id);
+  const roadAnchors = roadAnchorsOf(s.config.world.features);
+  const key = worldKey(seed, roadAnchors);
+  if (outerChronicleKey === key) return;
+  outerChronicleKey = key;
+  outerChronicle = (() => { try { return keptOuterHistory(localStorage.getItem(OUTER_CHRONICLE_KEY), seed, roadAnchors); } catch { return null; } })();
+  if (!outerChronicle) tellOuterHistory(seed, roadAnchors);
+}
+
+function tellOuterHistory(seed: number, roadAnchors: RoadAnchors): void {
+  const told = (h: OuterHistory) => {
+    // A new run started meanwhile, or this one's switches changed where the villages sit.
+    if (worldKey(h.seed, roadAnchorsOfHistory(h)) !== outerChronicleKey) return;
+    outerChronicle = h;
+    try { localStorage.setItem(OUTER_CHRONICLE_KEY, JSON.stringify(h)); } catch { /* kept for this visit only */ }
+  };
+  // Without workers (or if one fails), tell it here after all: a pause beats no history. The
+  // dynamic import keeps the engine out of the page's bundle either way.
+  const here = () => { import('../artificer/world/outer-history').then(m => told(m.runOuterHistory(seed, m.HISTORY_YEARS, { roadAnchors }))).catch(e => console.error('The wider world\'s history could not be told', e)); };
+  try {
+    const worker = new Worker(new URL('./history.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<OuterHistory>) => { worker.terminate(); told(e.data); };
+    worker.onerror = () => { worker.terminate(); here(); };
+    worker.postMessage({ seed, roadAnchors, outer: true });
   } catch {
     here();
   }
@@ -1179,6 +1218,8 @@ function drawPage(a: AppState): void {
   // Start telling this run's history in the background if it isn't told yet (#1540). On the road
   // too: its people answer from it (#1656), so a run reloaded there needs it back.
   chronicleFor(a.sim);
+  // The wider world's history too, beside it, with hex-world on (#1906). Nothing reads it yet.
+  outerChronicleFor(a.sim);
   applyLook(shownLook(lookOfGame(a), lookPreview));
   applyReadableType(readableTypeOn());
   // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).

@@ -89,13 +89,13 @@ export const SETTLE: Readonly<Partial<Record<Biome, number>>> = {
   meadow: 1, birch: 0.8, heath: 0.7, pine: 0.6, marsh: 0.25, scree: 0.3, fell: 0.1,
 };
 
-/** How well each kind of land feeds people (the engine's 0–1 fertility). */
-const FERTILITY: Readonly<Record<Biome, number>> = {
+/** How well each kind of land feeds people (the engine's 0–1 fertility). Exported for the outer provinces (outer-history.ts, #1906), which read it off their own cells the same way. */
+export const FERTILITY: Readonly<Record<Biome, number>> = {
   meadow: 0.8, river: 0.75, birch: 0.6, heath: 0.45, pine: 0.45, marsh: 0.35, lake: 0.5, scree: 0.2, fell: 0.1, snow: 0,
 };
 
-/** The engine's terrain for each land biome. Rivers and lakes don't set a province's terrain. */
-const TERRAIN: Readonly<Partial<Record<Biome, Terrain>>> = {
+/** The engine's terrain for each land biome. Rivers and lakes don't set a province's terrain. Exported for outer-history.ts (#1906), same reason as `FERTILITY`. */
+export const TERRAIN: Readonly<Partial<Record<Biome, Terrain>>> = {
   meadow: 'meadow', heath: 'plains', birch: 'forest', pine: 'forest', marsh: 'swamp', scree: 'hills', fell: 'mountain', snow: 'mountain',
 };
 
@@ -266,7 +266,8 @@ function around(i: number, w: number, h: number): number[] {
   return out;
 }
 
-function mostCommon<T>(items: readonly T[]): T | undefined {
+/** The most common item of a list (a tie keeps whichever was seen first). Exported for outer-history.ts (#1906), which picks a province's terrain the same way. */
+export function mostCommon<T>(items: readonly T[]): T | undefined {
   const count = new Map<T, number>();
   for (const t of items) count.set(t, (count.get(t) ?? 0) + 1);
   let best: T | undefined, n = 0;
@@ -274,7 +275,8 @@ function mostCommon<T>(items: readonly T[]): T | undefined {
   return best;
 }
 
-const round2 = (v: number) => Math.round(v * 100) / 100;
+/** Exported for outer-history.ts (#1906), which rounds fertility and mana the same way. */
+export const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /** The hand-written places (villages.ts and the road's end), never generated: the villages are seated by `placeAnchors`. */
 const ANCHOR_NAMES = [...ANCHORS.map(id => VILLAGES[id].name), 'Mistheim'];
