@@ -562,6 +562,10 @@ body { min-height: 100vh; }
   @keyframes voice-flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .55; } 95% { opacity: .9; } 96% { opacity: .6; } }
   .intro .beat.title p { font-family: var(--display); font-weight: 700; font-size: clamp(18px, 4.4vw, 34px); letter-spacing: 3px; color: var(--gold); text-shadow: 0 0 18px rgba(255,224,102,.35); }
   .intro .beat.title p:last-child { color: var(--ice); font-size: clamp(13px, 3vw, 22px); }
+  /* The quick start's card (#1928): who you are, a size up in gold; the winter last, in the title's ice. */
+  .intro .beat.ready p { font-family: var(--body); font-size: clamp(17px, 2.8vw, 22px); color: var(--ink); }
+  .intro .beat.ready p:first-child { font-size: clamp(20px, 3.4vw, 28px); font-weight: 700; color: var(--gold); }
+  .intro .beat.ready p:last-child { color: var(--ice); }
 
   .introbar { position: absolute; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px; padding-inline: 16px; max-width: 720px; margin-inline: auto; }
   .introbar .dots { display: inline-flex; gap: 6px; }

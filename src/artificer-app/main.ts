@@ -24,7 +24,7 @@ import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
 import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
-import { introBeats, introHtml, introWhere, type Beat } from './intro';
+import { introBeats, introHtml, introWhere, QUICK_START_FEATURE, QUICK_NAME, type Beat, type QuickStep } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
@@ -42,7 +42,7 @@ import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
 import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, carryLimit, packWorldOf, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
-import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
+import { DEFAULT_STATS, STAT_IDS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
@@ -1451,7 +1451,7 @@ function setLang(next: Lang): void {
   introEl.setAttribute('aria-label', t('intro.label'));
   render(state);
   // The intro's beats are words in a language now (#1707): tell them again in the new one, where it was.
-  if (intro) { intro = { ...intro, beats: introBeats(state.sim, t) }; renderIntro(); }
+  if (intro) { intro = { ...intro, beats: beatsFor(intro.quick) }; renderIntro(); }
 }
 
 /**
@@ -2013,7 +2013,13 @@ function tickTimer(pl: Playing, now: number): void {
 // A separate overlay element, so the game renders (and stays usable) underneath
 // and render() — which rewrites #app wholesale — never wipes the intro.
 
-let intro: { beats: Beat[]; i: number } | null = null;
+/**
+ * The intro playing, if one is. `quick` (#1928): where the quick start is, or absent for the whole
+ * arrival. `made`: the Warden has been made from the draft during this intro (the creation screen
+ * was passed), so Play on the quick start's card doesn't make another. `packed`: the pack screen was
+ * passed, so a Warden made after it starts with that pack.
+ */
+let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; packed?: boolean } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
@@ -2084,13 +2090,61 @@ const draftRun = () => ({ config: { world: packWorld() }, character: { stats: gr
 const draftLimit = (): number => carryLimit(draftRun());
 const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
 
+/** Is the quick start on (#1928)? A ui switch: read when an intro starts, kept for that intro. */
+const quickOn = (): boolean => uiFeatureOn(loadChoices(), QUICK_START_FEATURE);
+
+/** The intro's beats for the game as it stands, in the quick start's step if it's playing (#1928). */
+const beatsFor = (quick?: QuickStep['step']): Beat[] => introBeats(state.sim, t, quick ? { step: quick, age: draft.age } : undefined);
+
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
+  // The quick start (#1928): a ready-made Warden, named until the player names them on Change.
+  const quick = quickOn() ? 'ready' as const : undefined;
+  if (quick && !draft.name.trim()) draft.name = QUICK_NAME;
   draftPack = [...SUGGESTED_PACK];
   draftOutside = autoOutside(SUGGESTED_PACK);
   drawnBeat = -1;
-  intro = { beats: introBeats(state.sim, t), i: 0 };
+  intro = { beats: beatsFor(quick), i: 0, quick, made: false };
   renderIntro();
+}
+
+/**
+ * Play on the quick start's card (#1928), or Skip before a Warden was made: the Warden the play
+ * API's quick start makes (average stats, no talents, recorded ×1.00, not the ×2.10 of a creation
+ * left unspent), with the draft's name and age and the pack makeWarden ticks for them. The log's
+ * start says no more than that, so the server's replay makes the same Warden. A draft that already
+ * holds choices (a creation half-done before a reload) is made as the creation screen makes it.
+ */
+function commitQuick(): void {
+  if (!draft.name.trim()) draft.name = QUICK_NAME;
+  if (draft.talents.length || STAT_IDS.some(id => draft.stats[id] !== DEFAULT_STATS[id])) { commitCharacter(); return; }
+  const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
+  const legacy = left.heirlooms?.length ? left : undefined;
+  const spec = { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, age: draft.age };
+  const from = kept?.log.start.heirloomsFrom ?? null;
+  state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
+  startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
+  // Change showed the pack first (`stats-before-pack` off) and then Skip: the pack chosen goes with them.
+  if (intro?.packed) applyPack();
+  render(state);
+}
+
+/**
+ * Change on the quick start's card (#1928): the creation and pack screens, in the order the run's
+ * `stats-before-pack` sets, then back to the card. The draft keeps what was chosen, so changing
+ * again starts from it.
+ */
+function changeQuick(): void {
+  if (!intro) return;
+  const beats = beatsFor('change');
+  intro = { ...intro, beats, quick: 'change', i: Math.max(0, beats.findIndex(b => b.kind === 'create' || b.kind === 'pack')) };
+  renderIntro();
+}
+
+/** Skip, or Escape: the intro ends at once. In the quick start (#1928) that's Play, unless a Warden was made already. */
+function skipIntro(): void {
+  if (intro?.quick && !intro.made) commitQuick();
+  endIntro();
 }
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
@@ -2141,19 +2195,21 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
+  // Play on the quick start's card (#1928): the ready-made Warden, unless Change made one already.
+  if (intro.beats[intro.i].kind === 'ready') { if (!intro.made) commitQuick(); endIntro(); return; }
   if (intro.beats[intro.i].kind === 'create') {
     if (!draftValid()) return;
     commitCharacter();
     // Told again from the Warden just made (#1872): the order comes from the run's own
     // `stats-before-pack` switch, and the run is only now made from the player's switches, so
     // re-read the beats and carry on from creation's place in them (by id, never by index).
-    const beats = introBeats(state.sim, t);
-    intro = { beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')) };
+    const beats = beatsFor(intro.quick);
+    intro = { ...intro, beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')), made: true };
   }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
   // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: introBeats(state.sim, t) }; }
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
@@ -2177,7 +2233,8 @@ function renderIntro(): void {
   introSpot = introWhere(b);
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
-    beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
+    // The quick start's card (#1928) names the draft: the Warden isn't made until Play or the creation screen.
+    beat: b, i: intro.i, count: intro.beats.length, name: intro.quick ? draft.name : state.sim.character.name, t,
     form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
@@ -2192,14 +2249,15 @@ function renderIntro(): void {
 }
 
 // Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
-// screen only its own controls act, so a stray tap can't skip past your choices.
+// screen only its own controls act, so a stray tap can't skip past your choices; on the quick
+// start's card (#1928) too, so a stray tap doesn't Play past Change.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
   // The 💬 button (#1845) opens the feedback panel beside the intro, and never counts as a tap to go on.
   if (el.closest('[data-cmd="feedback"]')) { feedback.toggle(); return; }
   const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitplace], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
-  const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
+  const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack' || intro?.beats[intro.i].kind === 'ready';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
   // A pack section's heading (#1727): fold or open it, and remember that. preventDefault stops the
   // browser toggling the <details> itself; the redraw sets `open` from packOpen instead.
@@ -2251,7 +2309,8 @@ introEl.addEventListener('click', e => {
     draft.talents = draft.talents.includes(t) ? draft.talents.filter(x => x !== t) : [...draft.talents, t].slice(-TALENT_PICKS);
     renderIntro(); return;
   }
-  if (btn?.dataset.intro === 'skip') endIntro();
+  if (btn?.dataset.intro === 'skip') skipIntro();
+  else if (btn?.dataset.intro === 'change') changeQuick();
   else if (btn?.dataset.intro === 'next' || !creating) { if (!el.closest('.create')) advanceIntro(); }
 });
 // Typing a name updates the draft without re-rendering (which would steal focus).
@@ -2269,9 +2328,10 @@ document.addEventListener('keydown', e => {
   // (#1845) don't drive the intro: Enter in the report must not skip a screen.
   if ((e.target as HTMLElement).closest?.('.fbpanel, .fbpill, [data-cmd="feedback"]')) return;
   const typing = (e.target as HTMLElement).tagName === 'INPUT';
-  if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
-  else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
-  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create' && intro.beats[intro.i].kind !== 'pack') { e.preventDefault(); advanceIntro(); }
+  if (e.key === 'Escape') { e.preventDefault(); skipIntro(); }
+  // Enter on one of the intro's own buttons is that button's click (Change on the quick start's card, #1928, isn't Play).
+  else if (e.key === 'Enter') { if ((e.target as HTMLElement).closest?.('[data-intro]')) return; e.preventDefault(); advanceIntro(); }
+  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && !['create', 'pack', 'ready'].includes(intro.beats[intro.i].kind)) { e.preventDefault(); advanceIntro(); }
 });
 
 function update(next: AppState): void {

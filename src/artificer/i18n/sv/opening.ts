@@ -31,6 +31,9 @@ export const openingSv: Record<keyof typeof opening, string> = {
   'intro.close2': 'BLOMSTRA.',
   'intro.close3': 'BEMÄSTRA DIN NYA VERKLIGHET.',
   'intro.noName': 'Artificer',
+  'quick.ready': 'Du är {name}, {age} år, scout. Packningen är klar.',
+  'quick.play': 'SPELA ▸',
+  'quick.change': 'Ändra vem jag är / vad jag packat',
 
   // ── Packningen ─────────────────────────────────────────────────────────────
   'pack.free': 'Ryggsäcken får du med, och kläderna du har på dig. Allt annat måste rymmas i {kg} kg.',
