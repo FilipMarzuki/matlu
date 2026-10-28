@@ -40,7 +40,8 @@ for (const lang of ['en', 'sv'] as const) {
       await page.evaluate(lang => {
         localStorage.clear();
         localStorage.setItem('artificer.lang', lang);
-        localStorage.setItem('artificer.features', '{}');
+        // The whole intro, with its creation screen (the quick start, #1928, would Play past it).
+        localStorage.setItem('artificer.features', JSON.stringify({ 'quick-start': false }));
       }, lang);
       await page.reload();
       // The first day's weather is the run's own (seeded): on a clear day the shadow stick keeps a heading and nothing is greyed.

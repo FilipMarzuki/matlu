@@ -24,7 +24,7 @@ import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
 import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
-import { introBeats, introHtml, introWhere, type Beat } from './intro';
+import { introBeats, introHtml, introWhere, QUICK_START_FEATURE, QUICK_NAME, type Beat, type QuickStep } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
@@ -42,7 +42,7 @@ import { painOf } from '../artificer/pain';
 import { injuryView } from '../artificer/injuries';
 import { SUGGESTED_PACK, PACK_VOLUME, validPack, offeredKit, autoOutside, addToPack, placeItem, carryLimit, packWorldOf, statsBeforePack, suggestedPack, type KitGroup, type KitId } from '../artificer/kit';
 import { DEFAULT_AGE, START_AGES } from '../artificer/growing';
-import { DEFAULT_STATS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
+import { DEFAULT_STATS, STAT_IDS, canRaise, canLower, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { QUESTION_CHARS } from '../artificer/free-questions';
@@ -70,8 +70,10 @@ import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue,
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { FEWER_CARDS_FEATURE } from './fewer-cards';
+import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
+import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
 import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
@@ -181,8 +183,22 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s, campPickerOn()) };
 };
+
+/** Make camp opens a picker of the places to camp you know (#1986, camp-picker.ts): a ui feature, on unless switched off. */
+const campPickerOn = (): boolean => uiFeatureOn(loadChoices(), CAMP_PICKER_FEATURE);
+/**
+ * The picker is open (#1986): page state, never saved. Shut by a pick, Cancel, Escape or a tap beside
+ * it, and also by anything that leaves the page it was opened on: a tab, a day starting, a new Warden.
+ */
+let campPickOpen = false;
+/** Shut the picker (#1986); with `refocus`, the keyboard goes back to the Make camp card. */
+function closeCampPick(refocus: boolean): void {
+  campPickOpen = false;
+  render(state);
+  if (refocus) root.querySelector<HTMLElement>('[data-campick]')?.focus({ preventScroll: true });
+}
 
 // ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
 // A ui feature: a new Warden's first view after the intro is LAND, with the patrol leader's advice
@@ -191,6 +207,15 @@ const paletteOpts = (s: AppState['sim']) => {
 const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
 /** Finds as you explore (#1869, explore-finds.ts): a ui feature, on unless switched off in the features panel. */
 const findsOn = (): boolean => uiFeatureOn(loadChoices(), FINDS_FEATURE);
+// A ui feature (#1929): the day's result as a card when the timer ends a day, and the journal one
+// tap from the status bar. Off, the day ends as before and the journal stays at the foot of PLAN.
+const dayCardOn = (): boolean => uiFeatureOn(loadChoices(), DAY_CARD_FEATURE);
+/** The card the timer's last day left (#1929), until OK; null when there's none. Presentation only: never saved. */
+let dayCard: DayCard | null = null;
+/** The journal sheet (#1929) is open. */
+let jsheetOpen = false;
+/** The status bar's 📓, when the switch is on. */
+const jbtn = (): string => (dayCardOn() ? journalButton(t) : '');
 /** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
 const startClaimed = new Set<string>();
 /** This run started on LAND: claimed now, or on an earlier visit. */
@@ -649,14 +674,14 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
     ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
     ${stores ? statusEating(s) : ''}${vitals ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
-    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}
+    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}${stores ? jbtn() : ''}
   </div>${tips}`;
   }
   return `<div class="statusbar">${row2}
     ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
     ${keyColumn(focusOrLine(s, true), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${lineShown(g) ? '' : nightChip(s, t)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
-    ${lineShown(g) ? '' : outlookTag(s, ready)}
+    ${lineShown(g) ? '' : outlookTag(s, ready)}${jbtn()}
   </div>`;
 }
 
@@ -684,7 +709,7 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
   return `<div class="statusbar compact">
     <div class="cline">
       ${warden}<span class="cday">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
-      ${dots}${stores}${more}
+      ${dots}${stores}${jbtn()}${more}
     </div>
     ${compactMoreOpen ? compactMorePanel(a, preview) : ''}
   </div>${standingUnder(a)}${tips}`;
@@ -1281,6 +1306,10 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
+  // Switched off (#1929), the day card and the journal sheet go, so switching back on brings back no old card.
+  if (!dayCardOn()) { dayCard = null; jsheetOpen = false; }
+  // The journal sheet (#1929) is drawn again with the page: it keeps where it was scrolled to.
+  const sheetScroll = root.querySelector('.jsheet ul')?.scrollTop ?? 0;
   root.innerHTML = `
     ${headerBlock(`<h1>${t('top.titleHtml')}</h1>`, {
         warden: reachWarden,
@@ -1301,7 +1330,12 @@ function drawPage(a: AppState): void {
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
-    ${timerPanel()}`;
+    ${timerPanel()}
+    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}
+    ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
+    ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
+  const sheetList = root.querySelector('.jsheet ul');
+  if (sheetList) sheetList.scrollTop = sheetScroll;
   root.classList.toggle('playing', !!playing);
   // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
   if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
@@ -1473,7 +1507,7 @@ function setLang(next: Lang): void {
   introEl.setAttribute('aria-label', t('intro.label'));
   render(state);
   // The intro's beats are words in a language now (#1707): tell them again in the new one, where it was.
-  if (intro) { intro = { ...intro, beats: introBeats(state.sim, t) }; renderIntro(); }
+  if (intro) { intro = { ...intro, beats: beatsFor(intro.quick) }; renderIntro(); }
 }
 
 /**
@@ -1814,6 +1848,10 @@ const shownNow = (pl: Playing): AppState => shownAt(pl.plays[pl.day], momentOf(p
  * that day done. Nothing worth watching (a finished run, a choice still waiting): no timer.
  */
 function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
+  // A day starting shuts Make camp's picker (#1986): it was about the morning before.
+  campPickOpen = false;
+  // …and the last day's card (#1929): a new one comes when this one ends.
+  dayCard = null;
   if (!worthPlaying(plays)) {
     for (const p of plays) { kept = recordMove(kept, state, p.after, moveOf(p)); keep(p.after); }
     render(state);
@@ -1922,7 +1960,23 @@ function endTimer(): void {
   cancelAnimationFrame(pl.frame);
   playing = null;
   if (pl.lock) void pl.lock.release().catch(() => undefined);
+  // The day's result (#1929): a card, when a day and its night have ended (day-card.ts dayCardOf).
+  dayCard = dayCardOn() ? dayCardOf(pl.plays, findsOn()) : null;
   render(state);
+  if (dayCard) root.querySelector<HTMLElement>('[data-cmd="daycardok"]')?.focus({ preventScroll: true });
+}
+
+/** The day card's OK (#1929), Escape or a tap beside it: the card goes, and the plan is back. */
+function closeDayCard(): void {
+  dayCard = null;
+  render(state);
+}
+
+/** Open or shut the journal sheet (#1929); the focus goes to its Close, or back to the 📓. */
+function setSheet(open: boolean): void {
+  jsheetOpen = open;
+  render(state);
+  root.querySelector<HTMLElement>(open ? '[data-cmd="jsheetclose"]' : '[data-cmd="jsheet"]')?.focus({ preventScroll: true });
 }
 
 function setSpeed(x: Speed): void {
@@ -1943,7 +1997,30 @@ async function holdScreen(pl: Playing): Promise<void> {
 
 // The timer runs only while you watch: leave the page and the day is simply done when you come back.
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
-document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
+// Escape does one thing at a time (#1929): it shuts the journal sheet (which can be open while the
+// day plays, and the day plays on), else skips the timer to the day's end (whose card then shows),
+// else shuts Make camp's picker (#1986) without queueing, else shuts the day card.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || intro) return;
+  if (jsheetOpen) { e.preventDefault(); setSheet(false); }
+  else if (playing) { e.preventDefault(); skipTimer(); }
+  else if (campPickOpen) { e.preventDefault(); closeCampPick(true); }
+  else if (dayCard) { e.preventDefault(); closeDayCard(); }
+});
+// Tab stays inside a dialog over the page while it's open, as in the focus picker: the journal sheet,
+// the day card (#1929) or Make camp's picker (#1986). They're aria-modal, so the buttons behind them
+// aren't reached until they're shut.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || intro) return;
+  const box = root.querySelector<HTMLElement>('.jsheet') ?? root.querySelector<HTMLElement>('.daycard') ?? (campPickOpen ? root.querySelector<HTMLElement>('.campick') : null);
+  if (!box) return;
+  const targets = [...box.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')];
+  if (!targets.length) return;
+  const i = targets.indexOf(document.activeElement as HTMLElement);
+  const next = e.shiftKey ? (i <= 0 ? targets.length - 1 : i - 1) : (i === -1 || i === targets.length - 1 ? 0 : i + 1);
+  e.preventDefault();
+  targets[next].focus();
+}, true);
 
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
 function timerPanel(): string {
@@ -2035,7 +2112,14 @@ function tickTimer(pl: Playing, now: number): void {
 // A separate overlay element, so the game renders (and stays usable) underneath
 // and render() — which rewrites #app wholesale — never wipes the intro.
 
-let intro: { beats: Beat[]; i: number } | null = null;
+/**
+ * The intro playing, if one is. `quick` (#1928): where the quick start is, or absent for the whole
+ * arrival. `made`: the Warden has been made from the draft during this intro (the creation screen
+ * was passed), so Play on the quick start's card doesn't make another; `madeAs` who they were made
+ * as (`wardenKey`). `packed`: the pack screen was passed, so a Warden made after it starts with that
+ * pack; `packedFor` the stats, talents and age it was packed for (`packKey`).
+ */
+let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
@@ -2106,30 +2190,102 @@ const draftRun = () => ({ config: { world: packWorld() }, character: { stats: gr
 const draftLimit = (): number => carryLimit(draftRun());
 const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
 
+/** Is the quick start on (#1928)? A ui switch: read when an intro starts, kept for that intro. */
+const quickOn = (): boolean => uiFeatureOn(loadChoices(), QUICK_START_FEATURE);
+
+/** The intro's beats for the game as it stands, in the quick start's step if it's playing (#1928). */
+const beatsFor = (quick?: QuickStep['step']): Beat[] => introBeats(state.sim, t, quick ? { step: quick, age: draft.age } : undefined);
+
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
+  // The quick start (#1928): a ready-made Warden, named until the player names them on Change.
+  const quick = quickOn() ? 'ready' as const : undefined;
+  if (quick && !draft.name.trim()) draft.name = QUICK_NAME;
   draftPack = [...SUGGESTED_PACK];
   draftOutside = autoOutside(SUGGESTED_PACK);
   drawnBeat = -1;
-  intro = { beats: introBeats(state.sim, t), i: 0 };
+  intro = { beats: beatsFor(quick), i: 0, quick, made: false };
   renderIntro();
 }
 
-/** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
-function commitCharacter(): void {
-  // The sim is made again from the draft — keeping what the last Warden left (#1455), which the intro already told them about.
+/**
+ * Play on the quick start's card (#1928), or Skip before a Warden was made: the Warden the play
+ * API's quick start makes (average stats, no talents, recorded ×1.00, not the ×2.10 of a creation
+ * left unspent), with the draft's name and age and the pack makeWarden ticks for them. The log's
+ * start says no more than that, so the server's replay makes the same Warden. A draft that already
+ * holds choices (a creation half-done before a reload) is made as the creation screen makes it.
+ */
+function commitQuick(): void {
+  if (!draft.name.trim()) draft.name = QUICK_NAME;
+  // A pack never confirmed (Skip on the pack screen) isn't the pack they start with: "Skipping keeps the pack you had."
+  if (draft.talents.length || STAT_IDS.some(id => draft.stats[id] !== DEFAULT_STATS[id])) { commitCharacter(!!intro?.packed); return; }
+  makeFromDraft({ name: draft.name.trim().slice(0, 24), portrait: draft.portrait, age: draft.age });
+  // Change showed the pack first (`stats-before-pack` off) and then Skip: the pack chosen goes with them.
+  if (intro?.packed) applyPack();
+  render(state);
+}
+
+/**
+ * Who the draft is (#1928): its name, age, talents and stats. A second Change that leaves this
+ * different from the Warden made (`madeAs`) has something to keep.
+ */
+const wardenKey = (): string => JSON.stringify([draft.name.trim(), draft.age, draft.talents, draft.stats]);
+/** What a pack is ticked for (#1872, `tickedPack`): the stats, talents and age, not the name. */
+const packKey = (): string => JSON.stringify([draft.age, draft.talents, draft.stats]);
+
+/**
+ * The Warden made from the draft, and the log started from them (#1559), keeping what the last
+ * Warden left (#1455), which the intro already told them about; the heirlooms came from the same run
+ * as before. `chosen` and `stats` only for a Warden made on the creation screen: without them the
+ * run is the quick start's (#1928), as the play API makes it.
+ */
+function makeFromDraft(spec: { name: string; portrait: string; age: number; chosen?: TalentId[]; stats?: Stats }): void {
   const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
   const legacy = left.heirlooms?.length ? left : undefined;
-  const spec = { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: [...draft.talents], stats: validStats(draft.stats) ? { ...draft.stats } : { ...DEFAULT_STATS }, age: draft.age };
-  // The log starts again from this Warden (#1559); the heirlooms came from the same run as before.
   const from = kept?.log.start.heirloomsFrom ?? null;
   state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
   startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
-  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made.
-  if (statsBeforePack(state.sim)) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
+}
+
+/**
+ * Change on the quick start's card (#1928): the creation and pack screens, in the order the run's
+ * `stats-before-pack` sets, then back to the card. The draft keeps what was chosen, so changing
+ * again starts from it.
+ */
+function changeQuick(): void {
+  if (!intro) return;
+  const beats = beatsFor('change');
+  intro = { ...intro, beats, quick: 'change', i: Math.max(0, beats.findIndex(b => b.kind === 'create' || b.kind === 'pack')) };
+  // A new screen at the card's index: drawn fresh (its fade-in, its top), not as a redraw of the card.
+  drawnBeat = -1;
+  renderIntro();
+}
+
+/**
+ * Skip, or Escape: the intro ends at once. In the quick start (#1928) that's Play, unless a Warden
+ * was made already; then what a second Change altered is kept as Next would keep it (with the pack
+ * confirmed before, if any), rather than dropped.
+ */
+function skipIntro(): void {
+  if (intro?.quick && !intro.made) commitQuick();
+  else if (intro?.quick && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
+  endIntro();
+}
+
+/**
+ * Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats
+ * (a hidden talent is rolled from the id). `pack`: start with the pack screen's pack (the default);
+ * false when it was never confirmed, so they start with the one makeWarden packs.
+ */
+function commitCharacter(pack = true): void {
+  // The sim is made again from the draft.
+  makeFromDraft({ name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: [...draft.talents], stats: validStats(draft.stats) ? { ...draft.stats } : { ...DEFAULT_STATS }, age: draft.age });
+  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made —
+  // unless it was packed for this same Warden already (a second Change on the quick start, #1928).
+  if (statsBeforePack(state.sim) && intro?.packedFor !== packKey()) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
   // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
   // pack again: the same makeWarden → startLog → repack the run had when packing came last.
-  applyPack();
+  if (pack) applyPack();
   render(state);
 }
 
@@ -2163,19 +2319,21 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
+  // Play on the quick start's card (#1928): the ready-made Warden, unless Change made one already.
+  if (intro.beats[intro.i].kind === 'ready') { if (!intro.made) commitQuick(); endIntro(); return; }
   if (intro.beats[intro.i].kind === 'create') {
     if (!draftValid()) return;
     commitCharacter();
     // Told again from the Warden just made (#1872): the order comes from the run's own
     // `stats-before-pack` switch, and the run is only now made from the player's switches, so
     // re-read the beats and carry on from creation's place in them (by id, never by index).
-    const beats = introBeats(state.sim, t);
-    intro = { beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')) };
+    const beats = beatsFor(intro.quick);
+    intro = { ...intro, beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')), made: true, madeAs: wardenKey() };
   }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
   // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: introBeats(state.sim, t) }; }
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true, packedFor: packKey() }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
@@ -2199,7 +2357,8 @@ function renderIntro(): void {
   introSpot = introWhere(b);
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
-    beat: b, i: intro.i, count: intro.beats.length, name: state.sim.character.name, t,
+    // The quick start's card (#1928) names the draft: the Warden isn't made until Play or the creation screen.
+    beat: b, i: intro.i, count: intro.beats.length, name: intro.quick ? draft.name : state.sim.character.name, t,
     form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),
@@ -2214,14 +2373,15 @@ function renderIntro(): void {
 }
 
 // Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
-// screen only its own controls act, so a stray tap can't skip past your choices.
+// screen only its own controls act, so a stray tap can't skip past your choices; on the quick
+// start's card (#1928) too, so a stray tap doesn't Play past Change.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
   // The 💬 button (#1845) opens the feedback panel beside the intro, and never counts as a tap to go on.
   if (el.closest('[data-cmd="feedback"]')) { feedback.toggle(); return; }
   const btn = el.closest<HTMLElement>('[data-intro], [data-talent], [data-stat], [data-age], [data-kit], [data-kitplace], [data-kitcmd], [data-kitgroup], [data-kitfold]');
   // On the creation and packing screens only their own controls act, so a stray tap can't skip past your choices.
-  const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack';
+  const creating = intro?.beats[intro.i].kind === 'create' || intro?.beats[intro.i].kind === 'pack' || intro?.beats[intro.i].kind === 'ready';
   if (btn?.dataset.age) { draft.age = Number(btn.dataset.age); renderIntro(); return; }
   // A pack section's heading (#1727): fold or open it, and remember that. preventDefault stops the
   // browser toggling the <details> itself; the redraw sets `open` from packOpen instead.
@@ -2273,7 +2433,8 @@ introEl.addEventListener('click', e => {
     draft.talents = draft.talents.includes(t) ? draft.talents.filter(x => x !== t) : [...draft.talents, t].slice(-TALENT_PICKS);
     renderIntro(); return;
   }
-  if (btn?.dataset.intro === 'skip') endIntro();
+  if (btn?.dataset.intro === 'skip') skipIntro();
+  else if (btn?.dataset.intro === 'change') changeQuick();
   else if (btn?.dataset.intro === 'next' || !creating) { if (!el.closest('.create')) advanceIntro(); }
 });
 // Typing a name updates the draft without re-rendering (which would steal focus).
@@ -2291,9 +2452,10 @@ document.addEventListener('keydown', e => {
   // (#1845) don't drive the intro: Enter in the report must not skip a screen.
   if ((e.target as HTMLElement).closest?.('.fbpanel, .fbpill, [data-cmd="feedback"]')) return;
   const typing = (e.target as HTMLElement).tagName === 'INPUT';
-  if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
-  else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
-  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create' && intro.beats[intro.i].kind !== 'pack') { e.preventDefault(); advanceIntro(); }
+  if (e.key === 'Escape') { e.preventDefault(); skipIntro(); }
+  // Enter on one of the intro's own buttons is that button's click (Change on the quick start's card, #1928, isn't Play).
+  else if (e.key === 'Enter') { if ((e.target as HTMLElement).closest?.('[data-intro]')) return; e.preventDefault(); advanceIntro(); }
+  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && !['create', 'pack', 'ready'].includes(intro.beats[intro.i].kind)) { e.preventDefault(); advanceIntro(); }
 });
 
 function update(next: AppState): void {
@@ -2404,6 +2566,12 @@ root.addEventListener('click', e => {
     render(state);
     return;
   }
+  // A tap on the camp picker's backdrop, beside the popup (#1986), shuts it without queueing.
+  if ((e.target as HTMLElement).matches('[data-campickwrap]')) { closeCampPick(true); return; }
+  // A tap on the day card's or the journal sheet's backdrop, beside the card (#1929), shuts it.
+  const behind = e.target as HTMLElement;
+  if (behind.matches('[data-daycard]')) { closeDayCard(); return; }
+  if (behind.matches('[data-jsheet]')) { setSheet(false); return; }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
@@ -2422,6 +2590,11 @@ root.addEventListener('click', e => {
   if (d.cmd === 'qstrip') { stripOpen = !stripOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="qstrip"]')?.focus({ preventScroll: true }); return; }
   // The compact status bar's ⋯ (#1924): FOCUS, pain, injuries and the rest, a tap away. Presentation only, so mid-day too.
   if (d.cmd === 'compactmore') { compactMoreOpen = !compactMoreOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="compactmore"]')?.focus({ preventScroll: true }); return; }
+  // The day card (#1929): OK shuts it; Journal shuts it and opens the journal. The status bar's 📓
+  // opens and shuts the journal sheet. Presentation only, so mid-day too.
+  if (d.cmd === 'daycardok') { closeDayCard(); return; }
+  if (d.cmd === 'daycardjournal') { dayCard = null; setSheet(true); return; }
+  if (d.cmd === 'jsheet' || d.cmd === 'jsheetclose') { setSheet(d.cmd === 'jsheet' && !jsheetOpen); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {
@@ -2451,6 +2624,8 @@ root.addEventListener('click', e => {
   }
   // A tab (or the Warden's button) leaves the Menu for that view.
   if (d.tab || d.rtab) menyOpen = false;
+  // A tab, or "See the land →" on one of its lines, leaves the journal sheet (#1929) for that view.
+  if (d.tab || d.rtab || d.seeland) jsheetOpen = false;
   // The start note's Explore (#1853): PLAN, with Explore highlighted and its chooser open (drawPage).
   // Before the guide's weather card is acknowledged it waits: the card is at the top, scrolled to.
   if (d.startexplore) {
@@ -2462,7 +2637,7 @@ root.addEventListener('click', e => {
     if (startPending) window.scrollTo({ top: 0 });
     return;
   }
-  if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
+  if (d.tab) { tab = d.tab as Tab; campPickOpen = false; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.
   else if (d.seeland) {
@@ -2556,7 +2731,12 @@ root.addEventListener('click', e => {
     (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
   }
   // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
-  else if (d.camp) { const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
+  // Make camp's picker (#1986): the card opens it; Cancel shuts it. A place picked in it is the `data-camp` below.
+  // With no place to pick, the card queues Make camp as it always did, and the sim says why it can't.
+  else if (d.campick !== undefined && !pickable(state.sim)) { const q = 'camp' as QueueId; if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q })); }
+  else if (d.campick !== undefined) { campPickOpen = true; render(state); root.querySelector<HTMLElement>('.campick [data-camp]:not([disabled])')?.focus({ preventScroll: true }); }
+  else if (d.cmd === 'campickclose') closeCampPick(true);
+  else if (d.camp) { campPickOpen = false; const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
   // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.
@@ -2772,6 +2952,10 @@ root.addEventListener('submit', e => {
  * check them.
  */
 function newWarden(): void {
+  campPickOpen = false;
+  // The last run's day card and journal sheet (#1929) aren't this one's.
+  dayCard = null;
+  jsheetOpen = false;
   const legacy = legacyFor(currentRun(state));
   const next = newGame(legacy, loadChoices());
   startLog(next, {}, legacy ? legacy.heirlooms ?? [] : null, logFor(state)?.sent?.gameId ?? null);

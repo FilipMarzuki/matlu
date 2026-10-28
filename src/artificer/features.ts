@@ -516,6 +516,30 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'PLAN shows only the actions you can do now. In each section the rest fold into one line, "4 more you can\'t do yet", that opens to each one with the reason. The guide\'s suggestion comes first in its section, on a card as wide as the section with its name a size up.',
   },
   {
+    // A ui feature (#1928, roadmap item 6 of #1914): which intro screens the page plays
+    // (artificer-app/intro.ts, the `quick` beats), so it switches live and no run saves it. A Warden
+    // started with Play is the play API's quick start (average stats, no talents, ×1.00), so the
+    // rules and the server's replay are as before. The play API, the console and AI players never
+    // see it. Off, the intro is exactly as before.
+    id: 'quick-start', name: 'Quick start', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1928,
+    note: 'After the language, one story page, then "You\'re Saga, 12, a scout. Your pack is ready." with Play, or Change who I am / what I packed for the usual screens, which come back to the same card. Play starts an average Warden with no talents (a quick start, ×1.00) and the pack ticked for them.',
+  },
+  {
+    // A ui feature (#1986): what tapping Make camp does on the page (artificer-app/camp-picker.ts). The
+    // sim already takes a camp with a chosen spot (camp-as-action, #1732), so it switches live and no
+    // run saves it. The play API, the console and AI players never see it. Off, the card queues Make
+    // camp at the default spot, as before.
+    id: 'camp-picker', name: 'Pick where to make camp', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1986,
+    note: 'Tapping Make camp opens a list of the places to camp you know, each with what you can tell of its surroundings (shelter from the wind, damp, how far to water and wood), its rating and how warm it can get. Tap one to make camp there.',
+  },
+  {
+    // A ui feature (#1929, roadmap item 7 of #1914): read off the plays the timer already holds
+    // (artificer-app/day-card.ts), so it switches live and no run saves it. The play API, the console
+    // and AI players never see it. Off, the day ends as before and the journal stays where it was.
+    id: 'day-card', name: 'The day\'s result as a card', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1929,
+    note: 'When the timer ends a day, a card says what you brought back, what the night took (food eaten, wood burnt, anything spoiled or stolen) and tomorrow\'s sky, with the journal one tap away. The status bar gets a 📓 that opens the journal over any tab.',
+  },
+  {
     // A ui feature (#1930, roadmap item 8 of #1914): one sentence read off the preview the queue
     // already makes (artificer-app/day-forecast.ts), so it switches live and no run saves it. It says
     // no more than `forecasts` lets the Warden know. The play API, the console and AI players never

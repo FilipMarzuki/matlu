@@ -520,6 +520,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   'campsite.start': 'där du började',
   'campsite.pick': 'Att slå läger är en handling: den läggs i planen som alla andra, med vägen dit. Utforska för att hitta fler lägerplatser.',
   'campsite.go': '⛺ SLÅ LÄGER HÄR',
+  'campick.title': 'Var slår du läger?',
+  'campick.cancel': 'Avbryt',
   'head.campSpots': '⛺ LÄGERPLATSER — de du känner till',
   // Hur bra lägerplats du tror att en plats är (#1756).
   'campsite.rate.great': '★ UTMÄRKT',
