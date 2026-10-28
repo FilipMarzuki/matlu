@@ -18,7 +18,7 @@ import { nightTip } from './queue-words';
 const plural = (t: T, key: string, n: number, vars: Record<string, string | number> = {}): string => t(`${key}.${n === 1 ? 'one' : 'other'}` as Key, { n, ...vars });
 
 /** Each key metric's store icon (its 32 px art, else the emoji) and the store it stands for. */
-const METRIC_ICON: Readonly<Record<KeyMetric['id'], { store: string; emoji: string }>> = {
+export const METRIC_ICON: Readonly<Record<KeyMetric['id'], { store: string; emoji: string }>> = {
   food: { store: 'rawFood', emoji: '🍖' },
   water: { store: 'water', emoji: '💧' },
   firewood: { store: 'firewood', emoji: '🪵' },

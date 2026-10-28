@@ -515,6 +515,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'fewer-cards', name: 'Fewer cards', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1925,
     note: 'PLAN shows only the actions you can do now. In each section the rest fold into one line, "4 more you can\'t do yet", that opens to each one with the reason. The guide\'s suggestion comes first in its section, on a card as wide as the section with its name a size up.',
   },
+  {
+    // A ui feature (#1929, roadmap item 7 of #1914): read off the plays the timer already holds
+    // (artificer-app/day-card.ts), so it switches live and no run saves it. The play API, the console
+    // and AI players never see it. Off, the day ends as before and the journal stays where it was.
+    id: 'day-card', name: 'The day\'s result as a card', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1929,
+    note: 'When the timer ends a day, a card says what you brought back, what the night took (food eaten, wood burnt, anything spoiled or stolen) and tomorrow\'s sky, with the journal one tap away. The status bar gets a 📓 that opens the journal over any tab.',
+  },
 ];
 
 /** Switches by feature id. */
