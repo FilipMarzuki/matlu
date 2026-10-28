@@ -60,13 +60,30 @@ const REACH_SOUTH_PULL = 0.04;
  */
 export const RIVER_RADIUS = 4;
 
-/** How a trace ended: in a lake, at the Reach's edge, boxed in by its own course (a tarn), or at `RIVER_MAX` cells. */
-export type RiverEnd = 'lake' | 'reach' | 'tarn' | 'max';
+/**
+ * The most cells a hollow may fill (#1964): measured with the old 0.04 pull, `K = 16` gave 3.55%
+ * lake near the start on average (20 seeds), against 0.44% with no pooling at all.
+ */
+export const POOL_MAX = 16;
+
+/** How a trace ended: in a lake, at the Reach's edge, boxed in by its own course (a tarn), pooled in a hollow it couldn't climb out of, or at `RIVER_MAX` cells. */
+export type RiverEnd = 'lake' | 'reach' | 'tarn' | 'max' | 'pool';
 
 export interface River {
   /** The course, spring first: every cell a 4-neighbour of the one before, none twice. */
   cells: CellXY[];
   end: RiverEnd;
+  /**
+   * The hollow's cells when `end` is `'pool'`, lowest first: these become `lake` in `hexCells`.
+   * The course's last cell (`cells[cells.length - 1]`) is always `pool[0]`.
+   */
+  pool?: readonly CellXY[];
+  /**
+   * The pool's outlet height when `end` is `'pool'` (see `fillHollow`): the water level the pool
+   * would have to rise past to spill over its rim. Every pool cell's own height sits strictly
+   * below it.
+   */
+  outlet?: number;
 }
 
 /** A hex's cells (row by row, as `cellsOfHex`) and the land on each, rivers and tarns included. */
@@ -147,6 +164,77 @@ export function riverStepScore(seed: number, from: CellXY, to: CellXY): number {
 }
 
 /**
+ * A safety bound on how many cells `fillHollow` may examine while chasing `cap` submerged ones —
+ * not a meaningful limit of its own (`POOL_MAX` already caps the pool it returns), just a backstop
+ * against a long chain of dry "stepping stone" cells (see below) on unusually flat ground.
+ */
+const HOLLOW_VISIT_MAX = 4 * POOL_MAX;
+
+/**
+ * Fills the hollow at `at` (#1964): a priority flood over free 4-neighbours (those not on
+ * `course`) — a cell on the Reach, or already on `course`, is never offered, so the flood never
+ * crosses into either.
+ *
+ * Each waiting cell's `level` is the lowest water height that would let the flood reach it from
+ * `at` through already-filled ground: `max` of the filled neighbour's own level and the cell's own
+ * height (so a cell can never be easier to reach than the ground it's reached through). Always
+ * taking the lowest level next (ties by `packCell`) extracts cells in non-decreasing level order —
+ * the standard "widest path" flood.
+ *
+ * A cell's own height can equal its level (when its own height, not an ancestor's, set it: a new
+ * high point along the cheapest path to it, not ground under water) or sit strictly below it (true
+ * headroom: an already-submerged dip). Only the second kind joins `pool` and counts against `cap` —
+ * the first kind is a dry stepping stone the flood still crosses, since lower ground can sit just
+ * past it. That split is what keeps the outlet honest: every pool cell's height sits strictly below
+ * its own level, which is at or below the level of the last cell taken, which is at or below the
+ * level of whatever's left waiting once the fill stops (`cap` reached, nothing left to offer, or
+ * `HOLLOW_VISIT_MAX` examined) — the outlet.
+ */
+function fillHollow(seed: number, at: CellXY, course: ReadonlySet<number>, cap: number): { pool: CellXY[]; outlet: number } {
+  const pool: CellXY[] = [at];
+  const visited = new Set<number>([packCell(at)]); // pool cells and dry stepping stones alike
+  const levelOf = new Map<number, number>();
+  const waiting: CellXY[] = [];
+
+  const offer = (c: CellXY, level: number) => {
+    const key = packCell(c);
+    if (inReach(c) || course.has(key) || visited.has(key)) return;
+    const known = levelOf.get(key);
+    if (known !== undefined && known <= level) return;
+    levelOf.set(key, level);
+    if (known === undefined) waiting.push(c);
+  };
+  const offerNeighboursOf = (c: CellXY, level: number) => {
+    for (const [dx, dy] of STEPS) {
+      const n = { cx: c.cx + dx, cy: c.cy + dy };
+      offer(n, Math.max(level, worldCell(seed, n).height));
+    }
+  };
+  offerNeighboursOf(at, worldCell(seed, at).height);
+
+  let visits = 1; // `at` itself
+  while (pool.length < cap && waiting.length > 0 && visits < HOLLOW_VISIT_MAX) {
+    let best = 0;
+    for (let i = 1; i < waiting.length; i++) {
+      const a = waiting[i], b = waiting[best];
+      const la = levelOf.get(packCell(a))!, lb = levelOf.get(packCell(b))!;
+      if (la < lb || (la === lb && packCell(a) < packCell(b))) best = i;
+    }
+    const cell = waiting.splice(best, 1)[0];
+    const key = packCell(cell);
+    const level = levelOf.get(key)!;
+    visited.add(key);
+    visits++;
+    if (worldCell(seed, cell).height < level) pool.push(cell);
+    offerNeighboursOf(cell, level);
+  }
+
+  let outlet = Infinity;
+  for (const c of waiting) outlet = Math.min(outlet, levelOf.get(packCell(c))!);
+  return { pool, outlet };
+}
+
+/**
  * A river's course from `start`, downhill over the world's height. Each step is `generateReach`'s
  * rule with the world's pull (`riverStepScore`): the lowest 4-neighbour not yet on this course,
  * scored by height less `WORLD_SOUTH_PULL · dy`, so a river carves through small dips instead of
@@ -154,8 +242,13 @@ export function riverStepScore(seed: number, from: CellXY, to: CellXY): number {
  *
  * It stops, without taking the step, when the next cell is a lake (`lake`) or inside the Reach
  * (`reach`: the Reach draws its own rivers, so a world river never enters it). It stops when every
- * neighbour is already on its course (`tarn`: the last cell becomes a small lake) or when it holds
- * `RIVER_MAX` cells (`max`).
+ * neighbour is already on its course (`tarn`: the last cell becomes a small lake), when every free
+ * neighbour is higher (`pool`, #1964: the trace would have to climb, so it fills the hollow it's
+ * in instead — `fillHollow` from the current cell), or when it holds `RIVER_MAX` cells (`max`).
+ *
+ * The climb check reads raw height, not `riverStepScore`: the pull south can keep a trace stepping
+ * onto a slightly higher cell because the pull outweighs it, and that's still "downhill enough" to
+ * step rather than pool. Only a cell boxed in on every free side by strictly higher ground pools.
  *
  * A trace reads only the world's height, never other traces, so two rivers that meet just overlap
  * and neither depends on which was traced first.
@@ -169,21 +262,36 @@ export function traceRiver(seed: number, start: CellXY): River {
     course.add(packCell(at));
     if (cells.length >= RIVER_MAX) return { cells, end: 'max' };
 
-    let next: CellXY | undefined;
-    let nextScore = Infinity;
+    const free: CellXY[] = [];
     for (const [dx, dy] of STEPS) {
       const n = { cx: at.cx + dx, cy: at.cy + dy };
-      if (course.has(packCell(n))) continue;
+      if (!course.has(packCell(n))) free.push(n);
+    }
+    if (free.length === 0) return { cells, end: 'tarn' };
+
+    const atHeight = worldCell(seed, at).height;
+    if (free.every(n => worldCell(seed, n).height > atHeight)) {
+      // cells.length < RIVER_MAX (the max check above already returned otherwise), and `at` is
+      // already counted in `cells` but also becomes `pool[0]`, so the pool may add RIVER_MAX −
+      // cells.length more cells before the trace-plus-pool total would pass RIVER_MAX.
+      const cap = Math.min(POOL_MAX, RIVER_MAX - cells.length + 1);
+      const { pool, outlet } = fillHollow(seed, at, course, cap);
+      return { cells, end: 'pool', pool, outlet };
+    }
+
+    let next: CellXY | undefined;
+    let nextScore = Infinity;
+    for (const n of free) {
       const score = riverStepScore(seed, at, n);
       if (score < nextScore) {
         next = n;
         nextScore = score;
       }
     }
-    if (next === undefined) return { cells, end: 'tarn' };
-    if (worldCell(seed, next).biome === 'lake') return { cells, end: 'lake' };
-    if (inReach(next)) return { cells, end: 'reach' };
-    at = next;
+    const chosen = next as CellXY; // free.length > 0, so the loop above always picks one
+    if (worldCell(seed, chosen).biome === 'lake') return { cells, end: 'lake' };
+    if (inReach(chosen)) return { cells, end: 'reach' };
+    at = chosen;
   }
 }
 
@@ -205,11 +313,12 @@ const hexCache = new Map<string, HexCells>();
  * A hex's full cells: `worldCell` for each of its cells, with every river that crosses it.
  *
  * The rivers are the traces from the springs of every hex within `RIVER_RADIUS` of `h`, and from
- * the Reach's edge (`edgeSprings`). A trace's cells become `river` (open water stays `lake`), and a
- * trace that ends boxed in turns its last cell into a lake (a tarn). Traces are applied in order of
- * their spring's `packCell`, so the order never depends on how the springs were found. (With
- * "open water stays lake" the result doesn't depend on that order either: a cell is lake if it was
- * or any trace's tarn is there, else river if any trace crosses it.)
+ * the Reach's edge (`edgeSprings`). A trace's cells become `river` (open water stays `lake`), a
+ * trace that ends boxed in turns its last cell into a lake (a tarn), and a trace that pools (#1964)
+ * turns every cell of its pool into a lake. Traces are applied in order of their spring's
+ * `packCell`, so the order never depends on how the springs were found. (With "open water stays
+ * lake" the result doesn't depend on that order either: a cell is lake if it was, or any trace's
+ * tarn or pool reaches it, else river if any trace crosses it.)
  *
  * Inside the Reach every cell is the Reach's own: traces never enter it.
  */
@@ -239,6 +348,11 @@ export function hexCells(seed: number, h: Hex): HexCells {
     if (river.end === 'tarn') {
       const i = index.get(packCell(river.cells[river.cells.length - 1]));
       if (i !== undefined) land[i] = { ...land[i], biome: 'lake' };
+    } else if (river.end === 'pool' && river.pool !== undefined) {
+      for (const c of river.pool) {
+        const i = index.get(packCell(c));
+        if (i !== undefined) land[i] = { ...land[i], biome: 'lake' };
+      }
     }
   }
 

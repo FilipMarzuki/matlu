@@ -32,7 +32,8 @@ async function fresh(page: Page, lang: 'en' | 'sv', features: Record<string, boo
   await page.evaluate(({ lang, features }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
-    localStorage.setItem('artificer.features', JSON.stringify(features));
+    // The whole intro, with its creation screen (the quick start, #1928, would Play past it).
+    localStorage.setItem('artificer.features', JSON.stringify({ 'quick-start': false, ...features }));
   }, { lang, features });
   await page.reload();
   await throughIntro(page);

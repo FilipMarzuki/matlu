@@ -24,13 +24,14 @@ import { landOfRun, toLocal, toWorld, type Land } from './world/hex-window';
 import { inReach } from './world/hex-knowledge';
 import { packCell } from '../../worldmap/coords';
 import { distanceOn, ringWordsFor } from './distance-words';
+import { furtherOff } from './hex-words';
 import type { Region1State } from './region1';
 
 /** The rule switch (features.ts). */
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut' | 'seenWorld'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut' | 'seenWorld' | 'heardHexes'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -163,7 +164,7 @@ const standing = (s: Pick<Run, 'afield'>, land: Land, origin: { x: number; y: nu
  * `hex-world` on (#1901), `(x, y)` are local to `land`'s own grid; a cell outside the Reach counts
  * as seen when its `packCell` is in `seenWorld` instead of `seenOut`.
  */
-function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: Sight): Sight {
+export function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: Sight): Sight {
   if (!s.seenOut?.length && !s.seenWorld?.length) return sight;
   const seenOut = new Set(s.seenOut);
   const seenWorld = new Set(s.seenWorld);
@@ -175,7 +176,7 @@ function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: S
 }
 
 /** A lake square is seen from its shore: open water has no ring of its own (its walking time is Infinity). */
-function withShores(r: Reach, sight: Sight): Sight {
+export function withShores(r: Reach, sight: Sight): Sight {
   return (x, y) => {
     if (r.cells[y * r.w + x].biome !== 'lake') return sight(x, y);
     let best = 0;
@@ -193,8 +194,14 @@ const VAGUE_DIRS = ['north-ish', 'east-ish', 'south-ish', 'west-ish'] as const;
 /** Degrees clockwise from north, from camp to (x, y). Screen y grows southwards. */
 const bearingOf = (r: Reach, x: number, y: number, from: { x: number; y: number } = r.camp): number => (Math.atan2(x - from.x, from.y - y) * 180 / Math.PI + 360) % 360;
 
-/** Which of the points a bearing is: of eight with the compass, of four (roughly) without. */
-export const directionIndex = (bearing: number, exact: boolean): number => (exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4);
+/**
+ * Which of the points a bearing is: of eight with the compass, of four (roughly) without. A function
+ * declaration, not a `const` arrow: hex-words.ts imports it back across the cycle with this module
+ * (#1902), and a declaration is hoisted, so it's defined whichever of the two loads first.
+ */
+export function directionIndex(bearing: number, exact: boolean): number {
+  return exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4;
+}
 
 /** The compass gives one of eight points ("due west", "north-east"); without it, one of four, roughly ("west-ish"). */
 export function directionWords(bearing: number, exact: boolean): string {
@@ -303,10 +310,19 @@ export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run,
   return land.cells[from.y * land.w + from.x].biome;
 }
 
-/** What you know of the land, as lines: where camp is (where you stand, before there's a camp), then each place. Empty with the switch off. */
+/**
+ * What you know of the land, as lines: where camp is (where you stand, before there's a camp),
+ * then each place, then — with `hex-world` on (#1902) — "Further off" and a line per hex you know
+ * of besides your own. Empty with the switch off.
+ */
 export function describeLand(s: Run): string[] {
   if (!descriptiveMapOn(s)) return [];
-  return [(noCampYet(s) ? HERE_LINE : CAMP_LINE)[campBiome(s)], ...knownPlaces(s).map(p => p.text)];
+  const far = furtherOff(s);
+  return [
+    (noCampYet(s) ? HERE_LINE : CAMP_LINE)[campBiome(s)],
+    ...knownPlaces(s).map(p => p.text),
+    ...(far.length ? ['Further off:', ...far.map(f => f.text)] : []),
+  ];
 }
 
 // ── Drawing your own map ────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import { test, expect, type Page } from '@playwright/test';
 /** A new English player, guide off, through the intro to the game. */
 async function toGame(page: Page): Promise<void> {
   await page.goto('/artificer.html');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false })); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false, 'quick-start': false })); });
   await page.reload();
   for (let i = 0; i < 10 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
     if (await page.locator('.tchoice').first().isVisible()) {

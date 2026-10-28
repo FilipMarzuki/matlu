@@ -23,6 +23,10 @@ import { parseItem, queueId, routeKnown, type QueueItem, type Region1State } fro
 import { knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
+import { hexWorldOn } from '../artificer/world/hex-window';
+import { furtherOff, furtherOffLine } from '../artificer/hex-words';
+import { seedOf } from '../artificer/rng';
+import type { HexNameLang } from '../../worldmap/hex-names';
 import { esc } from './html';
 import { actionName, buildsWords, distanceT, landDescribedHead, mapNeedsText, placeLine, ringName, simLine, siteName, spotWhere, whereLine } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
@@ -31,7 +35,7 @@ import { campBadges, siteBadge } from './rating-badges';
 import { distanceOn, measuredFromCamp } from '../artificer/distance-words';
 import { timeWordsOn } from '../artificer/time-words';
 import { pinEffectText, pinsList, pinsRoom, placeText, ringPinChip, ringPinRows, ringPins } from './pins-view';
-import { drawnMapBlock, reachMapSection } from './map-view';
+import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { fold } from './fold';
 import { mapSessionOpen } from '../artificer/map-learning';
 import { mapSessionInvite } from './map-session-view';
@@ -148,8 +152,24 @@ export function campSpotsSection(s: Region1State, t: T): string {
   return `<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.campSpots'))}${campBadges(s, t)}</p><ul class="landwords campspots">${rows}</ul></section>`;
 }
 
+/**
+ * "Further off" (#1902, #1903): a collapsible section after the ring sections, the hexes you know
+ * of besides your own (hex-words.ts `furtherOff`), in the viewer's language. '' with `hex-world`
+ * off, or before any hex is known; the rings above it stay exactly as they were. Drawn or not, this
+ * is the one hex-world block that doesn't wait on `mapLearned`: before a map is made the LAND tab
+ * has only these words (#1902's), the overview and cell map (map-view.ts) coming later.
+ */
+function furtherOffSection(s: Region1State, t: T, lang: HexNameLang): string {
+  if (!hexWorldOn(s)) return '';
+  const far = furtherOff(s);
+  if (!far.length) return '';
+  const seed = seedOf(s.character.id);
+  const body = `<ul class="landwords">${far.map(f => `<li>${esc(furtherOffLine(f, t, seed, lang))}</li>`).join('')}</ul>`;
+  return fold('land.furtherOff', esc(t('map.further.title')), body, false, 'ringfold');
+}
+
 /** The merged LAND tab (#1730), with the descriptive-map switch on. `map` is your drawn map's block (map-view.ts). */
-function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, assess = false): string {
+function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, lang: HexNameLang, assess = false): string {
   const places = placesByRing(s, t, news);
   const needs = drawn ? '' : mapNeedsText(s, t);
   // Before you've made camp (#1834) the heading and the first line say where you stand, not where camp is.
@@ -158,7 +178,7 @@ function mergedLand(s: Region1State, t: T, drawn: boolean, map: string, news: La
     ${words([{ text: whereLine(s, t), fresh: false }], t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}</section>${campSpotsSection(s, t)}`;
   const pins = s.pins?.length ? pinsRoom(s, t) : `${pinsRoom(s, t)}<p class="mood" style="margin:0">${esc(t('pins.none'))}</p>`;
   return `${top}
-    <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.land'))}</p>${RINGS.map(r => ringSection(s, r, places[r], t, news, assess)).join('')}
+    <section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.land'))}</p>${RINGS.map(r => ringSection(s, r, places[r], t, news, assess)).join('')}${furtherOffSection(s, t, lang)}
       <p class="eyebrow" style="margin-top:14px">${esc(t('head.pins'))}</p>${pins}
       <p class="mood">${esc(t('land.learnMore') + (needs ? t('map.needs', { needs }) : ''))}</p>
       ${fold('land.chipKey', esc(t('land.chipKey')), landLegend(t), false, 'keyfold')}</section>`;
@@ -237,19 +257,20 @@ function queuedExplores(queue: readonly QueueItem[], t: T): string {
  * it's only the invitation and the button (what's in sight from where you stand comes in with the
  * first look round).
  */
-function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, assess: boolean, queue: readonly QueueItem[], start = ''): string {
+function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: LandNews, lang: HexNameLang, assess: boolean, queue: readonly QueueItem[], start = ''): string {
   const places = placesByRing(s, t, news);
   // Before you've been out at all, what you see from where you stand isn't a find yet: only the invitation.
   // With the start's note (#1853) the near area shows anyway, with what's in sight and how well you know it.
   const lookedAround = RINGS.some(r => selfAssessment(s.explore, r) > 0);
   const rings = lookedAround || start ? RINGS.map(r => foundRing(s, r, places[r], t, news, assess, !!start && r === 1)).join('') : '';
+  const further = furtherOffSection(s, t, lang);
   const extra = `${queuedExplores(queue, t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}`;
   const boxes = [
     // The start's note (#1853) leads, and its button is the one: the invitation's own Explore button
     // (#1836) gives way to it, so there's one way to explore on day 1, by PLAN.
     start,
     drawn ? `<section class="box"><p class="eyebrow">${esc(t('head.yourMap'))}</p>${map}</section>` : '',
-    rings ? `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${rings}</section>` : '',
+    rings || further ? `<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${rings}${further}</section>` : '',
     start
       ? (extra ? `<section class="box landinvite">${extra}</section>` : '')
       : `<section class="box landinvite"><p class="mood" style="margin:0 0 8px">${esc(t('land.found.invite'))}</p>${exploreButton(s, t)}${extra}</section>`,
@@ -273,6 +294,8 @@ export interface LandOpts {
   queue?: readonly QueueItem[];
   /** The start's note at the top (#1853, start-land.ts `startNoteBlock`); '' or absent for none. */
   startNote?: string;
+  /** The viewer's language (#1903), for the hex overview's tapped name and "Further off"'s hex names; 'en' if absent. */
+  lang?: HexNameLang;
 }
 
 /**
@@ -283,12 +306,14 @@ export function landTab(s: Region1State, t: T, pinRing: Ring | null = null, opts
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on, whoever draws it.
   t = distanceT(s, t);
   const mode = mapMode(s);
-  const drawn = mode === 'drawn' ? opts.map ?? drawnMapBlock(s, t) : '';
+  const lang = opts.lang ?? 'en';
+  // With `hex-world` on, the drawn map is the hex overview and the current hex's cells (#1903), not the Reach map.
+  const drawn = mode === 'drawn' ? opts.map ?? (hexWorldOn(s) ? hexDrawnMapBlock(s, t, undefined, lang) : drawnMapBlock(s, t)) : '';
   const start = opts.startNote ?? '';
-  if (mode !== 'reach' && opts.foundOnly) return foundLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess, opts.queue ?? [], start);
+  if (mode !== 'reach' && opts.foundOnly) return foundLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, lang, !!opts.assess, opts.queue ?? [], start);
   // Without found-only, the note simply leads (#1853): those views have no Explore button to replace.
   const lead = start ? `<div style="margin-bottom:14px">${start}</div>` : '';
-  if (mode !== 'reach') return lead + mergedLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, !!opts.assess);
+  if (mode !== 'reach') return lead + mergedLand(s, t, mode === 'drawn', drawn, opts.news ?? NO_NEWS, lang, !!opts.assess);
   return `${lead}<section class="box"><p class="eyebrow">${esc(t('head.land'))}</p>${landRings(s, t, pinRing)}${landLegend(t)}
         <p class="mood">${esc(t('land.howTo'))}</p></section>
         ${campSpotsSection(s, t)}<section class="box" style="margin-top:14px"><p class="eyebrow">${esc(t('head.pins'))}</p>${pinsList(s, t)}</section>
