@@ -41,6 +41,19 @@ export const map = {
   // …and before camp is made (#1834): the walk is from where you stand.
   'map.seenHere': '{place} {dir}, {time} from here.',
   'map.horizon': "{place} {dir}; you haven't been.",
+  // "Further off" (#1902): hexes you know of besides your own, by direction and days away.
+  'map.further.title': 'Further off:',
+  'map.further.seen': '{dir}, {days}: {name} (you\'ve seen it).',
+  'map.further.heard': '{dir}, {days}: {name} (heard of).',
+  'map.further.skyline': '{dir}, {days}: {name} (on the skyline).',
+  'map.further.days.one': "a day's walk",
+  'map.further.days.many': '{n} days',
+  // The hex overview, drawn (#1903): one glyph per hex, and tapping one of them.
+  'map.hexTap': "Tap a hex to see what's known of it.",
+  'map.hexOverview': 'The known land, one glyph a hex',
+  'map.hexCellMap': 'The hex you stand in',
+  'map.legend.you': 'you',
+  'map.legend.heard': 'heard of',
   // Bearings: eight points with the compass, four rough ones without.
   'map.dir.0': 'due north',
   'map.dir.1': 'north-east',

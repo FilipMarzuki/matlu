@@ -37,6 +37,10 @@ export const opening = {
   'intro.close3': 'MASTER YOUR NEW REALITY.',
   // What an unnamed Warden is called.
   'intro.noName': 'Artificer',
+  // The quick start's card (#1928): `{name}` is left for fillName, `{age}` is the draft's.
+  'quick.ready': "You're {name}, {age}, a scout. Your pack is ready.",
+  'quick.play': 'PLAY ▸',
+  'quick.change': 'Change who I am / what I packed',
 
   // ── The pack screen ────────────────────────────────────────────────────────
   'pack.free': "The backpack comes free, and the clothes you're wearing. Everything else has to fit in {kg} kg.",
