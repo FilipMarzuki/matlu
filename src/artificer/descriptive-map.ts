@@ -194,8 +194,14 @@ const VAGUE_DIRS = ['north-ish', 'east-ish', 'south-ish', 'west-ish'] as const;
 /** Degrees clockwise from north, from camp to (x, y). Screen y grows southwards. */
 const bearingOf = (r: Reach, x: number, y: number, from: { x: number; y: number } = r.camp): number => (Math.atan2(x - from.x, from.y - y) * 180 / Math.PI + 360) % 360;
 
-/** Which of the points a bearing is: of eight with the compass, of four (roughly) without. */
-export const directionIndex = (bearing: number, exact: boolean): number => (exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4);
+/**
+ * Which of the points a bearing is: of eight with the compass, of four (roughly) without. A function
+ * declaration, not a `const` arrow: hex-words.ts imports it back across the cycle with this module
+ * (#1902), and a declaration is hoisted, so it's defined whichever of the two loads first.
+ */
+export function directionIndex(bearing: number, exact: boolean): number {
+  return exact ? Math.round(bearing / 45) % 8 : Math.round(bearing / 90) % 4;
+}
 
 /** The compass gives one of eight points ("due west", "north-east"); without it, one of four, roughly ("west-ish"). */
 export function directionWords(bearing: number, exact: boolean): string {
