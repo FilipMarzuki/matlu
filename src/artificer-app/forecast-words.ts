@@ -146,6 +146,8 @@ export interface QueueCast {
   unseen: number[];
   /** The whole stretch, when several days are forecast. */
   stretch: 'worn' | 'steady' | null;
+  /** The times the least practised thing in the queue was done: what sets how sure the forecast is. */
+  fam: number;
 }
 
 /** Effort from the share of a pool the day takes, and its hours: a long day is at least a full one. */
@@ -209,7 +211,7 @@ export function queueForecast(a: AppState, preview: QueuePreview): QueueCast | n
   const days = (far ? offsets : offsets.slice(0, 1)).map(cast);
   const unseen = far ? [] : offsets.slice(1);
   const stretch = days.length >= 2 ? (days.some(d => d.effort >= 2) ? 'worn' : 'steady') : null;
-  return { days, unseen, stretch };
+  return { days, unseen, stretch, fam };
 }
 
 const lower = (x: string): string => x.charAt(0).toLowerCase() + x.slice(1);

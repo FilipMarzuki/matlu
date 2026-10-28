@@ -133,19 +133,28 @@ export interface StripParts {
   /** Run the day (or pass it), or End the day before planning is learned. */
   button: { cmd: string; label: string; disabled: boolean };
   open: boolean;
+  /**
+   * Where the day ends, in words (#1930, day-forecast.ts `dayEndText`): said in the total's place.
+   * Absent (or empty): the total, as before.
+   */
+  line?: string;
 }
 
 /**
  * The phone's strip over the actions (#1826): the queue folded to chips (icon, short name, hours),
  * the day's total and when it ends, and the Run / End day button. A tap on the chips (▾) unfolds
- * the whole queue under it, where tasks are removed and moved; another tap folds it.
+ * the whole queue under it, where tasks are removed and moved; another tap folds it. With
+ * `day-forecast` (#1930), where the day ends takes the total's place under the chips: the sentence
+ * says when you're done, which the total's hours only hinted at, and the strip grows no taller
+ * (folded, it keeps to one line; the unfolded queue under it has the hours).
  */
 export function queueStrip(p: StripParts, t: T): string {
   const chips = p.items.length
     ? p.items.map(c => `<span class="qschip"><span class="qci">${c.icon}</span> ${esc(c.name)} <b>${esc(c.hours)}</b></span>`).join('')
     : `<span class="qsnote">${esc(p.note)}</span>`;
+  const total = p.line ? `<span class="qsline">${esc(p.line)}</span>` : `<span class="qstot">${esc(p.total)}</span>`;
   return `<div class="qstrip"><button class="qsbar" data-cmd="qstrip" aria-expanded="${p.open}" title="${esc(t(p.open ? 'qc.fold' : 'qc.unfold'))}">`
-    + `<span class="qschips">${chips}</span><span class="qstot">${esc(p.total)}</span><span class="qsfold" aria-hidden="true">${p.open ? '▴' : '▾'}</span></button>`
+    + `<span class="qschips">${chips}</span>${total}<span class="qsfold" aria-hidden="true">${p.open ? '▴' : '▾'}</span></button>`
     + `<button class="btn go" data-cmd="${p.button.cmd}"${p.button.disabled ? ' disabled' : ''}>${esc(p.button.label)}</button></div>`;
 }
 
