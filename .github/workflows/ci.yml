@@ -132,10 +132,12 @@ jobs:
       - uses: actions/checkout@v7
 
       # The Node line Vercel builds the Codex on (project `matlu-codex`: 24.x), so CI tests what the
-      # deploy runs (#1992). '22' took the runner's cached 22.23.3, under Astro 7.4.2's 22.23.4 floor.
+      # deploy runs (#1992). '22' took the runner's cached 22.23.3, under Astro 7.4.2's 22.23.4 floor;
+      # `check-latest` takes the newest 24.x rather than the cached one, so a patch floor can't do that again.
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          check-latest: true
 
       - run: npm ci
 
