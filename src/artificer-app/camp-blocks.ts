@@ -295,7 +295,7 @@ interface PaletteCard { id: ActionId; why: string | null; html: string }
 
 // ── The season strip and the weather ────────────────────────────────────────
 
-const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁', rain: '🌧', fog: '🌫', wind: '🌬', storm: '⛈', snow: '❄' };
+export const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁', rain: '🌧', fog: '🌫', wind: '🌬', storm: '⛈', snow: '❄' };
 
 /**
  * The strip's bars and markers: one bar per day from day 1 to the thaw, its height the day's

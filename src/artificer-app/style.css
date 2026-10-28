@@ -1033,6 +1033,31 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .cpbtns { display: flex; justify-content: flex-end; margin-top: 10px; }
 @media (pointer: coarse) { .cpbtns .pill { min-height: 44px; } }
 
+/* The day's result (#1929, ui switch `day-card`): a card over the page when the timer ends a day,
+   and the journal as a sheet, one tap from the status bar's 📓. Both on the encounters' backdrop. */
+.daycard { width: min(460px, 100%); border-color: var(--gold); box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,224,102,.3); animation: enc-in .25s ease-out; }
+.daycard h2 { margin: 0 0 12px; font-family: var(--display); font-size: 16px; letter-spacing: 1px; color: var(--gold); }
+.dcsec { margin: 0 0 12px; }
+.dcsec .eyebrow { margin: 0 0 6px; }
+.dcrow { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 6px; font-size: 15px; }
+.dcchange { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.dcchange img { width: 24px; height: 24px; }
+.dcchange.up { color: var(--green); }
+.dctrips, .dchard { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.dchard li.bad { color: var(--warn); }
+.dcmore, .dcnone { margin: 0; color: var(--faint); font-style: italic; font-size: 14px; }
+.dchard .dcmore { list-style: none; margin-left: -18px; }
+.dcsky { margin: 0; font-size: 15px; line-height: 1.5; }
+.dcbtns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.jsheet { width: min(640px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; animation: enc-in .25s ease-out; }
+.jshead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.jshead h2 { margin: 0; font-family: var(--display); font-size: 16px; letter-spacing: 1px; color: var(--teal); }
+.jsheet ul.full { max-height: none; overflow-y: auto; min-height: 0; margin: 0; }
+.jbtn { flex: none; background: none; border: 1px solid var(--border2); border-radius: 8px; color: var(--ink); font-size: 15px; line-height: 1; padding: 4px 7px; cursor: pointer; }
+.jbtn:hover { border-color: var(--teal); }
+/* On touch screens, 44px tall like the other controls (#1927). */
+@media (pointer: coarse) { .jbtn, .dcbtns .pill, .dcbtns .btn, .jshead .pill { min-height: 44px; } }
+
 /* Drawing your map (#1754): the encounter modal's frame, with a list of finds and a blank grid, camp in the middle */
 /* Every tap redraws the modal, so it doesn't replay the encounter's entrance each time. */
 .mapl { position: relative; width: min(760px, 100%); animation: none; }

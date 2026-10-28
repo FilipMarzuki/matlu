@@ -66,4 +66,24 @@ export const time = {
   'time.queueEmpty': "Empty — tap actions to plan. What doesn't fit in today spills into the next day, and you sleep between.",
   // The AI's observation and the API's text: the label before the "now" line.
   'time.label': 'Time of day',
+
+  // ── The day's result as a card (#1929, ui switch `day-card`, artificer-app/day-card.ts) ──
+  'daycard.title': 'Day {n} is done',
+  'daycard.titleDays': 'Days {from}–{to} are done',
+  'daycard.brought': 'Brought back',
+  'daycard.night': 'The night',
+  'daycard.tomorrow': 'Tomorrow',
+  // A key metric's change, `{n}` already signed: "+3 food", "−4 firewood".
+  'daycard.food': '{n} food',
+  'daycard.water': '{n} water',
+  'daycard.firewood': '{n} firewood',
+  'daycard.nothing': 'Nothing brought back today.',
+  'daycard.quiet': 'A quiet night.',
+  'daycard.more': '…and {n} more in the journal.',
+  'daycard.journal': 'Journal',
+  'daycard.ok': 'On to day {n} ▸',
+  // The journal as a sheet, one tap from the status bar.
+  'jsheet.open': 'Journal',
+  'jsheet.title': 'Journal',
+  'jsheet.close': 'Close',
 };

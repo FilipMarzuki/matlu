@@ -73,6 +73,7 @@ import { FEWER_CARDS_FEATURE } from './fewer-cards';
 import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
+import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
 import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
@@ -205,6 +206,15 @@ function closeCampPick(refocus: boolean): void {
 const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
 /** Finds as you explore (#1869, explore-finds.ts): a ui feature, on unless switched off in the features panel. */
 const findsOn = (): boolean => uiFeatureOn(loadChoices(), FINDS_FEATURE);
+// A ui feature (#1929): the day's result as a card when the timer ends a day, and the journal one
+// tap from the status bar. Off, the day ends as before and the journal stays at the foot of PLAN.
+const dayCardOn = (): boolean => uiFeatureOn(loadChoices(), DAY_CARD_FEATURE);
+/** The card the timer's last day left (#1929), until OK; null when there's none. Presentation only: never saved. */
+let dayCard: DayCard | null = null;
+/** The journal sheet (#1929) is open. */
+let jsheetOpen = false;
+/** The status bar's 📓, when the switch is on. */
+const jbtn = (): string => (dayCardOn() ? journalButton(t) : '');
 /** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
 const startClaimed = new Set<string>();
 /** This run started on LAND: claimed now, or on an earlier visit. */
@@ -650,14 +660,14 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
     ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
     ${stores ? statusEating(s) : ''}${vitals ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
-    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}
+    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}${stores ? jbtn() : ''}
   </div>${tips}`;
   }
   return `<div class="statusbar">${row2}
     ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
     ${keyColumn(focusOrLine(s, true), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${lineShown(g) ? '' : nightChip(s, t)}${painChip(s)}${injuryChips(s)}
     ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
-    ${lineShown(g) ? '' : outlookTag(s, ready)}
+    ${lineShown(g) ? '' : outlookTag(s, ready)}${jbtn()}
   </div>`;
 }
 
@@ -685,7 +695,7 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
   return `<div class="statusbar compact">
     <div class="cline">
       ${warden}<span class="cday">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
-      ${dots}${stores}${more}
+      ${dots}${stores}${jbtn()}${more}
     </div>
     ${compactMoreOpen ? compactMorePanel(a, preview) : ''}
   </div>${standingUnder(a)}${tips}`;
@@ -1282,6 +1292,10 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
+  // Switched off (#1929), the day card and the journal sheet go, so switching back on brings back no old card.
+  if (!dayCardOn()) { dayCard = null; jsheetOpen = false; }
+  // The journal sheet (#1929) is drawn again with the page: it keeps where it was scrolled to.
+  const sheetScroll = root.querySelector('.jsheet ul')?.scrollTop ?? 0;
   root.innerHTML = `
     ${headerBlock(`<h1>${t('top.titleHtml')}</h1>`, {
         warden: reachWarden,
@@ -1303,7 +1317,11 @@ function drawPage(a: AppState): void {
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}
-    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}`;
+    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}
+    ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
+    ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
+  const sheetList = root.querySelector('.jsheet ul');
+  if (sheetList) sheetList.scrollTop = sheetScroll;
   root.classList.toggle('playing', !!playing);
   // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
   if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
@@ -1818,6 +1836,8 @@ const shownNow = (pl: Playing): AppState => shownAt(pl.plays[pl.day], momentOf(p
 function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
   // A day starting shuts Make camp's picker (#1986): it was about the morning before.
   campPickOpen = false;
+  // …and the last day's card (#1929): a new one comes when this one ends.
+  dayCard = null;
   if (!worthPlaying(plays)) {
     for (const p of plays) { kept = recordMove(kept, state, p.after, moveOf(p)); keep(p.after); }
     render(state);
@@ -1926,7 +1946,23 @@ function endTimer(): void {
   cancelAnimationFrame(pl.frame);
   playing = null;
   if (pl.lock) void pl.lock.release().catch(() => undefined);
+  // The day's result (#1929): a card, when a day and its night have ended (day-card.ts dayCardOf).
+  dayCard = dayCardOn() ? dayCardOf(pl.plays, findsOn()) : null;
   render(state);
+  if (dayCard) root.querySelector<HTMLElement>('[data-cmd="daycardok"]')?.focus({ preventScroll: true });
+}
+
+/** The day card's OK (#1929), Escape or a tap beside it: the card goes, and the plan is back. */
+function closeDayCard(): void {
+  dayCard = null;
+  render(state);
+}
+
+/** Open or shut the journal sheet (#1929); the focus goes to its Close, or back to the 📓. */
+function setSheet(open: boolean): void {
+  jsheetOpen = open;
+  render(state);
+  root.querySelector<HTMLElement>(open ? '[data-cmd="jsheetclose"]' : '[data-cmd="jsheet"]')?.focus({ preventScroll: true });
 }
 
 function setSpeed(x: Speed): void {
@@ -1947,16 +1983,24 @@ async function holdScreen(pl: Playing): Promise<void> {
 
 // The timer runs only while you watch: leave the page and the day is simply done when you come back.
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
-document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
-// Escape shuts Make camp's picker (#1986) without queueing.
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && campPickOpen && !playing) { e.preventDefault(); closeCampPick(true); } });
-// Tab stays inside the picker while it's open, as in the focus picker: it's a dialog over the page
-// (aria-modal), so the buttons behind it aren't reached until it's shut.
+// Escape does one thing at a time (#1929): it shuts the journal sheet (which can be open while the
+// day plays, and the day plays on), else skips the timer to the day's end (whose card then shows),
+// else shuts Make camp's picker (#1986) without queueing, else shuts the day card.
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Tab' || !campPickOpen) return;
-  const box = root.querySelector<HTMLElement>('.campick');
+  if (e.key !== 'Escape' || intro) return;
+  if (jsheetOpen) { e.preventDefault(); setSheet(false); }
+  else if (playing) { e.preventDefault(); skipTimer(); }
+  else if (campPickOpen) { e.preventDefault(); closeCampPick(true); }
+  else if (dayCard) { e.preventDefault(); closeDayCard(); }
+});
+// Tab stays inside a dialog over the page while it's open, as in the focus picker: the journal sheet,
+// the day card (#1929) or Make camp's picker (#1986). They're aria-modal, so the buttons behind them
+// aren't reached until they're shut.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || intro) return;
+  const box = root.querySelector<HTMLElement>('.jsheet') ?? root.querySelector<HTMLElement>('.daycard') ?? (campPickOpen ? root.querySelector<HTMLElement>('.campick') : null);
   if (!box) return;
-  const targets = [...box.querySelectorAll<HTMLElement>('button:not([disabled])')];
+  const targets = [...box.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')];
   if (!targets.length) return;
   const i = targets.indexOf(document.activeElement as HTMLElement);
   const next = e.shiftKey ? (i <= 0 ? targets.length - 1 : i - 1) : (i === -1 || i === targets.length - 1 ? 0 : i + 1);
@@ -2510,6 +2554,10 @@ root.addEventListener('click', e => {
   }
   // A tap on the camp picker's backdrop, beside the popup (#1986), shuts it without queueing.
   if ((e.target as HTMLElement).matches('[data-campickwrap]')) { closeCampPick(true); return; }
+  // A tap on the day card's or the journal sheet's backdrop, beside the card (#1929), shuts it.
+  const behind = e.target as HTMLElement;
+  if (behind.matches('[data-daycard]')) { closeDayCard(); return; }
+  if (behind.matches('[data-jsheet]')) { setSheet(false); return; }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
@@ -2528,6 +2576,11 @@ root.addEventListener('click', e => {
   if (d.cmd === 'qstrip') { stripOpen = !stripOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="qstrip"]')?.focus({ preventScroll: true }); return; }
   // The compact status bar's ⋯ (#1924): FOCUS, pain, injuries and the rest, a tap away. Presentation only, so mid-day too.
   if (d.cmd === 'compactmore') { compactMoreOpen = !compactMoreOpen; render(state); root.querySelector<HTMLElement>('[data-cmd="compactmore"]')?.focus({ preventScroll: true }); return; }
+  // The day card (#1929): OK shuts it; Journal shuts it and opens the journal. The status bar's 📓
+  // opens and shuts the journal sheet. Presentation only, so mid-day too.
+  if (d.cmd === 'daycardok') { closeDayCard(); return; }
+  if (d.cmd === 'daycardjournal') { dayCard = null; setSheet(true); return; }
+  if (d.cmd === 'jsheet' || d.cmd === 'jsheetclose') { setSheet(d.cmd === 'jsheet' && !jsheetOpen); return; }
   // While the day plays out (#1669), only the timer's own buttons, the tabs and help act: the game
   // already holds the day's end, so a move now would be made from a state the screen isn't showing.
   if (playing) {
@@ -2557,6 +2610,8 @@ root.addEventListener('click', e => {
   }
   // A tab (or the Warden's button) leaves the Menu for that view.
   if (d.tab || d.rtab) menyOpen = false;
+  // A tab, or "See the land →" on one of its lines, leaves the journal sheet (#1929) for that view.
+  if (d.tab || d.rtab || d.seeland) jsheetOpen = false;
   // The start note's Explore (#1853): PLAN, with Explore highlighted and its chooser open (drawPage).
   // Before the guide's weather card is acknowledged it waits: the card is at the top, scrolled to.
   if (d.startexplore) {
@@ -2884,6 +2939,9 @@ root.addEventListener('submit', e => {
  */
 function newWarden(): void {
   campPickOpen = false;
+  // The last run's day card and journal sheet (#1929) aren't this one's.
+  dayCard = null;
+  jsheetOpen = false;
   const legacy = legacyFor(currentRun(state));
   const next = newGame(legacy, loadChoices());
   startLog(next, {}, legacy ? legacy.heirlooms ?? [] : null, logFor(state)?.sent?.gameId ?? null);
