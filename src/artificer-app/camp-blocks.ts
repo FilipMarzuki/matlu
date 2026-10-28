@@ -228,7 +228,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean; campPick?: boolean }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -259,9 +259,10 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
     // With fewer cards (#1925) the suggestion also comes first in its group, as wide as the group.
     const lifted = suggested && opts.fewer ? ' lifted' : '';
-    // A land action's tap opens its chooser (data-chooser); any other queues itself (data-q).
+    // A land action's tap opens its chooser (data-chooser); Make camp's, with the picker (#1986,
+    // camp-picker.ts), opens the places to camp (data-campick); any other queues itself (data-q).
     const open = !!options && opts.chooser === id && !resolved && !greyed;
-    const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
+    const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : id === 'camp' && opts.campPick ? 'data-campick aria-haspopup="dialog"' : `data-q="${q}"`;
     const exact = yieldText(id, preview.projected, r, t);
     const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact);
     const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t)?.text ?? exact;

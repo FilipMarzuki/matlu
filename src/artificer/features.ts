@@ -515,6 +515,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'fewer-cards', name: 'Fewer cards', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1925,
     note: 'PLAN shows only the actions you can do now. In each section the rest fold into one line, "4 more you can\'t do yet", that opens to each one with the reason. The guide\'s suggestion comes first in its section, on a card as wide as the section with its name a size up.',
   },
+  {
+    // A ui feature (#1986): what tapping Make camp does on the page (artificer-app/camp-picker.ts). The
+    // sim already takes a camp with a chosen spot (camp-as-action, #1732), so it switches live and no
+    // run saves it. The play API, the console and AI players never see it. Off, the card queues Make
+    // camp at the default spot, as before.
+    id: 'camp-picker', name: 'Pick where to make camp', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1986,
+    note: 'Tapping Make camp opens a list of the places to camp you know, each with what you can tell of its surroundings (shelter from the wind, damp, how far to water and wood), its rating and how warm it can get. Tap one to make camp there.',
+  },
 ];
 
 /** Switches by feature id. */

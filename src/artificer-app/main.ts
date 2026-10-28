@@ -70,6 +70,7 @@ import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue,
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { FEWER_CARDS_FEATURE } from './fewer-cards';
+import { CAMP_PICKER_FEATURE, campPicker, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
 import { drawnMapBlock, reachMapSection } from './map-view';
@@ -180,8 +181,19 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s, campPickerOn()) };
 };
+
+/** Make camp opens a picker of the places to camp you know (#1986, camp-picker.ts): a ui feature, on unless switched off. */
+const campPickerOn = (): boolean => uiFeatureOn(loadChoices(), CAMP_PICKER_FEATURE);
+/** The picker is open (#1986): page state, never saved. */
+let campPickOpen = false;
+/** Shut the picker (#1986); with `refocus`, the keyboard goes back to the Make camp card. */
+function closeCampPick(refocus: boolean): void {
+  campPickOpen = false;
+  render(state);
+  if (refocus) root.querySelector<HTMLElement>('[data-campick]')?.focus({ preventScroll: true });
+}
 
 // ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
 // A ui feature: a new Warden's first view after the intro is LAND, with the patrol leader's advice
@@ -1279,7 +1291,8 @@ function drawPage(a: AppState): void {
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
-    ${timerPanel()}`;
+    ${timerPanel()}
+    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}`;
   root.classList.toggle('playing', !!playing);
   // The weather toggle just tapped (#1788) keeps the focus, so Enter/Space can tap it again.
   if (wxRefocus) { wxRefocus = false; root.querySelector<HTMLElement>('.wxtoggle')?.focus({ preventScroll: true }); }
@@ -1922,6 +1935,8 @@ async function holdScreen(pl: Playing): Promise<void> {
 // The timer runs only while you watch: leave the page and the day is simply done when you come back.
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
 document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
+// Escape shuts Make camp's picker (#1986) without queueing.
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && campPickOpen && !playing) { e.preventDefault(); closeCampPick(true); } });
 
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
 function timerPanel(): string {
@@ -2379,6 +2394,8 @@ root.addEventListener('click', e => {
     render(state);
     return;
   }
+  // A tap on the camp picker's backdrop, beside the popup (#1986), shuts it without queueing.
+  if ((e.target as HTMLElement).matches('[data-campickwrap]')) { closeCampPick(true); return; }
   // closest() finds the button even when the click lands on a child span.
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
@@ -2531,7 +2548,10 @@ root.addEventListener('click', e => {
     (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
   }
   // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
-  else if (d.camp) { const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
+  // Make camp's picker (#1986): the card opens it; Cancel shuts it. A place picked in it is the `data-camp` below.
+  else if (d.campick !== undefined) { campPickOpen = true; render(state); root.querySelector<HTMLElement>('.campick [data-camp]:not([disabled])')?.focus({ preventScroll: true }); }
+  else if (d.cmd === 'campickclose') closeCampPick(true);
+  else if (d.camp) { campPickOpen = false; const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
   // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.
