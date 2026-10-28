@@ -524,6 +524,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'quick-start', name: 'Quick start', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1928,
     note: 'After the language, one story page, then "You\'re Saga, 12, a scout. Your pack is ready." with Play, or Change who I am / what I packed for the usual screens, which come back to the same card. Play starts an average Warden with no talents (a quick start, ×1.00) and the pack ticked for them.',
   },
+  {
+    // A ui feature (#1986): what tapping Make camp does on the page (artificer-app/camp-picker.ts). The
+    // sim already takes a camp with a chosen spot (camp-as-action, #1732), so it switches live and no
+    // run saves it. The play API, the console and AI players never see it. Off, the card queues Make
+    // camp at the default spot, as before.
+    id: 'camp-picker', name: 'Pick where to make camp', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1986,
+    note: 'Tapping Make camp opens a list of the places to camp you know, each with what you can tell of its surroundings (shelter from the wind, damp, how far to water and wood), its rating and how warm it can get. Tap one to make camp there.',
+  },
 ];
 
 /** Switches by feature id. */
