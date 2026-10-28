@@ -41,10 +41,16 @@
 
 import { featureOn } from './features';
 import { hasKit } from './kit';
+import { seedOf } from './rng';
 import type { Ring } from './exploration';
 import { reachOfRun, landOrigin, directionWords, directionIndex, timeWord, timeWords, type TimeWord } from './descriptive-map';
 import { walkFrom, YIELDS, BIOME_NAME, type Biome, type Reach, type Yield } from './world/reach';
 import { walkOn, pathTo, noteWalk } from './walk-the-map';
+import { landOfRun, toLocal, toWorld, hexWorldOn, type Land } from './world/hex-window';
+import { noteSeenCells, inReach } from './world/hex-knowledge';
+import { hexOfCell, type Hex } from '../../worldmap/coords';
+import { hexName } from '../../worldmap/hex-names';
+import { WORLDGEN_VERSION } from '../../worldmap/version';
 import type { Region1State, ActionOpts, OptionGroup } from './region1';
 
 /** The rule switch (features.ts). */
@@ -197,9 +203,21 @@ export const lookAroundPlan = (r: Reach, from: At, ring: Ring): number[] => seen
 
 // ── Where the Warden is ─────────────────────────────────────────────────────
 
-/** Where the Warden is: out on the land (`afield`), else where the land is told from (camp, or the start). */
+/**
+ * Where the Warden is: out on the land (`afield`), else where the land is told from (camp, or the
+ * start). With `hex-world` on (#1901), local to the land's own grid (`landOfRun`'s window, not the
+ * Reach's): `afield` is a world cell there, converted back with `toLocal`. Off, the Reach's own
+ * (x, y), exactly as before.
+ */
 export function standingAt(s: Run, r: Reach = reachOfRun(s)): At {
-  return s.afield ? { x: s.afield.x, y: s.afield.y } : landOrigin({ config: s.config, campSpot: s.campSpot }, r);
+  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, r);
+  if (!hexWorldOn(s)) return s.afield ? { x: s.afield.x, y: s.afield.y } : origin;
+  const land = landOfRun(s);
+  if (s.afield) {
+    const local = toLocal(land, s.afield.x, s.afield.y);
+    if (local) return local;
+  }
+  return toLocal(land, origin.x, origin.y) ?? origin;
 }
 
 /** Camp's square, once camp is made (#1732), else null. */
@@ -218,12 +236,24 @@ const placesOn = (s: Pick<Region1State, 'config'>): boolean => directedOn(s) || 
 export const awayFromCamp = (s: Pick<Region1State, 'config'> & Partial<Pick<Region1State, 'afield' | 'campSpot'>>): boolean =>
   placesOn(s) && !!s.afield && !!s.campSpot;
 
-/** Hours on foot from where you stand back to camp: 0 when you're there (or have none). */
+/**
+ * Hours on foot from where you stand back to camp: 0 when you're there (or have none). With
+ * `hex-world` on, walked on the land's own grid (`afield` is a world cell there); off, on the Reach,
+ * exactly as before.
+ */
 export function walkBackHours(s: Run): number {
   const camp = campAt(s);
   if (!camp || !s.afield || !placesOn(s)) return 0;
-  const r = reachOfRun(s);
-  const h = walkFrom(r, s.afield.x, s.afield.y)[camp.y * r.w + camp.x];
+  if (!hexWorldOn(s)) {
+    const r = reachOfRun(s);
+    const h = walkFrom(r, s.afield.x, s.afield.y)[camp.y * r.w + camp.x];
+    return Number.isFinite(h) ? h : 0;
+  }
+  const land = landOfRun(s);
+  const afield = toLocal(land, s.afield.x, s.afield.y);
+  const campLocal = toLocal(land, camp.x, camp.y);
+  if (!afield || !campLocal) return 0;
+  const h = walkFrom(land, afield.x, afield.y)[campLocal.y * land.w + campLocal.x];
   return Number.isFinite(h) ? h : 0;
 }
 
@@ -283,38 +313,72 @@ export function wayOptions(s: Run, opts: ActionOpts): OptionGroup[] {
 /** Merge squares into the seen set (sorted, no repeats). Also hex-knowledge.ts's, for `seenWorld`. */
 export const merged = (had: readonly number[] | undefined, more: readonly number[]): number[] => [...new Set([...(had ?? []), ...more])].sort((a, b) => a - b);
 
-/** Set where the Warden stands: back at camp (or the start, before camp) is no longer afield. Mutates `s`. */
-function standAt(s: Region1State, at: At): void {
+/**
+ * Set where the Warden stands: back at camp (or the start, before camp) is no longer afield. With
+ * `hex-world` on, `at` is local to `land` and `afield` is written as the world cell it is
+ * (`toWorld`); a world cell outside the Reach stamps `worldGen` too, or it would be dropped on load
+ * (region1.ts `afield`'s doc). Mutates `s`.
+ */
+function standAt(s: Region1State, at: At, land: Land): void {
   const home = landOrigin({ config: s.config, campSpot: s.campSpot }, reachOfRun(s));
-  if (at.x === home.x && at.y === home.y) delete s.afield;
-  else s.afield = { x: at.x, y: at.y };
+  if (!hexWorldOn(s)) {
+    if (at.x === home.x && at.y === home.y) delete s.afield;
+    else s.afield = { x: at.x, y: at.y };
+    return;
+  }
+  const homeLocal = toLocal(land, home.x, home.y);
+  if (homeLocal && at.x === homeLocal.x && at.y === homeLocal.y) { delete s.afield; return; }
+  const world = toWorld(land, at.x, at.y);
+  s.afield = { x: world.cx, y: world.cy };
+  if (!inReach(world.cx, world.cy)) s.worldGen = WORLDGEN_VERSION;
 }
 
 /**
- * Head out (on an already-cloned state): you see the sector, you end the day at its far end. Returns
- * the journal's lines: where you went, then each kind of land found, nearest first.
+ * Heading out's own line (#1901): plain, or — when the day ends in a different hex from the one it
+ * started in, with `hex-world` on — naming it, `hexName`'s (i18n `log.headout.hex`, mirrored).
+ */
+const headOutLine = (s: Region1State, dir: Dir, hours: number, hex: Hex | null): string =>
+  hex ? `Headed ${HEADING[dir]}, about ${hrs(hours)} hours out, looking about as you went, and by evening you're in ${hexName(seedOf(s.character.id), hex, 'en')}.`
+    : `Headed ${HEADING[dir]}, about ${hrs(hours)} hours out, looking about as you went.`;
+
+/**
+ * Head out (on an already-cloned state): you see the sector, you end the day at its far end. With
+ * `hex-world` on (#1901), the plan runs on the land (`landOfRun`'s window, past the Reach's edge),
+ * what's seen is noted with `noteSeenCells`, and the line names the hex when the day crosses into
+ * another one. Returns the journal's lines: where you went, then each kind of land found, nearest
+ * first.
  */
 export function headOut(s: Region1State, dir: Dir, ring: Ring): string[] {
-  const r = reachOfRun(s);
-  const from = standingAt(s, r);
-  const plan = headOutPlan(r, from, dir, ring, hasKit(s, 'map-compass'));
+  const land = landOfRun(s);
+  const from = standingAt(s);
+  const plan = headOutPlan(land, from, dir, ring, hasKit(s, 'map-compass'));
   if (!plan.to) return [`Headed ${HEADING[dir]}, but the land runs out that way — you came back to where you set out.`];
-  s.seenOut = merged(s.seenOut, plan.seen);
+  if (hexWorldOn(s)) noteSeenCells(s, plan.seen.map(i => toWorld(land, i % land.w, Math.floor(i / land.w))));
+  else s.seenOut = merged(s.seenOut, plan.seen);
   // Walking the map (#1876): the way you walked goes on today's trail, for a live map later. What it
   // shows stays the sector's (above): the path is what you walked, not more land seen.
-  noteWalk(s, pathTo(r, walkFrom(r, from.x, from.y), plan.to.y * r.w + plan.to.x), false);
-  standAt(s, plan.to);
+  noteWalk(s, pathTo(land, walkFrom(land, from.x, from.y), plan.to.y * land.w + plan.to.x), false);
+  const beforeHex = hexWorldOn(s) ? hexOfCell(toWorld(land, from.x, from.y)) : null;
+  standAt(s, plan.to, land);
+  const afterHex = beforeHex ? hexOfCell(toWorld(land, plan.to.x, plan.to.y)) : null;
+  const crossed = beforeHex && afterHex && (beforeHex.q !== afterHex.q || beforeHex.r !== afterHex.r) ? afterHex : null;
   return [
-    `Headed ${HEADING[dir]}, about ${hrs(plan.hours)} hours out, looking about as you went.`,
+    headOutLine(s, dir, plan.hours, crossed),
     ...plan.found.map(f => `Out that way: ${BIOME_NAME[f.biome]}, ${f.text} from where you set out.`),
     ...(awayFromCamp(s) ? ["You'll sleep out here tonight, away from camp, unless you walk back."] : []),
   ];
 }
 
-/** Look around where you stand, away from camp (on an already-cloned state): the land in every direction, a little way out. */
+/**
+ * Look around where you stand, away from camp (on an already-cloned state): the land in every
+ * direction, a little way out. With `hex-world` on, on the land past the Reach's edge too.
+ */
 export function lookHere(s: Region1State, ring: Ring): string {
-  const r = reachOfRun(s);
-  s.seenOut = merged(s.seenOut, lookAroundPlan(r, standingAt(s, r), ring));
+  const land = landOfRun(s);
+  const from = standingAt(s);
+  const seen = lookAroundPlan(land, from, ring);
+  if (hexWorldOn(s)) noteSeenCells(s, seen.map(i => toWorld(land, i % land.w, Math.floor(i / land.w))));
+  else s.seenOut = merged(s.seenOut, seen);
   return `Looked around where you stand, out to about ${hrs(LOOK_HOURS[ring])} hours each way.`;
 }
 

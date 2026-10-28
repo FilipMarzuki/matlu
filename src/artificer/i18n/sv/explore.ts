@@ -34,6 +34,7 @@ export const exploreSv: Record<keyof typeof explore, string> = {
   'compass.nw': 'NV',
 
   'log.headout': 'Gick {heading}, ungefär {h} timmar ut, och såg dig omkring på vägen.',
+  'log.headout.hex': 'Gick {heading}, ungefär {h} timmar ut, och såg dig omkring på vägen, och på kvällen är du i {hex}.',
   'log.headout.edge': 'Gick {heading}, men landet tar slut åt det hållet — du kom tillbaka dit du gick ifrån.',
   'log.headout.found': 'Åt det hållet: {Biome}, {bearing}, {walk} från där du gick ut.',
   'log.headout.night': 'Du sover här ute i natt, borta från lägret, om du inte går tillbaka.',

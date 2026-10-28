@@ -30,6 +30,8 @@ import { knownPlaces, reachOfRun } from '../artificer/descriptive-map';
 import { knownSpots } from '../artificer/camp-sites';
 import { isHeading, wayOf, type Dir } from '../artificer/directed-explore';
 import type { Biome } from '../artificer/world/reach';
+import { landOfRun, toLocal } from '../artificer/world/hex-window';
+import { unpackCell } from '../../worldmap/coords';
 import { parseItem, type ActionId, type LogEntry, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { makeT, type Key, type T } from '../artificer/i18n';
 import { placeKey } from './land-news';
@@ -114,10 +116,21 @@ export function findsBetween(before: Run, after: Run): Find[] {
     out.push({ kind: 'land', biome });
   }
   // Heading out: each kind of ground seen that way, nearest first, unless a place already said it.
-  const seen = new Set(before.seenOut ?? []);
+  // Past the Reach's edge with `hex-world` on (#1901), the new ground is `seenWorld`'s, on the land.
+  const seenOut = new Set(before.seenOut ?? []);
+  const seenWorld = new Set(before.seenWorld ?? []);
   const r = reachOfRun(after);
-  for (const i of [...(after.seenOut ?? [])].filter(i => !seen.has(i)).sort((a, b) => r.hours[a] - r.hours[b] || a - b)) {
-    const biome = r.cells[i].biome;
+  const newReach = [...(after.seenOut ?? [])].filter(i => !seenOut.has(i)).map(i => ({ hours: r.hours[i], biome: r.cells[i].biome, key: i }));
+  const newWorldIds = [...(after.seenWorld ?? [])].filter(i => !seenWorld.has(i));
+  const land = newWorldIds.length ? landOfRun(after) : null;
+  const newWorld = land ? newWorldIds.flatMap(n => {
+    const c = unpackCell(n);
+    const local = toLocal(land, c.cx, c.cy);
+    if (!local) return [];
+    const li = local.y * land.w + local.x;
+    return [{ hours: land.hours[li], biome: land.cells[li].biome, key: n }];
+  }) : [];
+  for (const { biome } of [...newReach, ...newWorld].sort((a, b) => a.hours - b.hours || a.key - b.key)) {
     if (said.has(biome)) continue;
     said.add(biome);
     out.push({ kind: 'land', biome });
