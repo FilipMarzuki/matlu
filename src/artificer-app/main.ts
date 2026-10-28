@@ -2016,10 +2016,11 @@ function tickTimer(pl: Playing, now: number): void {
 /**
  * The intro playing, if one is. `quick` (#1928): where the quick start is, or absent for the whole
  * arrival. `made`: the Warden has been made from the draft during this intro (the creation screen
- * was passed), so Play on the quick start's card doesn't make another. `packed`: the pack screen was
- * passed, so a Warden made after it starts with that pack.
+ * was passed), so Play on the quick start's card doesn't make another; `madeAs` who they were made
+ * as (`wardenKey`). `packed`: the pack screen was passed, so a Warden made after it starts with that
+ * pack; `packedFor` the stats, talents and age it was packed for (`packKey`).
  */
-let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; packed?: boolean } | null = null;
+let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
@@ -2117,16 +2118,34 @@ function startIntro(): void {
  */
 function commitQuick(): void {
   if (!draft.name.trim()) draft.name = QUICK_NAME;
-  if (draft.talents.length || STAT_IDS.some(id => draft.stats[id] !== DEFAULT_STATS[id])) { commitCharacter(); return; }
-  const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
-  const legacy = left.heirlooms?.length ? left : undefined;
-  const spec = { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, age: draft.age };
-  const from = kept?.log.start.heirloomsFrom ?? null;
-  state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
-  startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
+  // A pack never confirmed (Skip on the pack screen) isn't the pack they start with: "Skipping keeps the pack you had."
+  if (draft.talents.length || STAT_IDS.some(id => draft.stats[id] !== DEFAULT_STATS[id])) { commitCharacter(!!intro?.packed); return; }
+  makeFromDraft({ name: draft.name.trim().slice(0, 24), portrait: draft.portrait, age: draft.age });
   // Change showed the pack first (`stats-before-pack` off) and then Skip: the pack chosen goes with them.
   if (intro?.packed) applyPack();
   render(state);
+}
+
+/**
+ * Who the draft is (#1928): its name, age, talents and stats. A second Change that leaves this
+ * different from the Warden made (`madeAs`) has something to keep.
+ */
+const wardenKey = (): string => JSON.stringify([draft.name.trim(), draft.age, draft.talents, draft.stats]);
+/** What a pack is ticked for (#1872, `tickedPack`): the stats, talents and age, not the name. */
+const packKey = (): string => JSON.stringify([draft.age, draft.talents, draft.stats]);
+
+/**
+ * The Warden made from the draft, and the log started from them (#1559), keeping what the last
+ * Warden left (#1455), which the intro already told them about; the heirlooms came from the same run
+ * as before. `chosen` and `stats` only for a Warden made on the creation screen: without them the
+ * run is the quick start's (#1928), as the play API makes it.
+ */
+function makeFromDraft(spec: { name: string; portrait: string; age: number; chosen?: TalentId[]; stats?: Stats }): void {
+  const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
+  const legacy = left.heirlooms?.length ? left : undefined;
+  const from = kept?.log.start.heirloomsFrom ?? null;
+  state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
+  startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
 }
 
 /**
@@ -2138,30 +2157,36 @@ function changeQuick(): void {
   if (!intro) return;
   const beats = beatsFor('change');
   intro = { ...intro, beats, quick: 'change', i: Math.max(0, beats.findIndex(b => b.kind === 'create' || b.kind === 'pack')) };
+  // A new screen at the card's index: drawn fresh (its fade-in, its top), not as a redraw of the card.
+  drawnBeat = -1;
   renderIntro();
 }
 
-/** Skip, or Escape: the intro ends at once. In the quick start (#1928) that's Play, unless a Warden was made already. */
+/**
+ * Skip, or Escape: the intro ends at once. In the quick start (#1928) that's Play, unless a Warden
+ * was made already; then what a second Change altered is kept as Next would keep it (with the pack
+ * confirmed before, if any), rather than dropped.
+ */
 function skipIntro(): void {
   if (intro?.quick && !intro.made) commitQuick();
+  else if (intro?.quick && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
   endIntro();
 }
 
-/** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
-function commitCharacter(): void {
-  // The sim is made again from the draft — keeping what the last Warden left (#1455), which the intro already told them about.
-  const left = heirloomsOf({ tools: state.sim.tools.filter(t => t.heirloom) });
-  const legacy = left.heirlooms?.length ? left : undefined;
-  const spec = { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: [...draft.talents], stats: validStats(draft.stats) ? { ...draft.stats } : { ...DEFAULT_STATS }, age: draft.age };
-  // The log starts again from this Warden (#1559); the heirlooms came from the same run as before.
-  const from = kept?.log.start.heirloomsFrom ?? null;
-  state = makeWarden({ id: draft.id, ...spec }, legacy, loadChoices());
-  startLog(state, spec, legacy ? legacy.heirlooms ?? [] : null, from);
-  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made.
-  if (statsBeforePack(state.sim)) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
+/**
+ * Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats
+ * (a hidden talent is rolled from the id). `pack`: start with the pack screen's pack (the default);
+ * false when it was never confirmed, so they start with the one makeWarden packs.
+ */
+function commitCharacter(pack = true): void {
+  // The sim is made again from the draft.
+  makeFromDraft({ name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: [...draft.talents], stats: validStats(draft.stats) ? { ...draft.stats } : { ...DEFAULT_STATS }, age: draft.age });
+  // Creation before the pack (#1872): the pack screen comes next, ticked for who they just made —
+  // unless it was packed for this same Warden already (a second Change on the quick start, #1928).
+  if (statsBeforePack(state.sim) && intro?.packedFor !== packKey()) { draftPack = tickedPack(); draftOutside = autoOutside(draftPack); }
   // The pack screen comes first now (#1666), and makeWarden starts from the default pack — so
   // pack again: the same makeWarden → startLog → repack the run had when packing came last.
-  applyPack();
+  if (pack) applyPack();
   render(state);
 }
 
@@ -2204,12 +2229,12 @@ function advanceIntro(): void {
     // `stats-before-pack` switch, and the run is only now made from the player's switches, so
     // re-read the beats and carry on from creation's place in them (by id, never by index).
     const beats = beatsFor(intro.quick);
-    intro = { ...intro, beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')), made: true };
+    intro = { ...intro, beats, i: Math.max(0, beats.findIndex(b => b.id === 'create')), made: true, madeAs: wardenKey() };
   }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
   // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true }; }
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true, packedFor: packKey() }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }

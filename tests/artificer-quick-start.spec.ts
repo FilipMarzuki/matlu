@@ -4,7 +4,8 @@ import { test, expect, type Page } from '@playwright/test';
  * #1928 — the quick start, in a real browser. From a fresh start (the language picker first), one
  * story page, then the card "You're Saga, 12, a scout." with Play and Change: Play starts the game
  * on LAND, and Explore there is the fourth tap. Change reaches the creation and pack screens and
- * comes back to the card with what was chosen. Skip on the story page is Play. No page errors, no
+ * comes back to the card with what was chosen; changing again keeps the pack packed for the same
+ * Warden, and Escape keeps what was changed. Skip on the story page is Play. No page errors, no
  * sideways scroll.
  *
  * SHOTS=<dir> also saves screenshots of the story page and the card there, at both sizes and in
@@ -108,6 +109,41 @@ test('Change reaches the creation and pack screens, and the card comes back with
   await page.locator('[data-intro="next"]').click();
   await expect(page.locator('.intro')).toBeHidden();
   await expect(page.locator('.who').first()).toContainText('Vega');
+  expect(errors).toEqual([]);
+});
+
+test('a second Change keeps the pack packed for the same Warden, and Escape keeps what it changed', async ({ page }) => {
+  const errors = await firstVisit(page);
+  await page.locator('[data-pick="en"]').click();
+  await page.locator('[data-intro="next"]').click();
+  await page.locator('[data-intro="change"]').click();
+  // The creation screen is drawn fresh, not as a redraw of the card it replaced (its fade-in plays).
+  await expect(page.locator('.intro .beat[data-beat="create"]')).toBeVisible();
+  await expect(page.locator('.intro')).not.toHaveClass(/settled/);
+  await page.locator('[data-intro="next"]').click();
+
+  // Take the first packed thing out, and go.
+  const packed = (): Promise<string[]> => page.locator('.kchoice[aria-pressed="true"]').evaluateAll(els => els.map(e => e.getAttribute('data-kit') ?? ''));
+  const out = (await packed())[0];
+  await page.locator(`.kchoice[data-kit="${out}"]`).click();
+  const chosen = await packed();
+  expect(chosen).not.toContain(out);
+  await page.locator('[data-intro="next"]').click();
+  await expect(page.locator('.intro .beat[data-beat="ready"]')).toBeVisible();
+
+  // Change again, same Warden: the pack is the one packed, not ticked afresh.
+  await page.locator('[data-intro="change"]').click();
+  await page.locator('[data-intro="next"]').click();
+  await expect(page.locator('.intro .beat[data-beat="pack"]')).toBeVisible();
+  expect(await packed()).toEqual(chosen);
+  await page.locator('[data-intro="next"]').click();
+
+  // Change once more, rename, and leave with Escape: the new name is kept, as Next would keep it.
+  await page.locator('[data-intro="change"]').click();
+  await page.locator('#wname').fill('Rune');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.intro')).toBeHidden();
+  await expect(page.locator('.who').first()).toContainText('Rune');
   expect(errors).toEqual([]);
 });
 
