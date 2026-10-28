@@ -16,13 +16,14 @@ test.use({ hasTouch: true });
 const SHOTS = process.env['SHOTS'];
 
 interface Saved { saveKey: string; guideKey: string; save: string; spots: string[] }
-const explored = (): Saved =>
+/** The save, made once for the whole file (the game's own code, so it costs a few sim days to make). */
+const EXPLORED: Saved =
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-camp-picker-save.ts', import.meta.url))], { encoding: 'utf8' }));
 
 async function openPlan(page: Page, lang: 'en' | 'sv', features: Record<string, boolean> = {}): Promise<{ errors: string[]; saved: Saved }> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  const saved = explored();
+  const saved = EXPLORED;
   await page.goto('/artificer.html');
   await page.evaluate(({ saveKey, guideKey, save, lang, features }) => {
     localStorage.clear();
@@ -88,6 +89,17 @@ test('Cancel, Escape and a tap beside it shut the picker, and queue nothing', as
   await expect(page.locator('.campick')).toHaveCount(0);
 
   expect(await queueOf(page, saved.saveKey)).toEqual(before);
+  expect(errors).toEqual([]);
+});
+
+test('Tab and Shift+Tab stay inside the picker while it\'s open', async ({ page }) => {
+  const { errors } = await openPlan(page, 'en');
+  await page.locator('[data-campick]:visible').first().click();
+  await expect(page.locator('.campick')).toBeVisible();
+  for (const shift of [false, false, false, true, true, true, true]) {
+    await page.keyboard.press(shift ? 'Shift+Tab' : 'Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.campick'))).toBe(true);
+  }
   expect(errors).toEqual([]);
 });
 

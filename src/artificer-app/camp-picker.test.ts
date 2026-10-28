@@ -11,7 +11,7 @@ import { endDay, runAction, type QueueItem, type Region1State } from '../artific
 import { makeWarden, previewQueue, type AppState } from './controller';
 import { paletteBlock } from './camp-blocks';
 import { spotReading } from './sim-words';
-import { CAMP_PICKER_FEATURE, campPicker, pickerFor } from './camp-picker';
+import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
 
 const en = makeT('en'), sv = makeT('sv');
 
@@ -38,6 +38,19 @@ describe('the camp picker switch (#1986)', () => {
     expect(pickerFor(explored().sim, false)).toBe(false);
     expect(pickerFor(explored({ 'camp-as-action': false }).sim, true)).toBe(false);
   });
+
+  it('has something to pick only when a place you know isn\'t the camp you\'re at, in a run that isn\'t over', () => {
+    const s = explored().sim;
+    expect(pickable(s)).toBe(true);
+    // A new Warden knows one place, where they start; camped there, it's the only one, and can't be picked.
+    const fresh = makeWarden({ id: 'w-camp-only' }).sim;
+    expect(knownSpots(fresh)).toHaveLength(1);
+    expect(pickable(fresh)).toBe(true);
+    const camped = runAction(fresh, { q: 'camp', opts: { spot: knownSpots(fresh)[0].id } } as QueueItem);
+    expect(knownSpots(camped).map(p => p.here)).toEqual([true]);
+    expect(pickable(camped)).toBe(false);
+    expect(pickable({ ...s, outcome: { choice: 'collapse', kind: 'collapsed', vitals: s.vitals } })).toBe(false);
+  });
 });
 
 describe('what the picker lists (#1986)', () => {
@@ -57,6 +70,10 @@ describe('what the picker lists (#1986)', () => {
         expect(html).toContain(spotReading(s, p, t).replace(/'/g, '&#39;'));
       }
     }
+  });
+
+  it('without the section\'s closing line, which a tap here makes untrue before planning is learned', () => {
+    expect(campPicker(s, en)).not.toContain(en('campsite.pick'));
   });
 
   it('the camp you\'re at is in the list, and can\'t be picked', () => {

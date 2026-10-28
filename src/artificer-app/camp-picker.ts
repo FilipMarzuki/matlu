@@ -21,17 +21,29 @@ type Sim = AppState['sim'];
 export const CAMP_PICKER_FEATURE = 'camp-picker';
 
 /**
- * Does Make camp open the picker? With the switch on, where camp is an action (#1732) and there's a
- * place to pick. Otherwise the card queues Make camp itself, as before.
+ * Is Make camp's card the picker's? With the switch on, where camp is an action (#1732). Cheap: the
+ * card is drawn on every redraw, so whether there's a place to pick is asked only when it's tapped
+ * (`pickable`).
  */
-export const pickerFor = (s: Sim, on: boolean): boolean => on && campAsActionOn(s) && knownSpots(s).length > 0;
+export const pickerFor = (s: Sim, on: boolean): boolean => on && campAsActionOn(s);
 
-/** The popup: a dialog on the encounters' backdrop (style.css `.enc-backdrop`), its places and Cancel. */
+/**
+ * Is there a place to pick? One you know that isn't the camp you're at (as Make camp's own rule asks
+ * of a chosen spot, region1.ts `campGate`), in a run that isn't over. Without one, the card queues
+ * Make camp as before, and the sim says why it can't.
+ */
+export const pickable = (s: Sim): boolean => !s.outcome && knownSpots(s).some(p => !p.here);
+
+/**
+ * The popup: a dialog on the encounters' backdrop (style.css `.enc-backdrop`), its places and Cancel.
+ * Without the section's closing line ("it goes in your plan like any other"), which isn't true
+ * before planning is learned, when a tap here makes camp at once.
+ */
 export function campPicker(s: Sim, t: T): string {
   return `<div class="enc-backdrop campickwrap" data-campickwrap>
     <section class="box campick" role="dialog" aria-modal="true" aria-labelledby="campick-title">
       <h2 id="campick-title">${esc(t('campick.title'))}</h2>
-      ${spotsBlock(s, t)}
+      ${spotsBlock(s, t, { note: false })}
       <div class="cpbtns"><button class="pill" data-cmd="campickclose">${esc(t('campick.cancel'))}</button></div>
     </section>
   </div>`;
