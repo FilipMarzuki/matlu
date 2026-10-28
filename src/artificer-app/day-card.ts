@@ -14,7 +14,7 @@ import type { T } from '../artificer/i18n';
 import { keyMetrics, keyMetricsOf, type KeyMetricId } from '../artificer/key-metrics';
 import type { LogEntry, Region1State } from '../artificer/region1';
 import { weatherReport } from '../artificer/weather-words';
-import type { DayPlay } from './playback';
+import { nightLines, type DayPlay } from './playback';
 import { playFinds, tripSummary, type TripFinds } from './explore-finds';
 import { logClass, logText } from './journal-view';
 import { METRIC_ICON } from './key-box';
@@ -52,27 +52,35 @@ export interface DayCard {
 /** The sim at dusk: the last step's, or the morning's when nothing was done. */
 const duskOf = (p: DayPlay): Region1State => (p.steps.length ? p.steps[p.steps.length - 1].sim : p.before.sim);
 
-/** One key metric as the status bar counts it (no winter needs: only the value). */
-const valueOf = (s: Region1State, id: KeyMetricId): number => keyMetrics(s, { needs: false }).find(m => m.id === id)?.value ?? 0;
+/** The key metrics as the status bar counts them (no winter needs: only the values), each once per state. */
+const valuesOf = (s: Region1State): Record<KeyMetricId, number> =>
+  Object.fromEntries(keyMetrics(s, { needs: false }).map(m => [m.id, m.value])) as Record<KeyMetricId, number>;
 
 /**
  * The card for the plays the timer just ended, or null when no day ended: a day stopped partway, an
  * encounter waiting, one thing done by hand (no night in any of those), or a run that's over (its
  * end screen says the rest). A whole queue's several days make one card: the gains of each day and
- * the changes of each night, added up. `finds` is the `explore-finds` switch.
+ * the changes of each night, added up. A whole queue whose last day stops partway (an encounter, or
+ * Stop) still has the days before it that ended with their nights: the card says those. `finds` is
+ * the `explore-finds` switch.
  */
 export function dayCardOf(plays: readonly DayPlay[], finds: boolean): DayCard | null {
   const last = plays[plays.length - 1];
-  if (!last || !last.night || last.after.sim.outcome) return null;
-  const nights = plays.filter(p => p.night);
+  if (!last || last.after.sim.outcome) return null;
+  // The days that ended: up to the last one with its night.
+  const end = plays.map(p => p.night).lastIndexOf(true);
+  if (end < 0) return null;
+  const done = plays.slice(0, end + 1);
+  const nights = done.filter(p => p.night);
   const ids = keyMetricsOf();
+  const at = done.map(p => ({ morning: valuesOf(p.before.sim), dusk: valuesOf(duskOf(p)), after: valuesOf(p.after.sim) }));
   // A day's gains only: water drunk on the way, say, isn't "brought back" as a minus.
-  const brought = ids.map(id => ({ id, n: plays.reduce((n, p) => n + Math.max(0, valueOf(duskOf(p), id) - valueOf(p.before.sim, id)), 0) })).filter(c => c.n > 0);
-  const night = ids.map(id => ({ id, n: nights.reduce((n, p) => n + valueOf(p.after.sim, id) - valueOf(duskOf(p), id), 0) })).filter(c => c.n !== 0);
-  // The night's lines are the ones after dusk's, as the timer reads them (playback.ts `linesAt`).
-  const hardships = nights.flatMap(p => p.after.sim.log.slice(duskOf(p).log.length)).filter(l => l.kind === 'hardship');
-  const trips = plays.flatMap(p => playFinds(p, finds)).filter((f): f is TripFinds => f !== null);
-  return { from: plays[0].before.sim.day, to: last.before.sim.day, brought, trips, night, hardships, morning: last.after.sim };
+  const brought = ids.map(id => ({ id, n: at.reduce((n, v) => n + Math.max(0, v.dusk[id] - v.morning[id]), 0) })).filter(c => c.n > 0);
+  const night = ids.map(id => ({ id, n: at.reduce((n, v, i) => n + (done[i].night ? v.after[id] - v.dusk[id] : 0), 0) })).filter(c => c.n !== 0);
+  // The night's lines, as the timer reads them (playback.ts `nightLines`).
+  const hardships = nights.flatMap(nightLines).filter(l => l.kind === 'hardship');
+  const trips = done.flatMap(p => playFinds(p, finds)).filter((f): f is TripFinds => f !== null);
+  return { from: done[0].before.sim.day, to: done[end].before.sim.day, brought, trips, night, hardships, morning: done[end].after.sim };
 }
 
 /** "+3 food", "−4 firewood": a change with its icon, the minus a real one. */

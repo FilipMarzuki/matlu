@@ -1269,6 +1269,8 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
+  // Switched off (#1929), the day card and the journal sheet go, so switching back on brings back no old card.
+  if (!dayCardOn()) { dayCard = null; jsheetOpen = false; }
   // The journal sheet (#1929) is drawn again with the page: it keeps where it was scrolled to.
   const sheetScroll = root.querySelector('.jsheet ul')?.scrollTop ?? 0;
   root.innerHTML = `
@@ -1292,8 +1294,8 @@ function drawPage(a: AppState): void {
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}
-    ${dayCard && !playing && dayCardOn() ? dayCardHtml(dayCard, t) : ''}
-    ${jsheetOpen && dayCardOn() ? journalSheet(journal(a, 200), t) : ''}`;
+    ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
+    ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
   const sheetList = root.querySelector('.jsheet ul');
   if (sheetList) sheetList.scrollTop = sheetScroll;
   root.classList.toggle('playing', !!playing);
@@ -1954,13 +1956,28 @@ async function holdScreen(pl: Playing): Promise<void> {
 
 // The timer runs only while you watch: leave the page and the day is simply done when you come back.
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
-document.addEventListener('keydown', e => { if (playing && !intro && e.key === 'Escape') { e.preventDefault(); skipTimer(); } });
-// Escape shuts the journal sheet, else the day card (#1929).
+// Escape does one thing at a time (#1929): it shuts the journal sheet (which can be open while the
+// day plays, and the day plays on), else skips the timer to the day's end (whose card then shows),
+// else shuts the day card.
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || playing || intro) return;
+  if (e.key !== 'Escape' || intro) return;
   if (jsheetOpen) { e.preventDefault(); setSheet(false); }
+  else if (playing) { e.preventDefault(); skipTimer(); }
   else if (dayCard) { e.preventDefault(); closeDayCard(); }
 });
+// Tab stays inside the day card or the journal sheet while it's open, as in the focus picker: they're
+// dialogs over the page (aria-modal), so the buttons behind them aren't reached until they're shut.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || intro) return;
+  const box = root.querySelector<HTMLElement>('.jsheet') ?? root.querySelector<HTMLElement>('.daycard');
+  if (!box) return;
+  const targets = [...box.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')];
+  if (!targets.length) return;
+  const i = targets.indexOf(document.activeElement as HTMLElement);
+  const next = e.shiftKey ? (i <= 0 ? targets.length - 1 : i - 1) : (i === -1 || i === targets.length - 1 ? 0 : i + 1);
+  e.preventDefault();
+  targets[next].focus();
+}, true);
 
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
 function timerPanel(): string {
@@ -2797,6 +2814,9 @@ root.addEventListener('submit', e => {
  * check them.
  */
 function newWarden(): void {
+  // The last run's day card and journal sheet (#1929) aren't this one's.
+  dayCard = null;
+  jsheetOpen = false;
   const legacy = legacyFor(currentRun(state));
   const next = newGame(legacy, loadChoices());
   startLog(next, {}, legacy ? legacy.heirlooms ?? [] : null, logFor(state)?.sent?.gameId ?? null);

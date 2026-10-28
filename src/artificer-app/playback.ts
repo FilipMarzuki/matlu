@@ -286,9 +286,18 @@ export function shownAt(p: DayPlay, done: number): AppState {
 /** The journal lines a play has written by `done` steps in, and the night's once it's reached. */
 export function linesAt(p: DayPlay, done: number, night: boolean): Region1State['log'] {
   const lines = p.steps.slice(0, done).flatMap(st => st.sim.log.slice(st.logFrom));
-  if (!night || !p.night) return lines;
+  return night ? [...lines, ...nightLines(p)] : lines;
+}
+
+/**
+ * The night's lines: what the night wrote after dusk (the last step's lines, or the morning's when
+ * nothing was done), none for a day with no night. The timer's log and the day card (#1929) both
+ * read them here, so the card can't tell a different night from the timer.
+ */
+export function nightLines(p: DayPlay): Region1State['log'] {
+  if (!p.night) return [];
   const from = p.steps.length ? p.steps[p.steps.length - 1].sim.log.length : p.before.sim.log.length;
-  return [...lines, ...p.after.sim.log.slice(from)];
+  return p.after.sim.log.slice(from);
 }
 
 /** The plays that have anything to show on the timer. */

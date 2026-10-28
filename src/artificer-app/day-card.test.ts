@@ -89,6 +89,18 @@ describe('what the card says (#1929)', () => {
     expect(dayCardHtml(c, sv)).toContain(`Dag ${c.from}–${c.to} är slut`);
   });
 
+  it('a whole queue whose last day stops partway still has a card for the days that ended with their nights', () => {
+    const a = queued(ready('w-1929-cut'), ['wood', 'wood', 'wood', 'water', 'wood', 'wood', 'wood']);
+    const days = playWholeQueue(a);
+    expect(days.at(-1)!.night).toBe(true);
+    // The next day stopped an hour in (as an encounter or Stop leaves it): no night, so it isn't on the card.
+    const cut = playStopped({ ...a, sim: days.at(-1)!.after.sim, queue: ['wood', 'water'] }, { action: 0, hours: 1 });
+    expect(cut.night).toBe(false);
+    const c = dayCardOf([...days, cut], false)!;
+    expect(c).toEqual(dayCardOf(days, false));
+    expect(c.morning).toBe(days.at(-1)!.after.sim);
+  });
+
   it('no card when no day ended: a day stopped partway, one thing done by hand, or a run that\'s over', () => {
     const a = queued(ready('w-1929-none'), ['wood', 'water']);
     expect(dayCardOf([playStopped(a, { action: 0, hours: 1 })], false)).toBeNull();

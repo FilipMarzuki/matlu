@@ -16,7 +16,8 @@ test.use({ hasTouch: true });
 
 const SHOTS = process.env['SHOTS'];
 
-const spoiling = (): { saveKey: string; guideKey: string; save: string } =>
+/** The save, made once for the whole file (the game's own code, so it costs a sim day to make). */
+const SPOILING: { saveKey: string; guideKey: string; save: string } =
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-day-card-save.ts', import.meta.url))], { encoding: 'utf8' }));
 
 async function openPlan(page: Page, lang: 'en' | 'sv', features: Record<string, boolean> = {}): Promise<string[]> {
@@ -31,7 +32,7 @@ async function openPlan(page: Page, lang: 'en' | 'sv', features: Record<string, 
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
     localStorage.setItem('artificer.features', JSON.stringify(features));
-  }, { ...spoiling(), lang, features });
+  }, { ...SPOILING, lang, features });
   await page.reload();
   return errors;
 }
@@ -113,6 +114,41 @@ test('a tap beside the card shuts it, and Escape shuts it too', async ({ page })
   await page.keyboard.press('Escape');
   await expect(page.locator('.daycard')).toHaveCount(0);
   expect([...errors, ...again]).toEqual([]);
+});
+
+test('Escape skips the timer and the card then shows; Escape again shuts it; Tab stays in it', async ({ page }) => {
+  const errors = await openPlan(page, 'en');
+  await page.locator('[data-cmd="day"]:visible').first().click();
+  await expect(page.locator('.timer')).toBeVisible();
+  // One Escape: the day skips to its end, and its card stays up (the same key doesn't also shut it).
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.timer')).toHaveCount(0);
+  const card = page.locator('.daycard');
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-cmd="daycardok"]')).toBeFocused();
+  // Tab and Shift+Tab go round the card's buttons, never to the page behind it.
+  for (const shift of [false, false, true, true, true]) {
+    await page.keyboard.press(shift ? 'Shift+Tab' : 'Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.daycard'))).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(card).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('mid-day, Escape shuts the journal sheet and the day plays on', async ({ page }) => {
+  const errors = await openPlan(page, 'en');
+  await page.locator('[data-cmd="day"]:visible').first().click();
+  await expect(page.locator('.timer')).toBeVisible();
+  await page.locator('.statusbar [data-cmd="jsheet"]').click();
+  await expect(page.locator('.jsheet')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.jsheet')).toHaveCount(0);
+  // Not skipped: the timer is still playing the day.
+  await expect(page.locator('.timer')).toBeVisible();
+  await page.locator('[data-pbskip]').click();
+  await expect(page.locator('.daycard')).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test('switched off, the day ends as before: no card and no 📓', async ({ page }) => {

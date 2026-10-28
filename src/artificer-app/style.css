@@ -1013,6 +1013,14 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .odds.o-safe { color: var(--green); border-color: rgba(136,255,136,.5); }
 .odds.o-likely { color: var(--teal); border-color: rgba(77,212,240,.5); }
 .odds.o-risky { color: var(--warn); border-color: rgba(255,170,51,.5); }
+.odds.o-desperate { color: var(--danger); border-color: rgba(255,90,90,.6); }
+.enc-wait { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); font-style: italic; }
+.enc-chose { margin: 0 0 6px; font-size: 12px; color: var(--dim); }
+.enc-chose b { color: var(--gold); }
+.enc-result { margin: 0 0 8px; padding: 9px 12px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 13.5px; }
+.enc-result.dead { border-left-color: var(--danger); color: var(--danger); }
+.enc .runbar { margin-top: 12px; }
+@media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }
 
 /* The day's result (#1929, ui switch `day-card`): a card over the page when the timer ends a day,
    and the journal as a sheet, one tap from the status bar's 📓. Both on the encounters' backdrop. */
@@ -1038,14 +1046,6 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .jbtn:hover { border-color: var(--teal); }
 /* On touch screens, 44px tall like the other controls (#1927). */
 @media (pointer: coarse) { .jbtn, .dcbtns .pill, .dcbtns .btn, .jshead .pill { min-height: 44px; } }
-.odds.o-desperate { color: var(--danger); border-color: rgba(255,90,90,.6); }
-.enc-wait { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); font-style: italic; }
-.enc-chose { margin: 0 0 6px; font-size: 12px; color: var(--dim); }
-.enc-chose b { color: var(--gold); }
-.enc-result { margin: 0 0 8px; padding: 9px 12px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 13.5px; }
-.enc-result.dead { border-left-color: var(--danger); color: var(--danger); }
-.enc .runbar { margin-top: 12px; }
-@media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }
 
 /* Drawing your map (#1754): the encounter modal's frame, with a list of finds and a blank grid, camp in the middle */
 /* Every tap redraws the modal, so it doesn't replay the encounter's entrance each time. */
