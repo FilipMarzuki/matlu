@@ -55,6 +55,25 @@ export interface Provinces {
   at: Int16Array;
 }
 
+/**
+ * Where a run seats the three road villages (#1905): `'reach'`, inside the Reach (today's, and
+ * every run's with `hex-world` off), or `'hexes'`, out on the hex map (worldmap/road.ts). A run's
+ * setting is read from its switches with hex-window.ts `roadAnchorsOf`; a told history's with
+ * history-format.ts `roadAnchorsOfHistory`.
+ */
+export type RoadAnchors = 'reach' | 'hexes';
+
+/** The option `provincesOf`, and the history told over its provinces (history.ts), take. Absent is `'reach'`. */
+export interface WorldOpts { roadAnchors?: RoadAnchors }
+
+/**
+ * What a run's provinces are made from, and so everything made from them (their settlements, the
+ * history told over them), as one key: its seed and where it seats the road villages. A cache of
+ * any of them keyed by the seed alone would hand a run the other setting's, since a Warden's id
+ * (and with it the seed) carries over from one run to the next whether `hex-world` is on or off.
+ */
+export const worldKey = (seed: number, roadAnchors: RoadAnchors): string => `${seed}|${roadAnchors}`;
+
 /** About one province per this many cells: 1,536 cells → about 11. */
 const CELLS_PER_PROVINCE = 140;
 /** Seats at least this far apart (in cells, straight line), so provinces come out a fair size. */
@@ -70,20 +89,28 @@ export const SETTLE: Readonly<Partial<Record<Biome, number>>> = {
   meadow: 1, birch: 0.8, heath: 0.7, pine: 0.6, marsh: 0.25, scree: 0.3, fell: 0.1,
 };
 
-/** How well each kind of land feeds people (the engine's 0–1 fertility). */
-const FERTILITY: Readonly<Record<Biome, number>> = {
+/** How well each kind of land feeds people (the engine's 0–1 fertility). Exported for the outer provinces (outer-history.ts, #1906), which read it off their own cells the same way. */
+export const FERTILITY: Readonly<Record<Biome, number>> = {
   meadow: 0.8, river: 0.75, birch: 0.6, heath: 0.45, pine: 0.45, marsh: 0.35, lake: 0.5, scree: 0.2, fell: 0.1, snow: 0,
 };
 
-/** The engine's terrain for each land biome. Rivers and lakes don't set a province's terrain. */
-const TERRAIN: Readonly<Partial<Record<Biome, Terrain>>> = {
+/** The engine's terrain for each land biome. Rivers and lakes don't set a province's terrain. Exported for outer-history.ts (#1906), same reason as `FERTILITY`. */
+export const TERRAIN: Readonly<Partial<Record<Biome, Terrain>>> = {
   meadow: 'meadow', heath: 'plains', birch: 'forest', pine: 'forest', marsh: 'swamp', scree: 'hills', fell: 'mountain', snow: 'mountain',
 };
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
-/** Split a Reach into provinces. Every cell, open water included, belongs to exactly one. */
-export function provincesOf(reach: Reach): Provinces {
+/**
+ * Split a Reach into provinces. Every cell, open water included, belongs to exactly one.
+ *
+ * With `roadAnchors: 'hexes'` (#1905), `placeAnchors` is skipped: the three road villages move out
+ * onto the hex map (`worldmap/road.ts`) instead, so no Reach province gets an anchor, a village
+ * name or a village culture. The provinces otherwise come out exactly as they do today (their
+ * names are drawn before `placeAnchors` runs, so that stream is untouched); default `'reach'` is
+ * today's behaviour.
+ */
+export function provincesOf(reach: Reach, opts: WorldOpts = {}): Provinces {
   const { w, h, cells } = reach;
   const rnd = generator(seedOf(`${reach.seed}|world|provinces`));
   const seats = pickSeats(reach, rnd);
@@ -148,7 +175,7 @@ export function provincesOf(reach: Reach): Provinces {
     for (const j of around(i, w, h)) if (at[j] !== at[i]) { touching[at[i]].add(at[j]); touching[at[j]].add(at[i]); }
   }
   list.forEach((p, k) => { p.neighbors = [...touching[k]].sort((a, b) => a - b).map(n => `p${n}`); });
-  placeAnchors(list, reach);
+  if (opts.roadAnchors !== 'hexes') placeAnchors(list, reach);
   return { list, at };
 }
 
@@ -239,7 +266,8 @@ function around(i: number, w: number, h: number): number[] {
   return out;
 }
 
-function mostCommon<T>(items: readonly T[]): T | undefined {
+/** The most common item of a list (a tie keeps whichever was seen first). Exported for outer-history.ts (#1906), which picks a province's terrain the same way. */
+export function mostCommon<T>(items: readonly T[]): T | undefined {
   const count = new Map<T, number>();
   for (const t of items) count.set(t, (count.get(t) ?? 0) + 1);
   let best: T | undefined, n = 0;
@@ -247,7 +275,8 @@ function mostCommon<T>(items: readonly T[]): T | undefined {
   return best;
 }
 
-const round2 = (v: number) => Math.round(v * 100) / 100;
+/** Exported for outer-history.ts (#1906), which rounds fertility and mana the same way. */
+export const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /** The hand-written places (villages.ts and the road's end), never generated: the villages are seated by `placeAnchors`. */
 const ANCHOR_NAMES = [...ANCHORS.map(id => VILLAGES[id].name), 'Mistheim'];

@@ -26,8 +26,8 @@ import { COST, REACH_W, REACH_H, type Biome } from './reach';
 import { KNOWN_RADIUS, SETTLE } from './hex-summary';
 import { generator, seedOf } from './rng';
 
-/** The hand-written villages' hexes on the road south (#1905): always seats `h0`, `h1`, `h2`. */
-const ROAD_SEAT_HEXES: readonly Hex[] = [{ q: 0, r: 2 }, { q: 0, r: 4 }, { q: 0, r: 6 }];
+/** The hand-written villages' hexes on the road south (#1905): always seats `h0`, `h1`, `h2`. road.ts names them. */
+export const ROAD_SEAT_HEXES: readonly Hex[] = [{ q: 0, r: 2 }, { q: 0, r: 4 }, { q: 0, r: 6 }];
 
 /**
  * Hexes beyond radius `KNOWN_RADIUS` that the road still needs (#1905): the road runs on to

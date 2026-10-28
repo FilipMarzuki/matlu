@@ -19,7 +19,10 @@ import { featureOn } from './features';
 import { hasKit, hasExtra } from './kit';
 import { seedOf } from './rng';
 import { domainsOf, level, type Domain, type Ring } from './exploration';
-import { generateReach, sightFor, mapRows, ringOfHours, walkFrom, COST, IN_VIEW_HOURS, type Biome, type Reach, type Sight } from './world/reach';
+import { generateReach, sightFor, mapRows, ringOfHours, walkFrom, COST, IN_VIEW_HOURS, REACH_W, type Biome, type Reach, type Sight } from './world/reach';
+import { landOfRun, toLocal, toWorld, type Land } from './world/hex-window';
+import { inReach } from './world/hex-knowledge';
+import { packCell } from '../../worldmap/coords';
 import { distanceOn, ringWordsFor } from './distance-words';
 import type { Region1State } from './region1';
 
@@ -27,7 +30,7 @@ import type { Region1State } from './region1';
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut' | 'seenWorld'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -142,18 +145,33 @@ export function landOrigin(s: Pick<Run, 'config' | 'campSpot'>, r: Reach): { x: 
 
 /**
  * Where the Warden stands (#1839): out on the land (`afield`, written only with `directed-explore`
- * on), else where the land is told from. Read here by field, as directed-explore.ts builds on this module.
+ * on), else where the land is told from. With `hex-world` on (#1901), `land` is the window
+ * (`landOfRun`) and `afield` is a world cell there, converted back with `toLocal`; `origin` is the
+ * world coordinate `landOrigin` gives (camp, or the start).
  */
-const standing = (s: Pick<Run, 'config' | 'campSpot' | 'afield'>, r: Reach): { x: number; y: number } => s.afield ?? landOrigin(s, r);
+const standing = (s: Pick<Run, 'afield'>, land: Land, origin: { x: number; y: number }): { x: number; y: number } => {
+  if (s.afield) {
+    const local = toLocal(land, s.afield.x, s.afield.y);
+    if (local) return local;
+  }
+  return toLocal(land, origin.x, origin.y) ?? origin;
+};
 
 /**
  * The squares seen by heading out one way (#1839), on top of what the rings show: observed (2), as
- * the rings' knowledge would say of a surveyed ring. Without any, the sight is the rings' own.
+ * the rings' knowledge would say of a surveyed ring. Without any, the sight is the rings' own. With
+ * `hex-world` on (#1901), `(x, y)` are local to `land`'s own grid; a cell outside the Reach counts
+ * as seen when its `packCell` is in `seenWorld` instead of `seenOut`.
  */
-function withSeenOut(s: Pick<Run, 'seenOut'>, r: Reach, sight: Sight): Sight {
-  if (!s.seenOut?.length) return sight;
-  const seen = new Set(s.seenOut);
-  return (x, y) => (seen.has(y * r.w + x) ? Math.max(2, sight(x, y)) : sight(x, y));
+function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: Sight): Sight {
+  if (!s.seenOut?.length && !s.seenWorld?.length) return sight;
+  const seenOut = new Set(s.seenOut);
+  const seenWorld = new Set(s.seenWorld);
+  return (x, y) => {
+    const world = toWorld(land, x, y);
+    const known = inReach(world.cx, world.cy) ? seenOut.has(world.cy * REACH_W + world.cx) : seenWorld.has(packCell(world));
+    return known ? Math.max(2, sight(x, y)) : sight(x, y);
+  };
 }
 
 /** A lake square is seen from its shore: open water has no ring of its own (its walking time is Infinity). */
@@ -225,28 +243,31 @@ export function timeWords(hours: number, exact: boolean): string {
 export function knownPlaces(s: Run): KnownPlace[] {
   if (!descriptiveMapOn(s)) return [];
   const r = reachOfRun(s);
+  const land = landOfRun(s);
   // Told from camp, or where you are before it (#1752): the walk from there, and what's in view and known
   // from there too, since the rings (what you know of the land) were always measured from camp.
   const home = landOrigin(s, r);
   const moved = home.x !== r.camp.x || home.y !== r.camp.y;
+  const homeLocal = toLocal(land, home.x, home.y) ?? land.camp;
   // What the rings show is the land around camp (or the start); out on the land (#1839) the walks
-  // and bearings are from where you stand, and the squares you saw on the way are known too.
-  const sight = withShores(r, withSeenOut(s, r, sightFor(moved ? { ...r, hours: walkFrom(r, home.x, home.y) } : r, s.explore)));
-  const from = standing(s, r);
-  const walk = from.x !== r.camp.x || from.y !== r.camp.y ? walkFrom(r, from.x, from.y) : r.hours;
-  const campKind = KIND_OF[r.cells[from.y * r.w + from.x].biome];
+  // and bearings are from where you stand, and the squares you saw on the way are known too. With
+  // `hex-world` on (#1901), this runs on the land (`landOfRun`'s window), past the Reach's edge.
+  const sight = withShores(land, withSeenOut(s, land, sightFor(moved ? { ...land, hours: walkFrom(land, homeLocal.x, homeLocal.y) } as Reach : land as Reach, s.explore)));
+  const from = standing(s, land, home);
+  const walk = from.x !== land.camp.x || from.y !== land.camp.y ? walkFrom(land, from.x, from.y) : land.hours;
+  const campKind = KIND_OF[land.cells[from.y * land.w + from.x].biome];
   const compass = hasKit(s, 'map-compass');
   const fromHere = noCampYet(s);
   const nearest = new Map<PlaceKind, { i: number; hours: number; seen: boolean }>();
-  for (let i = 0; i < r.cells.length; i++) {
-    const x = i % r.w, y = Math.floor(i / r.w);
+  for (let i = 0; i < land.cells.length; i++) {
+    const x = i % land.w, y = Math.floor(i / land.w);
     if (x === from.x && y === from.y) continue;
-    const kind = KIND_OF[r.cells[i].biome];
+    const kind = KIND_OF[land.cells[i].biome];
     if (kind === campKind) continue;
     const seen = sight(x, y) > 0;
     // Only high ground can be known unseen: it stands on the skyline.
     if (!seen && kind !== 'high') continue;
-    const hours = edgeHours(r, x, y, from, walk);
+    const hours = edgeHours(land, x, y, from, walk);
     if (!Number.isFinite(hours)) continue;
     const had = nearest.get(kind);
     // A seen square beats one on the skyline; then the nearer; ties go to the earlier square, so it's deterministic.
@@ -256,8 +277,8 @@ export function knownPlaces(s: Run): KnownPlace[] {
   for (const kind of KINDS) {
     const p = nearest.get(kind);
     if (!p) continue;
-    const x = p.i % r.w, y = Math.floor(p.i / r.w);
-    const bearing = bearingOf(r, x, y, from);
+    const x = p.i % land.w, y = Math.floor(p.i / land.w);
+    const bearing = bearingOf(land, x, y, from);
     // Beyond a day out counts as the distant ring: the furthest you know of.
     const ring: Ring = ringOfHours(p.hours) ?? 3;
     // Surveying sharpens it: knowing that ring's ground for this kind of place (observed or better) gives a sure walking time.
@@ -275,8 +296,11 @@ export function knownPlaces(s: Run): KnownPlace[] {
 /** The ground camp stands on (the description's first line): where the land is told from (`landOrigin`). */
 export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run, 'config' | 'campSpot' | 'afield'>>): Biome {
   const r = reachOfRun(s);
-  const from = s.config ? standing({ config: s.config, campSpot: s.campSpot, afield: s.afield }, r) : r.camp;
-  return r.cells[from.y * r.w + from.x].biome;
+  if (!s.config) return r.cells[r.camp.y * r.w + r.camp.x].biome;
+  const land = landOfRun({ character: s.character, config: s.config });
+  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, r);
+  const from = standing({ afield: s.afield }, land, origin);
+  return land.cells[from.y * land.w + from.x].biome;
 }
 
 /** What you know of the land, as lines: where camp is (where you stand, before there's a camp), then each place. Empty with the switch off. */
@@ -362,7 +386,9 @@ export function mapDrawnLine(s: Run): string {
  */
 export function drawnSight(s: Run): Sight {
   const r = reachOfRun(s);
-  const base = withSeenOut(s, r, sightFor(r, s.explore));
+  // Your own drawn map is the Reach's alone (the drawn hex map is #1903), so `withSeenOut` runs on
+  // it directly: a `Land` rooted at the Reach, not `landOfRun`'s wider window.
+  const base = withSeenOut(s, { ...r, ox: 0, oy: 0 }, sightFor(r, s.explore));
   const compass = hasKit(s, 'map-compass');
   const placed: Sight = compass ? base : (x, y) => {
     const v = base(x, y);

@@ -28,7 +28,7 @@ import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import { generator, seedOf } from './rng';
 import { CELL_TILES, cellOrigin, hexOfCell, packCell, type CellXY } from './coords';
 import { worldCell, worldMoist } from './cells';
-import { hexCells } from './rivers';
+import { hexCells, riverStepScore } from './rivers';
 import { biomeOf, fbm, REACH_W, REACH_H, type Biome } from './reach';
 import { tileBiomeIdx } from './cw-biomes';
 
@@ -226,9 +226,11 @@ export interface RiverCrossing {
  * lake cell's tiles are all open water. So a source or mouth (one river neighbour or none) also
  * crosses into the lake the river runs into, and its line meets the water instead of ending at its
  * centre a kilometre short. That lake is the one the trace would have stepped into: the lowest by
- * the trace's own rule (height − 0.04 · dy, the first in step order on a tie). A river cell in the
- * middle of its course (two river neighbours or more) never reaches into a lake beside it, so a
- * river running along a shore doesn't sprout a mouth at every cell.
+ * the trace's own rule, `riverStepScore` (the first in step order on a tie). It's called, not
+ * copied, because its pull differs inside the Reach (0.04) and outside it (0.02, #1963): a copy that
+ * missed a change would send a mouth with two lakes beside it into the one its river never reached.
+ * A river cell in the middle of its course (two river neighbours or more) never reaches into a lake
+ * beside it, so a river running along a shore doesn't sprout a mouth at every cell.
  */
 function riverCrossings(seed: number, c: CellXY): RiverCrossing[] {
   const crossings: RiverCrossing[] = [];
@@ -239,7 +241,7 @@ function riverCrossings(seed: number, c: CellXY): RiverCrossing[] {
     const land = cellLand(seed, n);
     if (land === 'river') crossings.push({ dir, at: edgePoint(seed, c, n) });
     else if (land === 'lake') {
-      const score = worldCell(seed, n).height - 0.04 * dy;
+      const score = riverStepScore(seed, c, n);
       if (score < lakeScore) { lake = { dir, n }; lakeScore = score; }
     }
   }

@@ -45,7 +45,7 @@
 
 import type { Fact, Sensitivity } from '../knowledge';
 import { featureOn, type FeatureSwitches } from '../features';
-import { LIVING_MEMORY, type HistoryLine, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
+import { LIVING_MEMORY, roadAnchorsOfHistory, type HistoryLine, type ProvinceHistory, type ReachHistory, type RegionHistory, type RegionLine } from './history-format';
 import { generateReach } from './reach';
 import { countryOf, localHistory, type LocalHistory } from './local-history';
 import { provincesOf, type AnchorId, type Provinces } from './provinces';
@@ -183,17 +183,21 @@ export interface Remembered {
  * `generated` gives a province's generated region (regions.ts), for any village without a crafted
  * one: by default the history's own regions (#1598).
  *
+ * Where the villages sit is the history's own setting (#1905, `roadAnchorsOfHistory`): the
+ * provinces are rebuilt with it, and a history told with `hex-world` on (`'hexes'`) has no road
+ * village in the Reach, so it remembers none (regions.ts `roadRegions`; their own history is #1906's).
+ *
  * `features` are the run's rule switches. With `old-history-drift` on (#1650), a village tells
  * its old events the way its own people do (world/old-history.ts `villageHolders`: by People, as
  * the run plays them, and culture), one fact per telling, and its country's old news the way the
  * country's people do. Without (and in every run from before the switch), as the history tells it.
  */
-export function remembered(history: ReachHistory, provinces: Provinces = provincesOf(generateReach(history.seed)), generated: GeneratedRegions = generatedRegions(history), features?: FeatureSwitches): Remembered {
+export function remembered(history: ReachHistory, provinces: Provinces = provincesOf(generateReach(history.seed), { roadAnchors: roadAnchorsOfHistory(history) }), generated: GeneratedRegions = generatedRegions(history), features?: FeatureSwitches): Remembered {
   const drift = featureOn(features, 'old-history-drift');
   return {
     seed: history.seed,
     year: history.year,
-    villages: roadRegions(provinces, generated).map(where => {
+    villages: roadRegions(provinces, generated, roadAnchorsOfHistory(history)).map(where => {
       const p = history.provinces.find(q => q.id === where.province.id);
       // The province ids (`p3`) only mean something within one Reach: a history and provinces
       // from different seeds would pair the wrong places, so refuse rather than misread.

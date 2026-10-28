@@ -16,10 +16,11 @@
  *
  * Which province a village is seated in still comes from the generated world (provinces.ts
  * `placeAnchors`), so it changes with every seed; only the region it belongs to is written down.
+ * With `hex-world` on, the villages aren't seated in the Reach at all (#1905, `roadRegions`).
  * Pure: no randomness, nothing read but the arguments.
  */
 
-import { ANCHORS, type AnchorId, type Province, type Provinces } from './provinces';
+import { ANCHORS, type AnchorId, type Province, type Provinces, type RoadAnchors } from './provinces';
 import type { ReachHistory } from './history-format';
 import { regionOfProvince } from './regional-facts';
 
@@ -70,11 +71,22 @@ export interface VillageRegion {
   crafted: boolean;
 }
 
-/** Each road village's province and region, in the order the road reaches them (ANCHORS). */
-export function roadRegions(provinces: Provinces, generated?: GeneratedRegions): VillageRegion[] {
+/**
+ * Each road village's province and region, in the order the road reaches them (ANCHORS).
+ *
+ * `roadAnchors` is where the run seats the villages (#1905), and so where `provinces` were made
+ * to seat them. With `'hexes'` (`hex-world` on) none of them is in the Reach: they sit out on the
+ * hex map, in outer provinces (worldmap/road.ts) that no told history has a word of yet (telling
+ * theirs is #1906). So there's no road village here to name, and the list is empty: what reads it
+ * (remembered.ts, and through it play's facts and the run's rumours) gets nothing of the Reach's
+ * history for the villages, rather than another province's read as theirs. When #1906 tells the
+ * outer provinces' history, this is where their provinces come back in.
+ */
+export function roadRegions(provinces: Provinces, generated?: GeneratedRegions, roadAnchors: RoadAnchors = 'reach'): VillageRegion[] {
+  if (roadAnchors === 'hexes') return [];
   return ANCHORS.map(village => {
     const p = provinces.list.find(q => q.anchor === village);
-    // placeAnchors seats all three in every Reach (settlements.test.ts pins it), so this is only a guard.
+    // With 'reach', placeAnchors seats all three in every Reach (settlements.test.ts pins it), so this is only a guard.
     if (!p) throw new Error(`No province is seated at ${village}`);
     const r = regionFor(p, generated);
     return { village, province: { id: p.id, name: p.name }, region: r.id, crafted: r.crafted };

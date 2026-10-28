@@ -16,7 +16,8 @@
 import { hexCells } from '../../../worldmap/rivers';
 import { hexKey, hexOfCell, packCell, type CellXY, type Hex } from '../../../worldmap/coords';
 import { REACH_H, REACH_W, generateReach, walkingHours, type Cell, type Reach } from './reach';
-import { featureOn } from '../features';
+import type { RoadAnchors } from './provinces';
+import { featureOn, type FeatureSwitches } from '../features';
 import { reachOfRun } from '../descriptive-map';
 import { seedOf } from '../rng';
 import type { Region1State } from '../region1';
@@ -24,6 +25,14 @@ import type { Region1State } from '../region1';
 export const HEX_WORLD = 'hex-world';
 
 export const hexWorldOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, HEX_WORLD);
+
+/**
+ * Where a run seats the three road villages (#1905, provinces.ts `RoadAnchors`), from its rule
+ * switches: out on the hex map with `hex-world` on, else inside the Reach, as every run before it.
+ * It takes the switches, not the run, because they live in two places: the Reach's state keeps them
+ * in `config.world.features`, the road's (and history-in-play.ts's `RunOf`) in `features`.
+ */
+export const roadAnchorsOf = (features: FeatureSwitches | undefined): RoadAnchors => (featureOn(features, HEX_WORLD) ? 'hexes' : 'reach');
 
 /** A Reach-shaped grid whose local cell (x, y) is world cell (x + ox, y + oy). */
 export type Land = Reach & { ox: number; oy: number };

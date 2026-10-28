@@ -10,7 +10,7 @@ import { FULL_WORLD } from '../world';
 import { seedOf } from '../rng';
 import { hexOfCell } from '../../../worldmap/coords';
 import { generateReach, walkFrom, REACH_W, REACH_H } from './reach';
-import { landOfRun, worldWindow, toWorld, toLocal, reachIndexOf, hexWorldOn, HEX_WORLD, WINDOW_MARGIN, type Land } from './hex-window';
+import { landOfRun, worldWindow, toWorld, toLocal, reachIndexOf, hexWorldOn, roadAnchorsOf, HEX_WORLD, WINDOW_MARGIN, type Land } from './hex-window';
 
 const runWith = (features?: Record<string, boolean>): Region1State =>
   createRegion1({ world: { ...FULL_WORLD, ...(features ? { features } : {}) } }, undefined, { id: 'w-vega' });
@@ -21,6 +21,14 @@ describe('the hex-world switch (#1899)', () => {
     expect(hexWorldOn(r)).toBe(false);
     expect(hexWorldOn(runWith({ [HEX_WORLD]: false }))).toBe(false);
     expect(hexWorldOn(runWith({ [HEX_WORLD]: true }))).toBe(true);
+  });
+
+  it("says where the run seats the road villages (#1905): 'hexes' with it on, else today's 'reach'", () => {
+    expect(roadAnchorsOf(runWith().config.world.features)).toBe('reach');
+    expect(roadAnchorsOf(undefined)).toBe('reach');
+    expect(roadAnchorsOf({ [HEX_WORLD]: false })).toBe('reach');
+    expect(roadAnchorsOf({ [HEX_WORLD]: true })).toBe('hexes');
+    expect(roadAnchorsOf(runWith({ [HEX_WORLD]: true }).config.world.features)).toBe('hexes');
   });
 });
 

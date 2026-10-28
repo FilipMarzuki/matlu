@@ -43,6 +43,9 @@ export const explore = {
 
   // ── The journal ─────────────────────────────────────────────────────────────
   'log.headout': 'Headed {heading}, about {h} hours out, looking about as you went.',
+  // Heading out's line when the day crosses into another hex (#1901, hex world step 8, `hex-world`
+  // on): directed-explore.ts `headOut`.
+  'log.headout.hex': "Headed {heading}, about {h} hours out, looking about as you went, and by evening you're in {hex}.",
   'log.headout.edge': 'Headed {heading}, but the land runs out that way — you came back to where you set out.',
   'log.headout.found': 'Out that way: {Biome}, {bearing}, {walk} from where you set out.',
   'log.headout.night': "You'll sleep out here tonight, away from camp, unless you walk back.",

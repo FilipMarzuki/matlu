@@ -42,6 +42,10 @@ import { hasKit } from './kit';
 import type { Ring } from './exploration';
 import { reachOfRun, landOrigin, directionWords, directionIndex, timeWords, timeWord, type TimeWord } from './descriptive-map';
 import { walkFrom, sightFor, ringOfHours, COST, YIELDS, BIOME_NAME, REACH_W, REACH_H, type Biome, type Reach, type Yield } from './world/reach';
+import { landOfRun, toLocal, toWorld, hexWorldOn, type Land } from './world/hex-window';
+import { noteSeenCells, inReach } from './world/hex-knowledge';
+import { packCell } from '../../worldmap/coords';
+import { WORLDGEN_VERSION } from '../../worldmap/version';
 import type { Region1State } from './region1';
 
 /** The rule switch (features.ts). */
@@ -50,7 +54,11 @@ export const WALK_THE_MAP = 'walk-the-map';
 export const walkOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, WALK_THE_MAP);
 
 type At = { x: number; y: number };
-type Run = Pick<Region1State, 'config' | 'character' | 'explore'> & Partial<Pick<Region1State, 'campSpot' | 'afield' | 'seenOut' | 'kit'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore'> & Partial<Pick<Region1State, 'campSpot' | 'afield' | 'seenOut' | 'seenWorld' | 'kit'>>;
+
+/** A grid to plan a trip on: a `Land` already, or a bare `Reach` (`ox = oy = 0`, as `landOfRun` gives it with the switch off). */
+type GridArg = Reach & { ox?: number; oy?: number };
+const asLand = (r: GridArg): Land => (typeof (r as Partial<Land>).ox === 'number' ? (r as Land) : { ...r, ox: 0, oy: 0 });
 
 /** What a task looks for: something the land yields, high ground, or just the ring to look about in. */
 export type Need = Yield | 'high' | 'look';
@@ -84,16 +92,25 @@ export interface Trip {
   biome: Biome;
 }
 
-/** Camp's square once camp is made (#1732), else where the Warden stands (afield, or where the land is told from). */
-export function homeOf(s: Pick<Run, 'config' | 'character'> & Partial<Pick<Run, 'campSpot' | 'afield'>>, r: Reach = reachOfRun(s)): At {
+/**
+ * Camp's square once camp is made (#1732), else where the Warden stands (afield, or where the land
+ * is told from). With `hex-world` on (#1901), local to `r`'s grid (`landOfRun`'s window by
+ * default): camp and `afield` are world cells, converted back with `toLocal`.
+ */
+export function homeOf(s: Pick<Run, 'config' | 'character'> & Partial<Pick<Run, 'campSpot' | 'afield'>>, r: GridArg = landOfRun(s)): At {
+  const land = asLand(r);
   const m = s.campSpot ? /@(\d+),(\d+)$/.exec(s.campSpot.at) : null;
-  if (m) return { x: Number(m[1]), y: Number(m[2]) };
-  return s.afield ? { x: s.afield.x, y: s.afield.y } : landOrigin({ config: s.config, campSpot: s.campSpot }, r);
+  const world = m ? { x: Number(m[1]), y: Number(m[2]) }
+    : s.afield ? { x: s.afield.x, y: s.afield.y }
+      : landOrigin({ config: s.config, campSpot: s.campSpot }, reachOfRun(s));
+  return toLocal(land, world.x, world.y) ?? world;
 }
 
-/** Where the Warden is, always a square of the Reach: out on the land (`afield`), else camp (or, before camp, the start). */
-export function wardenAt(s: Pick<Run, 'config' | 'character'> & Partial<Pick<Run, 'campSpot' | 'afield'>>, r: Reach = reachOfRun(s)): At {
-  return s.afield ? { x: s.afield.x, y: s.afield.y } : homeOf(s, r);
+/** Where the Warden is, always a square of the grid: out on the land (`afield`), else camp (or, before camp, the start). */
+export function wardenAt(s: Pick<Run, 'config' | 'character'> & Partial<Pick<Run, 'campSpot' | 'afield'>>, r: GridArg = landOfRun(s)): At {
+  const land = asLand(r);
+  if (!s.afield) return homeOf(s, land);
+  return toLocal(land, s.afield.x, s.afield.y) ?? { x: s.afield.x, y: s.afield.y };
 }
 
 /** Beside open water: a lake next to this square, the first in the fixed neighbour order, else -1. */
@@ -143,11 +160,19 @@ export function pathTo(r: Reach, walk: readonly number[], dest: number): number[
 
 /**
  * Does the Warden know a square (pure)? In view from home or in a ring they know (reach.ts
- * `sightFor`, by walking time from home), or seen on a walk or heading out (`seenOut`).
+ * `sightFor`, by walking time from home), or seen on a walk or heading out (`seenOut`, `seenWorld`
+ * past the Reach's edge with `hex-world` on, #1901). `i` is local to `r`'s own grid.
  */
-function knownTest(s: Run, r: Reach, walk: readonly number[] = walkFrom(r, homeOf(s, r).x, homeOf(s, r).y), sight = sightFor({ ...r, hours: [...walk] }, s.explore)): (i: number) => boolean {
-  const seen = new Set(s.seenOut ?? []);
-  return i => seen.has(i) || sight(i % r.w, Math.floor(i / r.w)) > 0;
+function knownTest(s: Run, r: GridArg, walk: readonly number[] = walkFrom(asLand(r), homeOf(s, r).x, homeOf(s, r).y), sight = sightFor({ ...asLand(r), hours: [...walk] } as Reach, s.explore)): (i: number) => boolean {
+  const land = asLand(r);
+  const seenOut = new Set(s.seenOut ?? []);
+  const seenWorld = new Set(s.seenWorld ?? []);
+  return i => {
+    const x = i % land.w, y = Math.floor(i / land.w);
+    if (sight(x, y) > 0) return true;
+    const world = toWorld(land, x, y);
+    return inReach(world.cx, world.cy) ? seenOut.has(world.cy * REACH_W + world.cx) : seenWorld.has(packCell(world));
+  };
 }
 
 // Destinations are asked for often (the plan's estimate, the AI's view, the needs player trying
@@ -160,21 +185,22 @@ const trips = new Map<string, Trip | null>();
 /**
  * Plan a trip on the map (pure): where a task of this kind goes in this ring, by the path there.
  * Null when the ring has no square at all that serves the need: the trip is then the ring's, as it
- * always was.
+ * always was. With `hex-world` on (#1901), on the land (`landOfRun`'s window): `home`, `dest` and
+ * `path` are local to it, so a Warden standing outside the Reach (afield there) still plans a trip.
  */
 export function planTrip(s: Run, need: Need, ring: Ring): Trip | null {
-  const r = reachOfRun(s);
-  const home = homeOf(s, r);
-  const walk = walkFrom(r, home.x, home.y);
-  const sight = sightFor({ ...r, hours: walk }, s.explore);
+  const land = landOfRun(s);
+  const home = homeOf(s, land);
+  const walk = walkFrom(land, home.x, home.y);
+  const sight = sightFor({ ...land, hours: walk } as Reach, s.explore);
   const levels = ([1, 2, 3] as const).map(n => Object.values(s.explore.known[n]).map(v => Math.floor(Math.min(3, v))).join('')).join('|');
-  const key = `${r.seed}|${home.x},${home.y}|${ring}|${need}|${levels}|${(s.seenOut ?? []).join('.')}`;
+  const key = `${land.seed}|${home.x},${home.y}|${ring}|${need}|${levels}|${(s.seenOut ?? []).join('.')}|${(s.seenWorld ?? []).join('.')}`;
   if (trips.has(key)) return trips.get(key)!;
-  const isKnownAt = knownTest(s, r, walk, sight);
+  const isKnownAt = knownTest(s, land, walk, sight);
   // The nearest known square that serves, else the nearest unseen one; ties to the lower index.
   let known = -1, unseen = -1;
-  for (let i = 0; i < r.cells.length; i++) {
-    if (!Number.isFinite(walk[i]) || ringOfHours(walk[i]) !== ring || !serves(r, i, need)) continue;
+  for (let i = 0; i < land.cells.length; i++) {
+    if (!Number.isFinite(walk[i]) || ringOfHours(walk[i]) !== ring || !serves(land, i, need)) continue;
     const isKnown = isKnownAt(i);
     if (isKnown) { if (known === -1 || walk[i] < walk[known]) known = i; }
     else if (unseen === -1 || walk[i] < walk[unseen]) unseen = i;
@@ -183,14 +209,14 @@ export function planTrip(s: Run, need: Need, ring: Ring): Trip | null {
   const pick = need === 'look' ? (unseen !== -1 && (known === -1 || walk[unseen] < walk[known]) ? unseen : known) : known !== -1 ? known : unseen;
   let trip: Trip | null = null;
   if (pick !== -1) {
-    const lake = (need === 'water') && !YIELDS[r.cells[pick].biome].includes('water') ? lakeBeside(r, pick) : -1;
-    const homeI = home.y * r.w + home.x;
+    const lake = (need === 'water') && !YIELDS[land.cells[pick].biome].includes('water') ? lakeBeside(land, pick) : -1;
+    const homeI = home.y * land.w + home.x;
     trip = {
-      home, dest: { x: pick % r.w, y: Math.floor(pick / r.w) }, path: pathTo(r, walk, pick),
+      home, dest: { x: pick % land.w, y: Math.floor(pick / land.w) }, path: pathTo(land, walk, pick),
       outHours: walk[pick],
       // The same path walked the other way: it enters every square but the far end, and home.
-      backHours: walk[pick] - COST[r.cells[pick].biome] + COST[r.cells[homeI].biome],
-      known: pick === known, biome: lake >= 0 ? 'lake' : r.cells[pick].biome,
+      backHours: walk[pick] - COST[land.cells[pick].biome] + COST[land.cells[homeI].biome],
+      known: pick === known, biome: lake >= 0 ? 'lake' : land.cells[pick].biome,
     };
   }
   if (trips.size >= 64) trips.delete(trips.keys().next().value as string);
@@ -280,22 +306,34 @@ export interface TrailDay {
 
 /**
  * Note squares walked (on an already-cloned state): they go on today's trail, the last `TRAIL_DAYS`
- * days kept, and (`see`) the ones not known yet are seen from now on (`seenOut`): land already in
- * view or in a ring you know isn't news (#1869's finds read new `seenOut` squares as found ground).
- * Only with the switch on. Heading out (#1839) notes its walk without `see`: what it shows is its
- * own sector, and only that.
+ * days kept, and (`see`) the ones not known yet are seen from now on (`seenOut`, or `seenWorld` past
+ * the Reach's edge with `hex-world` on, #1901, through `noteSeenCells`): land already in view or in
+ * a ring you know isn't news (#1869's finds read new `seenOut` squares as found ground). Only with
+ * the switch on. Heading out (#1839) notes its walk without `see`: what it shows is its own sector,
+ * and only that. `squares` are local to `landOfRun(s)`'s grid; the trail stays Reach indices (it
+ * draws the live map inside the Reach, #1873), so a square the walk crossed past the Reach's edge
+ * isn't kept in it.
  */
 export function noteWalk(s: Region1State, squares: readonly number[], see = true): void {
   if (!walkOn(s) || !squares.length) return;
+  const land = landOfRun(s);
   if (see) {
-    const known = knownTest(s, reachOfRun(s));
+    const known = knownTest(s, land);
     const fresh = squares.filter(i => !known(i));
-    if (fresh.length) s.seenOut = [...new Set([...(s.seenOut ?? []), ...fresh])].sort((a, b) => a - b);
+    if (fresh.length) {
+      if (hexWorldOn(s)) noteSeenCells(s, fresh.map(i => toWorld(land, i % land.w, Math.floor(i / land.w))));
+      else s.seenOut = [...new Set([...(s.seenOut ?? []), ...fresh])].sort((a, b) => a - b);
+    }
   }
   const trail = (s.trail ?? []).map(d => ({ day: d.day, path: [...d.path] }));
   let today = trail[trail.length - 1];
   if (!today || today.day !== s.day) { today = { day: s.day, path: [] }; trail.push(today); }
-  for (const i of squares) if (today.path[today.path.length - 1] !== i) today.path.push(i);
+  for (const i of squares) {
+    const world = toWorld(land, i % land.w, Math.floor(i / land.w));
+    if (!inReach(world.cx, world.cy)) continue;
+    const ri = world.cy * REACH_W + world.cx;
+    if (today.path[today.path.length - 1] !== ri) today.path.push(ri);
+  }
   s.trail = trail.slice(-TRAIL_DAYS);
 }
 
@@ -326,10 +364,10 @@ function placeWords(s: Pick<Run, 'kit'> & Pick<Region1State, 'config' | 'charact
 
 /** The journal's line for where a trip went (null when the work was right where you set out). */
 export function tripLine(s: Region1State, trip: Trip): string | null {
-  const r = reachOfRun(s);
+  const land = landOfRun(s);
   const i = trip.path[trip.path.length - 1];
   if (trip.path.length < 2) return null;
-  const { bearing, walk } = placeWords(s, r, trip.home, i, trip.outHours);
+  const { bearing, walk } = placeWords(s, land, trip.home, i, trip.outHours);
   return trip.known
     ? `Where the work was: ${BIOME_NAME[trip.biome]}, ${bearing}, ${walk} from where you set out.`
     : `Into land you hadn't seen: ${BIOME_NAME[trip.biome]}, ${bearing}, ${walk} from where you set out.`;
@@ -337,11 +375,11 @@ export function tripLine(s: Region1State, trip: Trip): string | null {
 
 /** The journal's line for where a stop left you out on the land (the walk back is the next work's, with a camp to go back to). */
 export function stoppedLine(s: Region1State, trip: Trip, at: number): string {
-  const r = reachOfRun(s);
-  const walk = walkFrom(r, trip.home.x, trip.home.y);
-  const homeI = trip.home.y * r.w + trip.home.x;
-  const back = walk[at] - COST[r.cells[at].biome] + COST[r.cells[homeI].biome];
-  const w = placeWords(s, r, trip.home, at, back);
+  const land = landOfRun(s);
+  const walk = walkFrom(land, trip.home.x, trip.home.y);
+  const homeI = trip.home.y * land.w + trip.home.x;
+  const back = walk[at] - COST[land.cells[at].biome] + COST[land.cells[homeI].biome];
+  const w = placeWords(s, land, trip.home, at, back);
   return s.campSpot
     ? `You stopped out on the land, ${w.bearing}, ${w.walk} from camp: the next work starts with the walk back.`
     : `You stopped out on the land, ${w.bearing}, ${w.walk} from where you set out: the next work starts from here.`;
@@ -356,24 +394,26 @@ export interface WherePlace {
 }
 
 export function wherePlace(s: Region1State): WherePlace {
-  const r = reachOfRun(s);
+  const land = landOfRun(s);
   if (!s.afield) return { kind: s.campSpot ? 'camp' : 'start' };
-  const home = homeOf(s, r);
-  const walk = walkFrom(r, s.afield.x, s.afield.y)[home.y * r.w + home.x];
+  const home = homeOf(s, land);
+  const afield = toLocal(land, s.afield.x, s.afield.y) ?? home;
+  const walk = walkFrom(land, afield.x, afield.y)[home.y * land.w + home.x];
   const compass = hasKit(s, 'map-compass');
-  const bearing = (Math.atan2(s.afield.x - home.x, home.y - s.afield.y) * 180 / Math.PI + 360) % 360;
+  const bearing = (Math.atan2(afield.x - home.x, home.y - afield.y) * 180 / Math.PI + 360) % 360;
   return { kind: s.campSpot ? 'out' : 'outHere', dir: { exact: compass, i: directionIndex(bearing, compass) }, time: timeWord(Number.isFinite(walk) ? walk : 0, compass) };
 }
 
 /** Where the Warden is, in English for the AI: at camp, or out on the land and how far. */
 export function whereLine(s: Region1State): string {
-  const r = reachOfRun(s);
+  const land = landOfRun(s);
   if (!s.afield) return s.campSpot ? 'You are at camp.' : 'You are where you set out from.';
-  const home = homeOf(s, r);
-  const homeI = home.y * r.w + home.x;
-  const at = s.afield.y * r.w + s.afield.x;
-  const walk = walkFrom(r, s.afield.x, s.afield.y);
-  const w = placeWords(s, r, home, at, Number.isFinite(walk[homeI]) ? walk[homeI] : 0);
+  const home = homeOf(s, land);
+  const homeI = home.y * land.w + home.x;
+  const afield = toLocal(land, s.afield.x, s.afield.y) ?? home;
+  const at = afield.y * land.w + afield.x;
+  const walk = walkFrom(land, afield.x, afield.y);
+  const w = placeWords(s, land, home, at, Number.isFinite(walk[homeI]) ? walk[homeI] : 0);
   return s.campSpot ? `You are out on the land, ${w.bearing}, ${w.walk} from camp.` : `You are out on the land, ${w.bearing}, ${w.walk} from where you set out.`;
 }
 
@@ -396,26 +436,33 @@ export function validTrail(x: unknown): x is TrailDay[] {
 /** The walk back to camp from out on the land, square by square (the path from camp, walked the other way). */
 export function pathHome(s: Region1State): number[] {
   if (!s.afield) return [];
-  const r = reachOfRun(s);
-  const home = homeOf(s, r);
-  return pathTo(r, walkFrom(r, home.x, home.y), s.afield.y * r.w + s.afield.x).reverse();
+  const land = landOfRun(s);
+  const home = homeOf(s, land);
+  const afield = toLocal(land, s.afield.x, s.afield.y);
+  if (!afield) return [];
+  return pathTo(land, walkFrom(land, home.x, home.y), afield.y * land.w + afield.x).reverse();
 }
 
 /**
  * The walk done (on an already-cloned state): the squares walked are seen and go on the trail, and a
  * stop on the way (`leg`) leaves the Warden on the path, `afield`. A trip that's walked to the end
- * leaves them home, where it set out. Returns the journal's line for a stop out on the land, else null.
+ * leaves them home, where it set out. With `hex-world` on (#1901), `afield` is written as the world
+ * cell it is, stamping `worldGen` when it's outside the Reach (region1.ts `afield`'s doc). Returns
+ * the journal's line for a stop out on the land, else null.
  */
 export function endWalk(s: Region1State, trip: Trip, leg: Leg | null): string | null {
   if (!leg) { noteWalk(s, walkedSquares(trip, null)); return null; }
-  const r = reachOfRun(s);
-  const at = squareOnPath(r, trip, leg);
+  const land = landOfRun(s);
+  const at = squareOnPath(land, trip, leg);
   noteWalk(s, leg.leg === 'back' ? walkedHomeTo(trip, at) : walkedSquares(trip, at));
-  const x = at % r.w, y = Math.floor(at / r.w);
+  const x = at % land.w, y = Math.floor(at / land.w);
   if (x === trip.home.x && y === trip.home.y) return null;
   // Where the land is told from (camp, or the start) is no longer afield, as directed-explore.ts `standAt` has it.
-  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, r);
-  if (x === origin.x && y === origin.y) delete s.afield;
-  else s.afield = { x, y };
+  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, reachOfRun(s));
+  const originLocal = toLocal(land, origin.x, origin.y);
+  if (originLocal && x === originLocal.x && y === originLocal.y) { delete s.afield; return stoppedLine(s, trip, at); }
+  const world = toWorld(land, x, y);
+  s.afield = { x: world.cx, y: world.cy };
+  if (hexWorldOn(s) && !inReach(world.cx, world.cy)) s.worldGen = WORLDGEN_VERSION;
   return stoppedLine(s, trip, at);
 }
