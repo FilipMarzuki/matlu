@@ -81,16 +81,25 @@ const hexSeen = (land: Land, seenOut: ReadonlySet<number>, seenWorld: ReadonlySe
   cellsOfHex(hex).some(c => cellSeen(land, seenOut, seenWorld, c));
 
 /**
+ * The hex the Warden stands in right now: by `afield` if away from where the land is told from,
+ * else that spot itself (`landOrigin`: camp once it's made, or the start). The map views (#1903)
+ * mark this hex `@`; `furtherOff` below excludes it (it's not "further off").
+ */
+export function ownHexOf(s: Run): Hex {
+  const r = reachOfRun(s);
+  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, r);
+  const standing: CellXY = s.afield ? { cx: s.afield.x, cy: s.afield.y } : { cx: origin.x, cy: origin.y };
+  return hexOfCell(standing);
+}
+
+/**
  * Every hex within `KNOWN_RADIUS` of (0,0) you know of, other than your own: one entry each, sorted
  * by days then direction then `hexKey`. Empty with the `hex-world` switch off.
  */
 export function furtherOff(s: Run): FurtherOff[] {
   if (!hexWorldOn(s)) return [];
-  const r = reachOfRun(s);
   const land = landOfRun(s);
-  const origin = landOrigin({ config: s.config, campSpot: s.campSpot }, r);
-  const standing: CellXY = s.afield ? { cx: s.afield.x, cy: s.afield.y } : { cx: origin.x, cy: origin.y };
-  const ownHex = hexOfCell(standing);
+  const ownHex = ownHexOf(s);
   const ownKey = hexKey(ownHex);
 
   const seed = seedOf(s.character.id);

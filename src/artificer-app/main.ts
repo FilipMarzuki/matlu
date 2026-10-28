@@ -72,7 +72,7 @@ import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startN
 import { FEWER_CARDS_FEATURE } from './fewer-cards';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
-import { drawnMapBlock, reachMapSection } from './map-view';
+import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
 import { defaultsFor, loadRingDefaults, rememberRing, saveRingDefaults } from './distance-defaults';
@@ -220,6 +220,8 @@ const reachFor = (characterId: string): Reach => {
 };
 /** The square last tapped on the map, whose description shows under it. */
 let mapCell: { x: number; y: number } | null = null;
+/** The hex last tapped on the hex overview (#1903), whose name and line show under it. */
+let hexTap: { q: number; r: number } | null = null;
 
 // ── The Reach's history (#1540) ──────────────────────────────────────────────
 // The provinces come straight from the map (quick, run-world.ts `provincesFor`), but their history
@@ -363,14 +365,20 @@ function landBody(a: AppState): string {
   const news = landNewsNow(a.sim);
   const look = { news, assess: uiFeatureOn(loadChoices(), LAND_ASSESS_FEATURE), foundOnly: uiFeatureOn(loadChoices(), LAND_FOUND_FEATURE), queue: a.queue,
     // The start's note on day 1 (#1853): its Explore button stands in for #1836's.
-    startNote: startLandOn() ? startNoteBlock(a.sim, t) : '' };
+    startNote: startLandOn() ? startNoteBlock(a.sim, t) : '',
+    // The viewer's language (#1903): the hex overview's tapped name and "Further off"'s hex names.
+    lang };
   if (mode === 'described') return landTab(a.sim, t, pinRing, look);
   const r = reachFor(a.sim.character.id);
-  if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; }
+  if (mapSeed !== r.seed) { mapSeed = r.seed; mapSettlement = null; settlementPick = null; mapCell = null; hexTap = null; }
   if (mapSettlement) return settlementView(a, mapSettlement);
   const world = { reach: r, provinces: provincesFor(a.sim) };
   const ui = { cell: mapCell, provinceInfo: (x: number, y: number) => provinceInfo(a, x, y) };
-  return landTab(a.sim, t, pinRing, { ...look, map: mode === 'drawn' ? drawnMapBlock(a.sim, t, ui, world) : reachMapSection(a.sim, t, ui, world) });
+  // With `hex-world` on, the drawn map is the hex overview and the current hex's cells (#1903), not the Reach map.
+  const map = mode === 'drawn'
+    ? hexWorldOn(a.sim) ? hexDrawnMapBlock(a.sim, t, { hex: hexTap }, lang) : drawnMapBlock(a.sim, t, ui, world)
+    : reachMapSection(a.sim, t, ui, world);
+  return landTab(a.sim, t, pinRing, { ...look, map, lang });
 }
 
 /** The HISTORY tab (#1540), in the viewer's language (history-view.ts, #1711): who holds the Reach now, and the chronicle. */
@@ -2367,6 +2375,9 @@ root.addEventListener('click', e => {
   // A square on the map (#1539): show what it is.
   const square = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
   if (square?.dataset.cell) { const [x, y] = square.dataset.cell.split(',').map(Number); mapCell = { x, y }; render(state); return; }
+  // A hex on the hex overview (#1903): show its name and what you know of it.
+  const hexEl = (e.target as HTMLElement).closest<HTMLElement>('[data-hex]');
+  if (hexEl?.dataset.hex) { const [q, r] = hexEl.dataset.hex.split(',').map(Number); hexTap = { q, r }; render(state); return; }
   // The weather box (#1788): "Got it" on the first time's card condenses it; the heading (or, when
   // condensed, anywhere on its row) opens or condenses it. Presentation only, so it acts mid-playback too.
   const wx = (e.target as HTMLElement).closest<HTMLElement>('[data-wxack], [data-wxfold]');

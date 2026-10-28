@@ -164,7 +164,7 @@ const standing = (s: Pick<Run, 'afield'>, land: Land, origin: { x: number; y: nu
  * `hex-world` on (#1901), `(x, y)` are local to `land`'s own grid; a cell outside the Reach counts
  * as seen when its `packCell` is in `seenWorld` instead of `seenOut`.
  */
-function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: Sight): Sight {
+export function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: Sight): Sight {
   if (!s.seenOut?.length && !s.seenWorld?.length) return sight;
   const seenOut = new Set(s.seenOut);
   const seenWorld = new Set(s.seenWorld);
@@ -176,7 +176,7 @@ function withSeenOut(s: Pick<Run, 'seenOut' | 'seenWorld'>, land: Land, sight: S
 }
 
 /** A lake square is seen from its shore: open water has no ring of its own (its walking time is Infinity). */
-function withShores(r: Reach, sight: Sight): Sight {
+export function withShores(r: Reach, sight: Sight): Sight {
   return (x, y) => {
     if (r.cells[y * r.w + x].biome !== 'lake') return sight(x, y);
     let best = 0;
