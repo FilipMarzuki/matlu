@@ -539,6 +539,14 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'day-card', name: 'The day\'s result as a card', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1929,
     note: 'When the timer ends a day, a card says what you brought back, what the night took (food eaten, wood burnt, anything spoiled or stolen) and tomorrow\'s sky, with the journal one tap away. The status bar gets a 📓 that opens the journal over any tab.',
   },
+  {
+    // A ui feature (#1930, roadmap item 8 of #1914): one sentence read off the preview the queue
+    // already makes (artificer-app/day-forecast.ts), so it switches live and no run saves it. It says
+    // no more than `forecasts` lets the Warden know. The play API, the console and AI players never
+    // see it (observe.ts is unchanged). Off, the queue's footer is exactly as before.
+    id: 'day-forecast', name: 'Where the day ends, in words', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1930,
+    note: 'Under the queue, and on the phone\'s queue strip, one sentence says where today\'s plan leaves you: when you\'re done and where, how tired, and what the day\'s trips bring in, e.g. "Back at camp by dusk, tired, with wood for 3 nights." What you can\'t know yet (a haul you haven\'t learned, a day you can\'t see coming) it leaves out or says roughly.',
+  },
 ];
 
 /** Switches by feature id. */

@@ -100,6 +100,7 @@ import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
+import { DAY_FORECAST_FEATURE, dayEnd, dayEndHtml, dayEndText } from './day-forecast';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { READABLE_TYPE_FEATURE, applyReadableType } from './readable-type';
@@ -585,21 +586,42 @@ function queueBlock(a: AppState, preview: Preview): string {
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
+  // Where the day ends, in words (#1930): a row of its own in the Run bar, right over Run, so it stays
+  // in view with Run when a long queue scrolls in its frozen column. It says when you're done, so the
+  // time in words ("You'd be done around dusk.") would only repeat it; the hours ("Today 15.4 / 14h")
+  // stay, as they say more.
+  const end = dayEndNow(a, preview);
+  const total = end && timeWordsShown(s, dev) ? '' : times.total;
+  // No empty slot for a total the line says instead: it would still take the row's gap.
   const tot = compact
-    ? `<span class="qfull">${times.total}</span><span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
-    : `<span>${times.total}</span><span>${spans}</span>`;
+    ? `${total ? `<span class="qfull">${total}</span>` : ''}<span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
+    : `${total ? `<span>${total}</span>` : ''}<span>${spans}</span>`;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
       <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
       ${forecastBlock(a, preview, t)}
       <div class="qtot">${tot}</div>
-      <div class="runbar"${guide.mark('runDay')}>
+      <div class="runbar"${guide.mark('runDay')}>${dayEndHtml(end, t)}
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>${guideTip('runDay')}
     </div>`;
+}
+
+/** Where the day ends, in words (#1930, day-forecast.ts): a ui feature, on unless switched off in the features panel. */
+const dayForecastOn = (): boolean => uiFeatureOn(loadChoices(), DAY_FORECAST_FEATURE);
+/**
+ * Where today's plan leaves you, or null (the switch off, or nothing runs today). Worked out once a
+ * redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
+ */
+let dayEndMemo: { a: AppState; preview: Preview; end: ReturnType<typeof dayEnd> } | null = null;
+function dayEndNow(a: AppState, preview: Preview): ReturnType<typeof dayEnd> {
+  if (dayEndMemo?.a === a && dayEndMemo.preview === preview) return dayEndMemo.end;
+  const end = dayForecastOn() ? dayEnd(a, preview, timeWordsShown(a.sim, dev), t) : null;
+  dayEndMemo = { a, preview, end };
+  return end;
 }
 
 /** The compact total (#1826): the day's hours, and when today's plan ends if anything runs today. */
@@ -622,8 +644,10 @@ function stripBlock(a: AppState, preview: Preview): string {
       button: { cmd: 'endday', label: t('btn.endDay'), disabled: !!s.outcome } }, t);
   }
   const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
+  const end = dayEndNow(a, preview);
   return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
-    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null } }, t);
+    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null },
+    line: end ? dayEndText(end, t) : undefined }, t);
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
