@@ -201,6 +201,8 @@ describe('worldmap/rivers: rivers across hexes (#1897)', () => {
     expect(some).toBeGreaterThan(0);
   });
 
+  // Every cell of 19 hexes for 20 seeds: about 6 s, past Vitest's 5 s default, so a busy CI runner
+  // timed it out with no assertion failing. 30 s, as #1957 gave the Swedish sweeps.
   it('#1964 criterion 1: given the 20 seeds, lake is 1–35% of each seed’s cells in hexes within 2 of (0,0) outside the Reach', () => {
     for (const seed of HW_SEEDS) {
       let lake = 0, total = 0;
@@ -218,7 +220,7 @@ describe('worldmap/rivers: rivers across hexes (#1897)', () => {
       expect(pct, at).toBeGreaterThanOrEqual(1);
       expect(pct, at).toBeLessThanOrEqual(35);
     }
-  });
+  }, 30_000);
 
   it('#1964 criterion 2: given every trace from springsOfHex (hexes within 3 of (0,0)) on those seeds, each pool has at most 16 cells, none inside the Reach, all lower than its outlet, and the trace plus pool holds at most RIVER_MAX cells', () => {
     let pools = 0;
