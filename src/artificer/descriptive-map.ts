@@ -24,13 +24,14 @@ import { landOfRun, toLocal, toWorld, type Land } from './world/hex-window';
 import { inReach } from './world/hex-knowledge';
 import { packCell } from '../../worldmap/coords';
 import { distanceOn, ringWordsFor } from './distance-words';
+import { furtherOff } from './hex-words';
 import type { Region1State } from './region1';
 
 /** The rule switch (features.ts). */
 export const DESCRIPTIVE_MAP = 'descriptive-map';
 
 /** What a run needs for this: its switches, who it is (the seed), what it knows and what it packed. */
-type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut' | 'seenWorld'>>;
+type Run = Pick<Region1State, 'config' | 'character' | 'explore' | 'kit' | 'flags'> & Partial<Pick<Region1State, 'campSpot' | 'mapLearned' | 'afield' | 'seenOut' | 'seenWorld' | 'heardHexes'>>;
 
 export const descriptiveMapOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, DESCRIPTIVE_MAP);
 
@@ -303,10 +304,19 @@ export function campBiome(s: Pick<Region1State, 'character'> & Partial<Pick<Run,
   return land.cells[from.y * land.w + from.x].biome;
 }
 
-/** What you know of the land, as lines: where camp is (where you stand, before there's a camp), then each place. Empty with the switch off. */
+/**
+ * What you know of the land, as lines: where camp is (where you stand, before there's a camp),
+ * then each place, then — with `hex-world` on (#1902) — "Further off" and a line per hex you know
+ * of besides your own. Empty with the switch off.
+ */
 export function describeLand(s: Run): string[] {
   if (!descriptiveMapOn(s)) return [];
-  return [(noCampYet(s) ? HERE_LINE : CAMP_LINE)[campBiome(s)], ...knownPlaces(s).map(p => p.text)];
+  const far = furtherOff(s);
+  return [
+    (noCampYet(s) ? HERE_LINE : CAMP_LINE)[campBiome(s)],
+    ...knownPlaces(s).map(p => p.text),
+    ...(far.length ? ['Further off:', ...far.map(f => f.text)] : []),
+  ];
 }
 
 // ── Drawing your own map ────────────────────────────────────────────────────
