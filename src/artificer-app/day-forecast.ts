@@ -25,8 +25,9 @@
  *
  * **What you can't know, it doesn't say** (rules feature `forecasts`, #1827). A trip's haul is
  * learned by doing it, so a store filled by a trip you've never done there is "whatever wood you
- * find" (several such stores said together), and one you've done a few times is the card's rough word ("some more wood"), the same word
- * the card and the queue row show. How tired a whole day will leave you is the day forecast's to
+ * find" (several such stores said together), and one you've done a few times is the card's rough
+ * word ("some more wood"), the same word the card and the queue row show; several trips to one store
+ * get one rough word for all they bring. How tired a whole day will leave you is the day forecast's to
  * judge: with it closed (INT under 9, or something in the queue never done) the line leaves
  * tiredness out, and with it open the word is judged like the forecast's own verdicts (sometimes a
  * step off, from a seeded generator of its own, so it doesn't flicker as the page redraws).
@@ -38,9 +39,11 @@
 
 import type { Key, T } from '../artificer/i18n';
 import { ACTIONS, parseItem, winterOutlook, type ActionId } from '../artificer/region1';
+import type { Ring } from '../artificer/exploration';
+import { foodDays } from '../artificer/key-metrics';
 import { awayFromCamp } from '../artificer/directed-explore';
 import { endWords, type DayPart } from '../artificer/time-words';
-import { forecastRand, forecastsOn, judged, knowThreshold, knowing, misjudgeChance, queueKeyOf, taskKey } from '../artificer/forecasts';
+import { familiarity, forecastRand, forecastsOn, judged, knowThreshold, knowing, misjudgeChance, queueKeyOf, roughAmount, taskKey } from '../artificer/forecasts';
 import { queueForecast, taskCard } from './forecast-words';
 import { vitalLevel, vitalWord, type VitalLevel } from './vital-words';
 import { todayHours, type AppState, type QueuePreview } from './controller';
@@ -53,8 +56,15 @@ export const DAY_FORECAST_FEATURE = 'day-forecast';
 /** The key stores the line speaks of, in the key box's order. */
 export type Store = 'food' | 'water' | 'wood';
 const STORES: readonly Store[] = ['food', 'water', 'wood'];
-/** The trips that fill each store. (Stone isn't a key store; a snare line's catch comes overnight.) */
-const FILLS: Partial<Record<ActionId, Store>> = { gather: 'food', hunt: 'food', traps: 'food', fish: 'food', water: 'water', wood: 'wood' };
+/**
+ * The trips that fill each store by dusk. Stone isn't a key store, and a trap line set today brings
+ * nothing by dusk: its catch comes in overnight (region1.ts `checkTraps`), if it catches anything.
+ */
+const FILLS: Partial<Record<ActionId, Store>> = { gather: 'food', hunt: 'food', fish: 'food', water: 'water', wood: 'wood' };
+/** How much of each key store there is: food as the trips bring it in (raw food), water, firewood. */
+const STORE_OF: Readonly<Record<Store, (s: QueuePreview['projected']) => number>> = {
+  food: s => s.stores.rawFood, water: s => s.stores.water, wood: s => s.stores.firewood,
+};
 
 /** Where you are when the day's work is done. */
 export type Where =
@@ -71,7 +81,10 @@ export type Where =
 export type StoreEnd =
   /** The nights it covers (`thaw`: it lasts to the thaw). */
   | { store: Store; known: 'exact'; nights: number; thaw: boolean }
-  /** A trip you're still learning: the rough word its card shows (0 a little · 1 some · 2 plenty). */
+  /**
+   * Still being learned: a rough word (0 a little · 1 some · 2 plenty). For one trip, the word its
+   * card shows; for several, the word for all they bring together, judged like the card's.
+   */
   | { store: Store; known: 'rough'; level: number }
   /** A trip you've never done there. */
   | { store: Store; known: 'unknown' };
@@ -101,14 +114,14 @@ export function dayEnd(a: AppState, preview: QueuePreview, words: boolean, t: T)
   const later = preview.dayOffset.findIndex(d => d > 0);
   const dusk = later >= 0 ? preview.before[later] : preview.projected;
   const hours = todayHours(a, preview);
-  const ids = today.map(i => parseItem(a.queue[i]));
+  const ids = today.map(i => ({ i, ...parseItem(a.queue[i]) }));
 
   const where: Where = awayFromCamp(dusk) ? 'out'
     : !dusk.site ? 'done'
       : ids.some(x => x.id === 'camp') ? 'newcamp'
         : ids.some(x => ACTIONS[x.id].ringed) ? 'back' : 'done';
 
-  return { part: endWords(s.day, hours, s.config.calendar), clock: words ? null : compactEnd(hours, null), where, tired: tiredness(a, preview, dusk), stores: storesAt(a, preview, today, dusk, t) };
+  return { part: endWords(s.day, hours, s.config.calendar), clock: words ? null : compactEnd(hours, null), where, tired: tiredness(a, preview, dusk), stores: storesAt(a, preview, ids, dusk, t) };
 }
 
 /** How tired you'll be at dusk, as far as you can tell (see the file's header). */
@@ -126,27 +139,34 @@ function tiredness(a: AppState, preview: QueuePreview, dusk: QueuePreview['proje
 }
 
 /** Each key store one of today's trips fills, at dusk (see the file's header). */
-function storesAt(a: AppState, preview: QueuePreview, today: readonly number[], dusk: QueuePreview['projected'], t: T): StoreEnd[] {
+function storesAt(a: AppState, preview: QueuePreview, today: readonly { i: number; id: ActionId; ring: Ring }[], dusk: QueuePreview['projected'], t: T): StoreEnd[] {
   const known = a.sim;
   const learning = forecastsOn(known);
-  let outlook: ReturnType<typeof winterOutlook> | null = null;
+  const int = known.character.stats.int;
+  const toThaw = Math.max(0, dusk.config.calendar.thawDay - dusk.day);
   const out: StoreEnd[] = [];
   for (const store of STORES) {
-    const trips = today.map(i => ({ i, ...parseItem(a.queue[i]) })).filter(x => FILLS[x.id] === store);
+    const trips = today.filter(x => FILLS[x.id] === store);
     if (!trips.length) continue;
     if (learning) {
       const how = trips.map(x => knowing(known, taskKey(x.id, x.ring)));
       if (how.includes('unknown')) { out.push({ store, known: 'unknown' }); continue; }
       if (how.includes('rough')) {
-        // The card's own word for each trip still being learned (forecast-words.ts taskCard): the most any of them says.
-        const level = Math.max(...trips.map(x => taskCard(known, preview.before[x.i], x.id, x.ring, t)?.level ?? 0));
+        // One trip: its card's own word (forecast-words.ts taskCard), so the line and the card agree.
+        // Several: all they bring together, judged as surely as the least practised of them allows.
+        const level = trips.length === 1
+          ? taskCard(known, preview.before[trips[0].i], trips[0].id, trips[0].ring, t)?.level ?? 0
+          : judged(roughAmount(Math.max(0, STORE_OF[store](dusk) - STORE_OF[store](known))), 3,
+            misjudgeChance(int, Math.min(...trips.map(x => familiarity(known, taskKey(x.id, x.ring)))), knowThreshold(int)),
+            forecastRand(known, queueKeyOf(a.queue), `dusk:${store}`));
         out.push({ store, known: 'rough', level });
         continue;
       }
     }
-    outlook ??= winterOutlook(dusk);
-    const nights = store === 'food' ? outlook.foodDays : store === 'water' ? outlook.waterDays : outlook.fuelDays;
-    out.push({ store, known: 'exact', nights, thaw: outlook.nightsToThaw > 0 && nights >= outlook.nightsToThaw });
+    // As the key box counts them (key-metrics.ts): food one meal a night, water one drink; firewood
+    // at each night's burn, as the winter outlook and the "where you stand" line count it.
+    const nights = store === 'food' ? foodDays(dusk) : store === 'water' ? dusk.stores.water : winterOutlook(dusk).fuelDays;
+    out.push({ store, known: 'exact', nights, thaw: toThaw > 0 && nights >= toThaw });
   }
   return out;
 }

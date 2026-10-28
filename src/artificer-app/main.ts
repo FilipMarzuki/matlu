@@ -592,9 +592,10 @@ function queueBlock(a: AppState, preview: Preview): string {
   // stay, as they say more.
   const end = dayEndNow(a, preview);
   const total = end && timeWordsShown(s, dev) ? '' : times.total;
+  // No empty slot for a total the line says instead: it would still take the row's gap.
   const tot = compact
-    ? `<span class="qfull">${total}</span><span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
-    : `<span>${total}</span><span>${spans}</span>`;
+    ? `${total ? `<span class="qfull">${total}</span>` : ''}<span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
+    : `${total ? `<span>${total}</span>` : ''}<span>${spans}</span>`;
   return `<div class="queue ${fresh ? 'fresh' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
@@ -611,9 +612,17 @@ function queueBlock(a: AppState, preview: Preview): string {
 
 /** Where the day ends, in words (#1930, day-forecast.ts): a ui feature, on unless switched off in the features panel. */
 const dayForecastOn = (): boolean => uiFeatureOn(loadChoices(), DAY_FORECAST_FEATURE);
-/** Where today's plan leaves you, or null (the switch off, or nothing runs today). */
-const dayEndNow = (a: AppState, preview: Preview): ReturnType<typeof dayEnd> =>
-  (dayForecastOn() ? dayEnd(a, preview, timeWordsShown(a.sim, dev), t) : null);
+/**
+ * Where today's plan leaves you, or null (the switch off, or nothing runs today). Worked out once a
+ * redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
+ */
+let dayEndMemo: { a: AppState; preview: Preview; end: ReturnType<typeof dayEnd> } | null = null;
+function dayEndNow(a: AppState, preview: Preview): ReturnType<typeof dayEnd> {
+  if (dayEndMemo?.a === a && dayEndMemo.preview === preview) return dayEndMemo.end;
+  const end = dayForecastOn() ? dayEnd(a, preview, timeWordsShown(a.sim, dev), t) : null;
+  dayEndMemo = { a, preview, end };
+  return end;
+}
 
 /** The compact total (#1826): the day's hours, and when today's plan ends if anything runs today. */
 function dayTotal(a: AppState, preview: Preview): string {
@@ -635,9 +644,10 @@ function stripBlock(a: AppState, preview: Preview): string {
       button: { cmd: 'endday', label: t('btn.endDay'), disabled: !!s.outcome } }, t);
   }
   const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
+  const end = dayEndNow(a, preview);
   return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
     button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null },
-    line: ((e) => (e ? dayEndText(e, t) : undefined))(dayEndNow(a, preview)) }, t);
+    line: end ? dayEndText(end, t) : undefined }, t);
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */

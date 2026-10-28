@@ -12,6 +12,7 @@ import { featureById, uiFeatureOn } from '../artificer/features';
 import { keyMetrics } from '../artificer/key-metrics';
 import { knownSpots } from '../artificer/camp-sites';
 import { endDay, queueId, runAction, winterOutlook, type QueueItem, type Region1State } from '../artificer/region1';
+import { forecastRand, judged, knowThreshold, misjudgeChance, queueKeyOf, roughAmount, taskKey } from '../artificer/forecasts';
 import { DEFAULT_STATS } from '../artificer/stats';
 import { enqueue, makeWarden, previewQueue, todayHours, type AppState } from './controller';
 import { queueForecast, taskCard } from './forecast-words';
@@ -135,6 +136,34 @@ describe('Where the day ends, in words (#1930)', () => {
     expect(dayEndText(e, sv)).toMatch(/med (lite|en del|mycket) mer ved\.$/);
     // Known three times: the nights, as with the switch off.
     expect(line(ON.camped, ['wood'])).toMatch(/with wood for \d+ nights\.$/);
+  });
+
+  it('a trap line set today brings nothing by dusk, so it names no food; food nights are the key box\'s', () => {
+    const { a, p } = queued(OFF.camped, ['traps']);
+    expect(p.warnings).toEqual([null]);
+    expect(p.projected.stores.rawFood).toBe(a.sim.stores.rawFood);
+    expect(dayEnd(a, p, true, en)!.stores).toEqual([]);
+    // A day that does bring food in: its nights are the key box's food days at dusk.
+    const g = queued(OFF.camped, ['traps', 'gather']);
+    const food = dayEnd(g.a, g.p, true, en)!.stores.find(x => x.store === 'food');
+    expect(food).toEqual({ store: 'food', known: 'exact', nights: keyMetrics(g.p.projected, { needs: false }).find(m => m.id === 'food')!.value, thaw: false });
+  });
+
+  it('forecasts on: several trips to one store, one still being learned, get one rough word for all they bring', () => {
+    // Wood close by is known (fetched three times); half a day out was fetched once, so it's rough.
+    const learning = { ...ON.camped, familiar: { ...ON.camped.familiar, [taskKey('wood', 2)]: 1 } };
+    const queue: QueueItem[] = [queueId('wood', 2), 'wood'];
+    const { a, p } = queued(learning, queue);
+    expect(p.dayOffset).toEqual([0, 0]);
+    const e = dayEnd(a, p, true, en)!;
+    // The two trips' haul together, as a rough amount, judged as surely as the least practised trip
+    // allows, from the line's own seeded stream: not the known trip counted as nothing.
+    const haul = p.projected.stores.firewood - a.sim.stores.firewood;
+    const int = learning.character.stats.int;
+    const level = judged(roughAmount(haul), 3, misjudgeChance(int, 1, knowThreshold(int)), forecastRand(learning, queueKeyOf(queue), 'dusk:wood'));
+    expect(e.stores).toEqual([{ store: 'wood', known: 'rough', level }]);
+    expect(dayEnd(a, previewQueue(a), true, en)).toEqual(e);
+    expect(dayEndText(e, en)).not.toMatch(/wood for \d/);
   });
 
   it('forecasts on: how tired is the day forecast\'s to see — left out when it can\'t, judged within a step when it can, and steady across redraws', () => {
