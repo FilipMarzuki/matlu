@@ -228,7 +228,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean; campPick?: boolean }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -259,9 +259,10 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
     // With fewer cards (#1925) the suggestion also comes first in its group, as wide as the group.
     const lifted = suggested && opts.fewer ? ' lifted' : '';
-    // A land action's tap opens its chooser (data-chooser); any other queues itself (data-q).
+    // A land action's tap opens its chooser (data-chooser); Make camp's, with the picker (#1986,
+    // camp-picker.ts), opens the places to camp (data-campick); any other queues itself (data-q).
     const open = !!options && opts.chooser === id && !resolved && !greyed;
-    const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : `data-q="${q}"`;
+    const tap = options ? `data-chooser="${id}" aria-expanded="${open}"` : id === 'camp' && opts.campPick ? 'data-campick aria-haspopup="dialog"' : `data-q="${q}"`;
     const exact = yieldText(id, preview.projected, r, t);
     const craftFc = why ? null : craftCard(a.sim, preview.projected, id, t, exact);
     const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t)?.text ?? exact;
@@ -603,7 +604,7 @@ export function nightBlock(s: Sim, t: T, opts: { dev?: boolean } = {}): string {
  * where it is, how warm it can get and what you can tell of it. Tapping one makes camp there the
  * way any action is done: queued once you plan, done now before then (main.ts `data-camp`).
  */
-export function spotsBlock(s: Sim, t: T): string {
+export function spotsBlock(s: Sim, t: T, opts: { note?: boolean } = {}): string {
   const spots = knownSpots(s).map(p => {
     const here = p.here ? campNow(s, t) : '';
     const tag = p.here ? ` · ${t('campsite.yours')}` : p.start ? ` · ${t('campsite.start')}` : '';
@@ -619,7 +620,8 @@ export function spotsBlock(s: Sim, t: T): string {
       + (built.length ? `<div class="d built">${esc(t('campsite.builtHere', { list: buildsWords(built, t) }))}</div>` : '')
       + (p.here ? '' : `<div class="d go">${esc(t('campsite.go'))}</div>`) + `</button>`;
   }).join('');
-  return `<div class="sites">${spots}</div><p class="mood">${esc(t('campsite.pick'))}</p>`;
+  // The closing line, except in Make camp's picker (#1986, camp-picker.ts).
+  return `<div class="sites">${spots}</div>${opts.note === false ? '' : `<p class="mood">${esc(t('campsite.pick'))}</p>`}`;
 }
 
 /** Where camp can be made: each site, how warm it can get, and the camp as it stands. */

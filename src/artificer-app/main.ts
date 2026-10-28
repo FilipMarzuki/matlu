@@ -70,6 +70,7 @@ import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue,
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { FEWER_CARDS_FEATURE } from './fewer-cards';
+import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
 import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
@@ -181,8 +182,22 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s, campPickerOn()) };
 };
+
+/** Make camp opens a picker of the places to camp you know (#1986, camp-picker.ts): a ui feature, on unless switched off. */
+const campPickerOn = (): boolean => uiFeatureOn(loadChoices(), CAMP_PICKER_FEATURE);
+/**
+ * The picker is open (#1986): page state, never saved. Shut by a pick, Cancel, Escape or a tap beside
+ * it, and also by anything that leaves the page it was opened on: a tab, a day starting, a new Warden.
+ */
+let campPickOpen = false;
+/** Shut the picker (#1986); with `refocus`, the keyboard goes back to the Make camp card. */
+function closeCampPick(refocus: boolean): void {
+  campPickOpen = false;
+  render(state);
+  if (refocus) root.querySelector<HTMLElement>('[data-campick]')?.focus({ preventScroll: true });
+}
 
 // ── The start on LAND (#1853, start-land.ts) ─────────────────────────────────
 // A ui feature: a new Warden's first view after the intro is LAND, with the patrol leader's advice
@@ -1302,6 +1317,7 @@ function drawPage(a: AppState): void {
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}
+    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}
     ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
     ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
   const sheetList = root.querySelector('.jsheet ul');
@@ -1818,6 +1834,9 @@ const shownNow = (pl: Playing): AppState => shownAt(pl.plays[pl.day], momentOf(p
  * that day done. Nothing worth watching (a finished run, a choice still waiting): no timer.
  */
 function playOut(plays: DayPlay[], moveOf: (p: DayPlay) => WebMove): void {
+  // A day starting shuts Make camp's picker (#1986): it was about the morning before.
+  campPickOpen = false;
+  // …and the last day's card (#1929): a new one comes when this one ends.
   dayCard = null;
   if (!worthPlaying(plays)) {
     for (const p of plays) { kept = recordMove(kept, state, p.after, moveOf(p)); keep(p.after); }
@@ -1966,18 +1985,20 @@ async function holdScreen(pl: Playing): Promise<void> {
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing) skipTimer(); });
 // Escape does one thing at a time (#1929): it shuts the journal sheet (which can be open while the
 // day plays, and the day plays on), else skips the timer to the day's end (whose card then shows),
-// else shuts the day card.
+// else shuts Make camp's picker (#1986) without queueing, else shuts the day card.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || intro) return;
   if (jsheetOpen) { e.preventDefault(); setSheet(false); }
   else if (playing) { e.preventDefault(); skipTimer(); }
+  else if (campPickOpen) { e.preventDefault(); closeCampPick(true); }
   else if (dayCard) { e.preventDefault(); closeDayCard(); }
 });
-// Tab stays inside the day card or the journal sheet while it's open, as in the focus picker: they're
-// dialogs over the page (aria-modal), so the buttons behind them aren't reached until they're shut.
+// Tab stays inside a dialog over the page while it's open, as in the focus picker: the journal sheet,
+// the day card (#1929) or Make camp's picker (#1986). They're aria-modal, so the buttons behind them
+// aren't reached until they're shut.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || intro) return;
-  const box = root.querySelector<HTMLElement>('.jsheet') ?? root.querySelector<HTMLElement>('.daycard');
+  const box = root.querySelector<HTMLElement>('.jsheet') ?? root.querySelector<HTMLElement>('.daycard') ?? (campPickOpen ? root.querySelector<HTMLElement>('.campick') : null);
   if (!box) return;
   const targets = [...box.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')];
   if (!targets.length) return;
@@ -2531,6 +2552,8 @@ root.addEventListener('click', e => {
     render(state);
     return;
   }
+  // A tap on the camp picker's backdrop, beside the popup (#1986), shuts it without queueing.
+  if ((e.target as HTMLElement).matches('[data-campickwrap]')) { closeCampPick(true); return; }
   // A tap on the day card's or the journal sheet's backdrop, beside the card (#1929), shuts it.
   const behind = e.target as HTMLElement;
   if (behind.matches('[data-daycard]')) { closeDayCard(); return; }
@@ -2600,7 +2623,7 @@ root.addEventListener('click', e => {
     if (startPending) window.scrollTo({ top: 0 });
     return;
   }
-  if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
+  if (d.tab) { tab = d.tab as Tab; campPickOpen = false; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   // "See the land →" on a land trip's line (#1730): the LAND tab, open at that ring. Only when tapped:
   // a queued day can run several trips, so the tab never changes on its own.
   else if (d.seeland) {
@@ -2694,7 +2717,12 @@ root.addEventListener('click', e => {
     (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
   }
   // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
-  else if (d.camp) { const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
+  // Make camp's picker (#1986): the card opens it; Cancel shuts it. A place picked in it is the `data-camp` below.
+  // With no place to pick, the card queues Make camp as it always did, and the sim says why it can't.
+  else if (d.campick !== undefined && !pickable(state.sim)) { const q = 'camp' as QueueId; if (state.sim.canPlan) update(enqueue(state, q)); else playOut([playAct(state, q)], () => ({ do: q })); }
+  else if (d.campick !== undefined) { campPickOpen = true; render(state); root.querySelector<HTMLElement>('.campick [data-camp]:not([disabled])')?.focus({ preventScroll: true }); }
+  else if (d.cmd === 'campickclose') closeCampPick(true);
+  else if (d.camp) { campPickOpen = false; const item = { q: 'camp' as QueueId, opts: { spot: d.camp } }; if (state.sim.canPlan) update(enqueue(state, item)); else playOut([playAct(state, item)], () => ({ do: item })); }
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
   // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.
@@ -2910,6 +2938,7 @@ root.addEventListener('submit', e => {
  * check them.
  */
 function newWarden(): void {
+  campPickOpen = false;
   // The last run's day card and journal sheet (#1929) aren't this one's.
   dayCard = null;
   jsheetOpen = false;
