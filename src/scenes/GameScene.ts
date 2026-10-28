@@ -77,6 +77,7 @@ import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { tileChunk, CHUNK as WORLD_CHUNK } from '../../worldmap/tiles';
 import { cellOrigin, CELL_TILES as WORLD_CELL_TILES } from '../../worldmap/coords';
 import { generateReach } from '../../worldmap/reach';
+import { SPECIAL_PLACES, specialPlaceAt, blendBandAt, blendsToPlace, type SpecialPlace } from '../../worldmap/special-places';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
@@ -143,6 +144,11 @@ const PLAYER_SPEED = 180;
 // neighbours. One chunk (WORLD_CHUNK = 64 tiles, worldmap/tiles.ts) already
 // dwarfs the camera's view at this zoom, so this window is always a superset
 // of "camera view + 1 chunk" — the margin the design calls for.
+// Level1's own tile grid, for replaying its classification inside a special place
+// (worldmap/special-places.ts): matches its SPECIAL_PLACES entry's w × h exactly.
+const LEVEL1_TILES_X = Math.ceil(WORLD_W / TILE_SIZE); // 141
+const LEVEL1_TILES_Y = Math.ceil(WORLD_H / TILE_SIZE); // 94
+
 const WORLD_WINDOW_RADIUS_CHUNKS = 1;
 const WORLD_WINDOW_SPAN_CHUNKS = WORLD_WINDOW_RADIUS_CHUNKS * 2 + 1; // 3
 const WORLD_WINDOW_SPAN_TILES = WORLD_WINDOW_SPAN_CHUNKS * WORLD_CHUNK; // 192
@@ -724,6 +730,17 @@ export class GameScene extends Phaser.Scene {
   private worldWindowOriginGcy = 0;
   private worldWindowReady = false;
   private worldChunks = new Map<string, Phaser.GameObjects.RenderTexture>();
+  // ─── Special places (#1909, hex world step 16) ────────────────────────────
+  // Level1's own noise fields, seeded by the world seed rather than Math.random()
+  // so a special place looks the same across visits and matches a screenshot.
+  private level1BaseNoise!: FbmNoise;
+  private level1DetNoise!: FbmNoise;
+  private level1TempNoise!: FbmNoise;
+  private level1MoistNoise!: FbmNoise;
+  // Level1's zone tints, collectibles and boundary markers, offset to the place's
+  // origin. Repositioned (not recreated) whenever the loaded window shifts —
+  // the same pattern as worldChunks.
+  private worldSpecialOverlays: Array<{ obj: Phaser.GameObjects.Shape; tx: number; ty: number }> = [];
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
@@ -9525,6 +9542,18 @@ export class GameScene extends Phaser.Scene {
     this.worldTileX = this.worldStartTile?.tx ?? campOrigin.tx + WORLD_CELL_TILES / 2;
     this.worldTileY = this.worldStartTile?.ty ?? campOrigin.ty + WORLD_CELL_TILES / 2;
 
+    // Special places (#1909): Level1's own noise, same seed/salts as
+    // drawProceduralTerrain() uses outside world mode, so its classification
+    // (tileBiomeIdx) comes out the same — only runSeed differs (the world seed
+    // here, Math.random() there).
+    this.level1BaseNoise  = new FbmNoise(this.runSeed);
+    this.level1DetNoise   = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
+    this.level1TempNoise  = new FbmNoise(this.runSeed ^ 0x74656d70);
+    this.level1MoistNoise = new FbmNoise(this.runSeed ^ 0x6d6f6973);
+    for (const place of SPECIAL_PLACES) {
+      if (place.source === 'level1') this.createLevel1WorldOverlays(place);
+    }
+
     // Hero — the same Pixel Crawler Body_A animations as wilderview (already
     // loaded in preload() regardless of mode), minus the physics body.
     if (!this.anims.exists('pc-idle-down')) {
@@ -9660,6 +9689,7 @@ export class GameScene extends Phaser.Scene {
         this.worldChunks.delete(key);
       }
     }
+    this.repositionWorldSpecialOverlays();
   }
 
   /**
@@ -9691,13 +9721,31 @@ export class GameScene extends Phaser.Scene {
         const idx = ly * WORLD_CHUNK + lx;
         const px = WORLD_CHUNK_ISO_ORIGIN_X + (lx - ly) * (ISO_TILE_W / 2);
         const py = (lx + ly) * (ISO_TILE_H / 2);
+        const tx = gcx * WORLD_CHUNK + lx;
+        const ty = gcy * WORLD_CHUNK + ly;
+
+        // Special places (#1909): inside Level1's rectangle, its own tiles
+        // replace the generated ones; in the blend band around it, a tile
+        // takes Level1's edge tile or the generated one, chosen by a per-tile
+        // hash that fades out over BLEND_TILES so there's no hard seam.
+        const place = specialPlaceAt(tx, ty);
+        if (place) {
+          const frame = this.level1TileFrame(tx - place.at.tx, ty - place.at.ty);
+          rt.stamp('iso-tiles', frame, px, py, stampOrigin);
+          continue;
+        }
+        const band = blendBandAt(tx, ty);
+        if (band && blendsToPlace(tx, ty, band.dist)) {
+          const frame = this.level1TileFrame(band.edge.tx, band.edge.ty);
+          rt.stamp('iso-tiles', frame, px, py, stampOrigin);
+          continue;
+        }
+
         if (chunk.water[idx] === 1) {
           rt.stamp('iso-tiles', ISO_RIVER_FRAME, px, py, stampOrigin);
         } else {
           // Deterministic per (seed, world tile) so frame variety never flickers
           // on reload — tileChunk itself exposes no elevation to vary by.
-          const tx = gcx * WORLD_CHUNK + lx;
-          const ty = gcy * WORLD_CHUNK + ly;
           const hash = ((tx * 374761393 + ty * 668265263) ^ Math.imul(this.runSeed, 69069)) >>> 0;
           const frame = isoTileFrame(chunk.biome[idx], (hash % 1000) / 1000);
           rt.stamp('iso-tiles', frame, px, py, stampOrigin);
@@ -9715,5 +9763,70 @@ export class GameScene extends Phaser.Scene {
     if (!rt) return;
     const { x, y } = this.worldLocalToIso(dx * WORLD_CHUNK, dy * WORLD_CHUNK);
     rt.setPosition(x, y).setDepth(dx + dy);
+  }
+
+  /**
+   * Level1's terrain at one of its own local tiles (0..LEVEL1_TILES_X-1,
+   * 0..LEVEL1_TILES_Y-1) — the same classification drawProceduralTerrain()
+   * uses outside world mode (mountain/ocean bias, cliff-threshold detail
+   * fade, tileBiomeIdx), replayed here with world mode's own seeded noise
+   * instead of Math.random(). Rivers and lakes aren't carried in: they need
+   * initRiverTileGrids()'s BFS over the whole level, out of scope for #1909.
+   */
+  private level1TileFrame(localTx: number, localTy: number): number {
+    const base   = this.level1BaseNoise.warped(localTx * BASE_SCALE, localTy * BASE_SCALE, 4, 0.5);
+    const detail = this.level1DetNoise.fbm(localTx * DETAIL_SCALE, localTy * DETAIL_SCALE, 2, 0.6);
+    const temp   = this.level1TempNoise.fbm(localTx * TEMP_SCALE, localTy * TEMP_SCALE, 3, 0.5);
+    const moist  = this.level1MoistNoise.fbm(localTx * MOIST_SCALE, localTy * MOIST_SCALE, 3, 0.5);
+
+    const perpDiag     = (localTx / LEVEL1_TILES_X - (1 - localTy / LEVEL1_TILES_Y)) / 2;
+    const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.18), 1.8) * 5.0;
+    const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.14), 1.3) * 3.0;
+    const baseVal      = base * 0.80 + mountainBias - oceanBias;
+
+    const cliffFade = Math.min(1, Math.min(
+      Math.abs(baseVal - 0.25), Math.abs(baseVal - 0.45), Math.abs(baseVal - 0.62), Math.abs(baseVal - 0.78),
+    ) / 0.08);
+    const val = Math.max(0, Math.min(1.2, baseVal + detail * 0.30 * cliffFade));
+
+    return isoTileFrame(tileBiomeIdx(val, temp, moist), detail);
+  }
+
+  /**
+   * Level1's zone tints, collectibles and boundary markers (#1909), offset to
+   * the place's world-tile origin — visual only, since world mode has no
+   * inventory or pickup systems (#1908 skips them along with everything else
+   * below createWorldMode()).
+   */
+  private createLevel1WorldOverlays(place: SpecialPlace): void {
+    for (const zone of ZONES) {
+      const tx = place.at.tx + (zone.x + zone.w / 2) / TILE_SIZE;
+      const ty = place.at.ty + (zone.y + zone.h / 2) / TILE_SIZE;
+      const rect = this.add.rectangle(0, 0, zone.w, zone.h, zone.tintColor, zone.tintAlpha).setDepth(100);
+      this.worldSpecialOverlays.push({ obj: rect, tx, ty });
+    }
+    for (const col of COLLECTIBLES) {
+      const tx = place.at.tx + col.x / TILE_SIZE;
+      const ty = place.at.ty + col.y / TILE_SIZE;
+      const circle = this.add.circle(0, 0, 10, 0xffffff, 0.9).setStrokeStyle(2, 0xffffff, 1).setDepth(120);
+      this.tweens.add({ targets: circle, scaleX: 1.4, scaleY: 1.4, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.worldSpecialOverlays.push({ obj: circle, tx, ty });
+    }
+    for (const marker of ZONE_BOUNDARY_MARKERS) {
+      const tx = place.at.tx + marker.x / TILE_SIZE;
+      const ty = place.at.ty + marker.y / TILE_SIZE;
+      const dot = this.add.circle(0, 0, 4, 0xffe9a8, 0.8).setDepth(110);
+      this.worldSpecialOverlays.push({ obj: dot, tx, ty });
+    }
+  }
+
+  /** Re-derives every special-place overlay's screen position from the current window — never stored. */
+  private repositionWorldSpecialOverlays(): void {
+    for (const { obj, tx, ty } of this.worldSpecialOverlays) {
+      const localTx = tx - this.worldWindowOriginGcx * WORLD_CHUNK;
+      const localTy = ty - this.worldWindowOriginGcy * WORLD_CHUNK;
+      const { x, y } = this.worldLocalToIso(localTx, localTy);
+      obj.setPosition(x, y);
+    }
   }
 }
