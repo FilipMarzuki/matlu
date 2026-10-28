@@ -31,6 +31,7 @@ import { itemIcon } from './item-icons';
 import { packTitle } from './opening-view';
 import { actionName, conceptName, focusName, kitName, lockText, rankName, recipeName, statNoteText, topicText } from './sim-words';
 import { rapportName, roleName } from './road-words';
+import { vitalReadings, vitalsLabelled } from './vital-words';
 
 /** What the Warden tab draws from: the run, and the road once the Warden rides with the caravan. */
 export interface WardenOf { sim: Region1State; stage?: 'reach' | 'road'; road?: RoadState }
@@ -99,8 +100,10 @@ export function focusBlock(s: Region1State, t: T, road?: RoadState, opts: FocusB
 /**
  * The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts.
  * `rations` is the eating plan's row (#1848, rations-view.ts), drawn under carrying once it lives here; '' leaves it out.
+ * `vitals`: the three resources under the name and rank (#1995), as dots with their labels; false
+ * while the first-morning guide hasn't shown them yet, as the status bar holds its own back.
  */
-export function wardenTab(a: WardenOf, t: T, truths = false, rations = ''): string {
+export function wardenTab(a: WardenOf, t: T, truths = false, rations = '', vitals = false): string {
   const c = a.sim.character;
   // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
   const hidden = c.talents.filter(x => !x.known).length;
@@ -112,7 +115,8 @@ export function wardenTab(a: WardenOf, t: T, truths = false, rations = ''): stri
   const ranks = conceptRanks(a.sim);
   return `<div class="cols">
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">${esc(t('head.artificer'))}</p><h2 class="wname">${esc(c.name || t('warden.unnamed'))}</h2>
-      <p class="wrank">${esc(t('head.rank'))}: ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t).toUpperCase())} <span>· ${esc(plural(t, 'warden.conceptRanks', ranks))}</span></p></div></div>
+      <p class="wrank">${esc(t('head.rank'))}: ${esc(rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t).toUpperCase())} <span>· ${esc(plural(t, 'warden.conceptRanks', ranks))}</span></p>
+      ${vitals ? vitalsLabelled(vitalReadings(a.sim), a.sim.day, t) : ''}</div></div>
       <p class="eyebrow" style="margin-top:16px">${esc(t('head.focus'))}</p>${focusBlock(a.sim, t, a.stage === 'road' ? a.road : undefined)}
       <p class="eyebrow" style="margin-top:16px">${esc(c.age !== undefined ? t(isYoung(c.age) ? 'head.statsAge' : 'head.statsGrown', { age: c.age }) : t('head.stats'))}</p>${statsBlock(c.stats, t, c.adult)}
       <p class="eyebrow" style="margin-top:16px">${esc(t('head.carrying'))}</p>${carryingBlock(a.sim, t)}${rations}

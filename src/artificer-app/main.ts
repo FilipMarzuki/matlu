@@ -108,7 +108,7 @@ import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
 import { BACKDROP_FEATURE, NO_UI, loadStill, saveStill, sceneFor, timeAt, type BackdropUi, type BdTime } from './backdrop';
 import { createBackdrop } from './backdrop-view';
-import { TWO_ROW_FEATURE, wardenRow, vitalDot, type VitalReading } from './vital-words';
+import { TWO_ROW_FEATURE, wardenRow, vitalDot, vitalReadings } from './vital-words';
 import { NOTES_FEATURE, howtoBody, journalHead, notesShown, journalBoxShown } from './journal-notes';
 import { MENY_FEATURE, headerRows, elsewhereBody, experimentsBody, headerControls, helpExtras, menyButton, menyPage, newGameBody, newSaveButton, playAiLink, profileBody, soundBody, weeklyButton, type HeaderParts } from './meny';
 import { AMBIENCE_FEATURE, inputFor, isOut, mixFor } from './ambience-mix';
@@ -1009,13 +1009,6 @@ function headerBlock(title: string, p: Omit<HeaderParts, 'dev' | 'features' | 'l
   }, menyButton(menyShown(), t, dev ? devTag() : '', true))}\n    </header>`;
 }
 
-/** The three resources as row 2 reads them: each against today's cap, the bars as wide as the old ones. */
-const vitalReadings = (s: AppState['sim']): VitalReading[] => [
-  { id: 'vigor', current: s.vitals.vigor.current, cap: s.vitals.vigor.cap, max: CAP_CEIL },
-  { id: 'clarity', current: s.vitals.clarity.current, cap: s.vitals.clarity.cap, max: CAP_CEIL },
-  { id: 'reserve', current: s.vitals.condition, cap: 100, max: 100 },
-];
-
 /**
  * Before camp is made (#1691) there's no CAMP tab, but choosing a site is how camp is made, so the
  * site picker sits on the Plan tab until then (with the tools you've made so far, which the Camp tab
@@ -1216,7 +1209,8 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'history':
       return historyTab(a);
     case 'warden':
-      return wardenTab(a, t, truths, wardenRations(a.sim));
+      // The three resources by the name (#1995), once the guide has shown them in the status bar.
+      return wardenTab(a, t, truths, wardenRations(a.sim), guide.shows('vitals'));
     case 'progress':
       return progressTab(a.sim, history, journal(a, 200), t, jHead(t('head.journal'), LATEST_STYLE, a, a.sim.log.length === 0), standingOn() ? standingNote(a.sim, t) : undefined);
   }
@@ -1637,7 +1631,7 @@ function renderRoad(a: AppState, r: RoadState): void {
   root.classList.toggle('compactnav', compactOn());
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
-    : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths)
+    : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths, '', true)
     // The road's journal carries the 📖 too (the owner: how to play is reachable from every journal).
     : roadTab === 'journal' ? `<section class="box">${jHead(t('head.roadJournal'), '', a, false)}<div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
     : r.outcome ? `<section class="box"><p class="eyebrow">${esc(t('head.roadLast'))}</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi, t);
