@@ -322,6 +322,11 @@
 .vdots { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .vdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .vdot.fresh { background: var(--green); } .vdot.ok { background: var(--teal); } .vdot.warn { background: var(--warn); } .vdot.low { background: var(--danger); }
+/* The same dots on the Warden view, each with its name and word (#1995). */
+.wvitals { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; padding: 0; font-size: 14px; line-height: 1.4; }
+.wvitals li { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.wvitals .wvn { color: var(--dim); }
+.wvitals .wvnum { color: var(--faint); font-variant-numeric: tabular-nums; }
 /* The stores box is what gives way when the line is short of room (#1947); the ⋯, the dots and, on
    a phone, the portrait never do (`flex: none`). A flex item never shrinks below its min-content width by default
    (`min-width: auto`), so the room comes from making that min-content small without cutting anything:

@@ -181,10 +181,13 @@ describe('The caravan road, in Swedish (#1709)', () => {
     expect(englishIn(routeStrip(r, sv))).toEqual([]);
     for (const p of TRAVELLERS) expect(englishIn(roadView({ ...r, trust: { ...r.trust, [p.id]: 90 } }, { person: p.id }, sv))).toEqual([]);
     expect(shown(roadView(r, { person: null }, sv))).toContain('PÅ VAGNEN');
-    // The WARDEN tab on the road (#1711), as main.ts draws it: the run's Warden with the road's skills, focus and topics.
+    // The WARDEN tab on the road (#1711), as main.ts draws it: the run's Warden with the road's skills, focus and topics,
+    // and the road's vitals labelled under the rank (#1995).
     const s0 = createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-road-sv' });
     const onRoad = { ...s0, vitals: r.vitals, stores: r.stores, tools: r.tools, concepts: r.concepts, character: r.character, skills: r.skills, techniques: r.techniques, manuals: r.manuals, known: r.known, focus: r.focus };
-    expect(englishIn(wardenTab({ sim: onRoad, stage: 'road', road: { ...r, heard: ['material:iron', 'place:kestrel-gate', 'group:compact', 'person:hf-orrin'] } }, sv))).toEqual([]);
+    const wardenHtml = wardenTab({ sim: onRoad, stage: 'road', road: { ...r, heard: ['material:iron', 'place:kestrel-gate', 'group:compact', 'person:hf-orrin'] } }, sv, false, '', true);
+    expect(wardenHtml).toContain('<ul class="wvitals">');
+    expect(englishIn(wardenHtml)).toEqual([]);
     // The meeting at the thaw, at each step, and once it's over.
     const s = createRegion1({ world: { ...FULL_WORLD, features: FEATURES } }, undefined, { id: 'w-meet-sv' });
     const reach: Region1State = { ...s, day: 61, marks: 2, stores: { ...s.stores, hides: 3 }, outcome: { choice: 'thaw', kind: 'survived', grade: 'hale', vitals: s.vitals } };

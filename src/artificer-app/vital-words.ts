@@ -8,6 +8,8 @@
  */
 
 import type { T, Key } from '../artificer/i18n';
+import { CAP_CEIL } from '../artificer/vitality';
+import type { Region1State } from '../artificer/region1';
 import { band, esc, pct } from './html';
 
 /** The ui switch (features.ts). Off, the header is the one-row header of #1808. */
@@ -50,6 +52,16 @@ export interface VitalReading {
   max: number;
 }
 
+/**
+ * The three resources as a run has them: Vigor and Clarity each against today's cap, Reserve (the
+ * Warden's condition) out of 100, and the bars as wide as the old ones (`CAP_CEIL`).
+ */
+export const vitalReadings = (s: Pick<Region1State, 'vitals'>): VitalReading[] => [
+  { id: 'vigor', current: s.vitals.vigor.current, cap: s.vitals.vigor.cap, max: CAP_CEIL },
+  { id: 'clarity', current: s.vitals.clarity.current, cap: s.vitals.clarity.cap, max: CAP_CEIL },
+  { id: 'reserve', current: s.vitals.condition, cap: 100, max: 100 },
+];
+
 /** Whether the bars show on this day: from `BARS_FROM_DAY` on. */
 export const barsOn = (day: number): boolean => day >= BARS_FROM_DAY;
 
@@ -79,6 +91,23 @@ export function vitalDot(r: VitalReading, t: T): string {
   const lv = vitalLevel(r.current, r.cap);
   const label = `${t(NAME[r.id])}: ${vitalWord(r.id, lv, t)}, ${Math.round(r.current)}`;
   return `<span class="vdot ${BAND[lv]}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>`;
+}
+
+/**
+ * The three dots with their labels (#1995, the Warden view): each dot in its level's colour, then
+ * the resource's name and its word, and from day 8 the number, as the header's bars show it. The
+ * same levels and words as the status bar's dots (`vitalDot`), so the two never disagree. The dot
+ * is decoration here: the words beside it say everything it does.
+ */
+export function vitalsLabelled(rs: readonly VitalReading[], day: number, t: T): string {
+  const bars = barsOn(day);
+  // "VIGOR" → "Vigor". Not `toLocaleLowerCase()`: under a Turkish browser locale that turns the I into a dotless ı.
+  const name = (id: VitalId): string => { const n = t(NAME[id]); return n.charAt(0) + n.slice(1).toLowerCase(); };
+  return `<ul class="wvitals">${rs.map(r => {
+    const lv = vitalLevel(r.current, r.cap);
+    return `<li><span class="vdot ${BAND[lv]}" aria-hidden="true"></span><span class="wvn">${esc(name(r.id))}</span> <b>${esc(vitalWord(r.id, lv, t))}</b>`
+      + `${bars ? ` <span class="wvnum">${Math.round(r.current)}</span>` : ''}</li>`;
+  }).join('')}</ul>`;
 }
 
 /**
