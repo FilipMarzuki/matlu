@@ -101,7 +101,8 @@ export function vitalDot(r: VitalReading, t: T): string {
  */
 export function vitalsLabelled(rs: readonly VitalReading[], day: number, t: T): string {
   const bars = barsOn(day);
-  const name = (id: VitalId): string => { const n = t(NAME[id]); return n.charAt(0) + n.slice(1).toLocaleLowerCase(); };
+  // "VIGOR" → "Vigor". Not `toLocaleLowerCase()`: under a Turkish browser locale that turns the I into a dotless ı.
+  const name = (id: VitalId): string => { const n = t(NAME[id]); return n.charAt(0) + n.slice(1).toLowerCase(); };
   return `<ul class="wvitals">${rs.map(r => {
     const lv = vitalLevel(r.current, r.cap);
     return `<li><span class="vdot ${BAND[lv]}" aria-hidden="true"></span><span class="wvn">${esc(name(r.id))}</span> <b>${esc(vitalWord(r.id, lv, t))}</b>`
