@@ -8,18 +8,24 @@
  * a hex can find every river that reaches it. The Reach must come through untouched (4), and its
  * rivers must carry on past its edge (5). Springs must be pure and sit on high ground (6).
  *
+ * #1964 adds lakes near the start: a trace that would have to climb pools in the hollow it's in
+ * instead. The `#1964 criterion N` tests below map to that issue's own numbered acceptance
+ * criteria, not #1897's "scenario N" ones above.
+ *
  * (A test may import from src/: tests are not part of worldmap's build, see worldmap/tsconfig.json.)
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { RIVER_MAX, RIVER_RADIUS, springsOfHex, edgeSprings, traceRiver, hexCells } from './rivers';
+import { createHash } from 'node:crypto';
+import { RIVER_MAX, RIVER_RADIUS, POOL_MAX, springsOfHex, edgeSprings, traceRiver, hexCells } from './rivers';
 import { worldCell } from './cells';
 import { generateReach, REACH_W, REACH_H } from './reach';
 import { HEX_DIRS, hexDistance, hexOfCell, packCell, type CellXY, type Hex } from './coords';
 import { seedOf } from './rng';
+import { mapRows } from '../src/artificer/world/reach';
 
 const HW_SEEDS = Array.from({ length: 20 }, (_, i) => seedOf(`hw${i}`));
-const ENDS = ['lake', 'reach', 'tarn', 'max'];
+const ENDS = ['lake', 'reach', 'tarn', 'max', 'pool'];
 
 const inReach = (c: CellXY) => c.cx >= 0 && c.cx < REACH_W && c.cy >= 0 && c.cy < REACH_H;
 
@@ -90,7 +96,7 @@ describe('worldmap/rivers: rivers across hexes (#1897)', () => {
     }
   });
 
-  it('scenario 2: given 20 seeds, every trace from springsOfHex (hexes within 3 of (0,0)) and edgeSprings ends in lake, reach, tarn or max, holds at most 60 cells, is 4-connected, visits no cell twice and has no cell inside the Reach', () => {
+  it('scenario 2: given 20 seeds, every trace from springsOfHex (hexes within 3 of (0,0)) and edgeSprings ends in lake, reach, tarn, pool or max, holds at most 60 cells, is 4-connected, visits no cell twice and has no cell inside the Reach', () => {
     expect(RIVER_MAX).toBe(60);
     let traces = 0;
     for (const seed of HW_SEEDS) {
@@ -193,5 +199,60 @@ describe('worldmap/rivers: rivers across hexes (#1897)', () => {
       }
     // Not vacuous: some hexes near the start have springs.
     expect(some).toBeGreaterThan(0);
+  });
+
+  // Every cell of 19 hexes for 20 seeds: about 6 s, past Vitest's 5 s default, so a busy CI runner
+  // timed it out with no assertion failing. 30 s, as #1957 gave the Swedish sweeps.
+  it('#1964 criterion 1: given the 20 seeds, lake is 1–35% of each seed’s cells in hexes within 2 of (0,0) outside the Reach', () => {
+    for (const seed of HW_SEEDS) {
+      let lake = 0, total = 0;
+      for (const h of hexesWithin(2)) {
+        const { cells, land } = hexCells(seed, h);
+        cells.forEach((c, i) => {
+          if (inReach(c)) return;
+          total++;
+          if (land[i].biome === 'lake') lake++;
+        });
+      }
+      const at = `seed ${seed}`;
+      expect(total, at).toBeGreaterThan(0);
+      const pct = (lake / total) * 100;
+      expect(pct, at).toBeGreaterThanOrEqual(1);
+      expect(pct, at).toBeLessThanOrEqual(35);
+    }
+  }, 30_000);
+
+  it('#1964 criterion 2: given every trace from springsOfHex (hexes within 3 of (0,0)) on those seeds, each pool has at most 16 cells, none inside the Reach, all lower than its outlet, and the trace plus pool holds at most RIVER_MAX cells', () => {
+    let pools = 0;
+    for (const seed of HW_SEEDS) {
+      for (const spring of springsNearStart(seed)) {
+        const river = traceRiver(seed, spring);
+        if (river.end !== 'pool') continue;
+        pools++;
+        const at = `seed ${seed}, spring (${spring.cx}, ${spring.cy})`;
+        const pool = river.pool;
+        expect(pool, at).toBeDefined();
+        expect(river.outlet, at).toBeDefined();
+        expect(pool!.length, at).toBeGreaterThan(0);
+        expect(pool!.length, at).toBeLessThanOrEqual(POOL_MAX);
+        for (const c of pool!) {
+          expect(inReach(c), `${at}: (${c.cx}, ${c.cy}) in the Reach`).toBe(false);
+          expect(worldCell(seed, c).height, `${at}: (${c.cx}, ${c.cy})`).toBeLessThan(river.outlet!);
+        }
+        const union = new Set([...river.cells.map(packCell), ...pool!.map(packCell)]);
+        expect(union.size, at).toBeLessThanOrEqual(RIVER_MAX);
+      }
+    }
+    // Not vacuous: some springs near the start pool.
+    expect(pools).toBeGreaterThan(0);
+  });
+
+  it('#1964 criterion 4: given w-vega and w-astrid, generateReach is unchanged after rivers.ts has run for that seed', () => {
+    const hash = (seed: number) => createHash('sha256').update(mapRows(generateReach(seed)).join('\n')).digest('hex').slice(0, 16);
+    for (const [name, golden] of [['w-vega', 'f9779a07a1a21ff9'], ['w-astrid', '585e1925ea7025e5']] as const) {
+      const seed = seedOf(name);
+      for (const h of hexesWithin(3)) hexCells(seed, h);
+      expect(hash(seed), name).toBe(golden);
+    }
   });
 });
