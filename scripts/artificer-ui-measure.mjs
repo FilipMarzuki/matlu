@@ -18,10 +18,11 @@
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 const [out, base = 'http://localhost:4173'] = process.argv.slice(2);
 if (!out) throw new Error('usage: node scripts/artificer-ui-measure.mjs <out-dir> [base-url]');
 mkdirSync(out, { recursive: true });
-const SAVES = JSON.parse(execFileSync('npx', ['tsx', new URL('./artificer-ui-saves.ts', import.meta.url).pathname], { encoding: 'utf8' }));
+const SAVES = JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./artificer-ui-saves.ts', import.meta.url))], { encoding: 'utf8' }));
 const BASE = `${base}/artificer.html`;
 const SIZES = { tablet: { width: 1024, height: 700 }, phone: { width: 400, height: 860 } };
 const browser = await chromium.launch(process.env['PW_CHROMIUM'] ? { executablePath: process.env['PW_CHROMIUM'] } : {});
@@ -75,20 +76,29 @@ const MEASURE = () => {
   };
 };
 
-// What stays on screen once scrolled: the fixed and sticky parts, full-width ones (the chrome) and narrow ones (a side column).
+// What stays on screen once scrolled: the parts that don't move when the page does, full-width ones
+// (the chrome) and narrow ones (a side column). Read at two scroll positions, so a sticky part that
+// isn't stuck (still moving with the page) doesn't count. Null when the page is too short to scroll.
 const FROZEN = () => {
   const vw = innerWidth, vh = innerHeight;
-  const spans = [], side = [];
-  for (const el of document.body.querySelectorAll('*')) {
-    const p = getComputedStyle(el).position;
-    if (p !== 'fixed' && p !== 'sticky') continue;
+  const y = Math.min(900, document.documentElement.scrollHeight - vh - 120);
+  if (y < 200) return null;
+  const parts = [...document.body.querySelectorAll('*')].filter(el => {
+    const c = getComputedStyle(el);
     // The painted backdrop (backdrop-view.ts) sits behind the page; it isn't chrome.
-    if (el.closest('.bd') || el.tagName === 'CANVAS') continue;
+    return (c.position === 'fixed' || c.position === 'sticky') && !el.closest('.bd') && el.tagName !== 'CANVAS'
+      && c.visibility !== 'hidden' && c.display !== 'none' && +c.opacity !== 0;
+  });
+  scrollTo(0, y);
+  const at = parts.map(el => el.getBoundingClientRect().top);
+  scrollTo(0, y + 120);
+  const spans = [], side = [];
+  parts.forEach((el, i) => {
     const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0 || r.bottom <= 0 || r.top >= vh) continue;
-    const span = [Math.max(0, r.top), Math.min(vh, r.bottom)];
-    (r.width >= vw * 0.6 ? spans : side).push({ el: `${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/)[0]}`, top: Math.round(span[0]), bottom: Math.round(span[1]), w: Math.round(r.width) });
-  }
+    if (Math.abs(r.top - at[i]) > 1 || r.width === 0 || r.height === 0 || r.bottom <= 0 || r.top >= vh) return;
+    const span = { el: `${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/)[0]}`, top: Math.round(Math.max(0, r.top)), bottom: Math.round(Math.min(vh, r.bottom)), w: Math.round(r.width) };
+    (r.width >= vw * 0.6 ? spans : side).push(span);
+  });
   const iv = spans.map(s => [s.top, s.bottom]).sort((a, b) => a[0] - b[0]);
   let px = 0, cur = null;
   for (const [a, b] of iv) { if (!cur || a > cur[1]) { if (cur) px += cur[1] - cur[0]; cur = [a, b]; } else cur[1] = Math.max(cur[1], b); }
@@ -98,12 +108,16 @@ const FROZEN = () => {
 
 async function open(page, lang, save) {
   await page.goto(BASE);
-  await page.evaluate(({ k, g, save, lang }) => {
+  await page.evaluate(({ k, save, lang }) => {
     localStorage.clear();
-    localStorage.setItem('artificer.lang', lang);
-    // A returning player's: through the guide, and the weather box opened once (so its "tap here" hint is retired).
-    if (save) { localStorage.setItem(k, save); localStorage.setItem(g, JSON.stringify({ done: true, run: null })); localStorage.setItem('artificer.tab', 'plan'); localStorage.setItem('artificer.weatherFold', JSON.stringify({ acked: true, open: false, hintSeen: true })); }
-  }, { k: SAVES.saveKey, g: SAVES.guideKey, save, lang });
+    localStorage.setItem(k.lang, lang);
+    // A returning player's: through the guide, on PLAN, and the weather box opened once (so its
+    // "tap here" hint is retired). (The tab's key has no constant in main.ts.)
+    localStorage.setItem(k.save, save);
+    localStorage.setItem(k.guide, JSON.stringify({ done: true, run: null }));
+    localStorage.setItem(k.weatherFold, JSON.stringify({ acked: true, open: false, hintSeen: true }));
+    localStorage.setItem('artificer.tab', 'plan');
+  }, { k: SAVES.keys, save, lang });
   await page.reload();
   await page.waitForTimeout(600);
 }
@@ -125,12 +139,13 @@ for (const lang of ['en', 'sv']) for (const [size, vp] of Object.entries(SIZES))
     const intro = page.locator('.intro').filter({ visible: true });
     const scope = (await intro.count()) ? intro.first() : page.locator('body');
     const b = scope.locator('button,a[href],[role=button]').filter({ hasText: re }).filter({ visible: true }).first();
+    if (!(await b.count())) throw new Error(`${key}: no button for ${re} (after ${taps.join(' → ') || 'nothing'})`);
     taps.push((await b.innerText()).replace(/\s+/g, ' ').trim()); await b.click(); await page.waitForTimeout(500);
   };
   await press(lang === 'en' ? /^English/ : /^Svenska/);
   for (let i = 0; i < 12; i++) {
     if (await page.locator('.tabbar').filter({ visible: true }).count() && !(await page.locator('.intro').filter({ visible: true }).count())) break;
-    await press(/CONTINUE|FORTSÄTT|PLAY|SPELA|Got it|Uppfattat|OK/i);
+    await press(/^\s*(CONTINUE|FORTSÄTT|PLAY|SPELA|Got it|Uppfattat|OK)\b/i);
   }
   r.firstRun = { taps, screen: await page.evaluate(() => document.querySelector('.tabbtn.on')?.innerText) };
   await page.screenshot({ path: `${out}/${key}-day1-first.png` });
@@ -148,15 +163,11 @@ for (const lang of ['en', 'sv']) for (const [size, vp] of Object.entries(SIZES))
 
   // Day 14.
   await open(page, lang, SAVES.save);
-  const ack = page.locator('[data-wxack]');
-  if (await ack.isVisible()) { await ack.click(); await page.waitForTimeout(300); }
-  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${out}/${key}-day14.png` });
   r.day14 = await page.evaluate(MEASURE);
   await page.screenshot({ path: `${out}/${key}-day14-full.png`, fullPage: true });
-  await page.evaluate(() => window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - innerHeight)));
-  await page.waitForTimeout(300);
   r.day14Frozen = await page.evaluate(FROZEN);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/${key}-day14-scrolled.png` });
   await ctx.close();
   console.log(key, 'done', errors.length ? `errors: ${errors.join('; ')}` : '');
