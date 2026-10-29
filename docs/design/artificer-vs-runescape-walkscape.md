@@ -180,6 +180,61 @@ Sizes are the house T-shirt sizes (XS = 1 … XL = 8). All of these are presenta
 
 Do 1, 2 and 5 first: together they change how every screen feels on a tablet and a phone, and they're CSS and layout work with no game logic. Then 3 and 4, which change what the player reads first. 6 and 7 change the first session and the rhythm of a day, and are worth a playtest each.
 
+## 1.7 Re-measured after the roadmap (#1997)
+
+Items 1–9 shipped between 22 and 28 October, each behind its own ui switch, all on by default:
+- readable type (#1923) and the compact status with tabs at the bottom (#1924);
+- fewer cards (#1925, #1965) and the "where you stand" line (#1926);
+- touch targets (#1927) and the quick start (#1928);
+- the day card (#1929), where the day ends (#1930) and the tablet's width (#1931).
+
+They were built and checked one at a time. On 29 October they were measured together, the way §1.4 measured the UI before them.
+
+**How it was measured:** `scripts/artificer-ui-measure.mjs`, at 1024 × 700 and 400 × 860, in English and Swedish, with touch on. It needs the built site served (`npm run build`, then `npm run preview`).
+- **Day 1:** a new game from a cleared page, tapping through to the first real choice.
+- **Day 14:** the nightly playtest's scripted Warden on the morning of day 14, with its plan for the day queued (`scripts/artificer-ui-saves.ts`). The page is set up as a returning player sees it: through the first-morning guide, with the weather box opened once before.
+- **Languages:** Swedish lays out like English, with pages up to 30 px shorter or longer, so the numbers below are English.
+- **Comparability:** §1.4's day 14 was a different game, so the two pages show different cards, but the layout is the same.
+
+| Finding | Before (§1.4) | Now | Verdict |
+|---|---|---|---|
+| **F1** first card, tablet | y ≈ 395 | y = 407 | no better |
+| F1 first card, phone | y ≈ 540 | y = 450 | better |
+| F1 frozen when scrolled, tablet | 137 px (20%) | 54 px (8%): the status line, with the queue's own column beside it | fixed |
+| F1 frozen when scrolled, phone | ≈ 285 px (33%) | 194 px (23%): status line 54, queue strip 91, tab bar 49 | better; §1.6 aimed for ~15% |
+| **F2** cards, day 1 | 24, 11 greyed | 13, none greyed (Explore's chooser open) | fixed |
+| F2 cards, day 14 | 34, 19 greyed | 12, none greyed; 19 more folded into five "N more you can't do yet" lines | fixed |
+| F2 PLAN height, day 14 | 2,223 px tablet, 2,682 px phone | 1,295 px, 1,739 px | fixed |
+| **F3** smallest type | 7–9 px Silkscreen | 12 px Chakra Petch; no pixel font under 16 px on the screens measured | fixed |
+| **F4** chips | eight items, two disagreeing | the status line (Warden, day, three dots, food, water and wood, 📓, ⋯) and one line, "Next: lay in food — 11 of ~30 nights. Tonight: warm.", which agrees with the key box and the queue (both 11) | fixed, with one new mismatch (below) |
+| **F5** the targets §1.4 listed | 21–32 px tall | all 44 px tall: ⚙ 82 × 44, 💬 108 × 44 (37 × 44 on a phone), weather row 962 × 44, "where you stand" 336 × 44, tabs 242 × 44 (65 × 44, at the bottom, on a phone) | fixed |
+| F5 every other target | not measured | 15 under 44 px tall on the tablet's day 14 (below) | short |
+| **F6** to the first real choice | language, nine intro steps, a stat screen, a 56-item packing list, four more story beats… | four taps: the language, one story screen, "You're Saga, 12, a scout. Your pack is ready." ▸ PLAY, then Explore on LAND; the first morning's weather card ("Got it") comes before the chooser | fixed |
+| **F7** the journal | ≈ 1,800 px down on a tablet, 2,400 on a phone | under the queue in the tablet's side column; 1,463 px down on a phone; 📓 opens it from any tab, and a card ends each day | fixed |
+| **F8** before Run | "15.4 / 14h · ends NIGHT" | "Back at camp by dusk, with food for 11 nights." over Run | fixed |
+| **F9** a simple view | none | every switch is on by default, so #1932 has nothing left to turn on | moot |
+
+![Day 14 on a tablet, after the roadmap](img/artificer-tablet-plan-day14-now.png)
+
+![Day 14 on a phone: one status line, the "where you stand" line, the queue strip with the day's end, 12 cards, tabs at the bottom](img/artificer-phone-plan-day14-now.png) ![Scrolled on a phone: the status line, the queue strip and the tab bar stay](img/artificer-phone-scrolled-now.png)
+
+![Day 1 on a phone, after four taps: LAND, with Explore](img/artificer-phone-day1-now.png)
+
+### What's still short
+
+1. **The tablet's top (F1, #1998).** The first card starts at y = 407 of 700, about where it did before. The compact status line saved space, but the "where you stand" line and the 44 px tabs and weather row took it back.
+   - Five full-width rows stack before the actions box: the title (y 20–64), the status line (72–126), "where you stand" (134–178), the tabs (194–238) and the weather row (250–322).
+   - The title bar and the status line both say "DAY 14".
+   - Room to win: one top row (title, menu and status together), the "where you stand" line beside the status on wide screens, and the weather row folded into the tab row.
+2. **Touch targets the first pass missed (F5, #1999).** The 15 targets under 44 px tall on the tablet's day 14:
+   - **The main buttons:** ▶ RUN THE DAY 129 × 37, RUN WHOLE QUEUE 168 × 37 and CLEAR, all 37 tall (and day 1's Explore, 75 × 37).
+   - **The queue's rows:** the ▸ that unfolds a row is 10 × 14, under WCAG's 24 × 24 floor; the drag grips are 30 × 25.
+   - **Elsewhere:** the Warden chip is 165 × 34 (34 × 34 on a phone); the key box's food is 84 × 32 (77 × 25 on a phone); the journal's 📖 is 33 × 32; LAND's distance folds are 40 tall.
+3. **The weather row says the wrong time (F4, #2000).** It shows the part of the day the plan *ends* in ("Fog · Chilly · evening"), the old TODAY chip's text. The queue under it says "Early morning, still dark." Now that the queue's own line says where the day ends, the row should say the time now.
+4. **The phone's frozen chrome is still 23% (F1, #2001).** The status line, the queue strip and the tab bar stay on screen together. The strip is the biggest part, at 91 px.
+
+The nine switches are all on by default. Once the owner has played with them and settled, they can be retired: their off paths and tests deleted, as §1.6 planned. That's the owner's call.
+
 ---
 
 # Part 2: Mechanics, briefly
