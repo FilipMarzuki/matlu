@@ -956,10 +956,8 @@ function setMeny(open: boolean): void {
   idCopied = false;
   render(state);
   // Into the page's heading on the way in; back to the ⚙ on the way out (the redraw drops focus).
-  // With the gear in both the header and the bottom bar (#1924), CSS shows only one by width: pick
-  // whichever is actually visible, so focus doesn't land on a hidden copy.
-  const gear = open ? root.querySelector<HTMLElement>('#meny-title')
-    : [...root.querySelectorAll<HTMLElement>('[data-cmd="meny"]')].find(el => el.offsetParent !== null) ?? root.querySelector<HTMLElement>('[data-cmd="meny"]');
+  // The ⚙ is the header's at every width (#2005).
+  const gear = root.querySelector<HTMLElement>(open ? '#meny-title' : '[data-cmd="meny"]');
   gear?.focus({ preventScroll: !open });
 }
 
@@ -1008,12 +1006,6 @@ function header(p: Omit<HeaderParts, 'dev' | 'features' | 'look' | 'reset' | 'we
   }, on ? menyButton(menyShown(), t, dev ? devTag() : '') : '');
 }
 
-/**
- * The ⚙ repeated inside the tab bar (#1924): under 900px (style.css), CSS hides the header's own ⚙
- * and shows this one instead, so it sits in the bar within thumb reach at the bottom of the screen.
- * At any other width, or with the Menu off, the header keeps its gear and this stays hidden.
- */
-const navMenyBtn = (): string => (compactOn() && menyOn() ? `<span class="navmeny">${menyButton(menyShown(), t, dev ? devTag() : '', true)}</span>` : '');
 
 // ── The two-row header (#1824, vital-words.ts) ──────────────────────────────
 // A ui feature on top of the Menu: row 1 the place, the day, the ⚙ and feedback; row 2 the Warden
@@ -1397,7 +1389,7 @@ function drawPage(a: AppState): void {
       twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
       twoRowOn() && compactOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${navMenyBtn()}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
+    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
@@ -1741,7 +1733,7 @@ function renderRoad(a: AppState, r: RoadState): void {
     ${routeStrip(r, t)}
     ${end}
     ${r.outcome ? '' : `${roadStatus(r, t)}${lastNews(r, t)}`}
-    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}${navMenyBtn()}</nav>
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(id => `<button class="tabbtn ${roadTab === id ? 'on' : ''}" role="tab" aria-selected="${roadTab === id}" data-rtab="${id}">${esc(t(`tab.${id}`))}</button>`).join('')}</nav>
     ${meny ? menyView(a) : body}
     ${encounterModal(r as unknown as AppState["sim"], encounterAfter, 0, t)}`;
 }

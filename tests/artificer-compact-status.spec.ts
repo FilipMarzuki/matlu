@@ -85,13 +85,18 @@ test('phone (400×860): compact on — one-line status bar, first card visible w
   expect(errors).toEqual([]);
 });
 
-test('phone (400px): the tabs sit in a bar fixed to the bottom, with the ⚙ in it, and the header has none', async ({ page }) => {
+// The ⚙ stays in the header beside Feedback on a phone too (#2005), not in the bottom bar (#1924 had it there).
+test('phone (400px): the tabs sit in a bar fixed to the bottom; the ⚙ stays in the header beside Feedback, on its line', async ({ page }) => {
   await openPlan(page, 400, 860, { compact: true });
   const nav = page.locator('.tabbar');
   const navBox = (await nav.boundingBox())!;
   expect(navBox.y + navBox.height).toBeGreaterThan(850); // within a few px of the viewport's foot
-  await expect(nav.locator('.navmeny .menybtn')).toBeVisible();
-  await expect(page.locator('header .menybtn')).toBeHidden();
+  await expect(nav.locator('.menybtn')).toHaveCount(0);
+  const gear = page.locator('header .menybtn');
+  await expect(gear).toBeVisible();
+  const [g, fb] = [(await gear.boundingBox())!, (await page.locator('header .fbbtn').boundingBox())!];
+  expect(Math.abs(g.y - fb.y)).toBeLessThan(4); // one header line, side by side
+  expect(g.x).toBeLessThan(fb.x);
 });
 
 test('tablet (1024px): the tabs stay at the top; the header keeps its own ⚙', async ({ page }) => {
@@ -147,6 +152,6 @@ test('standing line off: the ⋯ opens FOCUS, pain and injuries behind the one-l
 test('sv: the compact bar and the bottom tabs render with no page errors', async ({ page }) => {
   const errors = await openPlan(page, 400, 860, { compact: true, lang: 'sv' });
   await expect(page.locator('.statusbar.compact')).toBeVisible();
-  await expect(page.locator('.tabbar .navmeny .menybtn')).toBeVisible();
+  await expect(page.locator('header .menybtn')).toBeVisible();
   expect(errors).toEqual([]);
 });
