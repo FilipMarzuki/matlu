@@ -1706,4 +1706,19 @@ header.tworow { display: block; }
   .tabbar { gap: 8px; }
   .keycol { gap: 8px; }
   .queue ol { gap: 8px; }
+  /* The second pass (#1999), from the re-measure (#1997, design doc §1.7): the targets the review
+     didn't list. The run bar's buttons and LAND's Explore; each queue row's grip and ▸ (the ▸ was
+     10 × 14, under WCAG's 24 × 24 floor), at least 32 wide like the row's ✕, and over the narrow
+     queue's 26 px (`.planq` matches its specificity, and this comes later); the Warden chip, the key
+     box's food and the journal's 📖 in the status line, which is 54 px tall, so they fit in it (taller,
+     not wider: on a phone a wider Warden chip pushed the key box onto a second line in Swedish); the
+     Explore chooser's compass and ✕; and LAND's distance folds. */
+  .runbar .btn, .landstartgo, .landexplore, .who, .keybox .kfood > summary, .cpb, .rpx, .ringfold > summary { min-height: 44px; }
+  /* The food's summary reaches over the key box's own padding (it has no border or background of its
+     own), so the box, and the status line it sits in, stay as tall as before. */
+  .keybox .kfood > summary { margin-block: -5px; }
+  .queue .grip, .queue .tog, .planq .queue .grip, .planq .queue .tog { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 32px; }
+  .noteslink { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
+  /* The fold's summary is already a flex row with its own ▸/▾ (`.fold > summary`); centred in the taller row. */
+  .ringfold > summary { align-items: center; }
 }
