@@ -95,7 +95,8 @@ import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { esc, pct, band, wardenButton } from './html';
-import { weatherRow } from './weather-row';
+import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
+import { WIDE_TOP_FEATURE, WIDE_TOP_QUERY } from './wide-top';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
@@ -705,10 +706,13 @@ function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): strin
  * The "where you stand" line is the exception (#1951): it has a row of its own right after the
  * bar's sticky element (`standingUnder`), so it's seen without a tap and scrolls away with the page.
  */
+/** Whether the compact bar says the day: once the guide shows anything past the Warden in it. */
+const compactDayShown = (): boolean => compactOn() && (guide.shows('vitals') || guide.shows('focus') || guide.shows('stores'));
+
 function compactStatusBar(a: AppState, preview: Preview, warden: string): string {
   const s = a.sim;
   const g = guide;
-  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return warden ? `<div class="statusbar compact"><div class="cline">${warden}</div></div>` : '';
+  if (!compactDayShown()) return warden ? `<div class="statusbar compact"><div class="cline">${warden}</div></div>` : '';
   const dots = g.shows('vitals') ? `<span class="vdots"${g.mark('vitals')}>${vitalReadings(a.sim).map(v => vitalDot(v, t)).join('')}</span>` : '';
   const stores = g.shows('stores') ? markFirst(keyBox(s, t), 'stores') : '';
   const hasMore = g.shows('focus') || g.shows('vitals');
@@ -719,10 +723,10 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
   return `<div class="statusbar compact">
     <div class="cline">
       ${warden}<span class="cday">${esc(t('top.day'))} <b>${a.sim.day}</b></span>
-      ${dots}${stores}${jbtn()}${more}
+      ${dots}${stores}${jbtn()}${wideTop() ? standingIn(a) : ''}${more}
     </div>
     ${compactMoreOpen ? compactMorePanel(a, preview) : ''}
-  </div>${standingUnder(a)}${tips}`;
+  </div>${wideTop() ? '' : standingUnder(a)}${tips}`;
 }
 
 /**
@@ -732,10 +736,27 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
  * With the line off, nothing: FOCUS stays in the ⋯ panel, as before.
  */
 function standingUnder(a: AppState): string {
+  const p = standingParts(a);
+  return p ? standingRow(p.line, p.pop) : '';
+}
+
+/**
+ * On a wide screen (#1998, wide-top.ts), the line in the compact bar's own line instead, in the room
+ * it has to spare, with its picker opening under it there. Inside the sticky bar, so it stays on
+ * screen with it; the bar stays one line tall while the line fits.
+ */
+function standingIn(a: AppState): string {
+  const p = standingParts(a);
+  return p ? `<div class="standin">${p.line}${p.pop}</div>` : '';
+}
+
+/** The "where you stand" line, with the guide's mark, and its picker while it's open; null while the guide hasn't shown FOCUS. */
+function standingParts(a: AppState): { line: string; pop: string } | null {
   const g = guide;
-  if (!lineShown(g)) return '';
+  if (!lineShown(g)) return null;
   const s = a.sim;
-  return standingRow(markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock'), focusPopOpen ? focusPopover(s, t, focusUi()) : '');
+  const line = markFirst(focusOrLine(s, g.shows('vitals')), 'focus', 'lock');
+  return line ? { line, pop: focusPopOpen ? focusPopover(s, t, focusUi()) : '' } : null;
 }
 
 /**
@@ -914,6 +935,14 @@ const sideQueueOn = (): boolean => uiFeatureOn(loadChoices(), SIDE_QUEUE_FEATURE
 const journalBesideMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(JOURNAL_BESIDE_QUERY) : null;
 const journalBeside = (): boolean => journalBesideMq?.matches ?? false;
 journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(state); });
+/**
+ * Fewer rows on top (#1998, wide-top.ts): on a screen wide enough that the tabs stay at the top, with
+ * the compact status line (#1924). The page is drawn in one arrangement or the other, so crossing the
+ * line draws it again, as for the journal above.
+ */
+const wideTopMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(WIDE_TOP_QUERY) : null;
+const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE);
+wideTopMq?.addEventListener('change', () => { if (compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE)) render(state); });
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1171,6 +1200,12 @@ function weatherSection(a: AppState, preview: Preview): string {
   // With the two-row header (#1825), after the first time's card the weather and the time of day
   // share one row (weather-row.ts), which unfolds into the full box; the TODAY chip leaves the
   // status bar. The first time's card is untouched: the guide's next steps wait on its "Got it".
+  // On a wide screen (#1998), the row's button is in the tab row: here only what it opens, if anything.
+  if (weatherInTabs()) {
+    const open = fold.mode === 'open';
+    const under = weatherUnder({ open, ...weatherRowBody(a.sim, open) });
+    return under ? `<section class="box seasonbox">${under}</section>` : '';
+  }
   const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
   // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
   return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${box}</section>`;
@@ -1178,20 +1213,51 @@ function weatherSection(a: AppState, preview: Preview): string {
 
 /** The weather and the time of day in one row (#1825), the full box under it while it's open. */
 function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
-  const s = a.sim;
-  const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
-  return weatherRow({
-    chips: weatherChips(s, t, { dev }),
+  const open = fold.mode === 'open';
+  return weatherRow({ ...weatherRowHead(a, preview), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
+}
+
+/** What the weather row says: the sky and the cold, and the time of day. */
+function weatherRowHead(a: AppState, preview: Preview): { chips: ReturnType<typeof weatherChips>; time: string } {
+  return {
+    chips: weatherChips(a.sim, t, { dev }),
     // The time now, with the line under the queue saying where the day ends (#2000); else the TODAY
     // chip's own text (the part of the day the plan ends in, or the hours). Plain words and digits,
     // so the row escapes it as text.
     time: weatherRowTime(a, preview, t, dev, dayForecastOn()),
-    open: fold.mode === 'open', hint: fold.hint,
+  };
+}
+
+/** What the weather row opens (drawn only while it's open), and a blizzard's warning, which shows either way. */
+function weatherRowBody(s: AppState['sim'], open: boolean): { banner: string; details: string } {
+  const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
+  return {
     banner: blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '',
     // Open, the box as it's drawn unfolded, without its own heading's toggle (the row is the toggle).
-    details: weatherBox(s, t, { dev }),
-  }, t);
+    details: open ? weatherBox(s, t, { dev }) : '',
+  };
 }
+
+/**
+ * Whether the weather row's button goes in the tab row (#1998, wide-top.ts): on PLAN, on a wide
+ * screen, in the one-row weather (#1825), once the first time's card is done, and while the guide's
+ * line isn't on the weather (its own, the cold night's or the snow's, #1794): the line and the glow
+ * belong to the box under the tabs, so it stays as it was while one shows.
+ */
+function weatherInTabs(): boolean {
+  if (!wideTop() || tab !== 'plan' || menyShown() || !twoRowOn() || guide.weatherIntro) return false;
+  return weatherFoldState(wxFold).mode !== 'intro' && guide.tip !== 'weather' && guide.tip !== 'cold' && guide.tip !== 'snow';
+}
+
+/**
+ * The tabs, and with the weather's button (#1998) the two side by side in one row: the button beside
+ * the tab list rather than in it, as a tab list holds only tabs (a screen reader counts them).
+ */
+const tabRow = (tabs: string, wx: string): string => (wx ? `<div class="tabrow">${tabs}${wx}</div>` : tabs);
+
+/** The weather row's button for the tab row, when it goes there (`weatherInTabs`). */
+const weatherTab = (a: AppState, preview: Preview): string =>
+  (weatherInTabs() ? weatherToggle({ ...weatherRowHead(a, preview), open: weatherFoldState(wxFold).mode === 'open' }, t, 'wxtab') : '');
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
 function guidedPlan(a: AppState, preview: Preview): string {
@@ -1318,7 +1384,8 @@ function drawPage(a: AppState): void {
   root.innerHTML = `
     ${headerBlock(`<h1>${t('top.titleHtml')}</h1>`, {
         warden: reachWarden,
-        counters: `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
+        // On a wide screen (#1998) the day is said once, in the status line, which stays on screen.
+        counters: wideTop() && compactDayShown() ? '' : `<span class="counter ctl">${esc(t('top.day'))} <b>${a.sim.day}</b></span>`,
         week: weekChip(a), experiment: '', playAi: playAiLink(t),
         // No ? with the journal's notes (#1838): how to play is the 📖 on the journal.
         help: notesOn() ? '' : `<span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}" aria-label="${esc(t('top.help'))}" title="${esc(t('top.help'))}">?</button></span>`,
@@ -1330,7 +1397,7 @@ function drawPage(a: AppState): void {
       twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
       twoRowOn() && compactOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${navMenyBtn()}</nav>${TAB_TIPS.map(guideTip).join('')}
+    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${navMenyBtn()}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}

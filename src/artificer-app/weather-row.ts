@@ -41,18 +41,42 @@ export function weatherRowText(chips: readonly RowChip[], time: string): string 
 const rowLabel = (chips: readonly RowChip[], time: string, t: T): string =>
   [t('wx.chips'), ...chips.filter(c => c.id !== 'season').map(c => c.full), time ? `${t('status.today')} ${time}` : ''].filter(Boolean).join('. ');
 
+type RowOpts = { chips: readonly RowChip[]; time: string; open: boolean; hint: boolean; banner?: string; details: string };
+
 /**
- * The box: one row that is its own fold's button (`data-wxfold`, as #1788's heading is, so the
- * page's one handler opens and folds it), and while open the full box under it. `hint` is #1788's
- * "tap here" until the box has been opened once; `banner` a blizzard's warning, shown either way.
+ * The row's button: the sky, the cold and the time of day in one line, which opens and folds the box
+ * (`data-wxfold`, as #1788's heading is, so the page's one handler takes it). `cls`: more classes.
  */
-export function weatherRow(o: { chips: readonly RowChip[]; time: string; open: boolean; hint: boolean; banner?: string; details: string }, t: T): string {
+export function weatherToggle(o: Pick<RowOpts, 'chips' | 'time' | 'open'>, t: T, cls = ''): string {
   const text = weatherRowText(o.chips, o.time);
   const label = rowLabel(o.chips, o.time, t);
+  return `<button type="button" class="foldhead wxtoggle wxonerow${cls ? ` ${cls}` : ''}" data-wxfold aria-expanded="${o.open}" title="${esc(label)}">`
+    + `${chevron()}<span class="wxonetext">${esc(text)}</span></button>`;
+}
+
+/**
+ * The box: one row that is its own fold's button (`weatherToggle`), and while open the full box
+ * under it. `hint` is #1788's "tap here" until the box has been opened once; `banner` a blizzard's
+ * warning, shown either way.
+ */
+export function weatherRow(o: RowOpts, t: T): string {
   return `<div class="wxbox wxone${o.open ? ' open' : ''}">`
-    + `<button type="button" class="foldhead wxtoggle wxonerow" data-wxfold aria-expanded="${o.open}" title="${esc(label)}">`
-    + `${chevron()}<span class="wxonetext">${esc(text)}</span></button>`
+    + weatherToggle(o, t)
     + (o.hint && !o.open ? `<span class="wxhint">${esc(t('wx.hint'))}</span>` : '')
-    + (o.open ? `<div class="wxonedetails">${o.details}</div>` : (o.banner ?? ''))
+    + rowBody(o)
     + `</div>`;
+}
+
+/** Under the row: the full box while it's open, else a blizzard's warning (or nothing). */
+const rowBody = (o: Pick<RowOpts, 'open' | 'banner' | 'details'>): string =>
+  (o.open ? `<div class="wxonedetails">${o.details}</div>` : (o.banner ?? ''));
+
+/**
+ * With the row's button in the tab row (#1998, wide-top.ts): what's left under the tabs. The full box
+ * while it's open, else a blizzard's warning, else nothing. No "tap here": the button sits among the
+ * tabs, a button like them.
+ */
+export function weatherUnder(o: Pick<RowOpts, 'open' | 'banner' | 'details'>): string {
+  const body = rowBody(o);
+  return body ? `<div class="wxbox wxone${o.open ? ' open' : ''}">${body}</div>` : '';
 }

@@ -547,6 +547,13 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'day-forecast', name: 'Where the day ends, in words', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1930,
     note: 'Under the queue, and on the phone\'s queue strip, one sentence says where today\'s plan leaves you: when you\'re done and where, how tired, and what the day\'s trips bring in, e.g. "Back at camp by dusk, tired, with wood for 3 nights." What you can\'t know yet (a haul you haven\'t learned, a day you can\'t see coming) it leaves out or says roughly.',
   },
+  {
+    // A ui feature (#1998, from the re-measure #1997): where the top rows go on a wide screen
+    // (artificer-app/wide-top.ts), so it switches live and no run saves it. The play API, the console
+    // and AI players never see it. Off, or on a phone, the top of the page is as before.
+    id: 'wide-top', name: 'Fewer rows on top (wide screens)', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1998,
+    note: 'On a tablet or wider: the "where you stand" line sits in the status line, the weather in the tab row (what it opens still opens under the tabs), and the day is said once. The first action card starts about 140 px higher on a 1024 × 700 tablet. Phones are unchanged.',
+  },
 ];
 
 /** Switches by feature id. */
