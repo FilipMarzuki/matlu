@@ -298,9 +298,6 @@
 .tabbtn { flex: 1 1 110px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 9px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 9px 10px; font-family: var(--display); font-size: 9px; letter-spacing: 2px; }
 .tabbtn:hover { border-color: var(--teal); }
 .tabbtn.on { color: var(--gold); border-color: var(--gold); background: rgba(255,224,102,.06); }
-/* The ⚙ repeated in the tab bar (#1924, main.ts navMenyBtn): hidden unless the narrow-screen media
-   query below shows it in place of the header's own gear. */
-.navmeny { display: none; }
 
 /* ── The compact status line (#1924, ui switch `compact-status`) ───────────────
    One line: the day, the three vitals as dots and the key box. Everything else (FOCUS, rations,
@@ -487,8 +484,8 @@ body { min-height: 100vh; }
 @media (max-width: 520px) { .tabbtn { flex-basis: 60px; letter-spacing: 1px; padding: 9px 4px; } }
 
 /* ── Tabs at the bottom under 900px (#1924, ui switch `compact-status`) ────────
-   The tab row the thumb can already reach, with the ⚙ moved into it (main.ts navMenyBtn): the
-   header keeps its own gear at any wider size, where the row stays at the top as before. */
+   The tab row the thumb can already reach. The ⚙ stays in the header beside Feedback (#2005: the
+   owner found it fit better there), where on a phone it's the bare gear (`.menyword` hides). */
 @media (max-width: 900px) {
   .compactnav { padding-bottom: calc(52px + env(safe-area-inset-bottom) + 14px); }
   .compactnav .tabbar {
@@ -498,8 +495,6 @@ body { min-height: 100vh; }
     border-top: 1px solid var(--border); box-shadow: 0 -4px 14px rgba(0,0,0,.28);
   }
   .compactnav .tabbar .tabbtn { flex: 1 1 0; padding: 2px 4px; }
-  .compactnav .tabbar .navmeny { display: inline-flex; flex: none; margin-left: 4px; }
-  .compactnav header .menybtn { display: none; }
 }
 
 /* Run history (#1224). */
