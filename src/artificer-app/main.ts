@@ -85,7 +85,7 @@ import { truthLine } from '../artificer/panic';
 import { encounterById, stepOf } from '../artificer/encounters';
 import { respondedOn } from '../artificer/journal';
 import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, makeWarden, newGame, legacyFor, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, moveQueued, clearQueue, setOption, settle, previewQueue, todayHours, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
-import { nowTotal, queueTimes, timeWordsShown, timerClock } from './time-view';
+import { nowTotal, queueTimes, timeWordsShown, timerClock, weatherRowTime } from './time-view';
 import { endWords, partShort } from '../artificer/time-words';
 import { LAND_ASSESS_FEATURE } from './land-assessment';
 import { JOURNAL_BESIDE_QUERY, SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
@@ -1182,9 +1182,10 @@ function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint
   const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
   return weatherRow({
     chips: weatherChips(s, t, { dev }),
-    // The TODAY chip's own text (the part of the day the plan ends in, or the hours): plain words and
-    // digits, so the row escapes it as text.
-    time: queueTimes(a, preview, t, dev).status,
+    // The time now, with the line under the queue saying where the day ends (#2000); else the TODAY
+    // chip's own text (the part of the day the plan ends in, or the hours). Plain words and digits,
+    // so the row escapes it as text.
+    time: weatherRowTime(a, preview, t, dev, dayForecastOn()),
     open: fold.mode === 'open', hint: fold.hint,
     banner: blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '',
     // Open, the box as it's drawn unfolded, without its own heading's toggle (the row is the toggle).
