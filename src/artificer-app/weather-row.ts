@@ -63,9 +63,13 @@ export function weatherRow(o: RowOpts, t: T): string {
   return `<div class="wxbox wxone${o.open ? ' open' : ''}">`
     + weatherToggle(o, t)
     + (o.hint && !o.open ? `<span class="wxhint">${esc(t('wx.hint'))}</span>` : '')
-    + (o.open ? `<div class="wxonedetails">${o.details}</div>` : (o.banner ?? ''))
+    + rowBody(o)
     + `</div>`;
 }
+
+/** Under the row: the full box while it's open, else a blizzard's warning (or nothing). */
+const rowBody = (o: Pick<RowOpts, 'open' | 'banner' | 'details'>): string =>
+  (o.open ? `<div class="wxonedetails">${o.details}</div>` : (o.banner ?? ''));
 
 /**
  * With the row's button in the tab row (#1998, wide-top.ts): what's left under the tabs. The full box
@@ -73,6 +77,6 @@ export function weatherRow(o: RowOpts, t: T): string {
  * tabs, a button like them.
  */
 export function weatherUnder(o: Pick<RowOpts, 'open' | 'banner' | 'details'>): string {
-  if (o.open) return `<div class="wxbox wxone open"><div class="wxonedetails">${o.details}</div></div>`;
-  return o.banner ? `<div class="wxbox wxone">${o.banner}</div>` : '';
+  const body = rowBody(o);
+  return body ? `<div class="wxbox wxone${o.open ? ' open' : ''}">${body}</div>` : '';
 }

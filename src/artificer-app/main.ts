@@ -942,7 +942,7 @@ journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(s
  */
 const wideTopMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(WIDE_TOP_QUERY) : null;
 const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE);
-wideTopMq?.addEventListener('change', () => render(state));
+wideTopMq?.addEventListener('change', () => { if (compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE)) render(state); });
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1202,7 +1202,8 @@ function weatherSection(a: AppState, preview: Preview): string {
   // status bar. The first time's card is untouched: the guide's next steps wait on its "Got it".
   // On a wide screen (#1998), the row's button is in the tab row: here only what it opens, if anything.
   if (weatherInTabs()) {
-    const under = weatherUnder({ open: fold.mode === 'open', ...weatherRowBody(a.sim) });
+    const open = fold.mode === 'open';
+    const under = weatherUnder({ open, ...weatherRowBody(a.sim, open) });
     return under ? `<section class="box seasonbox">${under}</section>` : '';
   }
   const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
@@ -1212,7 +1213,8 @@ function weatherSection(a: AppState, preview: Preview): string {
 
 /** The weather and the time of day in one row (#1825), the full box under it while it's open. */
 function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
-  return weatherRow({ ...weatherRowHead(a, preview), open: fold.mode === 'open', hint: fold.hint, ...weatherRowBody(a.sim) }, t);
+  const open = fold.mode === 'open';
+  return weatherRow({ ...weatherRowHead(a, preview), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
 }
 
 /** What the weather row says: the sky and the cold, and the time of day. */
@@ -1226,25 +1228,32 @@ function weatherRowHead(a: AppState, preview: Preview): { chips: ReturnType<type
   };
 }
 
-/** What the weather row opens, and a blizzard's warning, which shows either way. */
-function weatherRowBody(s: AppState['sim']): { banner: string; details: string } {
+/** What the weather row opens (drawn only while it's open), and a blizzard's warning, which shows either way. */
+function weatherRowBody(s: AppState['sim'], open: boolean): { banner: string; details: string } {
   const blizzard = s.config.world.weather === 'seeded' && isBlizzard(s.weatherToday, s.day, s.config.calendar);
   return {
     banner: blizzard ? `<p class="lockbanner">${esc(t('season.blizzard', { n: BLIZZARD_HOURS }))}</p>` : '',
     // Open, the box as it's drawn unfolded, without its own heading's toggle (the row is the toggle).
-    details: weatherBox(s, t, { dev }),
+    details: open ? weatherBox(s, t, { dev }) : '',
   };
 }
 
 /**
  * Whether the weather row's button goes in the tab row (#1998, wide-top.ts): on PLAN, on a wide
- * screen, in the one-row weather (#1825), once the first time's card is done, and while no guide tip
- * or glow is on the weather (those belong to the box under the tabs, so it stays as it was then).
+ * screen, in the one-row weather (#1825), once the first time's card is done, and while the guide's
+ * line isn't on the weather (its own, the cold night's or the snow's, #1794): the line and the glow
+ * belong to the box under the tabs, so it stays as it was while one shows.
  */
 function weatherInTabs(): boolean {
   if (!wideTop() || tab !== 'plan' || menyShown() || !twoRowOn() || guide.weatherIntro) return false;
-  return weatherFoldState(wxFold).mode !== 'intro' && guide.tip !== 'weather' && !guide.mark('cold', 'snow') && !guideTip('weather');
+  return weatherFoldState(wxFold).mode !== 'intro' && guide.tip !== 'weather' && guide.tip !== 'cold' && guide.tip !== 'snow';
 }
+
+/**
+ * The tabs, and with the weather's button (#1998) the two side by side in one row: the button beside
+ * the tab list rather than in it, as a tab list holds only tabs (a screen reader counts them).
+ */
+const tabRow = (tabs: string, wx: string): string => (wx ? `<div class="tabrow">${tabs}${wx}</div>` : tabs);
 
 /** The weather row's button for the tab row, when it goes there (`weatherInTabs`). */
 const weatherTab = (a: AppState, preview: Preview): string =>
@@ -1388,7 +1397,7 @@ function drawPage(a: AppState): void {
       twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
       twoRowOn() && compactOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    <nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${weatherTab(a, preview)}${navMenyBtn()}</nav>${TAB_TIPS.map(guideTip).join('')}
+    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}${navMenyBtn()}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}

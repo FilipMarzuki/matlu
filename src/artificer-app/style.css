@@ -1433,7 +1433,7 @@ html.backdrop body { background: transparent; }
   mix-blend-mode: screen;
 }
 @media (prefers-reduced-motion: reduce) { .bdmood { transition: none; } }
-html.backdrop #app > header, html.backdrop #app > .ledewrap, html.backdrop #app > .tabbar {
+html.backdrop #app > header, html.backdrop #app > .ledewrap, html.backdrop #app > .tabbar, html.backdrop #app > .tabrow {
   background: var(--bg); box-shadow: 0 0 0 8px var(--bg); border-radius: 4px;
 }
 html.backdrop .statusbar { background: var(--panel); }
@@ -1685,17 +1685,22 @@ header.tworow { display: block; }
 /* Fewer rows on top on a wide screen (#1998, ui switch `wide-top`, wide-top.ts). The "where you
    stand" line in the compact bar's own line, in the room to spare after the 📓: it takes what's left
    (basis 0) and wraps inside its button rather than push the key box onto a second line. Its picker
-   (`.focuspop`, absolute) opens just under it. */
-.cline .standin { position: relative; flex: 1 1 0; min-width: min(220px, 30%); display: flex; }
+   (`.focuspop`, absolute) opens under the bar, at the bar's right, as wide as under its own row:
+   `.standin` isn't positioned, so the picker sizes and places itself against the (sticky) bar. */
+.cline .standin { flex: 1 1 0; min-width: min(220px, 30%); display: flex; }
 .cline .standin .standline { max-width: 100%; }
-/* The weather row's button in the tab row, after the tabs: a tab-like box, the row's words on one
-   line (cut with … if the row is short of room); teal while what it opens is open under the tabs. */
-.tabbar .wxtab { flex: 1.6 1 240px; min-width: 0; min-height: 44px; justify-content: flex-start; gap: 8px; padding: 9px 12px;
+.cline .standin .focuspop { left: auto; right: 8px; }
+/* The tabs and the weather row's button side by side: the tab list takes what the button leaves, and
+   the button's words stay on one line (cut with … if short of room), so the row never wraps. The
+   button is a tab-like box, teal while what it opens is open under the tabs. */
+.tabrow { display: flex; align-items: stretch; gap: 6px; margin: 0 0 12px; }
+.tabrow > .tabbar { flex: 1 1 auto; min-width: 0; margin: 0; }
+.tabrow > .wxtab { flex: 0 1 320px; min-width: 0; min-height: 44px; justify-content: flex-start; gap: 8px; padding: 9px 12px;
   border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 9px; background: var(--sub);
   color: var(--ink); font: 600 13px var(--body); letter-spacing: 0; text-transform: none; }
-.tabbar .wxtab:hover { border-color: var(--teal); }
-.tabbar .wxtab[aria-expanded="true"] { border-color: var(--teal); }
-.tabbar .wxtab .wxonetext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabrow > .wxtab:hover { border-color: var(--teal); }
+.tabrow > .wxtab[aria-expanded="true"] { border-color: var(--teal); }
+.tabrow > .wxtab .wxonetext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .statusbar.compact { z-index: 6; }
 @media (pointer: coarse) { .standline { min-height: 44px; } }
 /* PROGRESS agrees with the line (#1926): a Winter-ready milestone it doesn't agree with now says so. */

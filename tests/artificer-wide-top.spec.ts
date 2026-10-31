@@ -45,7 +45,7 @@ const firstCardTop = (page: Page): Promise<number> =>
 async function asBefore(page: Page): Promise<void> {
   await expect(page.locator('.standrow .standline')).toBeVisible();
   await expect(page.locator('.cline .standin')).toHaveCount(0);
-  await expect(page.locator('.tabbar .wxtab')).toHaveCount(0);
+  await expect(page.locator('.tabrow > .wxtab')).toHaveCount(0);
   await expect(page.locator('.seasonbox .wxonerow')).toBeVisible();
 }
 
@@ -54,7 +54,9 @@ for (const lang of ['en', 'sv'] as const) {
     const errors = await openPlan(page, 1024, { lang });
     await expect(page.locator('.statusbar .cline .standin .standline')).toBeVisible();
     await expect(page.locator('.standrow')).toHaveCount(0);
-    await expect(page.locator('.tabbar .wxtab')).toBeVisible();
+    await expect(page.locator('.tabrow > .wxtab')).toBeVisible();
+    // Beside the tab list, not in it: a tab list holds only tabs.
+    await expect(page.locator('[role="tablist"] .wxtab')).toHaveCount(0);
     // Folded, with no blizzard, nothing is left under the tabs.
     await expect(page.locator('.seasonbox')).toHaveCount(0);
     // The day once: in the status line, not in the title.
@@ -70,23 +72,28 @@ for (const lang of ['en', 'sv'] as const) {
 
 test('tablet: the weather button opens its box under the tabs and shuts it; the line opens its picker under it', async ({ page }) => {
   await openPlan(page, 1024);
-  const wx = page.locator('.tabbar .wxtab');
+  const wx = page.locator('.tabrow > .wxtab');
   await wx.click();
-  await expect(page.locator('.tabbar .wxtab')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.tabrow > .wxtab')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.seasonbox .wxonedetails')).toBeVisible();
-  await page.locator('.tabbar .wxtab').click();
+  await page.locator('.tabrow > .wxtab').click();
   await expect(page.locator('.seasonbox')).toHaveCount(0);
   await page.locator('.cline .standin [data-cmd="focuspop"]').click();
-  await expect(page.locator('.cline .standin .focuspop')).toBeVisible();
+  const pop = page.locator('.cline .standin .focuspop');
+  await expect(pop).toBeVisible();
+  // As wide as under its own row (440px), not squeezed to the line's width, and under the bar.
+  const [p, bar] = [(await pop.boundingBox())!, (await page.locator('.statusbar').boundingBox())!];
+  expect(p.width).toBeGreaterThan(400);
+  expect(p.y).toBeGreaterThanOrEqual(bar.y + bar.height);
 });
 
 test('narrower than 901px the page is as before, and crossing the line draws it again', async ({ page }) => {
   await openPlan(page, 1024);
-  await expect(page.locator('.tabbar .wxtab')).toBeVisible();
+  await expect(page.locator('.tabrow > .wxtab')).toBeVisible();
   await page.setViewportSize({ width: 900, height: 700 });
   await asBefore(page);
   await page.setViewportSize({ width: 1024, height: 700 });
-  await expect(page.locator('.tabbar .wxtab')).toBeVisible();
+  await expect(page.locator('.tabrow > .wxtab')).toBeVisible();
   await expect(page.locator('.cline .standin')).toBeVisible();
 });
 
