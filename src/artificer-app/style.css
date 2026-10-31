@@ -1719,5 +1719,6 @@ header.tworow { display: block; }
   .keybox .kfood > summary { margin-block: -5px; }
   .queue .grip, .queue .tog, .planq .queue .grip, .planq .queue .tog { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 32px; }
   .noteslink { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
-  .ringfold > summary { display: flex; align-items: center; }
+  /* The fold's summary is already a flex row with its own ▸/▾ (`.fold > summary`); centred in the taller row. */
+  .ringfold > summary { align-items: center; }
 }
