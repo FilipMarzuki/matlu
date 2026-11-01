@@ -5,13 +5,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { makeT } from '../artificer/i18n';
-import { featureById, uiFeatureOn } from '../artificer/features';
 import { knownSpots } from '../artificer/camp-sites';
 import { endDay, runAction, type QueueItem, type Region1State } from '../artificer/region1';
 import { makeWarden, previewQueue, type AppState } from './controller';
 import { paletteBlock } from './camp-blocks';
 import { spotReading } from './sim-words';
-import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
+import { campPicker, pickable, pickerFor } from './camp-picker';
 
 const en = makeT('en'), sv = makeT('sv');
 
@@ -26,17 +25,10 @@ function explored(features?: Record<string, boolean>): AppState {
   return { ...a, sim: { ...s, canPlan: true } };
 }
 
-describe('the camp picker switch (#1986)', () => {
-  it('is a ui switch, on by default, that a player can turn off', () => {
-    expect(featureById(CAMP_PICKER_FEATURE)).toMatchObject({ kind: 'ui', default: true, issue: 1986 });
-    expect(uiFeatureOn({}, CAMP_PICKER_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [CAMP_PICKER_FEATURE]: false }, CAMP_PICKER_FEATURE)).toBe(false);
-  });
-
-  it('Make camp opens it only with the switch on, where camp is an action', () => {
-    expect(pickerFor(explored().sim, true)).toBe(true);
-    expect(pickerFor(explored().sim, false)).toBe(false);
-    expect(pickerFor(explored({ 'camp-as-action': false }).sim, true)).toBe(false);
+describe('the camp picker (#1986)', () => {
+  it('Make camp opens it where camp is an action', () => {
+    expect(pickerFor(explored().sim)).toBe(true);
+    expect(pickerFor(explored({ 'camp-as-action': false }).sim)).toBe(false);
   });
 
   it('has something to pick only when a place you know isn\'t the camp you\'re at, in a run that isn\'t over', () => {

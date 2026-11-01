@@ -107,14 +107,3 @@ test('the line follows the queue: take tasks off a day over budget and it ends i
   await expect(page.locator('.dayend')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
-
-test('switched off, the footer is as before: no line, the time in words, nothing on the strip', async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 700 });
-  const errors = await openPlan(page, SAVES.over, 'en', { 'day-forecast': false });
-  await expect(page.locator('.dayend')).toHaveCount(0);
-  await expect(page.locator('.planq .queue .qtot')).toContainText('This runs past dark.');
-  await page.setViewportSize({ width: 400, height: 860 });
-  await expect(page.locator('.qstrip')).toBeVisible();
-  await expect(page.locator('.qsline')).toHaveCount(0);
-  expect(errors).toEqual([]);
-});

@@ -102,13 +102,3 @@ test('Tab and Shift+Tab stay inside the picker while it\'s open', async ({ page 
   }
   expect(errors).toEqual([]);
 });
-
-test('switched off, Make camp queues itself as before: no picker', async ({ page }) => {
-  const { errors, saved } = await openPlan(page, 'en', { 'camp-picker': false });
-  const before = await queueOf(page, saved.saveKey);
-  await expect(page.locator('[data-campick]')).toHaveCount(0);
-  await page.locator('[data-q="camp"]:visible').first().click();
-  await expect(page.locator('.campick')).toHaveCount(0);
-  expect(await queueOf(page, saved.saveKey)).toEqual([...before, 'camp']);
-  expect(errors).toEqual([]);
-});

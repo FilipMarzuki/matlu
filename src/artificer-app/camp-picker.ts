@@ -17,15 +17,11 @@ import { esc } from './html';
 
 type Sim = AppState['sim'];
 
-/** The picker's ui switch (#1986): read with `uiFeatureOn`. */
-export const CAMP_PICKER_FEATURE = 'camp-picker';
-
 /**
- * Is Make camp's card the picker's? With the switch on, where camp is an action (#1732). Cheap: the
- * card is drawn on every redraw, so whether there's a place to pick is asked only when it's tapped
- * (`pickable`).
+ * Is Make camp's card the picker's? Where camp is an action (#1732). Cheap: the card is drawn on every
+ * redraw, so whether there's a place to pick is asked only when it's tapped (`pickable`).
  */
-export const pickerFor = (s: Sim, on: boolean): boolean => on && campAsActionOn(s);
+export const pickerFor = (s: Sim): boolean => campAsActionOn(s);
 
 /**
  * Is there a place to pick? One you know that isn't the camp you're at (as Make camp's own rule asks

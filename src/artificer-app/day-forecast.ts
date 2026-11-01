@@ -50,9 +50,6 @@ import { todayHours, type AppState, type QueuePreview } from './controller';
 import { compactEnd } from './plan-layout';
 import { esc } from './html';
 
-/** The ui switch (features.ts). Off, the queue's footer is exactly as before. */
-export const DAY_FORECAST_FEATURE = 'day-forecast';
-
 /** The key stores the line speaks of, in the key box's order. */
 export type Store = 'food' | 'water' | 'wood';
 const STORES: readonly Store[] = ['food', 'water', 'wood'];

@@ -70,7 +70,7 @@ import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue,
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
 import { FEWER_CARDS_FEATURE } from './fewer-cards';
-import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
+import { campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
 import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
@@ -101,7 +101,7 @@ import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
-import { DAY_FORECAST_FEATURE, dayEnd, dayEndHtml, dayEndText } from './day-forecast';
+import { dayEnd, dayEndHtml, dayEndText } from './day-forecast';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
 import { READABLE_TYPE_FEATURE, applyReadableType } from './readable-type';
@@ -184,11 +184,9 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s, campPickerOn()) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s) };
 };
 
-/** Make camp opens a picker of the places to camp you know (#1986, camp-picker.ts): a ui feature, on unless switched off. */
-const campPickerOn = (): boolean => uiFeatureOn(loadChoices(), CAMP_PICKER_FEATURE);
 /**
  * The picker is open (#1986): page state, never saved. Shut by a pick, Cancel, Escape or a tap beside
  * it, and also by anything that leaves the page it was opened on: a tab, a day starting, a new Warden.
@@ -611,16 +609,14 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where the day ends, in words (#1930, day-forecast.ts): a ui feature, on unless switched off in the features panel. */
-const dayForecastOn = (): boolean => uiFeatureOn(loadChoices(), DAY_FORECAST_FEATURE);
 /**
- * Where today's plan leaves you, or null (the switch off, or nothing runs today). Worked out once a
- * redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
+ * Where today's plan leaves you (#1930, day-forecast.ts), or null when nothing runs today. Worked out
+ * once a redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
  */
 let dayEndMemo: { a: AppState; preview: Preview; end: ReturnType<typeof dayEnd> } | null = null;
 function dayEndNow(a: AppState, preview: Preview): ReturnType<typeof dayEnd> {
   if (dayEndMemo?.a === a && dayEndMemo.preview === preview) return dayEndMemo.end;
-  const end = dayForecastOn() ? dayEnd(a, preview, timeWordsShown(a.sim, dev), t) : null;
+  const end = dayEnd(a, preview, timeWordsShown(a.sim, dev), t);
   dayEndMemo = { a, preview, end };
   return end;
 }
@@ -1185,7 +1181,7 @@ let wxFold: WeatherFold = loadWeatherFold();
 let wxRefocus = false;
 
 /** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
-function weatherSection(a: AppState, preview: Preview): string {
+function weatherSection(a: AppState): string {
   // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
   // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
   const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
@@ -1198,25 +1194,24 @@ function weatherSection(a: AppState, preview: Preview): string {
     const under = weatherUnder({ open, ...weatherRowBody(a.sim, open) });
     return under ? `<section class="box seasonbox">${under}</section>` : '';
   }
-  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
+  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, fold) : weatherBox(a.sim, t, { dev, fold });
   // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
   return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${box}</section>`;
 }
 
 /** The weather and the time of day in one row (#1825), the full box under it while it's open. */
-function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
+function weatherOneRow(a: AppState, fold: { mode: string; hint: boolean }): string {
   const open = fold.mode === 'open';
-  return weatherRow({ ...weatherRowHead(a, preview), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
+  return weatherRow({ ...weatherRowHead(a), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
 }
 
 /** What the weather row says: the sky and the cold, and the time of day. */
-function weatherRowHead(a: AppState, preview: Preview): { chips: ReturnType<typeof weatherChips>; time: string } {
+function weatherRowHead(a: AppState): { chips: ReturnType<typeof weatherChips>; time: string } {
   return {
     chips: weatherChips(a.sim, t, { dev }),
-    // The time now, with the line under the queue saying where the day ends (#2000); else the TODAY
-    // chip's own text (the part of the day the plan ends in, or the hours). Plain words and digits,
-    // so the row escapes it as text.
-    time: weatherRowTime(a, preview, t, dev, dayForecastOn()),
+    // The time now (#2000): the line under the queue says where the day ends. Plain words and
+    // digits, so the row escapes it as text.
+    time: weatherRowTime(a.sim, t, dev),
   };
 }
 
@@ -1248,8 +1243,8 @@ function weatherInTabs(): boolean {
 const tabRow = (tabs: string, wx: string): string => (wx ? `<div class="tabrow">${tabs}${wx}</div>` : tabs);
 
 /** The weather row's button for the tab row, when it goes there (`weatherInTabs`). */
-const weatherTab = (a: AppState, preview: Preview): string =>
-  (weatherInTabs() ? weatherToggle({ ...weatherRowHead(a, preview), open: weatherFoldState(wxFold).mode === 'open' }, t, 'wxtab') : '');
+const weatherTab = (a: AppState): string =>
+  (weatherInTabs() ? weatherToggle({ ...weatherRowHead(a), open: weatherFoldState(wxFold).mode === 'open' }, t, 'wxtab') : '');
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
 function guidedPlan(a: AppState, preview: Preview): string {
@@ -1271,8 +1266,8 @@ function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
       // The first meal's note (#1848) sits under the weather, at the top of the day's plan.
-      if (guide.active) return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${planLayout({
+      if (guide.active) return `${weatherSection(a)}${rationsNoteBlock(a)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a)}${rationsNoteBlock(a)}${planLayout({
         actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
         queue: queueBlock(a, preview),
         journal: `<div class="log">${jHead(t('head.latest'), LATEST_STYLE, a, a.sim.log.length === 0)}<ul>${journal(a, 6)}</ul></div>`,
@@ -1389,13 +1384,13 @@ function drawPage(a: AppState): void {
       twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
       twoRowOn() && compactOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
+    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}
-    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}
+    ${campPickOpen && !playing && pickerFor(a.sim) ? campPicker(a.sim, t) : ''}
     ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
     ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
   const sheetList = root.querySelector('.jsheet ul');

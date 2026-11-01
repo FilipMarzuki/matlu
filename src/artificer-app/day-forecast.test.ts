@@ -8,7 +8,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { makeT } from '../artificer/i18n';
-import { featureById, uiFeatureOn } from '../artificer/features';
 import { keyMetrics } from '../artificer/key-metrics';
 import { knownSpots } from '../artificer/camp-sites';
 import { endDay, queueId, runAction, winterOutlook, type QueueItem, type Region1State } from '../artificer/region1';
@@ -18,7 +17,7 @@ import { enqueue, makeWarden, previewQueue, todayHours, type AppState } from './
 import { queueForecast, taskCard } from './forecast-words';
 import { vitalLevel, vitalWord } from './vital-words';
 import { queueStrip } from './plan-layout';
-import { DAY_FORECAST_FEATURE, dayEnd, dayEndHtml, dayEndText, storeText, storesText } from './day-forecast';
+import { dayEnd, dayEndHtml, dayEndText, storeText, storesText } from './day-forecast';
 
 const en = makeT('en');
 const sv = makeT('sv');
@@ -54,15 +53,6 @@ const line = (sim: Region1State, queue: QueueItem[], t = en, words = true): stri
 };
 
 describe('Where the day ends, in words (#1930)', () => {
-  it('is a ui switch, on by default, that no run saves', () => {
-    const f = featureById(DAY_FORECAST_FEATURE);
-    expect(f?.kind).toBe('ui');
-    expect(f?.default).toBe(true);
-    expect(uiFeatureOn({}, DAY_FORECAST_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [DAY_FORECAST_FEATURE]: false }, DAY_FORECAST_FEATURE)).toBe(false);
-    expect(ON.camped.config.world.features?.[DAY_FORECAST_FEATURE]).toBeUndefined();
-  });
-
   it('a day that ends back at camp: when, how tired (the word the header will show), and the nights each store a trip fills covers', () => {
     const { a, p } = queued(OFF.camped, ['wood', 'water']);
     const e = dayEnd(a, p, true, en)!;
