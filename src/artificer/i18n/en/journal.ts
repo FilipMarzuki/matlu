@@ -30,7 +30,7 @@ import { GAIN_WORDS, STAT_IDS } from '../../stats';
 import { INSTINCT_LINE } from '../../panic';
 import { SPOOK_LINE, DISCOVERIES, GRADE_LINE, REGION1_MILESTONES } from '../../region1';
 import { FINDS } from '../../exploration';
-import { EXPLORE_UNLOCKS, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from '../../action-unlocks';
+import { EXPLORE_UNLOCKS, LOOK_LOCK, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE, TIER_LINE } from '../../action-unlocks';
 import { HUNT_UNLOCK, FISH_UNLOCK, BOW_UNLOCK } from '../../hunting-gear';
 import { MANUALS } from '../../techniques';
 import { PIN_WORDS, PLACE_NAME } from '../../pins';
@@ -50,6 +50,8 @@ const derived = Object.fromEntries([
   ...Object.entries(INSTINCT_LINE).map(([r, l]) => [`say.instinct.${r}`, l]),
   ...Object.entries(SPOOK_LINE).map(([r, l]) => [`say.spook.${r}`, l]),
   ...EXPLORE_UNLOCKS.flatMap(u => [[`say.unlock.${u.action}`, u.line], [`w.unlock.${u.action}.verb`, u.verb], [`w.unlock.${u.action}.how`, u.how]]),
+  // One exploring action that grows (#2018, `explore-grows`): its step-up lines, and Look around's limit.
+  ['say.tier.explore', TIER_LINE.explore], ['say.tier.scout', TIER_LINE.scout], ['say.look.lock', LOOK_LOCK],
   // Quarrying before the cleave (#1816, `stone-gathering`): hidden, and the flint seam's note names gathering.
   ['w.unlock.quarry.verb', QUARRY_UNLOCK.verb], ['w.unlock.quarry.how', QUARRY_UNLOCK.how], ['w.find.stone.gather.note', STONE_GATHER_FIND_NOTE],
   // Hunting, fishing and the bow before their gear or skill (#1821, `hunting-gear`): hidden, saying what opens them.
@@ -157,6 +159,8 @@ export const journal = {
   'log.tooDark': 'Too dark to make anything out{where} — the hours pass and you learn nothing.',
   'log.fogged': "Fog lies thick{where} — you can't see past your own hand, and learn nothing.",
   'log.survey': 'Surveyed carefully{where} — every trip there yields more now.',
+  // Scout, the one exploring action at Adept (#2018): a look round shows everything there.
+  'log.scouted': 'Scouted the land{where} — you know now what\'s there, all of it.',
   'log.track': 'Tracked a deer herd{where} — you can hunt there.',
   'log.gather': 'Gathered {n} raw food{where}.',
   'log.gather.fiber': 'Gathered {n} raw food and {m} fiber{where}.',

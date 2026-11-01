@@ -6,7 +6,8 @@
  */
 
 import { suggestedPackOf } from '../../artificer/kit';
-import { blockedReason, nightFuel, queueHours, queueId, runAction, winterOutlook, openMeatOf, meatPlaceFor, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
+import { blockedReason, exploreTierOf, growsOn, nightFuel, queueHours, queueId, runAction, winterOutlook, openMeatOf, meatPlaceFor, DAY_HOURS, type ActionId, type ActionOpts, type QueueItem, type Region1State } from '../../artificer/region1';
+import { FOLDED_INTO_EXPLORE } from '../../artificer/action-unlocks';
 import { campAsActionOn } from '../../artificer/camp-sites';
 import { BANK_FIREWOOD } from '../../artificer/camp-scavengers';
 import { scouted, type Ring } from '../../artificer/exploration';
@@ -80,6 +81,18 @@ function routineDay(s: Region1State): Entry[] {
  * without a hook and line becomes one made, else foraging. With the switch off nothing is hidden and
  * the plan is as it always was.
  */
+/**
+ * One exploring action that grows (#2018, `explore-grows`): Scout and Survey aren't actions of their
+ * own, so the plan's scouting and surveying are the one exploring action at the same distance; while
+ * it's still Look around, close by (which is what grows it), as it can't go further yet. With the
+ * switch off the plan is as it always was.
+ */
+function withExplore(queue: Entry[], s: Region1State): Entry[] {
+  if (!growsOn(s)) return queue;
+  const near = exploreTierOf(s) === 'look';
+  return queue.map(e => (FOLDED_INTO_EXPLORE.includes(e.action) ? a('explore', near ? 1 : e.ring) : e));
+}
+
 function withGear(queue: Entry[], s: Region1State): Entry[] {
   const used = new Set<string>();
   const first = (action: string, ring = 1): Entry | null => {
@@ -180,7 +193,10 @@ function wants(s: Region1State): Entry[] {
     out.push(a('hunt', 1, { target: 'small' }), a('fish'), a('gather'), a('hunt', 2, { target: 'small' }), a('gather', 2));
   }
   // Once there's a roof, a look further out: more places to camp, forage and game, and the map's places.
-  if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
+  // While the one exploring action is still Look around (#2018, `explore-grows`), it can't go that far:
+  // looking around close by again, with any hours left, is what trains Scouting toward it.
+  if (exploreTierOf(s) === 'look' && !scouted(s.explore, 2)) out.push(a('explore'));
+  else if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
   if (s.stores.rawFood >= 4) out.push(a('preserve'));
   // Meat lying out at camp draws animals (#1823): put it out of reach (refused, so skipped, with nothing to store or the switch off).
   out.push(a('storemeat'));
@@ -313,7 +329,7 @@ const scriptedPlanner = (): Player => {
           queue = [...(short ? [a('wood'), a('wood')] : []), a('build', 1, site ? { site } : {})];
         }
       }
-      queue = withGear(queue, s);
+      queue = withGear(withExplore(queue, s), s);
       return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, eating, queue }), usage: { cost: 0 } };
     },
     async decideRoad(_message, r) {

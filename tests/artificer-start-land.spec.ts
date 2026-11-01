@@ -43,9 +43,12 @@ async function fresh(page: Page, lang: 'en' | 'sv', features: Record<string, boo
   return errors;
 }
 
+// The button says the one exploring action's name for a new Warden (#2018, `explore-grows`): Look around,
+// or Explore when one of the two talents the intro picks at random is Keen Eye (a level up). The exact
+// names are pinned in explore-grows.test.ts.
 const words = {
-  en: { note: 'Your patrol leader always said: scout first.', go: 'Explore', near: 'Unknown' },
-  sv: { note: 'Patrulledaren brukade säga: spana först.', go: 'Utforska', near: 'Okänt' },
+  en: { note: 'Your patrol leader always said: scout first.', go: /^(Look around|Explore)$/, near: 'Unknown' },
+  sv: { note: 'Patrulledaren brukade säga: spana först.', go: /^(Se dig omkring|Utforska)$/, near: 'Okänt' },
 };
 
 for (const lang of ['en', 'sv'] as const) {

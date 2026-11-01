@@ -32,10 +32,12 @@ async function toChooser(page: Page, lang: 'en' | 'sv', features: Record<string,
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
+  // The eight ways from day one: with `explore-grows` (#2018) a new Warden would still be Look around,
+  // close by only, so it's off here (as directed-explore.test.ts has it).
   await page.evaluate(({ lang, features }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
-    if (Object.keys(features).length) localStorage.setItem('artificer.features', JSON.stringify(features));
+    localStorage.setItem('artificer.features', JSON.stringify({ 'explore-grows': false, ...features }));
   }, { lang, features });
   await page.reload();
   await throughIntro(page);

@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, LOOSE_STONE_SITES, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, growsOn, exploreTierOf, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -185,8 +185,10 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
     case 'quarry': return `+${ty('stone', 3, 1) + fb('stone')} stone`;
     case 'gatherstone': return `+${ty('stone', 1.5, 0.5) + (r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0) + fb('stone') / 2} stone (more camped by the river or on the hill)`;
     case 'fish': return `about +${FISH_CATCH * RICHNESS[r]} food through the ice (needs thick lake ice: the deep cold)`;
-    case 'explore': return distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
-      : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
+    // Scout, the one exploring action at Adept (#2018): a look round from camp shows it all.
+    case 'explore': return exploreTierOf(s) === 'scout' ? 'scout: everything there observed (looking around, when you\'re not out on the land)'
+      : distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
+        : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
     case 'scout': return 'everything there at least suspected';
     case 'survey': return 'everything there observed';
     case 'track': return 'game observed';
@@ -514,6 +516,14 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
     // Keeping a heading (#1868, `compass-heading`): what heading out needs, and what the Warden has.
     const heading = headingLine(s);
     if (heading) lines.push(heading);
+  }
+  // One exploring action that grows (#2018, `explore-grows`): what it's called now, and what it can do.
+  if (growsOn(s)) {
+    const tier = exploreTierOf(s);
+    const now = tier === 'look' ? 'Look around: close by only, and no heading out yet'
+      : tier === 'explore' ? 'Explore: the farther distances, and heading out (when you can keep a heading)'
+        : 'Scout: as Explore, and looking around a distance, when you\'re not out on the land, makes everything there observed in one trip';
+    lines.push(`GROWING: "explore" is the one exploring action ("scout" and "survey" aren't separate actions in this game). It grows with your Scouting: Look around at first (close by only, no heading out), Explore at Apprentice (the farther distances and the eight ways), Scout at Adept (one look round a distance, when you're not out on the land, makes everything there observed). Keen Eye counts a level up, and it takes what helped Scout and Survey: the map & compass, binoculars, Keen Eye, the Landmarks technique. Now: ${now}.`);
   }
   // Tasks walk the map (#1876, `walk-the-map`): the rules, and where the Warden is now.
   if (walkOn(s)) lines.push(`${WALK_RULES} ${whereLine(s)}`);

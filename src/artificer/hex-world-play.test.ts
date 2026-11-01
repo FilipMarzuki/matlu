@@ -25,7 +25,8 @@ import { makeT } from './i18n';
 
 const world = (): WorldConfig => ({
   ...FULL_WORLD, luck: false, accidents: false, darkness: false, weather: 'clear', encounters: false,
-  features: ruleFeatures({ 'hex-world': true, 'directed-explore': true, 'camp-as-action': true, 'walk-the-map': true, 'compass-heading': false }),
+  // Heading out from day one: with `explore-grows` (#2018) a new Warden would still be Look around.
+  features: ruleFeatures({ 'hex-world': true, 'directed-explore': true, 'camp-as-action': true, 'walk-the-map': true, 'compass-heading': false, 'explore-grows': false }),
 });
 const warden = (id: string): Region1State => createRegion1({ world: world() }, undefined, { id });
 const head = (dir: Dir, ring: 1 | 2 | 3): QueueItem => ({ q: ring === 1 ? 'explore' : `explore@${ring}`, opts: { way: dir } });

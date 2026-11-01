@@ -10,7 +10,9 @@ import { GUIDE_KEY } from '../../src/artificer-app/reveal';
 import { knownSpots } from '../../src/artificer/camp-sites';
 import { endDay, runAction, type QueueItem } from '../../src/artificer/region1';
 
-const a = makeWarden({ id: 'w-camp-picker' });
+// Scouting, surveying and the far ring from day one: with `explore-grows` (#2018) a new Warden would
+// still be Look around, close by only, so it's off here (as camp-picker.test.ts has it).
+const a = makeWarden({ id: 'w-camp-picker' }, undefined, { 'explore-grows': false });
 let s = a.sim;
 // Close by, then a little further out (the second ring): the nights come as the days fill.
 for (const q of ['scout', 'survey', 'explore', 'scout', 'explore', 'scout@2', 'explore@2'] as QueueItem[]) {

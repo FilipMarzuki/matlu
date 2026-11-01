@@ -78,6 +78,8 @@ const TRIP_LINES: readonly [RegExp, (m: RegExpMatchArray) => Ring][] = [
   [/^Walked out half a day and looked around — /, () => 2],
   [/^Walked out as far as the distant hills — /, () => 3],
   [new RegExp(`^Walked the ground${WHERE} again and looked closer`), m => ringIn(m[1], m[2])],
+  // Scout, the one exploring action at Adept (#2018, `explore-grows`): a look round that shows it all.
+  [new RegExp(`^Scouted the land${WHERE} — `), m => ringIn(m[1], m[2])],
   [new RegExp(`^Surveyed carefully${WHERE} — `), m => ringIn(m[1], m[2])],
   [new RegExp(`^Climbed high${WHERE} and looked out`), m => ringIn(m[1], m[2])],
 ];

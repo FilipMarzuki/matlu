@@ -17,7 +17,9 @@ import { resetFolds } from './fold';
 const en = makeT('en');
 const sv = makeT('sv');
 
-const fresh = (id = 'w-assess'): Region1State => createRegion1({ world: { ...FULL_WORLD, encounters: false, features: ruleFeatures() } }, undefined, { id });
+// Exploring the far ring with a new Warden, and LAND's Explore button by that name: with `explore-grows`
+// (#2018) a new Warden's would be Look around, close by only (start-land.test.ts has that), so it's off here.
+const fresh = (id = 'w-assess'): Region1State => createRegion1({ world: { ...FULL_WORLD, encounters: false, features: ruleFeatures({ 'explore-grows': false }) } }, undefined, { id });
 
 /** Every domain in ring 1 at `lv`, with `trips` spread over its workable domains. */
 function home(lv: number, trips = 0, ring: Ring = 1): Exploration {

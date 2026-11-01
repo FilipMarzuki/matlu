@@ -34,7 +34,9 @@ import {
  * compass-heading.test.ts has heading out with it.
  */
 const world = (on: boolean | 'absent'): WorldConfig => {
-  const features: Record<string, boolean> = { ...ruleFeatures(), 'compass-heading': false };
+  // Heading out and going far from day one, as this test does: the one exploring action that grows
+  // (#2018, `explore-grows`) would still be Look around for a new Warden, so it's off here.
+  const features: Record<string, boolean> = { ...ruleFeatures(), 'compass-heading': false, 'explore-grows': false };
   if (on === 'absent') delete features[DIRECTED_EXPLORE];
   else features[DIRECTED_EXPLORE] = on;
   return { ...FULL_WORLD, luck: false, accidents: false, darkness: false, weather: 'clear', encounters: false, features };

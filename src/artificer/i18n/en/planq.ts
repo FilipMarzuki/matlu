@@ -40,6 +40,8 @@ export const planq = {
   'actshort.lookout': 'Look out',
   'actshort.study': 'Study',
   'actshort.explore': 'Explore',
+  'actshort.explore.look': 'Look',
+  'actshort.explore.scout': 'Scout',
   'actshort.experiment': 'Experiment',
   'actshort.camp': 'Camp',
   'actshort.tinker': 'Tinker',

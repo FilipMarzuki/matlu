@@ -32,7 +32,9 @@ import {
 type Switch = boolean | 'absent';
 /** Daylight, a fixed weather, no luck, accidents or encounters: what happens is the rules'. */
 const world = (on: Switch, weather: WeatherId): WorldConfig => {
-  const features = ruleFeatures();
+  // Heading out and going far from day one, as this test does: the one exploring action that grows
+  // (#2018, `explore-grows`) would still be Look around for a new Warden, so it's off here.
+  const features = ruleFeatures({ 'explore-grows': false });
   if (on === 'absent') delete features[COMPASS_HEADING];
   else features[COMPASS_HEADING] = on;
   return { ...FULL_WORLD, luck: false, accidents: false, darkness: false, weather, encounters: false, features };

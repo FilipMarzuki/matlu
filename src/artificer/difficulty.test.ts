@@ -156,7 +156,8 @@ describe('Unspent stat points and unchosen talents become a difficulty multiplie
   });
 
   it('7. no talent chosen: what a talent would have opened stays locked, and the run plays on', () => {
-    const world = { ...FULL_WORLD, encounters: false, features: { 'action-visibility': true } };
+    // Scout and Survey as actions of their own, as before #2018's `explore-grows` (which folds them into Explore).
+    const world = { ...FULL_WORLD, encounters: false, features: { 'action-visibility': true, 'explore-grows': false } };
     const keen = makeWarden({ id: ID, chosen: ['keenEye', 'hunter'] as never, stats: ALL_SPENT }, undefined, world.features);
     const none = makeWarden({ id: ID, chosen: [], stats: ALL_SPENT }, undefined, world.features);
     // With the talents, Keen Eye opens the scouting three and Hunter's Patience tracking, from day one…

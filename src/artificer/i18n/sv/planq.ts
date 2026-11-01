@@ -37,6 +37,8 @@ export const planqSv: Record<keyof typeof planq, string> = {
   'actshort.lookout': 'Utkik',
   'actshort.study': 'Studera',
   'actshort.explore': 'Utforska',
+  'actshort.explore.look': 'Se dig om',
+  'actshort.explore.scout': 'Spana',
   'actshort.experiment': 'Experiment',
   'actshort.camp': 'Läger',
   'actshort.tinker': 'Pyssla',

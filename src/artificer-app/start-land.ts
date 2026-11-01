@@ -15,6 +15,7 @@ import { RINGS, domainsOf, level, reachable } from '../artificer/exploration';
 import { ACTIONS, type ActionId, type Region1State } from '../artificer/region1';
 import { visibilityOf } from '../artificer/action-visibility';
 import { esc } from './html';
+import { actionName } from './sim-words';
 import { ICON_LEVEL } from './land-icons';
 import { suitableSiteKnown } from './reveal';
 import type { RingDefaults } from './distance-defaults';
@@ -58,7 +59,7 @@ export function nearestFirst(defaults: RingDefaults): RingDefaults {
 /** The note, at the top of LAND: the leader's advice and the one button. '' when not due. */
 export function startNoteBlock(s: Region1State, t: T): string {
   if (!startNoteDue(s)) return '';
-  const go = canLeadToExplore(s) ? `<button class="btn go landstartgo" data-startexplore="1">${esc(t('land.start.go'))}</button>` : '';
+  const go = canLeadToExplore(s) ? `<button class="btn go landstartgo" data-startexplore="1">${esc(actionName('explore', t, s))}</button>` : '';
   return `<section class="box landstart" role="note"><p class="mood" style="margin:0 0 10px">${esc(t('land.start.note'))}</p>${go}</section>`;
 }
 

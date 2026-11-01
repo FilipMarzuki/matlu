@@ -30,7 +30,9 @@ import { WALK_THE_MAP, planTrip, homeOf, wardenAt, legAt, validTrail, TRAIL_DAYS
 
 /** Daylight, clear weather, no luck, accidents or encounters: what happens is the rules'. Keeping a heading (#1868) is off, as in #1839's tests. */
 const world = (on: boolean | 'absent'): WorldConfig => {
-  const features: Record<string, boolean> = { ...ruleFeatures(), 'compass-heading': false };
+  // Heading out and going far from day one, as this test does: the one exploring action that grows
+  // (#2018, `explore-grows`) would still be Look around for a new Warden, so it's off here.
+  const features: Record<string, boolean> = { ...ruleFeatures(), 'compass-heading': false, 'explore-grows': false };
   if (on === 'absent') delete features[WALK_THE_MAP];
   else features[WALK_THE_MAP] = on;
   return { ...FULL_WORLD, luck: false, accidents: false, darkness: false, weather: 'clear', encounters: false, features };

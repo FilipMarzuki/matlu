@@ -21,7 +21,9 @@ const enT = makeT('en');
 const sv = makeT('sv');
 
 const warden = (on = true, id = 'w-astrid'): Region1State => {
-  const features = { ...ruleFeatures(), [DIRECTED_EXPLORE]: on };
+  // Heading out and going far from day one, as this test does: the one exploring action that grows
+  // (#2018, `explore-grows`) would still be Look around for a new Warden, so it's off here.
+  const features = { ...ruleFeatures(), [DIRECTED_EXPLORE]: on, 'explore-grows': false };
   return createRegion1({ world: { ...FULL_WORLD, encounters: false, luck: false, accidents: false, darkness: false, weather: 'clear', features } }, undefined, { id });
 };
 const app = (sim: Region1State): AppState => ({ ...makeWarden({ id: sim.character.id }), sim, queue: [] });

@@ -19,7 +19,9 @@ const sv = makeT('sv');
 
 /** A Warden who knows home ground (surveyed), so the far ring is in reach and still unknown. */
 function homeKnown(id = 'w-land-news'): Region1State {
-  const s = createRegion1({ world: { ...FULL_WORLD, encounters: false, features: ruleFeatures() } }, undefined, { id });
+  // Exploring the far ring with a new Warden, as these tests do: with `explore-grows` (#2018) it would
+  // still be Look around, close by only, so it's off here.
+  const s = createRegion1({ world: { ...FULL_WORLD, encounters: false, features: ruleFeatures({ 'explore-grows': false }) } }, undefined, { id });
   return { ...s, explore: survey(createExploration(), 1) };
 }
 
