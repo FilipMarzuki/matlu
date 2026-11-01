@@ -125,6 +125,7 @@ export const map = {
   'biome.snow': 'Snowfield',
   // The minimap (#2016): what a screen reader hears for the nine squares around you.
   'mini.label': 'Where you stand: {here}',
+  'mini.labelBare': 'Where you stand',
   'domain.forage': 'forage',
   'domain.timber': 'timber',
   'domain.stone': 'stone',

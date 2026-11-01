@@ -32,8 +32,8 @@ import { standingLine, standingNote, standingRow } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
-import { roadAnchorsOf, hexWorldOn, landOfRun } from '../artificer/world/hex-window';
-import { miniAround, minimapHtml, placesOf, stepWalk, walkPos, type At } from './minimap';
+import { roadAnchorsOf, hexWorldOn, landOfRun, type Land } from '../artificer/world/hex-window';
+import { miniAround, minimapHtml, placesOf, roundTrip, stepWalk, walkPos, walkPosByLegs, type At } from './minimap';
 import { TIER_NAME } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, keptOuterHistory, roadAnchorsOfHistory, type ReachHistory, type OuterHistory } from '../artificer/world/history-format';
@@ -705,6 +705,22 @@ function stripBlock(a: AppState, preview: Preview): string {
 }
 
 /**
+ * The minimap (#2016, minimap.ts): the squares around where the Warden stands. In the status line,
+ * and on a phone in the queue's strip instead (style.css shows one or the other: the phone's status
+ * line has no room). Two copies of a picture, not of a control, so CSS can choose between them; the
+ * HTML is made once per state and used for both.
+ */
+let miniMemo: { s: AppState['sim']; t: T; html: string } | null = null;
+function miniStatus(s: AppState['sim']): string {
+  if (miniMemo?.s === s && miniMemo.t === t) return miniMemo.html;
+  const land = landOfRun(s);
+  const { at, camp } = placesOf(s, land);
+  const html = minimapHtml(miniAround(land, at, camp), t, { size: 'sm' });
+  miniMemo = { s, t, html };
+  return html;
+}
+
+/**
  * The status line (#1924, the compact status bar; the only one since #2009): the Warden's button
  * (with the two-row header), the day, the three vitals as
  * small dots and the key box (food/water/firewood), all on one line, so the sticky bar stays to
@@ -714,16 +730,6 @@ function stripBlock(a: AppState, preview: Preview): string {
  * The "where you stand" line is the exception (#1951): it has a row of its own right after the
  * bar's sticky element (`standingUnder`), so it's seen without a tap and scrolls away with the page.
  */
-/**
- * The minimap (#2016, minimap.ts): the squares around where the Warden stands. In the status line,
- * and on a phone in the queue's strip instead (style.css shows one or the other: the phone's status
- * line has no room). Two copies of a picture, not of a control, so CSS can choose between them.
- */
-function miniStatus(s: AppState['sim']): string {
-  const land = landOfRun(s);
-  const { at, camp } = placesOf(s, land);
-  return minimapHtml(miniAround(land, at, camp), t, { size: 'sm' });
-}
 
 /** Whether the status line says the day: once the guide shows anything past the Warden in it. */
 const compactDayShown = (): boolean => guide.shows('vitals') || guide.shows('focus') || guide.shows('stores');
@@ -2099,23 +2105,30 @@ let miniDrawn: At | null = null;
 /** Each action's walk (minimap.ts `stepWalk`), worked out once per action played. */
 const walks = new WeakMap<PlayStep, At[]>();
 
-/** Where the Warden is on the timer's minimap at this moment: along the action's walk, or where the day left them. */
-function timerMiniAt(p: DayPlay, m: Moment): At {
-  const land = landOfRun(p.before.sim);
+/**
+ * Where the Warden is on the timer's minimap at this moment: along the action's walk, or where the
+ * day left them. A session of chosen length (#1668) walks by its legs, as the timer's bar shows
+ * them (out, work, back, each trip); any other trip by its walk's length.
+ */
+function timerMiniAt(p: DayPlay, m: Moment, land: Land): At {
   const st = p.steps[m.index];
   if (!st) return placesOf(p.steps[p.steps.length - 1]?.sim ?? p.before.sim, land).at;
   let walk = walks.get(st);
   if (!walk) { walk = stepWalk(m.index > 0 ? p.steps[m.index - 1].sim : p.before.sim, st.sim, land); walks.set(st, walk); }
-  return walkPos(walk, m.frac, st.hours);
+  return st.phases && roundTrip(walk) ? walkPosByLegs(walk, st.phases, m.frac) : walkPos(walk, m.frac, st.hours);
 }
 
-/** The timer's minimap (#2016): bigger than the status line's, sliding in from the last square (`slide`) as the Warden walks. */
-function timerMini(pl: Playing, slide: { dx: number; dy: number } | null): string {
-  const p = pl.plays[pl.day];
-  const land = landOfRun(p.before.sim);
-  const at = timerMiniAt(p, momentOf(pl));
+/** The timer's minimap (#2016): bigger than the status line's, the Warden at `at`, sliding in from the last square (`slide`) as they walk. */
+function timerMini(pl: Playing, land: Land, at: At, slide: { dx: number; dy: number } | null): string {
   miniDrawn = at;
   return minimapHtml(miniAround(land, at, placesOf(shownNow(pl).sim, land).camp), t, { size: 'lg', slide, id: 'pb-mini' });
+}
+
+/** The timer's minimap where the timer is now. */
+function timerMiniNow(pl: Playing): string {
+  const p = pl.plays[pl.day];
+  const land = landOfRun(p.before.sim);
+  return timerMini(pl, land, timerMiniAt(p, momentOf(pl), land), null);
 }
 
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
@@ -2131,7 +2144,7 @@ function timerPanel(): string {
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="twalk">${timerMini(pl, null)}<div class="tmain">
+    <div class="twalk">${timerMiniNow(pl)}<div class="tmain">
     <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span>${stopPoint(p, m) ? `<button class="btn tstop" data-pbstop title="${esc(t('timer.stopTip'))}">${esc(t('timer.stop'))}</button>` : ''}</div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div></div></div>
     <ul class="tlog" id="pb-log" aria-live="polite">${timerLog(pl, performance.now())}</ul>
@@ -2185,9 +2198,10 @@ function tickTimer(pl: Playing, now: number): void {
   // The Warden walks the minimap (#2016): redrawn only when they step onto another square, sliding in from the last.
   const mini = document.getElementById('pb-mini');
   if (mini) {
-    const at = timerMiniAt(p, m);
+    const land = landOfRun(p.before.sim);
+    const at = timerMiniAt(p, m, land);
     const was = miniDrawn;
-    if (!was || was.x !== at.x || was.y !== at.y) mini.outerHTML = timerMini(pl, was ? { dx: at.x - was.x, dy: at.y - was.y } : null);
+    if (!was || was.x !== at.x || was.y !== at.y) mini.outerHTML = timerMini(pl, land, at, was ? { dx: at.x - was.x, dy: at.y - was.y } : null);
   }
   const bar = document.getElementById('pb-bar');
   if (bar) {

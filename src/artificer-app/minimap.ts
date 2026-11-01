@@ -89,6 +89,37 @@ export function stepWalk(before: Region1State, after: Region1State, land: Land =
   return walk;
 }
 
+/** A walk there and back: it ends where it started (three squares at least: out, the far end, back). */
+export const roundTrip = (walk: readonly At[]): boolean =>
+  walk.length >= 3 && walk[0].x === walk[walk.length - 1].x && walk[0].y === walk[walk.length - 1].y;
+
+/** A leg of a trip as the timer plays it (playback.ts `Phase`): walking out, working there, walking back. */
+export interface Leg { kind: 'out' | 'work' | 'back'; hours: number }
+
+/**
+ * Where along a walk there and back the Warden is, `frac` of the way through an action played as
+ * `legs` (a session of chosen length, #1668: out, work, back for each trip, on the same path), so the
+ * minimap and the timer's bar agree on whether the Warden is walking or working.
+ */
+export function walkPosByLegs(walk: readonly At[], legs: readonly Leg[], frac: number): At {
+  const n = walk.length;
+  if (n <= 1 || !legs.length) return walk[0];
+  const far = Math.floor((n - 1) / 2);
+  const total = legs.reduce((h, l) => h + l.hours, 0);
+  let at = Math.min(1, Math.max(0, frac)) * total;
+  for (let k = 0; k < legs.length; k++) {
+    const l = legs[k];
+    if (at < l.hours || k === legs.length - 1) {
+      const lf = l.hours > 0 ? Math.min(1, at / l.hours) : 1;
+      if (l.kind === 'work') return walk[far];
+      if (l.kind === 'out') return walk[Math.round(lf * far)];
+      return walk[Math.min(n - 1, far + Math.round(lf * (n - 1 - far)))];
+    }
+    at -= l.hours;
+  }
+  return walk[n - 1];
+}
+
 /** A square of the land is about half an hour's walk across (worldmap/reach.ts). */
 export const SQUARE_HOURS = 0.5;
 
@@ -113,9 +144,7 @@ export function walkPos(walk: readonly At[], frac: number, hours?: number): At {
   const n = walk.length;
   if (n <= 1) return walk[0];
   const f = Math.min(1, Math.max(0, frac));
-  const first = walk[0], last = walk[n - 1];
-  const roundTrip = n >= 3 && first.x === last.x && first.y === last.y;
-  if (!roundTrip) return walk[Math.min(n - 1, Math.floor(f * n))];
+  if (!roundTrip(walk)) return walk[Math.min(n - 1, Math.floor(f * n))];
   // The far end: the square furthest along the way out (the middle of a path walked there and back).
   const far = Math.floor((n - 1) / 2);
   const share = walkShare(walk, hours);
@@ -142,12 +171,12 @@ export interface MiniOpts {
  */
 export function minimapHtml(squares: readonly MiniSquare[], t: T, o: MiniOpts): string {
   const mid = squares[Math.floor(squares.length / 2)];
-  const here = mid?.biome ? t(`biome.${mid.biome}`) : '';
+  const label = mid?.biome ? t('mini.label', { here: t(`biome.${mid.biome}`) }) : t('mini.labelBare');
   const cells = squares.map((q, k) => {
     const cls = [q.biome ? `mm-${q.biome}` : 'mm-out', q.camp ? 'mm-camp' : '', k === Math.floor(squares.length / 2) ? 'mm-here' : ''].filter(Boolean).join(' ');
     return `<i class="${cls}"></i>`;
   }).join('');
   const s = o.slide && (o.slide.dx || o.slide.dy) && Math.abs(o.slide.dx) <= 1 && Math.abs(o.slide.dy) <= 1 ? o.slide : null;
   const grid = `<div class="mmgrid${s ? ' slide' : ''}"${s ? ` style="--dx:${s.dx};--dy:${s.dy}"` : ''}>${cells}</div>`;
-  return `<div class="minimap mm-${o.size}"${o.id ? ` id="${o.id}"` : ''} role="img" aria-label="${esc(t('mini.label', { here }))}">${grid}</div>`;
+  return `<div class="minimap mm-${o.size}"${o.id ? ` id="${o.id}"` : ''} role="img" aria-label="${esc(label)}">${grid}</div>`;
 }

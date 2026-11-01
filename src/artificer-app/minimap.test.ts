@@ -11,7 +11,7 @@ import { runAction, type QueueItem } from '../artificer/region1';
 import { WALK_THE_MAP } from '../artificer/walk-the-map';
 import { landOfRun } from '../artificer/world/hex-window';
 import { enqueue, makeWarden, type AppState } from './controller';
-import { MINI_R, miniAround, minimapHtml, placesOf, stepWalk, walkPos, walkShare, type At } from './minimap';
+import { MINI_R, miniAround, minimapHtml, placesOf, roundTrip, stepWalk, walkPos, walkPosByLegs, walkShare, type At } from './minimap';
 import { playDay } from './playback';
 
 const en = makeT('en');
@@ -121,6 +121,28 @@ describe('where along the walk the Warden is (#2016)', () => {
   it('nowhere to walk: where they stand', () => {
     expect(walkPos([A], 0.7)).toEqual(A);
   });
+
+  it('a walk there and back ends where it started', () => {
+    expect(roundTrip(there)).toBe(true);
+    expect(roundTrip([A, B, C])).toBe(false);
+    expect(roundTrip([A])).toBe(false);
+  });
+
+  it('a session (#1668) walks by its legs, as the timer\'s bar plays them: each trip out, there, back', () => {
+    // Two trips, each 1h out, 2h of work, 1h back: 8 hours.
+    const legs = [{ kind: 'out' as const, hours: 1 }, { kind: 'work' as const, hours: 2 }, { kind: 'back' as const, hours: 1 }];
+    const two = [...legs, ...legs];
+    const at = (h: number) => walkPosByLegs(there, two, h / 8);
+    expect(at(0)).toEqual(A);
+    expect(at(0.5)).toEqual(B);
+    expect(at(1.5)).toEqual(C);
+    expect(at(3.5)).toEqual(B);
+    // The second trip starts at camp again, and walks the same path.
+    expect(at(4)).toEqual(A);
+    expect(at(4.5)).toEqual(B);
+    expect(at(6)).toEqual(C);
+    expect(at(8)).toEqual(A);
+  });
 });
 
 describe('the minimap\'s HTML (#2016)', () => {
@@ -132,6 +154,11 @@ describe('the minimap\'s HTML (#2016)', () => {
     expect(html).toContain('<i class="mm-birch mm-here"></i>');
     expect(html).toContain('<i class="mm-river mm-camp"></i>');
     expect(html).toMatch(/^<div class="minimap mm-sm" role="img" aria-label="Where you stand: Birch wood"><div class="mmgrid"><i class="mm-out"><\/i>/);
+  });
+
+  it('with the middle past the land\'s edge, says just where you stand', () => {
+    const edge = sq.map((q, k) => (k === 12 ? { ...q, biome: null } : q));
+    expect(minimapHtml(edge, en, { size: 'sm' })).toContain('aria-label="Where you stand"');
   });
 
   it('says where you stand in Swedish too', () => {
