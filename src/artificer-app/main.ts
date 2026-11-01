@@ -29,7 +29,7 @@ import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
 import { GUIDE_FEATURE } from './survival-path';
-import { STANDING_FEATURE, standingLine, standingNote, standingRow } from './standing-line';
+import { standingLine, standingNote, standingRow } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
@@ -840,9 +840,9 @@ installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
 /** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
-const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE), standing: standingOn() });
-/** The "where you stand" line (#1926): a ui feature, on unless switched off; it reads the guide's Survival path, so it needs `guide` on too. */
-const standingOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE) && uiFeatureOn(loadChoices(), STANDING_FEATURE);
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
+/** The "where you stand" line (#1926): it reads the guide's Survival path, so it shows with `guide` on. */
+const standingOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE);
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
 

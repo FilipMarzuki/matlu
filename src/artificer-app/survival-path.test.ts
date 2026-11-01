@@ -230,7 +230,10 @@ describe('The focus picker lists the steps and suggests a goal focus (#1793)', (
   });
 
   it('shows no checklist once the path is done, and none with the switch off', () => {
-    expect(focusPopover(s6(), en, ON)).not.toContain('fppath');
+    // Done means the outlook holds too (#1926): the pillars alone leave step 5 current.
+    expect(focusPopover(s6(), en, ON)).toContain('fppath');
+    const done = { ...s6(), stores: { ...s6().stores, rations: 40, firewood: 200 } };
+    expect(focusPopover(done, en, ON)).not.toContain('fppath');
     for (const s of [s1(), s3(), locked(s1())]) {
       expect(focusPopover(s, en, OFF)).toBe(focusPopover(s, en));
       expect(focusPopover(s, en, OFF)).not.toContain('fppath');

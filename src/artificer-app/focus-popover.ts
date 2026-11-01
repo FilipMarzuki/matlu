@@ -25,11 +25,11 @@ import { focusBlock } from './warden-view';
 import { FOOD_LAID_BY, PATH_STEPS, stepGoal, survivalPath, type PathOptions } from './survival-path';
 
 /**
- * What the page's switches say about the chip and picker: the `guide` ui feature (survival-path.ts),
- * and `standing-line` (#1926), with which the picker's path reads step 5 against the winter outlook
- * too, as the "where you stand" line that opens it does.
+ * What the page's switches say about the chip and picker: the `guide` ui feature (survival-path.ts).
+ * With it, the picker's path reads step 5 against the winter outlook too, as the "where you stand"
+ * line that opens it does (#1926).
  */
-export interface FocusUi { guide?: boolean; standing?: boolean }
+export interface FocusUi { guide?: boolean }
 
 /** The popover's element id, which the chip names in `aria-controls`. */
 export const FOCUS_POP_ID = 'focuspop';
@@ -71,7 +71,7 @@ export function focusChip(s: Region1State, t: T, open: boolean, ui: FocusUi = {}
 export function focusPopover(s: Region1State, t: T, ui: FocusUi = {}): string {
   return `<div class="focuspop" id="${FOCUS_POP_ID}" role="dialog" aria-modal="false" aria-labelledby="${FOCUS_POP_ID}-h">
     <div class="fphead"><p class="eyebrow" id="${FOCUS_POP_ID}-h">${esc(t('head.focus'))}</p><button class="fpclose" data-cmd="focuspopclose" aria-label="${esc(t('status.focusClose'))}" title="${esc(t('status.focusClose'))}">✕</button></div>
-    ${ui.guide ? pathBlock(s, t, { outlook: ui.standing }) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
+    ${ui.guide ? pathBlock(s, t, { outlook: true }) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
   </div>`;
 }
 

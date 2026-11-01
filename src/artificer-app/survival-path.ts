@@ -71,10 +71,10 @@ export const hasRoof = (s: Region1State): boolean => hasCamp(s) && (s.tier > 0 |
 export const foodLaidBy = (s: Region1State): boolean => winterOutlook(s).foodDays >= FOOD_LAID_BY;
 
 /**
- * How the path is read. `outlook` (the `standing-line` ui feature, #1926): step 5 is done only while
- * the winter outlook holds too (progress-view.ts `outlookShortfalls`), so the path never reads as
- * done beside a PROGRESS tab that says the food or the firewood falls short. Without it, step 5 is
- * the four readiness pillars alone, as before.
+ * How the path is read. `outlook` (the "where you stand" line and its picker, #1926): step 5 is
+ * done only while the winter outlook holds too (progress-view.ts `outlookShortfalls`), so the path
+ * never reads as done beside a PROGRESS tab that says the food or the firewood falls short.
+ * Without it, step 5 is the four readiness pillars alone.
  */
 export interface PathOptions { outlook?: boolean }
 

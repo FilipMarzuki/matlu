@@ -1,6 +1,7 @@
 /**
- * The "where you stand" line (#1926, ui feature `standing-line`; roadmap item 4 of the design
- * review #1914, F4 and §1.6).
+ * The "where you stand" line (#1926, a ui switch until #2009; roadmap item 4 of the design
+ * review #1914, F4 and §1.6). It builds on the guide's Survival path, so it shows only with the
+ * `guide` ui feature on.
  *
  * The status bar used to say where you stand in three places that could disagree. On day 14 the
  * FOCUS chip said "Survive 5/5: ready for winter", which reads as done (it meant "step 5 of 5 is
@@ -39,9 +40,6 @@ import { outlookShortfalls, type Shortfall, type StandingNote } from './progress
 import { esc } from './html';
 import { focusName, lockText } from './sim-words';
 import { FOOD_LAID_BY, PATH_STEPS, survivalPath } from './survival-path';
-
-/** The ui feature (features.ts). It builds on the guide's Survival path, so main.ts needs `guide` on too. */
-export const STANDING_FEATURE = 'standing-line';
 
 /** What the line says comes next, or that nothing does. */
 export type Next =
