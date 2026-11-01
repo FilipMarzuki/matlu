@@ -11,7 +11,8 @@ import { checkFeedback, cleanContext } from '../artificer-play/feedback';
 import { blankDraft, feedbackBody, type Attachable } from './feedback-draft';
 import { contrast } from './looks';
 import { DEFAULT_AGE } from '../artificer/growing';
-import { introBeats, introHtml, introWhere, artificerRank, conceptRanks, type Beat, type QuickStep } from './intro';
+import { artificerRank, conceptRanks } from '../artificer/rank';
+import { introBeats, introHtml, introWhere, type Beat, type QuickStep } from './intro';
 
 const READY: QuickStep = { step: 'ready', age: DEFAULT_AGE };
 const CHANGE: QuickStep = { step: 'change', age: DEFAULT_AGE };

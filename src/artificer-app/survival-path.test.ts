@@ -1,6 +1,7 @@
 /**
  * Acceptance tests for #1793 (part 2 of the guide epic #1791): the Survival path, a pure function
- * of the game state, shown through the FOCUS chip and its picker behind the `guide` ui feature.
+ * of the game state, shown through the "where you stand" line and the focus picker behind the
+ * `guide` ui feature.
  *
  * The step function, one Given/When/Then each:
  *   1. Given a new run, the current step is 1 (find a site).
@@ -8,25 +9,24 @@
  *   3. Given camp made, step 3 (a roof over you).
  *   4. Given a shelter built, step 4 (food laid by).
  *   5. Given food laid by, step 5 (ready for winter).
- *   6. Given winter-ready, the path is done.
- * Then the chip and picker: the lock wins over the path, the switch off draws them as before, and
- * the suggested goal focus is the picker's ordinary set-focus choice.
+ *   6. Given winter-ready and an outlook that holds (#1926), the path is done.
+ * Then the picker: the lock greys its suggestion, the switch off draws it as before, and the
+ * suggested goal focus is the picker's ordinary set-focus choice.
  */
 
 import { describe, expect, it } from 'vitest';
 import { makeT } from '../artificer/i18n';
 import { en as EN } from '../artificer/i18n/en';
 import { sv as SV } from '../artificer/i18n/sv';
-import { createRegion1, survivalLockOf, winterReady, type Region1State } from '../artificer/region1';
+import { createRegion1, winterReady, type Region1State } from '../artificer/region1';
 import { createExploration, type Domain, type Exploration } from '../artificer/exploration';
 import { FULL_WORLD } from '../artificer/world';
 import { featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import { CAMP_AS_ACTION, CAMP_SITE_RATINGS, knownSpots } from '../artificer/camp-sites';
 import { parseFocus } from '../artificer/focus';
-import { SKILL_IDS } from '../artificer/skills';
 import { FOOD_LAID_BY, GUIDE_FEATURE, PATH_STEPS, stepGoal, suitableSiteKnown, survivalPath } from './survival-path';
 import { chooseFocus, makeWarden, type AppState } from './controller';
-import { focusChip, focusPopAfter, focusPopover, FOCUS_POP_ID } from './focus-popover';
+import { focusPopAfter, focusPopover, FOCUS_POP_ID } from './focus-popover';
 
 const en = makeT('en');
 const sv = makeT('sv');
@@ -99,10 +99,12 @@ describe('The Survival path is a pure function of the state (#1793)', () => {
     expect(stepOf({ ...short, stores: { ...short.stores, rawFood: 2, rations: 4 } })).toBe(4);
   });
 
-  it('6. Given winter-ready, Then the path is done', () => {
+  it('6. Given winter-ready and a winter outlook that holds, Then the path is done', () => {
     const s = s6();
     expect(winterReady(s)).toBe(true);
-    expect(survivalPath(s).current).toBeNull();
+    // The pillars alone aren't enough (#1926): the outlook falls short, so step 5 stays current.
+    expect(stepOf(s)).toBe(5);
+    expect(survivalPath({ ...s, stores: { ...s.stores, rations: 40, firewood: 200 } }).current).toBeNull();
   });
 
   it('goes back to a step whose fact stops holding: the larder eaten down returns it to step 4', () => {
@@ -124,8 +126,8 @@ describe('The Survival path is a pure function of the state (#1793)', () => {
   it('suggests the goal focus that helps: Explore, none, Shelter, Larder, and for winter what is short', () => {
     const s = s5();
     expect(PATH_STEPS.map(id => stepGoal(s, id))).toEqual(['explore', null, 'shelter', 'larder', 'larder']);
-    // The larder full, the woodpile short: Shelter (its actions are build and wood).
-    expect(stepGoal({ ...s, stores: { ...s.stores, rations: 20 } }, 'winter')).toBe('shelter');
+    // Food enough to the thaw, the woodpile short: Shelter (its actions are build and wood).
+    expect(stepGoal({ ...s, stores: { ...s.stores, rations: 40 } }, 'winter')).toBe('shelter');
   });
 
   it('is pure: the same state reads the same path, and reading it changes nothing', () => {
@@ -133,48 +135,6 @@ describe('The Survival path is a pure function of the state (#1793)', () => {
     const before = JSON.stringify(s);
     expect(survivalPath(s)).toEqual(survivalPath(s3()));
     expect(JSON.stringify(s)).toBe(before);
-  });
-});
-
-describe('The FOCUS chip shows the Survival path (#1793)', () => {
-  it('names the current step with no focus, in English and Swedish', () => {
-    const chip = focusChip(s1(), en, false, ON);
-    expect(chip).toContain('class="focuschip path"');
-    expect(chip).toContain('FOCUS <b>Survive 1/5:</b> <span>find a camp site</span>');
-    expect(focusChip(s1(), sv, false, ON)).toContain('FOKUS <b>Överleva 1/5:</b> <span>hitta en lägerplats</span>');
-    expect(focusChip(s4(), en, false, ON)).toContain('<b>Survive 4/5:</b> <span>food laid by</span>');
-    expect(focusChip(s3(), sv, false, ON)).toContain('<b>Överleva 3/5:</b> <span>tak över huvudet</span>');
-    expect(focusChip(s5(), en, false, ON)).toContain('<b>Survive 5/5:</b> <span>ready for winter</span>');
-  });
-
-  it('names the step with a goal focus, and keeps a skill or concept focus', () => {
-    const goal = { ...s1(), focus: { kind: 'goal' as const, id: 'larder' as const } };
-    expect(focusChip(goal, en, false, ON)).toContain('Survive 1/5:');
-    const skill = { ...s1(), focus: { kind: 'skill' as const, id: SKILL_IDS[0] } };
-    expect(focusChip(skill, en, false, ON)).toBe(focusChip(skill, en, false, OFF));
-  });
-
-  it('Given the survival lock, Then the chip shows the lock, not the path', () => {
-    for (const s of [locked(s1()), locked(s3())]) {
-      expect(survivalLockOf(s)).not.toBeNull();
-      const chip = focusChip(s, en, false, ON);
-      expect(chip).toContain('class="focuschip locked"');
-      expect(chip).toContain('SURVIVAL');
-      expect(chip).not.toContain('Survive ');
-      expect(chip).toBe(focusChip(s, en, false, OFF));
-    }
-  });
-
-  it('after step 5 shows the focus as before', () => {
-    expect(focusChip(s6(), en, false, ON)).toBe(focusChip(s6(), en, false, OFF));
-    expect(focusChip(s6(), en, false, ON)).not.toContain('Survive');
-  });
-
-  it('with the switch off is drawn exactly as before', () => {
-    for (const s of [s1(), s3(), s5(), locked(s1())]) {
-      expect(focusChip(s, en, true, OFF)).toBe(focusChip(s, en, true));
-      expect(focusChip(s, en, false, OFF)).not.toContain('Survive');
-    }
   });
 });
 

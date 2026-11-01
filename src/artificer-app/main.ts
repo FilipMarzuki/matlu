@@ -728,7 +728,7 @@ function compactMorePanel(a: AppState, preview: Preview): string {
  * Shown where the FOCUS chip would be, so once the guide shows FOCUS (`lineShown`).
  */
 const focusOrLine = (s: AppState['sim'], night: boolean): string =>
-  (standingOn() ? standingLine(s, t, { open: focusPopOpen, night }) : focusChip(s, t, focusPopOpen, focusUi()));
+  (standingOn() ? standingLine(s, t, { open: focusPopOpen, night }) : focusChip(s, t, focusPopOpen));
 /** Whether the line is drawn, so the night chip and the readiness tag it says are left out. */
 const lineShown = (g: GuideView): boolean => standingOn() && g.shows('focus');
 
@@ -2316,8 +2316,7 @@ function advanceIntro(): void {
   }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
-  // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true, packedFor: packKey() }; }
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, packed: true, packedFor: packKey() }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }

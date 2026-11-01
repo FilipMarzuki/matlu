@@ -16,8 +16,6 @@ import { statsBeforePack } from '../artificer/kit';
 import { gradeWord, recipeName } from './sim-words';
 import { esc } from './html';
 
-export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
-
 /** Each intro screen's name (#1845). */
 export type BeatId = 'fall' | 'create' | 'pack' | 'ready';
 

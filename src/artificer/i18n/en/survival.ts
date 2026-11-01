@@ -1,12 +1,9 @@
 /**
  * English for the Survival path (#1793, artificer-app/survival-path.ts, ui feature `guide`): the
- * FOCUS chip's step and the picker's checklist. Spread into `en` (../en.ts).
+ * focus picker's checklist. Spread into `en` (../en.ts).
  */
 export const survival = {
-  // ── The chip: "FOCUS Survive 1/5: find a camp site" ───────────────────────
-  'path.chip': 'Survive {n}/{total}:',
-  'path.chipTip': 'Survival, step {n} of {total}: {step}. Tap for the steps.',
-  // ── The steps, as the chip and the checklist say them ─────────────────────
+  // ── The steps, as the checklist says them ───────────────────────────────────
   'path.step.site': 'find a camp site',
   'path.step.camp': 'make camp',
   'path.step.roof': 'a roof over you',

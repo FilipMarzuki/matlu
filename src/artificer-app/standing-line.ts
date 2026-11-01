@@ -21,8 +21,8 @@
  *   FOCUS chip kept it; survival's lock takes "Next"'s place, as it took the chip's.
  *
  * The line is a button that opens the focus picker, as the FOCUS chip was: one control, not two.
- * With the full status bar it sits in the bar, where the FOCUS chip was; with the one-line compact
- * bar it has a row of its own just under it (`standingRow`, #1951), not behind the ⋯.
+ * It has a row of its own just under the one-line status bar (`standingRow`, #1951), not behind the
+ * ⋯; on a wide screen it sits in the status line itself (#1998).
  * Pure functions of the run and `t`, no DOM, so a unit test can read them. Nothing new is worked
  * out: every fact comes from a function the page already called. The play API, the console and
  * the AI players never see it.
@@ -65,7 +65,7 @@ export interface Standing {
 
 /** What comes next on the Survival path, read with the winter outlook. */
 export function nextOf(s: Region1State): Next {
-  const path = survivalPath(s, { outlook: true });
+  const path = survivalPath(s);
   if (path.current !== null) {
     const id = PATH_STEPS[path.current];
     if (id === 'food') return { kind: 'week', have: winterOutlook(s).foodDays, need: FOOD_LAID_BY };

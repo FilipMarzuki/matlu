@@ -84,10 +84,8 @@ describe('the line never reads as ready while the outlook falls short (#1926)', 
     expect(line(s, sv)).not.toMatch(READY_WORDS);
   });
 
-  it('Given that state, When the path is read for the line, Then step 5 is the current one, and without the line the path is as before (done)', () => {
-    const s = pillarsReady();
-    expect(survivalPath(s, { outlook: true }).current).toBe(4);
-    expect(survivalPath(s).current).toBeNull();
+  it('Given that state, When the path is read, Then step 5 is the current one', () => {
+    expect(survivalPath(pillarsReady()).current).toBe(4);
   });
 
   it('Given any mix of stores, days and shelters, When the outlook falls short, Then the line never says ready or holding, in either language', () => {
@@ -292,13 +290,7 @@ describe('PROGRESS agrees with the line (#1926)', () => {
   });
 });
 
-describe('without the line (the guide off), the chips are as before (#1926)', () => {
-  it('the path read without the outlook is step 5 by the pillars alone', () => {
-    for (const s of [s1(), s3(), s5(), pillarsReady(), ready()]) {
-      expect(survivalPath(s, { outlook: false })).toEqual(survivalPath(s));
-    }
-  });
-
+describe('without the line (the guide off), the night chip is as before (#1926)', () => {
   it('the night chip draws as it did', () => {
     expect(nightChip(ready(), en)).toBe(`<span class="tag nightq q-warm" title="${tonight(ready(), en)!.tip.replace(/'/g, '&#39;')}">🌑 SHELTER 2/2 · WARM NIGHT</span>`);
     expect(nightChip(s1(), en)).toBe('');

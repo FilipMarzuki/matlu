@@ -91,13 +91,8 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false })); });
   await page.reload();
-  // Skip through a first Warden to a saved game.
-  for (let i = 0; i < 10 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
-    if (await page.locator('.tchoice').first().isVisible()) {
-      await page.locator('#wname').fill('First');
-      await page.locator('.tchoice').nth(0).click();
-      await page.locator('.tchoice').nth(1).click();
-    }
+  // Through a first Warden to a saved game: the story page, then Play on the quick start's card (#1928).
+  for (let i = 0; i < 4 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
     await page.locator('[data-intro="next"]').click();
   }
   // A new save, from the ⚙ Menu (#1808): it asks on the page first. Esc shuts the Menu and the

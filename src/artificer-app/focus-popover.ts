@@ -22,7 +22,7 @@ import { statEffects } from '../artificer/stats';
 import { esc } from './html';
 import { focusName, lockText } from './sim-words';
 import { focusBlock } from './warden-view';
-import { FOOD_LAID_BY, PATH_STEPS, stepGoal, survivalPath, type PathOptions } from './survival-path';
+import { FOOD_LAID_BY, PATH_STEPS, stepGoal, survivalPath } from './survival-path';
 
 /**
  * What the page's switches say about the chip and picker: the `guide` ui feature (survival-path.ts).
@@ -46,18 +46,10 @@ export function focusPopAfter(open: boolean, ev: FocusPopEvent): boolean {
  * The status bar's FOCUS chip (#1238): the focus, or SURVIVAL in red with the reason when locked.
  * A button that opens the picker (#1758), with the ARIA a screen reader needs to say so.
  */
-export function focusChip(s: Region1State, t: T, open: boolean, ui: FocusUi = {}): string {
+export function focusChip(s: Region1State, t: T, open: boolean): string {
   const aria = `data-cmd="focuspop" aria-haspopup="dialog" aria-expanded="${open}" aria-controls="${FOCUS_POP_ID}"`;
   const lock = survivalLockOf(s);
   if (lock) return `<button class="focuschip locked" ${aria} title="${esc(t('status.survivalTip'))}">${esc(t('status.focus'))} <b>${esc(t('status.survival'))}</b> <span>${esc(lockText(lock, t))}</span></button>`;
-  // The Survival path (#1793): with no focus or a goal one, the chip says the step you're on. A
-  // skill or concept focus is the player's own study and keeps its name; so does everything once
-  // the path is done.
-  const cur = ui.guide && (!s.focus || s.focus.kind === 'goal') ? survivalPath(s).current : null;
-  if (cur !== null) {
-    const v = { n: cur + 1, total: PATH_STEPS.length, step: t(`path.step.${PATH_STEPS[cur]}`) };
-    return `<button class="focuschip path" ${aria} title="${esc(t('path.chipTip', v))}">${esc(t('status.focus'))} <b>${esc(t('path.chip', v))}</b> <span>${esc(v.step)}</span></button>`;
-  }
   // Willpower moves the line where focus frays (#1256).
   const below = statEffects(s.character.stats).unreliableBelow;
   const frayed = s.focus && s.vitals.clarity.current < below;
@@ -71,7 +63,7 @@ export function focusChip(s: Region1State, t: T, open: boolean, ui: FocusUi = {}
 export function focusPopover(s: Region1State, t: T, ui: FocusUi = {}): string {
   return `<div class="focuspop" id="${FOCUS_POP_ID}" role="dialog" aria-modal="false" aria-labelledby="${FOCUS_POP_ID}-h">
     <div class="fphead"><p class="eyebrow" id="${FOCUS_POP_ID}-h">${esc(t('head.focus'))}</p><button class="fpclose" data-cmd="focuspopclose" aria-label="${esc(t('status.focusClose'))}" title="${esc(t('status.focusClose'))}">✕</button></div>
-    ${ui.guide ? pathBlock(s, t, { outlook: true }) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
+    ${ui.guide ? pathBlock(s, t) : ''}${focusBlock(s, t, undefined, { disableWhenLocked: true })}
   </div>`;
 }
 
@@ -80,11 +72,11 @@ export function focusPopover(s: Region1State, t: T, ui: FocusUi = {}): string {
  * step ticked or not, the current one marked with what it asks and, when a goal focus helps with
  * it, a button that sets that focus. The button is the same `data-focus` choice as the goal chips
  * below, so main.ts sets it with the same move and closes the picker. Disabled, like them, while
- * survival has taken over; replaced by a note when that goal is already the focus. With
- * `opts.outlook` (#1926) step 5 stays the current one while the winter outlook falls short.
+ * survival has taken over; replaced by a note when that goal is already the focus. Step 5 stays
+ * the current one while the winter outlook falls short (#1926).
  */
-export function pathBlock(s: Region1State, t: T, opts: PathOptions = {}): string {
-  const path = survivalPath(s, opts);
+export function pathBlock(s: Region1State, t: T): string {
+  const path = survivalPath(s);
   if (path.current === null) return '';
   const lock = survivalLockOf(s);
   const items = path.steps.map((st, i) => {
@@ -94,7 +86,7 @@ export function pathBlock(s: Region1State, t: T, opts: PathOptions = {}): string
     let extra = '';
     if (now) {
       const hint = st.id === 'food' ? t('path.hint.food', { n: FOOD_LAID_BY, have: winterOutlook(s).foodDays }) : t(`path.hint.${st.id}`);
-      const goal = stepGoal(s, st.id, opts);
+      const goal = stepGoal(s, st.id);
       const key = goal ? focusKey({ kind: 'goal', id: goal }) : '';
       const name = goal ? t(`goal.${goal}`) : '';
       const act = !goal ? ''
