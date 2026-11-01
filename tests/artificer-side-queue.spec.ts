@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * #1826 — the queue frozen beside or over the actions, in a real browser. On a tablet and desktop
  * the queue's column sits right of the actions; on a phone in portrait (under 700px) the queue is a
- * strip over full-width actions, which unfolds to the whole queue. Either way it stays in view when
+ * strip over full-width actions, which unfolds to the whole queue (as day bars, #2011). Either way it stays in view when
  * the actions are scrolled to their bottom, and the page never scrolls sideways. No page errors.
  */
 
@@ -95,12 +95,14 @@ test('400px: a frozen strip over full-width actions, in view after scrolling, un
   await expect(strip.locator('[data-cmd="day"]')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(400);
 
-  // A tap unfolds the whole queue in place; × removes there; another tap folds it.
+  // A tap unfolds the whole queue in place, as day bars (#2011, artificer-day-bar.spec.ts): a task's
+  // chip opens its row, × removes it there; another tap folds it.
   await strip.locator('[data-cmd="qstrip"]').click();
   await expect(strip.locator('[data-cmd="qstrip"]')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.planq .planqfull')).toBeVisible();
+  await page.locator('.planq .planqfull [data-qsel="0"]').click();
   await page.locator('.planq .planqfull [data-x="0"]').click();
-  await expect(page.locator('.planq .queue li[data-qi]')).toHaveCount(3);
+  await expect(page.locator('.planq .dbchip')).toHaveCount(3);
   await expect(strip.locator('.qschip')).toHaveCount(3);
   await strip.locator('[data-cmd="qstrip"]').click();
   await expect(page.locator('.planq .planqfull')).toBeHidden();

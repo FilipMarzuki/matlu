@@ -57,6 +57,9 @@ export const planq = {
   'qc.total': '{h} / {max}h',
   'qc.ends': 'ends {when}',
   'qc.up': 'Move {name} up',
+  // The phone's day bars (#2011): ◀ ▶ on the chosen activity, earlier or later in the queue.
+  'qc.earlier': 'Move {name} earlier',
+  'qc.later': 'Move {name} later',
   'qc.label': 'The queue',
   // The phone's strip over the actions: tap to unfold the whole queue, tap again to fold it.
   'qc.unfold': 'Show the whole queue',

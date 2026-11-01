@@ -35,6 +35,13 @@ export const SIDE_QUEUE_FEATURE = 'side-queue';
  */
 export const JOURNAL_BESIDE_QUERY = '(min-width: 1000px)';
 
+/**
+ * A phone (#2011): under 700px the queue is a strip over the actions (style.css), and unfolded it's
+ * drawn as day bars (day-bar.ts). main.ts redraws when the width crosses it; plan-layout.test.ts
+ * checks style.css says the same width.
+ */
+export const PHONE_QUEUE_QUERY = '(max-width: 699px)';
+
 /** The PLAN tab's parts, each already drawn (empty when the guide hasn't brought it in yet). */
 export interface PlanParts {
   /** The actions' box (a whole `<section class="box">`). */
@@ -131,7 +138,8 @@ export interface StripParts {
   /** The day's total and when it ends (compactTotal). */
   total: string;
   /** Run the day (or pass it), or End the day before planning is learned. */
-  button: { cmd: string; label: string; disabled: boolean };
+  /** `attrs`: the guide's mark (main.ts `guide.mark`) when this button is the one it points at. */
+  button: { cmd: string; label: string; disabled: boolean; attrs?: string };
   open: boolean;
   /**
    * Where the day ends, in words (#1930, day-forecast.ts `dayEndText`): said in the total's place.
@@ -155,7 +163,7 @@ export function queueStrip(p: StripParts, t: T): string {
   const total = p.line ? `<span class="qsline">${esc(p.line)}</span>` : `<span class="qstot">${esc(p.total)}</span>`;
   return `<div class="qstrip"><button class="qsbar" data-cmd="qstrip" aria-expanded="${p.open}" title="${esc(t(p.open ? 'qc.fold' : 'qc.unfold'))}">`
     + `<span class="qschips">${chips}</span>${total}<span class="qsfold" aria-hidden="true">${p.open ? '▴' : '▾'}</span></button>`
-    + `<button class="btn go" data-cmd="${p.button.cmd}"${p.button.disabled ? ' disabled' : ''}>${esc(p.button.label)}</button></div>`;
+    + `<button class="btn go" data-cmd="${p.button.cmd}"${p.button.disabled ? ' disabled' : ''}${p.button.attrs ?? ''}>${esc(p.button.label)}</button></div>`;
 }
 
 /** The day's total under the compact queue ("6 / 14h · ends 12:00"); without an end when nothing runs today. */

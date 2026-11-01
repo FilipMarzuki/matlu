@@ -86,7 +86,8 @@ import { choose, carryOn, forget, weighPin, roadChoose, endTheDay, queueLocked, 
 import { nowTotal, queueTimes, timeWordsShown, timerClock, weatherRowTime } from './time-view';
 import { endWords, partShort } from '../artificer/time-words';
 import { LAND_ASSESS_FEATURE } from './land-assessment';
-import { JOURNAL_BESIDE_QUERY, SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
+import { dayBars, dayBarsHtml, type BarItem } from './day-bar';
+import { JOURNAL_BESIDE_QUERY, PHONE_QUEUE_QUERY, SIDE_QUEUE_FEATURE, compactEnd, compactItem, compactItemHtml, compactTotal, planLayout, queueStrip } from './plan-layout';
 import { dropIndex, followMove, gapShift, pastThreshold, type RowRect } from './queue-drag';
 import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt, shownAt, linesAt, parseSpeed, stopPoint, timeAt as playTimeAt, worthPlaying, MS_PER_HOUR, SPEEDS, type DayPlay, type Moment, type Speed } from './playback';
 import { inject } from '@vercel/analytics';
@@ -148,6 +149,18 @@ document.documentElement.lang = lang;
 
 /** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
 const expanded = new Set<number>();
+
+/**
+ * The activity whose details the player opened under the phone's day bars (#2011, day-bar.ts): its
+ * place in the queue and what it is (`queueKey`), so a queue that changed under it (a day run, a new
+ * Warden) can't open another activity's row. Null: none opened, so one that needs a choice opens by
+ * itself. The page's alone, like `expanded`.
+ */
+let qSel: { i: number; key: string } | null = null;
+/** The row the last draw opened under the bars, so a tap on its chip shuts it without working the plan out again. */
+let qShown: number | null = null;
+/** What a queued activity is, for `qSel`: its action and distance (its options can change). */
+const queueKey = (item: AppState['queue'][number] | undefined): string => { if (!item) return ''; const { id, ring } = parseItem(item); return `${id}@${ring}`; };
 
 /**
  * The palette's distance chooser (#1814): which land action's is open under its card, if any, and
@@ -537,7 +550,12 @@ function queueBlock(a: AppState, preview: Preview): string {
   const compact = sideQueueOn();
   // Forecasts (#1827): a trip not yet known at its distance shows the card's words on its load row, not the exact haul
   // (the same word as its card: seeded by the run, the day and the trip, not the queue).
-  const items = a.queue.map((item, i) => {
+  // On a phone (#2011): day bars, and only the chosen activity's row, under them.
+  const phone = phoneQueue();
+  /** A day of the queue by name: TODAY, DAY 15 (each row's tag, and each day bar's head). */
+  const dayLabel = (d: number): string => (d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }));
+  const itemLi = (i: number): string => {
+    const item = a.queue[i];
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
     const why = preview.warnings[i];
@@ -555,11 +573,11 @@ function queueBlock(a: AppState, preview: Preview): string {
     }).join('')}</div></div>`).join('')}</div>` : '';
     // The grip (#1743): drag it (mouse, touch or pen) or use the arrow keys on it to move the task.
     // Only the grip takes the drag, so taps on the row's own buttons and scrolling the page still work.
-    const grip = a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
+    const grip = !phone && a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
     // Compact (#1826): its words, and ▲ to move it up by a tap (the grip still drags).
-    const qc = compact ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t))
+    const qc = compact && !phone ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t))
       + (i > 0 ? `<button class="qup" data-qup="${i}" aria-label="${esc(t('qc.up', { name: actionName(id, t) }))}">▲</button>` : '') : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>${qc}`
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(dayLabel(d))}</span>${qc}`
       + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
@@ -572,8 +590,13 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (preview.strains[i] ? `<span class="why strain" title="${esc(t('queue.strainTip'))}">${esc(simLine(preview.strains[i]!, t))}</span>` : '')
       // How it will feel out there (#1364): the dark, the weather, the distance — and what that does to you.
       + (preview.unease[i] ? ((u) => `<span class="why unease u-${preview.unease[i]!.state}" title="${esc(u.tip)}">${esc(u.text)}</span>`)(uneaseText(preview.unease[i]!, t)) : '')
-      + `<span class="meta">${esc(times.rows[i])}</span><button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t)?.text) : ''}${menu}</li>`;
-  }).join('');
+      + `<span class="meta">${esc(times.rows[i])}</span>${phone ? phoneMove(a, i) : ''}<button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t)?.text) : ''}${menu}</li>`;
+  };
+  const sel = phone ? phoneSel(a, preview) : null;
+  qShown = sel;
+  const list = !a.queue.length ? `<ol><li class="empty">${esc(times.empty)}</li></ol>`
+    : phone ? `${dayBarsHtml(dayBars(barItems(a, preview), s.hoursToday, DAY_HOURS), { sel, dayName: dayLabel, dayHours: DAY_HOURS, t })}<ol class="dbsel" id="qseldetail">${sel === null ? '' : itemLi(sel)}</ol>`
+    : `<ol>${a.queue.map((_, i) => itemLi(i)).join('')}</ol>`;
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
   // Where the day ends, in words (#1930): a row of its own in the Run bar, right over Run, so it stays
@@ -586,18 +609,59 @@ function queueBlock(a: AppState, preview: Preview): string {
   const tot = compact
     ? `${total ? `<span class="qfull">${total}</span>` : ''}<span class="qfull">${spans}</span><span class="qct">${esc(dayTotal(a, preview))}</span>`
     : `${total ? `<span>${total}</span>` : ''}<span>${spans}</span>`;
-  return `<div class="queue ${fresh ? 'fresh' : ''}">
+  return `<div class="queue${fresh ? ' fresh' : ''}${phone ? ' daybars' : ''}">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">${esc(t(fresh ? 'head.queueNew' : 'head.queue'))}</p>
       ${times.now ? `<p class="mood timenow" style="margin:0 0 8px">${esc(times.now)}</p>` : ''}
-      <ol>${items || `<li class="empty">${esc(times.empty)}</li>`}</ol>
+      ${list}
       ${forecastBlock(a, preview, t)}
       <div class="qtot">${tot}</div>
-      <div class="runbar"${guide.mark('runDay')}>${dayEndHtml(end, t)}
-        <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
+      <div class="runbar"${phone ? '' : guide.mark('runDay')}>${dayEndHtml(end, t)}
+        ${phone ? '' : `<button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>`}
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>${guideTip('runDay')}
     </div>`;
+}
+
+/** The phone's day bars' activities (#2011): each one's short words and hours, its day, and whether it runs. */
+function barItems(a: AppState, preview: Preview): BarItem[] {
+  return a.queue.map((item, i) => {
+    const { id, ring } = parseItem(item);
+    const c = compactItem(id, ring, !!ACTIONS[id].ringed, 0, ICON[id], t);
+    // Each warning its row shows (so the chip says there is one while the row is shut).
+    const warn = !!(preview.dangers[i] || preview.strains[i] || preview.unease[i] || (preview.loads[i] && heavyLoad(preview.loads[i]!)));
+    return { i, icon: ICON[id], name: c.dist ? `${c.name} ${c.dist}` : c.name, hours: queueHours(item, preview.before[i]),
+      day: preview.dayOffset[i] ?? 0, skip: !!preview.warnings[i], warn, need: needsChoice(a, preview, i) };
+  });
+}
+
+/** A load its row warns about (loadBar's red and amber words): something left behind, or staggering on a walk home. */
+const heavyLoad = (l: TripLoad): boolean => !!haulText(l.left) || (l.walk && l.ratio > 1.5);
+
+/** An activity with an option left open: it can't run until one is chosen. */
+function needsChoice(a: AppState, preview: Preview, i: number): boolean {
+  const { id, ring, opts } = parseItem(a.queue[i]);
+  return (ACTIONS[id].options?.(preview.before[i], opts, ring) ?? []).some(g => g.value === null);
+}
+
+/**
+ * Whose details are open under the day bars: the one the player opened, while it's still the same
+ * activity at that place, else the first that needs a choice before it can run (it stays open until
+ * it has one: a tap on its chip can't shut it, as running it would skip it).
+ */
+function phoneSel(a: AppState, preview: Preview): number | null {
+  if (qSel && queueKey(a.queue[qSel.i]) === qSel.key) return qSel.i;
+  const i = a.queue.findIndex((_, k) => needsChoice(a, preview, k));
+  return i < 0 ? null : i;
+}
+
+/** ◀ ▶ on the chosen activity's row (#2011): earlier or later in the queue, as dragging its grip does. */
+function phoneMove(a: AppState, i: number): string {
+  if (a.queue.length < 2) return '';
+  const name = actionName(parseItem(a.queue[i]).id, t);
+  const earlier = i > 0 ? `<button class="qmv" data-qup="${i}" aria-label="${esc(t('qc.earlier', { name }))}">◀</button>` : '';
+  const later = i < a.queue.length - 1 ? `<button class="qmv" data-qdown="${i}" aria-label="${esc(t('qc.later', { name }))}">▶</button>` : '';
+  return `<span class="dbmove">${earlier}${later}</span>`;
 }
 
 /**
@@ -633,8 +697,9 @@ function stripBlock(a: AppState, preview: Preview): string {
   }
   const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
   const end = dayEndNow(a, preview);
+  // On a phone (#2011) the strip's Run the day is the only one, so the guide points at it.
   return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
-    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null },
+    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null, attrs: phoneQueue() ? guide.mark('runDay') : '' },
     line: end ? dayEndText(end, t) : undefined }, t);
 }
 
@@ -864,6 +929,14 @@ const sideQueueOn = (): boolean => uiFeatureOn(loadChoices(), SIDE_QUEUE_FEATURE
 const journalBesideMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(JOURNAL_BESIDE_QUERY) : null;
 const journalBeside = (): boolean => journalBesideMq?.matches ?? false;
 journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(state); });
+/**
+ * A phone (#2011): the queue's strip is over the actions (style.css, the same width), and unfolded the
+ * queue is drawn as day bars (day-bar.ts) instead of a card per activity. Drawn one way or the other,
+ * so crossing the width draws the page again, as for the journal above.
+ */
+const phoneQueueMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(PHONE_QUEUE_QUERY) : null;
+const phoneQueue = (): boolean => (phoneQueueMq?.matches ?? false) && sideQueueOn();
+phoneQueueMq?.addEventListener('change', () => { if (tab === 'plan') render(state); });
 /**
  * Fewer rows on top (#1998, wide-top.ts): on a screen wide enough that the tabs stay at the top, with
  * the compact status line (#1924). The page is drawn in one arrangement or the other, so crossing the
@@ -2705,13 +2778,27 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'endday') play(endTheDay(state), { endDay: true });
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
-  else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
-  else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
+  // On a phone (#2011) the row stays open too: an activity that opened by itself is pinned, so choosing doesn't move the bars' detail on.
+  else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); if (phoneQueue()) qSel = { i: Number(i), key: queueKey(state.queue[Number(i)]) }; update(setOption(state, Number(i), key, value)); }
+  else if (d.x !== undefined) { expanded.clear(); qSel = null; update(dequeueAt(state, Number(d.x))); }
+  // The phone's day bars (#2011): a chip opens its activity's details, or shuts them if they're open.
+  else if (d.qsel !== undefined) {
+    const i = Number(d.qsel);
+    qSel = qShown === i ? null : { i, key: queueKey(state.queue[i]) };
+    render(state);
+    root.querySelector<HTMLElement>(`[data-qsel="${i}"]`)?.focus({ preventScroll: true });
+  }
+  // ▶ on the chosen activity's row (#2011): one place later in the queue.
+  else if (d.qdown !== undefined) {
+    const i = Number(d.qdown);
+    moveTask(i, i + 1, false);
+    (root.querySelector<HTMLElement>(`[data-qdown="${i + 1}"]`) ?? root.querySelector<HTMLElement>(`[data-qup="${i + 1}"]`))?.focus({ preventScroll: true });
+  }
   // The compact queue's ▲ (#1826): a tap moves the task up one place, as ↑ on its grip does.
   else if (d.qup !== undefined) {
     const i = Number(d.qup);
     moveTask(i, i - 1, false);
-    (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
+    (root.querySelector<HTMLElement>(`[data-qup="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-qdown="${i - 1}"]`) ?? root.querySelector<HTMLElement>(`[data-grip="${i - 1}"]`))?.focus({ preventScroll: true });
   }
   // Camp as an action (#1732): a camp site's card makes camp there, as an action like any other.
   // Make camp's picker (#1986): the card opens it; Cancel shuts it. A place picked in it is the `data-camp` below.
@@ -2723,9 +2810,9 @@ root.addEventListener('click', e => {
   else if (d.site) play(settle(state, d.site as SiteId), { set: { site: d.site } });
   // A day run from the plan is logged as that day's plan, as it stood.
   // On the timer (#1669): each day's actions play out, and each day is logged as its plan, as it stood.
-  else if (d.cmd === 'day') playOut([playDay(state)], p => ({ plan: p.before.queue }));
-  else if (d.cmd === 'all') playOut(playWholeQueue(state), p => ({ plan: p.before.queue }));
-  else if (d.cmd === 'clear') update(clearQueue(state));
+  else if (d.cmd === 'day') { qSel = null; playOut([playDay(state)], p => ({ plan: p.before.queue })); }
+  else if (d.cmd === 'all') { qSel = null; playOut(playWholeQueue(state), p => ({ plan: p.before.queue })); }
+  else if (d.cmd === 'clear') { qSel = null; update(clearQueue(state)); }
   // A new Warden (#1455): if this run is over, they find its tools; mid-run or with no run, nothing.
   else if (d.cmd === 'reset') { menyOpen = false; newGameAsk = false; newWarden(); clearDraft(); startIntro(); }
   // This week's world shuts the Menu once it has started (it keeps its own question, #1559).
@@ -2808,6 +2895,8 @@ function moveTask(from: number, to: number, refocus: boolean): void {
   const open = [...expanded].map(i => followMove(i, from, to));
   expanded.clear();
   open.forEach(i => expanded.add(i));
+  // The phone's chosen activity goes with it too (#2011).
+  if (qSel) qSel = { ...qSel, i: followMove(qSel.i, from, to) };
   const name = actionName(parseItem(state.queue[from]).id, t);
   update(next);
   queueLive.textContent = t('queue.moved', { name, n: to + 1, total: next.queue.length });
