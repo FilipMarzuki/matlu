@@ -20,7 +20,7 @@ import { isYoung, YOUNG_PRACTICE } from '../artificer/growing';
 import { STATS, STAT_IDS, withTraining } from '../artificer/stats';
 import { difficultyOfCharacter, difficultyLabel } from '../artificer/difficulty';
 import {
-  ACTIONS, LOOSE_STONE_SITES, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, LOOSE_STONE_SITES, growsOn, exploreTierOf, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, huntOddsOf, sinewOf, huntTool, trapCatchOf, blockedReason, visibilityOn, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf, FOCUS_OPEN,
   tripLoad, tripUnease, tonightsFright, tonightThermal, coldCapacity, nightSpoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
@@ -514,6 +514,14 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
     // Keeping a heading (#1868, `compass-heading`): what heading out needs, and what the Warden has.
     const heading = headingLine(s);
     if (heading) lines.push(heading);
+  }
+  // One exploring action that grows (#2018, `explore-grows`): what it's called now, and what it can do.
+  if (growsOn(s)) {
+    const tier = exploreTierOf(s);
+    const now = tier === 'look' ? 'Look around: close by only, and no heading out yet'
+      : tier === 'explore' ? 'Explore: the farther distances, and heading out (when you can keep a heading)'
+        : 'Scout: as Explore, and looking around a distance makes everything there observed in one trip';
+    lines.push(`GROWING: "explore" is the one exploring action ("scout" and "survey" aren't separate actions in this game). It grows with your Scouting: Look around at first (close by only, no heading out), Explore at Apprentice (the farther distances and the eight ways), Scout at Adept (one look round a distance makes everything there observed). Keen Eye counts a level up. Now: ${now}.`);
   }
   // Tasks walk the map (#1876, `walk-the-map`): the rules, and where the Warden is now.
   if (walkOn(s)) lines.push(`${WALK_RULES} ${whereLine(s)}`);

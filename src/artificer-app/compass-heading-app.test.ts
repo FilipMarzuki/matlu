@@ -23,7 +23,9 @@ const enT = makeT('en');
 const sv = makeT('sv');
 
 const warden = (o: { pack?: KitId[]; weather?: WeatherId; on?: boolean; id?: string } = {}): Region1State => {
-  const features = { ...ruleFeatures(), [COMPASS_HEADING]: o.on ?? true };
+  // Heading out and going far from day one, as this test does: the one exploring action that grows
+  // (#2018, `explore-grows`) would still be Look around for a new Warden, so it's off here.
+  const features = { ...ruleFeatures(), [COMPASS_HEADING]: o.on ?? true, 'explore-grows': false };
   return createRegion1({ world: { ...FULL_WORLD, encounters: false, luck: false, accidents: false, darkness: false, weather: o.weather ?? 'overcast', features } }, undefined, { id: o.id ?? 'w-astrid', ...(o.pack ? { pack: o.pack } : {}) });
 };
 const app = (sim: Region1State): AppState => ({ ...makeWarden({ id: sim.character.id }), sim, queue: [] });

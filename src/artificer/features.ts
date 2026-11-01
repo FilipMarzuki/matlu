@@ -376,6 +376,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'Lid the cold pit (1h at a camp with a cold pit, 2 materials and 2 stone): split wood over the pit, weighed down with heavy stones. It stays with the pit. Store the meat puts the raw meat in the lidded pit first, up to what the pit holds (8, or 12 at the river), and hangs or caches the rest as before. No fox, raven or wolf gets into it; a bear can heave the stones aside, rarely; mice get through the gaps now and then, once camp has stood a few days.',
   },
   {
+    // A rules feature (#2018, on #1689's `action-visibility`): Scout and Survey fold into Explore, the
+    // one exploring action, which grows with the Scouting skill (action-unlocks.ts `exploreTier`). A run
+    // from before it (absent: false) keeps Scout, Survey and Explore as they were, and replays the same.
+    id: 'explore-grows', name: 'Look around → Explore → Scout', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 2018,
+    note: 'One exploring action that grows with your Scouting. At first it\'s Look around: close by only, and no heading out. At Apprentice it\'s Explore: the farther land, and off in any of the eight directions. At Adept it\'s Scout: one trip makes a whole stretch of land clear (what Survey did). Keen Eye counts a level up. Scout and Survey aren\'t separate actions.',
+  },
+  {
     // A rules feature (#1858, on #1823's scavengers): it guards the meat lying loose at a camp with
     // walls and adds the first mice, drawn from streams of their own, so a run from before it
     // (absent: false) keeps its meat as it did, and replays the same. Needs `camp-scavengers`.

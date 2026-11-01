@@ -71,7 +71,8 @@ describe('The note on LAND', () => {
     const s = fresh();
     const html = landTab(s, en, null, { assess: true, foundOnly: true, startNote: startNoteBlock(s, en) });
     expect(html).toContain('You know almost nothing about this place yet. Your patrol leader always said: scout first. Find a good place for shelter, and a source of water.');
-    expect(html).toContain('<button class="btn go landstartgo" data-startexplore="1">Explore</button>');
+    // The one exploring action by a new Warden's name for it (#2018, `explore-grows`): Look around.
+    expect(html).toContain('<button class="btn go landstartgo" data-startexplore="1">Look around</button>');
     // The near area, with its self-assessment.
     expect(html).toContain('id="land-ring-1"');
     expect(html).toContain('>Unknown</span>');
@@ -87,14 +88,14 @@ describe('The note on LAND', () => {
     const s = fresh();
     const html = landTab(s, sv, null, { assess: true, foundOnly: true, startNote: startNoteBlock(s, sv) });
     expect(html).toContain('Du vet nästan ingenting om platsen än. Patrulledaren brukade säga: spana först. Hitta en bra plats för skydd, och en vattenkälla.');
-    expect(html).toContain('data-startexplore="1">Utforska</button>');
+    expect(html).toContain('data-startexplore="1">Se dig omkring</button>');
     expect(html).toContain('>Okänt</span>');
   });
 
   it('without the note (switch off) LAND on day 1 is exactly #1836\'s', () => {
     const s = fresh();
     expect(landTab(s, en, null, { assess: true, foundOnly: true, startNote: '' })).toBe(landTab(s, en, null, { assess: true, foundOnly: true }));
-    expect(landTab(s, en, null, { foundOnly: true })).toContain('data-q="explore">Explore</button>');
+    expect(landTab(s, en, null, { foundOnly: true })).toContain('data-q="explore">Look around</button>');
   });
 
   it('after day 1 the note is gone and LAND is as now', () => {
@@ -132,7 +133,9 @@ describe('The button\'s target', () => {
   });
 
   it('the chooser opens at the nearest distance, even with another one remembered', () => {
-    const s = { ...fresh(), explore: survey(createExploration(), 1) };
+    // A Warden who can go half a day out: with `explore-grows` (#2018) a new one would be Look around.
+    const grown = createRegion1({ world: { ...FULL_WORLD, encounters: false, features: ruleFeatures({ 'explore-grows': false }) } }, undefined, { id: 'w-start' });
+    const s = { ...grown, explore: survey(createExploration(), 1) };
     // Remembered: half a day out. While the start's highlight holds, Explore's memory is set aside.
     const remembered = { explore: 2 as const, water: 2 as const };
     expect(distanceOptions(s, 'explore', remembered, en).find(o => o.chosen)?.ring).toBe(2);

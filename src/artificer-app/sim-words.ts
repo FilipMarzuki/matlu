@@ -24,7 +24,7 @@
 import { en } from '../artificer/i18n/en';
 import { fill, localNum, type Key, type T } from '../artificer/i18n';
 import type { Ring } from '../artificer/exploration';
-import { ACTIONS, SITES, type ActionId, type OptionChoice, type OptionGroup, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, exploreTierOf, type ActionId, type OptionChoice, type OptionGroup, type Region1State, type SiteId } from '../artificer/region1';
 import { focusInline, focusKey, focusLabel, parseFocus, FOCUS_KEYS, type Focus } from '../artificer/focus';
 import { seasonOf, type Calendar } from '../artificer/winter';
 import { statEffects, DEFAULT_STATS, type StatId } from '../artificer/stats';
@@ -77,7 +77,17 @@ export function distanceT(s: Pick<Region1State, 'config'>, t: T): T {
 // ── Names by id ─────────────────────────────────────────────────────────────
 
 export const ringName = (r: Ring, t: T): string => t(`ring.${r}`);
-export const actionName = (id: ActionId, t: T): string => t(`act.${id}`);
+/**
+ * An action's name. Given the run (`s`), the one exploring action says its tier's name (#2018,
+ * `explore-grows`): Look around, Explore or Scout. Without it, or for any other action, the plain name.
+ */
+export const actionName = (id: ActionId, t: T, s?: Region1State): string => t(nameKey('act', id, s));
+/** An action's short name (the compact queue's), by tier for the exploring action as `actionName`. */
+export const actionShort = (id: ActionId, t: T, s?: Region1State): string => t(nameKey('actshort', id, s));
+function nameKey(kind: 'act' | 'actshort', id: ActionId, s?: Region1State): Key {
+  const tier = id === 'explore' && s ? exploreTierOf(s) : 'explore';
+  return (tier === 'explore' ? `${kind}.${id}` : `${kind}.explore.${tier}`) as Key;
+}
 export const siteName = (id: SiteId, t: T): string => t(`site.${id}`);
 /** A recipe or the tool it makes, by id; an id with no entry keeps the given English name. */
 export const recipeName = (id: string, t: T, fallback = id): string => tOr(t, `recipe.${id}`, fallback);

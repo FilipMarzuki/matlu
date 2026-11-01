@@ -232,18 +232,18 @@ function exploreButton(s: Region1State, t: T): string {
   const v = visibilityOf(s, 'explore', r);
   if (v.status === 'hidden') return '';
   const off = v.reason ? ` disabled title="${esc(simLine(v.reason, t))}"` : '';
-  return `<button class="pill landexplore" data-q="${esc(queueId('explore', r))}"${off}>${esc(exploreWords(r, t))}</button>`;
+  return `<button class="pill landexplore" data-q="${esc(queueId('explore', r))}"${off}>${esc(exploreWords(r, t, s))}</button>`;
 }
 
-/** Explore, and where to, in words: "Explore · half a day out" (close by needs no word). */
-const exploreWords = (r: Ring, t: T): string => actionName('explore', t) + (r === 1 ? '' : ` · ${ringName(r, t).toLowerCase()}`);
+/** Explore (by its tier's name, #2018), and where to, in words: "Explore · half a day out" (close by needs no word). */
+const exploreWords = (r: Ring, t: T, s: Region1State): string => actionName('explore', t, s) + (r === 1 ? '' : ` · ${ringName(r, t).toLowerCase()}`);
 
 /**
  * The Explores already in the queue (#1836), so a tap on the button shows where it went: the queue
  * is on PLAN, and the link goes there. '' when none are queued.
  */
-function queuedExplores(queue: readonly QueueItem[], t: T): string {
-  const rings = queue.map(parseItem).filter(i => i.id === 'explore').map(i => exploreWords(i.ring, t));
+function queuedExplores(queue: readonly QueueItem[], t: T, s: Region1State): string {
+  const rings = queue.map(parseItem).filter(i => i.id === 'explore').map(i => exploreWords(i.ring, t, s));
   if (!rings.length) return '';
   return `<p class="mood landqueued" style="margin:8px 0 0">${esc(t('land.found.queued', { what: rings.join(', ') }))} <button class="seeland" data-tab="plan">${esc(t('land.found.seePlan'))}</button></p>`;
 }
@@ -264,7 +264,7 @@ function foundLand(s: Region1State, t: T, drawn: boolean, map: string, news: Lan
   const lookedAround = RINGS.some(r => selfAssessment(s.explore, r) > 0);
   const rings = lookedAround || start ? RINGS.map(r => foundRing(s, r, places[r], t, news, assess, !!start && r === 1)).join('') : '';
   const further = furtherOffSection(s, t, lang);
-  const extra = `${queuedExplores(queue, t)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}`;
+  const extra = `${queuedExplores(queue, t, s)}${!drawn && mapSessionOpen(s) ? mapSessionInvite(t) : ''}`;
   const boxes = [
     // The start's note (#1853) leads, and its button is the one: the invitation's own Explore button
     // (#1836) gives way to it, so there's one way to explore on day 1, by PLAN.

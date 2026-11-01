@@ -122,8 +122,10 @@ const OLD_CAMP = { 'camp-as-action': false, 'built-warmth': false, 'thermal-mode
  * a fox at the meat, or Store the meat in the moves, would send it down yet another.
  * And trips in rings, as before #1876: walking each trip to a real square and back changes its hours,
  * which sends the year down another path again (in the policy's year, an early death of thirst).
+ * And Scout and Survey as their own actions, as before #2018: one exploring action that grows changes
+ * the moves open, which sends it down another path still (in the policy's year, dead before the thaw).
  */
-const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false, 'camp-scavengers': false, 'walk-the-map': false };
+const SAME_YEAR = { ...OLD_CAMP, 'map-learning': false, 'stone-gathering': false, 'hunting-gear': false, 'camp-scavengers': false, 'walk-the-map': false, 'explore-grows': false };
 
 beforeAll(() => tellHistoriesWith(runHistory));
 afterAll(() => forgetHistories());

@@ -41,9 +41,12 @@ for (const lang of ['en', 'sv'] as const) {
       const errors: string[] = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.goto('/artificer.html');
+      // Heading out from day one, as this test checks: with `explore-grows` (#2018) a new Warden would
+      // still be Look around, whose own lock greys the ways first, so it's off here.
       await page.evaluate(lang => {
         localStorage.clear();
         localStorage.setItem('artificer.lang', lang);
+        localStorage.setItem('artificer.features', JSON.stringify({ 'explore-grows': false }));
       }, lang);
       await page.reload();
       // The first day's weather is the run's own (seeded): on a clear day the shadow stick keeps a heading and nothing is greyed.
