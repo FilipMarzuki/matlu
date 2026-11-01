@@ -148,8 +148,9 @@
   .cat .catnum { position: absolute; top: 2px; right: 5px; font-size: 12px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; }
   .cat.on .catnum { color: var(--teal); }
   /* A phone: six across leaves ~50px each, so the gaps and side padding give their room to the
-     longest names ("Utforska", "Tillverka"). Narrower still, a name ends in "…"; its button says it whole. */
-  @media (max-width: 520px) { .cats { gap: 4px; } .cat { padding-inline: 0; } }
+     longest names ("Utforska", "Tillverka"), set a hair tighter. On a narrow phone (360px) or before
+     the web font has loaded, a name may still end in "…"; its button says it whole. */
+  @media (max-width: 520px) { .cats { gap: 3px; } .cat { padding-inline: 0; } .cat .catname { letter-spacing: -.02em; } }
   .act { text-align: left; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); color: var(--ink); cursor: pointer; padding: 7px 9px; font-family: inherit; flex: 1 1 150px; min-width: 140px; }
   .act:hover:not(:disabled) { border-color: var(--teal); background: var(--sub2); }
   .act:disabled { opacity: .38; cursor: not-allowed; }

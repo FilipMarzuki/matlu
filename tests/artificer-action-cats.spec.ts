@@ -51,10 +51,19 @@ for (const lang of ['en', 'sv'] as const) {
       const n = await cats.count();
       expect(n).toBeGreaterThanOrEqual(3);
 
-      // One row: every category on the same line, each a thumb's size, its whole name showing.
+      // One row: every category on the same line, each a thumb's size. Measured once the web fonts
+      // are in (they load with display=swap, so a first look can be in the stand-in font).
+      await page.waitForLoadState('load');
+      await page.evaluate(async () => { await document.fonts.load('600 12px "Chakra Petch"').catch(() => []); await document.fonts.ready; });
       const boxes = await cats.evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); const nm = e.querySelector('.catname')!; return { top: Math.round(r.top), w: r.width, h: r.height, cut: nm.scrollWidth > nm.clientWidth }; }));
       expect(new Set(boxes.map(b => b.top)).size).toBe(1);
-      for (const b of boxes) { expect(b.h).toBeGreaterThanOrEqual(44); expect(b.w).toBeGreaterThanOrEqual(44); expect(b.cut).toBe(false); }
+      for (const b of boxes) { expect(b.h).toBeGreaterThanOrEqual(44); expect(b.w).toBeGreaterThanOrEqual(44); }
+      // Each whole name shows in the page's own font (Chakra Petch, from Google Fonts). Where it
+      // couldn't load, the stand-in font is wider and a long name may end in "…", by design (its
+      // button still says it whole), so that's only checked when the font is really there.
+      const fontIn = await page.evaluate(() => [...document.fonts].some(f => f.family.replace(/["']/g, '') === 'Chakra Petch' && f.weight === '600' && f.status === 'loaded'));
+      if (fontIn) expect(boxes.filter(b => b.cut)).toEqual([]);
+      await expect(cats.first()).toHaveAttribute('aria-label', new RegExp(`^${names[lang].explore}: \\d+ `));
 
       // The first time, Explore is open: its cards show, no other group's.
       const explore = page.locator('.cat[data-group="explore"]');
