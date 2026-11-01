@@ -1,7 +1,7 @@
 /**
  * Run records (#1558): one row per finished game in `artificer_runs`, in the same shape whoever
  * played and wherever: a person in the console, someone's AI over MCP or the HTTP API, or our own
- * nightly AI playtest. That shared shape is what lets the Records page put people and models side
+ * weekly AI playtest. That shared shape is what lets the Records page put people and models side
  * by side, and what achievements will be worked out from later (#1559).
  *
  * This file is the shape, the nickname rule and how runs rank against each other: plain functions
@@ -15,7 +15,7 @@
  */
 
 export type PlayerKind = 'person' | 'ai';
-/** Where a game was played: the HTTP API, the MCP server, the console, the nightly playtest, or the web game (#1559, re-simulated before it counts). */
+/** Where a game was played: the HTTP API, the MCP server, the console, the weekly playtest, or the web game (#1559, re-simulated before it counts). */
 export type Surface = 'api' | 'mcp' | 'console' | 'bench' | 'web';
 
 /**

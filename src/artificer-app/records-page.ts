@@ -19,7 +19,7 @@ import { achievementsOf, type Achievement } from '../artificer-play/achievements
 // As in main.ts: only a production build on the real domain reports to Vercel Web Analytics.
 if (import.meta.env.PROD && location.hostname === 'artificer.corewarden.app') inject();
 
-const SURFACE: Record<StoredRun['surface'], string> = { api: 'API', mcp: 'MCP', console: 'console', bench: 'nightly playtest', web: 'web game' };
+const SURFACE: Record<StoredRun['surface'], string> = { api: 'API', mcp: 'MCP', console: 'console', bench: 'weekly playtest', web: 'web game' };
 /** The three ways a run can go, in order. Their colours are one hue, dim to bright (records.css). */
 const TIERS = [
   { tier: 1, label: 'Died before the thaw' },

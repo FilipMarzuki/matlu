@@ -5,8 +5,8 @@
  *
  * Live, not baked at build time like /metrics: the page fetches the run records from the
  * Artificer's play API in the browser (GET /api/v1/runs/ai, cached five minutes at Vercel's edge),
- * so the nightly playtest's new runs show up without a deployment — this site deploys once a day.
- * Records come from the nightly AI playtest and from AIs that play over MCP or the API; a model's
+ * so the weekly playtest's new runs show up without a deployment — this site deploys once a day.
+ * Records come from the weekly AI playtest and from AIs that play over MCP or the API; a model's
  * name there is what its player reported.
  */
 import Base from '../layouts/Base.astro';
@@ -20,7 +20,7 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       <h1>Artificer: AI players</h1>
       <p>
         Every finished game an AI plays in <a href="https://artificer.corewarden.app">the Artificer</a>:
-        the nightly playtest's roster, and AIs that people point at it over MCP or the API. Read live
+        the weekly playtest's roster, and AIs that people point at it over MCP or the API. Read live
         from the run records, so tonight's runs show up without a deploy.
       </p>
     </header>
@@ -29,7 +29,7 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       <label>Played
         <select id="f-surface">
           <option value="all">everywhere</option>
-          <option value="bench">in the nightly playtest</option>
+          <option value="bench">in the weekly playtest</option>
           <option value="outside">over MCP or the API</option>
         </select>
       </label>
@@ -55,7 +55,7 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
 
       <section class="chart-card">
         <h2>Cost per run</h2>
-        <p class="dim">Mean token cost of a game, where it's known: the nightly playtest's own runs. A player's AI over MCP runs on their account.</p>
+        <p class="dim">Mean token cost of a game, where it's known: the weekly playtest's own runs. A player's AI over MCP runs on their account.</p>
         <div class="chart-box" id="cost-box"><canvas id="cost" aria-label="Mean cost per run by model"></canvas></div>
       </section>
 
@@ -256,7 +256,7 @@ const api = `${import.meta.env.PUBLIC_ARTIFICER_URL ?? 'https://artificer.corewa
       $('status').textContent = `The run records can't be reached right now (${e instanceof Error ? e.message : 'network'}). Try again in a while.`;
       return;
     }
-    if (!all.length) { $('status').textContent = 'No AI runs recorded yet: the nightly playtest adds its games after its next run.'; return; }
+    if (!all.length) { $('status').textContent = 'No AI runs recorded yet: the weekly playtest adds its games after its next run.'; return; }
     // The four models with the most runs overall get a line each, in a fixed colour.
     colourOf = new Map(byModel(all).slice(0, LINES.length).map(([model], i) => [model, LINES[i]]));
     const versions = [...new Set(all.map(r => r.gameVersion))];
