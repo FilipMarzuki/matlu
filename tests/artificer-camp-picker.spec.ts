@@ -32,6 +32,8 @@ async function openPlan(page: Page, lang: 'en' | 'sv'): Promise<{ errors: string
     // Through the first-morning guide already, so every action shows.
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
+    // Make camp is under Build (#2020): its category open, as the viewer last left it for this Warden.
+    localStorage.setItem('artificer.group', JSON.stringify({ id: (JSON.parse(save) as { sim: { character: { id: string } } }).sim.character.id, pick: 'build' }));
   }, { ...saved, lang });
   await page.reload();
   return { errors, saved };

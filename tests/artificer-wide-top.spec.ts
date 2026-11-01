@@ -37,8 +37,9 @@ async function openPlan(page: Page, width: number, o: { lang?: string } = {}): P
   return errors;
 }
 
+/** The top of the first card on screen: the shut categories' cards (#2020) are drawn hidden, with no box, so they don't count. */
 const firstCardTop = (page: Page): Promise<number> =>
-  page.evaluate(() => Math.min(...[...document.querySelectorAll('.plan .act')].map(e => e.getBoundingClientRect().top + scrollY)));
+  page.evaluate(() => Math.min(...[...document.querySelectorAll('.plan .act')].filter(e => e.getClientRects().length > 0).map(e => e.getBoundingClientRect().top + scrollY)));
 
 /** As before (#1924, #1951): the line in a row of its own, the weather in its box under the tabs, the day in the title too. */
 async function asBefore(page: Page): Promise<void> {
