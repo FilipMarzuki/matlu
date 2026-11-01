@@ -456,8 +456,10 @@
 .dbchip.on { border-color: var(--gold); background: var(--sub2); }
 .dbchip.skip { color: var(--faint); text-decoration: line-through; }
 .dbwarn { color: var(--warn); }
+.dbneed { color: var(--gold); font-weight: 700; }
 .dbdot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
 /* Four hues that stay apart in every look (looks.ts): blue, orange, green, purple. */
+.dbtnone { --tone: var(--border2); }
 .dbt0 { --tone: var(--ice); } .dbt1 { --tone: var(--amber); } .dbt2 { --tone: var(--green); } .dbt3 { --tone: var(--lilac); }
 .dbbar { position: relative; height: 10px; border: 1px solid var(--border); border-radius: 5px; background: var(--sub2); overflow: hidden; }
 .dbbar > i { position: absolute; top: 0; bottom: 0; }
@@ -468,9 +470,9 @@
 .dbdusk { width: 2px; margin-left: -1px; background: var(--danger); }
 .queue .dbsel { margin: 0 0 8px; }
 .queue .dbsel:empty { display: none; }
-/* What the bars already say: the activity's day, the days' hours, and Run the day, which the strip
-   right above keeps. Run the whole queue and Clear then share one row. */
-.queue.daybars .dbsel .dayn, .queue.daybars .qtot, .queue.daybars .runbar [data-cmd="day"] { display: none; }
+/* What the bars already say: the activity's day and the days' hours. (Run the day isn't drawn in the
+   Run bar on a phone: the strip right above has it, so Run whole queue and Clear share one row.) */
+.queue.daybars .dbsel .dayn, .queue.daybars .qtot { display: none; }
 .dbmove { display: inline-flex; gap: 2px; }
 .qmv { min-width: 32px; min-height: 26px; padding: 0 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--sub2); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
 .qmv:hover, .qmv:focus-visible { border-color: var(--gold); }

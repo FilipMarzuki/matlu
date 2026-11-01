@@ -13,7 +13,8 @@
  * The segments take turns at four colors (`tone`), each chip has a dot in its segment's color, and a
  * line separates them (a gap in the bar). Hours already gone today are greyed at the start. A day
  * planned past its hours (the sim lets it run on into the dark) draws to scale with a tick where the
- * day's hours end. An activity that will be skipped has no segment, and its chip is struck through.
+ * day's hours end. An activity that will be skipped has no segment and no color: its chip is struck
+ * through. A chip says ? while its activity needs a choice, and ⚠ while its row warns.
  *
  * Pure: the model (`dayBars`) from plain numbers, and its HTML (`dayBarsHtml`), so a test can check
  * both without a browser. main.ts gathers the numbers from the queue's preview and draws the chosen
@@ -36,8 +37,10 @@ export interface BarItem {
   day: number;
   /** It will be skipped (the preview says why), so it takes no time. */
   skip: boolean;
-  /** Something on its row warns: danger, strain, a load too heavy. Its chip is marked. */
+  /** Something on its row warns: danger, strain, unease, a load too heavy. Its chip is marked ⚠. */
   warn: boolean;
+  /** It needs a choice before it can run (an option left open). Its chip is marked ?. */
+  need: boolean;
 }
 
 /** One segment of a bar: where it starts and how long, in hours. */
@@ -49,8 +52,8 @@ export interface DayBar {
   /** Hours already gone before the first activity (today only). */
   spent: number;
   segs: BarSeg[];
-  /** Every activity that day, in order, skipped ones too: the row of chips. */
-  items: (BarItem & { tone: number })[];
+  /** Every activity that day, in order, skipped ones too: the row of chips. `tone` is its segment's color; null without one. */
+  items: (BarItem & { tone: number | null })[];
   /** Where the day's planned time ends, in hours. */
   end: number;
   /** The bar's length in hours: the day's hours, or longer when the plan runs past them. */
@@ -72,9 +75,12 @@ export function dayBars(items: readonly BarItem[], spentToday: number, dayHours:
     let at = spent;
     let k = 0;
     const segs: BarSeg[] = [];
+    // Only activities that take time get a color, so two segments side by side never share one.
     const chips = items.filter(x => x.day === day).map(x => {
+      if (x.skip || x.hours <= 0) return { ...x, tone: null };
       const tone = k++ % TONES;
-      if (!x.skip && x.hours > 0) { segs.push({ i: x.i, from: at, hours: x.hours, tone }); at += x.hours; }
+      segs.push({ i: x.i, from: at, hours: x.hours, tone });
+      at += x.hours;
       return { ...x, tone };
     });
     return { day, spent, segs, items: chips, end: at, scale: Math.max(dayHours, at) };
@@ -97,7 +103,7 @@ export interface BarsView {
 
 /**
  * The bars' HTML. Each chip is a button (`data-qsel`, the activity's place in the queue) that opens or
- * shuts that activity's details, which main.ts draws under the bars as `#qseldetail`. The bar itself
+ * shuts that activity's details (one that needs a choice stays open until it has one), which main.ts draws under the bars as `#qseldetail`. The bar itself
  * is a picture of what the chips say, so it's hidden from screen readers.
  */
 export function dayBarsHtml(bars: readonly DayBar[], v: BarsView): string {
@@ -105,10 +111,10 @@ export function dayBarsHtml(bars: readonly DayBar[], v: BarsView): string {
   return bars.map(b => {
     const chips = b.items.map(x => {
       const on = v.sel === x.i;
-      const cls = `dbchip dbt${x.tone}${on ? ' on' : ''}${x.skip ? ' skip' : ''}`;
+      const cls = `dbchip ${x.tone === null ? 'dbtnone' : `dbt${x.tone}`}${on ? ' on' : ''}${x.skip ? ' skip' : ''}`;
       return `<button class="${cls}" data-qsel="${x.i}" aria-pressed="${on}" aria-controls="qseldetail">`
         + `<i class="dbdot" aria-hidden="true"></i><span class="qci">${x.icon}</span> ${esc(x.name)} <b>${esc(`${hrs(x.hours, t)}h`)}</b>`
-        + `${x.warn && !x.skip ? ' <span class="dbwarn" aria-hidden="true">⚠</span>' : ''}</button>`;
+        + `${x.need ? ' <span class="dbneed" aria-hidden="true">?</span>' : ''}${x.warn && !x.skip ? ' <span class="dbwarn" aria-hidden="true">⚠</span>' : ''}</button>`;
     }).join('');
     const spent = b.spent > 0 ? `<i class="dbspent" style="width:${pc(b.spent, b.scale)}"></i>` : '';
     const segs = b.segs.map(s => `<i class="dbseg dbt${s.tone}${v.sel === s.i ? ' on' : ''}" style="left:${pc(s.from, b.scale)};width:${pc(s.hours, b.scale)}"></i>`).join('');

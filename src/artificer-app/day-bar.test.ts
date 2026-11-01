@@ -14,7 +14,7 @@ import { PHONE_QUEUE_QUERY } from './plan-layout';
 const en = makeT('en');
 const sv = makeT('sv');
 const item = (i: number, hours: number, day = 0, more: Partial<BarItem> = {}): BarItem =>
-  ({ i, icon: '💧', name: `Task ${i}`, hours, day, skip: false, warn: false, ...more });
+  ({ i, icon: '💧', name: `Task ${i}`, hours, day, skip: false, warn: false, need: false, ...more });
 const view = (sel: number | null = null, t = en) => ({ sel, dayName: (d: number) => (d === 0 ? 'TODAY' : `DAY ${14 + d}`), dayHours: 14, t });
 
 describe('the day bars (#2011)', () => {
@@ -39,10 +39,14 @@ describe('the day bars (#2011)', () => {
     expect(dayBars([], 0, 14)).toEqual([]);
   });
 
-  it('Given an activity that will be skipped, Then it keeps its chip but takes no time on the bar', () => {
+  it('Given an activity that will be skipped, Then it keeps its chip but takes no time or color on the bar', () => {
     const [b] = dayBars([item(0, 2), item(1, 3, 0, { skip: true }), item(2, 4)], 0, 14);
     expect(b.items.map(x => x.i)).toEqual([0, 1, 2]);
     expect(b.segs.map(s => [s.i, s.from])).toEqual([[0, 0], [2, 2]]);
+    // Only segments take colors, so the two either side of the skipped one still differ.
+    expect(b.items.map(x => x.tone)).toEqual([0, null, 1]);
+    const [c] = dayBars([item(0, 1), ...[1, 2, 3].map(i => item(i, 1, 0, { skip: true })), item(4, 1)], 0, 14);
+    expect(c.segs.map(s => s.tone)).toEqual([0, 1]);
   });
 
   it(`takes the ${TONES} colors in turn, starting again each day`, () => {
@@ -62,22 +66,23 @@ describe('the day bars (#2011)', () => {
 });
 
 describe('the day bars\' HTML (#2011)', () => {
-  const bars = dayBars([item(0, 2), item(1, 4, 0, { warn: true }), item(2, 3, 0, { skip: true })], 0, 14);
+  const bars = dayBars([item(0, 2), item(1, 4, 0, { warn: true }), item(2, 3, 0, { skip: true }), item(3, 1, 0, { need: true })], 0, 14);
 
   it('a chip per activity that opens its details, pressed when open; the bar hidden from screen readers', () => {
     const html = dayBarsHtml(bars, view(1));
-    expect(html.match(/<button class="dbchip/g)).toHaveLength(3);
+    expect(html.match(/<button class="dbchip/g)).toHaveLength(4);
     expect(html).toContain('<button class="dbchip dbt1 on" data-qsel="1" aria-pressed="true" aria-controls="qseldetail">');
     expect(html).toContain('data-qsel="0" aria-pressed="false"');
     expect(html).toContain('<div class="dbbar" aria-hidden="true">');
     expect(html).toContain('<i class="dbseg dbt1 on" style="left:14.3%;width:28.6%"></i>');
   });
 
-  it('says each day, its hours, and marks a warning and a skip', () => {
+  it('says each day, its hours, and marks a warning, a skip and a choice still to make', () => {
     const html = dayBarsHtml(bars, view());
-    expect(html).toContain('<span class="dbname">TODAY</span><span class="dbtot">6 / 14h</span>');
+    expect(html).toContain('<span class="dbname">TODAY</span><span class="dbtot">7 / 14h</span>');
     expect(html).toMatch(/data-qsel="1"[^]*?4h<\/b> <span class="dbwarn" aria-hidden="true">⚠<\/span><\/button>/);
-    expect(html).toContain('class="dbchip dbt2 skip"');
+    expect(html).toContain('class="dbchip dbtnone skip"');
+    expect(html).toMatch(/data-qsel="3"[^]*?1h<\/b> <span class="dbneed" aria-hidden="true">\?<\/span><\/button>/);
     // A skipped activity is struck through; it doesn't also get a warning.
     expect(html).not.toMatch(/data-qsel="2"[^]*?dbwarn/);
   });

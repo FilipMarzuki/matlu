@@ -52,7 +52,7 @@ for (const lang of ['en', 'sv'] as const) {
     await expect(page.locator('.planq .queue .loadrow')).toHaveCount(0);
     // The strip's own chips step aside while the bars say them; Run the day is the strip's alone.
     await expect(page.locator('.qstrip .qschips')).toBeHidden();
-    await expect(page.locator('[data-cmd="day"]:visible')).toHaveCount(1);
+    await expect(page.locator('[data-cmd="day"]')).toHaveCount(1);
     await expect(page.locator('.qstrip [data-cmd="day"]')).toBeVisible();
     // Each day's segments follow the hours: their widths keep the hours' proportions.
     for (const day of await page.locator('.dayb').all()) {
@@ -70,7 +70,6 @@ for (const lang of ['en', 'sv'] as const) {
 test('phone: a tap opens an activity\'s row, ◀ ▶ move it, ✕ removes it, another tap shuts it', async ({ page }) => {
   const errors = await openPlan(page, 400, 860);
   await page.locator('[data-cmd="qstrip"]').click();
-  const before = await hoursOf(page);
   const wood = chips(page).nth(1);
   await expect(wood).toContainText('Wood');
   await wood.click();
@@ -80,6 +79,12 @@ test('phone: a tap opens an activity\'s row, ◀ ▶ move it, ✕ removes it, an
   await expect(detail(page)).toContainText(/GATHER WOOD/);
   await expect(detail(page).locator('.loadrow')).toBeVisible();
   if (SHOTS) await page.locator('.planq').screenshot({ path: `${SHOTS}/2011-detail-en.png` });
+  // Choosing one of its options keeps its row open, on it.
+  await detail(page).locator('.tog').click();
+  await detail(page).locator('.opt:not(.on):not([disabled])').first().click();
+  await expect(detail(page)).toHaveAttribute('data-qi', '1');
+  await expect(detail(page).locator('.opts')).toBeVisible();
+  const before = await hoursOf(page);
 
   // ▶: one place later, and the row goes with it.
   await detail(page).locator('[data-qdown="1"]').click();

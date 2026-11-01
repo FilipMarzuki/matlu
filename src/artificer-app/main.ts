@@ -151,11 +151,16 @@ document.documentElement.lang = lang;
 const expanded = new Set<number>();
 
 /**
- * The activity whose details are open under the phone's day bars (#2011, day-bar.ts): its place in
- * the queue; -1 once the player shut them; null, the default, opens one that needs a choice. The
- * page's alone, like `expanded`.
+ * The activity whose details the player opened under the phone's day bars (#2011, day-bar.ts): its
+ * place in the queue and what it is (`queueKey`), so a queue that changed under it (a day run, a new
+ * Warden) can't open another activity's row. Null: none opened, so one that needs a choice opens by
+ * itself. The page's alone, like `expanded`.
  */
-let qSel: number | null = null;
+let qSel: { i: number; key: string } | null = null;
+/** The row the last draw opened under the bars, so a tap on its chip shuts it without working the plan out again. */
+let qShown: number | null = null;
+/** What a queued activity is, for `qSel`: its action and distance (its options can change). */
+const queueKey = (item: AppState['queue'][number] | undefined): string => { if (!item) return ''; const { id, ring } = parseItem(item); return `${id}@${ring}`; };
 
 /**
  * The palette's distance chooser (#1814): which land action's is open under its card, if any, and
@@ -547,6 +552,8 @@ function queueBlock(a: AppState, preview: Preview): string {
   // (the same word as its card: seeded by the run, the day and the trip, not the queue).
   // On a phone (#2011): day bars, and only the chosen activity's row, under them.
   const phone = phoneQueue();
+  /** A day of the queue by name: TODAY, DAY 15 (each row's tag, and each day bar's head). */
+  const dayLabel = (d: number): string => (d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }));
   const itemLi = (i: number): string => {
     const item = a.queue[i];
     const { id, ring, opts } = parseItem(item);
@@ -570,7 +577,7 @@ function queueBlock(a: AppState, preview: Preview): string {
     // Compact (#1826): its words, and ▲ to move it up by a tap (the grip still drags).
     const qc = compact && !phone ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t))
       + (i > 0 ? `<button class="qup" data-qup="${i}" aria-label="${esc(t('qc.up', { name: actionName(id, t) }))}">▲</button>` : '') : '';
-    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d }))}</span>${qc}`
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(dayLabel(d))}</span>${qc}`
       + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
@@ -586,8 +593,9 @@ function queueBlock(a: AppState, preview: Preview): string {
       + `<span class="meta">${esc(times.rows[i])}</span>${phone ? phoneMove(a, i) : ''}<button class="x" data-x="${i}" aria-label="${esc(t('queue.remove'))}">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!, taskCard(s, preview.before[i], id, ring, t)?.text) : ''}${menu}</li>`;
   };
   const sel = phone ? phoneSel(a, preview) : null;
+  qShown = sel;
   const list = !a.queue.length ? `<ol><li class="empty">${esc(times.empty)}</li></ol>`
-    : phone ? `${dayBarsHtml(dayBars(barItems(a, preview), s.hoursToday, DAY_HOURS), { sel, dayName: d => (d === 0 ? t('queue.today') : t('queue.day', { n: s.day + d })), dayHours: DAY_HOURS, t })}<ol class="dbsel" id="qseldetail">${sel === null ? '' : itemLi(sel)}</ol>`
+    : phone ? `${dayBarsHtml(dayBars(barItems(a, preview), s.hoursToday, DAY_HOURS), { sel, dayName: dayLabel, dayHours: DAY_HOURS, t })}<ol class="dbsel" id="qseldetail">${sel === null ? '' : itemLi(sel)}</ol>`
     : `<ol>${a.queue.map((_, i) => itemLi(i)).join('')}</ol>`;
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   const spans = t(days === 1 ? 'queue.spans.one' : 'queue.spans.other', { n: days });
@@ -607,8 +615,8 @@ function queueBlock(a: AppState, preview: Preview): string {
       ${list}
       ${forecastBlock(a, preview, t)}
       <div class="qtot">${tot}</div>
-      <div class="runbar"${guide.mark('runDay')}>${dayEndHtml(end, t)}
-        <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>
+      <div class="runbar"${phone ? '' : guide.mark('runDay')}>${dayEndHtml(end, t)}
+        ${phone ? '' : `<button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${esc(t(a.queue.length ? 'btn.runDay' : 'btn.passDay'))}</button>`}
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>${esc(t('btn.runAll'))}</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>${esc(t('btn.clear'))}</button>
       </div>${guideTip('runDay')}
@@ -620,21 +628,30 @@ function barItems(a: AppState, preview: Preview): BarItem[] {
   return a.queue.map((item, i) => {
     const { id, ring } = parseItem(item);
     const c = compactItem(id, ring, !!ACTIONS[id].ringed, 0, ICON[id], t);
+    // Each warning its row shows (so the chip says there is one while the row is shut).
+    const warn = !!(preview.dangers[i] || preview.strains[i] || preview.unease[i] || (preview.loads[i] && heavyLoad(preview.loads[i]!)));
     return { i, icon: ICON[id], name: c.dist ? `${c.name} ${c.dist}` : c.name, hours: queueHours(item, preview.before[i]),
-      day: preview.dayOffset[i] ?? 0, skip: !!preview.warnings[i], warn: !!(preview.dangers[i] || preview.strains[i]) };
+      day: preview.dayOffset[i] ?? 0, skip: !!preview.warnings[i], warn, need: needsChoice(a, preview, i) };
   });
 }
 
+/** A load its row warns about (loadBar's red and amber words): something left behind, or staggering on a walk home. */
+const heavyLoad = (l: TripLoad): boolean => !!haulText(l.left) || (l.walk && l.ratio > 1.5);
+
+/** An activity with an option left open: it can't run until one is chosen. */
+function needsChoice(a: AppState, preview: Preview, i: number): boolean {
+  const { id, ring, opts } = parseItem(a.queue[i]);
+  return (ACTIONS[id].options?.(preview.before[i], opts, ring) ?? []).some(g => g.value === null);
+}
+
 /**
- * Whose details are open under the day bars: the one the player tapped while it's still in the
- * queue, or (until they shut it) the first that needs a choice before it can run.
+ * Whose details are open under the day bars: the one the player opened, while it's still the same
+ * activity at that place, else the first that needs a choice before it can run (it stays open until
+ * it has one: a tap on its chip can't shut it, as running it would skip it).
  */
 function phoneSel(a: AppState, preview: Preview): number | null {
-  if (qSel !== null) return qSel >= 0 && qSel < a.queue.length ? qSel : null;
-  const i = a.queue.findIndex((item, k) => {
-    const { id, ring, opts } = parseItem(item);
-    return (ACTIONS[id].options?.(preview.before[k], opts, ring) ?? []).some(g => g.value === null);
-  });
+  if (qSel && queueKey(a.queue[qSel.i]) === qSel.key) return qSel.i;
+  const i = a.queue.findIndex((_, k) => needsChoice(a, preview, k));
   return i < 0 ? null : i;
 }
 
@@ -680,8 +697,9 @@ function stripBlock(a: AppState, preview: Preview): string {
   }
   const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
   const end = dayEndNow(a, preview);
+  // On a phone (#2011) the strip's Run the day is the only one, so the guide points at it.
   return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen,
-    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null },
+    button: { cmd: 'day', label: t(a.queue.length ? 'btn.runDay' : 'btn.passDay'), disabled: s.outcome !== null, attrs: phoneQueue() ? guide.mark('runDay') : '' },
     line: end ? dayEndText(end, t) : undefined }, t);
 }
 
@@ -2760,12 +2778,13 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'endday') play(endTheDay(state), { endDay: true });
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
-  else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
+  // On a phone (#2011) the row stays open too: an activity that opened by itself is pinned, so choosing doesn't move the bars' detail on.
+  else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); if (phoneQueue()) qSel = { i: Number(i), key: queueKey(state.queue[Number(i)]) }; update(setOption(state, Number(i), key, value)); }
   else if (d.x !== undefined) { expanded.clear(); qSel = null; update(dequeueAt(state, Number(d.x))); }
   // The phone's day bars (#2011): a chip opens its activity's details, or shuts them if they're open.
   else if (d.qsel !== undefined) {
     const i = Number(d.qsel);
-    qSel = phoneSel(state, previewQueue(state)) === i ? -1 : i;
+    qSel = qShown === i ? null : { i, key: queueKey(state.queue[i]) };
     render(state);
     root.querySelector<HTMLElement>(`[data-qsel="${i}"]`)?.focus({ preventScroll: true });
   }
@@ -2877,7 +2896,7 @@ function moveTask(from: number, to: number, refocus: boolean): void {
   expanded.clear();
   open.forEach(i => expanded.add(i));
   // The phone's chosen activity goes with it too (#2011).
-  if (qSel !== null && qSel >= 0) qSel = followMove(qSel, from, to);
+  if (qSel) qSel = { ...qSel, i: followMove(qSel.i, from, to) };
   const name = actionName(parseItem(state.queue[from]).id, t);
   update(next);
   queueLive.textContent = t('queue.moved', { name, n: to + 1, total: next.queue.length });
