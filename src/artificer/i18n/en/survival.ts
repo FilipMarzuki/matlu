@@ -26,7 +26,7 @@ export const survival = {
   'path.suggestTip': 'Set your focus to {goal}: it helps with this step',
   'path.focused': 'Your focus: {goal}',
 
-  // ── The "where you stand" line (#1926, artificer-app/standing-line.ts, ui feature `standing-line`) ──
+  // ── The "where you stand" line (#1926, artificer-app/standing-line.ts) ──
   // One sentence in place of the FOCUS chip, the readiness tag and the night chip: "Next: lay in
   // food — 17 of ~30 nights. Tonight: warm." Short enough for a phone. Never "ready" while the
   // winter outlook falls short.

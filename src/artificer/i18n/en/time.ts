@@ -67,7 +67,7 @@ export const time = {
   // The AI's observation and the API's text: the label before the "now" line.
   'time.label': 'Time of day',
 
-  // ── The day's result as a card (#1929, ui switch `day-card`, artificer-app/day-card.ts) ──
+  // ── The day's result as a card (#1929, artificer-app/day-card.ts) ──
   'daycard.title': 'Day {n} is done',
   'daycard.titleDays': 'Days {from}–{to} are done',
   'daycard.brought': 'Brought back',

@@ -1,5 +1,5 @@
 /**
- * Where the day ends, in words (#1930, ui feature `day-forecast`; roadmap item 8 of the design
+ * Where the day ends, in words (#1930; roadmap item 8 of the design
  * review #1914, F8 and §1.6).
  *
  * Before you run the day, the queue said "15.4 / 14h · ends NIGHT" and each task's haul, but not

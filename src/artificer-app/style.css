@@ -280,14 +280,6 @@
   margin: 8px 0 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px;
   background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(6px);
 }
-.minis { display: flex; gap: 12px; flex-wrap: wrap; }
-.mini { display: inline-flex; align-items: center; gap: 6px; }
-.mini .ml { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); }
-.mini .mt { width: 64px; height: 7px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
-.mini .mf { display: block; height: 100%; }
-.mini .mf.fresh { background: var(--green); } .mini .mf.ok { background: var(--teal); } .mini .mf.warn { background: var(--warn); } .mini .mf.low { background: var(--danger); }
-.mini .mv { font-family: var(--display); font-size: 8px; min-width: 22px; font-variant-numeric: tabular-nums; color: var(--dim); }
-.mini .mv.low { color: var(--danger); } .mini .mv.warn { color: var(--warn); }
 .sstores { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .sstores .low { color: var(--danger); }
 .shours { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--faint); margin-left: auto; }
@@ -299,7 +291,7 @@
 .tabbtn:hover { border-color: var(--teal); }
 .tabbtn.on { color: var(--gold); border-color: var(--gold); background: rgba(255,224,102,.06); }
 
-/* ── The compact status line (#1924, ui switch `compact-status`) ───────────────
+/* ── The status line (#1924; the only status bar since #2009) ────────────────────
    One line: the day, the three vitals as dots and the key box. Everything else (FOCUS, rations,
    pain, injuries, the night, the outlook) sits behind the ⋯ in `.compactmore`, which opens inside
    the bar under its line. The "where you stand" line is the exception: a row of its own under the
@@ -483,7 +475,7 @@ body { min-height: 100vh; }
 /* Four tabs fit across a phone. */
 @media (max-width: 520px) { .tabbtn { flex-basis: 60px; letter-spacing: 1px; padding: 9px 4px; } }
 
-/* ── Tabs at the bottom under 900px (#1924, ui switch `compact-status`) ────────
+/* ── Tabs at the bottom under 900px (#1924) ──────────────────────────────────────
    The tab row the thumb can already reach. The ⚙ stays in the header beside Feedback (#2005: the
    owner found it fit better there), where on a phone it's the bare gear (`.menyword` hides). */
 @media (max-width: 900px) {
@@ -1017,14 +1009,14 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .enc .runbar { margin-top: 12px; }
 @media (max-width: 520px) { .enc-opt { flex-direction: column; align-items: flex-start; } .enc-text { font-size: 14px; } }
 
-/* Make camp's picker (#1986, ui switch `camp-picker`): the places to camp you know, in a popup on the
+/* Make camp's picker (#1986): the places to camp you know, in a popup on the
    encounters' backdrop; each place is the same button as in the "Make camp" section (.siteopt). */
 .campick { width: min(680px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; border-color: var(--teal); box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(77,212,240,.3); animation: enc-in .25s ease-out; }
 .campick h2 { margin: 0 0 12px; font-family: var(--display); font-size: 16px; letter-spacing: 1px; color: var(--teal); }
 .cpbtns { display: flex; justify-content: flex-end; margin-top: 10px; }
 @media (pointer: coarse) { .cpbtns .pill { min-height: 44px; } }
 
-/* The day's result (#1929, ui switch `day-card`): a card over the page when the timer ends a day,
+/* The day's result (#1929): a card over the page when the timer ends a day,
    and the journal as a sheet, one tap from the status bar's 📓. Both on the encounters' backdrop. */
 .daycard { width: min(460px, 100%); border-color: var(--gold); box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,224,102,.3); animation: enc-in .25s ease-out; }
 .daycard h2 { margin: 0 0 12px; font-family: var(--display); font-size: 16px; letter-spacing: 1px; color: var(--gold); }
@@ -1333,7 +1325,7 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .keyfold { margin-top: 12px; }
 .keyfold > summary { font-size: 12px; color: var(--dim); }
 .keyfold .legend { margin-top: 0; }
-/* Fewer cards (#1925, fewer-cards.ts, ui switch `fewer-cards`). The guide's suggestion comes first in
+/* Fewer cards (#1925, fewer-cards.ts). The guide's suggestion comes first in
    its group, on a card the group's whole width with its name a size up (readable-type.css has its
    bigger twin). One fold.ts <details> holds what can't be done now, at the end of the group's
    heading row (#1965, .ghead): its line is at least 44px tall so a thumb finds it (#1927's touch
@@ -1610,8 +1602,7 @@ header.tworow { display: block; }
 @media (max-width: 699px) { .plan.sideq .planq .queue .dayend { display: none; } }
 @container planq (max-width: 330px) { .queue .dayend { font-size: 12.5px; padding: 5px 7px; } }
 
-/* ── The key survival box under FOCUS (#1891, key-box.ts) ─────────────────── */
-.keycol { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+/* ── The key survival box in the status line (#1891, key-box.ts) ──────────── */
 .keybox { align-items: center; gap: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); }
 .keybox > span, .keybox .kfood > summary { display: inline-flex; align-items: center; gap: 3px; }
 .keybox .kv { font-variant-numeric: tabular-nums; }
@@ -1638,7 +1629,7 @@ header.tworow { display: block; }
 .tag.nightq.q-cold { border-color: rgba(255,170,51,.5); color: var(--warn); }
 .tag.nightq.q-dangerous { border-color: rgba(255,90,90,.6); color: var(--danger); }
 
-/* ── The "where you stand" line (#1926, ui switch `standing-line`, standing-line.ts) ──────────
+/* ── The "where you stand" line (#1926, standing-line.ts) ──────────
    One sentence in place of the FOCUS chip, the readiness tag and the night chip: what's next (or
    that you're ready), tonight, and a focus of your own. A button, as the FOCUS chip was: it opens
    the focus picker. Body font at 14 px, the size readable-type gives the status tags it replaces,
@@ -1665,10 +1656,10 @@ header.tworow { display: block; }
 .standrow .standline.locked { background: linear-gradient(rgba(255,90,90,.08), rgba(255,90,90,.08)), var(--panel); }
 /* The picker in the row stacks as it did inside the bar: over the frozen queue (`.planq`, z-index 4),
    but under the bar and the bottom tabs (6), so with it open, the page scrolls it under the bar, not
-   over it. Hence the compact bar is a layer up from the full bar's 5: nothing else sits between. */
+   over it. Hence the bar is a layer up from `.statusbar`'s 5: nothing else sits between. */
 .standrow .focuspop { z-index: 5; }
 
-/* Fewer rows on top on a wide screen (#1998, ui switch `wide-top`, wide-top.ts). The "where you
+/* Fewer rows on top on a wide screen (#1998, wide-top.ts). The "where you
    stand" line in the compact bar's own line, in the room to spare after the 📓: it takes what's left
    (basis 0) and wraps inside its button rather than push the key box onto a second line. Its picker
    (`.focuspop`, absolute) opens under the bar, at the bar's right, as wide as under its own row:
@@ -1710,7 +1701,6 @@ header.tworow { display: block; }
   .tabbtn, .queue li .x { display: inline-flex; align-items: center; justify-content: center; }
   .queue li .x { min-height: 44px; min-width: 32px; }
   .tabbar { gap: 8px; }
-  .keycol { gap: 8px; }
   .queue ol { gap: 8px; }
   /* The second pass (#1999), from the re-measure (#1997, design doc §1.7): the targets the review
      didn't list. The run bar's buttons and LAND's Explore; each queue row's grip and ▸ (the ▸ was

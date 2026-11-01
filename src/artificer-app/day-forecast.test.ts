@@ -1,5 +1,5 @@
 /**
- * Where the day ends, in words (#1930, ui feature `day-forecast`). The look is exempt (`ui-hud`:
+ * Where the day ends, in words (#1930). The look is exempt (`ui-hud`:
  * screenshots), but what the sentence says is checked here against the queue's own preview: when
  * and where today's plan leaves you, how tired, and the nights each store a trip fills will cover,
  * the same numbers as the key box and the winter outlook. With `forecasts` on, it says no more than

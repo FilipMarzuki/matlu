@@ -1,5 +1,5 @@
 /**
- * Make camp's picker (#1986, ui switch `camp-picker`): tapping the Make camp card opens a popup of
+ * Make camp's picker (#1986): tapping the Make camp card opens a popup of
  * the places to camp you know, each with what you can tell of its surroundings, and the one you tap
  * is where camp is made. Without it the card queues Make camp with no spot, and the sim takes the
  * default (camp-sites.ts `defaultSpot`): the player never chose.

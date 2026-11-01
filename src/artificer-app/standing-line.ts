@@ -152,8 +152,8 @@ export function standingLine(s: Region1State, t: T, opts: { open: boolean; night
 }
 
 /**
- * The line's own row under the compact status bar (#1951). With the one-line bar (#1924, ui feature
- * `compact-status`) the line used to sit behind the ⋯, where a player who never taps it never saw
+ * The line's own row under the compact status bar (#1951). With the one-line bar (#1924) the line
+ * used to sit behind the ⋯, where a player who never taps it never saw
  * it. Here it's drawn just under the bar, after the bar's sticky element, so it's in the page's own
  * flow: it scrolls away with the page and the frozen chrome stays the one line. `pop` is the focus
  * picker the line opens: the row holds it (style.css `.standrow`), so it opens just under the line.

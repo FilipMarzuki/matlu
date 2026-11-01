@@ -22,7 +22,6 @@ import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
-import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
 import { introBeats, introHtml, introWhere, QUICK_NAME, type Beat, type QuickStep } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
@@ -93,7 +92,7 @@ import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
-import { esc, pct, band, wardenButton } from './html';
+import { esc, pct, wardenButton } from './html';
 import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
 import { WIDE_TOP_QUERY } from './wide-top';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
@@ -441,9 +440,6 @@ function loadBar(l: TripLoad, guess?: string): string {
 /** Whether the status bar's focus picker is open (#1758): the page's alone, never saved. */
 let focusPopOpen = false;
 
-/** A one-line status bar and the tabs at the bottom on phones (#1924): a ui feature, on unless switched off in the features panel. */
-const COMPACT_STATUS_FEATURE = 'compact-status';
-const compactOn = (): boolean => uiFeatureOn(loadChoices(), COMPACT_STATUS_FEATURE);
 /** Whether the compact bar's "more" panel (FOCUS, pain, injuries, the night, the outlook; with the line, pain, injuries and TODAY) is open: the page's alone, never saved. */
 let compactMoreOpen = false;
 
@@ -643,65 +639,20 @@ function stripBlock(a: AppState, preview: Preview): string {
     line: end ? dayEndText(end, t) : undefined }, t);
 }
 
-/** Always-visible summary: body, key stores, today's hours, readiness. */
 /**
- * Always-visible summary. With the two-row header (#1824), `row2` (the Warden and the three
- * resources) is the sticky bar's top line, so the resources stay in view while the page scrolls, as
- * the bars did, and the frozen queue (#1826, `syncStickTop`) still stops right under it.
- */
-function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): string {
-  if (compactOn()) return compactStatusBar(a, preview, warden);
-  const s = a.sim;
-  const mini = (label: string, cur: number, cap: number, max: number): string => {
-    const b = band(cap > 0 ? cur / cap : 0);
-    return `<span class="mini"><span class="ml">${label}</span><span class="mt"><span class="mf ${b}" style="width:${pct(cur / max)}%"></span></span><span class="mv ${b}">${Math.round(cur)}</span></span>`;
-  };
-  const ready = winterReady(s);
-  // The first-morning guide (#1792): with it on, each part arrives when it's of use (vitals and the
-  // FOCUS chip after the weather, the stores once something's gathered or the first night is behind
-  // you). With it off, or "I've played before", `guide` shows everything and marks nothing: as before.
-  const g = guide;
-  // The Warden's button shows from the start (#1818), so with the two rows the bar is never empty.
-  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return row2 ? `<div class="statusbar">${row2}</div>` : '';
-  const vitals = g.shows('vitals');
-  const line = lineShown(g);
-  const focus = g.shows('focus') ? markFirst(focusOrLine(s, vitals), 'focus', 'lock') : '';
-  const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
-  // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
-  // (an injury's chip, the weather) may be on another tab, or gone again (the injury healed).
-  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
-  if (g.active) {
-    const stores = g.shows('stores');
-    return `<div class="statusbar">${row2}
-    ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
-    ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
-    ${stores ? statusEating(s) : ''}${vitals ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
-    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
-    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}${stores ? jbtn() : ''}
-  </div>${tips}`;
-  }
-  return `<div class="statusbar">${row2}
-    ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
-    ${keyColumn(focusOrLine(s, true), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${lineShown(g) ? '' : nightChip(s, t)}${painChip(s)}${injuryChips(s)}
-    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
-    ${lineShown(g) ? '' : outlookTag(s, ready)}${jbtn()}
-  </div>`;
-}
-
-/**
- * The compact status line (#1924, ui switch `compact-status`): the Warden's button (with the
- * two-row header, which otherwise gives it a whole row of its own), the day, the three vitals as
+ * The status line (#1924, the compact status bar; the only one since #2009): the Warden's button
+ * (with the two-row header), the day, the three vitals as
  * small dots and the key box (food/water/firewood), all on one line, so the sticky bar stays to
- * that line's height. Everything else the full bar carries — FOCUS and its picker, rations, pain,
+ * that line's height. Everything else — FOCUS and its picker, rations, pain,
  * injuries, the night and the day's outlook — sits behind the ⋯ toggle (`compactMoreOpen`,
  * `compactMorePanel`), in a panel inside the bar, under its line (frozen with it while it's open).
  * The "where you stand" line is the exception (#1951): it has a row of its own right after the
  * bar's sticky element (`standingUnder`), so it's seen without a tap and scrolls away with the page.
  */
-/** Whether the compact bar says the day: once the guide shows anything past the Warden in it. */
-const compactDayShown = (): boolean => compactOn() && (guide.shows('vitals') || guide.shows('focus') || guide.shows('stores'));
+/** Whether the status line says the day: once the guide shows anything past the Warden in it. */
+const compactDayShown = (): boolean => guide.shows('vitals') || guide.shows('focus') || guide.shows('stores');
 
-function compactStatusBar(a: AppState, preview: Preview, warden: string): string {
+function statusBar(a: AppState, preview: Preview, warden = ''): string {
   const s = a.sim;
   const g = guide;
   if (!compactDayShown()) return warden ? `<div class="statusbar compact"><div class="cline">${warden}</div></div>` : '';
@@ -723,9 +674,9 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
 
 /**
  * The "where you stand" line under the compact bar (#1951, standing-line.ts `standingRow`): once
- * the guide shows FOCUS, as in the full bar. Outside `.statusbar`, which is the sticky element, so
+ * the guide shows FOCUS. Outside `.statusbar`, which is the sticky element, so
  * the row is in the page's flow and scrolls away, and `syncStickTop` still measures the one line.
- * With the line off, nothing: FOCUS stays in the ⋯ panel, as before.
+ * With the guide off, nothing: FOCUS stays in the ⋯ panel.
  */
 function standingUnder(a: AppState): string {
   const p = standingParts(a);
@@ -752,11 +703,11 @@ function standingParts(a: AppState): { line: string; pop: string } | null {
 }
 
 /**
- * The compact bar's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
- * and the day's outlook — what the one-line bar leaves out. It opens inside the bar, under its line,
+ * The status line's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
+ * and the day's outlook — what the one line leaves out. It opens inside the bar, under its line,
  * and shuts again at the same ⋯. With the "where you stand" line (#1951), the line and its picker
- * are in their own row under the bar instead (`standingUnder`), and the panel keeps rations, pain,
- * injuries and TODAY.
+ * are in their own row under the bar instead (`standingUnder`, or `standingIn` on a wide screen),
+ * and the panel keeps rations, pain, injuries and TODAY.
  */
 function compactMorePanel(a: AppState, preview: Preview): string {
   const s = a.sim;
@@ -771,12 +722,6 @@ function compactMorePanel(a: AppState, preview: Preview): string {
     ${g.shows('focus') && !line ? outlookTag(s, winterReady(s)) : ''}
   </div>`;
 }
-
-/**
- * The FOCUS chip with the key survival box under it (#1891, key-box.ts): food as days, water and
- * firewood. The full stores list (materials, stone, hides…) is the CAMP tab's.
- */
-const keyColumn = (focus: string, box: string): string => (focus || box ? `<div class="keycol">${focus}${box}</div>` : '');
 
 /**
  * The "where you stand" line (#1926, standing-line.ts): with it, one sentence takes the place of
@@ -933,8 +878,8 @@ journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(s
  * line draws it again, as for the journal above.
  */
 const wideTopMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(WIDE_TOP_QUERY) : null;
-const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn();
-wideTopMq?.addEventListener('change', () => { if (compactOn()) render(state); });
+const wideTop = (): boolean => wideTopMq?.matches ?? false;
+wideTopMq?.addEventListener('change', () => render(state));
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1333,7 +1278,7 @@ function drawPage(a: AppState): void {
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
   root.classList.toggle('winter', winter);
-  root.classList.toggle('compactnav', compactOn());
+  root.classList.add('compactnav');
   root.style.setProperty('--snow', String(winter ? Math.max(0.25, a.sim.snowDepth ?? 0) : 0));
   const fresh = a.sim.log.length === 0;
   // Which tabs show (#1688, #1691), and the open one settled against them: a CAMP tab kept from an
@@ -1374,9 +1319,7 @@ function drawPage(a: AppState): void {
       }, a, '')}
     ${menyOn() ? '' : featuresPanel(a)}
     ${!notesOn() && ((fresh && !guide.active) || showHelp) ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
-    ${statusBar(a, preview,
-      twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
-      twoRowOn() && compactOn() ? reachWarden : '')}
+    ${statusBar(a, preview, twoRowOn() ? reachWarden : '')}
     ${resolvePanel(a)}
     ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
@@ -1701,7 +1644,7 @@ const roadJournal = (r: RoadState, limit: number): string => journalItems(r.log,
 
 function renderRoad(a: AppState, r: RoadState): void {
   root.classList.remove('winter');
-  root.classList.toggle('compactnav', compactOn());
+  root.classList.add('compactnav');
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths, '', true)

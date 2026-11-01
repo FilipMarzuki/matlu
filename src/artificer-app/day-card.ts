@@ -1,5 +1,5 @@
 /**
- * The day's result as a card (#1929, roadmap item 7 of #1914, ui switch `day-card`): when the timer
+ * The day's result as a card (#1929, roadmap item 7 of #1914): when the timer
  * ends a day, a short card says what was brought back, what the night took and tomorrow's sky. And
  * the journal as a sheet, one tap from the status bar, instead of at the foot of PLAN.
  *
