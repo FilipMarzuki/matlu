@@ -52,6 +52,8 @@ export const planqSv: Record<keyof typeof planq, string> = {
   'qc.total': '{h} / {max} h',
   'qc.ends': 'slut {when}',
   'qc.up': 'Flytta upp {name}',
+  'qc.earlier': 'Flytta {name} tidigare',
+  'qc.later': 'Flytta {name} senare',
   'qc.label': 'Kön',
   'qc.unfold': 'Visa hela kön',
   'qc.fold': 'Fäll ihop kön',

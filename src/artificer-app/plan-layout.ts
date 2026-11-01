@@ -35,6 +35,13 @@ export const SIDE_QUEUE_FEATURE = 'side-queue';
  */
 export const JOURNAL_BESIDE_QUERY = '(min-width: 1000px)';
 
+/**
+ * A phone (#2011): under 700px the queue is a strip over the actions (style.css), and unfolded it's
+ * drawn as day bars (day-bar.ts). main.ts redraws when the width crosses it; plan-layout.test.ts
+ * checks style.css says the same width.
+ */
+export const PHONE_QUEUE_QUERY = '(max-width: 699px)';
+
 /** The PLAN tab's parts, each already drawn (empty when the guide hasn't brought it in yet). */
 export interface PlanParts {
   /** The actions' box (a whole `<section class="box">`). */

@@ -439,6 +439,45 @@
 .qstot { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .qsfold { margin-left: auto; color: var(--teal); font-size: 12px; }
 .qstrip > .btn.go { flex: 0 0 auto; align-self: stretch; padding: 8px 10px; max-width: 38%; white-space: normal; }
+/* ── The phone's queue as day bars (#2011, day-bar.ts) ──────────────────────────────────────────
+   Unfolded on a phone: one bar per day, each activity a segment as long as its hours (a line between
+   them, four colors in turn), the activities in one row over it as chips with a dot in their color.
+   A chip opens its activity's row under the bars (`.dbsel`). The strip's own chips hide meanwhile:
+   the bars say them. */
+.dayb { margin: 0 0 10px; }
+.dbhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--dim); }
+.dbname { font-weight: 600; letter-spacing: .04em; color: var(--teal); }
+.dbtot { font-variant-numeric: tabular-nums; }
+.dbchips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+.dbchip { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--sub); color: var(--ink); font: inherit; font-size: 13px; line-height: 1.2; white-space: nowrap; cursor: pointer; }
+.dbchip b { font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
+.dbchip:hover, .dbchip:focus-visible { border-color: var(--teal); }
+.dbchip.on { border-color: var(--gold); background: var(--sub2); }
+.dbchip.skip { color: var(--faint); text-decoration: line-through; }
+.dbwarn { color: var(--warn); }
+.dbdot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+/* Four hues that stay apart in every look (looks.ts): blue, orange, green, purple. */
+.dbt0 { --tone: var(--ice); } .dbt1 { --tone: var(--amber); } .dbt2 { --tone: var(--green); } .dbt3 { --tone: var(--lilac); }
+.dbbar { position: relative; height: 10px; border: 1px solid var(--border); border-radius: 5px; background: var(--sub2); overflow: hidden; }
+.dbbar > i { position: absolute; top: 0; bottom: 0; }
+/* The line between two activities: each segment's right edge in the bar's own color. */
+.dbseg { background: var(--tone); box-shadow: inset -2px 0 0 var(--sub2); opacity: .8; }
+.dbseg.on { opacity: 1; }
+.dbspent { left: 0; background: var(--border2); }
+.dbdusk { width: 2px; margin-left: -1px; background: var(--danger); }
+.queue .dbsel { margin: 0 0 8px; }
+.queue .dbsel:empty { display: none; }
+/* What the bars already say: the activity's day, the days' hours, and Run the day, which the strip
+   right above keeps. Run the whole queue and Clear then share one row. */
+.queue.daybars .dbsel .dayn, .queue.daybars .qtot, .queue.daybars .runbar [data-cmd="day"] { display: none; }
+.dbmove { display: inline-flex; gap: 2px; }
+.qmv { min-width: 32px; min-height: 26px; padding: 0 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--sub2); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.qmv:hover, .qmv:focus-visible { border-color: var(--gold); }
+@media (max-width: 699px) {
+  .plan.sideq .planq.stripopen .qschips { display: none; }
+}
+@media (pointer: coarse) { .dbchip, .qmv { min-height: 44px; } }
 /* A narrow queue column: each task in a few words on a line of its own (icon, short name, the
    distance, hours), its controls (grip, options, ▲, ×) on the line under it. */
 @container planq (max-width: 330px) {
