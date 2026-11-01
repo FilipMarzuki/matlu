@@ -73,7 +73,7 @@ import { FEWER_CARDS_FEATURE } from './fewer-cards';
 import { campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
-import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
+import { dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
 import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
@@ -96,7 +96,7 @@ import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artific
 import { pickerNeeded, storedLang, storeLang } from './lang';
 import { esc, pct, band, wardenButton } from './html';
 import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
-import { WIDE_TOP_FEATURE, WIDE_TOP_QUERY } from './wide-top';
+import { WIDE_TOP_QUERY } from './wide-top';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
@@ -206,15 +206,12 @@ function closeCampPick(refocus: boolean): void {
 const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
 /** Finds as you explore (#1869, explore-finds.ts): a ui feature, on unless switched off in the features panel. */
 const findsOn = (): boolean => uiFeatureOn(loadChoices(), FINDS_FEATURE);
-// A ui feature (#1929): the day's result as a card when the timer ends a day, and the journal one
-// tap from the status bar. Off, the day ends as before and the journal stays at the foot of PLAN.
-const dayCardOn = (): boolean => uiFeatureOn(loadChoices(), DAY_CARD_FEATURE);
 /** The card the timer's last day left (#1929), until OK; null when there's none. Presentation only: never saved. */
 let dayCard: DayCard | null = null;
 /** The journal sheet (#1929) is open. */
 let jsheetOpen = false;
-/** The status bar's 📓, when the switch is on. */
-const jbtn = (): string => (dayCardOn() ? journalButton(t) : '');
+/** The status bar's 📓 (#1929): the journal one tap away, over any tab. */
+const jbtn = (): string => journalButton(t);
 /** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
 const startClaimed = new Set<string>();
 /** This run started on LAND: claimed now, or on an earlier visit. */
@@ -937,8 +934,8 @@ journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(s
  * line draws it again, as for the journal above.
  */
 const wideTopMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(WIDE_TOP_QUERY) : null;
-const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE);
-wideTopMq?.addEventListener('change', () => { if (compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE)) render(state); });
+const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn();
+wideTopMq?.addEventListener('change', () => { if (compactOn()) render(state); });
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1364,8 +1361,6 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
-  // Switched off (#1929), the day card and the journal sheet go, so switching back on brings back no old card.
-  if (!dayCardOn()) { dayCard = null; jsheetOpen = false; }
   // The journal sheet (#1929) is drawn again with the page: it keeps where it was scrolled to.
   const sheetScroll = root.querySelector('.jsheet ul')?.scrollTop ?? 0;
   root.innerHTML = `
@@ -2020,7 +2015,7 @@ function endTimer(): void {
   playing = null;
   if (pl.lock) void pl.lock.release().catch(() => undefined);
   // The day's result (#1929): a card, when a day and its night have ended (day-card.ts dayCardOf).
-  dayCard = dayCardOn() ? dayCardOf(pl.plays, findsOn()) : null;
+  dayCard = dayCardOf(pl.plays, findsOn());
   render(state);
   if (dayCard) root.querySelector<HTMLElement>('[data-cmd="daycardok"]')?.focus({ preventScroll: true });
 }

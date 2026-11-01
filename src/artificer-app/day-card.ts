@@ -23,9 +23,6 @@ import { itemIcon } from './item-icons';
 import { weatherWord } from './sim-words';
 import { esc } from './html';
 
-/** The card's ui switch (#1929): read with `uiFeatureOn`. */
-export const DAY_CARD_FEATURE = 'day-card';
-
 /** The most hardships the card lists; the rest are a tap away, in the journal. */
 export const CARD_HARDSHIPS = 4;
 

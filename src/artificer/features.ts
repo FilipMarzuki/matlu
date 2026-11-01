@@ -524,20 +524,6 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'quick-start', name: 'Quick start', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1928,
     note: 'After the language, one story page, then "You\'re Saga, 12, a scout. Your pack is ready." with Play, or Change who I am / what I packed for the usual screens, which come back to the same card. Play starts an average Warden with no talents (a quick start, ×1.00) and the pack ticked for them.',
   },
-  {
-    // A ui feature (#1929, roadmap item 7 of #1914): read off the plays the timer already holds
-    // (artificer-app/day-card.ts), so it switches live and no run saves it. The play API, the console
-    // and AI players never see it. Off, the day ends as before and the journal stays where it was.
-    id: 'day-card', name: 'The day\'s result as a card', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1929,
-    note: 'When the timer ends a day, a card says what you brought back, what the night took (food eaten, wood burnt, anything spoiled or stolen) and tomorrow\'s sky, with the journal one tap away. The status bar gets a 📓 that opens the journal over any tab.',
-  },
-  {
-    // A ui feature (#1998, from the re-measure #1997): where the top rows go on a wide screen
-    // (artificer-app/wide-top.ts), so it switches live and no run saves it. The play API, the console
-    // and AI players never see it. Off, or on a phone, the top of the page is as before.
-    id: 'wide-top', name: 'Fewer rows on top (wide screens)', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1998,
-    note: 'On a tablet or wider: the "where you stand" line sits in the status line, the weather in the tab row (what it opens still opens under the tabs), and the day is said once. The first action card starts about 140 px higher on a 1024 × 700 tablet. Phones are unchanged.',
-  },
 ];
 
 /** Switches by feature id. */

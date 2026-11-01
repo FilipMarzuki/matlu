@@ -5,14 +5,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { makeT } from '../artificer/i18n';
-import { featureById, uiFeatureOn } from '../artificer/features';
 import { keyMetrics } from '../artificer/key-metrics';
 import { chooseSite, createRegion1, runAction, type LogEntry, type QueueItem, type Region1State } from '../artificer/region1';
 import { theftLine } from '../artificer/camp-scavengers';
 import { FLAT_WORLD } from '../artificer/world';
 import { enqueue, makeWarden, type AppState } from './controller';
 import { playAct, playDay, playStopped, playWholeQueue, type DayPlay } from './playback';
-import { CARD_HARDSHIPS, DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, skyTomorrow } from './day-card';
+import { CARD_HARDSHIPS, dayCardHtml, dayCardOf, journalButton, journalSheet, skyTomorrow } from './day-card';
 
 function ready(id: string, features?: Record<string, boolean>): AppState {
   // Scouting and surveying straight away, then camp in the cave: as playback.test.ts sets a day up.
@@ -26,14 +25,6 @@ const queued = (a: AppState, items: QueueItem[]): AppState => items.reduce(enque
 const value = (s: Region1State, id: 'food' | 'water' | 'firewood'): number => keyMetrics(s, { needs: false }).find(m => m.id === id)!.value;
 const dusk = (p: DayPlay): Region1State => p.steps.at(-1)!.sim;
 const en = makeT('en'), sv = makeT('sv');
-
-describe('the day card switch (#1929)', () => {
-  it('is a ui switch, on by default, that a player can turn off', () => {
-    expect(featureById(DAY_CARD_FEATURE)).toMatchObject({ kind: 'ui', default: true, issue: 1929 });
-    expect(uiFeatureOn({}, DAY_CARD_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [DAY_CARD_FEATURE]: false }, DAY_CARD_FEATURE)).toBe(false);
-  });
-});
 
 describe('what the card says (#1929)', () => {
   const p = playDay(queued(ready('w-1929-day'), ['wood', 'water', 'gather', 'wood', 'water']));

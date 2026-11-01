@@ -150,11 +150,3 @@ test('mid-day, Escape shuts the journal sheet and the day plays on', async ({ pa
   await expect(page.locator('.daycard')).toBeVisible();
   expect(errors).toEqual([]);
 });
-
-test('switched off, the day ends as before: no card and no 📓', async ({ page }) => {
-  const errors = await openPlan(page, 'en', { 'day-card': false });
-  await runDay(page);
-  await expect(page.locator('.daycard')).toHaveCount(0);
-  await expect(page.locator('[data-cmd="jsheet"]')).toHaveCount(0);
-  expect(errors).toEqual([]);
-});
