@@ -54,10 +54,11 @@ export const cantYetId = (group: string): string => `cantyet-${group}`;
  * A plain `<details>` (fold.ts), so a tap, Enter or Space opens it and a screen reader announces it
  * as expandable, with no script of its own. The page redraws by replacing its HTML, which would shut
  * it again, so fold.ts remembers it per viewer (the page's `toggle` listener) and the next draw
- * writes it the same way. Shut at first.
+ * writes it the same way. Shut at first, unless `open`: a category with no card to show (#2020)
+ * opens on the reasons, which are all there is to see.
  */
-export function cantYetFold(group: string, items: readonly FoldedCard[], t: T): string {
+export function cantYetFold(group: string, items: readonly FoldedCard[], t: T, open = false): string {
   if (!items.length) return '';
   const list = `<ul class="cantlist">${items.map(i => `<li><span class="cn"><span aria-hidden="true">${esc(i.icon)}</span> ${esc(i.name)}</span> <span class="gate">${esc(i.why)}</span></li>`).join('')}</ul>`;
-  return fold(cantYetId(group), `<span class="cantline">${esc(cantYetLine(items.length, t))}</span>`, list, false, 'cantyet');
+  return fold(cantYetId(group), `<span class="cantline">${esc(cantYetLine(items.length, t))}</span>`, list, open, 'cantyet');
 }

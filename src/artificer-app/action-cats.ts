@@ -5,8 +5,10 @@
  *
  * One group is open at a time. Tapping a category opens it and shuts the last one; tapping the open
  * one shuts it, leaving just the row. Which one is open is the viewer's own choice, kept in this
- * browser like the open tab (`artificer.group`): Explore the first time. An open distance chooser
- * keeps its action's category open (LAND's Look around opens Explore's chooser, so Explore).
+ * browser (`artificer.group`) for the Warden it was made for, like the distances a Warden's
+ * choosers remember: a new Warden starts with Explore open, where the first morning's guide points.
+ * An open distance chooser keeps its action's category open (LAND's Look around opens Explore's
+ * chooser, so Explore).
  *
  * Every group's cards are still drawn, the shut ones `hidden`, so a category button always has a
  * panel to point at (`aria-controls`) and the page's other code finds the cards it looks for. Only
@@ -20,8 +22,9 @@
 import type { T } from '../artificer/i18n';
 import { esc } from './html';
 
-/** The palette's groups (camp-blocks.ts GROUPS), in the order the row shows them. */
-export type GroupKey = 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think';
+/** The palette's groups (camp-blocks.ts GROUPS), in the order the row shows them: the one list of them. */
+export const GROUP_KEYS = ['explore', 'provision', 'build', 'craft', 'carry', 'think'] as const;
+export type GroupKey = typeof GROUP_KEYS[number];
 
 /** What the viewer picked last: a group, or `null` for all shut. Never picked: undefined. */
 export type GroupPick = GroupKey | null;
@@ -31,8 +34,7 @@ export const CAT_ICON: Readonly<Record<GroupKey, string>> = {
   explore: '🧭', provision: '🌿', build: '🏕️', craft: '🔨', carry: '🎒', think: '📖',
 };
 
-const KEYS: readonly GroupKey[] = ['explore', 'provision', 'build', 'craft', 'carry', 'think'];
-export const isGroupKey = (k: unknown): k is GroupKey => typeof k === 'string' && (KEYS as readonly string[]).includes(k);
+export const isGroupKey = (k: unknown): k is GroupKey => typeof k === 'string' && (GROUP_KEYS as readonly string[]).includes(k);
 
 /**
  * Which group is open: the one an open chooser is in; else the viewer's pick, if that group is
@@ -46,8 +48,8 @@ export function openGroup(known: readonly GroupKey[], pick: GroupPick | undefine
   return known[0] ?? null;
 }
 
-/** The pick after tapping `key` with `open` open: that group, or all shut if it was the open one. */
-export const tapGroup = (open: GroupKey | null, key: GroupKey): GroupPick => (open === key ? null : key);
+/** The pick after tapping `key`: that group, or all shut if it was the open one (`wasOpen`). */
+export const tapGroup = (key: GroupKey, wasOpen: boolean): GroupPick => (wasOpen ? null : key);
 
 /** One category as the row draws it: its group, how many of its actions you can do now, and whether the guide's suggestion is in it. */
 export interface Cat { key: GroupKey; can: number; suggested: boolean }
@@ -84,15 +86,18 @@ export const GROUP_KEY = 'artificer.group';
 export type GroupStore = Pick<Storage, 'getItem' | 'setItem'>;
 const storage = (): GroupStore | null => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
-/** The pick kept in this browser: a group, '' for all shut (null), anything else never picked. */
-export function loadGroupPick(store: GroupStore | null = storage()): GroupPick | undefined {
+/**
+ * The pick kept in this browser for this Warden (`{ id, pick }`; pick null: all shut). Another
+ * Warden's pick, junk or no storage: never picked.
+ */
+export function loadGroupPick(characterId: string, store: GroupStore | null = storage()): GroupPick | undefined {
   try {
-    const raw = store?.getItem(GROUP_KEY);
-    if (raw === '') return null;
-    return isGroupKey(raw) ? raw : undefined;
+    const raw = JSON.parse(store?.getItem(GROUP_KEY) ?? 'null') as { id?: unknown; pick?: unknown } | null;
+    if (!raw || raw.id !== characterId) return undefined;
+    return raw.pick === null ? null : isGroupKey(raw.pick) ? raw.pick : undefined;
   } catch { return undefined; }
 }
 
-export function saveGroupPick(pick: GroupPick, store: GroupStore | null = storage()): void {
-  try { store?.setItem(GROUP_KEY, pick ?? ''); } catch { /* kept for this visit only */ }
+export function saveGroupPick(characterId: string, pick: GroupPick, store: GroupStore | null = storage()): void {
+  try { store?.setItem(GROUP_KEY, JSON.stringify({ id: characterId, pick })); } catch { /* kept for this visit only */ }
 }

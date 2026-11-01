@@ -57,8 +57,8 @@ for (const lang of ['en', 'sv'] as const) {
       for (const b of boxes) { expect(b.h).toBeGreaterThanOrEqual(44); expect(b.w).toBeGreaterThanOrEqual(44); expect(b.cut).toBe(false); }
 
       // The first time, Explore is open: its cards show, no other group's.
-      const explore = page.locator('[data-group="explore"]');
-      const gather = page.locator('[data-group="provision"]');
+      const explore = page.locator('.cat[data-group="explore"]');
+      const gather = page.locator('.cat[data-group="provision"]');
       await expect(explore).toHaveAttribute('aria-expanded', 'true');
       await expect(explore.locator('.catname')).toHaveText(names[lang].explore);
       expect(await openPanels(page)).toEqual(['explore']);
@@ -90,14 +90,24 @@ for (const lang of ['en', 'sv'] as const) {
 
 test('a reload keeps the category left open, or all of them shut', async ({ page }) => {
   const errors = await openPlan(page, 1024, 700, 'en');
-  await page.locator('[data-group="build"]').click();
+  const build = page.locator('.cat[data-group="build"]');
+  await build.click();
   await page.reload();
-  await expect(page.locator('[data-group="build"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(build).toHaveAttribute('aria-expanded', 'true');
   expect(await openPanels(page)).toEqual(['build']);
-  await page.locator('[data-group="build"]').click();
+  await build.click();
   await page.reload();
   await expect(page.locator('.cats')).toBeVisible();
   expect(await openPanels(page)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('a new Warden starts with Explore open, whatever an earlier Warden left open', async ({ page }) => {
+  const errors = await openPlan(page, 1024, 700, 'en');
+  await page.evaluate(() => localStorage.setItem('artificer.group', JSON.stringify({ id: 'w-someone-else', pick: 'build' })));
+  await page.reload();
+  await expect(page.locator('.cat[data-group="explore"]')).toHaveAttribute('aria-expanded', 'true');
+  expect(await openPanels(page)).toEqual(['explore']);
   expect(errors).toEqual([]);
 });
 
@@ -105,12 +115,22 @@ test('a distance chooser shuts with its category', async ({ page }) => {
   const errors = await openPlan(page, 1024, 700, 'en');
   await page.locator('[data-chooser="explore"]').click();
   await expect(page.locator('.ringpick')).toBeVisible();
-  await page.locator('[data-group="build"]').click();
+  await page.locator('.cat[data-group="build"]').click();
   await expect(page.locator('.ringpick')).toHaveCount(0);
   expect(await openPanels(page)).toEqual(['build']);
   // And back: Explore's card is there, its chooser shut.
-  await page.locator('[data-group="explore"]').click();
+  await page.locator('.cat[data-group="explore"]').click();
   await expect(page.locator('[data-chooser="explore"]')).toHaveAttribute('aria-expanded', 'false');
+  expect(errors).toEqual([]);
+});
+
+test('while the day plays, a category still opens (it only changes which cards show)', async ({ page }) => {
+  const errors = await openPlan(page, 1024, 700, 'en');
+  await page.locator('[data-cmd="day"]:visible').first().click();
+  await expect(page.locator('.timer')).toBeVisible();
+  await page.locator('.cat[data-group="think"]').click();
+  await expect(page.locator('.cat[data-group="think"]')).toHaveAttribute('aria-expanded', 'true');
+  expect(await openPanels(page)).toEqual(['think']);
   expect(errors).toEqual([]);
 });
 
@@ -130,20 +150,25 @@ async function throughIntro(page: Page): Promise<void> {
   await expect(page.locator('[data-intro="next"]')).toHaveCount(0);
 }
 
-test('LAND\'s Explore opens the Explore category, whatever was open before', async ({ page }) => {
+test('LAND\'s Explore opens the Explore category, whatever this Warden had open before', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 400, height: 860 });
   await page.goto('/artificer.html');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.group', 'build'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
   await throughIntro(page);
+  // This Warden left Build open (the page keeps the pick per Warden), then comes back to LAND's start.
+  const id = await page.evaluate(key => (JSON.parse(localStorage.getItem(key) ?? '{}') as { sim?: { character?: { id?: string } } }).sim?.character?.id, PLANNED.saveKey);
+  expect(id).toBeTruthy();
+  await page.evaluate(id => localStorage.setItem('artificer.group', JSON.stringify({ id, pick: 'build' })), id);
+  await page.reload();
   await page.locator('[data-startexplore]').click();
   const ack = page.locator('[data-wxack]');
   if (await ack.isVisible()) await ack.click();
-  await expect(page.locator('[data-group="explore"]')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.cat[data-group="explore"]')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('[data-chooser="explore"]')).toHaveAttribute('aria-expanded', 'true');
   // It stays open after: the pick is Explore now.
-  expect(await page.evaluate(() => localStorage.getItem('artificer.group'))).toBe('explore');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('artificer.group') ?? 'null'))).toEqual({ id, pick: 'explore' });
   expect(errors).toEqual([]);
 });

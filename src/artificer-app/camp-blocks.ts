@@ -285,7 +285,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     // after them, and opening it lists the rest under it.
     const split = splitCards(cards, opts.suggest ?? null);
     const drawn = split.shown.map(id => cards.find(c => c.id === id)?.html ?? '').join('');
-    const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t);
+    const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t, !drawn);
     // Every group is drawn; the shut ones are hidden, so each category points at its panel.
     const html = `<div class="group" id="${panelId(g.key)}" role="region" aria-labelledby="${catId(g.key)}"${g.key === open ? '' : ' hidden'}>${drawn ? `<div class="acts">${drawn}</div>` : ''}${rest}</div>`;
     return { cat: { key: g.key, can: split.shown.length, suggested: !!opts.suggest && split.shown.includes(opts.suggest) }, html };

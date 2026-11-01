@@ -3,10 +3,12 @@
  * what a tap does, what the row says and the pick kept in the browser are pure and checked here.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { makeT } from '../artificer/i18n';
 import { GROUPS, groupOf, paletteBlock } from './camp-blocks';
 import { makeWarden, previewQueue, type AppState } from './controller';
+import { cantYetFold } from './fewer-cards';
+import { resetFolds } from './fold';
 import { CAT_ICON, GROUP_KEY, catsRow, isGroupKey, loadGroupPick, openGroup, saveGroupPick, tapGroup, type GroupPick } from './action-cats';
 
 const en = makeT('en');
@@ -30,6 +32,8 @@ const cardsOf = (html: string, key: string): string[] => {
 };
 
 const day1 = makeWarden({ id: 'w-2020' });
+
+beforeEach(() => resetFolds());
 
 describe('openGroup (#2020)', () => {
   const known = ['explore', 'provision', 'build'] as const;
@@ -62,12 +66,11 @@ describe('openGroup (#2020)', () => {
 
 describe('tapGroup (#2020)', () => {
   it('Given a shut category tapped, Then it opens (and the last one shuts)', () => {
-    expect(tapGroup('explore', 'build')).toBe('build');
-    expect(tapGroup(null, 'build')).toBe('build');
+    expect(tapGroup('build', false)).toBe('build');
   });
 
   it('Given the open category tapped, Then it shuts and none is open', () => {
-    expect(tapGroup('build', 'build')).toBeNull();
+    expect(tapGroup('build', true)).toBeNull();
   });
 });
 
@@ -142,6 +145,23 @@ describe('the palette with categories (#2020)', () => {
     expect(html).toMatch(/class="cat guide-suggest" id="cat-explore"/);
   });
 
+  it('Given a category with cards you can do, Then its fold of the rest starts shut', () => {
+    const html = palette(day1, { group: null });
+    const folds = cats(html).flatMap(c => {
+      const panel = html.match(new RegExp(`<div class="group" id="grp-${c.key}"[^>]*>(.*?)(?=<div class="group" |$)`))?.[1] ?? '';
+      const fold = panel.match(/<details class="fold cantyet"[^>]*>/)?.[0];
+      return fold ? [{ n: c.n, open: fold.includes(' open') }] : [];
+    });
+    expect(folds.length).toBeGreaterThan(0);
+    for (const f of folds) expect(f).toEqual({ n: f.n, open: f.n === 0 });
+  });
+
+  it('Given a category with no card you can do now, Then its fold opens on the reasons (they are all there is to see)', () => {
+    const items = [{ icon: '🎒', name: 'Craft backpack', why: 'make camp first' }];
+    expect(cantYetFold('carry', items, en, true)).toMatch(/^<details class="fold cantyet" data-fold="cantyet-carry" open>/);
+    expect(cantYetFold('carry', items, en)).not.toContain(' open>');
+  });
+
   it('Given every group, Then each action is in exactly one, which groupOf names', () => {
     const all = GROUPS.flatMap(g => g.ids);
     expect(new Set(all).size).toBe(all.length);
@@ -157,25 +177,34 @@ describe('the pick in the browser (#2020)', () => {
   };
 
   it('Given nothing kept, Then no pick', () => {
-    expect(loadGroupPick(memory())).toBeUndefined();
+    expect(loadGroupPick('w-a', memory())).toBeUndefined();
   });
 
-  it('Given a pick saved, Then it comes back; all shut comes back as null', () => {
+  it('Given a pick saved, Then it comes back for that Warden; all shut comes back as null', () => {
     const s = memory();
-    saveGroupPick('craft', s);
-    expect(s.getItem(GROUP_KEY)).toBe('craft');
-    expect(loadGroupPick(s)).toBe('craft');
-    saveGroupPick(null, s);
-    expect(loadGroupPick(s)).toBeNull();
+    saveGroupPick('w-a', 'craft', s);
+    expect(JSON.parse(s.getItem(GROUP_KEY)!)).toEqual({ id: 'w-a', pick: 'craft' });
+    expect(loadGroupPick('w-a', s)).toBe('craft');
+    saveGroupPick('w-a', null, s);
+    expect(loadGroupPick('w-a', s)).toBeNull();
+  });
+
+  it('Given a pick made for another Warden, Then a new Warden has none (Explore opens, where the guide points)', () => {
+    const s = memory();
+    saveGroupPick('w-old', 'build', s);
+    expect(loadGroupPick('w-new', s)).toBeUndefined();
+    expect(openGroup(['explore', 'provision', 'build'], loadGroupPick('w-new', s))).toBe('explore');
   });
 
   it('Given junk kept, or storage that refuses, Then no pick and no throw', () => {
     const s = memory();
-    s.setItem(GROUP_KEY, 'everything');
-    expect(loadGroupPick(s)).toBeUndefined();
+    for (const junk of ['everything', '"build"', '{"id":"w-a","pick":"everything"}', '{"pick":"build"}', '{']) {
+      s.setItem(GROUP_KEY, junk);
+      expect(loadGroupPick('w-a', s)).toBeUndefined();
+    }
     const refuses = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } } as unknown as Storage;
-    expect(loadGroupPick(refuses)).toBeUndefined();
-    expect(() => saveGroupPick('build', refuses)).not.toThrow();
-    expect(loadGroupPick(null)).toBeUndefined();
+    expect(loadGroupPick('w-a', refuses)).toBeUndefined();
+    expect(() => saveGroupPick('w-a', 'build', refuses)).not.toThrow();
+    expect(loadGroupPick('w-a', null)).toBeUndefined();
   });
 });
