@@ -1,11 +1,11 @@
 /**
- * The "where you stand" line (#1926, ui feature `standing-line`; roadmap item 4 of #1914, F4).
+ * The "where you stand" line (#1926, a ui switch until #2009; roadmap item 4 of #1914, F4).
  *
  * The issue is ui-hud, so its acceptance is screenshots; these check the one thing a screenshot
  * can't prove for every state: the line never says ready (or holding) while the winter outlook
  * falls short, and says so when the run is ready. Then what it says at each step, the night, the
- * lock and a focus of your own, what PROGRESS says beside it, and that with the switch off nothing
- * changes. In English and Swedish. And the row the compact status bar draws it in (#1951).
+ * lock and a focus of your own, what PROGRESS says beside it, and that without it (the guide off)
+ * nothing changes. In English and Swedish. And the row the compact status bar draws it in (#1951).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ import { sv as SV } from '../artificer/i18n/sv';
 import { createRegion1, winterReady, type Region1State } from '../artificer/region1';
 import { createExploration, type Domain, type Exploration } from '../artificer/exploration';
 import { FULL_WORLD } from '../artificer/world';
-import { FEATURES, featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
+import { ruleFeatures } from '../artificer/features';
 import { knownSpots } from '../artificer/camp-sites';
 import { SKILL_IDS } from '../artificer/skills';
 import { createVitals } from '../artificer/vitality';
@@ -25,7 +25,7 @@ import { survivalPath } from './survival-path';
 import { focusPopover, FOCUS_POP_ID } from './focus-popover';
 import { nightChip, tonight } from './key-box';
 import { milesBlock, outlookBlock, outlookShortfalls, outlookWarnings, progressTab } from './progress-view';
-import { STANDING_FEATURE, nextOf, standing, standingLine, standingNote, standingRow } from './standing-line';
+import { nextOf, standing, standingLine, standingNote, standingRow } from './standing-line';
 
 const STYLE = readFileSync(join(__dirname, 'style.css'), 'utf8');
 const en = makeT('en');
@@ -60,16 +60,7 @@ const ready = (): Region1State => { const s = pillarsReady(); return { ...s, sto
 const withStores = (s: Region1State, stores: Partial<Region1State['stores']>): Region1State => ({ ...s, stores: { ...s.stores, ...stores } });
 const READY_WORDS = /Ready for winter|Holding to the thaw|Redo för vintern|räcker till tövädret|ready|holding/i;
 
-describe('the standing-line ui feature (#1926)', () => {
-  it('is a ui feature, experimental, on by default, registered after readable type, and no run saves it', () => {
-    expect(featureById(STANDING_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1926 });
-    expect(uiFeatureOn({}, STANDING_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [STANDING_FEATURE]: false }, STANDING_FEATURE)).toBe(false);
-    expect(FEATURES.findIndex(f => f.id === STANDING_FEATURE)).toBeGreaterThan(FEATURES.findIndex(f => f.id === 'readable-type'));
-    expect(STANDING_FEATURE in ruleFeatures()).toBe(false);
-    expect(ruleFeatures({ [STANDING_FEATURE]: false })).toEqual(ruleFeatures());
-  });
-
+describe('the standing line (#1926)', () => {
   it('has every string in English and Swedish, with the same {vars}', () => {
     const keys = Object.keys(EN).filter(k => k.startsWith('stand.'));
     expect(keys.length).toBeGreaterThan(20);
@@ -93,10 +84,8 @@ describe('the line never reads as ready while the outlook falls short (#1926)', 
     expect(line(s, sv)).not.toMatch(READY_WORDS);
   });
 
-  it('Given that state, When the path is read for the line, Then step 5 is the current one, and without the line the path is as before (done)', () => {
-    const s = pillarsReady();
-    expect(survivalPath(s, { outlook: true }).current).toBe(4);
-    expect(survivalPath(s).current).toBeNull();
+  it('Given that state, When the path is read, Then step 5 is the current one', () => {
+    expect(survivalPath(pillarsReady()).current).toBe(4);
   });
 
   it('Given any mix of stores, days and shelters, When the outlook falls short, Then the line never says ready or holding, in either language', () => {
@@ -228,11 +217,9 @@ describe('tonight, the lock and a focus of your own (#1926)', () => {
   });
 
   it('opens a picker that agrees with it: step 5 current while the outlook is short, suggesting Larder', () => {
-    const pop = focusPopover(pillarsReady(), en, { guide: true, standing: true });
+    const pop = focusPopover(pillarsReady(), en, { guide: true });
     expect(pop).toContain('SURVIVE 5/5');
     expect(pop).toContain('data-focus="goal:larder"');
-    // Without the line the picker is as before: the path done, no checklist.
-    expect(focusPopover(pillarsReady(), en, { guide: true })).not.toContain('fppath');
   });
 });
 
@@ -249,7 +236,7 @@ describe('the line\'s row under the compact status bar (#1951)', () => {
   it('Given the picker open, Then it is drawn in the row, right after the line, so it opens under it', () => {
     const s = pillarsReady();
     const line = standingLine(s, en, { open: true });
-    const pop = focusPopover(s, en, { guide: true, standing: true });
+    const pop = focusPopover(s, en, { guide: true });
     const row = standingRow(line, pop);
     expect(row).toBe(`<div class="standrow">${line}${pop}</div>`);
     expect(row).toContain('aria-expanded="true"');
@@ -286,7 +273,7 @@ describe('PROGRESS agrees with the line (#1926)', () => {
     expect(standingNote(over, en)).toBeUndefined();
   });
 
-  it('Given the switch off (no note), Then PROGRESS is drawn exactly as before', () => {
+  it('Given no note (the guide off), Then PROGRESS is drawn exactly as before', () => {
     for (const s of [s1(), pillarsReady(), { ...pillarsReady(), milestones: ['ready'] }, withStores(ready(), { rations: 5, rawFood: 40 })]) {
       const tab = progressTab(s, [], '', en);
       expect(tab).toBe(progressTab(s, [], '', en, undefined, undefined));
@@ -303,14 +290,7 @@ describe('PROGRESS agrees with the line (#1926)', () => {
   });
 });
 
-describe('with the switch off, the chips are as before (#1926)', () => {
-  it('the picker and the path read step 5 by the pillars alone', () => {
-    for (const s of [s1(), s3(), s5(), pillarsReady(), ready()]) {
-      expect(focusPopover(s, en, { guide: true, standing: false })).toBe(focusPopover(s, en, { guide: true }));
-      expect(survivalPath(s, { outlook: false })).toEqual(survivalPath(s));
-    }
-  });
-
+describe('without the line (the guide off), the night chip is as before (#1926)', () => {
   it('the night chip draws as it did', () => {
     expect(nightChip(ready(), en)).toBe(`<span class="tag nightq q-warm" title="${tonight(ready(), en)!.tip.replace(/'/g, '&#39;')}">🌑 SHELTER 2/2 · WARM NIGHT</span>`);
     expect(nightChip(s1(), en)).toBe('');

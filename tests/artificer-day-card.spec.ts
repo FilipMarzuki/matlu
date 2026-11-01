@@ -20,19 +20,18 @@ const SHOTS = process.env['SHOTS'];
 const SPOILING: { saveKey: string; guideKey: string; save: string } =
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-day-card-save.ts', import.meta.url))], { encoding: 'utf8' }));
 
-async function openPlan(page: Page, lang: 'en' | 'sv', features: Record<string, boolean> = {}): Promise<string[]> {
+async function openPlan(page: Page, lang: 'en' | 'sv'): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
-  await page.evaluate(({ saveKey, guideKey, save, lang, features }) => {
+  await page.evaluate(({ saveKey, guideKey, save, lang }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
     localStorage.setItem(saveKey, save);
     // Through the first-morning guide already, so the status bar shows everything.
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
-    localStorage.setItem('artificer.features', JSON.stringify(features));
-  }, { ...SPOILING, lang, features });
+  }, { ...SPOILING, lang });
   await page.reload();
   return errors;
 }
@@ -148,13 +147,5 @@ test('mid-day, Escape shuts the journal sheet and the day plays on', async ({ pa
   await expect(page.locator('.timer')).toBeVisible();
   await page.locator('[data-pbskip]').click();
   await expect(page.locator('.daycard')).toBeVisible();
-  expect(errors).toEqual([]);
-});
-
-test('switched off, the day ends as before: no card and no 📓', async ({ page }) => {
-  const errors = await openPlan(page, 'en', { 'day-card': false });
-  await runDay(page);
-  await expect(page.locator('.daycard')).toHaveCount(0);
-  await expect(page.locator('[data-cmd="jsheet"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

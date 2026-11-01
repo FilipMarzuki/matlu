@@ -189,7 +189,7 @@ const core = {
   'group.craft': 'CRAFT TOOLS',
   'group.carry': 'CARRYING GEAR',
   'group.think': 'THINK & RECOVER',
-  // With the `fewer-cards` ui switch (#1925): the one line under a group that opens to what can't be done now.
+  // Fewer cards (#1925): the one line under a group that opens to what can't be done now.
   'group.cantYet.one': '{n} more you can\'t do yet',
   'group.cantYet.other': '{n} more you can\'t do yet',
   // The focus picker's groups.
@@ -244,7 +244,6 @@ const core = {
   'intro.label': 'Arrival',
   'intro.skip': 'SKIP ›',
   'intro.next': 'CONTINUE ▸',
-  'intro.begin': 'BEGIN ▸',
   'intro.offWeGo': 'OFF WE GO ▸',
 
   // ── Help ───────────────────────────────────────────────────────────────────

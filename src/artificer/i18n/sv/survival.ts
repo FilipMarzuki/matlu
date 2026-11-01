@@ -2,8 +2,6 @@ import type { survival } from '../en/survival';
 
 /** Vägen till överlevnad på svenska (#1793, `guide`): FOKUS-knappens steg och väljarens checklista. */
 export const survivalSv: Record<keyof typeof survival, string> = {
-  'path.chip': 'Överleva {n}/{total}:',
-  'path.chipTip': 'Överleva, steg {n} av {total}: {step}. Tryck för stegen.',
   'path.step.site': 'hitta en lägerplats',
   'path.step.camp': 'slå läger',
   'path.step.roof': 'tak över huvudet',

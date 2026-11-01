@@ -1,5 +1,5 @@
 /**
- * Fewer cards (#1925, ui feature `fewer-cards`; roadmap item 3 of the design review #1914, F2):
+ * Fewer cards (#1925, roadmap item 3 of the design review #1914, F2; a ui switch until #2009):
  * PLAN shows only the actions you can do now. In each group the rest fold into one line, "4 more
  * you can't do yet", which opens to each of them with its reason, and the guide's suggestion comes
  * first in its group, on a card as wide as the group.
@@ -18,8 +18,6 @@ import type { T } from '../artificer/i18n';
 import type { ActionId } from '../artificer/region1';
 import { esc } from './html';
 import { fold } from './fold';
-
-export const FEWER_CARDS_FEATURE = 'fewer-cards';
 
 /** One card in a group, as the palette judged it: its action and why it can't be done now (null: it can). */
 export interface CardSlot { id: ActionId; why: string | null }

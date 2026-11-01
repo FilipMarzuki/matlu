@@ -1,24 +1,22 @@
 /**
- * Fewer cards (#1925, ui feature `fewer-cards`). The look is exempt (screenshots, ui-hud), but the
- * split is pure and checked here: which cards stay, which fold and with what reason, the guide's
- * suggestion first, the fold's words in both languages, and that with the switch off the palette
- * draws none of it.
+ * Fewer cards (#1925). The look is exempt (screenshots, ui-hud), but the split is pure and checked
+ * here: which cards stay, which fold and with what reason, the guide's suggestion first, and the
+ * fold's words in both languages.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { makeT } from '../artificer/i18n';
-import { FEATURES, featureById, ruleFeatures, uiFeatureOn } from '../artificer/features';
 import { paletteBlock } from './camp-blocks';
 import { makeWarden, previewQueue, type AppState } from './controller';
 import { resetFolds, setFold } from './fold';
-import { FEWER_CARDS_FEATURE, cantYetFold, cantYetId, cantYetLine, splitCards } from './fewer-cards';
+import { cantYetFold, cantYetId, cantYetLine, splitCards } from './fewer-cards';
 
 const en = makeT('en');
 const sv = makeT('sv');
 
-/** The palette for a Warden, with the switch on or off. */
-const palette = (a: AppState, fewer: boolean, suggest: 'explore' | 'scout' | null = null): string =>
-  paletteBlock(a, previewQueue(a), { dev: false, t: en, suggest, fewer });
+/** The palette for a Warden. */
+const palette = (a: AppState, suggest: 'explore' | 'scout' | null = null): string =>
+  paletteBlock(a, previewQueue(a), { dev: false, t: en, suggest });
 /** Each drawn card's action (from its tap) and whether it's greyed. */
 const cardsIn = (html: string): { id: string; greyed: boolean }[] =>
   [...html.matchAll(/<button class="act ([^"]*)" (?:data-chooser="(\w+)"|data-q="(\w+)(?:@\d)?")/g)].map(m => ({ id: m[2] ?? m[3], greyed: / greyed\b/.test(m[1]) }));
@@ -26,16 +24,6 @@ const cardsIn = (html: string): { id: string; greyed: boolean }[] =>
 const reasonsIn = (html: string): string[] => [...html.matchAll(/<span class="gate">([^<]*)<\/span>/g)].map(m => m[1]);
 
 beforeEach(() => resetFolds());
-
-describe('the fewer-cards ui feature (#1925)', () => {
-  it('is a ui feature, experimental, on by default, and no run saves it', () => {
-    expect(featureById(FEWER_CARDS_FEATURE)).toMatchObject({ kind: 'ui', stage: 'experimental', default: true, absent: false, issue: 1925 });
-    expect(FEATURES.filter(f => f.id === FEWER_CARDS_FEATURE)).toHaveLength(1);
-    expect(uiFeatureOn({}, FEWER_CARDS_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [FEWER_CARDS_FEATURE]: false }, FEWER_CARDS_FEATURE)).toBe(false);
-    expect(FEWER_CARDS_FEATURE in ruleFeatures()).toBe(false);
-  });
-});
 
 describe('splitCards (#1925)', () => {
   const slots = [
@@ -99,56 +87,42 @@ describe('the folded line (#1925)', () => {
 describe('the palette with fewer cards (#1925)', () => {
   const day1 = makeWarden({ id: 'w-1925' });
 
-  it('Given a new Warden, When the switch is off, Then the palette is as before: greyed cards drawn, no fold, nothing lifted', () => {
-    const off = palette(day1, false, 'explore');
-    expect(cardsIn(off).some(c => c.greyed)).toBe(true);
-    expect(off).not.toContain('cantyet');
-    expect(off).not.toContain(' lifted');
-    expect(paletteBlock(day1, previewQueue(day1), { dev: false, t: en })).toBe(off.replace(' guide-suggest', ''));
+  it('Given a new Warden, Then only cards you can do are drawn, and the rest are in a fold per group, each with its reason', () => {
+    const html = palette(day1);
+    const cards = cardsIn(html);
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every(c => !c.greyed)).toBe(true);
+    // Each fold's line counts its own, and together they hold every reason.
+    const counts = [...html.matchAll(/<span class="cantline">(\d+) more/g)].map(m => Number(m[1]));
+    expect(counts.length).toBeGreaterThan(0);
+    expect(counts.reduce((x, y) => x + y, 0)).toBe(reasonsIn(html).length);
+    expect(html.match(/<details/g)?.length).toBe(counts.length);
   });
 
-  it('Given a new Warden, When the switch is on, Then only cards you can do are drawn, and every greyed one is in a fold with the same reason', () => {
-    const off = palette(day1, false);
-    const on = palette(day1, true);
-    const before = cardsIn(off);
-    const after = cardsIn(on);
-    expect(after.every(c => !c.greyed)).toBe(true);
-    expect(after.map(c => c.id)).toEqual(before.filter(c => !c.greyed).map(c => c.id));
-    // Every greyed card's reason is in a fold, in the same order, and each group's line counts its own.
-    expect(reasonsIn(on)).toEqual(reasonsIn(off));
-    const counts = [...on.matchAll(/<span class="cantline">(\d+) more/g)].map(m => Number(m[1]));
-    expect(counts.reduce((x, y) => x + y, 0)).toBe(before.filter(c => c.greyed).length);
-    expect(on.match(/<details/g)?.length).toBe(counts.length);
+  it('Given a group with something folded, Then its fold line sits in the heading row, before the cards (#1965)', () => {
+    const html = palette(day1);
+    expect(html).toMatch(/<div class="group"><div class="ghead"><h4>[^<]*<\/h4><details class="fold cantyet"[^>]*>.*?<\/details><\/div>(?:<div class="acts">|<\/div>)/);
+    expect(html).not.toMatch(/<\/div><details class="fold cantyet"/); // not its own row under the cards
   });
 
-  it('Given a group with something folded, When the switch is on, Then its fold line sits in the heading row, before the cards (#1965)', () => {
-    const on = palette(day1, true);
-    expect(on).toMatch(/<div class="group"><div class="ghead"><h4>[^<]*<\/h4><details class="fold cantyet"[^>]*>.*?<\/details><\/div>(?:<div class="acts">|<\/div>)/);
-    expect(on).not.toMatch(/<\/div><details class="fold cantyet"/); // not its own row under the cards
-  });
-
-  it('Given a group with nothing folded, When the switch is on, Then its heading is a plain h4 with no empty ghead wrapper', () => {
+  it('Given a group with nothing folded, Then its heading is a plain h4 with no empty ghead wrapper', () => {
     // EXPLORE has nothing to fold on a fresh Warden's first morning: its own group div has no ghead.
-    const on = palette(day1, true);
-    const exploreGroup = on.match(/<div class="group"><h4>EXPLORE<\/h4>.*?<\/div><\/div>/)?.[0];
+    const exploreGroup = palette(day1).match(/<div class="group"><h4>EXPLORE<\/h4>.*?<\/div><\/div>/)?.[0];
     expect(exploreGroup).not.toContain('ghead');
     expect(exploreGroup).not.toContain('cantyet');
   });
 
-  it('Given the guide suggests Explore, When the switch is on, Then Explore is the first card, glowing and wide', () => {
-    const on = palette(day1, true, 'explore');
-    expect(cardsIn(on)[0].id).toBe('explore');
-    expect(on).toMatch(/<button class="act[^"]* guide-suggest lifted[^"]*" data-chooser="explore"/);
-    expect(on.match(/ lifted/g)).toHaveLength(1);
+  it('Given the guide suggests Explore, Then Explore is the first card, glowing and wide', () => {
+    const html = palette(day1, 'explore');
+    expect(cardsIn(html)[0].id).toBe('explore');
+    expect(html).toMatch(/<button class="act[^"]* guide-suggest lifted[^"]*" data-chooser="explore"/);
+    expect(html.match(/ lifted/g)).toHaveLength(1);
   });
 
-  it('Given a run with action-visibility off, When the switch is on, Then the dashed cards that would be skipped fold too', () => {
+  it('Given a run with action-visibility off, Then the dashed cards that would be skipped fold too', () => {
     const old = makeWarden({ id: 'w-1925-old' }, undefined, { 'action-visibility': false });
-    const off = palette(old, false, 'scout');
-    const on = palette(old, true, 'scout');
-    expect(cardsIn(off).some(c => c.greyed)).toBe(false);
-    expect(off).toContain('class="act soft');
-    expect(on).not.toContain('class="act soft');
-    expect(reasonsIn(on)).toEqual(reasonsIn(off));
+    const html = palette(old, 'scout');
+    expect(html).not.toContain('class="act soft');
+    expect(reasonsIn(html).length).toBeGreaterThan(0);
   });
 });

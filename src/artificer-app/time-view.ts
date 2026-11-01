@@ -68,15 +68,12 @@ export function queueTimes(a: AppState, preview: QueuePreview, t: T, dev: boolea
 }
 
 /**
- * The weather row's time (weather-row.ts, #1825), HTML-safe. As before, the old TODAY chip's text:
- * the part of the day the plan ends in ("EVENING"). With `now` (the ui switch `day-forecast` on,
- * #2000), the time now ("EARLY MORNING"), or the hours so far ("6/14H") when the hours are shown: the
- * queue's own line says where the day ends then, and at the top of the page "Fog · Chilly · evening"
+ * The weather row's time (weather-row.ts, #1825), HTML-safe: the time now ("EARLY MORNING"), or the
+ * hours so far ("6/14H") when the hours are shown (#2000). Where the day ends is the line under the
+ * queue's to say (#1930); the row said that once, and at the top of the page "Fog · Chilly · evening"
  * read as the time now, over a queue that said "Early morning, still dark."
  */
-export function weatherRowTime(a: AppState, preview: QueuePreview, t: T, dev: boolean, now: boolean): string {
-  if (!now) return queueTimes(a, preview, t, dev).status;
-  const s = a.sim;
+export function weatherRowTime(s: Sim, t: T, dev: boolean): string {
   return timeWordsShown(s, dev) ? esc(partShort(nowWords(s.day, s.hoursToday, s.config.calendar).part, t)) : `${hrs(s.hoursToday, t)}/${DAY_HOURS}H`;
 }
 

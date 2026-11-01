@@ -10,40 +10,33 @@ import { ruleFeatures } from '../artificer/features';
 import { DEFAULT_STATS } from '../artificer/stats';
 import { SUGGESTED_PACK, suggestedPack, offeredKit, carryLimit } from '../artificer/kit';
 import { makeWarden } from './controller';
-import { introBeats, fillName } from './intro';
+import { introBeats } from './intro';
 import { packForm } from './opening-view';
 
-const ids = (s: Parameters<typeof introBeats>[0], lang: 'en' | 'sv' = 'en') => introBeats(s, makeT(lang)).map(b => b.id);
+// Change on the quick start's card (#1928), the intro's only creation and pack screens since #2009.
+const CHANGE = { step: 'change' as const, age: 12 };
+const ids = (s: Parameters<typeof introBeats>[0], lang: 'en' | 'sv' = 'en') => introBeats(s, makeT(lang), CHANGE).map(b => b.id);
 
 describe('the create screen comes before the pack (#1872, acceptance 1)', () => {
-  it('with the switch on: hike, create, pack, then the portal, the class and the registration, in en and sv', () => {
+  it('with the switch on: the story page, create, pack, then the card, in en and sv', () => {
     const s = makeWarden({ id: 'w-1872-intro' }).sim;
-    for (const lang of ['en', 'sv'] as const) {
-      expect(ids(s, lang)).toEqual(['hike', 'create', 'pack', 'portal', 'stone', 'arrival', 'class', 'registered', 'title']);
-    }
-    const en = introBeats(s), sv = introBeats(s, makeT('sv'));
-    // Asked in the scout's own voice, before the hike; the portal's voice then reads the name back.
-    expect(en.find(b => b.id === 'create')!.lines).toEqual(['Who are you?']);
-    expect(sv.find(b => b.id === 'create')!.lines).toEqual(['Vem är du?']);
-    expect(fillName(en.find(b => b.id === 'registered')!.lines[0], 'Vega')).toBe('IDENTITY CONFIRMED. Registered: Vega.');
-    expect(fillName(sv.find(b => b.id === 'registered')!.lines[0], 'Vega', makeT('sv'))).toBe('IDENTITET BEKRÄFTAD. Registrerad: Vega.');
-    // The scanning and class beats still play, and nothing asks "IDENTIFY YOURSELF" any more.
-    expect(en.flatMap(b => b.lines)).toContain('CLASS DESIGNATED: ARTIFICER');
-    expect(en.flatMap(b => b.lines)).toContain('Scanning…');
-    expect(en.flatMap(b => b.lines)).not.toContain('IDENTIFY YOURSELF, ARTIFICER.');
+    for (const lang of ['en', 'sv'] as const) expect(ids(s, lang)).toEqual(['fall', 'create', 'pack', 'ready']);
+    // Asked in the scout's own voice.
+    expect(introBeats(s, makeT('en'), CHANGE).find(b => b.id === 'create')!.lines).toEqual(['Who are you?']);
+    expect(introBeats(s, makeT('sv'), CHANGE).find(b => b.id === 'create')!.lines).toEqual(['Vem är du?']);
   });
 
-  it('with the switch off, or for a run from before it, the order is as before', () => {
-    const before = ['hike', 'pack', 'portal', 'stone', 'arrival', 'class', 'create', 'registered', 'title'];
+  it('with the switch off, or for a run from before it, the pack comes first', () => {
     for (const lang of ['en', 'sv'] as const) {
-      expect(ids(makeWarden({ id: 'w-1872-off' }, undefined, { 'stats-before-pack': false }).sim, lang)).toEqual(before);
-      expect(ids(createRegion1(), lang)).toEqual(before);
+      expect(ids(makeWarden({ id: 'w-1872-off' }, undefined, { 'stats-before-pack': false }).sim, lang)).toEqual(['fall', 'pack', 'create', 'ready']);
+      expect(ids(createRegion1(), lang)).toEqual(['fall', 'pack', 'create', 'ready']);
     }
   });
 
-  it('a Warden who follows someone still hears what was left, after the registration', () => {
+  it('a Warden who follows someone still hears what was left, on the card', () => {
     const s = makeWarden({ id: 'w-1872-left' }, { known: [], concepts: {}, heirlooms: [{ item: 'stone-knife', grade: 'masterwork' }] }).sim;
-    expect(ids(s)).toEqual(['hike', 'create', 'pack', 'portal', 'stone', 'arrival', 'class', 'registered', 'before', 'title']);
+    expect(ids(s)).toEqual(['fall', 'create', 'pack', 'ready']);
+    expect(introBeats(s, makeT('en'), CHANGE).at(-1)!.lines).toContain('Someone was here before you.');
   });
 });
 

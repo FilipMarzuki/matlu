@@ -1,10 +1,9 @@
 /**
  * #2000: the weather row says the time now. It used to say the part of the day the plan ends in (the
  * old TODAY chip's text), so on a morning with a day's plan queued the top of the page read "Fog ·
- * Chilly · evening" over a queue that said "Early morning, still dark." With the ui switch
- * `day-forecast` on, the line under the queue says where the day ends, and the row says the time now.
- * Off, nothing else says where the day ends, so the row is as before. The look is checked by
- * screenshot (`ui-hud`); what the row says is checked here, in English and Swedish, with no browser.
+ * Chilly · evening" over a queue that said "Early morning, still dark." The line under the queue says
+ * where the day ends (#1930), and the row says the time now. The look is checked by screenshot
+ * (`ui-hud`); what the row says is checked here, in English and Swedish, with no browser.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -29,16 +28,16 @@ function morning(): Region1State {
 }
 
 /** That morning with a full day's plan queued, its preview and the weather row's text. */
-function planned(now: boolean, t = en, dev = false): { a: AppState; row: string; ends: string } {
+function planned(t = en, dev = false): { a: AppState; row: string; ends: string } {
   const a = (['wood', 'water', 'wood', 'water', 'wood'] as QueueItem[]).reduce(enqueue, { sim: morning(), queue: [], stage: 'reach' } as AppState);
   const p = previewQueue(a);
   const e = dayEnd(a, p, !dev, t);
-  return { a, row: weatherRowText([], weatherRowTime(a, p, t, dev, now)), ends: e ? dayEndText(e, t) : '' };
+  return { a, row: weatherRowText([], weatherRowTime(a.sim, t, dev)), ends: e ? dayEndText(e, t) : '' };
 }
 
 describe('the weather row says the time now (#2000)', () => {
   it('in the morning with a day planned: the row says the morning, and the line under the queue where the day ends', () => {
-    const { a, row, ends } = planned(true);
+    const { a, row, ends } = planned();
     expect(a.sim.hoursToday).toBe(0);
     expect(row).toBe(en('time.short.early').toLocaleLowerCase('en'));
     // The plan runs on into the day, so where it ends is a later part of it, said under the queue.
@@ -48,16 +47,10 @@ describe('the weather row says the time now (#2000)', () => {
   });
 
   it('in Swedish', () => {
-    expect(planned(true, sv).row).toBe(sv('time.short.early').toLocaleLowerCase('sv'));
+    expect(planned(sv).row).toBe(sv('time.short.early').toLocaleLowerCase('sv'));
   });
 
   it('with the hours shown, the hours so far', () => {
-    expect(planned(true, en, true).row).toBe('0/14h');
-  });
-
-  it('with `day-forecast` off, as before: the part of the day the plan ends in', () => {
-    const { a, row } = planned(false);
-    expect(row).toBe(queueTimes(a, previewQueue(a), en, false).status.toLocaleLowerCase('en'));
-    expect(row).not.toBe(en('time.short.early').toLocaleLowerCase('en'));
+    expect(planned(en, true).row).toBe('0/14h');
   });
 });

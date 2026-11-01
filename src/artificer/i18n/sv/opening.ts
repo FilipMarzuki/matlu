@@ -1,35 +1,20 @@
 import type { opening } from '../en/opening';
 
 /**
- * Svenska för öppningen (#1707): hajken, portalen och rösten, packningen och vem du är.
+ * Svenska för öppningen (#1707): introts berättelsesida och kort (#1928), packningen och vem du är.
  * Typad som hela den engelska delen, så en nyckel som fattas här är ett kompileringsfel.
  */
 export const openingSv: Record<keyof typeof opening, string> = {
   // ── Introts sidor ──────────────────────────────────────────────────────────
   'intro.hike1': 'Fredag eftermiddag. Din patrull ska ut på hajk i skogen över helgen.',
-  'intro.hike2': 'Två nätter i tält, hem på söndag.',
-  'intro.hike3': 'Du har längtat hela veckan.',
   'intro.pack': 'Vad packar du?',
   'intro.whoAreYou': 'Vem är du?',
   'intro.seam1': 'Luften spricker upp som en söm.',
   'intro.seam2': 'Ljuset viks inåt — och du faller igenom.',
-  'intro.stone1': 'Kall sten under händerna.',
-  'intro.stone2': 'Vind som inte luktar någonting. En himmel i färgen av ett gammalt blåmärke.',
-  'intro.arrival': '⟨ ANKOMST REGISTRERAD ⟩',
-  'intro.scanning': 'Skannar…',
-  'intro.threshold': 'Hantverkskunnande över tröskelvärdet.',
-  'intro.class': 'KLASS TILLDELAD: ARTIFICER',
-  'intro.rank': 'RANG: {rank}',
-  'intro.identify': 'IDENTIFIERA DIG, ARTIFICER.',
-  'intro.registered': 'Registrerad: {name}.',
-  'intro.identified': 'IDENTITET BEKRÄFTAD. Registrerad: {name}.',
   'intro.winter': 'Vintern kommer. Överlev!',
   'intro.before': 'Någon har varit här före dig.',
   'intro.left': 'De lämnade efter sig: {list}.',
   'intro.heirloom': '{item} ({grade})',
-  'intro.close1': 'ÖVERLEV.',
-  'intro.close2': 'BLOMSTRA.',
-  'intro.close3': 'BEMÄSTRA DIN NYA VERKLIGHET.',
   'intro.noName': 'Artificer',
   'quick.ready': 'Du är {name}, {age} år, scout. Packningen är klar.',
   'quick.play': 'SPELA ▸',

@@ -23,19 +23,18 @@ const saves = (): { saveKey: string; guideKey: string; camp: Day; over: Day } =>
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-day-forecast-save.ts', import.meta.url))], { encoding: 'utf8' }));
 const SAVES = saves();
 
-async function openPlan(page: Page, day: Day, lang: 'en' | 'sv', features: Record<string, boolean> = {}): Promise<string[]> {
+async function openPlan(page: Page, day: Day, lang: 'en' | 'sv'): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
-  await page.evaluate(({ saveKey, guideKey, save, lang, features }) => {
+  await page.evaluate(({ saveKey, guideKey, save, lang }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
     localStorage.setItem(saveKey, save);
     // Through the first-morning guide already, so every part of PLAN shows.
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
-    localStorage.setItem('artificer.features', JSON.stringify(features));
-  }, { saveKey: SAVES.saveKey, guideKey: SAVES.guideKey, save: day.save, lang, features });
+  }, { saveKey: SAVES.saveKey, guideKey: SAVES.guideKey, save: day.save, lang });
   await page.reload();
   await expect(page.locator('.plan.sideq .planq')).toBeVisible();
   // A new morning's weather card comes first; "Got it" folds it, as a player would.
@@ -105,16 +104,5 @@ test('the line follows the queue: take tasks off a day over budget and it ends i
   // An empty queue has no day to end.
   for (const i of [1, 0]) await page.locator(`.planq [data-x="${i}"]`).click();
   await expect(page.locator('.dayend')).toHaveCount(0);
-  expect(errors).toEqual([]);
-});
-
-test('switched off, the footer is as before: no line, the time in words, nothing on the strip', async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 700 });
-  const errors = await openPlan(page, SAVES.over, 'en', { 'day-forecast': false });
-  await expect(page.locator('.dayend')).toHaveCount(0);
-  await expect(page.locator('.planq .queue .qtot')).toContainText('This runs past dark.');
-  await page.setViewportSize({ width: 400, height: 860 });
-  await expect(page.locator('.qstrip')).toBeVisible();
-  await expect(page.locator('.qsline')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

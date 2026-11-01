@@ -20,20 +20,19 @@ interface Saved { saveKey: string; guideKey: string; save: string; spots: string
 const EXPLORED: Saved =
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-camp-picker-save.ts', import.meta.url))], { encoding: 'utf8' }));
 
-async function openPlan(page: Page, lang: 'en' | 'sv', features: Record<string, boolean> = {}): Promise<{ errors: string[]; saved: Saved }> {
+async function openPlan(page: Page, lang: 'en' | 'sv'): Promise<{ errors: string[]; saved: Saved }> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   const saved = EXPLORED;
   await page.goto('/artificer.html');
-  await page.evaluate(({ saveKey, guideKey, save, lang, features }) => {
+  await page.evaluate(({ saveKey, guideKey, save, lang }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
     localStorage.setItem(saveKey, save);
     // Through the first-morning guide already, so every action shows.
     localStorage.setItem(guideKey, JSON.stringify({ done: true, run: null }));
     localStorage.setItem('artificer.tab', 'plan');
-    localStorage.setItem('artificer.features', JSON.stringify(features));
-  }, { ...saved, lang, features });
+  }, { ...saved, lang });
   await page.reload();
   return { errors, saved };
 }
@@ -100,15 +99,5 @@ test('Tab and Shift+Tab stay inside the picker while it\'s open', async ({ page 
     await page.keyboard.press(shift ? 'Shift+Tab' : 'Tab');
     expect(await page.evaluate(() => !!document.activeElement?.closest('.campick'))).toBe(true);
   }
-  expect(errors).toEqual([]);
-});
-
-test('switched off, Make camp queues itself as before: no picker', async ({ page }) => {
-  const { errors, saved } = await openPlan(page, 'en', { 'camp-picker': false });
-  const before = await queueOf(page, saved.saveKey);
-  await expect(page.locator('[data-campick]')).toHaveCount(0);
-  await page.locator('[data-q="camp"]:visible').first().click();
-  await expect(page.locator('.campick')).toHaveCount(0);
-  expect(await queueOf(page, saved.saveKey)).toEqual([...before, 'camp']);
   expect(errors).toEqual([]);
 });

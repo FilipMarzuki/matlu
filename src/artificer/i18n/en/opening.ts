@@ -1,5 +1,5 @@
 /**
- * English for the opening (#1707, phase 2 of #1685): the hike page, the portal and the voice, the
+ * English for the opening (#1707, phase 2 of #1685): the intro's story page and card (#1928), the
  * pack screen and character creation. Spread into `en` (../en.ts), so these keys are `Key`s too.
  *
  * The pack's own items (names, what each is for, the scout's note) aren't written here: they're
@@ -8,33 +8,15 @@
 export const opening = {
   // ── The intro's pages (intro.ts) ───────────────────────────────────────────
   'intro.hike1': 'Friday afternoon. Your patrol is heading out for a weekend hike in the forest.',
-  'intro.hike2': 'Two nights in tents, back on Sunday.',
-  'intro.hike3': "You've been looking forward to it all week.",
   'intro.pack': 'What will you pack?',
-  // The creation screen when it comes before the pack (#1872, `stats-before-pack`): the scout's own
-  // question, before the hike, not the portal's voice.
+  // The creation screen's question, in the scout's own voice (#1872).
   'intro.whoAreYou': 'Who are you?',
   'intro.seam1': 'A seam opens in the air.',
   'intro.seam2': 'Light folds inward — and you fall through it.',
-  'intro.stone1': 'Cold stone under your hands.',
-  'intro.stone2': 'Wind with no smell. A sky the colour of an old bruise.',
-  'intro.arrival': '⟨ ARRIVAL DETECTED ⟩',
-  'intro.scanning': 'Scanning…',
-  'intro.threshold': 'Crafting knowledge exceeds threshold.',
-  'intro.class': 'CLASS DESIGNATED: ARTIFICER',
-  'intro.rank': 'RANK: {rank}',
-  'intro.identify': 'IDENTIFY YOURSELF, ARTIFICER.',
-  // `{name}` is left for fillName (intro.ts) to fill once the Warden has one.
-  'intro.registered': 'Registered: {name}.',
-  // With creation before the pack (#1872): the voice no longer asks, it reads the name it found.
-  'intro.identified': 'IDENTITY CONFIRMED. Registered: {name}.',
   'intro.winter': 'Winter is coming. Survive!',
   'intro.before': 'Someone was here before you.',
   'intro.left': 'They left: {list}.',
   'intro.heirloom': 'a {grade} {item}',
-  'intro.close1': 'SURVIVE.',
-  'intro.close2': 'THRIVE.',
-  'intro.close3': 'MASTER YOUR NEW REALITY.',
   // What an unnamed Warden is called.
   'intro.noName': 'Artificer',
   // The quick start's card (#1928): `{name}` is left for fillName, `{age}` is the draft's.

@@ -1,6 +1,7 @@
 /**
- * The "where you stand" line (#1926, ui feature `standing-line`; roadmap item 4 of the design
- * review #1914, F4 and §1.6).
+ * The "where you stand" line (#1926, a ui switch until #2009; roadmap item 4 of the design
+ * review #1914, F4 and §1.6). It builds on the guide's Survival path, so it shows only with the
+ * `guide` ui feature on.
  *
  * The status bar used to say where you stand in three places that could disagree. On day 14 the
  * FOCUS chip said "Survive 5/5: ready for winter", which reads as done (it meant "step 5 of 5 is
@@ -20,8 +21,8 @@
  *   FOCUS chip kept it; survival's lock takes "Next"'s place, as it took the chip's.
  *
  * The line is a button that opens the focus picker, as the FOCUS chip was: one control, not two.
- * With the full status bar it sits in the bar, where the FOCUS chip was; with the one-line compact
- * bar it has a row of its own just under it (`standingRow`, #1951), not behind the ⋯.
+ * It has a row of its own just under the one-line status bar (`standingRow`, #1951), not behind the
+ * ⋯; on a wide screen it sits in the status line itself (#1998).
  * Pure functions of the run and `t`, no DOM, so a unit test can read them. Nothing new is worked
  * out: every fact comes from a function the page already called. The play API, the console and
  * the AI players never see it.
@@ -39,9 +40,6 @@ import { outlookShortfalls, type Shortfall, type StandingNote } from './progress
 import { esc } from './html';
 import { focusName, lockText } from './sim-words';
 import { FOOD_LAID_BY, PATH_STEPS, survivalPath } from './survival-path';
-
-/** The ui feature (features.ts). It builds on the guide's Survival path, so main.ts needs `guide` on too. */
-export const STANDING_FEATURE = 'standing-line';
 
 /** What the line says comes next, or that nothing does. */
 export type Next =
@@ -67,7 +65,7 @@ export interface Standing {
 
 /** What comes next on the Survival path, read with the winter outlook. */
 export function nextOf(s: Region1State): Next {
-  const path = survivalPath(s, { outlook: true });
+  const path = survivalPath(s);
   if (path.current !== null) {
     const id = PATH_STEPS[path.current];
     if (id === 'food') return { kind: 'week', have: winterOutlook(s).foodDays, need: FOOD_LAID_BY };
@@ -154,8 +152,8 @@ export function standingLine(s: Region1State, t: T, opts: { open: boolean; night
 }
 
 /**
- * The line's own row under the compact status bar (#1951). With the one-line bar (#1924, ui feature
- * `compact-status`) the line used to sit behind the ⋯, where a player who never taps it never saw
+ * The line's own row under the compact status bar (#1951). With the one-line bar (#1924) the line
+ * used to sit behind the ⋯, where a player who never taps it never saw
  * it. Here it's drawn just under the bar, after the bar's sticky element, so it's in the page's own
  * flow: it scrolls away with the page and the frozen chrome stays the one line. `pop` is the focus
  * picker the line opens: the row holds it (style.css `.standrow`), so it opens just under the line.

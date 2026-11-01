@@ -14,7 +14,11 @@ const SHOTS = process.env['SHOTS'];
 
 /** Through the intro to the game, naming the Warden and picking two talents on the way. */
 async function throughIntro(page: Page): Promise<void> {
+  let changed = false;
   for (let i = 0; i < 14 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
+    // The quick start's card (#1928): Change once, for the creation and pack screens; then Play.
+    const change = page.locator('[data-intro="change"]');
+    if (!changed && await change.isVisible()) { await change.click(); changed = true; continue; }
     if (await page.locator('.tchoice').first().isVisible()) {
       await page.locator('#wname').fill('Signe');
       await page.locator('.tchoice').nth(0).click();
@@ -32,8 +36,7 @@ async function fresh(page: Page, lang: 'en' | 'sv', features: Record<string, boo
   await page.evaluate(({ lang, features }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang);
-    // The whole intro, with its creation screen (the quick start, #1928, would Play past it).
-    localStorage.setItem('artificer.features', JSON.stringify({ 'quick-start': false, ...features }));
+    if (Object.keys(features).length) localStorage.setItem('artificer.features', JSON.stringify(features));
   }, { lang, features });
   await page.reload();
   await throughIntro(page);

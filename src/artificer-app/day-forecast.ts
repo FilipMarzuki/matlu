@@ -1,5 +1,5 @@
 /**
- * Where the day ends, in words (#1930, ui feature `day-forecast`; roadmap item 8 of the design
+ * Where the day ends, in words (#1930; roadmap item 8 of the design
  * review #1914, F8 and §1.6).
  *
  * Before you run the day, the queue said "15.4 / 14h · ends NIGHT" and each task's haul, but not
@@ -49,9 +49,6 @@ import { vitalLevel, vitalWord, type VitalLevel } from './vital-words';
 import { todayHours, type AppState, type QueuePreview } from './controller';
 import { compactEnd } from './plan-layout';
 import { esc } from './html';
-
-/** The ui switch (features.ts). Off, the queue's footer is exactly as before. */
-export const DAY_FORECAST_FEATURE = 'day-forecast';
 
 /** The key stores the line speaks of, in the key box's order. */
 export type Store = 'food' | 'water' | 'wood';

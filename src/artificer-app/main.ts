@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-// After style.css, so its overrides win the ties (#1923): it only acts with the `readable-type` switch on.
+// After style.css, so its overrides win the ties (#1923): readable type, the labels in the body font.
 import './readable-type.css';
 import { mapMode } from '../artificer/descriptive-map';
 import { repack, CRAFT_WORLD, PLANNING_UNLOCKED, ACTIONS, DAY_HOURS, queueHours, winterReady, type TripLoad, parseItem, type ActionId, type QueueId, type SiteId, type EatingPlan, type Region1State } from '../artificer/region1';
@@ -22,14 +22,13 @@ import { type GearItem, type Haul } from '../artificer/load';
 import { heirloomsOf, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
-import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
-import { introBeats, introHtml, introWhere, QUICK_START_FEATURE, QUICK_NAME, type Beat, type QuickStep } from './intro';
+import { introBeats, introHtml, introWhere, QUICK_NAME, type Beat, type QuickStep } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
 import { GUIDE_FEATURE } from './survival-path';
-import { STANDING_FEATURE, standingLine, standingNote, standingRow } from './standing-line';
+import { standingLine, standingNote, standingRow } from './standing-line';
 import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
@@ -69,11 +68,10 @@ import { wardenTab } from './warden-view';
 import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
-import { FEWER_CARDS_FEATURE } from './fewer-cards';
-import { CAMP_PICKER_FEATURE, campPicker, pickable, pickerFor } from './camp-picker';
+import { campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
-import { DAY_CARD_FEATURE, dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
+import { dayCardHtml, dayCardOf, journalButton, journalSheet, type DayCard } from './day-card';
 import { drawnMapBlock, hexDrawnMapBlock, reachMapSection } from './map-view';
 import { setFold } from './fold';
 import { ackWeather, loadWeatherFold, saveWeatherFold, toggleWeather, weatherFoldState, type WeatherFold } from './weather-fold';
@@ -94,17 +92,16 @@ import { playAct, playActStopped, playDay, playStopped, playWholeQueue, momentAt
 import { inject } from '@vercel/analytics';
 import { LANGS, makeT, parseLang, type Key, type Lang, type T } from '../artificer/i18n';
 import { pickerNeeded, storedLang, storeLang } from './lang';
-import { esc, pct, band, wardenButton } from './html';
+import { esc, pct, wardenButton } from './html';
 import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
-import { WIDE_TOP_FEATURE, WIDE_TOP_QUERY } from './wide-top';
+import { WIDE_TOP_QUERY } from './wide-top';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
 import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
-import { DAY_FORECAST_FEATURE, dayEnd, dayEndHtml, dayEndText } from './day-forecast';
+import { dayEnd, dayEndHtml, dayEndText } from './day-forecast';
 import { packForm, createForm, sectionOpen, readPackOpen, allSectionsOpen, setAllSections, PACK_OPEN_KEY, type PackOpen } from './opening-view';
 import { LOOKS, LOOK_IDS, LOOK_SWITCHER_FEATURE, applyLook, installLooks, loadLookChoice, lookFromQuery, lookOfGame, saveLookChoice, shownLook, stepLook, type LookId } from './looks';
-import { READABLE_TYPE_FEATURE, applyReadableType } from './readable-type';
 import { installFeedback } from './feedback-panel';
 import { deviceOf, lastJournal } from './feedback-draft';
 import { actionName, choiceNote, distanceT, optionGroupLabel, optionLabel, rankName, recipeName, ringName, simLine } from './sim-words';
@@ -178,17 +175,15 @@ function closeRingPick(refocus: boolean): void {
 }
 
 /**
- * What the palette needs from the page: dev mode, the language, this Warden's chooser state, and
- * whether it folds what can't be done now (#1925, the `fewer-cards` ui feature, fewer-cards.ts).
+ * What the palette needs from the page: dev mode, the language, this Warden's chooser state,
+ * and whether Make camp opens the camp picker (#1986). What can't be done now is folded (#1925, fewer-cards.ts).
  */
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s, campPickerOn()) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, campPick: pickerFor(s) };
 };
 
-/** Make camp opens a picker of the places to camp you know (#1986, camp-picker.ts): a ui feature, on unless switched off. */
-const campPickerOn = (): boolean => uiFeatureOn(loadChoices(), CAMP_PICKER_FEATURE);
 /**
  * The picker is open (#1986): page state, never saved. Shut by a pick, Cancel, Escape or a tap beside
  * it, and also by anything that leaves the page it was opened on: a tab, a day starting, a new Warden.
@@ -208,15 +203,12 @@ function closeCampPick(refocus: boolean): void {
 const startLandOn = (): boolean => uiFeatureOn(loadChoices(), START_LAND_FEATURE);
 /** Finds as you explore (#1869, explore-finds.ts): a ui feature, on unless switched off in the features panel. */
 const findsOn = (): boolean => uiFeatureOn(loadChoices(), FINDS_FEATURE);
-// A ui feature (#1929): the day's result as a card when the timer ends a day, and the journal one
-// tap from the status bar. Off, the day ends as before and the journal stays at the foot of PLAN.
-const dayCardOn = (): boolean => uiFeatureOn(loadChoices(), DAY_CARD_FEATURE);
 /** The card the timer's last day left (#1929), until OK; null when there's none. Presentation only: never saved. */
 let dayCard: DayCard | null = null;
 /** The journal sheet (#1929) is open. */
 let jsheetOpen = false;
-/** The status bar's 📓, when the switch is on. */
-const jbtn = (): string => (dayCardOn() ? journalButton(t) : '');
+/** The status bar's 📓 (#1929): the journal one tap away, over any tab. */
+const jbtn = (): string => journalButton(t);
 /** Runs whose first view this visit has claimed (storage may refuse, start-land.ts `claimStartLand`). */
 const startClaimed = new Set<string>();
 /** This run started on LAND: claimed now, or on an earlier visit. */
@@ -447,9 +439,6 @@ function loadBar(l: TripLoad, guess?: string): string {
 /** Whether the status bar's focus picker is open (#1758): the page's alone, never saved. */
 let focusPopOpen = false;
 
-/** A one-line status bar and the tabs at the bottom on phones (#1924): a ui feature, on unless switched off in the features panel. */
-const COMPACT_STATUS_FEATURE = 'compact-status';
-const compactOn = (): boolean => uiFeatureOn(loadChoices(), COMPACT_STATUS_FEATURE);
 /** Whether the compact bar's "more" panel (FOCUS, pain, injuries, the night, the outlook; with the line, pain, injuries and TODAY) is open: the page's alone, never saved. */
 let compactMoreOpen = false;
 
@@ -611,16 +600,14 @@ function queueBlock(a: AppState, preview: Preview): string {
     </div>`;
 }
 
-/** Where the day ends, in words (#1930, day-forecast.ts): a ui feature, on unless switched off in the features panel. */
-const dayForecastOn = (): boolean => uiFeatureOn(loadChoices(), DAY_FORECAST_FEATURE);
 /**
- * Where today's plan leaves you, or null (the switch off, or nothing runs today). Worked out once a
- * redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
+ * Where today's plan leaves you (#1930, day-forecast.ts), or null when nothing runs today. Worked out
+ * once a redraw: the queue's footer and the phone's strip both ask, with the same state and preview.
  */
 let dayEndMemo: { a: AppState; preview: Preview; end: ReturnType<typeof dayEnd> } | null = null;
 function dayEndNow(a: AppState, preview: Preview): ReturnType<typeof dayEnd> {
   if (dayEndMemo?.a === a && dayEndMemo.preview === preview) return dayEndMemo.end;
-  const end = dayForecastOn() ? dayEnd(a, preview, timeWordsShown(a.sim, dev), t) : null;
+  const end = dayEnd(a, preview, timeWordsShown(a.sim, dev), t);
   dayEndMemo = { a, preview, end };
   return end;
 }
@@ -651,65 +638,20 @@ function stripBlock(a: AppState, preview: Preview): string {
     line: end ? dayEndText(end, t) : undefined }, t);
 }
 
-/** Always-visible summary: body, key stores, today's hours, readiness. */
 /**
- * Always-visible summary. With the two-row header (#1824), `row2` (the Warden and the three
- * resources) is the sticky bar's top line, so the resources stay in view while the page scrolls, as
- * the bars did, and the frozen queue (#1826, `syncStickTop`) still stops right under it.
- */
-function statusBar(a: AppState, preview: Preview, row2 = '', warden = ''): string {
-  if (compactOn()) return compactStatusBar(a, preview, warden);
-  const s = a.sim;
-  const mini = (label: string, cur: number, cap: number, max: number): string => {
-    const b = band(cap > 0 ? cur / cap : 0);
-    return `<span class="mini"><span class="ml">${label}</span><span class="mt"><span class="mf ${b}" style="width:${pct(cur / max)}%"></span></span><span class="mv ${b}">${Math.round(cur)}</span></span>`;
-  };
-  const ready = winterReady(s);
-  // The first-morning guide (#1792): with it on, each part arrives when it's of use (vitals and the
-  // FOCUS chip after the weather, the stores once something's gathered or the first night is behind
-  // you). With it off, or "I've played before", `guide` shows everything and marks nothing: as before.
-  const g = guide;
-  // The Warden's button shows from the start (#1818), so with the two rows the bar is never empty.
-  if (!g.shows('vitals') && !g.shows('focus') && !g.shows('stores')) return row2 ? `<div class="statusbar">${row2}</div>` : '';
-  const vitals = g.shows('vitals');
-  const line = lineShown(g);
-  const focus = g.shows('focus') ? markFirst(focusOrLine(s, vitals), 'focus', 'lock') : '';
-  const focusPop = g.shows('focus') && focusPopOpen ? focusPopover(s, t, focusUi()) : '';
-  // The just-in-time tips (#1794) say their line here too, whatever the tab: the part they're about
-  // (an injury's chip, the weather) may be on another tab, or gone again (the injury healed).
-  const tips = `${guideTip('vitals')}${guideTip('focus')}${guideTip('stores')}${JIT_TIPS.map(guideTip).join('')}`;
-  if (g.active) {
-    const stores = g.shows('stores');
-    return `<div class="statusbar">${row2}
-    ${vitals && !twoRowOn() ? `<div class="minis"${g.mark('vitals')}>${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>` : ''}
-    ${keyColumn(focus, stores ? markFirst(keyBox(s, t), 'stores') : '')}${focusPop}
-    ${stores ? statusEating(s) : ''}${vitals ? `${line ? '' : nightChip(s, t)}${painChip(s)}${markFirst(injuryChips(s), 'injury')}
-    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}` : ''}
-    ${g.shows('focus') && !line ? outlookTag(s, ready) : ''}${stores ? jbtn() : ''}
-  </div>${tips}`;
-  }
-  return `<div class="statusbar">${row2}
-    ${twoRowOn() ? '' : `<div class="minis">${mini(t('status.vig'), s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini(t('status.cla'), s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini(t('status.res'), s.vitals.condition, 100, 100)}</div>`}
-    ${keyColumn(focusOrLine(s, true), keyBox(s, t))}${focusPopOpen ? focusPopover(s, t, focusUi()) : ''}${statusEating(s)}${lineShown(g) ? '' : nightChip(s, t)}${painChip(s)}${injuryChips(s)}
-    ${twoRowOn() ? '' : `<span class="shours">${esc(t('status.today'))} <b>${queueTimes(a, preview, t, dev).status}</b></span>`}
-    ${lineShown(g) ? '' : outlookTag(s, ready)}${jbtn()}
-  </div>`;
-}
-
-/**
- * The compact status line (#1924, ui switch `compact-status`): the Warden's button (with the
- * two-row header, which otherwise gives it a whole row of its own), the day, the three vitals as
+ * The status line (#1924, the compact status bar; the only one since #2009): the Warden's button
+ * (with the two-row header), the day, the three vitals as
  * small dots and the key box (food/water/firewood), all on one line, so the sticky bar stays to
- * that line's height. Everything else the full bar carries — FOCUS and its picker, rations, pain,
+ * that line's height. Everything else — FOCUS and its picker, rations, pain,
  * injuries, the night and the day's outlook — sits behind the ⋯ toggle (`compactMoreOpen`,
  * `compactMorePanel`), in a panel inside the bar, under its line (frozen with it while it's open).
  * The "where you stand" line is the exception (#1951): it has a row of its own right after the
  * bar's sticky element (`standingUnder`), so it's seen without a tap and scrolls away with the page.
  */
-/** Whether the compact bar says the day: once the guide shows anything past the Warden in it. */
-const compactDayShown = (): boolean => compactOn() && (guide.shows('vitals') || guide.shows('focus') || guide.shows('stores'));
+/** Whether the status line says the day: once the guide shows anything past the Warden in it. */
+const compactDayShown = (): boolean => guide.shows('vitals') || guide.shows('focus') || guide.shows('stores');
 
-function compactStatusBar(a: AppState, preview: Preview, warden: string): string {
+function statusBar(a: AppState, preview: Preview, warden = ''): string {
   const s = a.sim;
   const g = guide;
   if (!compactDayShown()) return warden ? `<div class="statusbar compact"><div class="cline">${warden}</div></div>` : '';
@@ -731,9 +673,9 @@ function compactStatusBar(a: AppState, preview: Preview, warden: string): string
 
 /**
  * The "where you stand" line under the compact bar (#1951, standing-line.ts `standingRow`): once
- * the guide shows FOCUS, as in the full bar. Outside `.statusbar`, which is the sticky element, so
+ * the guide shows FOCUS. Outside `.statusbar`, which is the sticky element, so
  * the row is in the page's flow and scrolls away, and `syncStickTop` still measures the one line.
- * With the line off, nothing: FOCUS stays in the ⋯ panel, as before.
+ * With the guide off, nothing: FOCUS stays in the ⋯ panel.
  */
 function standingUnder(a: AppState): string {
   const p = standingParts(a);
@@ -760,11 +702,11 @@ function standingParts(a: AppState): { line: string; pop: string } | null {
 }
 
 /**
- * The compact bar's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
- * and the day's outlook — what the one-line bar leaves out. It opens inside the bar, under its line,
+ * The status line's "more" panel (#1924): FOCUS and its picker, rations, pain, injuries, the night
+ * and the day's outlook — what the one line leaves out. It opens inside the bar, under its line,
  * and shuts again at the same ⋯. With the "where you stand" line (#1951), the line and its picker
- * are in their own row under the bar instead (`standingUnder`), and the panel keeps rations, pain,
- * injuries and TODAY.
+ * are in their own row under the bar instead (`standingUnder`, or `standingIn` on a wide screen),
+ * and the panel keeps rations, pain, injuries and TODAY.
  */
 function compactMorePanel(a: AppState, preview: Preview): string {
   const s = a.sim;
@@ -781,18 +723,12 @@ function compactMorePanel(a: AppState, preview: Preview): string {
 }
 
 /**
- * The FOCUS chip with the key survival box under it (#1891, key-box.ts): food as days, water and
- * firewood. The full stores list (materials, stone, hides…) is the CAMP tab's.
- */
-const keyColumn = (focus: string, box: string): string => (focus || box ? `<div class="keycol">${focus}${box}</div>` : '');
-
-/**
  * The "where you stand" line (#1926, standing-line.ts): with it, one sentence takes the place of
  * the FOCUS chip, the night chip and the readiness tag, and opens the focus picker as the chip did.
  * Shown where the FOCUS chip would be, so once the guide shows FOCUS (`lineShown`).
  */
 const focusOrLine = (s: AppState['sim'], night: boolean): string =>
-  (standingOn() ? standingLine(s, t, { open: focusPopOpen, night }) : focusChip(s, t, focusPopOpen, focusUi()));
+  (standingOn() ? standingLine(s, t, { open: focusPopOpen, night }) : focusChip(s, t, focusPopOpen));
 /** Whether the line is drawn, so the night chip and the readiness tag it says are left out. */
 const lineShown = (g: GuideView): boolean => standingOn() && g.shows('focus');
 
@@ -848,18 +784,11 @@ installLooks();
 /** The temporary look switcher in the header (#1736): a ui feature, on unless switched off in the features panel. */
 const switcherOn = (): boolean => uiFeatureOn(loadChoices(), LOOK_SWITCHER_FEATURE);
 /** The Survival path in the FOCUS chip and picker (#1793): a ui feature, on unless switched off in the features panel. */
-const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE), standing: standingOn() });
-/** The "where you stand" line (#1926): a ui feature, on unless switched off; it reads the guide's Survival path, so it needs `guide` on too. */
-const standingOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE) && uiFeatureOn(loadChoices(), STANDING_FEATURE);
+const focusUi = (): FocusUi => ({ guide: uiFeatureOn(loadChoices(), GUIDE_FEATURE) });
+/** The "where you stand" line (#1926): it reads the guide's Survival path, so it shows with `guide` on. */
+const standingOn = (): boolean => uiFeatureOn(loadChoices(), GUIDE_FEATURE);
 // While the switcher is on, the look chosen with it (or the dev picker) is kept in this browser.
 let lookPreview: LookId | null = lookFromQuery(location.search, dev || import.meta.env.DEV) ?? (switcherOn() ? loadLookChoice() : null);
-
-// ── Readable type (#1923, readable-type.ts) ──────────────────────────────────
-// A ui feature: the labels in the body font at 14–16 px and nothing under 12 px (readable-type.css).
-// Set here once so the language picker and the intro have it from their first paint, and again on
-// every draw (drawPage), so flipping the switch in the features panel shows at once.
-const readableTypeOn = (): boolean => uiFeatureOn(loadChoices(), READABLE_TYPE_FEATURE);
-applyReadableType(readableTypeOn());
 
 // ── The living backdrop (#1802) ───────────────────────────────────────────────
 // The page behind the boxes: the season, today's weather, the time of day, the place and the
@@ -941,8 +870,8 @@ journalBesideMq?.addEventListener('change', () => { if (tab === 'plan') render(s
  * line draws it again, as for the journal above.
  */
 const wideTopMq: MediaQueryList | null = typeof matchMedia === 'function' ? matchMedia(WIDE_TOP_QUERY) : null;
-const wideTop = (): boolean => (wideTopMq?.matches ?? false) && compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE);
-wideTopMq?.addEventListener('change', () => { if (compactOn() && uiFeatureOn(loadChoices(), WIDE_TOP_FEATURE)) render(state); });
+const wideTop = (): boolean => wideTopMq?.matches ?? false;
+wideTopMq?.addEventListener('change', () => render(state));
 let menyOpen = false;
 /** "Start a new game" tapped: the Menu asks on the page before the run ends. */
 let newGameAsk = false;
@@ -1185,7 +1114,7 @@ let wxFold: WeatherFold = loadWeatherFold();
 let wxRefocus = false;
 
 /** The weather box's section on Plan: the first time's card is wider, centred and larger (style.css `.wxintrobox`). */
-function weatherSection(a: AppState, preview: Preview): string {
+function weatherSection(a: AppState): string {
   // With the guide (#1792), the weather is the first morning's first step: the big card, whatever
   // this device's fold says, until it's acknowledged in this run (it replaces #1788's own first time).
   const fold = guide.weatherIntro ? { mode: 'intro' as const, hint: false } : weatherFoldState(wxFold);
@@ -1198,25 +1127,24 @@ function weatherSection(a: AppState, preview: Preview): string {
     const under = weatherUnder({ open, ...weatherRowBody(a.sim, open) });
     return under ? `<section class="box seasonbox">${under}</section>` : '';
   }
-  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, preview, fold) : weatherBox(a.sim, t, { dev, fold });
+  const box = fold.mode !== 'intro' && twoRowOn() ? weatherOneRow(a, fold) : weatherBox(a.sim, t, { dev, fold });
   // The weather glows for the cold night's tip and the snow's (#1794); their lines are under the status bar.
   return `<section class="box seasonbox${fold.mode === 'intro' ? ' wxintrobox' : ''}"${guide.mark('cold', 'snow')}${guide.tip === 'weather' ? ' data-glow' : ''}>${guideTip('weather')}${box}</section>`;
 }
 
 /** The weather and the time of day in one row (#1825), the full box under it while it's open. */
-function weatherOneRow(a: AppState, preview: Preview, fold: { mode: string; hint: boolean }): string {
+function weatherOneRow(a: AppState, fold: { mode: string; hint: boolean }): string {
   const open = fold.mode === 'open';
-  return weatherRow({ ...weatherRowHead(a, preview), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
+  return weatherRow({ ...weatherRowHead(a), open, hint: fold.hint, ...weatherRowBody(a.sim, open) }, t);
 }
 
 /** What the weather row says: the sky and the cold, and the time of day. */
-function weatherRowHead(a: AppState, preview: Preview): { chips: ReturnType<typeof weatherChips>; time: string } {
+function weatherRowHead(a: AppState): { chips: ReturnType<typeof weatherChips>; time: string } {
   return {
     chips: weatherChips(a.sim, t, { dev }),
-    // The time now, with the line under the queue saying where the day ends (#2000); else the TODAY
-    // chip's own text (the part of the day the plan ends in, or the hours). Plain words and digits,
-    // so the row escapes it as text.
-    time: weatherRowTime(a, preview, t, dev, dayForecastOn()),
+    // The time now (#2000): the line under the queue says where the day ends. Plain words and
+    // digits, so the row escapes it as text.
+    time: weatherRowTime(a.sim, t, dev),
   };
 }
 
@@ -1248,8 +1176,8 @@ function weatherInTabs(): boolean {
 const tabRow = (tabs: string, wx: string): string => (wx ? `<div class="tabrow">${tabs}${wx}</div>` : tabs);
 
 /** The weather row's button for the tab row, when it goes there (`weatherInTabs`). */
-const weatherTab = (a: AppState, preview: Preview): string =>
-  (weatherInTabs() ? weatherToggle({ ...weatherRowHead(a, preview), open: weatherFoldState(wxFold).mode === 'open' }, t, 'wxtab') : '');
+const weatherTab = (a: AppState): string =>
+  (weatherInTabs() ? weatherToggle({ ...weatherRowHead(a), open: weatherFoldState(wxFold).mode === 'open' }, t, 'wxtab') : '');
 
 /** The Plan tab with the guide at work (#1792): each box once it can be used, in the order of the first morning. */
 function guidedPlan(a: AppState, preview: Preview): string {
@@ -1271,8 +1199,8 @@ function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
       // The first meal's note (#1848) sits under the weather, at the top of the day's plan.
-      if (guide.active) return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${guidedPlan(a, preview)}`;
-      return `${weatherSection(a, preview)}${rationsNoteBlock(a)}${planLayout({
+      if (guide.active) return `${weatherSection(a)}${rationsNoteBlock(a)}${guidedPlan(a, preview)}`;
+      return `${weatherSection(a)}${rationsNoteBlock(a)}${planLayout({
         actions: `<section class="box"><p class="eyebrow">${esc(t(a.sim.canPlan ? 'head.actionsQueue' : 'head.actionsNow'))}</p>${paletteBlock(a, preview, paletteOpts(a.sim))}</section>`,
         queue: queueBlock(a, preview),
         journal: `<div class="log">${jHead(t('head.latest'), LATEST_STYLE, a, a.sim.log.length === 0)}<ul>${journal(a, 6)}</ul></div>`,
@@ -1331,7 +1259,6 @@ function drawPage(a: AppState): void {
   // The wider world's history too, beside it, with hex-world on (#1906). Nothing reads it yet.
   outerChronicleFor(a.sim);
   applyLook(shownLook(lookOfGame(a), lookPreview));
-  applyReadableType(readableTypeOn());
   // The scene behind the boxes (#1802): redrawn only when what it shows has changed (backdrop-view.ts).
   drawBackdrop(a);
   updateSound(a);
@@ -1342,7 +1269,7 @@ function drawPage(a: AppState): void {
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
   root.classList.toggle('winter', winter);
-  root.classList.toggle('compactnav', compactOn());
+  root.classList.add('compactnav');
   root.style.setProperty('--snow', String(winter ? Math.max(0.25, a.sim.snowDepth ?? 0) : 0));
   const fresh = a.sim.log.length === 0;
   // Which tabs show (#1688, #1691), and the open one settled against them: a CAMP tab kept from an
@@ -1369,8 +1296,6 @@ function drawPage(a: AppState): void {
   if (tab !== 'land') landVisit = null;
   const meny = menyShown();
   const reachWarden = wardenButton({ name: a.sim.character.name, portrait: a.sim.character.portrait, rank: rankName(artificerRank(a.sim, CRAFT_WORLD.concepts), t), open: tab === 'warden' && !meny, data: 'tab', attrs: guide.mark('skill') }, t);
-  // Switched off (#1929), the day card and the journal sheet go, so switching back on brings back no old card.
-  if (!dayCardOn()) { dayCard = null; jsheetOpen = false; }
   // The journal sheet (#1929) is drawn again with the page: it keeps where it was scrolled to.
   const sheetScroll = root.querySelector('.jsheet ul')?.scrollTop ?? 0;
   root.innerHTML = `
@@ -1385,17 +1310,15 @@ function drawPage(a: AppState): void {
       }, a, '')}
     ${menyOn() ? '' : featuresPanel(a)}
     ${!notesOn() && ((fresh && !guide.active) || showHelp) ? `<div class="ledewrap"><p class="lede">${t('help.ledeHtml', { winterDay: a.sim.config.calendar.winterDay })}</p>${helpExtras(menyOn(), [langSwitch(), guideControls(a), backdropControls(), devGate()])}</div>` : ''}
-    ${statusBar(a, preview,
-      twoRowOn() && !compactOn() ? wardenRow({ warden: reachWarden, vitals: vitalReadings(a.sim), day: a.sim.day, shown: guide.shows('vitals'), attrs: guide.mark('vitals') }, t) : '',
-      twoRowOn() && compactOn() ? reachWarden : '')}
+    ${statusBar(a, preview, twoRowOn() ? reachWarden : '')}
     ${resolvePanel(a)}
-    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a, preview))}${TAB_TIPS.map(guideTip).join('')}
+    ${tabRow(`<nav class="tabbar" role="tablist">${visibleTabs(TABS, view).map(d => { const gid = TAB_GUIDE[d.id]; return `<button class="tabbtn ${tab === d.id ? 'on' : ''}" role="tab" aria-selected="${tab === d.id}" data-tab="${d.id}"${gid ? guide.mark(gid) : ''}>${esc(t(`tab.${d.id}`))}${tabIsDev(d, view) ? devTag() : ''}</button>`; }).join('')}</nav>`, weatherTab(a))}${TAB_TIPS.map(guideTip).join('')}
     ${meny ? menyView(a) : tabBody(a, preview)}
     ${encounterModal(a.sim, encounterAfter, a.queue.length, t)}
     ${meetingModal(a.sim, a.meeting, t)}
     ${mapSessionModal(a.sim, mapUi && mapSessionOpen(a.sim) ? mapUi : null, t)}
     ${timerPanel()}
-    ${campPickOpen && !playing && pickerFor(a.sim, campPickerOn()) ? campPicker(a.sim, t) : ''}
+    ${campPickOpen && !playing && pickerFor(a.sim) ? campPicker(a.sim, t) : ''}
     ${dayCard && !playing ? dayCardHtml(dayCard, t) : ''}
     ${jsheetOpen ? journalSheet(journal(a, 200), t) : ''}`;
   const sheetList = root.querySelector('.jsheet ul');
@@ -1712,7 +1635,7 @@ const roadJournal = (r: RoadState, limit: number): string => journalItems(r.log,
 
 function renderRoad(a: AppState, r: RoadState): void {
   root.classList.remove('winter');
-  root.classList.toggle('compactnav', compactOn());
+  root.classList.add('compactnav');
   root.style.setProperty('--snow', '0');
   const body = roadTab === 'quests' ? `<section class="box">${questLog(r, false, t)}</section>`
     : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r), t, truths, '', true)
@@ -2025,7 +1948,7 @@ function endTimer(): void {
   playing = null;
   if (pl.lock) void pl.lock.release().catch(() => undefined);
   // The day's result (#1929): a card, when a day and its night have ended (day-card.ts dayCardOf).
-  dayCard = dayCardOn() ? dayCardOf(pl.plays, findsOn()) : null;
+  dayCard = dayCardOf(pl.plays, findsOn());
   render(state);
   if (dayCard) root.querySelector<HTMLElement>('[data-cmd="daycardok"]')?.focus({ preventScroll: true });
 }
@@ -2177,13 +2100,13 @@ function tickTimer(pl: Playing, now: number): void {
 // and render() — which rewrites #app wholesale — never wipes the intro.
 
 /**
- * The intro playing, if one is. `quick` (#1928): where the quick start is, or absent for the whole
- * arrival. `made`: the Warden has been made from the draft during this intro (the creation screen
+ * The intro playing, if one is. `quick` (#1928): where the quick start is, the card or Change's
+ * screens. `made`: the Warden has been made from the draft during this intro (the creation screen
  * was passed), so Play on the quick start's card doesn't make another; `madeAs` who they were made
  * as (`wardenKey`). `packed`: the pack screen was passed, so a Warden made after it starts with that
  * pack; `packedFor` the stats, talents and age it was packed for (`packKey`).
  */
-let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
+let intro: { beats: Beat[]; i: number; quick: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
@@ -2254,17 +2177,14 @@ const draftRun = () => ({ config: { world: packWorld() }, character: { stats: gr
 const draftLimit = (): number => carryLimit(draftRun());
 const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
 
-/** Is the quick start on (#1928)? A ui switch: read when an intro starts, kept for that intro. */
-const quickOn = (): boolean => uiFeatureOn(loadChoices(), QUICK_START_FEATURE);
-
-/** The intro's beats for the game as it stands, in the quick start's step if it's playing (#1928). */
-const beatsFor = (quick?: QuickStep['step']): Beat[] => introBeats(state.sim, t, quick ? { step: quick, age: draft.age } : undefined);
+/** The intro's beats for the game as it stands, at the quick start's step (#1928). */
+const beatsFor = (quick: QuickStep['step']): Beat[] => introBeats(state.sim, t, { step: quick, age: draft.age });
 
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   // The quick start (#1928): a ready-made Warden, named until the player names them on Change.
-  const quick = quickOn() ? 'ready' as const : undefined;
-  if (quick && !draft.name.trim()) draft.name = QUICK_NAME;
+  const quick = 'ready' as const;
+  if (!draft.name.trim()) draft.name = QUICK_NAME;
   draftPack = [...SUGGESTED_PACK];
   draftOutside = autoOutside(SUGGESTED_PACK);
   drawnBeat = -1;
@@ -2331,8 +2251,8 @@ function changeQuick(): void {
  * confirmed before, if any), rather than dropped.
  */
 function skipIntro(): void {
-  if (intro?.quick && !intro.made) commitQuick();
-  else if (intro?.quick && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
+  if (intro && !intro.made) commitQuick();
+  else if (intro && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
   endIntro();
 }
 
@@ -2396,8 +2316,7 @@ function advanceIntro(): void {
   }
   // Off we go (#1401): the pack chosen is the one the run starts with. (Skipping keeps the pack you had.)
   // Applied here too, so skipping the rest of the intro still starts with it; creation packs again (#1666).
-  // The beats after it are told again from the run as packed: the compass line (#1846) says what you brought.
-  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, beats: beatsFor(intro.quick), packed: true, packedFor: packKey() }; }
+  if (intro.beats[intro.i].kind === 'pack') { applyPack(); render(state); intro = { ...intro, packed: true, packedFor: packKey() }; }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
@@ -2422,7 +2341,7 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     // The quick start's card (#1928) names the draft: the Warden isn't made until Play or the creation screen.
-    beat: b, i: intro.i, count: intro.beats.length, name: intro.quick ? draft.name : state.sim.character.name, t,
+    beat: b, i: intro.i, count: intro.beats.length, name: draft.name, t,
     form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),

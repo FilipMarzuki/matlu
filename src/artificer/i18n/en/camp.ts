@@ -544,7 +544,7 @@ export const camp = {
   'campsite.start': 'where you started',
   'campsite.pick': 'Make camp is an action: it goes in your plan like any other, with the walk there. Explore to find more places to camp.',
   'campsite.go': '⛺ MAKE CAMP HERE',
-  // Make camp's picker (#1986, ui switch `camp-picker`): the popup the Make camp card opens.
+  // Make camp's picker (#1986): the popup the Make camp card opens.
   'campick.title': 'Where will you make camp?',
   'campick.cancel': 'Cancel',
   'head.campSpots': '⛺ PLACES TO CAMP — the ones you know',

@@ -1,12 +1,9 @@
 /**
  * English for the Survival path (#1793, artificer-app/survival-path.ts, ui feature `guide`): the
- * FOCUS chip's step and the picker's checklist. Spread into `en` (../en.ts).
+ * focus picker's checklist. Spread into `en` (../en.ts).
  */
 export const survival = {
-  // ── The chip: "FOCUS Survive 1/5: find a camp site" ───────────────────────
-  'path.chip': 'Survive {n}/{total}:',
-  'path.chipTip': 'Survival, step {n} of {total}: {step}. Tap for the steps.',
-  // ── The steps, as the chip and the checklist say them ─────────────────────
+  // ── The steps, as the checklist says them ───────────────────────────────────
   'path.step.site': 'find a camp site',
   'path.step.camp': 'make camp',
   'path.step.roof': 'a roof over you',
@@ -26,7 +23,7 @@ export const survival = {
   'path.suggestTip': 'Set your focus to {goal}: it helps with this step',
   'path.focused': 'Your focus: {goal}',
 
-  // ── The "where you stand" line (#1926, artificer-app/standing-line.ts, ui feature `standing-line`) ──
+  // ── The "where you stand" line (#1926, artificer-app/standing-line.ts) ──
   // One sentence in place of the FOCUS chip, the readiness tag and the night chip: "Next: lay in
   // food — 17 of ~30 nights. Tonight: warm." Short enough for a phone. Never "ready" while the
   // winter outlook falls short.

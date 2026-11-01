@@ -1,18 +1,18 @@
 /**
  * The Survival path (#1793, part 2 of the guide epic #1791): five steps from the first morning to
- * a winter you can sit out, shown through the FOCUS chip and its picker so the player always sees
- * what to do next.
+ * a winter you can sit out, shown through the "where you stand" line (#1926) and the focus picker
+ * it opens, so the player always sees what to do next.
  *
  *   1. find a suitable camp site  →  2. make camp  →  3. a roof over you  →  4. food laid by  →
  *   5. ready for winter
  *
  * A pure function of the game state: nothing new is saved, nothing in the sim changes, and the
  * same state always gives the same path. Each step is done while its fact is true, and the current
- * step is the first one that isn't, so if the larder runs low after step 4 the chip goes back to
+ * step is the first one that isn't, so if the larder runs low after step 4 the line goes back to
  * it. That's on purpose: it's a pointer to what's missing now, not a trophy shelf.
  *
  * App-side because it only reads the state; the play API, the console and the AI players don't
- * see it. Behind the `guide` ui feature (features.ts): with it off, the chip and picker are as before.
+ * see it. Behind the `guide` ui feature (features.ts): with it off, the plain FOCUS chip and picker.
  */
 
 import { knownSpots, campAsActionOn, siteRatingsOn, siteRating } from '../artificer/camp-sites';
@@ -24,7 +24,7 @@ import type { GoalId } from '../artificer/focus';
 import { hasCamp } from './camp-view';
 import { outlookShortfalls } from './progress-view';
 
-/** The ui feature this lives behind (features.ts): switch it off and the chip is as it was. */
+/** The ui feature this lives behind (features.ts): switch it off and there's no path. */
 export const GUIDE_FEATURE = 'guide';
 
 export type PathStepId = 'site' | 'camp' | 'roof' | 'food' | 'winter';
@@ -71,22 +71,18 @@ export const hasRoof = (s: Region1State): boolean => hasCamp(s) && (s.tier > 0 |
 export const foodLaidBy = (s: Region1State): boolean => winterOutlook(s).foodDays >= FOOD_LAID_BY;
 
 /**
- * How the path is read. `outlook` (the `standing-line` ui feature, #1926): step 5 is done only while
- * the winter outlook holds too (progress-view.ts `outlookShortfalls`), so the path never reads as
- * done beside a PROGRESS tab that says the food or the firewood falls short. Without it, step 5 is
- * the four readiness pillars alone, as before.
+ * The Survival path for this state. Step 5 is done only while the four readiness pillars hold and
+ * the winter outlook does too (progress-view.ts `outlookShortfalls`, #1926), so the path never reads
+ * as done beside a PROGRESS tab that says the food or the firewood falls short.
  */
-export interface PathOptions { outlook?: boolean }
-
-/** The Survival path for this state. */
-export function survivalPath(s: Region1State, opts: PathOptions = {}): SurvivalPath {
+export function survivalPath(s: Region1State): SurvivalPath {
   const camp = hasCamp(s);
   const facts: Record<PathStepId, boolean> = {
     site: camp || suitableSiteKnown(s),
     camp,
     roof: hasRoof(s),
     food: foodLaidBy(s),
-    winter: winterReady(s) && !(opts.outlook && outlookShortfalls(s).length > 0),
+    winter: winterReady(s) && outlookShortfalls(s).length === 0,
   };
   const steps = PATH_STEPS.map(id => ({ id, done: facts[id] }));
   // Ready for winter is the goal itself: once it holds, the path is done, whatever else wobbles.
@@ -98,17 +94,17 @@ export function survivalPath(s: Region1State, opts: PathOptions = {}): SurvivalP
  * The goal focus that helps with a step, if one does: exploring finds a site, Shelter builds the
  * roof, Larder lays food by. Making camp has none (it's one action). For winter, the first of
  * winter's pillars still short: the larder → Larder, the shelter or the woodpile → Shelter (its
- * actions are build and wood); the body's isn't a goal's. With `outlook` (#1926), what the winter
- * outlook says falls short comes first: food → Larder, firewood or warmth → Shelter.
+ * actions are build and wood); the body's isn't a goal's. What the winter outlook says falls short
+ * comes first (#1926): food → Larder, firewood or warmth → Shelter.
  */
-export function stepGoal(s: Region1State, id: PathStepId, opts: PathOptions = {}): GoalId | null {
+export function stepGoal(s: Region1State, id: PathStepId): GoalId | null {
   switch (id) {
     case 'site': return 'explore';
     case 'camp': return null;
     case 'roof': return 'shelter';
     case 'food': return 'larder';
     case 'winter': {
-      const out = opts.outlook ? outlookShortfalls(s)[0]?.what : undefined;
+      const out = outlookShortfalls(s)[0]?.what;
       if (out) return out === 'food' ? 'larder' : 'shelter';
       const short = pillars(readinessInput(s), s.config.thresholds).find(p => !p.done)?.key;
       return short === 'larder' ? 'larder' : short === 'shelter' || short === 'fuel' ? 'shelter' : null;

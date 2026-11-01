@@ -3,11 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 /**
- * #1998 — fewer rows on top on a wide screen (ui switch `wide-top`), in a real browser. On a 1024 × 700
+ * #1998 — fewer rows on top on a wide screen, in a real browser. On a 1024 × 700
  * tablet the "where you stand" line sits in the status line, the weather row's button in the tab row
  * (what it opens still opens under the tabs), and the day is said once; the first action card starts
  * near the top. Narrower than 901px, where the tabs are the phone's bottom bar, the page is as before,
- * and crossing the line draws it again. Off, as before. No page errors.
+ * and crossing the line draws it again. No page errors.
  *
  * Touch, not a mouse (the owner's tablet): `pointer: coarse` sets the 44px targets the rows are made of.
  */
@@ -17,12 +17,12 @@ const planned = (): { saveKey: string; guideKey: string; save: string } =>
   JSON.parse(execFileSync('npx', ['tsx', fileURLToPath(new URL('./helpers/artificer-planned-save.ts', import.meta.url))], { encoding: 'utf8' }));
 const SAVE = planned();
 
-async function openPlan(page: Page, width: number, o: { on?: boolean; lang?: string } = {}): Promise<string[]> {
+async function openPlan(page: Page, width: number, o: { lang?: string } = {}): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 700 });
   await page.goto('/artificer.html');
-  await page.evaluate(({ saveKey, guideKey, save, on, lang }) => {
+  await page.evaluate(({ saveKey, guideKey, save, lang }) => {
     localStorage.clear();
     localStorage.setItem('artificer.lang', lang ?? 'en');
     localStorage.setItem(saveKey, save);
@@ -31,8 +31,7 @@ async function openPlan(page: Page, width: number, o: { on?: boolean; lang?: str
     localStorage.setItem('artificer.tab', 'plan');
     // The weather box opened once before, so its "tap here" is retired, as for a returning player.
     localStorage.setItem('artificer.weatherFold', JSON.stringify({ acked: true, open: false, hintSeen: true }));
-    if (on !== undefined) localStorage.setItem('artificer.features', JSON.stringify({ 'wide-top': on }));
-  }, { ...SAVE, on: o.on, lang: o.lang });
+  }, { ...SAVE, lang: o.lang });
   await page.reload();
   await expect(page.locator('.plan .act').first()).toBeVisible();
   return errors;
@@ -100,11 +99,4 @@ test('narrower than 901px the page is as before, and crossing the line draws it 
 test('a phone (400 × 860) is as before', async ({ page }) => {
   await openPlan(page, 400);
   await asBefore(page);
-});
-
-test('switched off, a tablet is as before', async ({ page }) => {
-  const errors = await openPlan(page, 1024, { on: false });
-  await asBefore(page);
-  await expect(page.locator('header .counter')).toBeVisible();
-  expect(errors).toEqual([]);
 });

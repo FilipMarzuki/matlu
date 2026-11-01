@@ -62,7 +62,7 @@ export const planq = {
   'qc.unfold': 'Show the whole queue',
   'qc.fold': 'Fold the queue',
   'qc.empty': 'Nothing queued — tap an action',
-  // Where the day ends, in words (#1930, ui feature `day-forecast`): one sentence under the queue and on
+  // Where the day ends, in words (#1930): one sentence under the queue and on
   // the phone's strip, "Back at camp by dusk, tired, with wood for 3 nights." (day-forecast.ts).
   'dayend.back': 'Back at camp {when}',
   'dayend.done': 'Done {when}',
