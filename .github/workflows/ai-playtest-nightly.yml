@@ -1,11 +1,13 @@
-name: Artificer AI playtest (nightly, on change)
+name: Artificer AI playtest (weekly, on change)
 
 # Plays the AI model roster (src/artificer-ai/roster.ts) through Artificer
-# Region 1 — but only on days when the sim actually changed. Every night it
-# counts commits merged to main in the last 24 hours that touch the Artificer
-# sim or the AI harness; with none, it stops before installing anything ($0).
+# Region 1 — but only in weeks when the sim actually changed. Once a week (the
+# owner: no need for a full playthrough every night, #2014) it counts commits
+# merged to main in the last 7 days that touch the Artificer sim or the AI
+# harness; with none, it stops before installing anything ($0). (The file keeps
+# its old name, so the workflow's run history and links stay where they are.)
 #
-# On a changed day it runs the free random baselines plus `npm run ai:bench`
+# In a changed week it runs the free random baselines plus `npm run ai:bench`
 # (≈ $0.40 for the full roster, capped by AI_BENCH_BUDGET), builds the
 # progression report, posts a Markdown summary on the run page and uploads the
 # HTML report + transcripts as the `ai-playtest` artifact (#1231).
@@ -18,8 +20,8 @@ name: Artificer AI playtest (nightly, on change)
 
 on:
   schedule:
-    # 23:15 UTC: the end of a working day of PRs, before the 02:00 nightly agent starts the next batch.
-    - cron: '15 23 * * *'
+    # Sundays 23:15 UTC: the end of a week of PRs, before the 02:00 nightly agent starts the next batch.
+    - cron: '15 23 * * 0'
   workflow_dispatch:
     inputs:
       runs:
@@ -45,22 +47,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0   # full history, so the last day's commits can be counted
+          fetch-depth: 0   # full history, so the last week's commits can be counted
 
-      - name: Did the sim change today?
+      - name: Did the sim change this week?
         id: gate
         env:
           MIN_CHANGES: ${{ vars.AI_BENCH_MIN_CHANGES || '1' }}
         run: |
           # Squash merges put one commit on main per PR, so this counts merged PRs that touched the code.
-          CHANGES=$(git log origin/main --since="24 hours ago" --format=%H -- \
+          CHANGES=$(git log origin/main --since="7 days ago" --format=%H -- \
             src/artificer src/artificer-ai scripts/ai-play.ts scripts/ai-bench.ts | wc -l)
-          echo "Commits touching the Artificer sim in the last 24h: $CHANGES (need $MIN_CHANGES)"
+          echo "Commits touching the Artificer sim in the last 7 days: $CHANGES (need $MIN_CHANGES)"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$CHANGES" -ge "$MIN_CHANGES" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No Artificer changes in the last 24h ($CHANGES < $MIN_CHANGES) — skipping the playtest." >> "$GITHUB_STEP_SUMMARY"
+            echo "No Artificer changes in the last 7 days ($CHANGES < $MIN_CHANGES) — skipping the playtest." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/setup-node@v7
