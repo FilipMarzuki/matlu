@@ -78,6 +78,57 @@ export const openSubActions = (w: Learner): SubActionUnlock[] => EXPLORE_UNLOCKS
 export const newlyOpen = (before: Learner, after: Learner): SubActionUnlock[] =>
   EXPLORE_UNLOCKS.filter(u => !subActionOpen(u, before) && subActionOpen(u, after));
 
+// ── One exploring action that grows (#2018, switch `explore-grows`) ─────────
+
+/**
+ * The rule switch (features.ts). With it on, Scout and Survey aren't separate actions: Explore is
+ * the one exploring action, and what it's called and what it can do grow with the Scouting skill.
+ * Scout did what Explore's first trip into a distance did, so it was never worth a card of its own.
+ */
+export const EXPLORE_GROWS = 'explore-grows';
+
+/**
+ * How far along the one exploring action is:
+ * - `look` (Look around): close by only, no heading out;
+ * - `explore` (Explore): the farther distances, and heading out one of the eight ways;
+ * - `scout` (Scout): as Explore, and a look round a distance makes it observed in one trip (Survey's work).
+ */
+export type ExploreTier = 'look' | 'explore' | 'scout';
+
+/** The actions the one exploring action takes the place of. */
+export const FOLDED_INTO_EXPLORE: readonly string[] = ['scout', 'survey'];
+
+/** The Scouting levels the tiers open at: Apprentice (20h) and Adept (60h), as Scout and Survey did. */
+export const TIER_LEVELS = { explore: 2, scout: 3 } as const;
+
+/**
+ * The tier a Warden is at: their Scouting level, one higher with Keen Eye ("a born scout"), which
+ * opened Scout and Survey from day one before. Pure: the skills and talents the run keeps.
+ */
+export function exploreTier(w: Learner): ExploreTier {
+  const keen = w.character.talents.some(t => t.known && t.id === 'keenEye') ? 1 : 0;
+  const lvl = skillLevel(w.skills, 'scouting') + keen;
+  return lvl >= TIER_LEVELS.scout ? 'scout' : lvl >= TIER_LEVELS.explore ? 'explore' : 'look';
+}
+
+/** What a tier is called, in English (the app says it in the viewer's language: `act.explore.look`…). */
+export const TIER_NAME: Readonly<Record<ExploreTier, string>> = { look: 'Look around', explore: 'Explore', scout: 'Scout' };
+
+/** The journal's line when the one exploring action steps up. */
+export const TIER_LINE: Readonly<Record<'explore' | 'scout', string>> = {
+  explore: 'You\'ve looked around enough to know how to go further: you can explore now, out to the farther land and off in any direction.',
+  scout: 'You read the land well now: when you scout a stretch of it, one trip shows you everything that\'s there.',
+};
+
+/** The tier `after` has stepped up to from `before`'s, or null. */
+export function tierRaised(before: Learner, after: Learner): 'explore' | 'scout' | null {
+  const a = exploreTier(before), b = exploreTier(after);
+  return a === b || b === 'look' ? null : b;
+}
+
+/** Why Look around can't go out that far or head out yet (it comes with practice). */
+export const LOOK_LOCK = 'you look around close by for now — going further, and heading out, come as you get better at it (Scouting)';
+
 // ── Gather stones first, quarry later (#1816, switch `stone-gathering`) ─────
 
 /** The rule switch (features.ts). */

@@ -61,6 +61,8 @@ export const campSv: Record<keyof typeof camp, string> = {
   'act.lookout': 'Klättra & spana ut',
   'act.study': 'Studera',
   'act.explore': 'Utforska',
+  'act.explore.look': 'Se dig omkring',
+  'act.explore.scout': 'Spana',
   'act.experiment': 'Experimentera',
   'act.camp': 'Slå läger',
   'act.tinker': 'Pyssla / planera',

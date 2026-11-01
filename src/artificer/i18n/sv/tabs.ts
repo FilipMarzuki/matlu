@@ -173,7 +173,6 @@ export const tabsSv: Record<TabsKey, string> = {
   'land.assess.next.detailOf': 'du känner inte dess {what} i detalj än.',
   // The start on LAND (#1853): the patrol leader's advice remembered on day 1, and its one button.
   'land.start.note': 'Du vet nästan ingenting om platsen än. Patrulledaren brukade säga: spana först. Hitta en bra plats för skydd, och en vattenkälla.',
-  'land.start.go': 'Utforska',
   'land.found.none': 'Inget hittat där än.',
   'land.found.invite': 'För att lära känna landet bättre kan du utforska din omgivning.',
   'land.found.queued': 'I din kö: {what}.',

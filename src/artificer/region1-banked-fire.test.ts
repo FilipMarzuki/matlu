@@ -160,13 +160,14 @@ describe('A banked fire guards the meat at camp while you are away (#1865)', () 
       // The journal's hash was taken on main before this change (the same moves, the switch not there yet).
       expect(seedOf(JSON.stringify(s.log))).toBe(2303865145);
     }
-    // Absent, the whole state is main's too. With the lid, the walled larder and the hex world
-    // (#1857, #1858, #1899) stripped out below, it is the very state #1865 pinned; at their
-    // defaults the only difference is those keys in the run's features record, so the play is the same.
-    expect(seedOf(JSON.stringify(play('absent')))).toBe(2803118298);
+    // Absent, the whole state is main's too. With the lid, the walled larder, the hex world and the
+    // exploring action that grows (#1857, #1858, #1899, #2018) stripped out below, it is the very state
+    // #1865 pinned; at their defaults the only difference is those keys in the run's features record, so
+    // the play is the same.
+    expect(seedOf(JSON.stringify(play('absent')))).toBe(2035200694);
     const strip = (x: Region1State): Region1State => {
       const features = { ...x.config.world.features };
-      delete features['cold-pit-lid']; delete features['walled-larder']; delete features['hex-world'];
+      delete features['cold-pit-lid']; delete features['walled-larder']; delete features['hex-world']; delete features['explore-grows'];
       return { ...x, config: { ...x.config, world: { ...x.config.world, features } } };
     };
     expect(seedOf(JSON.stringify(strip(play('absent'))))).toBe(2518478687);

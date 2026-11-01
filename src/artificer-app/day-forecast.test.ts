@@ -28,7 +28,9 @@ const sv = makeT('sv');
  * (enough, at INT 10, to know both close by), then slept. Rules switches as `features` sets them.
  */
 function played(features?: Record<string, boolean>): { before: Region1State; camped: Region1State } {
-  const a = makeWarden({ id: 'w-day-forecast', stats: { ...DEFAULT_STATS, int: 12 } }, undefined, features);
+  // Scouting from day one, and heading out: with `explore-grows` (#2018) a new Warden would still be
+  // Look around, so it's off unless the test says otherwise.
+  const a = makeWarden({ id: 'w-day-forecast', stats: { ...DEFAULT_STATS, int: 12 } }, undefined, { 'explore-grows': false, ...features });
   let s = a.sim;
   const step = (q: QueueItem): void => { s = runAction(s, q); if (s.hoursToday >= 11) s = endDay(s); };
   for (const q of ['scout', 'survey', 'explore'] as QueueItem[]) step(q);

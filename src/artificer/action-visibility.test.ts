@@ -81,12 +81,14 @@ describe('One Explore action at the start; its sub-actions unlock as you level (
   it('3. a starting talent that covers a sub-action offers it from day one', () => {
     expect(offered(warden(true, { chosen: ['keenEye', 'hardy'] }))).toEqual(['explore', 'scout', 'survey', 'lookout']);
     expect(offered(warden(true, { chosen: ['hunter', 'hardy'] }))).toEqual(['explore', 'track']);
-    // Through the game's own creation (makeWarden) too.
-    expect(offered(makeWarden({ id: 'w-visible-keen', chosen: ['keenEye', 'tough'] }).sim)).toEqual(['explore', 'scout', 'survey', 'lookout']);
+    // Through the game's own creation (makeWarden) too, with Scout and Survey as their own actions (before
+    // #2018's `explore-grows`, which folds them into Explore: explore-grows.test.ts).
+    expect(offered(makeWarden({ id: 'w-visible-keen', chosen: ['keenEye', 'tough'] }, undefined, { 'explore-grows': false }).sim)).toEqual(['explore', 'scout', 'survey', 'lookout']);
   });
 
   it('4. a locked sub-action asked for through the API is refused with a reason', () => {
-    const g = startGame({ seed: 'visible-api' });
+    // Survey as an action of its own, as before #2018's `explore-grows`.
+    const g = startGame({ seed: 'visible-api', features: { 'explore-grows': false } });
     const r = apply(g, { do: 'survey' });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/don't know how to survey the land yet/);

@@ -16,7 +16,9 @@ const en = makeT('en'), sv = makeT('sv');
 
 /** A Warden who knows two places to camp: close by, then a little further out (as the browser test's save). */
 function explored(features?: Record<string, boolean>): AppState {
-  const a = makeWarden({ id: 'w-camp-picker' }, undefined, features);
+  // Scouting and surveying, and the far ring, from day one: with `explore-grows` (#2018) a new Warden
+  // would still be Look around, close by only, so it's off unless the test says otherwise.
+  const a = makeWarden({ id: 'w-camp-picker' }, undefined, { 'explore-grows': false, ...features });
   let s: Region1State = a.sim;
   for (const q of ['scout', 'survey', 'explore', 'scout', 'explore', 'scout@2', 'explore@2'] as QueueItem[]) {
     s = runAction(s, q);

@@ -20,10 +20,11 @@
  */
 
 import type { Key, T } from '../artificer/i18n';
-import { DAY_HOURS, type ActionId } from '../artificer/region1';
+import { DAY_HOURS, type ActionId, type Region1State } from '../artificer/region1';
 import type { Ring } from '../artificer/exploration';
 import { DAY_START } from '../artificer/clock';
 import { esc, hrs } from './html';
+import { actionShort } from './sim-words';
 
 export const SIDE_QUEUE_FEATURE = 'side-queue';
 
@@ -103,10 +104,11 @@ export interface CompactItem { icon: string; name: string; dist: string; hours: 
  * past the near ring, as the full row tags it) and its hours. `t` is the run's (sim-words.ts
  * distanceT), so with `distance-not-rings` on the word is a distance.
  */
-export function compactItem(id: ActionId, ring: Ring, ringed: boolean, hours: number, icon: string, t: T): CompactItem {
+export function compactItem(id: ActionId, ring: Ring, ringed: boolean, hours: number, icon: string, t: T, s?: Region1State): CompactItem {
   return {
     icon,
-    name: t(`actshort.${id}` as Key),
+    // Given the run, the exploring action says its tier's short name (#2018, sim-words.ts `actionShort`).
+    name: actionShort(id, t, s),
     dist: ringed && ring > 1 ? t(`ring.short.${ring}` as Key) : '',
     hours: `${hrs(hours, t)}h`,
   };

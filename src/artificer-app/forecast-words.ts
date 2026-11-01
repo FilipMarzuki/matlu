@@ -18,7 +18,7 @@
  */
 
 import type { T } from '../artificer/i18n';
-import { ACTIONS, craftOutlook, parseItem, queueHours, queueId, huntOddsOf, type ActionId, type QueueItem } from '../artificer/region1';
+import { ACTIONS, craftOutlook, parseItem, queueHours, queueId, huntOddsOf, type ActionId, type QueueItem, type Region1State } from '../artificer/region1';
 import type { Ring } from '../artificer/exploration';
 import type { Stack } from '../artificer/crafting';
 import {
@@ -218,9 +218,10 @@ const lower = (x: string): string => x.charAt(0).toLowerCase() + x.slice(1);
 const upper = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1);
 
 /** The forecast as lines of text, in the viewer's language. `day` is today's day number. */
-export function forecastLines(c: QueueCast, day: number, t: T): string[] {
+export function forecastLines(c: QueueCast, day: number, t: T, s?: Region1State): string[] {
   const out: string[] = [];
-  const name = (id: ActionId): string => lower(actionName(id, t));
+  // The exploring action by its tier's name, given the run (#2018).
+  const name = (id: ActionId): string => lower(actionName(id, t, s));
   for (const d of c.days) {
     const vars = { effort: t(`fc.effort.${d.effort as 0 | 1 | 2 | 3}`), haul: t(`fc.haul.${d.haul as 0 | 1 | 2}`) };
     out.push(d.offset === 0 ? t('fc.today', vars) : t('fc.dayN', { ...vars, n: day + d.offset }));
@@ -237,5 +238,5 @@ export function forecastLines(c: QueueCast, day: number, t: T): string[] {
 export function forecastBlock(a: AppState, preview: QueuePreview, t: T): string {
   const c = queueForecast(a, preview);
   if (!c) return '';
-  return `<div class="forecast" aria-live="polite"><span class="fchead">${esc(t('fc.head'))}</span>${forecastLines(c, a.sim.day, t).map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
+  return `<div class="forecast" aria-live="polite"><span class="fchead">${esc(t('fc.head'))}</span>${forecastLines(c, a.sim.day, t, a.sim).map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
 }

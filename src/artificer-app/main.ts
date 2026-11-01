@@ -589,12 +589,12 @@ function queueBlock(a: AppState, preview: Preview): string {
     }).join('')}</div></div>`).join('')}</div>` : '';
     // The grip (#1743): drag it (mouse, touch or pen) or use the arrow keys on it to move the task.
     // Only the grip takes the drag, so taps on the row's own buttons and scrolling the page still work.
-    const grip = !phone && a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
+    const grip = !phone && a.queue.length > 1 ? `<button class="grip" data-grip="${i}" aria-label="${esc(t('queue.grip', { name: actionName(id, t, preview.before[i]) }))}" title="${esc(t('queue.gripTip'))}">⋮⋮</button>` : '';
     // Compact (#1826): its words, and ▲ to move it up by a tap (the grip still drags).
-    const qc = compact && !phone ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t))
-      + (i > 0 ? `<button class="qup" data-qup="${i}" aria-label="${esc(t('qc.up', { name: actionName(id, t) }))}">▲</button>` : '') : '';
+    const qc = compact && !phone ? compactItemHtml(compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t, preview.before[i]))
+      + (i > 0 ? `<button class="qup" data-qup="${i}" aria-label="${esc(t('qc.up', { name: actionName(id, t, preview.before[i]) }))}">▲</button>` : '') : '';
     return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}" data-qi="${i}"><div class="row">${grip}${toggle}<span class="dayn${compact && d === 0 ? ' now' : ''}">${esc(dayLabel(d))}</span>${qc}`
-      + `<span class="n">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
+      + `<span class="n">${ICON[id]} ${esc(actionName(id, t, preview.before[i]).toUpperCase())}${ring > 1 ? ` <span class="ringtag">${esc(ringName(ring, t).toUpperCase())}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">${esc(t('queue.skips', { why: simLine(why, t) }))}</span>` : '')
       // What a remembered place does for this trip (#1380).
@@ -643,7 +643,7 @@ function queueBlock(a: AppState, preview: Preview): string {
 function barItems(a: AppState, preview: Preview): BarItem[] {
   return a.queue.map((item, i) => {
     const { id, ring } = parseItem(item);
-    const c = compactItem(id, ring, !!ACTIONS[id].ringed, 0, ICON[id], t);
+    const c = compactItem(id, ring, !!ACTIONS[id].ringed, 0, ICON[id], t, preview.before[i]);
     // Each warning its row shows (so the chip says there is one while the row is shut).
     const warn = !!(preview.dangers[i] || preview.strains[i] || preview.unease[i] || (preview.loads[i] && heavyLoad(preview.loads[i]!)));
     return { i, icon: ICON[id], name: c.dist ? `${c.name} ${c.dist}` : c.name, hours: queueHours(item, preview.before[i]),
@@ -674,7 +674,7 @@ function phoneSel(a: AppState, preview: Preview): number | null {
 /** ◀ ▶ on the chosen activity's row (#2011): earlier or later in the queue, as dragging its grip does. */
 function phoneMove(a: AppState, i: number): string {
   if (a.queue.length < 2) return '';
-  const name = actionName(parseItem(a.queue[i]).id, t);
+  const name = actionName(parseItem(a.queue[i]).id, t, a.sim);
   const earlier = i > 0 ? `<button class="qmv" data-qup="${i}" aria-label="${esc(t('qc.earlier', { name }))}">◀</button>` : '';
   const later = i < a.queue.length - 1 ? `<button class="qmv" data-qdown="${i}" aria-label="${esc(t('qc.later', { name }))}">▶</button>` : '';
   return `<span class="dbmove">${earlier}${later}</span>`;
@@ -711,7 +711,7 @@ function stripBlock(a: AppState, preview: Preview): string {
     return queueStrip({ items: [], note: t('head.oneThing'), total: compactTotal(s.hoursToday, null, t), open: stripOpen, mini: miniStatus(s),
       button: { cmd: 'endday', label: t('btn.endDay'), disabled: !!s.outcome } }, t);
   }
-  const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t); });
+  const items = a.queue.map((item, i) => { const { id, ring } = parseItem(item); return compactItem(id, ring, !!ACTIONS[id].ringed, queueHours(item, preview.before[i]), ICON[id], t, preview.before[i]); });
   const end = dayEndNow(a, preview);
   // On a phone (#2011) the strip's Run the day is the only one, so the guide points at it.
   return queueStrip({ items, note: t('qc.empty'), total: dayTotal(a, preview), open: stripOpen, mini: miniStatus(s),
@@ -2984,7 +2984,7 @@ function moveTask(from: number, to: number, refocus: boolean): void {
   open.forEach(i => expanded.add(i));
   // The phone's chosen activity goes with it too (#2011).
   if (qSel) qSel = { ...qSel, i: followMove(qSel.i, from, to) };
-  const name = actionName(parseItem(state.queue[from]).id, t);
+  const name = actionName(parseItem(state.queue[from]).id, t, state.sim);
   update(next);
   queueLive.textContent = t('queue.moved', { name, n: to + 1, total: next.queue.length });
   if (refocus) root.querySelector<HTMLElement>(`[data-grip="${to}"]`)?.focus();

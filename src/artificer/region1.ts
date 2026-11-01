@@ -57,9 +57,9 @@ import { scavengersOn, leftover, rollTheft, theftLine, nightScavengers, storedSc
 import { lidOn, walledLarderOn, miceChance, rollNibble, pitScavengers, pitTheftLine, verminScavengers, pitVerminScavengers, miceLine, pitMiceLine, LID_COST, LID_HOURS, LID_LINE } from './camp-scavengers';
 import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './built-warmth';
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
-import { ACTION_VISIBILITY, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
+import { ACTION_VISIBILITY, EXPLORE_GROWS, FOLDED_INTO_EXPLORE, LOOK_LOCK, TIER_LINE, exploreTier, tierRaised, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
-import { wayOf, wayOptions, isHeading, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp, directedOn } from './directed-explore';
+import { wayOf, wayOptions, isHeading, type Way, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp, directedOn } from './directed-explore';
 import { walkTrip, walkOn, legAt, noteWalk, tripLine, endWalk, pathHome, type Trip, type TrailDay } from './walk-the-map';
 import { withHeadingLock, wayLock, headingExtraHours, needleLock, needleGate, makeNeedleCompass, steerHeading, NEEDLE_HOURS, type NeedleCompass } from './compass-heading';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
@@ -820,6 +820,20 @@ interface ActionDef {
 
 /** Learning your actions as you go (#1689, #1690): the run's switch. */
 export const visibilityOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, ACTION_VISIBILITY);
+/** One exploring action that grows (#2018): with `action-visibility`, whose Explore it is. */
+export const growsOn = (s: Pick<Region1State, 'config'>): boolean => visibilityOn(s) && featureOn(s.config.world.features, EXPLORE_GROWS);
+/**
+ * The one exploring action's tier (#2018): Look around, Explore or Scout, by the Scouting skill.
+ * With the switch off it's always Explore, as it was.
+ */
+export const exploreTierOf = (s: Region1State): 'look' | 'explore' | 'scout' => (growsOn(s) ? exploreTier(s) : 'explore');
+/**
+ * The action whose bonuses this one takes (#2018): with `explore-grows` the one exploring action is
+ * Scout and Survey too, so the map & compass's quicker scouting, the binoculars, Keen Eye and the
+ * Landmarks technique (all aimed at `scout`, which Survey shared) apply to it. Any other action, itself.
+ */
+export const bonusOf = (s: Pick<Region1State, 'config'>, id: ActionId): ActionId => (id === 'explore' && growsOn(s) ? 'scout' : id);
+
 /** Gather stones first, quarry once you know the cleave (#1816): the run's switch. */
 export const stoneGatheringOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, STONE_GATHERING);
 /** Quarrying is hidden (#1816) until the cleave is known: only with `stone-gathering` on. */
@@ -1061,6 +1075,24 @@ const scoutVerb = (s: Region1State): string => (visibilityOn(s) ? 'explore' : 's
 const needsScout = (s: Region1State): string | null => (scouted(s.explore, 1) ? null : `you don't know the land yet — ${scoutVerb(s)} first`);
 
 /** Can you get to this ring? (The one inside it must be known first.) */
+/**
+ * Look around's limits (#2018, `explore-grows`): close by only, and no heading out. Null once Scouting
+ * has grown to Explore, or with the switch off.
+ */
+function lookLock(s: Region1State, ring: Ring, opts: ActionOpts): string | null {
+  if (exploreTierOf(s) !== 'look') return null;
+  return ring > 1 || isHeading(wayOf(s, opts)) ? LOOK_LOCK : null;
+}
+
+/** Why the eight ways are closed while it's still Look around (#2018), or null: the app's compass says it. */
+export const lookWayLock = (s: Region1State): string | null => (exploreTierOf(s) === 'look' ? LOOK_LOCK : null);
+
+/** Explore's way choices with the eight directions blocked while it's still Look around (#2018). */
+function withLookLock(s: Region1State, groups: OptionGroup[]): OptionGroup[] {
+  if (exploreTierOf(s) !== 'look') return groups;
+  return groups.map(g => (g.key !== 'way' ? g : { ...g, choices: g.choices.map(c => (isHeading(c.value as Way) ? { ...c, blocked: LOOK_LOCK } : c)) }));
+}
+
 const reach = (s: Region1State, ring: Ring): string | null =>
   (reachable(s.explore, ring) ? null : `the ${RING_NAME[(ring - 1) as Ring].toLowerCase()} ring isn't known yet — ${scoutVerb(s)} it first`);
 
@@ -1570,6 +1602,8 @@ export function skillLockOf(s: Region1State, id: ActionId, opts: ActionOpts = {}
   if (id === 'camp') return campAsActionOn(s) ? null : "camp isn't part of this game's rules";
   if (id === 'drawmap') return mapLearningOn(s) && descriptiveMapOn(s) ? null : "drawmap isn't part of this game's rules";
   if (id === 'explore' || id === 'experiment') return visibilityOn(s) ? null : `${id} isn't part of this game's rules`;
+  // One exploring action that grows (#2018): Scout and Survey are what Explore becomes, not actions of their own.
+  if (FOLDED_INTO_EXPLORE.includes(id) && growsOn(s)) return `${id} isn't part of this game's rules`;
   // Gather stones first, quarry once you know the cleave (#1816): its own switch, whatever `action-visibility` says.
   if (id === 'gatherstone') return stoneGatheringOn(s) ? null : `${id} isn't part of this game's rules`;
   if (id === 'quarry' && quarryLocked(s)) return `you don't know how to ${QUARRY_UNLOCK.verb} yet — ${QUARRY_UNLOCK.how} (${SKILLS.stonework.name})`;
@@ -1985,10 +2019,11 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     name: 'Explore', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true,
     // Heading out one way (#1839, `directed-explore`) goes where the land takes you: no need to know the ground inside first.
     // …but it needs something to keep a heading by (#1868, `compass-heading`): a compass, a needle compass, or the sun.
-    gate: (s, r, o) => skillLockOf(s, 'explore') ?? (isHeading(wayOf(s, o)) ? wayLock(s, o) : reach(s, r)),
+    // Look around (#2018, `explore-grows`): close by only, and no heading out, until Scouting grows.
+    gate: (s, r, o) => skillLockOf(s, 'explore') ?? lookLock(s, r, o) ?? (isHeading(wayOf(s, o)) ? wayLock(s, o) : reach(s, r)),
     // Look around, or head out one of eight ways (#1839): no choice at all with the switch off.
     // With nothing to keep a heading by (#1868), the eight ways are there but blocked, saying what's missing.
-    options: (s, o) => withHeadingLock(s, wayOptions(s, o)),
+    options: (s, o) => withLookLock(s, withHeadingLock(s, wayOptions(s, o))),
     run: (s, _b, r, o, light) => {
       if (tooDarkToSee('explore', light)) return tooDark(r);
       if (blindInFog(s.weatherToday, 'explore')) return fogged(r);
@@ -2003,6 +2038,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       }
       // Away from camp (or, before camp, from the start), looking around sees the land where you stand.
       if (way === 'here' && s.afield && directedOn(s)) return lookHere(s, r);
+      // Scout (#2018, `explore-grows`): one look round shows everything there, as a survey did.
+      if (exploreTierOf(s) === 'scout') { s.explore = survey(s.explore, r); return `Scouted the land${where(r)} — you know now what's there, all of it.`; }
       const first = !scouted(s.explore, r);
       s.explore = exploreRing(s.explore, r);
       if (first) {
@@ -2176,7 +2213,7 @@ function actionHours(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts
   // Deep snow (#1315) slows the walk out and the felling; a blizzard slows everything out there.
   const snow = snowSlowFor(s);
   const storm = inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)]
+  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, bonusOf(s, id)) * PAIN_HOURS[painOf(s)]
     // Heading out by the sun (#1868, `compass-heading`): the shadow stick's two marks, a while apart.
     + (id === 'explore' ? headingExtraHours(s, opts) : 0);
   // Walking the map (#1876, `walk-the-map`): the walk is the path's there and back, not the ring's flat hours.
@@ -2806,7 +2843,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const usual = actionHours(next, id, ring, opts);
   const planWork = session ? session.plan.work : usual.work;
   const planTravel = session ? session.plan.travel : usual.travel;
-  const td = talentDrain(next.character.talents, id);
+  const td = talentDrain(next.character.talents, bonusOf(next, id));
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
   const se = statEffects(next.character.stats);
@@ -2814,7 +2851,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Focus (#1238): goal or survival work is lighter and richer; a focused skill practises faster.
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
-  const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
+  const te = techniqueEffects(next.techniques, bonusOf(next, id), undefined, def.ringed);
   // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
   // Judged on the plan's hours even when it's stopped (#1815): the same hour, the same light, the same luck.
   const at = stampFor(next, planWork + planTravel);
@@ -2958,7 +2995,10 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
   // Getting better opens new ways to explore (#1689), each with a line in the journal.
-  if (visibilityOn(next)) for (const u of newlyOpen(s, next)) say(next, u.line, 'milestone', at);
+  // With `explore-grows` (#2018) Scout and Survey don't open: the one exploring action steps up instead.
+  if (visibilityOn(next)) for (const u of newlyOpen(s, next)) if (!(growsOn(next) && FOLDED_INTO_EXPLORE.includes(u.action))) say(next, u.line, 'milestone', at);
+  const stepped = growsOn(next) ? tierRaised(s, next) : null;
+  if (stepped) say(next, TIER_LINE[stepped], 'milestone', at);
   // Knowing home ground well, with something to draw on, you draw your own map (#1686): said once,
   // on the trip that makes it possible (both only ever come true, so it can't happen twice).
   if (!canDrawMap(s) && canDrawMap(next)) say(next, mapDrawnLine(next), 'milestone', at);
@@ -2977,7 +3017,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     addMeat(next, caught);
   }
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
-  growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
+  growFrom(next, { kind: 'work', action: bonusOf(next, id), hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
 }

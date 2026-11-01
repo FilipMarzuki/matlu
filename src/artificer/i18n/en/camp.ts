@@ -69,6 +69,9 @@ export const camp = {
   'act.lookout': 'Climb & look out',
   'act.study': 'Study',
   'act.explore': 'Explore',
+  // The one exploring action's other names (#2018, `explore-grows`): first Look around, at Adept Scout.
+  'act.explore.look': 'Look around',
+  'act.explore.scout': 'Scout',
   'act.experiment': 'Experiment',
   'act.camp': 'Make camp',
   'act.tinker': 'Tinker / plan',

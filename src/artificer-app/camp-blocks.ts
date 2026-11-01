@@ -15,7 +15,7 @@ import { visibilityOf, greyedTappable, shown } from '../artificer/action-visibil
 import { hasKit } from '../artificer/kit';
 import { huntingGearOn } from '../artificer/hunting-gear';
 import { scavengersOn, lidOn, protectionOf } from '../artificer/camp-scavengers';
-import { bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
+import { lookWayLock, bankedNow, awayGuards, meatOf, openMeatOf, hungMeatOf, pitMeatOf, pitLidded, openGuards, walledHere, miceAbout, fireTonight, nightGuards, placeGuard, visibilityOn, huntOddsOf, sinewOf, huntTool, ACTIONS, SITES, BUILD_COST, DISCOVERIES, HIDE_PARKA_RECIPE, coldPitHolds, coldCapacity, nightSpoilage, warmth, tonightThermal, queueId, queueHours, parseItem, type ActionId, type QueueId, type SiteId } from '../artificer/region1';
 import { RINGS, TRAVEL_HOURS, reachable, scouted, hasFind, type Ring } from '../artificer/exploration';
 import { yieldAmounts } from './yield-amounts';
 import { cardYield, craftCard, taskCard, type CraftCard } from './forecast-words';
@@ -185,10 +185,11 @@ const COMPASS_ROWS: readonly (readonly Way[])[] = [['nw', 'n', 'ne'], ['w', 'her
  * distance then queues Explore that way.
  *
  * With nothing to keep a heading by (#1868, `compass-heading`), the eight ways are greyed and can't be
- * picked, and a note under the grid says what's missing (the same words the sim's refusal uses).
+ * picked, and a note under the grid says what's missing (the same words the sim's refusal uses). While
+ * the one exploring action is still Look around (#2018, `explore-grows`), they're greyed for that first.
  */
 export function compassBlock(s: Sim, way: Way, t: T): string {
-  const lock = headingLock(s);
+  const lock = lookWayLock(s) ?? headingLock(s);
   const btn = (w: Way): string => {
     const look = w === 'here';
     const label = look ? t('compass.look') : w === 'camp' ? t('compass.camp') : t(`compass.${w}`);
@@ -206,7 +207,7 @@ export function compassBlock(s: Sim, way: Way, t: T): string {
 /** The chooser under a ringed action's card (#1814): its distances, the preselected one marked, and ✕. Explore's has its compass too (#1839). */
 function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: DistanceOption[], t: T, dev: boolean): string {
   const compass = id === 'explore' && directedOn(preview.projected) ? compassBlock(preview.projected, options.find(o => o.way)?.way ?? 'here', t) : '';
-  return `<div class="ringpick" role="group" aria-label="${esc(t('ringpick.aria', { action: actionName(id, t) }))}">`
+  return `<div class="ringpick" role="group" aria-label="${esc(t('ringpick.aria', { action: actionName(id, t, a.sim) }))}">`
     + `<div class="rphead"><span>${esc(t('ringpick.head'))}</span><button class="rpx" data-cmd="ringclose" aria-label="${esc(t('ringpick.close'))}" title="${esc(t('ringpick.close'))}">✕</button></div>`
     + compass
     + `<div class="rpopts">${options.map(o => {
@@ -269,7 +270,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     const line = craftFc?.text ?? taskCard(a.sim, preview.projected, id, r, t)?.text ?? exact;
     const html = `<button class="act ${why ? 'soft' : ''} ${greyed ? 'greyed' : ''}${suggested}${lifted}${open ? ' picking' : ''}" ${tap}${resolved || greyed ? ' disabled' : ''} title="${why ? esc(greyed ? why : t('act.wouldSkip', { why })) : ''}">`
       // Its hours, or (#1740, `time-words`) how long it would take after the queue, in words.
-      + `<div class="t">${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
+      + `<div class="t">${ICON[id]} ${esc(actionName(id, t, a.sim).toUpperCase())}${id === 'camp' ? campBadges(a.sim, t) : ''}<span class="h${tw ? ' tw' : ''}">${esc(actionTime(a, preview, queueHours(q, preview.projected), t, dev))}</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${esc(line)}</span>${spends ? ` · <span class="vc">${spends}</span>` : ''}`}</div>${ingredients(def, preview.projected, t, craftFc)}</button>`
       + (open && options ? distanceChooser(a, preview, id, options, t, dev) : '');
     return { id, why, html };
@@ -285,7 +286,7 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     // after them, and opening it lists the rest under it.
     const split = splitCards(cards, opts.suggest ?? null);
     const drawn = split.shown.map(id => cards.find(c => c.id === id)?.html ?? '').join('');
-    const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t, !drawn);
+    const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t, a.sim), why: f.why })), t, !drawn);
     // Every group is drawn; the shut ones are hidden, so each category points at its panel.
     const html = `<div class="group" id="${panelId(g.key)}" role="region" aria-labelledby="${catId(g.key)}"${g.key === open ? '' : ' hidden'}>${drawn ? `<div class="acts">${drawn}</div>` : ''}${rest}</div>`;
     return { cat: { key: g.key, can: split.shown.length, suggested: !!opts.suggest && split.shown.includes(opts.suggest) }, html };
@@ -671,7 +672,8 @@ export const firstJournalLine = (s: Sim, t: T): string => t(visibilityOn(s) ? 'j
 export function stepName(p: DayPlay, m: Moment, t: T): string {
   if (m.index >= p.steps.length) return esc(t('timer.night'));
   const { id, ring } = parseItem(p.steps[m.index].item);
-  return `${ICON[id]} ${esc(actionName(id, t).toUpperCase())}${ring > 1 ? ` · ${esc(ringName(ring, t).toUpperCase())}` : ''}`;
+  // The exploring action by the name it had when the day began (#2018).
+  return `${ICON[id]} ${esc(actionName(id, t, p.before.sim).toUpperCase())}${ring > 1 ? ` · ${esc(ringName(ring, t).toUpperCase())}` : ''}`;
 }
 
 /** The leg of a trip session (#1668), in words; else the action's hours (or, #1740, its length in words). */
