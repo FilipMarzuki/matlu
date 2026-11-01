@@ -84,9 +84,9 @@ const EXPLORER_WALK_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
 // With `walk-the-map` (#1876) trips walk to a real square and back, so map-12's days run longer and it
 // opens a day later: scripted 12/12, median 5 (5–6).
 // With `explore-grows` (#2018) the plan's scouting is the one exploring action, and while it's still
-// Look around the needs player looks around again close by to grow it, before going further: map-10
-// opens a day later and map-12 a day sooner: scripted 12/12, median 5 (5–6).
-const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5];
+// Look around the needs player looks around again close by with any hours left, to grow it before
+// going further: map-12 opens a day sooner: scripted 12/12, median 5 (5–5).
+const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // With \`thermal-model\` (#1770) a night without a bag is dangerous, so the random player dies sooner:
 // random 8/12, median 5 (5–8). The explorer and the scripted baseline didn't move.
 // With `stone-gathering` (#1816) the random player has Gather stones where it had Quarry stone, so it
@@ -113,5 +113,5 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5];
 // per item instead of one per comparison), so each seed packs, and so plays, differently: re-pinned
 // as measured, random 6/12, median 5 (5–5), still in the target. Rules, explorer and scripted unchanged.
 // With `explore-grows` (#2018) the random player's draws among the legal actions change (no Scout or
-// Survey; Look around close by at first), and it lives longer on more seeds: random 10/12, median 5 (5–7).
-const RANDOM_DAYS: (number | null)[] = [5, 5, null, 6, 5, null, 5, 5, 5, 7, 5, 6];
+// Survey; Look around close by at first), and it lives longer on more seeds: random 10/12, median 5 (5–8).
+const RANDOM_DAYS: (number | null)[] = [5, 5, null, 6, 5, null, 5, 5, 5, 8, 5, 5];

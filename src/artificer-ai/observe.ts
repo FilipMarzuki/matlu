@@ -185,8 +185,10 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
     case 'quarry': return `+${ty('stone', 3, 1) + fb('stone')} stone`;
     case 'gatherstone': return `+${ty('stone', 1.5, 0.5) + (r === 1 && s.site !== null && LOOSE_STONE_SITES.includes(s.site) ? 1 : 0) + fb('stone') / 2} stone (more camped by the river or on the hill)`;
     case 'fish': return `about +${FISH_CATCH * RICHNESS[r]} food through the ice (needs thick lake ice: the deep cold)`;
-    case 'explore': return distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
-      : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
+    // Scout, the one exploring action at Adept (#2018): a look round from camp shows it all.
+    case 'explore': return exploreTierOf(s) === 'scout' ? 'scout: everything there observed (looking around, when you\'re not out on the land)'
+      : distanceOn(s) ? 'look around: ground there you don\'t know becomes at least suspected; ground you do gets a little clearer'
+        : 'look around: a ring you don\'t know becomes at least suspected; one you do gets a little clearer';
     case 'scout': return 'everything there at least suspected';
     case 'survey': return 'everything there observed';
     case 'track': return 'game observed';
@@ -520,8 +522,8 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
     const tier = exploreTierOf(s);
     const now = tier === 'look' ? 'Look around: close by only, and no heading out yet'
       : tier === 'explore' ? 'Explore: the farther distances, and heading out (when you can keep a heading)'
-        : 'Scout: as Explore, and looking around a distance makes everything there observed in one trip';
-    lines.push(`GROWING: "explore" is the one exploring action ("scout" and "survey" aren't separate actions in this game). It grows with your Scouting: Look around at first (close by only, no heading out), Explore at Apprentice (the farther distances and the eight ways), Scout at Adept (one look round a distance makes everything there observed). Keen Eye counts a level up. Now: ${now}.`);
+        : 'Scout: as Explore, and looking around a distance, when you\'re not out on the land, makes everything there observed in one trip';
+    lines.push(`GROWING: "explore" is the one exploring action ("scout" and "survey" aren't separate actions in this game). It grows with your Scouting: Look around at first (close by only, no heading out), Explore at Apprentice (the farther distances and the eight ways), Scout at Adept (one look round a distance, when you're not out on the land, makes everything there observed). Keen Eye counts a level up, and it takes what helped Scout and Survey: the map & compass, binoculars, Keen Eye, the Landmarks technique. Now: ${now}.`);
   }
   // Tasks walk the map (#1876, `walk-the-map`): the rules, and where the Warden is now.
   if (walkOn(s)) lines.push(`${WALK_RULES} ${whereLine(s)}`);

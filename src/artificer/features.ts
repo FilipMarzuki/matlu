@@ -380,7 +380,7 @@ export const FEATURES: readonly FeatureDef[] = [
     // one exploring action, which grows with the Scouting skill (action-unlocks.ts `exploreTier`). A run
     // from before it (absent: false) keeps Scout, Survey and Explore as they were, and replays the same.
     id: 'explore-grows', name: 'Look around → Explore → Scout', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 2018,
-    note: 'One exploring action that grows with your Scouting. At first it\'s Look around: close by only, and no heading out. At Apprentice it\'s Explore: the farther land, and off in any of the eight directions. At Adept it\'s Scout: one trip makes a whole stretch of land clear (what Survey did). Keen Eye counts a level up. Scout and Survey aren\'t separate actions.',
+    note: 'One exploring action that grows with your Scouting. At first it\'s Look around: close by only, and no heading out. At Apprentice it\'s Explore: the farther land, and off in any of the eight directions. At Adept it\'s Scout: looking around a distance (when you\'re not out on the land) makes it all clear in one trip (what Survey did). Keen Eye counts a level up. Scout and Survey aren\'t separate actions, and what helped them (the map & compass, binoculars, Keen Eye, Landmarks) helps it.',
   },
   {
     // A rules feature (#1858, on #1823's scavengers): it guards the meat lying loose at a camp with

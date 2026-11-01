@@ -83,12 +83,14 @@ function routineDay(s: Region1State): Entry[] {
  */
 /**
  * One exploring action that grows (#2018, `explore-grows`): Scout and Survey aren't actions of their
- * own, so the plan's scouting and surveying are the one exploring action at the same distance.
- * With the switch off the plan is as it always was.
+ * own, so the plan's scouting and surveying are the one exploring action at the same distance; while
+ * it's still Look around, close by (which is what grows it), as it can't go further yet. With the
+ * switch off the plan is as it always was.
  */
 function withExplore(queue: Entry[], s: Region1State): Entry[] {
   if (!growsOn(s)) return queue;
-  return queue.map(e => (FOLDED_INTO_EXPLORE.includes(e.action) ? a('explore', e.ring) : e));
+  const near = exploreTierOf(s) === 'look';
+  return queue.map(e => (FOLDED_INTO_EXPLORE.includes(e.action) ? a('explore', near ? 1 : e.ring) : e));
 }
 
 function withGear(queue: Entry[], s: Region1State): Entry[] {
@@ -192,8 +194,9 @@ function wants(s: Region1State): Entry[] {
   }
   // Once there's a roof, a look further out: more places to camp, forage and game, and the map's places.
   // While the one exploring action is still Look around (#2018, `explore-grows`), it can't go that far:
-  // looking around close by again is what trains Scouting toward it.
-  if (s.tier > 0 && !scouted(s.explore, 2)) out.push(...(exploreTierOf(s) === 'look' ? [a('explore')] : [a('scout', 2), a('explore', 2)]));
+  // looking around close by again, with any hours left, is what trains Scouting toward it.
+  if (exploreTierOf(s) === 'look' && !scouted(s.explore, 2)) out.push(a('explore'));
+  else if (s.tier > 0 && !scouted(s.explore, 2)) out.push(a('scout', 2), a('explore', 2));
   if (s.stores.rawFood >= 4) out.push(a('preserve'));
   // Meat lying out at camp draws animals (#1823): put it out of reach (refused, so skipped, with nothing to store or the switch off).
   out.push(a('storemeat'));

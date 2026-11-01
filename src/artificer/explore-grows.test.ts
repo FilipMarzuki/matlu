@@ -8,7 +8,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, ACTIONS, blockedReason, skillLockOf, exploreTierOf, type QueueItem, type Region1State } from './region1';
+import { createRegion1, runAction, ACTIONS, blockedReason, skillLockOf, exploreTierOf, bonusOf, queueHours, type QueueItem, type Region1State } from './region1';
+import { MAP_TIME } from './kit';
+import { talentDrain } from './talents';
+import { tripRing } from '../artificer-app/land-news';
+import { exploreRing } from '../artificer-app/land-view';
 import { shown } from './action-visibility';
 import { EXPLORE_GROWS, EXPLORE_UNLOCKS, LOOK_LOCK, TIER_LEVELS, TIER_LINE, exploreTier } from './action-unlocks';
 import { DOMAINS, domainsOf, level, scout, createExploration, type Domain } from './exploration';
@@ -75,7 +79,8 @@ describe('One exploring action that grows (#2018)', () => {
       expect(domainsOf(1).every(d => atLevel(s, d) === 0)).toBe(true);
       const n = runAction(s, 'explore');
       expect(domainsOf(1).every(d => atLevel(n, d) >= 2)).toBe(true);
-      expect(n.hoursToday).toBe(ACTIONS.explore.hours);
+      expect(n.hoursToday).toBeCloseTo(queueHours('explore', s));
+      expect(n.hoursToday).toBeLessThanOrEqual(ACTIONS.explore.hours);
       expect(n.log.some(l => /^Scouted the land — you know now what's there, all of it\.$/.test(l.text))).toBe(true);
     }
     // At Explore the same trip only suspects what's there.
@@ -129,6 +134,33 @@ describe('One exploring action that grows (#2018)', () => {
   it('is the same run for the same seed and moves', () => {
     const play = (): Region1State => (['explore', 'explore', 'explore', 'explore', 'explore'] as QueueItem[]).reduce((s, q) => runAction({ ...s, hoursToday: 0 }, q), warden({ scouting: 10 }));
     expect(play()).toEqual(play());
+  });
+});
+
+describe('What helped Scout and Survey helps it (#2018)', () => {
+  it('takes Scout\'s bonuses with the switch on: the map & compass\'s quicker trip, and Keen Eye\'s lighter one; not with it off', () => {
+    expect(bonusOf(warden(), 'explore')).toBe('scout');
+    expect(bonusOf(warden({ on: false }), 'explore')).toBe('explore');
+    expect(bonusOf(warden(), 'wood')).toBe('wood');
+    const packed = (on: boolean) => createRegion1({ world: world(on) }, undefined, { id: 'w-grows', chosen: [], pack: ['map-compass'] });
+    expect(queueHours('explore', packed(true))).toBeCloseTo(ACTIONS.explore.hours * MAP_TIME);
+    expect(queueHours('explore', packed(false))).toBeCloseTo(ACTIONS.explore.hours);
+    const keen = warden({ chosen: ['keenEye', 'tough'] });
+    expect(talentDrain(keen.character.talents, bonusOf(keen, 'explore')).vigor).toBeLessThan(talentDrain(keen.character.talents, 'explore').vigor);
+  });
+});
+
+describe('The page and the LAND tab (#2018)', () => {
+  it('a Scout-tier trip is a land trip, so LAND marks what it found', () => {
+    expect(tripRing("Scouted the land — you know now what's there, all of it.")).toBe(1);
+    expect(tripRing("Scouted the land half a day out — you know now what's there, all of it.")).toBe(2);
+  });
+
+  it('LAND\'s button stays close by while it\'s Look around, even with close by fully known', () => {
+    const known = { ...warden(), explore: scout(scout(createExploration(), 1), 1) };
+    const sharp = { ...known, explore: { ...known.explore, known: { ...known.explore.known, 1: Object.fromEntries(domainsOf(1).map(d => [d, 2])) as typeof known.explore.known[1] } } };
+    expect(exploreRing(sharp)).toBe(1);
+    expect(exploreRing({ ...sharp, skills: { ...sharp.skills, scouting: 20 } })).toBe(2);
   });
 });
 

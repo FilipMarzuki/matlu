@@ -827,6 +827,12 @@ export const growsOn = (s: Pick<Region1State, 'config'>): boolean => visibilityO
  * With the switch off it's always Explore, as it was.
  */
 export const exploreTierOf = (s: Region1State): 'look' | 'explore' | 'scout' => (growsOn(s) ? exploreTier(s) : 'explore');
+/**
+ * The action whose bonuses this one takes (#2018): with `explore-grows` the one exploring action is
+ * Scout and Survey too, so the map & compass's quicker scouting, the binoculars, Keen Eye and the
+ * Landmarks technique (all aimed at `scout`, which Survey shared) apply to it. Any other action, itself.
+ */
+export const bonusOf = (s: Pick<Region1State, 'config'>, id: ActionId): ActionId => (id === 'explore' && growsOn(s) ? 'scout' : id);
 
 /** Gather stones first, quarry once you know the cleave (#1816): the run's switch. */
 export const stoneGatheringOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, STONE_GATHERING);
@@ -2207,7 +2213,7 @@ function actionHours(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts
   // Deep snow (#1315) slows the walk out and the felling; a blizzard slows everything out there.
   const snow = snowSlowFor(s);
   const storm = inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
-  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, id) * PAIN_HOURS[painOf(s)]
+  const work = (v.hours ?? def.hours) * modifiersFor(s.tools, id).timeMult * weatherHours(s.weatherToday, id) * (id === 'wood' ? snow : 1) * storm * kitTimeMult(s, bonusOf(s, id)) * PAIN_HOURS[painOf(s)]
     // Heading out by the sun (#1868, `compass-heading`): the shadow stick's two marks, a while apart.
     + (id === 'explore' ? headingExtraHours(s, opts) : 0);
   // Walking the map (#1876, `walk-the-map`): the walk is the path's there and back, not the ring's flat hours.
@@ -2837,7 +2843,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   const usual = actionHours(next, id, ring, opts);
   const planWork = session ? session.plan.work : usual.work;
   const planTravel = session ? session.plan.travel : usual.travel;
-  const td = talentDrain(next.character.talents, id);
+  const td = talentDrain(next.character.talents, bonusOf(next, id));
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
   const se = statEffects(next.character.stats);
@@ -2845,7 +2851,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
   // Focus (#1238): goal or survival work is lighter and richer; a focused skill practises faster.
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
-  const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
+  const te = techniqueEffects(next.techniques, bonusOf(next, id), undefined, def.ringed);
   // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
   // Judged on the plan's hours even when it's stopped (#1815): the same hour, the same light, the same luck.
   const at = stampFor(next, planWork + planTravel);
@@ -3011,7 +3017,7 @@ function runActionCore(s: Region1State, item: QueueItem, stop?: number): Region1
     addMeat(next, caught);
   }
   // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
-  growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
+  growFrom(next, { kind: 'work', action: bonusOf(next, id), hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
 }

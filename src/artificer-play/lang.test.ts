@@ -179,8 +179,10 @@ describe('An optional lang for API, MCP and console games (#1713)', () => {
   it('a Swedish game: what it returns has no English-only words, and a later request still answers in Swedish', async () => {
     const store = memoryStore();
     // Trips in rings (#1876 off): walking them, this policy's year dies of thirst before the winter it
-    // checks; the walking lines in Swedish are walk-the-map-app.test.ts's.
-    const start = await handle(post('/api/v1/games', { lang: 'sv', features: { ...OLD_CAMP, 'walk-the-map': false } }), store, deps);
+    // checks; the walking lines in Swedish are walk-the-map-app.test.ts's. Scout and Survey as their own
+    // actions (#2018 off) keep the year on the path whose refusals it checks; the one exploring action's
+    // Swedish is explore-grows.test.ts's and no-camp-yet.test.ts's.
+    const start = await handle(post('/api/v1/games', { lang: 'sv', features: { ...OLD_CAMP, 'walk-the-map': false, 'explore-grows': false } }), store, deps);
     expect(start.status).toBe(201);
     const id = String(start.body.id);
     const texts: string[] = [bodyText(start.body)];

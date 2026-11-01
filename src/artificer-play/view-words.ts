@@ -134,7 +134,8 @@ function actionLines(s: Region1State, t: T): string[] {
       // The Make camp card's badges (#1756): how many places to camp you know rate great and good.
       const counts = id === 'camp' ? siteRatingCounts(s) : null;
       const badges = counts && (counts.great || counts.good) ? ` · ${t('campsite.badgesTip', { great: counts.great, good: counts.good })}` : '';
-      out.push(`- ${actionName(id, t)}${def.ringed ? ` (${ringName(ring, t).toLowerCase()})` : ''} · ${hrs(queueHours(q, s), t)} h · ${what}${badges} [do: ${q}]`);
+      // The one exploring action by its tier's name (#2018): Look around, Explore or Scout.
+      out.push(`- ${actionName(id, t, s)}${def.ringed ? ` (${ringName(ring, t).toLowerCase()})` : ''} · ${hrs(queueHours(q, s), t)} h · ${what}${badges} [do: ${q}]`);
       for (const g of def.options?.(s, {}) ?? []) {
         // A place to camp says how good you believe it is (#1756), as its option does on the page.
         // …and what's built there (#1753).
@@ -332,7 +333,7 @@ export function moveLabel(a: AppState, phase: Phase, move: Record<string, unknow
   const [id, ringText] = doing.split('@');
   if (!(id in ACTIONS)) return english;
   const def = ACTIONS[id as ActionId];
-  return `${actionName(id as ActionId, t)}${def.ringed ? ` (${ringName(Number(ringText ?? 1) as Ring, t).toLowerCase()})` : ''}`;
+  return `${actionName(id as ActionId, t, a.sim)}${def.ringed ? ` (${ringName(Number(ringText ?? 1) as Ring, t).toLowerCase()})` : ''}`;
 }
 
 // ── What changed, and refusals ─────────────────────────────────────────────

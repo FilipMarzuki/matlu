@@ -287,7 +287,7 @@ export function withTripLines(log: readonly LogEntry[], trips: readonly KeptTrip
 const EN = makeT('en');
 
 /** Did these journal lines include a land trip? Read off the sim's English (land-news.ts `tripRing`, and #1839's lines). */
-const LAND_TRIP_LINE = /^(Scouted the near ground|Pushed out|Reached the distant hills|Walked out|Walked the ground|Surveyed carefully|Climbed high|Tracked|Headed |Looked around where you stand)/;
+const LAND_TRIP_LINE = /^(Scouted the near ground|Scouted the land|Pushed out|Reached the distant hills|Walked out|Walked the ground|Surveyed carefully|Climbed high|Tracked|Headed |Looked around where you stand)/;
 
 /**
  * The AI's FOUND line (#1869): what the land trips since `before` turned up, as the page says it in

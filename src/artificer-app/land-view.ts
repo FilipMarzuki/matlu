@@ -19,7 +19,7 @@ import { builtWarmthOn } from '../artificer/built-warmth';
 import type { SiteId } from '../artificer/region1';
 import type { Key, T } from '../artificer/i18n';
 import { RINGS, TRAVEL_HOURS, FINDS, domainsOf, level, reachable, hasFind, supplyWord, type Ring } from '../artificer/exploration';
-import { parseItem, queueId, routeKnown, type QueueItem, type Region1State } from '../artificer/region1';
+import { exploreTierOf, parseItem, queueId, routeKnown, type QueueItem, type Region1State } from '../artificer/region1';
 import { knownPlaces, mapMode } from '../artificer/descriptive-map';
 import { ringOfHours } from '../artificer/world/reach';
 import { hasKit } from '../artificer/kit';
@@ -216,9 +216,11 @@ function foundRing(s: Region1State, r: Ring, places: PlaceLine[], t: T, news: La
 
 /**
  * Where the Explore button goes (#1836): the nearest area you can reach that still has something
- * to see clearly (Explore firms the land up to observed), else close by.
+ * to see clearly (Explore firms the land up to observed), else close by. While it's still Look around
+ * (#2018, `explore-grows`), close by: looking around there again is what grows it.
  */
 export function exploreRing(s: Region1State): Ring {
+  if (exploreTierOf(s) === 'look') return 1;
   return RINGS.find(r => reachable(s.explore, r) && domainsOf(r).some(d => level(s.explore, r, d) < 2)) ?? 1;
 }
 
