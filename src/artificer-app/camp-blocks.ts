@@ -32,6 +32,7 @@ import { itemIcon } from './item-icons';
 import { esc, pct, band } from './html';
 import { chevron } from './fold';
 import { cantYetFold, splitCards } from './fewer-cards';
+import { catsRow, catId, openGroup, panelId, type GroupKey, type GroupPick } from './action-cats';
 import { actionName, buildsWords, conceptName, distanceT, gradeWord, landDescribedHead, landLines, mapNeedsText, recipeName, ringName, siteName, simLine, spotReading, spotWhere, weatherLines, weatherWord } from './sim-words';
 import { campAsActionOn, knownSpots } from '../artificer/camp-sites';
 import { campBadges, siteBadge } from './rating-badges';
@@ -50,8 +51,8 @@ export type Preview = ReturnType<typeof previewQueue>;
 
 // ── The actions ─────────────────────────────────────────────────────────────
 
-/** The action palette's groups: `key` names the heading in the catalog (`group.*`). */
-export const GROUPS: { key: 'explore' | 'provision' | 'build' | 'craft' | 'carry' | 'think'; ids: ActionId[] }[] = [
+/** The action palette's groups: `key` names the heading in the catalog (`group.*`) and the category (`cat.*`, #2020). */
+export const GROUPS: { key: GroupKey; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout', 'needlecompass'] },
   { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat', 'bankfire'] },
   { key: 'build', ids: ['camp', 'build', 'coldPit', 'lidpit', 'coldGear'] },
@@ -228,7 +229,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; campPick?: boolean }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; campPick?: boolean; group?: GroupPick }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -273,20 +274,27 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
       + (open && options ? distanceChooser(a, preview, id, options, t, dev) : '');
     return { id, why, html };
   };
-  return known.map(g => {
+  // The categories (#2020, action-cats.ts): one row of the groups, one open at a time. An open
+  // chooser keeps its action's group open.
+  const open = openGroup(known.map(g => g.key), opts.group, opts.chooser ? groupOf(opts.chooser) : null);
+  const groups = known.map(g => {
     const cards = g.ids.map(card).filter((c): c is PaletteCard => c !== null);
-    const title = `<h4>${esc(t(`group.${g.key}`))}</h4>`;
     // Fewer cards (#1925, fewer-cards.ts): the cards you can do now (the guide's suggestion first),
-    // then one line that opens to the rest, each with the reason its card would have said. The fold's
-    // line sits at the end of the heading row (#1965), beside the group's name, not its own row under
-    // the cards; opening it lists the rest between the heading row and the cards.
+    // then one line that opens to the rest, each with the reason its card would have said. The
+    // category names the group now (#2020), so there's no heading over the cards: the line comes
+    // after them, and opening it lists the rest under it.
     const split = splitCards(cards, opts.suggest ?? null);
     const drawn = split.shown.map(id => cards.find(c => c.id === id)?.html ?? '').join('');
     const rest = cantYetFold(g.key, split.folded.map(f => ({ icon: ICON[f.id], name: actionName(f.id, t), why: f.why })), t);
-    const head = rest ? `<div class="ghead">${title}${rest}</div>` : title;
-    return `<div class="group">${head}${drawn ? `<div class="acts">${drawn}</div>` : ''}</div>`;
-  }).join('');
+    // Every group is drawn; the shut ones are hidden, so each category points at its panel.
+    const html = `<div class="group" id="${panelId(g.key)}" role="region" aria-labelledby="${catId(g.key)}"${g.key === open ? '' : ' hidden'}>${drawn ? `<div class="acts">${drawn}</div>` : ''}${rest}</div>`;
+    return { cat: { key: g.key, can: split.shown.length, suggested: !!opts.suggest && split.shown.includes(opts.suggest) }, html };
+  });
+  return catsRow(groups.map(g => g.cat), open, t) + groups.map(g => g.html).join('');
 }
+
+/** The group an action is in (#2020); null for one in none. */
+export const groupOf = (id: ActionId): GroupKey | null => GROUPS.find(g => g.ids.includes(id))?.key ?? null;
 
 /** One drawn card of the palette: its action, why it can't be done now (null: it can), and its HTML. */
 interface PaletteCard { id: ActionId; why: string | null; html: string }

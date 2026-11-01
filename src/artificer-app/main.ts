@@ -98,7 +98,8 @@ import { esc, pct, wardenButton } from './html';
 import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
 import { WIDE_TOP_QUERY } from './wide-top';
 import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
-import { ICON, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
+import { loadGroupPick, saveGroupPick, isGroupKey, openGroup, tapGroup, type GroupPick } from './action-cats';
+import { ICON, groupOf, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
 import { forecastBlock, taskCard } from './forecast-words';
 import { dayEnd, dayEndHtml, dayEndText } from './day-forecast';
@@ -178,6 +179,11 @@ let ringDefaults = loadRingDefaults();
 let exploreWay: Way = 'here';
 /** Every way Explore's compass can pick (#1839). */
 const WAYS: readonly Way[] = ['here', 'camp', ...DIRS];
+/**
+ * The action category the viewer opened last (#2020, action-cats.ts), kept in this browser: a
+ * group, null for all shut, undefined before the first pick (Explore opens).
+ */
+let groupPick: GroupPick | undefined = loadGroupPick();
 
 /** Shut the chooser; with `refocus`, the keyboard goes back to the card it opened from. */
 function closeRingPick(refocus: boolean): void {
@@ -195,7 +201,7 @@ function closeRingPick(refocus: boolean): void {
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, campPick: pickerFor(s) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, campPick: pickerFor(s), group: groupPick };
 };
 
 /**
@@ -1378,6 +1384,9 @@ function drawPage(a: AppState): void {
     startPending = false;
     startHl = true;
     ringPick = to.chooser;
+    // Its category opens and stays open (#2020), so the cards are still there once a distance is picked.
+    const g = groupOf(to.highlight);
+    if (g) { groupPick = g; saveGroupPick(g); }
     startScroll = true;
     startPickTap = true;
     setTimeout(() => { startPickTap = false; }, 0);
@@ -2782,6 +2791,17 @@ root.addEventListener('click', e => {
       if (f.id === LOOK_SWITCHER_FEATURE && !switcherOn()) { saveLookChoice(null); lookPreview = null; }
       render(state);
     }
+  }
+  // An action category (#2020): opens its cards and shuts the last; the open one, tapped, shuts.
+  // A chooser open in a category being shut shuts with it. The keyboard stays on the category.
+  else if (d.group !== undefined && isGroupKey(d.group)) {
+    const known = [...root.querySelectorAll<HTMLElement>('[data-group]')].map(b => b.dataset.group).filter(isGroupKey);
+    const open = openGroup(known, groupPick, ringPick ? groupOf(ringPick) : null);
+    groupPick = tapGroup(open, d.group);
+    saveGroupPick(groupPick);
+    if (ringPick && groupOf(ringPick) !== groupPick) { ringPick = null; exploreWay = 'here'; }
+    render(state);
+    root.querySelector<HTMLElement>(`[data-group="${d.group}"]`)?.focus();
   }
   // A land action's card (#1814) opens its distance chooser (or shuts it, tapped again); the
   // preselected distance takes the keyboard's focus, so Enter queues it there.

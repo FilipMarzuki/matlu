@@ -99,16 +99,18 @@ describe('the palette with fewer cards (#1925)', () => {
     expect(html.match(/<details/g)?.length).toBe(counts.length);
   });
 
-  it('Given a group with something folded, Then its fold line sits in the heading row, before the cards (#1965)', () => {
+  it('Given a group with something folded, Then its fold line comes after its cards, with no heading over them (#2020)', () => {
+    // The category over the cards names the group now (action-cats.ts), so the heading row (#1965) is gone.
     const html = palette(day1);
-    expect(html).toMatch(/<div class="group"><div class="ghead"><h4>[^<]*<\/h4><details class="fold cantyet"[^>]*>.*?<\/details><\/div>(?:<div class="acts">|<\/div>)/);
-    expect(html).not.toMatch(/<\/div><details class="fold cantyet"/); // not its own row under the cards
+    expect(html).toMatch(/<div class="group" id="grp-provision"[^>]*><div class="acts">.*?<\/div><details class="fold cantyet"[^>]*>.*?<\/details><\/div>/);
+    expect(html).not.toContain('<h4>');
+    expect(html).not.toContain('ghead');
   });
 
-  it('Given a group with nothing folded, Then its heading is a plain h4 with no empty ghead wrapper', () => {
-    // EXPLORE has nothing to fold on a fresh Warden's first morning: its own group div has no ghead.
-    const exploreGroup = palette(day1).match(/<div class="group"><h4>EXPLORE<\/h4>.*?<\/div><\/div>/)?.[0];
-    expect(exploreGroup).not.toContain('ghead');
+  it('Given a group with nothing folded, Then it holds just its cards', () => {
+    // EXPLORE has nothing to fold on a fresh Warden's first morning.
+    const exploreGroup = palette(day1).match(/<div class="group" id="grp-explore".*?<\/div><\/div>/)?.[0];
+    expect(exploreGroup).toBeDefined();
     expect(exploreGroup).not.toContain('cantyet');
   });
 
