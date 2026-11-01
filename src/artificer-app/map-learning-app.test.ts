@@ -33,14 +33,14 @@ function ready(day = MAP_NIGHTS + 1): Region1State {
 const app = (sim: Region1State): AppState => ({ ...makeWarden({ id: 'w-astrid' }), sim, queue: [] });
 
 describe('Drawing your map on the page (#1754)', () => {
-  it('the action sits with the thinking work, opens with the session, and is greyed with why before', () => {
+  it('the action sits with the thinking work, opens with the session, and before that is folded with why (#1925)', () => {
     expect(GROUPS.find(g => g.key === 'think')?.ids).toContain('drawmap');
     const open = paletteBlock(app(ready()), previewQueue(app(ready())), { dev: false, t: sv });
     expect(open).toContain('data-q="drawmap"');
     expect(open).toContain('RITA DIN KARTA');
     const shut = paletteBlock(app(ready(2)), previewQueue(app(ready(2))), { dev: false, t: sv });
-    expect(shut).toMatch(/class="act soft [^"]*" data-q="drawmap"/);
-    expect(shut).toContain('inte än');
+    expect(shut).not.toContain('data-q="drawmap"');
+    expect(shut).toMatch(/Rita din karta<\/span> <span class="gate">inte än/);
   });
 
   it('the LAND tab says what the map still needs, then offers the session; the English is the sim\'s', () => {

@@ -228,7 +228,7 @@ function distanceChooser(a: AppState, preview: Preview, id: ActionId, options: D
 // The Make camp card's badges (#1756, `camp-site-ratings`) are drawn by rating-badges.ts (#1798), with the LAND tab's.
 export { campBadges } from './rating-badges';
 
-export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; fewer?: boolean; campPick?: boolean }): string {
+export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean; t: T; suggest?: ActionId | null; defaults?: RingDefaults; chooser?: ActionId | null; way?: Way; campPick?: boolean }): string {
   const { dev } = opts;
   const defaults = opts.defaults ?? {};
   // The run's own words (#1752): its rings said as distances with `distance-not-rings` on.
@@ -257,8 +257,8 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
     const spends = vitalCostLabel(def, dev);
     // The first-morning guide's suggestion (#1792, reveal.ts): it glows until a place to camp is known.
     const suggested = opts.suggest === id && !why ? ' guide-suggest' : '';
-    // With fewer cards (#1925) the suggestion also comes first in its group, as wide as the group.
-    const lifted = suggested && opts.fewer ? ' lifted' : '';
+    // The suggestion also comes first in its group (#1925), as wide as the group.
+    const lifted = suggested ? ' lifted' : '';
     // A land action's tap opens its chooser (data-chooser); Make camp's, with the picker (#1986,
     // camp-picker.ts), opens the places to camp (data-campick); any other queues itself (data-q).
     const open = !!options && opts.chooser === id && !resolved && !greyed;
@@ -276,8 +276,6 @@ export function paletteBlock(a: AppState, preview: Preview, opts: { dev: boolean
   return known.map(g => {
     const cards = g.ids.map(card).filter((c): c is PaletteCard => c !== null);
     const title = `<h4>${esc(t(`group.${g.key}`))}</h4>`;
-    // The switch off: every card, greyed ones too, as before.
-    if (!opts.fewer) return `<div class="group">${title}<div class="acts">${cards.map(c => c.html).join('')}</div></div>`;
     // Fewer cards (#1925, fewer-cards.ts): the cards you can do now (the guide's suggestion first),
     // then one line that opens to the rest, each with the reason its card would have said. The fold's
     // line sits at the end of the heading row (#1965), beside the group's name, not its own row under

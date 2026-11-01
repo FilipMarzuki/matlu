@@ -69,7 +69,6 @@ import { wardenTab } from './warden-view';
 import { EATING_PLANS, RATIONS_FEATURE, eatingChip, rationsNote, rationsNoteDue, rationsPlace, rationsRow } from './rations-view';
 import { LAND_FOUND_FEATURE, landTab, seeLandLink, tripNews } from './land-view';
 import { START_LAND_FEATURE, claimStartLand, nearestFirst, startLandUsed, startNoteBlock, startTarget } from './start-land';
-import { FEWER_CARDS_FEATURE } from './fewer-cards';
 import { campPicker, pickable, pickerFor } from './camp-picker';
 import { landNews, landSeen, mergeNews, ringsToOpen, storedSeen, storeSeen, tripRing, type LandNews } from './land-news';
 import { FINDS_FEATURE, FIND_MS, findCount, findsShown, playFinds, storeTrips, storedTrips, timerLines, withTripLines, type TripFinds } from './explore-finds';
@@ -178,13 +177,13 @@ function closeRingPick(refocus: boolean): void {
 }
 
 /**
- * What the palette needs from the page: dev mode, the language, this Warden's chooser state, and
- * whether it folds what can't be done now (#1925, the `fewer-cards` ui feature, fewer-cards.ts).
+ * What the palette needs from the page: dev mode, the language, this Warden's chooser state,
+ * and whether Make camp opens the camp picker (#1986). What can't be done now is folded (#1925, fewer-cards.ts).
  */
 const paletteOpts = (s: AppState['sim']) => {
   // The start's highlight (#1853): Explore glows, and its chooser opens at the nearest distance.
   const own = defaultsFor(ringDefaults, s.character.id);
-  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, fewer: uiFeatureOn(loadChoices(), FEWER_CARDS_FEATURE), campPick: pickerFor(s) };
+  return { dev, t, defaults: startHl ? nearestFirst(own) : own, chooser: ringPick, suggest: startHl ? startTarget().highlight : null, way: exploreWay, campPick: pickerFor(s) };
 };
 
 /**
