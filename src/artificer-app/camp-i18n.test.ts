@@ -77,13 +77,13 @@ function camped(): Region1State {
 const app = (sim: Region1State, queue: AppState['queue'] = []): AppState => ({ sim, queue } as AppState);
 
 describe('The opening and a day at camp, in Swedish (#1707)', () => {
-  it('draws the opening with no English: the hike, the voice, the pack and creation', () => {
+  it('draws the opening with no English: the story page, the card, the pack and creation', () => {
     const s = fresh();
-    const beats = introBeats({ ...s, tools: [...s.tools, { item: 'stone-knife', grade: 'fine', heirloom: true }] }, sv);
+    const beats = introBeats({ ...s, tools: [...s.tools, { item: 'stone-knife', grade: 'fine', heirloom: true }] }, sv, { step: 'change', age: 12 });
     const words = beats.flatMap(b => b.lines.map(l => fillName(l, '', sv))).join('\n');
     expect(englishIn(words)).toEqual([]);
     expect(words).toContain('Fredag eftermiddag');
-    expect(words).toContain('Registrerad: Artificer.');
+    expect(words).toContain('Du är Artificer, 12 år, scout.');
     expect(words).toContain('De lämnade efter sig: stenkniv (fin).');
     // The pack screen: every item, the full list packed and the empty pack (so nothing fits and everything does).
     for (const pack of [[...SUGGESTED_PACK], [], KIT_IDS.slice(0, 6)]) expect(englishIn(packForm(pack, sv))).toEqual([]);

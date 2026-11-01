@@ -1,7 +1,7 @@
 /**
- * The arrival intro (#1228): packing for a weekend hike (#1666), then pulled
- * through a portal, a voice designates your class and rank, then
- * "Survive. Thrive. Master your new reality."
+ * The intro (#1228): the quick start (#1928), the only intro since #2009. One story page (a weekend
+ * hike, and a seam in the air you fall through), then a card: "You're Saga, 12, a scout. Your pack
+ * is ready." with Play, or Change for the creation and pack screens, which lead back to the card.
  *
  * Pure on purpose — it only decides *what* the intro says, from the sim state,
  * so it can be unit-tested; main.ts decides how it looks and when it plays.
@@ -10,44 +10,38 @@
  * translate function, English by default (the tests, and anything else that asks).
  */
 
-import { CRAFT_WORLD, type Region1State } from '../artificer/region1';
-import { artificerRank } from '../artificer/rank';
+import type { Region1State } from '../artificer/region1';
 import { makeT, type T } from '../artificer/i18n';
-import { hasKit, statsBeforePack } from '../artificer/kit';
-import { gradeWord, rankName, recipeName } from './sim-words';
+import { statsBeforePack } from '../artificer/kit';
+import { gradeWord, recipeName } from './sim-words';
 import { esc } from './html';
 
 export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
 
-/** Each intro screen's name (#1845). `fall` and `ready` are the quick start's (#1928). */
-export type BeatId = 'hike' | 'pack' | 'portal' | 'stone' | 'arrival' | 'class' | 'create' | 'registered' | 'before' | 'title' | 'fall' | 'ready';
+/** Each intro screen's name (#1845). */
+export type BeatId = 'fall' | 'create' | 'pack' | 'ready';
 
 /**
  * One screen of the intro.
- * - `narration`: the player's own senses (prose).
- * - `voice`: the strange voice — terse, system-like.
- * - `title`: the closing card.
+ * - `narration`: the player's own senses (prose): the story page.
  */
 export interface Beat {
   /**
    * Which screen this is, by name (#1845): what feedback sent from the intro says the player was on
-   * ("intro: pack"). Kinds repeat (three narration screens), so the kind alone can't find the spot.
+   * ("intro: pack").
    */
   id: BeatId;
   /**
    * `create`: the character-creation screen (name, portrait, talents, stats) — #1239, #1258, #1263.
    * `pack`: packing for the hike (#1401). `ready`: the quick start's card (#1928), with Play and Change.
    */
-  kind: 'narration' | 'voice' | 'title' | 'create' | 'pack' | 'ready';
+  kind: 'narration' | 'create' | 'pack' | 'ready';
   lines: string[];
   /** Show the portal behind this beat. */
   portal?: boolean;
 }
 
 const EN = makeT('en');
-
-/** The quick start's ui switch (#1928, roadmap item 6 of #1914): read with `uiFeatureOn`. */
-export const QUICK_START_FEATURE = 'quick-start';
 
 /** The ready-made Warden's name (#1928): what the creation screen's name starts as, and changes from. */
 export const QUICK_NAME = 'Saga';
@@ -61,61 +55,25 @@ export const QUICK_NAME = 'Saga';
 export interface QuickStep { step: 'ready' | 'change'; age: number }
 
 /**
- * The intro's beats for a Warden about to start `s`, in the language `t` speaks. With `quick` (the
- * `quick-start` ui switch, #1928): the quick start's, below; without, the whole arrival as before.
+ * The intro's beats for a Warden about to start `s`, in the language `t` speaks, at the quick
+ * start's `quick` step (#1928; the only intro since #2009, which retired the whole arrival).
  */
-export function introBeats(s: Region1State, t: T = EN, quick?: QuickStep): Beat[] {
-  const rank = rankName(artificerRank(s, CRAFT_WORLD.concepts), t).toUpperCase();
+export function introBeats(s: Region1State, t: T, quick: QuickStep): Beat[] {
   // What the last Warden left (#1455): one run each, and the tools pass on.
   const left = s.tools.filter(x => x.heirloom).map(x => t('intro.heirloom', { grade: gradeWord(x.grade, t), item: recipeName(x.item, t).toLowerCase() })).join(', ');
-  // The quick start (#1928): one story page (the hike, and the seam you fall through, which is all
-  // LAND's first note assumes you know), then the card. What the last Warden left and the winter
-  // ride on the card, the two things the voice's pages said that matter in play (#1830). The
-  // creation screen asks in the scout's own voice in either order: the portal's voice doesn't play.
-  if (quick) {
-    const fall: Beat = { id: 'fall', kind: 'narration', portal: true, lines: [t('intro.hike1'), t('intro.seam1'), t('intro.seam2')] };
-    // `{name}` stays in the line, as in `registered`: fillName fills it with the draft's name.
-    const ready: Beat = { id: 'ready', kind: 'ready', lines: [t('quick.ready', { age: quick.age }), ...(left ? [t('intro.before'), t('intro.left', { list: left })] : []), t('intro.winter')] };
-    if (quick.step === 'ready') return [fall, ready];
-    const create: Beat = { id: 'create', kind: 'create', lines: [t('intro.whoAreYou')] };
-    const pack: Beat = { id: 'pack', kind: 'pack', lines: [t('intro.pack')] };
-    return [fall, ...(statsBeforePack(s) ? [create, pack] : [pack, create]), ready];
-  }
-  // Who you are, then what you pack (#1872, the run's `stats-before-pack` switch): creation moves to
-  // right after the hike page, asked in the scout's own voice, so the stats chosen can shape the pack.
-  // The portal's voice then reads the name back instead of asking for it. The beat ids stay the same
-  // (#1845's feedback names them), only their order and the two lines change.
-  if (statsBeforePack(s)) return [
-    { id: 'hike', kind: 'narration', lines: [t('intro.hike1'), t('intro.hike2'), t('intro.hike3')] },
-    { id: 'create', kind: 'create', lines: [t('intro.whoAreYou')] },
-    { id: 'pack', kind: 'pack', lines: [t('intro.pack')] },
-    { id: 'portal', kind: 'narration', portal: true, lines: [t('intro.seam1'), t('intro.seam2')] },
-    { id: 'stone', kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2'), t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro')] },
-    { id: 'arrival', kind: 'voice', lines: [t('intro.arrival'), t('intro.scanning'), t('intro.threshold')] },
-    { id: 'class', kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
-    { id: 'registered', kind: 'voice', lines: [t('intro.identified'), t('intro.winter')] },
-    ...(left ? [{ id: 'before' as const, kind: 'voice' as const, lines: [t('intro.before'), t('intro.left', { list: left })] }] : []),
-    { id: 'title', kind: 'title', lines: [t('intro.close1'), t('intro.close2'), t('intro.close3')] },
-  ];
-
-  return [
-    // First the weekend (#1666): the hike, and packing for it — then the portal.
-    { id: 'hike', kind: 'narration', lines: [t('intro.hike1'), t('intro.hike2'), t('intro.hike3')] },
-    { id: 'pack', kind: 'pack', lines: [t('intro.pack')] },
-    { id: 'portal', kind: 'narration', portal: true, lines: [t('intro.seam1'), t('intro.seam2')] },
-    // Then your bearings (#1846): the map in your pack is of somewhere else, but the compass works.
-    // It was the top of LAND; the land tab now shows only what you've found. Said by what you packed
-    // (main.ts tells the beats again once the pack is chosen), in the words LAND used.
-    { id: 'stone', kind: 'narration', lines: [t('intro.stone1'), t('intro.stone2'), t(hasKit(s, 'map-compass') ? 'map.compassIntro' : 'map.noCompassIntro')] },
-    { id: 'arrival', kind: 'voice', lines: [t('intro.arrival'), t('intro.scanning'), t('intro.threshold')] },
-    { id: 'class', kind: 'voice', lines: [t('intro.class'), t('intro.rank', { rank })] },
-    { id: 'create', kind: 'create', lines: [t('intro.identify')] },
-    // `{name}` stays in the line: fillName fills it once the Warden has one.
-    // Just the name and the one thing that matters (the owner, #1830).
-    { id: 'registered', kind: 'voice', lines: [t('intro.registered'), t('intro.winter')] },
-    ...(left ? [{ id: 'before' as const, kind: 'voice' as const, lines: [t('intro.before'), t('intro.left', { list: left })] }] : []),
-    { id: 'title', kind: 'title', lines: [t('intro.close1'), t('intro.close2'), t('intro.close3')] },
-  ];
+  // One story page (the hike, and the seam you fall through, which is all LAND's first note assumes
+  // you know), then the card. What the last Warden left and the winter ride on the card, the two
+  // things the old arrival's voice said that matter in play (#1830). The creation screen asks in the
+  // scout's own voice ("Who are you?") in either order.
+  const fall: Beat = { id: 'fall', kind: 'narration', portal: true, lines: [t('intro.hike1'), t('intro.seam1'), t('intro.seam2')] };
+  // `{name}` stays in the line: fillName fills it with the draft's name.
+  const ready: Beat = { id: 'ready', kind: 'ready', lines: [t('quick.ready', { age: quick.age }), ...(left ? [t('intro.before'), t('intro.left', { list: left })] : []), t('intro.winter')] };
+  if (quick.step === 'ready') return [fall, ready];
+  // Change: the creation and pack screens, in the order the run's `stats-before-pack` sets (#1872),
+  // so the stats chosen can shape the pack; then back to the card.
+  const create: Beat = { id: 'create', kind: 'create', lines: [t('intro.whoAreYou')] };
+  const pack: Beat = { id: 'pack', kind: 'pack', lines: [t('intro.pack')] };
+  return [fall, ...(statsBeforePack(s) ? [create, pack] : [pack, create]), ready];
 }
 
 /** Put the Warden's name into a line ("{name}"); an unnamed Warden is just "Artificer". */
@@ -157,17 +115,16 @@ export interface IntroView {
  */
 export function introHtml(v: IntroView): string {
   const { beat: b, t } = v;
-  const last = v.i === v.count - 1;
   const said = b.lines.map(l => esc(fillName(l, v.name, t)));
   // Each line fades in after the one before (--n drives the CSS animation delay).
   const lines = b.kind === 'pack'
     ? said.map((l, n) => `<h2 class="packq" style="--n:${n}">${l}</h2>`).join('')
     : said.map((l, n) => `<p style="--n:${n}">${l}</p>`).join('');
   const dots = Array.from({ length: v.count }, (_, n) => `<i class="${n === v.i ? 'on' : n < v.i ? 'past' : ''}"></i>`).join('');
-  const next = t(b.kind === 'ready' ? 'quick.play' : last ? 'intro.begin' : b.kind === 'pack' ? 'intro.offWeGo' : 'intro.next');
-  // The quick start's card (#1928) has no Skip: Play is it. Change opens the creation and pack screens.
+  const next = t(b.kind === 'ready' ? 'quick.play' : b.kind === 'pack' ? 'intro.offWeGo' : 'intro.next');
+  // The card (#1928) has no Skip: Play is it. Change opens the creation and pack screens.
   const aside = b.kind === 'ready' ? `<button class="pill" data-intro="change">${esc(t('quick.change'))}</button>`
-    : last ? '' : `<button class="pill" data-intro="skip">${esc(t('intro.skip'))}</button>`;
+    : `<button class="pill" data-intro="skip">${esc(t('intro.skip'))}</button>`;
   return `
     <div class="portal ${b.portal ? 'open' : ''}" aria-hidden="true"></div>
     <div class="introfb">${v.feedback}</div>

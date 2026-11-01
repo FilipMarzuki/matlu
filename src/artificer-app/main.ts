@@ -24,7 +24,7 @@ import { seasonOf } from '../artificer/winter';
 import { DAY_START } from '../artificer/clock';
 import { CAP_CEIL } from '../artificer/vitality';
 import { skillLevel } from '../artificer/skills';
-import { introBeats, introHtml, introWhere, QUICK_START_FEATURE, QUICK_NAME, type Beat, type QuickStep } from './intro';
+import { introBeats, introHtml, introWhere, QUICK_NAME, type Beat, type QuickStep } from './intro';
 import { focusKey, parseFocus } from '../artificer/focus';
 import { focusChip, focusPopover, focusPopAfter, FOCUS_POP_ID, type FocusUi } from './focus-popover';
 import { keyBox, nightChip } from './key-box';
@@ -2166,13 +2166,13 @@ function tickTimer(pl: Playing, now: number): void {
 // and render() — which rewrites #app wholesale — never wipes the intro.
 
 /**
- * The intro playing, if one is. `quick` (#1928): where the quick start is, or absent for the whole
- * arrival. `made`: the Warden has been made from the draft during this intro (the creation screen
+ * The intro playing, if one is. `quick` (#1928): where the quick start is, the card or Change's
+ * screens. `made`: the Warden has been made from the draft during this intro (the creation screen
  * was passed), so Play on the quick start's card doesn't make another; `madeAs` who they were made
  * as (`wardenKey`). `packed`: the pack screen was passed, so a Warden made after it starts with that
  * pack; `packedFor` the stats, talents and age it was packed for (`packKey`).
  */
-let intro: { beats: Beat[]; i: number; quick?: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
+let intro: { beats: Beat[]; i: number; quick: QuickStep['step']; made?: boolean; madeAs?: string; packed?: boolean; packedFor?: string } | null = null;
 const introEl = document.createElement('div');
 introEl.className = 'intro';
 introEl.setAttribute('role', 'dialog');
@@ -2243,17 +2243,14 @@ const draftRun = () => ({ config: { world: packWorld() }, character: { stats: gr
 const draftLimit = (): number => carryLimit(draftRun());
 const tickedPack = (): KitId[] => suggestedPack(packWorld().features, draftRun().character.stats, draft.talents);
 
-/** Is the quick start on (#1928)? A ui switch: read when an intro starts, kept for that intro. */
-const quickOn = (): boolean => uiFeatureOn(loadChoices(), QUICK_START_FEATURE);
-
-/** The intro's beats for the game as it stands, in the quick start's step if it's playing (#1928). */
-const beatsFor = (quick?: QuickStep['step']): Beat[] => introBeats(state.sim, t, quick ? { step: quick, age: draft.age } : undefined);
+/** The intro's beats for the game as it stands, at the quick start's step (#1928). */
+const beatsFor = (quick: QuickStep['step']): Beat[] => introBeats(state.sim, t, { step: quick, age: draft.age });
 
 function startIntro(): void {
   draft = loadDraft() ?? blankDraft();
   // The quick start (#1928): a ready-made Warden, named until the player names them on Change.
-  const quick = quickOn() ? 'ready' as const : undefined;
-  if (quick && !draft.name.trim()) draft.name = QUICK_NAME;
+  const quick = 'ready' as const;
+  if (!draft.name.trim()) draft.name = QUICK_NAME;
   draftPack = [...SUGGESTED_PACK];
   draftOutside = autoOutside(SUGGESTED_PACK);
   drawnBeat = -1;
@@ -2320,8 +2317,8 @@ function changeQuick(): void {
  * confirmed before, if any), rather than dropped.
  */
 function skipIntro(): void {
-  if (intro?.quick && !intro.made) commitQuick();
-  else if (intro?.quick && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
+  if (intro && !intro.made) commitQuick();
+  else if (intro && intro.madeAs !== wardenKey()) commitCharacter(!!intro.packed);
   endIntro();
 }
 
@@ -2411,7 +2408,7 @@ function renderIntro(): void {
   document.documentElement.classList.add('intro-on');
   introEl.innerHTML = introHtml({
     // The quick start's card (#1928) names the draft: the Warden isn't made until Play or the creation screen.
-    beat: b, i: intro.i, count: intro.beats.length, name: intro.quick ? draft.name : state.sim.character.name, t,
+    beat: b, i: intro.i, count: intro.beats.length, name: draft.name, t,
     form: b.kind === 'create' ? createForm(draft, t) : b.kind === 'pack' ? packForm(draftPack, t, truths, packOpen, offeredKit(packWorld().features), packVolumeOn() ? { outside: draftOutside, str: draftRun().character.stats.str, dev, forYou: statsBeforePack(draftRun()) } : { limit: draftLimit(), forYou: statsBeforePack(draftRun()) }) : '',
     nextDisabled: b.kind === 'create' && !draftValid(),
     feedback: feedback.button(t),

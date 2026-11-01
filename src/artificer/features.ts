@@ -499,15 +499,6 @@ export const FEATURES: readonly FeatureDef[] = [
     id: 'readable-type', name: 'Readable type', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1923,
     note: 'Action names, tabs, status tags, vital labels and milestones in the body font at 14–16 px, and no words under 12 px anywhere (the map drawn in characters keeps its size). The pixel font stays only for headings of 16 px and up.',
   },
-  {
-    // A ui feature (#1928, roadmap item 6 of #1914): which intro screens the page plays
-    // (artificer-app/intro.ts, the `quick` beats), so it switches live and no run saves it. A Warden
-    // started with Play is the play API's quick start (average stats, no talents, ×1.00), so the
-    // rules and the server's replay are as before. The play API, the console and AI players never
-    // see it. Off, the intro is exactly as before.
-    id: 'quick-start', name: 'Quick start', stage: 'experimental', kind: 'ui', default: true, absent: false, issue: 1928,
-    note: 'After the language, one story page, then "You\'re Saga, 12, a scout. Your pack is ready." with Play, or Change who I am / what I packed for the usual screens, which come back to the same card. Play starts an average Warden with no talents (a quick start, ×1.00) and the pack ticked for them.',
-  },
 ];
 
 /** Switches by feature id. */

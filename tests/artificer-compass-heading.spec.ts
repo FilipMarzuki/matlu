@@ -12,7 +12,11 @@ import { test, expect, type Page } from '@playwright/test';
 const SHOTS = process.env['SHOTS'];
 
 async function throughIntro(page: Page, name = 'Signe'): Promise<void> {
+  let changed = false;
   for (let i = 0; i < 14 && (await page.locator('[data-intro="next"]').isVisible()); i++) {
+    // The quick start's card (#1928): Change once, for the creation and pack screens; then Play.
+    const change = page.locator('[data-intro="change"]');
+    if (!changed && await change.isVisible()) { await change.click(); changed = true; continue; }
     if (await page.locator('.tchoice').first().isVisible()) {
       await page.locator('#wname').fill(name);
       await page.locator('.tchoice').nth(0).click();
@@ -40,8 +44,6 @@ for (const lang of ['en', 'sv'] as const) {
       await page.evaluate(lang => {
         localStorage.clear();
         localStorage.setItem('artificer.lang', lang);
-        // The whole intro, with its creation screen (the quick start, #1928, would Play past it).
-        localStorage.setItem('artificer.features', JSON.stringify({ 'quick-start': false }));
       }, lang);
       await page.reload();
       // The first day's weather is the run's own (seeded): on a clear day the shadow stick keeps a heading and nothing is greyed.

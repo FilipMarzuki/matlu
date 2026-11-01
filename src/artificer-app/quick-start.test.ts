@@ -6,27 +6,18 @@
 
 import { describe, it, expect } from 'vitest';
 import { makeT } from '../artificer/i18n';
-import { featureById, uiFeatureOn } from '../artificer/features';
 import { DEFAULT_STATS } from '../artificer/stats';
 import { DEFAULT_AGE, grownStats } from '../artificer/growing';
 import { suggestedPack } from '../artificer/kit';
 import { difficultyOfCharacter } from '../artificer/difficulty';
 import { serialize, makeWarden } from './controller';
-import { introBeats, introHtml, fillName, QUICK_START_FEATURE, QUICK_NAME, type QuickStep } from './intro';
+import { introBeats, introHtml, fillName, QUICK_NAME, type QuickStep } from './intro';
 import { webStart } from '../artificer-play/web-log';
 import { startOf, startProblem } from '../artificer-play/web-run';
 
 const READY: QuickStep = { step: 'ready', age: DEFAULT_AGE };
 const CHANGE: QuickStep = { step: 'change', age: DEFAULT_AGE };
 const ids = (s: Parameters<typeof introBeats>[0], quick: QuickStep) => introBeats(s, makeT('en'), quick).map(b => b.id);
-
-describe('the quick start switch (#1928)', () => {
-  it('is a ui switch, on by default, that a player can turn off', () => {
-    expect(featureById(QUICK_START_FEATURE)).toMatchObject({ kind: 'ui', default: true, issue: 1928 });
-    expect(uiFeatureOn({}, QUICK_START_FEATURE)).toBe(true);
-    expect(uiFeatureOn({ [QUICK_START_FEATURE]: false }, QUICK_START_FEATURE)).toBe(false);
-  });
-});
 
 describe('the quick start\'s screens (#1928)', () => {
   const s = makeWarden({ id: 'w-1928-beats' }).sim;
@@ -63,10 +54,6 @@ describe('the quick start\'s screens (#1928)', () => {
     const t = makeT('en');
     const ready = introBeats(left, t, READY)[1];
     expect(ready.lines.slice(1)).toEqual([t('intro.before'), expect.stringMatching(/^They left: .*stone knife\.$/), t('intro.winter')]);
-  });
-
-  it('without the switch the whole arrival plays as before', () => {
-    expect(introBeats(s).map(b => b.id)).toEqual(['hike', 'create', 'pack', 'portal', 'stone', 'arrival', 'class', 'registered', 'title']);
   });
 });
 

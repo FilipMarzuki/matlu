@@ -6,10 +6,11 @@ import { test, expect, type Page } from '@playwright/test';
  * picking 2 works, and the WARDEN tab shows the hidden-gift slot. No page errors.
  */
 
-/** Click CONTINUE until the creation form (the talent offer) is showing. */
+/** Click CONTINUE until the creation form (the talent offer) is showing: Change on the quick start's card (#1928). */
 async function toCreation(page: Page): Promise<void> {
   for (let i = 0; i < 8 && !(await page.locator('.tchoice').first().isVisible()); i++) {
-    await page.locator('[data-intro="next"]').click();
+    const change = page.locator('[data-intro="change"]');
+    await (await change.isVisible() ? change : page.locator('[data-intro="next"]')).click();
   }
   await expect(page.locator('.tchoice')).toHaveCount(4);
 }
@@ -23,8 +24,7 @@ test('talent offer survives a reload, picks work, and the WARDEN tab shows the h
   await page.goto('/artificer.html');
   // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
   // The guide stays on: the header's Warden button is there from the first screen (#1807).
-  // The whole intro, with its creation screen (the quick start, #1928, would Play past it).
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ 'quick-start': false })); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
 
   await toCreation(page);
@@ -89,7 +89,7 @@ test('after New Save, a reload goes back to the Warden being made', async ({ pag
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
   // The language picker (#1704) comes first for a viewer with no choice stored: choose English.
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false, 'quick-start': false })); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); localStorage.setItem('artificer.features', JSON.stringify({ guide: false })); });
   await page.reload();
   // Skip through a first Warden to a saved game.
   for (let i = 0; i < 10 && (await page.locator('[data-intro="next"]').isVisible()); i++) {

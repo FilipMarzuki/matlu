@@ -244,7 +244,6 @@ const core = {
   'intro.label': 'Arrival',
   'intro.skip': 'SKIP ›',
   'intro.next': 'CONTINUE ▸',
-  'intro.begin': 'BEGIN ▸',
   'intro.offWeGo': 'OFF WE GO ▸',
 
   // ── Help ───────────────────────────────────────────────────────────────────

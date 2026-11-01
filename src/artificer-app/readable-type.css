@@ -161,11 +161,8 @@
 @media (max-width: 520px) {
   :where(.readable-type) .routeline { height: 62px; }
 }
-/* The empty portrait's "?" and the intro's spoken lines: Silkscreen under 16 px, in the body font now. */
+/* The empty portrait's "?": Silkscreen under 16 px, in the body font now. */
 :where(.readable-type) .portrait.blank { font-family: var(--body); }
-:where(.readable-type) .intro .beat.voice p { font-family: var(--body); font-size: clamp(14px, 2vw, 16px); font-weight: 600; letter-spacing: .06em; }
-/* The intro title's second line can be 13 px on a phone: a heading, so it keeps Silkscreen at 16 px and up. */
-:where(.readable-type) .intro .beat.title p:last-child { font-size: clamp(16px, 3vw, 22px); }
 
 /* ── The floor, 12 px: body text that was under it. Family and weight as they were. ── */
 :where(.readable-type) .tl-legend,

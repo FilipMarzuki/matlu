@@ -20,14 +20,11 @@ const words = {
 };
 
 /** A first visit: nothing stored, so the language picker comes first. */
-async function firstVisit(page: Page, features: Record<string, boolean> = {}): Promise<string[]> {
+async function firstVisit(page: Page): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/artificer.html');
-  await page.evaluate(features => {
-    localStorage.clear();
-    if (Object.keys(features).length) localStorage.setItem('artificer.features', JSON.stringify(features));
-  }, features);
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
   return errors;
 }
@@ -157,16 +154,5 @@ test('Skip on the story page is Play', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.intro')).toBeHidden();
   await expect(page.locator('.who').first()).toContainText('Saga');
-  expect(errors).toEqual([]);
-});
-
-test('switched off, the whole arrival plays as before', async ({ page }) => {
-  const errors = await firstVisit(page, { 'quick-start': false });
-  await page.locator('[data-pick="en"]').click();
-  await expect(page.locator('.intro .beat[data-beat="hike"]')).toBeVisible();
-  await page.locator('[data-intro="next"]').click();
-  await expect(page.locator('.intro .beat[data-beat="create"]')).toBeVisible();
-  await expect(page.locator('#wname')).toHaveValue('');
-  await expect(page.locator('[data-intro="change"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

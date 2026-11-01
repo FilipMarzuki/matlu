@@ -265,7 +265,6 @@ const core: Catalog = {
   'intro.label': 'Ankomsten',
   'intro.skip': 'HOPPA ÖVER ›',
   'intro.next': 'FORTSÄTT ▸',
-  'intro.begin': 'BÖRJA ▸',
   'intro.offWeGo': 'NU GÅR VI ▸',
 
   // ── Hjälp ──────────────────────────────────────────────────────────────────

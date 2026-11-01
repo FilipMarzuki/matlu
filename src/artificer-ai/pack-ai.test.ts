@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegion1, repack, runAction } from '../artificer/region1';
 import { SUGGESTED_PACK, KIT, PACK_CAPACITY, PACK_LITRES, PACK_VOLUME, STRAP_PLACES, PACK_FEEL_LINE, validPack, packWeight, autoOutside, type KitId } from '../artificer/kit';
 import { introBeats } from '../artificer-app/intro';
+import { makeT } from '../artificer/i18n';
 import { ruleFeatures } from '../artificer/features';
 import { newGame, newRun } from '../artificer-app/controller';
 import { legacyOf } from '../artificer/legacy';
@@ -117,9 +118,10 @@ describe('Packing for the hike (#1401)', () => {
   }, 30_000);
 
   it('packs in the intro before creation, and each Warden packs afresh', () => {
-    const fresh = introBeats(createRegion1());
+    // Change on the quick start's card (#1928): for a run from before `stats-before-pack` (#1872),
+    // packing for the hike comes before creation (#1666).
+    const fresh = introBeats(createRegion1(), makeT('en'), { step: 'change', age: 12 });
     const at = fresh.findIndex(b => b.kind === 'pack');
-    // Packing for the hike comes first now, before the portal and creation (#1666).
     expect(at).toBeLessThan(fresh.findIndex(b => b.kind === 'create'));
     expect(fresh[at].lines.join(' ')).toMatch(/What will you pack\?/);
     // The knowledge legacy remembers the pack; but the game's next run is a new Warden (#1455), who packs the suggested kit again.
