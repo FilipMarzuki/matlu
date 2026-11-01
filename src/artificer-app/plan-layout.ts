@@ -141,6 +141,8 @@ export interface StripParts {
   /** `attrs`: the guide's mark (main.ts `guide.mark`) when this button is the one it points at. */
   button: { cmd: string; label: string; disabled: boolean; attrs?: string };
   open: boolean;
+  /** The minimap (#2016), at the strip's start: on a phone the status line has no room for it. */
+  mini?: string;
   /**
    * Where the day ends, in words (#1930, day-forecast.ts `dayEndText`): said in the total's place.
    * Absent (or empty): the total, as before.
@@ -161,7 +163,7 @@ export function queueStrip(p: StripParts, t: T): string {
     ? p.items.map(c => `<span class="qschip"><span class="qci">${c.icon}</span> ${esc(c.name)} <b>${esc(c.hours)}</b></span>`).join('')
     : `<span class="qsnote">${esc(p.note)}</span>`;
   const total = p.line ? `<span class="qsline">${esc(p.line)}</span>` : `<span class="qstot">${esc(p.total)}</span>`;
-  return `<div class="qstrip"><button class="qsbar" data-cmd="qstrip" aria-expanded="${p.open}" title="${esc(t(p.open ? 'qc.fold' : 'qc.unfold'))}">`
+  return `<div class="qstrip">${p.mini ?? ''}<button class="qsbar" data-cmd="qstrip" aria-expanded="${p.open}" title="${esc(t(p.open ? 'qc.fold' : 'qc.unfold'))}">`
     + `<span class="qschips">${chips}</span>${total}<span class="qsfold" aria-hidden="true">${p.open ? '▴' : '▾'}</span></button>`
     + `<button class="btn go" data-cmd="${p.button.cmd}"${p.button.disabled ? ' disabled' : ''}${p.button.attrs ?? ''}>${esc(p.button.label)}</button></div>`;
 }

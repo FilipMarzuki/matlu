@@ -123,6 +123,8 @@ export const map = {
   'biome.scree': 'Scree',
   'biome.fell': 'Fell',
   'biome.snow': 'Snowfield',
+  // The minimap (#2016): what a screen reader hears for the nine squares around you.
+  'mini.label': 'Where you stand: {here}',
   'domain.forage': 'forage',
   'domain.timber': 'timber',
   'domain.stone': 'stone',

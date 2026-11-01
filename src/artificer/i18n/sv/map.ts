@@ -107,6 +107,7 @@ export const mapSv: Record<keyof typeof map, string> = {
   'biome.scree': 'Ur',
   'biome.fell': 'Fjäll',
   'biome.snow': 'Snöfält',
+  'mini.label': 'Där du står: {here}',
   'domain.forage': 'föda',
   'domain.timber': 'virke',
   'domain.stone': 'sten',
