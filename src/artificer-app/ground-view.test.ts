@@ -14,11 +14,11 @@ import { landOfRun } from '../artificer/world/hex-window';
 import type { Biome } from '../artificer/world/reach';
 import { enqueue, makeWarden, type AppState } from './controller';
 import {
-  CELL, GROUND_COUNT, GROUND_TILES, ICE_TILES, SNOWY_TILES, cellOf, groundAt, hash, key, middleOf, poseAt, sceneOf, thingAt, tileAt, walkingShare,
-  type GroundWorld, type Need, type P,
+  CELL, GROUND_COUNT, GROUND_TILES, ICE_TILES, SNOWY_TILES, cellOf, groundAt, hash, key, middleOf, poseAt, retrace, sceneOf, thingAt, tileAt, walkingShare,
+  type GroundWorld, type Need, type P, type Scene,
 } from './ground-view';
 import { WARDEN_ANIMS, WARDEN_CELL, WARDEN_DIRS, wardenFrame } from './ground-draw';
-import { placesOf, stepWalk } from './minimap';
+import { biomeAt, placesOf, stepWalk } from './minimap';
 import { playDay } from './playback';
 
 /** A small land: a row of cells, west to east, each its own kind. */
@@ -166,6 +166,18 @@ describe('a step\'s way and work (#2022)', () => {
   });
 });
 
+/** The biggest jump between two moments 1/400 of a step apart: walking glides, it never jumps a cell. */
+function biggestJump(sc: Scene, hours: number, legs: Parameters<typeof poseAt>[3] = null): number {
+  let worst = 0;
+  let last = poseAt(sc, 0, hours, legs).at;
+  for (let k = 1; k <= 400; k++) {
+    const at = poseAt(sc, k / 400, hours, legs).at;
+    worst = Math.max(worst, dist(last, at));
+    last = at;
+  }
+  return worst;
+}
+
 describe('where the Warden is in a step (#2022)', () => {
   const A = { x: 0, y: 1 }, B = { x: 1, y: 1 };
   const trip = sceneOf([A, B, A], 'timber', 'wood', world());
@@ -199,6 +211,63 @@ describe('where the Warden is in a step (#2022)', () => {
     expect(seen.size).toBe(2);
   });
 
+  it('never jumps: a trip, work in its own cell, a session all work, heading out, work at camp', () => {
+    const cases: [Scene, number, Parameters<typeof poseAt>[3]][] = [
+      [trip, 4, null],
+      [sceneOf([A], 'forage', 'gather', world()), 2, null],
+      // A session whose trips have no travel is all work (playback.ts phasesOf): the Warden still walks there.
+      [sceneOf([A], 'forage', 'gather', world()), 3, [{ kind: 'work', hours: 3 }]],
+      [sceneOf([A, B], 'look', 'explore', world()), 4, null],
+      [sceneOf([A], 'camp', 'knife', world(), { x: 1, y: CELL + 1 }), 3, null],
+    ];
+    for (const [sc, h, legs] of cases) {
+      expect(biggestJump(sc, h, legs)).toBeLessThan(2);
+      expect(poseAt(sc, 0, h, legs).at).toEqual(sc.out[0]);
+    }
+  });
+
+  it('heading out ends out there, on the one spot it works, where the next step starts', () => {
+    const sc = sceneOf([A, B], 'look', 'explore', world());
+    expect(sc.spots).toHaveLength(1);
+    expect(poseAt(sc, 1, 4).at).toEqual(middleOf(B));
+  });
+
+  it('a session stopped on the way out turns for home where the stop caught it, back the way it came', () => {
+    // Planned 1h out, 2h work, 1h back; stopped half an hour out, then the walk home (playback.ts stoppedPhases).
+    const legs = [{ kind: 'out' as const, hours: 0.5 }, { kind: 'back' as const, hours: 0.5 }];
+    const full = [{ kind: 'out' as const, hours: 1 }, { kind: 'work' as const, hours: 2 }, { kind: 'back' as const, hours: 1 }];
+    const both = [...full, ...legs];
+    const at = (h: number): P => poseAt(trip, h / 5, 5, both).at;
+    // The second trip gets half way, then walks home from there.
+    expect(at(4.25).x).toBeCloseTo(CELL / 4);
+    expect(at(4.5).x).toBeCloseTo(CELL / 2);
+    expect(at(4.75).x).toBeCloseTo(CELL / 4);
+    expect(at(5)).toEqual(middleOf(A));
+    expect(biggestJump(trip, 5, both)).toBeLessThan(2);
+  });
+
+  it('a way back from part way along: the point reached, then each corner back to the start', () => {
+    const pts = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }];
+    expect(retrace(pts, 6)).toEqual([{ x: 4, y: 2 }, { x: 4, y: 0 }, { x: 0, y: 0 }]);
+    expect(retrace(pts, 2)).toEqual([{ x: 2, y: 0 }, { x: 0, y: 0 }]);
+  });
+
+  it('a step starts where the last left the Warden', () => {
+    const from = { x: middleOf(B).x + 1, y: middleOf(B).y };
+    const sc = sceneOf([B, A, B], 'timber', 'wood', world(), from);
+    expect(sc.out[0]).toEqual(from);
+    expect(poseAt(sc, 0, 4).at).toEqual(from);
+  });
+
+  it('look around\'s loop and every way walked are clear of trees and stones', () => {
+    const w = world();
+    const sc = sceneOf([{ x: 1, y: 0 }], 'look', 'explore', w);
+    for (let k = 0; k <= 400; k++) {
+      const at = poseAt(sc, k / 400, 3).at;
+      expect(thingAt({ ...w, extra: sc.extra }, Math.round(at.x), Math.round(at.y))).toBeNull();
+    }
+  });
+
   it('look around walks its whole loop over the step, and is back at the end', () => {
     const sc = sceneOf([A], 'look', 'explore', world());
     expect(poseAt(sc, 0, 3).at).toEqual(middleOf(A));
@@ -216,22 +285,29 @@ describe('every task moves the Warden (#2022)', () => {
     return (['water', 'wood', 'gather', 'knife'] as QueueItem[]).reduce(enqueue, { ...a, sim: { ...s, canPlan: true } } as AppState);
   }
 
-  it('a played day: in every step, the Warden is somewhere else at some point, and ends where the next starts', () => {
+  it('a played day: in every step, the Warden is somewhere else at some point, never jumps, and starts where the last ended', () => {
     const a = planned();
     const land = landOfRun(a.sim);
     const p = playDay(a);
     const w0: GroundWorld = { land, camp: placesOf(a.sim, land).camp, snow: false, ice: false };
-    let end: P | null = null;
+    let end: P | undefined;
     for (const [i, st] of p.steps.entries()) {
-      if (st.hours <= 0) continue;
       const before = i ? p.steps[i - 1].sim : p.before.sim;
       const { id } = parseItem(st.item);
-      const sc = sceneOf(stepWalk(before, st.sim, land), (TASK_NEED[id] as Need | undefined) ?? 'camp', id, w0);
+      // As main.ts plays it: each step from where the last one left the Warden.
+      const sc = sceneOf(stepWalk(before, st.sim, land), st.hours > 0 ? (TASK_NEED[id] as Need | undefined) ?? 'camp' : null, id, w0, end);
       const at = Array.from({ length: 41 }, (_, k) => poseAt(sc, k / 40, st.hours, st.phases).at);
-      expect(new Set(at.map(q => key(Math.round(q.x * 10), Math.round(q.y * 10)))).size, id).toBeGreaterThan(1);
+      if (st.hours > 0) expect(new Set(at.map(q => key(Math.round(q.x * 10), Math.round(q.y * 10)))).size, id).toBeGreaterThan(1);
+      expect(biggestJump(sc, st.hours, st.phases), id).toBeLessThan(2.5);
       if (end) expect(at[0], id).toEqual(end);
       end = at[at.length - 1];
     }
+  });
+
+  it('the label\'s cell: past the land\'s edge, none (not another row\'s)', () => {
+    expect(biomeAt(LAND, { x: LAND.w, y: 0 })).toBeNull();
+    expect(biomeAt(LAND, { x: -1, y: 1 })).toBeNull();
+    expect(biomeAt(LAND, { x: 0, y: 1 })).toBe('heath');
   });
 });
 

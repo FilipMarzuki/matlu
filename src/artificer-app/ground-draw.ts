@@ -66,18 +66,27 @@ const GROUND_COLOUR: Readonly<Record<Ground, string>> = {
 };
 
 const images = new Map<ImgId, HTMLImageElement>();
-/** An image, loading it the first time; null until it has loaded (`onload` asks for a redraw). */
-function img(id: ImgId, redraw: () => void): HTMLImageElement | null {
+/**
+ * Who to tell when an image arrives: the latest draw's redraw, and only until it's called, so an
+ * image doesn't keep a finished day's timer (and every state it played) alive after it.
+ */
+let arrived: (() => void) | null = null;
+/** An image, loading it the first time; null until it has loaded (its arrival asks for a redraw). */
+function img(id: ImgId): HTMLImageElement | null {
   let im = images.get(id);
   if (!im) {
-    im = new Image();
-    im.decoding = 'async';
-    im.onload = redraw;
-    im.src = SRC[id];
-    images.set(id, im);
+    const el = new Image();
+    el.decoding = 'async';
+    el.onload = () => { el.onload = null; const redraw = arrived; arrived = null; redraw?.(); };
+    el.src = SRC[id];
+    images.set(id, el);
+    im = el;
   }
   return im.complete && im.naturalWidth > 0 ? im : null;
 }
+
+/** Whether the viewer has asked for less motion: the Warden then steps square by square, and stands still between. */
+const lessMotion = (): boolean => { try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 /** The frame of the Warden's sheet for this animation, facing and moment. */
 export function wardenFrame(anim: Anim, facing: Facing, now: number): { col: number; row: number } {
@@ -90,7 +99,11 @@ export function wardenFrame(anim: Anim, facing: Facing, now: number): { col: num
  * Draw the ground around `pose` into `cv`, the Warden in the middle. `now` (ms) drives the Warden's
  * animation; `redraw` is called when an image arrives, so the first frames fill in as they load.
  */
-export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, pose: Pose, now: number, redraw: () => void): void {
+export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, shown: Pose, now: number, redraw: () => void): void {
+  arrived = redraw;
+  // With less motion: no gliding and no animation, the Warden on whole squares in one frame.
+  const still = lessMotion();
+  const pose: Pose = still ? { ...shown, at: { x: Math.round(shown.at.x), y: Math.round(shown.at.y) } } : shown;
   const css = cv.clientWidth || 96;
   const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
   const size = Math.max(1, Math.round(css * dpr));
@@ -105,7 +118,7 @@ export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, pose: Pose, no
   const half = Math.ceil(VIEW / 2) + 1;
   const x0 = Math.floor(pose.at.x) - half, x1 = Math.ceil(pose.at.x) + half;
   const y0 = Math.floor(pose.at.y) - half, y1 = Math.ceil(pose.at.y) + half + 2;
-  const ground = img('ground', redraw);
+  const ground = img('ground');
   const across = ground ? Math.floor(ground.naturalWidth / 32) : 4;
   ctx.fillStyle = '#1c1c25';
   ctx.fillRect(0, 0, size, size);
@@ -125,7 +138,7 @@ export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, pose: Pose, no
       const thing = thingAt(w, x, y);
       if (!thing) continue;
       const art = THING_ART[thing];
-      const im = img(art.imgs[variantAt(x, y, art.imgs.length)], redraw);
+      const im = img(art.imgs[variantAt(x, y, art.imgs.length)]);
       if (!im) continue;
       standing.push({ y, draw: () => {
         const h = art.tall * T, wd = (im.naturalWidth / im.naturalHeight) * h;
@@ -133,10 +146,10 @@ export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, pose: Pose, no
       } });
     }
   }
-  const sheet = img('warden', redraw);
+  const sheet = img('warden');
   if (sheet) {
     standing.push({ y: pose.at.y + 0.01, draw: () => {
-      const f = wardenFrame(pose.anim, pose.facing, now);
+      const f = wardenFrame(pose.anim, pose.facing, still ? 0 : now);
       const h = WARDEN_TALL * T, wd = (WARDEN_CELL.w / WARDEN_CELL.h) * h;
       ctx.drawImage(sheet, f.col * WARDEN_CELL.w, f.row * WARDEN_CELL.h, WARDEN_CELL.w, WARDEN_CELL.h, Math.round(size / 2 - wd / 2), Math.round(size / 2 + T * 0.45 - h), Math.round(wd), Math.round(h));
     } });

@@ -224,44 +224,59 @@ const NEED_THING: Readonly<Partial<Record<Need, Thing | 'water'>>> = { timber: '
  * `walk`: the cells it walked (minimap.ts `stepWalk`: from where the Warden stood, out and back, or
  * out and on when heading out). `need`: what the task goes to, or 'camp' for work at camp (or null
  * for one that does nothing there). `id`: the action, for the work's movement at camp. `world`: the
- * land, to stop at the water's edge and to pick which tree. A deterministic function of these.
+ * land, to stop at the water's edge and to pick which tree. `from`: where the last step left the
+ * Warden (its pose at its end), so this one starts there, not a square away. A deterministic
+ * function of these.
  */
-export function sceneOf(walk: readonly At[], need: Need | null, id: string, world: GroundWorld): Scene {
+export function sceneOf(walk: readonly At[], need: Need | null, id: string, world: GroundWorld, from?: P): Scene {
   const start = middleOf(walk[0] ?? { x: 0, y: 0 });
+  const p0 = from ?? start;
+  /** The way, from where the last step left the Warden. */
+  const fromHere = (pts: P[]): P[] => (same(pts[0], p0) ? pts : [p0, ...pts]);
   const extra = new Map<string, Thing | 'water' | null>();
   const anim = (need === null || need === 'camp' ? CAMP_ANIM[id] : undefined) ?? NEED_ANIM[need ?? 'camp'];
-  // Work at camp (or wherever it's done): by the fire, or between the fire, the shelter and back. A
-  // job that walked first (Make camp, at a place you know) walks there and works where it ends.
-  if (need === null || need === 'camp') {
+  const done = (sc: Omit<Scene, 'extra'>): Scene => {
+    // Nothing stands on the way the Warden walks, or where they work.
+    for (const pts of [sc.out, sc.back, sc.spots.map(s => s.at)]) for (const q of squaresOn(pts)) if (!extra.has(q)) extra.set(q, null);
+    return { ...sc, extra };
+  };
+  // Nothing to do (a task that was skipped): where they stand.
+  if (need === null) return done({ out: [p0], back: [p0], spots: [{ at: p0, facing: 'east' }], anim: 'idle', loop: false, turns: false });
+  // Work at camp: by the fire, or between the fire, the shelter and back. A job that walked first
+  // (Make camp, at a place you know) walks there and works where it ends.
+  if (need === 'camp') {
     if (walk.length > 1) {
       const pts = walk.map(middleOf);
       const end = pts[pts.length - 1];
-      return { out: pts, back: [end], spots: [{ at: end, facing: facingOf(unit(pts[pts.length - 2], end)) }], anim, extra, loop: false, turns: false };
+      return done({ out: fromHere(pts), back: [end], spots: [{ at: end, facing: facingOf(unit(pts[pts.length - 2], end)) }], anim, loop: false, turns: false });
     }
-    const spots = CAMP_STILL.includes(id) || need === null
+    const spots = CAMP_STILL.includes(id)
       ? [{ at: start, facing: 'east' as Facing }]
       : [{ at: plus(start, { x: 0, y: 1 }), facing: 'north' as Facing }, { at: plus(start, { x: 1, y: 1 }), facing: 'north' as Facing }, { at: start, facing: 'east' as Facing }];
-    return { out: [start], back: [start], spots, anim, extra, loop: false, turns: false };
+    return done({ out: fromHere([start]), back: [start], spots, anim, loop: false, turns: false });
   }
   // Look around (where you stand): a loop of a few squares out and back.
   if (need === 'look' && walk.length <= 1) {
     const d = WAYS[Math.floor(hash(start.x, start.y, 3) * 4)];
     const side = { x: -d.y, y: d.x };
     const a = plus(start, d, 3), b = plus(a, side, 3), c = plus(start, side, 3);
-    return { out: [start, a, b, c, start], back: [start], spots: [{ at: start, facing: facingOf(d) }], anim: 'idle', extra, loop: true, turns: true };
+    return done({ out: fromHere([start, a, b, c, start]), back: [start], spots: [{ at: start, facing: facingOf(d) }], anim: 'idle', loop: true, turns: true });
   }
   // The way out: the walk's cells, middle to middle, up to the far end (a trip there and back
-  // retraces its way; heading out walks the whole of it).
+  // retraces its way; heading out walks the whole of it and stays there). A river on the way is
+  // forded, as the sim walks it (worldmap/reach.ts COST); a lake can't be walked.
   const pts = walk.map(middleOf);
-  const there = roundTrip(walk) ? Math.floor((walk.length - 1) / 2) : walk.length - 1;
+  let round = roundTrip(walk);
+  const there = round ? Math.floor((walk.length - 1) / 2) : walk.length - 1;
   let out = pts.slice(0, there + 1);
-  let back = roundTrip(walk) ? pts.slice(there) : [pts[pts.length - 1]];
+  let back = round ? pts.slice(there) : [pts[pts.length - 1]];
   // Work in the cell it started from: a few squares out to it, the way the square's hash picks.
   if (out.length === 1) {
     const d = WAYS[Math.floor(hash(start.x, start.y, 4 + need.length) * 4)];
     const spot = plus(start, d, 4);
     out = [start, spot];
     back = [spot, start];
+    round = true;
   }
   // Water: stop at the shore, on the last square before the water.
   let dir = unit(out[out.length - 2], out[out.length - 1]);
@@ -277,17 +292,16 @@ export function sceneOf(walk: readonly At[], need: Need | null, id: string, worl
         at = next;
       }
       out = [...out.slice(0, -1), at];
-      back = [at, ...back.slice(1)];
+      back = round ? [at, ...back.slice(1)] : [at];
     }
   }
   const work = out[out.length - 1];
   dir = out.length > 1 ? unit(out[out.length - 2], work) : dir;
   if (dir.x === 0 && dir.y === 0) dir = { x: 0, y: -1 };
-  // Two spots side by side at the work, each facing what it works on, one square ahead.
+  // Two spots side by side at the work, each facing what it works on, one square ahead. Heading out
+  // ends out there, so it works on the one spot it ends on.
   const side = { x: -dir.y, y: dir.x };
-  const spotsAt = [work, plus(work, side)];
-  // Nothing stands where the Warden works.
-  for (const s of spotsAt) extra.set(key(s.x, s.y), null);
+  const spotsAt = round ? [work, plus(work, side)] : [work];
   const thing = NEED_THING[need];
   if (thing) {
     for (const s of spotsAt) {
@@ -298,7 +312,18 @@ export function sceneOf(walk: readonly At[], need: Need | null, id: string, worl
       else extra.set(key(ahead.x, ahead.y), thing === 'birch' && g === 'pine' ? 'pine' : thing);
     }
   }
-  return { out, back, spots: spotsAt.map(at => ({ at, facing: facingOf(dir) })), anim, extra, loop: false, turns: need === 'look' || need === 'high' };
+  return done({ out: fromHere(out), back, spots: spotsAt.map(at => ({ at, facing: facingOf(dir) })), anim, loop: false, turns: need === 'look' || need === 'high' });
+}
+
+/** Every square a way passes through (its points are squares; it runs straight between them). */
+function squaresOn(pts: readonly P[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1] ?? a;
+    const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let k = 0; k <= n; k++) out.push(key(Math.round(a.x + ((b.x - a.x) * k) / Math.max(1, n)), Math.round(a.y + ((b.y - a.y) * k) / Math.max(1, n))));
+  }
+  return out;
 }
 
 // ── Where the Warden is, and what they're doing, at a moment ──────────────────
@@ -324,14 +349,23 @@ export function along(pts: readonly P[], d: number): { at: P; facing: Facing } {
   return { at: pts[pts.length - 1] ?? { x: 0, y: 0 }, facing: 'south' };
 }
 
+/** The way back along a polyline from `d` squares along it to its start (a walk stopped part way, turning for home). */
+export function retrace(pts: readonly P[], d: number): P[] {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y));
+  const res: P[] = [along(pts, d).at];
+  for (let i = pts.length - 1; i >= 0; i--) if (cum[i] < d - 1e-9) res.push(pts[i]);
+  return res.length > 1 ? res : [res[0], res[0]];
+}
+
 /**
- * Of a step `hours` long, the share spent walking out `outLen` squares: half an hour a cell walked
+ * Of a step `hours` long, the share spent walking `len` squares: half an hour a cell walked
  * (minimap.ts `SQUARE_HOURS`), at least a few minutes, kept between 5% and 45% so the work always
  * shows and so does the walk. With no hours, 30%.
  */
-export function walkingShare(outLen: number, hours: number): number {
+export function walkingShare(len: number, hours: number): number {
   if (!hours || hours <= 0) return 0.3;
-  const walking = Math.max(0.15, (outLen / CELL) * SQUARE_HOURS);
+  const walking = Math.max(0.15, (len / CELL) * SQUARE_HOURS);
   return Math.min(0.45, Math.max(0.05, walking / hours));
 }
 
@@ -355,42 +389,63 @@ function working(sc: Scene, hours: number): Pose {
   return { at: to.at, facing: to.facing, anim: sc.anim };
 }
 
+/** The way home after `hours` of work: from the spot the work left the Warden on, then the scene's way back. */
+function homeward(sc: Scene, hours: number): P[] {
+  const last = sc.spots[Math.floor(Math.max(0, hours) / SPOT_HOURS) % sc.spots.length].at;
+  return same(last, sc.back[0]) ? sc.back : [last, ...sc.back];
+}
+
+/** Walking a way, `f` (0..1) along it: idle once there. */
+function walked(path: readonly P[], f: number): Pose {
+  const len = lengthOf(path);
+  if (len === 0 || f >= 1) return { at: path[path.length - 1], facing: along(path, len).facing, anim: 'idle' };
+  return { ...along(path, f * len), anim: 'walk' };
+}
+
 /**
  * Where the Warden is, `frac` (0..1) of the way through a step `hours` long. Played as `legs` (a
- * session of chosen length, #1668: out, work, back, each trip on the same way), else out over the
- * first part of the time and back over the last (minimap.ts `walkShare`), working between. Look
- * around walks its loop over the whole step.
+ * session of chosen length, #1668: out, work, back, each trip on the same way; a stopped one, #1815,
+ * turns for home where the stop caught it), else out over the first part of the time and home over
+ * the last, working between. Look around walks its loop over the whole step. It starts where the
+ * scene's way starts and ends where its way home ends, so one step follows on from the last.
  */
 export function poseAt(sc: Scene, frac: number, hours: number, legs: readonly Leg[] | null = null): Pose {
   const f = Math.min(1, Math.max(0, frac));
-  const outLen = lengthOf(sc.out), backLen = lengthOf(sc.back);
-  if (sc.loop) {
-    const p = along(sc.out, f * outLen);
-    return { ...p, anim: f >= 1 ? 'idle' : 'walk' };
-  }
-  if (outLen === 0 && backLen === 0) return working(sc, f * hours);
-  if (legs && legs.length) {
-    const total = legs.reduce((h, l) => h + l.hours, 0);
-    let at = f * total;
-    let worked = 0;
-    for (let k = 0; k < legs.length; k++) {
-      const l = legs[k];
-      if (at < l.hours || k === legs.length - 1) {
-        const lf = l.hours > 0 ? Math.min(1, at / l.hours) : 1;
-        if (l.kind === 'work') return working(sc, worked + at);
-        if (l.kind === 'out') return { ...along(sc.out, lf * outLen), anim: 'walk' };
-        return lf >= 1 ? { ...along(sc.back, backLen), anim: 'idle' } : { ...along(sc.back, lf * backLen), anim: 'walk' };
-      }
-      if (l.kind === 'work') worked += l.hours;
-      at -= l.hours;
+  const outLen = lengthOf(sc.out);
+  if (sc.loop) return walked(sc.out, f);
+  // A session walks by its legs, when they walk at all (one whose trips have no travel is all work).
+  if (legs?.some(l => l.kind !== 'work' && l.hours > 0)) return byLegs(sc, legs, f, outLen);
+  // Out over the first share of the time and home over the last, each by its own length; a step
+  // that ends where it works (one spot, nothing to walk back) has no way home.
+  const share = outLen > 0 ? walkingShare(outLen, hours) : 0;
+  const moves = sc.spots.length > 1 || !same(sc.spots[0].at, sc.back[0]) || lengthOf(sc.back) > 0;
+  const backShare = moves ? walkingShare(Math.max(1, lengthOf(sc.back)), hours) : 0;
+  if (f < share) return walked(sc.out, f / share);
+  if (f <= 1 - backShare || backShare <= 0) return working(sc, (f - share) * hours);
+  return walked(homeward(sc, (1 - share - backShare) * hours), (f - (1 - backShare)) / backShare);
+}
+
+/** Where the Warden is in a session played by its legs (see `poseAt`). */
+function byLegs(sc: Scene, legs: readonly Leg[], f: number, outLen: number): Pose {
+  const total = legs.reduce((h, l) => h + l.hours, 0);
+  // A walk out cut short by a stop is shorter than the others: it gets as far as its hours allow.
+  const fullOut = Math.max(0, ...legs.filter(l => l.kind === 'out').map(l => l.hours));
+  const reach = (l: Leg): number => (fullOut > 0 ? outLen * Math.min(1, l.hours / fullOut) : outLen);
+  let at = f * total, worked = 0, reached = outLen;
+  let prev: Leg['kind'] | null = null;
+  for (let k = 0; k < legs.length; k++) {
+    const l = legs[k];
+    if (at < l.hours || k === legs.length - 1) {
+      const lf = l.hours > 0 ? Math.min(1, at / l.hours) : 1;
+      if (l.kind === 'work') return working(sc, worked + Math.min(at, l.hours));
+      if (l.kind === 'out') return { ...along(sc.out, lf * reach(l)), anim: 'walk' };
+      // Home: straight after a walk out (a stop caught it), back the way it came; after work, from the spot.
+      return walked(prev === 'out' ? retrace(sc.out, reached) : homeward(sc, worked), lf);
     }
+    if (l.kind === 'out') reached = reach(l);
+    if (l.kind === 'work') worked += l.hours;
+    prev = l.kind;
+    at -= l.hours;
   }
-  // Out over the first share of the time, back over the last (a walk that ends elsewhere has no
-  // back): each cell walked takes half an hour, as on the land, and a few squares a little while.
-  const share = walkingShare(outLen, hours);
-  const backShare = backLen > 0 ? share : 0;
-  if (f < share) return { ...along(sc.out, (f / share) * outLen), anim: 'walk' };
-  if (f <= 1 - backShare) return working(sc, (f - share) * hours);
-  const bf = (f - (1 - backShare)) / backShare;
-  return bf >= 1 ? { ...along(sc.back, backLen), anim: 'idle' } : { ...along(sc.back, bf * backLen), anim: 'walk' };
+  return working(sc, worked);
 }

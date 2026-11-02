@@ -47,12 +47,19 @@ export function miniAround(land: Land, at: At, camp: At | null, r = MINI_R): Min
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const x = at.x + dx, y = at.y + dy;
-      const inside = x >= 0 && y >= 0 && x < land.w && y < land.h;
-      out.push({ biome: inside ? land.cells[y * land.w + x].biome : null, camp: !!camp && camp.x === x && camp.y === y });
+      out.push({ biome: biomeAt(land, { x, y }), camp: !!camp && camp.x === x && camp.y === y });
     }
   }
   return out;
 }
+
+/** A cell's biome; null past the land's edge (never another row's cell). */
+export function biomeAt(land: Pick<Land, 'w' | 'h' | 'cells'>, at: At): Biome | null {
+  return at.x >= 0 && at.y >= 0 && at.x < land.w && at.y < land.h ? land.cells[at.y * land.w + at.x].biome : null;
+}
+
+/** What a screen reader hears of a minimap, the status line's or the timer's ground: "Where you stand: Birch wood". */
+export const hereLabel = (here: Biome | null, t: T): string => (here ? t('mini.label', { here: t(`biome.${here}`) }) : t('mini.labelBare'));
 
 /** Where the Warden stands in this state, and camp's square (null before camp), on the run's land. */
 export function placesOf(s: Region1State, land: Land = landOfRun(s)): { at: At; camp: At | null } {
@@ -110,8 +117,7 @@ export interface MiniOpts {
  * hears where you stand ("Where you stand: Birch wood") rather than nine squares.
  */
 export function minimapHtml(squares: readonly MiniSquare[], t: T, o: MiniOpts): string {
-  const mid = squares[Math.floor(squares.length / 2)];
-  const label = mid?.biome ? t('mini.label', { here: t(`biome.${mid.biome}`) }) : t('mini.labelBare');
+  const label = hereLabel(squares[Math.floor(squares.length / 2)]?.biome ?? null, t);
   const cells = squares.map((q, k) => {
     const cls = [q.biome ? `mm-${q.biome}` : 'mm-out', q.camp ? 'mm-camp' : '', k === Math.floor(squares.length / 2) ? 'mm-here' : ''].filter(Boolean).join(' ');
     return `<i class="${cls}"></i>`;

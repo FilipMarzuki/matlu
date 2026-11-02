@@ -33,8 +33,8 @@ import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/t
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
 import { roadAnchorsOf, hexWorldOn, landOfRun, type Land } from '../artificer/world/hex-window';
-import { miniAround, minimapHtml, placesOf, stepWalk } from './minimap';
-import { cellOf, middleOf, poseAt, sceneOf, type GroundWorld, type Need, type Pose, type Scene as GroundScene } from './ground-view';
+import { biomeAt, hereLabel, miniAround, minimapHtml, placesOf, stepWalk } from './minimap';
+import { cellOf, middleOf, poseAt, sceneOf, type GroundWorld, type Need, type P, type Pose, type Scene as GroundScene } from './ground-view';
 import { drawGround } from './ground-draw';
 import { TASK_NEED } from '../artificer/walk-the-map';
 import { TIER_NAME } from '../artificer/world/settlements';
@@ -2121,8 +2121,10 @@ document.addEventListener('keydown', e => {
   targets[next].focus();
 }, true);
 
-/** Each action as the timer's ground plays it (#2022, ground-view.ts), worked out once per action played. */
-const scenes = new WeakMap<PlayStep, GroundScene>();
+/** Each action as the timer's ground plays it (#2022, ground-view.ts), and the ground it's on: worked out once per action played. */
+const scenes = new WeakMap<PlayStep, { sc: GroundScene; world: GroundWorld }>();
+/** The night's ground, once the day has played out: worked out once per day played. */
+const nights = new WeakMap<DayPlay, { world: GroundWorld; at: P }>();
 
 /** The ground's world for a state (#2022): its land, camp, and whether snow lies and the water is iced. */
 function groundWorldOf(s: AppState['sim'], land: Land, extra?: GroundScene['extra']): GroundWorld {
@@ -2131,57 +2133,62 @@ function groundWorldOf(s: AppState['sim'], land: Land, extra?: GroundScene['extr
 
 /**
  * An action as the timer's ground plays it: the way it walked (minimap.ts `stepWalk`), and what it
- * goes to (walk-the-map's TASK_NEED; anything else is work at camp, and a skipped one does nothing).
+ * goes to (walk-the-map's TASK_NEED; anything else is work at camp, and a skipped one does nothing),
+ * starting where the last action left the Warden. With the ground it's on: camp as it was when it
+ * started, and the work's own squares.
  */
-function groundSceneFor(p: DayPlay, i: number, land: Land): GroundScene {
+function groundStep(p: DayPlay, i: number, land: Land): { sc: GroundScene; world: GroundWorld } {
   const st = p.steps[i];
-  let sc = scenes.get(st);
-  if (!sc) {
+  let got = scenes.get(st);
+  if (!got) {
     const before = i > 0 ? p.steps[i - 1].sim : p.before.sim;
-    const id = parseItem(st.item).id;
+    const prev = i > 0 ? p.steps[i - 1] : null;
+    const from = prev ? poseAt(groundStep(p, i - 1, land).sc, 1, prev.hours, prev.phases).at : undefined;
+    const { id } = parseItem(st.item);
     const need: Need | null = st.hours > 0 ? ((TASK_NEED[id] as Need | undefined) ?? 'camp') : null;
-    sc = sceneOf(stepWalk(before, st.sim, land), need, id, groundWorldOf(before, land));
-    scenes.set(st, sc);
+    const sc = sceneOf(stepWalk(before, st.sim, land), need, id, groundWorldOf(before, land), from);
+    got = { sc, world: groundWorldOf(before, land, sc.extra) };
+    scenes.set(st, got);
   }
-  return sc;
+  return got;
 }
 
 /**
  * The Warden on the timer's ground at this moment (#2022): along the action's way, at its work, or,
- * once the day has played out, home by the fire. A session of chosen length (#1668) walks by its
- * legs, as the timer's bar shows them.
+ * once the day has played out, where the last action left them. A session of chosen length (#1668)
+ * walks by its legs, as the timer's bar shows them.
  */
-function groundNow(pl: Playing): { world: GroundWorld; pose: Pose } {
+function groundNow(pl: Playing, m: Moment): { world: GroundWorld; pose: Pose } {
   const p = pl.plays[pl.day];
-  const m = momentOf(pl);
   const land = landOfRun(p.before.sim);
   const st = p.steps[m.index];
   if (!st) {
-    const last = p.steps[p.steps.length - 1]?.sim ?? p.before.sim;
-    return { world: groundWorldOf(last, land), pose: { at: middleOf(placesOf(last, land).at), facing: 'east', anim: 'idle' } };
+    let night = nights.get(p);
+    if (!night) {
+      const n = p.steps.length;
+      const last = n ? p.steps[n - 1].sim : p.before.sim;
+      night = { world: groundWorldOf(last, land), at: n ? poseAt(groundStep(p, n - 1, land).sc, 1, p.steps[n - 1].hours, p.steps[n - 1].phases).at : middleOf(placesOf(last, land).at) };
+      nights.set(p, night);
+    }
+    return { world: night.world, pose: { at: night.at, facing: 'east', anim: 'idle' } };
   }
-  const sc = groundSceneFor(p, m.index, land);
-  const before = m.index > 0 ? p.steps[m.index - 1].sim : p.before.sim;
-  return { world: groundWorldOf(before, land, sc.extra), pose: poseAt(sc, m.frac, st.hours, st.phases) };
+  const { sc, world } = groundStep(p, m.index, land);
+  return { world, pose: poseAt(sc, m.frac, st.hours, st.phases) };
 }
 
 /** What a screen reader hears of the ground: where the Warden stands ("Where you stand: Birch wood"). */
-function groundLabel(world: GroundWorld, pose: Pose): string {
-  const c = cellOf(pose.at.x, pose.at.y);
-  const biome = world.land.cells[c.y * world.land.w + c.x]?.biome;
-  return biome ? t('mini.label', { here: t(`biome.${biome}`) }) : t('mini.labelBare');
-}
+const groundLabel = (world: GroundWorld, pose: Pose): string => hereLabel(biomeAt(world.land, cellOf(pose.at.x, pose.at.y)), t);
 
 /** The timer's ground (#2022): a canvas, drawn every frame by `tickTimer`. */
 function timerGround(pl: Playing): string {
-  const { world, pose } = groundNow(pl);
+  const { world, pose } = groundNow(pl, momentOf(pl));
   return `<canvas class="ground" id="pb-ground" role="img" aria-label="${esc(groundLabel(world, pose))}"></canvas>`;
 }
 
 /** Draw the timer's ground for this frame, and say where the Warden stands when that changes. */
-function paintGround(cv: HTMLCanvasElement, pl: Playing, now: number): void {
-  const { world, pose } = groundNow(pl);
-  drawGround(cv, world, pose, now, () => { if (playing === pl) paintGround(cv, pl, performance.now()); });
+function paintGround(cv: HTMLCanvasElement, pl: Playing, m: Moment, now: number): void {
+  const { world, pose } = groundNow(pl, m);
+  drawGround(cv, world, pose, now, () => { if (playing === pl) paintGround(cv, pl, momentOf(pl), performance.now()); });
   const label = groundLabel(world, pose);
   if (cv.getAttribute('aria-label') !== label) cv.setAttribute('aria-label', label);
 }
@@ -2252,7 +2259,7 @@ function tickTimer(pl: Playing, now: number): void {
   if (clock) clock.textContent = timerClock(p.before.sim, m.clock, t, dev);
   // The Warden walks the ground (#2022): drawn every frame, the walk and the work as they play.
   const ground = document.getElementById('pb-ground');
-  if (ground instanceof HTMLCanvasElement) paintGround(ground, pl, now);
+  if (ground instanceof HTMLCanvasElement) paintGround(ground, pl, m, now);
   const bar = document.getElementById('pb-bar');
   if (bar) {
     bar.style.width = `${Math.round(m.frac * 1000) / 10}%`;
