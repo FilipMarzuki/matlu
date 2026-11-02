@@ -1,17 +1,18 @@
 /**
  * Draws the ground under the Warden (#2022, ground-view.ts) into a canvas: the 3 × 3 squares around
- * them, what stands on the squares, and the Warden, top-down, in pixel art.
+ * them, what stands on the squares, and the Warden, top-down 2D, in pixel art.
  *
- * The art is the repo's own:
- * - the ground tiles generated for this view (scripts/artificer-ground-assets.py) in the isometric
- *   tiles' colours;
- * - the trees, bushes, stones and logs the isometric game's woods use;
- * - the campfire and the lean-to;
- * - the Mistheim hero's walk, idle and work animations, cut into one sheet by the same script.
+ * The art was made for this view (#2027; scripts/artificer-ground-assets.py builds the sheets), all
+ * seen from above as in a top-down RPG, in the ground tiles' colours:
+ * - the ground tiles (`ground.png`, 32 px a square);
+ * - what stands on the squares (`things.png`): birch and pine crowns, bushes, stones, a boulder, a
+ *   log, a stump, reeds, heather, and camp's fire, tent, lean-to and woodpile, each on a 48 px cell;
+ * - the Warden (`warden-ground.png`): walking, idle and at work, facing four ways, 48 px cells.
  *
- * Tall things (trees, the shelter, the Warden) stand up from the bottom of their square and are drawn
- * row by row from the back, so what's nearer covers what's behind, as in a top-down RPG. Until an
- * image has loaded, the squares are drawn in their ground's colour, so the view is never empty.
+ * Everything is drawn at the tiles' own pixel size (32 px a square, so a 48 px cell is a square and
+ * a half), centred on its square. Low things (stones, bushes, the fire) go under the Warden and the
+ * crowns of trees and roofs over them, so the Warden walks under the trees. Until an image has
+ * loaded, the squares are drawn in their ground's colour, so the view is never empty.
  *
  * The paths below are written out whole: the Artificer's build copies the sprites its code names
  * (scripts/build-artificer.mjs `referencedAssets`).
@@ -21,41 +22,42 @@ import { VIEW, groundAt, thingAt, tileAt, variantAt, type Anim, type Facing, typ
 
 const SRC = {
   ground: '/assets/sprites/tilesets/artificer-ground/ground.png',
-  warden: '/assets/sprites/characters/mistheim/heroes/loke/loke-ground.png',
-  birch0: '/assets/sprites/trees/birch/mature/0.png',
-  birch1: '/assets/sprites/trees/birch/mature/1.png',
-  birch2: '/assets/sprites/trees/birch/mature/2.png',
-  birch3: '/assets/sprites/trees/birch/mature/3.png',
-  pine0: '/assets/sprites/trees/pine/mature/0.png',
-  pine1: '/assets/sprites/trees/pine/mature/1.png',
-  pine2: '/assets/sprites/trees/pine/mature/2.png',
-  bush: '/assets/sprites/trees/birch/objects/berry-bush.png',
-  stones: '/assets/sprites/trees/birch/objects/stones.png',
-  log: '/assets/sprites/trees/birch/objects/log.png',
-  stump: '/assets/sprites/trees/birch/objects/stump.png',
-  fire: '/assets/packs/building-forge/campfire_obj_32.png',
-  shelter: '/assets/sprites/icons/items/shelter-leanto.png',
+  things: '/assets/sprites/tilesets/artificer-ground/things.png',
+  warden: '/assets/sprites/characters/mistheim/heroes/warden/warden-ground.png',
 } as const;
 type ImgId = keyof typeof SRC;
 
-/** Each thing's drawings, and how tall it stands, in squares. */
-const THING_ART: Readonly<Record<Thing, { imgs: readonly ImgId[]; tall: number }>> = {
-  birch: { imgs: ['birch0', 'birch1', 'birch2', 'birch3'], tall: 1.7 },
-  pine: { imgs: ['pine0', 'pine1', 'pine2'], tall: 1.8 },
-  bush: { imgs: ['bush'], tall: 0.8 },
-  stones: { imgs: ['stones'], tall: 0.6 },
-  log: { imgs: ['log'], tall: 0.6 },
-  stump: { imgs: ['stump'], tall: 0.6 },
-  fire: { imgs: ['fire'], tall: 0.9 },
-  shelter: { imgs: ['shelter'], tall: 1.2 },
+/** A square's pixels in the art: the ground tiles' size, which the things and the Warden are drawn at too. */
+export const ART_SQUARE = 32;
+/** A thing's cell in things.png, and the Warden's in its sheet: a square and a half. */
+export const THING_CELL = 48;
+export const THINGS_ACROSS = 4;
+
+/**
+ * Each thing's cells in things.png (a square that has one picks among them by its hash), and whether
+ * it stands over the Warden (a crown, a roof) or under them.
+ */
+export const THING_ART: Readonly<Record<Thing, { cells: readonly number[]; over: boolean }>> = {
+  birch: { cells: [0, 1], over: true },
+  pine: { cells: [2, 3], over: true },
+  bush: { cells: [4, 5], over: false },
+  stones: { cells: [6], over: false },
+  boulder: { cells: [7], over: false },
+  log: { cells: [8], over: false },
+  stump: { cells: [9], over: false },
+  fire: { cells: [10], over: false },
+  shelter: { cells: [11], over: true },
+  tent: { cells: [12], over: true },
+  woodpile: { cells: [13], over: false },
+  reeds: { cells: [14], over: false },
+  heather: { cells: [15], over: false },
 };
+export const THING_COUNT = 16;
 
 /** The Warden's sheet: one row per animation and facing (ANIMS × DIRS), one frame per column. */
-export const WARDEN_CELL = { w: 26, h: 41 } as const;
+export const WARDEN_CELL = { w: THING_CELL, h: THING_CELL } as const;
 export const WARDEN_ANIMS: readonly (readonly [Anim, number])[] = [['idle', 4], ['walk', 8], ['pickup', 5], ['pull', 6], ['crouch', 5], ['drink', 6]];
 export const WARDEN_DIRS: readonly Facing[] = ['south', 'north', 'east', 'west'];
-/** How tall the Warden stands, in squares: a person is about one square of 2 m tall, a little less. */
-const WARDEN_TALL = 1.1;
 /** Milliseconds a frame of the Warden's animation shows, walking and working. */
 const FRAME_MS: Readonly<Record<Anim, number>> = { idle: 260, walk: 110, pickup: 170, pull: 150, crouch: 220, drink: 200 };
 
@@ -117,9 +119,9 @@ export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, shown: Pose, n
   const sy = (y: number): number => Math.round((y - pose.at.y) * T + size / 2 - T / 2);
   const half = Math.ceil(VIEW / 2) + 1;
   const x0 = Math.floor(pose.at.x) - half, x1 = Math.ceil(pose.at.x) + half;
-  const y0 = Math.floor(pose.at.y) - half, y1 = Math.ceil(pose.at.y) + half + 2;
+  const y0 = Math.floor(pose.at.y) - half, y1 = Math.ceil(pose.at.y) + half;
   const ground = img('ground');
-  const across = ground ? Math.floor(ground.naturalWidth / 32) : 4;
+  const across = ground ? Math.floor(ground.naturalWidth / ART_SQUARE) : 4;
   ctx.fillStyle = '#1c1c25';
   ctx.fillRect(0, 0, size, size);
   for (let y = y0; y <= y1; y++) {
@@ -127,33 +129,34 @@ export function drawGround(cv: HTMLCanvasElement, w: GroundWorld, shown: Pose, n
       const px = sx(x), py = sy(y), pw = sx(x + 1) - px, ph = sy(y + 1) - py;
       const tile = tileAt(w, x, y);
       if (tile === null) continue;
-      if (ground) ctx.drawImage(ground, (tile % across) * 32, Math.floor(tile / across) * 32, 32, 32, px, py, pw, ph);
+      if (ground) ctx.drawImage(ground, (tile % across) * ART_SQUARE, Math.floor(tile / across) * ART_SQUARE, ART_SQUARE, ART_SQUARE, px, py, pw, ph);
       else { ctx.fillStyle = GROUND_COLOUR[groundAt(w, x, y) ?? 'fell']; ctx.fillRect(px, py, pw, ph); }
     }
   }
-  // What stands up, from the back row forward; the Warden among them by where they stand.
-  const standing: { y: number; draw: () => void }[] = [];
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const thing = thingAt(w, x, y);
-      if (!thing) continue;
-      const art = THING_ART[thing];
-      const im = img(art.imgs[variantAt(x, y, art.imgs.length)]);
-      if (!im) continue;
-      standing.push({ y, draw: () => {
-        const h = art.tall * T, wd = (im.naturalWidth / im.naturalHeight) * h;
-        ctx.drawImage(im, Math.round(sx(x) + T / 2 - wd / 2), Math.round(sy(y) + T * 0.95 - h), Math.round(wd), Math.round(h));
-      } });
+  // A 48 px cell (a thing's or the Warden's) drawn at the tiles' size, a square and a half, centred on (cx, cy).
+  const cellSize = (THING_CELL / ART_SQUARE) * T;
+  const drawCell = (im: HTMLImageElement, col: number, row: number, cx: number, cy: number): void => {
+    ctx.drawImage(im, col * THING_CELL, row * THING_CELL, THING_CELL, THING_CELL, Math.round(cx - cellSize / 2), Math.round(cy - cellSize / 2), Math.round(cellSize), Math.round(cellSize));
+  };
+  // What stands on the squares: low things first, then the Warden, then the crowns and roofs over them.
+  const things = img('things');
+  const over: (() => void)[] = [];
+  if (things) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const thing = thingAt(w, x, y);
+        if (!thing) continue;
+        const art = THING_ART[thing];
+        const cell = art.cells[variantAt(x, y, art.cells.length)];
+        const draw = (): void => drawCell(things, cell % THINGS_ACROSS, Math.floor(cell / THINGS_ACROSS), sx(x) + T / 2, sy(y) + T / 2);
+        if (art.over) over.push(draw); else draw();
+      }
     }
   }
   const sheet = img('warden');
   if (sheet) {
-    standing.push({ y: pose.at.y + 0.01, draw: () => {
-      const f = wardenFrame(pose.anim, pose.facing, still ? 0 : now);
-      const h = WARDEN_TALL * T, wd = (WARDEN_CELL.w / WARDEN_CELL.h) * h;
-      ctx.drawImage(sheet, f.col * WARDEN_CELL.w, f.row * WARDEN_CELL.h, WARDEN_CELL.w, WARDEN_CELL.h, Math.round(size / 2 - wd / 2), Math.round(size / 2 + T * 0.45 - h), Math.round(wd), Math.round(h));
-    } });
+    const f = wardenFrame(pose.anim, pose.facing, still ? 0 : now);
+    drawCell(sheet, f.col, f.row, size / 2, size / 2);
   }
-  standing.sort((a, b) => a.y - b.y);
-  for (const s of standing) s.draw();
+  for (const draw of over) draw();
 }

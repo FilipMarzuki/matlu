@@ -1,45 +1,52 @@
 """
-The ground minimap's art (#2022), built from what the repo already has:
+The ground view's art (#2022, #2027), top-down 2D, seen from above as in a top-down RPG:
 
-- The Warden: a compact sheet cut from the Mistheim hero `loke` (public/assets/sprites/characters/
-  mistheim/heroes/loke/loke.png): idle, walk, pickup, pull, crouch and drink, facing south, north,
-  east and west. One row per animation and direction (ANIMS x DIRS, in that order), one frame per
-  column, every cell the same size: the union of the frames' drawn pixels, so the feet line up.
-- The ground: the top-down tiles generated with PixelLab for #2022 (32 x 32), packed into one atlas
-  in GROUND order, four across. Pass the folder they were downloaded to (tile_<n>.png, by batch).
+- The ground (`tilesets/artificer-ground/ground.png`): the top-down tiles generated with PixelLab
+  for #2022 (32 x 32), packed into one atlas in GROUND order, four across.
+- What stands on it (`tilesets/artificer-ground/things.png`): the 16 top-down objects generated for
+  #2027 (PixelLab 1-direction objects, 48 x 48, in the tiles' colours), four across, in the order
+  ground-draw.ts THING_ART reads them.
+- The Warden (`characters/mistheim/heroes/warden/warden-ground.png`): the top-down character made for
+  #2027 (PixelLab, high top-down, 48 x 48), one row per animation and facing (ANIMS x DIRS, in that
+  order), one frame per column. Its frames are named <anim>_<dir>_<n>.png in the folder given.
 
-Run:  python3 scripts/artificer-ground-assets.py <batch1-dir> <batch2-dir>
+Run:  python3 scripts/artificer-ground-assets.py <tiles-batch1> <tiles-batch2> <objects-dir> <warden-frames-dir>
+      (any trailing folder can be left off to skip that sheet)
 Then: npm run assets:sprites
 """
-import json, sys
+import os, sys
 from PIL import Image
 
 ROOT = 'public/assets/sprites/'
-HERO = ROOT + 'characters/mistheim/heroes/loke/'
 ANIMS = [('idle', 4), ('walk', 8), ('pickup', 5), ('pull', 6), ('crouch', 5), ('drink', 6)]
 DIRS = ['south', 'north', 'east', 'west']
+CELL = 48
 
-def warden():
-    sheet = Image.open(HERO + 'loke.png').convert('RGBA')
-    frames = {f['filename']: f['frame'] for f in json.load(open(HERO + 'loke.json'))['frames']}
-    cells = []
+def warden(frames):
+    cols = max(n for _, n in ANIMS)
+    out = Image.new('RGBA', (cols * CELL, len(ANIMS) * len(DIRS) * CELL), (0, 0, 0, 0))
+    row = 0
     for anim, n in ANIMS:
         for d in DIRS:
-            names = sorted([k for k in frames if k.rsplit('_', 1)[0] == f'{anim}_{d}'], key=lambda k: int(k.rsplit('_', 1)[1]))
-            assert len(names) == n, (anim, d, len(names))
-            cells.append([sheet.crop((frames[k]['x'], frames[k]['y'], frames[k]['x'] + frames[k]['w'], frames[k]['y'] + frames[k]['h'])) for k in names])
-    # The union of every frame's drawn pixels, so each cell is cut the same and the feet stay put.
-    boxes = [im.getbbox() for row in cells for im in row if im.getbbox()]
-    x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
-    x1, y1 = max(b[2] for b in boxes), max(b[3] for b in boxes)
-    w, h = x1 - x0, y1 - y0
-    cols = max(n for _, n in ANIMS)
-    out = Image.new('RGBA', (cols * w, len(cells) * h), (0, 0, 0, 0))
-    for r, row in enumerate(cells):
-        for c, im in enumerate(row):
-            out.paste(im.crop((x0, y0, x1, y1)), (c * w, r * h))
-    out.save(HERO + 'loke-ground.png', optimize=True)
-    print(f'warden: {w}x{h} cells, {cols} x {len(cells)} -> {HERO}loke-ground.png')
+            for c in range(n):
+                im = Image.open(f'{frames}/{anim}_{d}_{c}.png').convert('RGBA')
+                assert im.size == (CELL, CELL), (anim, d, c, im.size)
+                out.paste(im, (c * CELL, row * CELL))
+            row += 1
+    path = ROOT + 'characters/mistheim/heroes/warden/warden-ground.png'
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    out.save(path, optimize=True)
+    print(f'warden: {cols} x {row} cells of {CELL} -> {path}')
+
+def things(objects):
+    out = Image.new('RGBA', (4 * CELL, 4 * CELL), (0, 0, 0, 0))
+    for i in range(16):
+        im = Image.open(f'{objects}/obj_{i}.png').convert('RGBA')
+        assert im.size == (CELL, CELL), im.size
+        out.paste(im, ((i % 4) * CELL, (i // 4) * CELL))
+    path = ROOT + 'tilesets/artificer-ground/things.png'
+    out.save(path, optimize=True)
+    print(f'things: 16 -> {path}')
 
 # The ground tiles, in the order ground-view.ts GROUND_TILES reads them: (batch, tile number).
 # Batch 1 (PixelLab tiles f2743bd4…) and batch 2 (a50af1be…), 32 x 32, square top-down, in the
@@ -70,10 +77,11 @@ def ground(dirs):
         assert im.size == (32, 32), im.size
         out.paste(im, ((i % across) * 32, (i // across) * 32))
     path = ROOT + 'tilesets/artificer-ground/ground.png'
-    import os; os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     out.save(path, optimize=True)
     print(f'ground: {len(GROUND)} tiles -> {path}')
 
 if __name__ == '__main__':
-    warden()
     if len(sys.argv) >= 3: ground(sys.argv[1:3])
+    if len(sys.argv) >= 4: things(sys.argv[3])
+    if len(sys.argv) >= 5: warden(sys.argv[4])

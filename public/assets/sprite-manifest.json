@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-02T06:04:02.466Z",
-  "totalAssets": 4077,
-  "wiredCount": 1219,
-  "unwiredCount": 2858,
+  "generatedAt": "2026-11-02T06:52:25.851Z",
+  "totalAssets": 4078,
+  "wiredCount": 1212,
+  "unwiredCount": 2866,
   "categories": [
     {
       "category": ".",
@@ -3712,13 +3712,6 @@
         {
           "name": "loke",
           "url": "/assets/sprites/characters/mistheim/heroes/loke/loke.png",
-          "folder": "characters/mistheim/heroes/loke",
-          "category": "characters",
-          "wired": true
-        },
-        {
-          "name": "loke-ground",
-          "url": "/assets/sprites/characters/mistheim/heroes/loke/loke-ground.png",
           "folder": "characters/mistheim/heroes/loke",
           "category": "characters",
           "wired": true
@@ -7434,6 +7427,13 @@
           "wired": false
         },
         {
+          "name": "warden-ground",
+          "url": "/assets/sprites/characters/mistheim/heroes/warden/warden-ground.png",
+          "folder": "characters/mistheim/heroes/warden",
+          "category": "characters",
+          "wired": true
+        },
+        {
           "name": "wave_e",
           "url": "/assets/sprites/characters/npcs/ikibeki-commoner/wave_e.png",
           "folder": "characters/npcs/ikibeki-commoner",
@@ -9551,7 +9551,7 @@
     },
     {
       "category": "tilesets",
-      "count": 40,
+      "count": 41,
       "assets": [
         {
           "name": "arena_floor_colosseum",
@@ -9820,6 +9820,13 @@
           "wired": false
         },
         {
+          "name": "things",
+          "url": "/assets/sprites/tilesets/artificer-ground/things.png",
+          "folder": "tilesets/artificer-ground",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
           "name": "water_deep",
           "url": "/assets/sprites/tilesets/world/water_deep.png",
           "folder": "tilesets/world",
@@ -9851,7 +9858,7 @@
           "url": "/assets/sprites/trees/birch/mature/0.png",
           "folder": "trees/birch/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "0",
@@ -9928,7 +9935,7 @@
           "url": "/assets/sprites/trees/pine/mature/0.png",
           "folder": "trees/pine/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "0",
@@ -9984,7 +9991,7 @@
           "url": "/assets/sprites/trees/birch/mature/1.png",
           "folder": "trees/birch/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "1",
@@ -10061,7 +10068,7 @@
           "url": "/assets/sprites/trees/pine/mature/1.png",
           "folder": "trees/pine/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "1",
@@ -10222,7 +10229,7 @@
           "url": "/assets/sprites/trees/birch/mature/2.png",
           "folder": "trees/birch/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "2",
@@ -10299,7 +10306,7 @@
           "url": "/assets/sprites/trees/pine/mature/2.png",
           "folder": "trees/pine/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "2",
@@ -10348,7 +10355,7 @@
           "url": "/assets/sprites/trees/birch/mature/3.png",
           "folder": "trees/birch/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "3",
@@ -11188,7 +11195,7 @@
           "url": "/assets/sprites/trees/birch/objects/log.png",
           "folder": "trees/birch/objects",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "sapling-0",
