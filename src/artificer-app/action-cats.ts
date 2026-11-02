@@ -22,8 +22,13 @@
 import type { T } from '../artificer/i18n';
 import { esc } from './html';
 
-/** The palette's groups (camp-blocks.ts GROUPS), in the order the row shows them: the one list of them. */
-export const GROUP_KEYS = ['explore', 'provision', 'build', 'craft', 'carry', 'think'] as const;
+/**
+ * The palette's groups (camp-blocks.ts GROUPS), in the order the row shows them: the one list of
+ * them. Build, Craft and Carry were one each until the owner (#2025): "build, carry and craft all is
+ * the same core action … you craft something on all 3". They're one now, keyed `make` and called
+ * Craft (sv Tillverka): everything in it turns materials into something, but Make camp.
+ */
+export const GROUP_KEYS = ['explore', 'provision', 'make', 'think'] as const;
 export type GroupKey = typeof GROUP_KEYS[number];
 
 /** What the viewer picked last: a group, or `null` for all shut. Never picked: undefined. */
@@ -31,7 +36,7 @@ export type GroupPick = GroupKey | null;
 
 /** Each category's icon: the group's best-known action's icon (camp-blocks.ts ICON). */
 export const CAT_ICON: Readonly<Record<GroupKey, string>> = {
-  explore: '🧭', provision: '🌿', build: '🏕️', craft: '🔨', carry: '🎒', think: '📖',
+  explore: '🧭', provision: '🌿', make: '🔨', think: '📖',
 };
 
 export const isGroupKey = (k: unknown): k is GroupKey => typeof k === 'string' && (GROUP_KEYS as readonly string[]).includes(k);
@@ -86,6 +91,9 @@ export const GROUP_KEY = 'artificer.group';
 export type GroupStore = Pick<Storage, 'getItem' | 'setItem'>;
 const storage = (): GroupStore | null => { try { return globalThis.localStorage ?? null; } catch { return null; } };
 
+/** The groups Make took in (#2025): a pick of one of them, kept from before, opens Make. */
+const INTO_MAKE: readonly string[] = ['build', 'craft', 'carry'];
+
 /**
  * The pick kept in this browser for this Warden (`{ id, pick }`; pick null: all shut). Another
  * Warden's pick, junk or no storage: never picked.
@@ -94,7 +102,9 @@ export function loadGroupPick(characterId: string, store: GroupStore | null = st
   try {
     const raw = JSON.parse(store?.getItem(GROUP_KEY) ?? 'null') as { id?: unknown; pick?: unknown } | null;
     if (!raw || raw.id !== characterId) return undefined;
-    return raw.pick === null ? null : isGroupKey(raw.pick) ? raw.pick : undefined;
+    if (raw.pick === null) return null;
+    if (typeof raw.pick === 'string' && INTO_MAKE.includes(raw.pick)) return 'make';
+    return isGroupKey(raw.pick) ? raw.pick : undefined;
   } catch { return undefined; }
 }
 

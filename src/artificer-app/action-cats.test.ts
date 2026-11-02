@@ -36,14 +36,14 @@ const day1 = makeWarden({ id: 'w-2020' });
 beforeEach(() => resetFolds());
 
 describe('openGroup (#2020)', () => {
-  const known = ['explore', 'provision', 'build'] as const;
+  const known = ['explore', 'provision', 'make'] as const;
 
   it('Given no pick yet, Then the first group there is open (Explore)', () => {
     expect(openGroup(known, undefined)).toBe('explore');
   });
 
   it('Given a pick of a group that is there, Then that group is open', () => {
-    expect(openGroup(known, 'build')).toBe('build');
+    expect(openGroup(known, 'make')).toBe('make');
   });
 
   it('Given everything shut on purpose, Then none is open', () => {
@@ -51,11 +51,11 @@ describe('openGroup (#2020)', () => {
   });
 
   it('Given a pick of a group not there yet (nothing in it known), Then the first group is open instead', () => {
-    expect(openGroup(known, 'carry')).toBe('explore');
+    expect(openGroup(known, 'think')).toBe('explore');
   });
 
   it('Given an open chooser, Then its group is open whatever was picked, even all shut', () => {
-    expect(openGroup(known, 'build', 'provision')).toBe('provision');
+    expect(openGroup(known, 'make', 'provision')).toBe('provision');
     expect(openGroup(known, null, 'explore')).toBe('explore');
   });
 
@@ -66,11 +66,11 @@ describe('openGroup (#2020)', () => {
 
 describe('tapGroup (#2020)', () => {
   it('Given a shut category tapped, Then it opens (and the last one shuts)', () => {
-    expect(tapGroup('build', false)).toBe('build');
+    expect(tapGroup('make', false)).toBe('make');
   });
 
   it('Given the open category tapped, Then it shuts and none is open', () => {
-    expect(tapGroup('build', true)).toBeNull();
+    expect(tapGroup('make', true)).toBeNull();
   });
 });
 
@@ -84,7 +84,7 @@ describe('the row (#2020)', () => {
   });
 
   it('Given a category with nothing you can do now, Then it is dim but still a button', () => {
-    expect(catsRow([{ key: 'build', can: 0, suggested: false }], null, en)).toMatch(/<button type="button" class="cat none"/);
+    expect(catsRow([{ key: 'make', can: 0, suggested: false }], null, en)).toMatch(/<button type="button" class="cat none"/);
   });
 
   it('Given the guide suggests something in a shut category, Then it glows; open, it does not (the card glows)', () => {
@@ -94,10 +94,10 @@ describe('the row (#2020)', () => {
 
   it('Given Swedish, Then the short names are Swedish and every group has one in both languages', () => {
     const html = catsRow(GROUPS.map(g => ({ key: g.key, can: 1, suggested: false })), null, sv);
-    expect([...html.matchAll(/<span class="catname">([^<]*)<\/span>/g)].map(m => m[1])).toEqual(['Utforska', 'Samla', 'Bygga', 'Tillverka', 'Bära', 'Tänka']);
+    expect([...html.matchAll(/<span class="catname">([^<]*)<\/span>/g)].map(m => m[1])).toEqual(['Utforska', 'Samla', 'Tillverka', 'Tänka']);
     expect(html).toContain('aria-label="Samla: 1 som du kan göra nu"');
     expect([...catsRow(GROUPS.map(g => ({ key: g.key, can: 1, suggested: false })), null, en).matchAll(/<span class="catname">([^<]*)<\/span>/g)].map(m => m[1]))
-      .toEqual(['Explore', 'Gather', 'Build', 'Craft', 'Carry', 'Think']);
+      .toEqual(['Explore', 'Gather', 'Craft', 'Think']);
   });
 
   it('Given no categories, Then no row', () => {
@@ -117,9 +117,9 @@ describe('the palette with categories (#2020)', () => {
   });
 
   it('Given a pick, Then only that group shows', () => {
-    const html = palette(day1, { group: 'build' });
-    expect(panels(html).filter(p => !p.hidden).map(p => p.key)).toEqual(['build']);
-    expect(cats(html).filter(c => c.on).map(c => c.key)).toEqual(['build']);
+    const html = palette(day1, { group: 'make' });
+    expect(panels(html).filter(p => !p.hidden).map(p => p.key)).toEqual(['make']);
+    expect(cats(html).filter(c => c.on).map(c => c.key)).toEqual(['make']);
   });
 
   it('Given everything shut, Then just the row shows', () => {
@@ -129,7 +129,7 @@ describe('the palette with categories (#2020)', () => {
   });
 
   it('Given a chooser open on a card, Then its group shows whatever was picked', () => {
-    const html = palette(day1, { group: 'build', chooser: 'gather' });
+    const html = palette(day1, { group: 'make', chooser: 'gather' });
     expect(panels(html).filter(p => !p.hidden).map(p => p.key)).toEqual(['provision']);
     expect(html).toContain('class="ringpick');
   });
@@ -141,7 +141,7 @@ describe('the palette with categories (#2020)', () => {
   });
 
   it('Given the guide suggests Explore while another group is open, Then the Explore category glows', () => {
-    const html = palette(day1, { group: 'build', suggest: 'explore' });
+    const html = palette(day1, { group: 'make', suggest: 'explore' });
     expect(html).toMatch(/class="cat guide-suggest" id="cat-explore"/);
   });
 
@@ -158,8 +158,18 @@ describe('the palette with categories (#2020)', () => {
 
   it('Given a category with no card you can do now, Then its fold opens on the reasons (they are all there is to see)', () => {
     const items = [{ icon: '🎒', name: 'Craft backpack', why: 'make camp first' }];
-    expect(cantYetFold('carry', items, en, true)).toMatch(/^<details class="fold cantyet" data-fold="cantyet-carry" open>/);
-    expect(cantYetFold('carry', items, en)).not.toContain(' open>');
+    expect(cantYetFold('make', items, en, true)).toMatch(/^<details class="fold cantyet" data-fold="cantyet-make" open>/);
+    expect(cantYetFold('make', items, en)).not.toContain(' open>');
+  });
+
+  it('Given Make (#2025), Then it holds the building, the tools and the carrying gear, in that order, and there are four categories', () => {
+    const make = GROUPS.find(g => g.key === 'make')!.ids;
+    expect(make.indexOf('camp')).toBe(0);
+    expect(make.indexOf('build')).toBeLessThan(make.indexOf('knife'));
+    expect(make.indexOf('knife')).toBeLessThan(make.indexOf('backpack'));
+    expect(GROUPS.map(g => g.key)).toEqual(['explore', 'provision', 'make', 'think']);
+    expect(groupOf('sled')).toBe('make');
+    expect(groupOf('coldPit')).toBe('make');
   });
 
   it('Given every group, Then each action is in exactly one, which groupOf names', () => {
@@ -182,18 +192,26 @@ describe('the pick in the browser (#2020)', () => {
 
   it('Given a pick saved, Then it comes back for that Warden; all shut comes back as null', () => {
     const s = memory();
-    saveGroupPick('w-a', 'craft', s);
-    expect(JSON.parse(s.getItem(GROUP_KEY)!)).toEqual({ id: 'w-a', pick: 'craft' });
-    expect(loadGroupPick('w-a', s)).toBe('craft');
+    saveGroupPick('w-a', 'think', s);
+    expect(JSON.parse(s.getItem(GROUP_KEY)!)).toEqual({ id: 'w-a', pick: 'think' });
+    expect(loadGroupPick('w-a', s)).toBe('think');
     saveGroupPick('w-a', null, s);
     expect(loadGroupPick('w-a', s)).toBeNull();
   });
 
   it('Given a pick made for another Warden, Then a new Warden has none (Explore opens, where the guide points)', () => {
     const s = memory();
-    saveGroupPick('w-old', 'build', s);
+    saveGroupPick('w-old', 'make', s);
     expect(loadGroupPick('w-new', s)).toBeUndefined();
-    expect(openGroup(['explore', 'provision', 'build'], loadGroupPick('w-new', s))).toBe('explore');
+    expect(openGroup(['explore', 'provision', 'make'], loadGroupPick('w-new', s))).toBe('explore');
+  });
+
+  it('Given a pick of Build, Craft or Carry kept from before they were one (#2025), Then Make opens', () => {
+    const s = memory();
+    for (const old of ['build', 'craft', 'carry']) {
+      s.setItem(GROUP_KEY, JSON.stringify({ id: 'w-a', pick: old }));
+      expect(loadGroupPick('w-a', s)).toBe('make');
+    }
   });
 
   it('Given junk kept, or storage that refuses, Then no pick and no throw', () => {
@@ -204,7 +222,7 @@ describe('the pick in the browser (#2020)', () => {
     }
     const refuses = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } } as unknown as Storage;
     expect(loadGroupPick('w-a', refuses)).toBeUndefined();
-    expect(() => saveGroupPick('w-a', 'build', refuses)).not.toThrow();
+    expect(() => saveGroupPick('w-a', 'make', refuses)).not.toThrow();
     expect(loadGroupPick('w-a', null)).toBeUndefined();
   });
 });
