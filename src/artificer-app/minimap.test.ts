@@ -1,8 +1,8 @@
 /**
  * The minimap (#2016, minimap.ts). The look is exempt (`ui-hud`: screenshots and a browser spec,
  * tests/artificer-minimap.spec.ts); what can be checked without a browser: the squares around a
- * place (the land's edge, camp), the squares an action walked, where along its walk the Warden is
- * at each point of the action, and what the HTML says.
+ * place (the land's edge, camp), the squares an action walked, and what the HTML says. Where the
+ * Warden is along a walk is the ground's now (#2022, ground-view.test.ts).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,7 +11,7 @@ import { runAction, type QueueItem } from '../artificer/region1';
 import { WALK_THE_MAP } from '../artificer/walk-the-map';
 import { landOfRun } from '../artificer/world/hex-window';
 import { enqueue, makeWarden, type AppState } from './controller';
-import { MINI_R, miniAround, minimapHtml, placesOf, roundTrip, stepWalk, walkPos, walkPosByLegs, walkShare, type At } from './minimap';
+import { MINI_R, miniAround, minimapHtml, placesOf, roundTrip, stepWalk, type At } from './minimap';
 import { playDay } from './playback';
 
 const en = makeT('en');
@@ -88,60 +88,13 @@ describe('the squares an action walked (#2016)', () => {
   });
 });
 
-describe('where along the walk the Warden is (#2016)', () => {
+describe('a walk there and back (#2016)', () => {
   const A = { x: 0, y: 0 }, B = { x: 1, y: 0 }, C = { x: 2, y: 0 };
-  const there = [A, B, C, B, A];
 
-  it('a trip there and back: out at the start, at the far end for the work, back at the end', () => {
-    expect(walkPos(there, 0)).toEqual(A);
-    expect(walkPos(there, 0.5)).toEqual(C);
-    expect(walkPos(there, 1)).toEqual(A);
-    // Walking out: past the first square before the far end.
-    expect(walkPos(there, 0.15)).toEqual(B);
-    expect(walkPos(there, 0.85)).toEqual(B);
-  });
-
-  it('the walk takes the share of the time its squares take, half an hour each, between 5% and 45%', () => {
-    expect(walkShare(there, 10)).toBeCloseTo(0.1);
-    expect(walkShare(there, 1)).toBe(0.45);
-    expect(walkShare([A, B, A], 100)).toBe(0.05);
-    expect(walkShare(there)).toBe(0.3);
-    // A ten-hour trip two squares out: the Warden is out there by 10% of the way, and still there at 85%.
-    expect(walkPos(there, 0.1, 10)).toEqual(C);
-    expect(walkPos(there, 0.85, 10)).toEqual(C);
-  });
-
-  it('a walk that ends elsewhere (heading out) is walked evenly', () => {
-    const out = [A, B, C];
-    expect(walkPos(out, 0)).toEqual(A);
-    expect(walkPos(out, 0.5)).toEqual(B);
-    expect(walkPos(out, 1)).toEqual(C);
-  });
-
-  it('nowhere to walk: where they stand', () => {
-    expect(walkPos([A], 0.7)).toEqual(A);
-  });
-
-  it('a walk there and back ends where it started', () => {
-    expect(roundTrip(there)).toBe(true);
+  it('ends where it started', () => {
+    expect(roundTrip([A, B, C, B, A])).toBe(true);
     expect(roundTrip([A, B, C])).toBe(false);
     expect(roundTrip([A])).toBe(false);
-  });
-
-  it('a session (#1668) walks by its legs, as the timer\'s bar plays them: each trip out, there, back', () => {
-    // Two trips, each 1h out, 2h of work, 1h back: 8 hours.
-    const legs = [{ kind: 'out' as const, hours: 1 }, { kind: 'work' as const, hours: 2 }, { kind: 'back' as const, hours: 1 }];
-    const two = [...legs, ...legs];
-    const at = (h: number) => walkPosByLegs(there, two, h / 8);
-    expect(at(0)).toEqual(A);
-    expect(at(0.5)).toEqual(B);
-    expect(at(1.5)).toEqual(C);
-    expect(at(3.5)).toEqual(B);
-    // The second trip starts at camp again, and walks the same path.
-    expect(at(4)).toEqual(A);
-    expect(at(4.5)).toEqual(B);
-    expect(at(6)).toEqual(C);
-    expect(at(8)).toEqual(A);
   });
 });
 
@@ -162,12 +115,7 @@ describe('the minimap\'s HTML (#2016)', () => {
   });
 
   it('says where you stand in Swedish too', () => {
-    expect(minimapHtml(sq, sv, { size: 'lg', id: 'pb-mini' })).toContain('class="minimap mm-lg" id="pb-mini" role="img" aria-label="Där du står: Björkskog"');
+    expect(minimapHtml(sq, sv, { size: 'sm' })).toContain('class="minimap mm-sm" role="img" aria-label="Där du står: Björkskog"');
   });
 
-  it('slides in from the last square, one step at most; a jump just redraws', () => {
-    expect(minimapHtml(sq, en, { size: 'lg', slide: { dx: 1, dy: 0 } })).toContain('<div class="mmgrid slide" style="--dx:1;--dy:0">');
-    expect(minimapHtml(sq, en, { size: 'lg', slide: { dx: 0, dy: 0 } })).toContain('<div class="mmgrid">');
-    expect(minimapHtml(sq, en, { size: 'lg', slide: { dx: 3, dy: 0 } })).toContain('<div class="mmgrid">');
-  });
 });

@@ -8,13 +8,13 @@
  * colors it. Only the squares next to you, which you'd see standing there: it is not the drawn map,
  * which still has to be learned (`map-learning`).
  *
- * The movement comes from the day's timer (#1669): while an action plays, the Warden steps along the
- * squares it walked (today's `trail`, which `walk-the-map` records), out to the work, a while there
- * and back, and the view slides one square at a time.
+ * While the day plays, the timer shows the ground instead, zoomed in to about 2 m a square, the
+ * Warden walking the squares each action walked (`stepWalk`; ground-view.ts, #2022). This one stays
+ * the zoomed-out view, in the status line: the land around you.
  *
- * Pure: the squares, the walk and where along it the Warden is, from the state alone, so a test can
- * check them without a browser. main.ts draws them. Presentation only: nothing here is saved, and
- * the play API, the console and AI players never see it.
+ * Pure: the squares and the walk, from the state alone, so a test can check them without a browser.
+ * main.ts draws them. Presentation only: nothing here is saved, and the play API, the console and AI
+ * players never see it.
  */
 
 import type { T } from '../artificer/i18n';
@@ -35,7 +35,7 @@ export interface MiniSquare {
   camp: boolean;
 }
 
-/** How many squares out from the middle are drawn: 2, a 5 × 5 grid, of which the middle 3 × 3 shows; the ring outside is there for the slide. */
+/** How many squares out from the middle are drawn: 2, a 5 × 5 grid, of which the middle 3 × 3 shows (the ring outside was for the timer's slide, before the ground took its place, #2022). */
 export const MINI_R = 2;
 
 /**
@@ -47,12 +47,19 @@ export function miniAround(land: Land, at: At, camp: At | null, r = MINI_R): Min
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const x = at.x + dx, y = at.y + dy;
-      const inside = x >= 0 && y >= 0 && x < land.w && y < land.h;
-      out.push({ biome: inside ? land.cells[y * land.w + x].biome : null, camp: !!camp && camp.x === x && camp.y === y });
+      out.push({ biome: biomeAt(land, { x, y }), camp: !!camp && camp.x === x && camp.y === y });
     }
   }
   return out;
 }
+
+/** A cell's biome; null past the land's edge (never another row's cell). */
+export function biomeAt(land: Pick<Land, 'w' | 'h' | 'cells'>, at: At): Biome | null {
+  return at.x >= 0 && at.y >= 0 && at.x < land.w && at.y < land.h ? land.cells[at.y * land.w + at.x].biome : null;
+}
+
+/** What a screen reader hears of a minimap, the status line's or the timer's ground: "Where you stand: Birch wood". */
+export const hereLabel = (here: Biome | null, t: T): string => (here ? t('mini.label', { here: t(`biome.${here}`) }) : t('mini.labelBare'));
 
 /** Where the Warden stands in this state, and camp's square (null before camp), on the run's land. */
 export function placesOf(s: Region1State, land: Land = landOfRun(s)): { at: At; camp: At | null } {
@@ -96,87 +103,24 @@ export const roundTrip = (walk: readonly At[]): boolean =>
 /** A leg of a trip as the timer plays it (playback.ts `Phase`): walking out, working there, walking back. */
 export interface Leg { kind: 'out' | 'work' | 'back'; hours: number }
 
-/**
- * Where along a walk there and back the Warden is, `frac` of the way through an action played as
- * `legs` (a session of chosen length, #1668: out, work, back for each trip, on the same path), so the
- * minimap and the timer's bar agree on whether the Warden is walking or working.
- */
-export function walkPosByLegs(walk: readonly At[], legs: readonly Leg[], frac: number): At {
-  const n = walk.length;
-  if (n <= 1 || !legs.length) return walk[0];
-  const far = Math.floor((n - 1) / 2);
-  const total = legs.reduce((h, l) => h + l.hours, 0);
-  let at = Math.min(1, Math.max(0, frac)) * total;
-  for (let k = 0; k < legs.length; k++) {
-    const l = legs[k];
-    if (at < l.hours || k === legs.length - 1) {
-      const lf = l.hours > 0 ? Math.min(1, at / l.hours) : 1;
-      if (l.kind === 'work') return walk[far];
-      if (l.kind === 'out') return walk[Math.round(lf * far)];
-      return walk[Math.min(n - 1, far + Math.round(lf * (n - 1 - far)))];
-    }
-    at -= l.hours;
-  }
-  return walk[n - 1];
-}
-
 /** A square of the land is about half an hour's walk across (worldmap/reach.ts). */
 export const SQUARE_HOURS = 0.5;
 
-/**
- * Of a trip's time, the share spent walking out (and the same back): its squares at half an hour
- * each, over the action's hours, kept between 5% and 45% so the work always shows and so does the
- * walk. Without the hours, 30%.
- */
-export function walkShare(walk: readonly At[], hours?: number): number {
-  if (!hours || hours <= 0) return 0.3;
-  const out = (Math.floor((walk.length - 1) / 2) * SQUARE_HOURS) / hours;
-  return Math.min(0.45, Math.max(0.05, out));
-}
-
-/**
- * Where along its walk the Warden is, `frac` (0..1) of the way through the action (`hours` long). A
- * trip there and back (it ends where it started) walks out over the first part of the time
- * (`walkShare`), stays at the far end for the work, and walks back over the last part. A walk that
- * ends elsewhere (heading out) is walked evenly over the whole action.
- */
-export function walkPos(walk: readonly At[], frac: number, hours?: number): At {
-  const n = walk.length;
-  if (n <= 1) return walk[0];
-  const f = Math.min(1, Math.max(0, frac));
-  if (!roundTrip(walk)) return walk[Math.min(n - 1, Math.floor(f * n))];
-  // The far end: the square furthest along the way out (the middle of a path walked there and back).
-  const far = Math.floor((n - 1) / 2);
-  const share = walkShare(walk, hours);
-  const at = f < share ? (f / share) * far
-    : f <= 1 - share ? far
-      : far + ((f - (1 - share)) / share) * (n - 1 - far);
-  return walk[Math.min(n - 1, Math.round(at))];
-}
-
-/** How the minimap is drawn: its size, and the step it slides in from (the last square to this one), if any. */
+/** How the minimap is drawn: its size (the status line's; the timer draws the ground, #2022). */
 export interface MiniOpts {
-  size: 'sm' | 'lg';
-  /** The move just made, one square at most each way: the view slides in from where it was. */
-  slide?: { dx: number; dy: number } | null;
-  /** The element's id, for the timer to redraw it in place. */
-  id?: string;
+  size: 'sm';
 }
 
 /**
  * The minimap's HTML: a frame three squares across, over a 5 × 5 grid of squares (`MINI_R`) set one
- * square in, so the middle 3 × 3 shows. Sliding moves the whole grid in from the last square, so the
- * squares coming into view are already drawn. It's a picture of the squares around you, so a screen
- * reader hears where you stand ("Where you stand: Birch wood") rather than nine squares.
+ * square in, so the middle 3 × 3 shows. It's a picture of the squares around you, so a screen reader
+ * hears where you stand ("Where you stand: Birch wood") rather than nine squares.
  */
 export function minimapHtml(squares: readonly MiniSquare[], t: T, o: MiniOpts): string {
-  const mid = squares[Math.floor(squares.length / 2)];
-  const label = mid?.biome ? t('mini.label', { here: t(`biome.${mid.biome}`) }) : t('mini.labelBare');
+  const label = hereLabel(squares[Math.floor(squares.length / 2)]?.biome ?? null, t);
   const cells = squares.map((q, k) => {
     const cls = [q.biome ? `mm-${q.biome}` : 'mm-out', q.camp ? 'mm-camp' : '', k === Math.floor(squares.length / 2) ? 'mm-here' : ''].filter(Boolean).join(' ');
     return `<i class="${cls}"></i>`;
   }).join('');
-  const s = o.slide && (o.slide.dx || o.slide.dy) && Math.abs(o.slide.dx) <= 1 && Math.abs(o.slide.dy) <= 1 ? o.slide : null;
-  const grid = `<div class="mmgrid${s ? ' slide' : ''}"${s ? ` style="--dx:${s.dx};--dy:${s.dy}"` : ''}>${cells}</div>`;
-  return `<div class="minimap mm-${o.size}"${o.id ? ` id="${o.id}"` : ''} role="img" aria-label="${esc(label)}">${grid}</div>`;
+  return `<div class="minimap mm-${o.size}" role="img" aria-label="${esc(label)}"><div class="mmgrid">${cells}</div></div>`;
 }

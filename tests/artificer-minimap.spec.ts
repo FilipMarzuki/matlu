@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 /**
  * #2016 — the minimap, in a real browser: nine squares around the Warden, top-down. On a tablet it's
  * in the status line; on a phone, where the status line has no room, at the start of the queue's
- * strip. Either way the status line stays one line. While a day plays, the timer's bigger minimap
- * walks the Warden out to the work and back: its middle square changes as the trip plays. No page
- * errors, no sideways scroll.
+ * strip. Either way the status line stays one line. While a day plays, the timer shows the ground
+ * (#2022): 3 × 3 squares of about 2 m, the Warden walking out to the work and back, so what it draws
+ * keeps changing. No page errors, no sideways scroll.
  *
  * SHOTS=<dir> also saves screenshots there.
  */
@@ -66,18 +66,33 @@ for (const lang of ['en', 'sv'] as const) {
 }
 
 for (const [label, width, height] of [['tablet', 1024, 700], ['phone', 400, 860]] as const) {
-  test(`${label}: while the day plays, the Warden walks the timer's minimap out to the work`, async ({ page }) => {
+  test(`${label}: while the day plays, the Warden walks the ground in the timer out to the work`, async ({ page }) => {
     const errors = await openPlan(page, width, height);
     await page.locator('[data-cmd="day"]:visible').first().click();
-    const mini = page.locator('.timer #pb-mini');
-    await expect(mini).toBeVisible();
-    await page.locator('.timer [data-speed="4"]').click();
-    // The squares around the Warden, as drawn: they change as the Warden steps onto another square.
-    const view = (): Promise<string> => mini.evaluate(m => [...m.querySelectorAll('i')].map(i => i.className).join('|')).catch(() => '');
-    const first = await view();
-    await expect.poll(view, { timeout: 20_000, intervals: [250] }).not.toBe(first);
+    const ground = page.locator('.timer canvas#pb-ground');
+    await expect(ground).toBeVisible();
+    await expect(ground).toHaveAttribute('role', 'img');
+    await expect(ground).toHaveAttribute('aria-label', /^Where you stand: /);
+    // Square, and a thumb's width or more.
+    const box = (await ground.boundingBox())!;
+    expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(1);
+    expect(box.width).toBeGreaterThanOrEqual(90);
+    // What it draws, a few frames apart, at the timer's own pace: the ground going by, the Warden walking.
+    const frame = (): Promise<string> => ground.evaluate(c => (c as HTMLCanvasElement).toDataURL()).catch(() => '');
+    const frames = new Set<string>();
+    for (let k = 0; k < 6; k++) { frames.add(await frame()); await page.waitForTimeout(400); }
+    expect(frames.size).toBeGreaterThan(2);
+    // The tiles and the Warden are drawn, not just the flat colours shown while they load: many colours.
+    const colours = (): Promise<number> => ground.evaluate(c => {
+      const cv = c as HTMLCanvasElement;
+      const d = cv.getContext('2d')!.getImageData(0, 0, cv.width, cv.height).data;
+      const seen = new Set<number>();
+      for (let i = 0; i < d.length; i += 4) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
+    });
+    await expect.poll(colours, { timeout: 10_000 }).toBeGreaterThan(20);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    if (SHOTS) await page.locator('.timer').screenshot({ path: `${SHOTS}/2016-timer-${label}.png` });
+    if (SHOTS) await page.locator('.timer').screenshot({ path: `${SHOTS}/2022-timer-${label}.png` });
     expect(errors).toEqual([]);
   });
 }

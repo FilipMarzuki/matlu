@@ -458,23 +458,22 @@
    Nine squares around the Warden, top-down: a frame three squares across over a 5 × 5 grid set one
    square in, so the middle 3 × 3 shows. Each square is a cell of the land (about half an hour's
    walk), filled in its biome's color (the drawn map's hues). The Warden is the dot in the middle,
-   camp a gold outline. When the Warden steps onto the next square, the grid slides in from the
-   last one (`--dx`, `--dy`): the squares coming into view are already drawn. */
+   camp a gold outline. While the day plays, the timer shows the ground instead (#2022, below). */
 .minimap { --c: 12px; position: relative; flex: none; width: calc(var(--c) * 3); height: calc(var(--c) * 3); overflow: hidden;
   border: 1px solid var(--border2); border-radius: 6px; background: var(--sub2); }
-.minimap.mm-lg { --c: 20px; border-radius: 8px; }
 .mmgrid { position: absolute; left: calc(var(--c) * -1); top: calc(var(--c) * -1); display: grid; grid-template-columns: repeat(5, var(--c)); grid-auto-rows: var(--c); }
 .mmgrid > i { position: relative; display: block; }
-.mmgrid.slide { animation: mm-slide .45s ease-out; }
-@keyframes mm-slide { from { transform: translate(calc(var(--dx) * var(--c)), calc(var(--dy) * var(--c))); } to { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .mmgrid.slide { animation: none; } }
 .mm-lake { background: #3b78a0; } .mm-river { background: #4f9cc8; } .mm-marsh { background: #5d8c78; } .mm-meadow { background: #9dbf6a; }
 .mm-heath { background: #a99158; } .mm-birch { background: #77b36c; } .mm-pine { background: #3d7448; } .mm-scree { background: #8b8b86; }
 .mm-fell { background: #b9b9c6; } .mm-snow { background: #eef2f6; } .mm-out { background: var(--sub2); }
 .mm-camp { box-shadow: inset 0 0 0 2px var(--gold); }
 .mm-here::after { content: ''; position: absolute; inset: 27%; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--bg); }
-/* In the timer, beside the action's row and its bar, the two stacked to its right. */
+/* In the timer, beside the action's row and its bar, the two stacked to its right: the ground under
+   the Warden (#2022, ground-draw.ts), 3 × 3 squares of about 2 m, in pixel art. */
 .timer .twalk { display: flex; align-items: center; gap: 10px; }
+.timer .ground { flex: none; width: 96px; height: 96px; border-radius: 8px; background: #1c1c25; image-rendering: pixelated;
+  box-shadow: 0 0 0 1px var(--border2); }
+@media (min-width: 700px) { .timer .ground { width: 120px; height: 120px; } }
 .timer .tmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 /* On a phone the status line has no room (the key box would take a second row): the minimap sits at
    the start of the queue's strip instead, at the top of PLAN. */
