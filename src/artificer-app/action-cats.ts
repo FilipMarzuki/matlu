@@ -25,7 +25,8 @@ import { esc } from './html';
 /**
  * The palette's groups (camp-blocks.ts GROUPS), in the order the row shows them: the one list of
  * them. Build, Craft and Carry were one each until the owner (#2025): "build, carry and craft all is
- * the same core action". They're Make now.
+ * the same core action … you craft something on all 3". They're one now, keyed `make` and called
+ * Craft (sv Tillverka): everything in it turns materials into something, but Make camp.
  */
 export const GROUP_KEYS = ['explore', 'provision', 'make', 'think'] as const;
 export type GroupKey = typeof GROUP_KEYS[number];

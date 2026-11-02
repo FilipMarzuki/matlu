@@ -97,7 +97,7 @@ describe('the row (#2020)', () => {
     expect([...html.matchAll(/<span class="catname">([^<]*)<\/span>/g)].map(m => m[1])).toEqual(['Utforska', 'Samla', 'Tillverka', 'Tänka']);
     expect(html).toContain('aria-label="Samla: 1 som du kan göra nu"');
     expect([...catsRow(GROUPS.map(g => ({ key: g.key, can: 1, suggested: false })), null, en).matchAll(/<span class="catname">([^<]*)<\/span>/g)].map(m => m[1]))
-      .toEqual(['Explore', 'Gather', 'Make', 'Think']);
+      .toEqual(['Explore', 'Gather', 'Craft', 'Think']);
   });
 
   it('Given no categories, Then no row', () => {
