@@ -33,7 +33,10 @@ import { TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/t
 import { generateReach, type Reach } from '../artificer/world/reach';
 import { worldKey, type RoadAnchors } from '../artificer/world/provinces';
 import { roadAnchorsOf, hexWorldOn, landOfRun, type Land } from '../artificer/world/hex-window';
-import { miniAround, minimapHtml, placesOf, roundTrip, stepWalk, walkPos, walkPosByLegs, type At } from './minimap';
+import { miniAround, minimapHtml, placesOf, stepWalk } from './minimap';
+import { cellOf, middleOf, poseAt, sceneOf, type GroundWorld, type Need, type Pose, type Scene as GroundScene } from './ground-view';
+import { drawGround } from './ground-draw';
+import { TASK_NEED } from '../artificer/walk-the-map';
 import { TIER_NAME } from '../artificer/world/settlements';
 import { cultureName } from '../artificer/world/peoples';
 import { keptHistory, keptOuterHistory, roadAnchorsOfHistory, type ReachHistory, type OuterHistory } from '../artificer/world/history-format';
@@ -97,7 +100,7 @@ import { pickerNeeded, storedLang, storeLang } from './lang';
 import { esc, pct, wardenButton } from './html';
 import { weatherRow, weatherToggle, weatherUnder } from './weather-row';
 import { WIDE_TOP_QUERY } from './wide-top';
-import { isBlizzard, BLIZZARD_HOURS } from '../artificer/weather';
+import { isBlizzard, BLIZZARD_HOURS, iceOn } from '../artificer/weather';
 import { loadGroupPick, saveGroupPick, isGroupKey, tapGroup, type GroupPick } from './action-cats';
 import { ICON, groupOf, haulWord, paletteBlock, weatherBox, weatherChips, storesRow, coldBlock, meatBlock, nightBlock, vitalsBlock, sitesBlock, toolsBlock, firstJournalLine, stepName, phaseText, outcomeCard, distanceItem, type Preview } from './camp-blocks';
 import { DIRS, type Way } from '../artificer/directed-explore';
@@ -2118,35 +2121,69 @@ document.addEventListener('keydown', e => {
   targets[next].focus();
 }, true);
 
-/** Where the timer's minimap last put the Warden (#2016), so a frame redraws it only when they step onto another square. */
-let miniDrawn: At | null = null;
-/** Each action's walk (minimap.ts `stepWalk`), worked out once per action played. */
-const walks = new WeakMap<PlayStep, At[]>();
+/** Each action as the timer's ground plays it (#2022, ground-view.ts), worked out once per action played. */
+const scenes = new WeakMap<PlayStep, GroundScene>();
+
+/** The ground's world for a state (#2022): its land, camp, and whether snow lies and the water is iced. */
+function groundWorldOf(s: AppState['sim'], land: Land, extra?: GroundScene['extra']): GroundWorld {
+  return { land, camp: placesOf(s, land).camp, snow: (s.snowDepth ?? 0) > 0, ice: iceOn(s.day, s.config.calendar), extra };
+}
 
 /**
- * Where the Warden is on the timer's minimap at this moment: along the action's walk, or where the
- * day left them. A session of chosen length (#1668) walks by its legs, as the timer's bar shows
- * them (out, work, back, each trip); any other trip by its walk's length.
+ * An action as the timer's ground plays it: the way it walked (minimap.ts `stepWalk`), and what it
+ * goes to (walk-the-map's TASK_NEED; anything else is work at camp, and a skipped one does nothing).
  */
-function timerMiniAt(p: DayPlay, m: Moment, land: Land): At {
-  const st = p.steps[m.index];
-  if (!st) return placesOf(p.steps[p.steps.length - 1]?.sim ?? p.before.sim, land).at;
-  let walk = walks.get(st);
-  if (!walk) { walk = stepWalk(m.index > 0 ? p.steps[m.index - 1].sim : p.before.sim, st.sim, land); walks.set(st, walk); }
-  return st.phases && roundTrip(walk) ? walkPosByLegs(walk, st.phases, m.frac) : walkPos(walk, m.frac, st.hours);
+function groundSceneFor(p: DayPlay, i: number, land: Land): GroundScene {
+  const st = p.steps[i];
+  let sc = scenes.get(st);
+  if (!sc) {
+    const before = i > 0 ? p.steps[i - 1].sim : p.before.sim;
+    const id = parseItem(st.item).id;
+    const need: Need | null = st.hours > 0 ? ((TASK_NEED[id] as Need | undefined) ?? 'camp') : null;
+    sc = sceneOf(stepWalk(before, st.sim, land), need, id, groundWorldOf(before, land));
+    scenes.set(st, sc);
+  }
+  return sc;
 }
 
-/** The timer's minimap (#2016): bigger than the status line's, the Warden at `at`, sliding in from the last square (`slide`) as they walk. */
-function timerMini(pl: Playing, land: Land, at: At, slide: { dx: number; dy: number } | null): string {
-  miniDrawn = at;
-  return minimapHtml(miniAround(land, at, placesOf(shownNow(pl).sim, land).camp), t, { size: 'lg', slide, id: 'pb-mini' });
-}
-
-/** The timer's minimap where the timer is now. */
-function timerMiniNow(pl: Playing): string {
+/**
+ * The Warden on the timer's ground at this moment (#2022): along the action's way, at its work, or,
+ * once the day has played out, home by the fire. A session of chosen length (#1668) walks by its
+ * legs, as the timer's bar shows them.
+ */
+function groundNow(pl: Playing): { world: GroundWorld; pose: Pose } {
   const p = pl.plays[pl.day];
+  const m = momentOf(pl);
   const land = landOfRun(p.before.sim);
-  return timerMini(pl, land, timerMiniAt(p, momentOf(pl), land), null);
+  const st = p.steps[m.index];
+  if (!st) {
+    const last = p.steps[p.steps.length - 1]?.sim ?? p.before.sim;
+    return { world: groundWorldOf(last, land), pose: { at: middleOf(placesOf(last, land).at), facing: 'east', anim: 'idle' } };
+  }
+  const sc = groundSceneFor(p, m.index, land);
+  const before = m.index > 0 ? p.steps[m.index - 1].sim : p.before.sim;
+  return { world: groundWorldOf(before, land, sc.extra), pose: poseAt(sc, m.frac, st.hours, st.phases) };
+}
+
+/** What a screen reader hears of the ground: where the Warden stands ("Where you stand: Birch wood"). */
+function groundLabel(world: GroundWorld, pose: Pose): string {
+  const c = cellOf(pose.at.x, pose.at.y);
+  const biome = world.land.cells[c.y * world.land.w + c.x]?.biome;
+  return biome ? t('mini.label', { here: t(`biome.${biome}`) }) : t('mini.labelBare');
+}
+
+/** The timer's ground (#2022): a canvas, drawn every frame by `tickTimer`. */
+function timerGround(pl: Playing): string {
+  const { world, pose } = groundNow(pl);
+  return `<canvas class="ground" id="pb-ground" role="img" aria-label="${esc(groundLabel(world, pose))}"></canvas>`;
+}
+
+/** Draw the timer's ground for this frame, and say where the Warden stands when that changes. */
+function paintGround(cv: HTMLCanvasElement, pl: Playing, now: number): void {
+  const { world, pose } = groundNow(pl);
+  drawGround(cv, world, pose, now, () => { if (playing === pl) paintGround(cv, pl, performance.now()); });
+  const label = groundLabel(world, pose);
+  if (cv.getAttribute('aria-label') !== label) cv.setAttribute('aria-label', label);
 }
 
 /** The timer's sheet, along the bottom of the screen: clock, the day's strip, the action's bar, what's happened. */
@@ -2162,7 +2199,7 @@ function timerPanel(): string {
       <span class="tspeed" role="group" aria-label="${esc(t('timer.speed'))}">${SPEEDS.map(x => `<button class="pill" data-speed="${x}" aria-pressed="${speed === x}">${x}×</button>`).join('')}</span>
       <button class="btn go tskip" data-pbskip title="${esc(t('timer.skipTip'))}">${esc(t('timer.skip'))}</button></div>
     <div class="tstrip" aria-hidden="true"><span class="tsfill" id="pb-day"></span></div>
-    <div class="twalk">${timerMiniNow(pl)}<div class="tmain">
+    <div class="twalk">${timerGround(pl)}<div class="tmain">
     <div class="tnow"><span class="tname">${stepName(p, m, t)}</span><span class="tphase" id="pb-phase">${esc(phaseText(p, m, t, dev))}</span><span class="tcount">${night ? '' : `${m.index + 1} / ${p.steps.length}`}</span>${stopPoint(p, m) ? `<button class="btn tstop" data-pbstop title="${esc(t('timer.stopTip'))}">${esc(t('timer.stop'))}</button>` : ''}</div>
     <div class="tbar" role="progressbar" aria-label="${esc(t('timer.action'))}" aria-valuemin="0" aria-valuemax="100"><span class="tfill" id="pb-bar"></span></div></div></div>
     <ul class="tlog" id="pb-log" aria-live="polite">${timerLog(pl, performance.now())}</ul>
@@ -2213,14 +2250,9 @@ function tickTimer(pl: Playing, now: number): void {
   }
   const clock = document.getElementById('pb-clock');
   if (clock) clock.textContent = timerClock(p.before.sim, m.clock, t, dev);
-  // The Warden walks the minimap (#2016): redrawn only when they step onto another square, sliding in from the last.
-  const mini = document.getElementById('pb-mini');
-  if (mini) {
-    const land = landOfRun(p.before.sim);
-    const at = timerMiniAt(p, m, land);
-    const was = miniDrawn;
-    if (!was || was.x !== at.x || was.y !== at.y) mini.outerHTML = timerMini(pl, land, at, was ? { dx: at.x - was.x, dy: at.y - was.y } : null);
-  }
+  // The Warden walks the ground (#2022): drawn every frame, the walk and the work as they play.
+  const ground = document.getElementById('pb-ground');
+  if (ground instanceof HTMLCanvasElement) paintGround(ground, pl, now);
   const bar = document.getElementById('pb-bar');
   if (bar) {
     bar.style.width = `${Math.round(m.frac * 1000) / 10}%`;
