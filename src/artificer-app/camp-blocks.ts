@@ -55,9 +55,8 @@ export type Preview = ReturnType<typeof previewQueue>;
 export const GROUPS: { key: GroupKey; ids: ActionId[] }[] = [
   { key: 'explore', ids: ['explore', 'scout', 'survey', 'track', 'lookout', 'needlecompass'] },
   { key: 'provision', ids: ['gather', 'traps', 'hunt', 'water', 'wood', 'gatherstone', 'quarry', 'fish', 'preserve', 'storemeat', 'bankfire'] },
-  { key: 'build', ids: ['camp', 'build', 'coldPit', 'lidpit', 'coldGear'] },
-  { key: 'craft', ids: ['knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel'] },
-  { key: 'carry', ids: ['basket', 'backpack', 'harness', 'sled'] },
+  // Make (#2025): building first, then the tools, then the carrying gear.
+  { key: 'make', ids: ['camp', 'build', 'coldPit', 'lidpit', 'coldGear', 'knife', 'snare', 'sling', 'bow', 'hookline', 'waterskin', 'bedroll', 'shovel', 'basket', 'backpack', 'harness', 'sled'] },
   { key: 'think', ids: ['study', 'experiment', 'drawmap', 'tinker', 'rest', 'treat'] },
 ];
 

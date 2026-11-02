@@ -185,16 +185,12 @@ const core = {
   // The action palette's groups: whole names, said by a category's button (#2020).
   'group.explore': 'Explore',
   'group.provision': 'Provision',
-  'group.build': 'Build',
-  'group.craft': 'Craft tools',
-  'group.carry': 'Carrying gear',
+  'group.make': 'Build & make',
   'group.think': 'Think & recover',
   // The categories' row (#2020, action-cats.ts): each group's short name, and what its button says.
   'cat.explore': 'Explore',
   'cat.provision': 'Gather',
-  'cat.build': 'Build',
-  'cat.craft': 'Craft',
-  'cat.carry': 'Carry',
+  'cat.make': 'Make',
   'cat.think': 'Think',
   'cat.label': '{name}: {n} you can do now',
   // Fewer cards (#1925): the one line under a group that opens to what can't be done now.

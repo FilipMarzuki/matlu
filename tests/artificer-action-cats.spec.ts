@@ -99,12 +99,12 @@ for (const lang of ['en', 'sv'] as const) {
 
 test('a reload keeps the category left open, or all of them shut', async ({ page }) => {
   const errors = await openPlan(page, 1024, 700, 'en');
-  const build = page.locator('.cat[data-group="build"]');
-  await build.click();
+  const make = page.locator('.cat[data-group="make"]');
+  await make.click();
   await page.reload();
-  await expect(build).toHaveAttribute('aria-expanded', 'true');
-  expect(await openPanels(page)).toEqual(['build']);
-  await build.click();
+  await expect(make).toHaveAttribute('aria-expanded', 'true');
+  expect(await openPanels(page)).toEqual(['make']);
+  await make.click();
   await page.reload();
   await expect(page.locator('.cats')).toBeVisible();
   expect(await openPanels(page)).toEqual([]);
@@ -113,7 +113,7 @@ test('a reload keeps the category left open, or all of them shut', async ({ page
 
 test('a new Warden starts with Explore open, whatever an earlier Warden left open', async ({ page }) => {
   const errors = await openPlan(page, 1024, 700, 'en');
-  await page.evaluate(() => localStorage.setItem('artificer.group', JSON.stringify({ id: 'w-someone-else', pick: 'build' })));
+  await page.evaluate(() => localStorage.setItem('artificer.group', JSON.stringify({ id: 'w-someone-else', pick: 'make' })));
   await page.reload();
   await expect(page.locator('.cat[data-group="explore"]')).toHaveAttribute('aria-expanded', 'true');
   expect(await openPanels(page)).toEqual(['explore']);
@@ -124,9 +124,9 @@ test('a distance chooser shuts with its category', async ({ page }) => {
   const errors = await openPlan(page, 1024, 700, 'en');
   await page.locator('[data-chooser="explore"]').click();
   await expect(page.locator('.ringpick')).toBeVisible();
-  await page.locator('.cat[data-group="build"]').click();
+  await page.locator('.cat[data-group="make"]').click();
   await expect(page.locator('.ringpick')).toHaveCount(0);
-  expect(await openPanels(page)).toEqual(['build']);
+  expect(await openPanels(page)).toEqual(['make']);
   // And back: Explore's card is there, its chooser shut.
   await page.locator('.cat[data-group="explore"]').click();
   await expect(page.locator('[data-chooser="explore"]')).toHaveAttribute('aria-expanded', 'false');
@@ -167,10 +167,10 @@ test('LAND\'s Explore opens the Explore category, whatever this Warden had open 
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('artificer.lang', 'en'); });
   await page.reload();
   await throughIntro(page);
-  // This Warden left Build open (the page keeps the pick per Warden), then comes back to LAND's start.
+  // This Warden left Make open (the page keeps the pick per Warden), then comes back to LAND's start.
   const id = await page.evaluate(key => (JSON.parse(localStorage.getItem(key) ?? '{}') as { sim?: { character?: { id?: string } } }).sim?.character?.id, PLANNED.saveKey);
   expect(id).toBeTruthy();
-  await page.evaluate(id => localStorage.setItem('artificer.group', JSON.stringify({ id, pick: 'build' })), id);
+  await page.evaluate(id => localStorage.setItem('artificer.group', JSON.stringify({ id, pick: 'make' })), id);
   await page.reload();
   await page.locator('[data-startexplore]').click();
   const ack = page.locator('[data-wxack]');

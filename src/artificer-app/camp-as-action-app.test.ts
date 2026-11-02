@@ -70,8 +70,8 @@ describe('Make camp on the page (#1732)', () => {
     expect(campSpotsSection(explored(false), en)).toBe('');
   });
 
-  it('the action sits with the building actions, named in both languages', () => {
-    expect(GROUPS.find(g => g.key === 'build')?.ids[0]).toBe('camp');
+  it('the action sits with the building actions, first in Make (#2025), named in both languages', () => {
+    expect(GROUPS.find(g => g.key === 'make')?.ids[0]).toBe('camp');
     const a = app(explored());
     const html = paletteBlock(a, previewQueue(a), { dev: false, t: sv });
     expect(html).toContain('data-q="camp"');
