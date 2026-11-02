@@ -14,10 +14,10 @@ import { landOfRun } from '../artificer/world/hex-window';
 import type { Biome } from '../artificer/world/reach';
 import { enqueue, makeWarden, type AppState } from './controller';
 import {
-  CELL, GROUND_COUNT, GROUND_TILES, ICE_TILES, SNOWY_TILES, cellOf, groundAt, hash, key, middleOf, poseAt, retrace, sceneOf, thingAt, tileAt, walkingShare,
+  CELL, GROUND_COUNT, GROUND_TILES, ICE_TILES, SNOWY_TILES, THINGS, cellOf, groundAt, hash, key, middleOf, poseAt, retrace, sceneOf, thingAt, tileAt, walkingShare,
   type GroundWorld, type Need, type P, type Scene,
 } from './ground-view';
-import { WARDEN_ANIMS, WARDEN_CELL, WARDEN_DIRS, wardenFrame } from './ground-draw';
+import { ART_SQUARE, THING_ART, THING_CELL, THING_COUNT, THINGS_ACROSS, WARDEN_ANIMS, WARDEN_CELL, WARDEN_DIRS, wardenFrame } from './ground-draw';
 import { biomeAt, placesOf, stepWalk } from './minimap';
 import { playDay } from './playback';
 
@@ -58,13 +58,16 @@ describe('the squares (#2022)', () => {
     expect(groundAt(w, riverEdge - 2, 0)).toBe('birch');
   });
 
-  it('camp\'s trodden ground by the fire, with the fire and the shelter, and the land round it', () => {
+  it('camp\'s trodden ground by the fire, with the fire, the tent and the woodpile, and the land round it', () => {
     const w = world({ camp: { x: 0, y: 0 } });
     expect(groundAt(w, 0, 0)).toBe('camp');
     expect(groundAt(w, 1, 0)).toBe('camp');
     expect(groundAt(w, 1, 1)).toBe('heath');
     expect(thingAt(w, 1, 0)).toBe('fire');
-    expect(thingAt(w, -1, -1)).toBe('shelter');
+    // The tarp tent it starts with (#2027); a lean-to once one is built.
+    expect(thingAt(w, -1, -1)).toBe('tent');
+    expect(thingAt({ ...w, shelter: 'leanto' }, -1, -1)).toBe('shelter');
+    expect(thingAt(w, 1, -1)).toBe('woodpile');
     expect(thingAt(w, 0, 0)).toBeNull();
   });
 
@@ -311,16 +314,28 @@ describe('every task moves the Warden (#2022)', () => {
   });
 });
 
-describe('the art (#2022)', () => {
+describe('the art (#2022, #2027)', () => {
   /** A PNG's width and height, from its header. */
   const size = (path: string): { w: number; h: number } => { const b = readFileSync(path); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 
-  it('the ground atlas holds every tile; the Warden\'s sheet one row per animation and facing', () => {
+  it('the ground atlas holds every tile, the things\' atlas every thing, the Warden\'s sheet one row per animation and facing', () => {
     const g = size('public/assets/sprites/tilesets/artificer-ground/ground.png');
-    expect((g.w / 32) * (g.h / 32)).toBeGreaterThanOrEqual(GROUND_COUNT);
-    const s = size('public/assets/sprites/characters/mistheim/heroes/loke/loke-ground.png');
+    expect((g.w / ART_SQUARE) * (g.h / ART_SQUARE)).toBeGreaterThanOrEqual(GROUND_COUNT);
+    const th = size('public/assets/sprites/tilesets/artificer-ground/things.png');
+    expect(th.w).toBe(THINGS_ACROSS * THING_CELL);
+    expect((th.w / THING_CELL) * (th.h / THING_CELL)).toBe(THING_COUNT);
+    // Every thing names cells that are in the atlas.
+    expect(Math.max(...Object.values(THING_ART).flatMap(a => a.cells))).toBeLessThan(THING_COUNT);
+    const s = size('public/assets/sprites/characters/mistheim/heroes/warden/warden-ground.png');
     expect(s.h).toBe(WARDEN_ANIMS.length * WARDEN_DIRS.length * WARDEN_CELL.h);
     expect(s.w).toBe(Math.max(...WARDEN_ANIMS.map(([, n]) => n)) * WARDEN_CELL.w);
+  });
+
+  it('every thing the land or camp can put on a square has art, and the crowns and roofs are drawn over the Warden', () => {
+    const things = new Set([...Object.values(THINGS).flatMap(o => o!.map(([t]) => t)), 'fire', 'tent', 'shelter', 'woodpile', 'birch', 'pine', 'bush', 'stones']);
+    for (const t of things) expect(THING_ART[t as keyof typeof THING_ART], t).toBeDefined();
+    expect(THING_ART.birch.over && THING_ART.pine.over && THING_ART.shelter.over).toBe(true);
+    expect(THING_ART.stones.over || THING_ART.bush.over || THING_ART.fire.over).toBe(false);
   });
 
   it('the Warden\'s frame: its animation and facing\'s row, cycling through that animation\'s frames', () => {
@@ -333,7 +348,7 @@ describe('the art (#2022)', () => {
   it('every picture the ground draws is in public/, so the Artificer\'s build copies it', () => {
     const src = readFileSync('src/artificer-app/ground-draw.ts', 'utf8');
     const paths = [...src.matchAll(/'(\/assets\/[^']+\.png)'/g)].map(m => m[1]);
-    expect(paths.length).toBeGreaterThan(10);
+    expect(paths.length).toBe(3);
     for (const p of paths) expect(() => readFileSync(`public${p}`), p).not.toThrow();
   });
 });

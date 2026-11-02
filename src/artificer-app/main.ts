@@ -2126,9 +2126,9 @@ const scenes = new WeakMap<PlayStep, { sc: GroundScene; world: GroundWorld }>();
 /** The night's ground, once the day has played out: worked out once per day played. */
 const nights = new WeakMap<DayPlay, { world: GroundWorld; at: P }>();
 
-/** The ground's world for a state (#2022): its land, camp, and whether snow lies and the water is iced. */
+/** The ground's world for a state (#2022): its land, camp and its shelter (#2027), and whether snow lies and the water is iced. */
 function groundWorldOf(s: AppState['sim'], land: Land, extra?: GroundScene['extra']): GroundWorld {
-  return { land, camp: placesOf(s, land).camp, snow: (s.snowDepth ?? 0) > 0, ice: iceOn(s.day, s.config.calendar), extra };
+  return { land, camp: placesOf(s, land).camp, shelter: s.tier >= 1 ? 'leanto' : 'tent', snow: (s.snowDepth ?? 0) > 0, ice: iceOn(s.day, s.config.calendar), extra };
 }
 
 /**

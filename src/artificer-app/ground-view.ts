@@ -47,7 +47,7 @@ export const VIEW = 3;
 /** What a square of ground is: a kind of land, the water's edge, or camp's trodden ground. */
 export type Ground = Biome | 'shore' | 'camp';
 /** What can stand on a square. */
-export type Thing = 'birch' | 'pine' | 'bush' | 'stones' | 'log' | 'stump' | 'fire' | 'shelter';
+export type Thing = 'birch' | 'pine' | 'bush' | 'stones' | 'boulder' | 'log' | 'stump' | 'reeds' | 'heather' | 'fire' | 'shelter' | 'tent' | 'woodpile';
 /** What the Warden is doing, as the hero sheet draws it (ground-draw.ts). */
 export type Anim = 'idle' | 'walk' | 'pickup' | 'pull' | 'crouch' | 'drink';
 export type Facing = 'south' | 'north' | 'east' | 'west';
@@ -97,6 +97,8 @@ export interface GroundWorld {
   ice: boolean;
   /** Squares the work set up (`Scene.extra`): something to gather, water to fetch from, or null to keep a square clear. */
   extra?: ReadonlyMap<string, Thing | 'water' | null>;
+  /** Camp's shelter (#2027): the tarp tent it starts with, or a lean-to once one is built. Absent: the tent. */
+  shelter?: 'tent' | 'leanto';
 }
 
 export const key = (x: number, y: number): string => `${x},${y}`;
@@ -143,17 +145,19 @@ export function tileAt(w: GroundWorld, x: number, y: number): number | null {
 export const THINGS: Readonly<Partial<Record<Ground, readonly (readonly [Thing, number])[]>>> = {
   birch: [['birch', 0.2], ['bush', 0.05], ['log', 0.03], ['stump', 0.02]],
   pine: [['pine', 0.24], ['log', 0.04], ['stump', 0.03]],
-  meadow: [['bush', 0.04], ['stones', 0.02]],
-  heath: [['bush', 0.06], ['stones', 0.04]],
-  marsh: [['stump', 0.03], ['bush', 0.02]],
-  scree: [['stones', 0.22]],
-  fell: [['stones', 0.1]],
-  snow: [['stones', 0.03]],
+  meadow: [['bush', 0.04], ['heather', 0.02], ['stones', 0.02]],
+  heath: [['heather', 0.12], ['bush', 0.04], ['stones', 0.03]],
+  marsh: [['reeds', 0.14], ['stump', 0.02]],
+  scree: [['stones', 0.16], ['boulder', 0.06]],
+  fell: [['stones', 0.07], ['boulder', 0.04]],
+  snow: [['stones', 0.02], ['boulder', 0.02]],
+  shore: [['reeds', 0.08], ['stones', 0.04]],
 };
 
-/** Camp's fire and shelter, beside its middle. */
+/** Camp's fire, shelter and woodpile, beside its middle. */
 export const FIRE_AT: P = { x: 1, y: 0 };
 export const SHELTER_AT: P = { x: -1, y: -1 };
+export const WOODPILE_AT: P = { x: 1, y: -1 };
 
 /** What stands on a square, if anything: camp's fire and shelter, what the work set up, or the land's own. */
 export function thingAt(w: GroundWorld, x: number, y: number): Thing | null {
@@ -162,14 +166,15 @@ export function thingAt(w: GroundWorld, x: number, y: number): Thing | null {
   if (w.camp) {
     const m = middleOf(w.camp);
     if (x === m.x + FIRE_AT.x && y === m.y + FIRE_AT.y) return 'fire';
-    if (x === m.x + SHELTER_AT.x && y === m.y + SHELTER_AT.y) return 'shelter';
+    if (x === m.x + SHELTER_AT.x && y === m.y + SHELTER_AT.y) return w.shelter === 'leanto' ? 'shelter' : 'tent';
+    if (x === m.x + WOODPILE_AT.x && y === m.y + WOODPILE_AT.y) return 'woodpile';
     if (Math.abs(x - m.x) <= 2 && Math.abs(y - m.y) <= 2) return null;
   }
   // The walks run along the lines through the cells' middles: kept clear.
   const mx = ((x % CELL) + CELL) % CELL, my = ((y % CELL) + CELL) % CELL;
   if (mx === 0 || my === 0) return null;
   const g = groundAt(w, x, y);
-  const odds = g && g !== 'shore' ? THINGS[g] : undefined;
+  const odds = g ? THINGS[g] : undefined;
   if (!odds) return null;
   let r = hash(x, y, 1);
   for (const [thing, p] of odds) { if (r < p) return thing; r -= p; }
