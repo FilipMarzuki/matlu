@@ -50,6 +50,10 @@ export const explore = {
   'log.headout.found': 'Out that way: {Biome}, {bearing}, {walk} from where you set out.',
   'log.headout.night': "You'll sleep out here tonight, away from camp, unless you walk back.",
   'log.lookhere': 'Looked around where you stand, out to about {h} hours each way.',
+  // Looking around by sightlines (#2029): what the ground where you stand lets you see.
+  'log.lookhere.sight': 'Looked around where you stand, as far as you can see from here.',
+  'log.lookhere.woods': 'Looked around where you stand — the trees close in, and you see only the ground next to you.',
+  'log.lookhere.high': 'Looked around where you stand — from the high ground you see a long way.',
   'log.walkback': 'Walked back to camp first, about {h} hours.',
   // A heading, as `log.headout` names it.
   'heading.n': 'north',

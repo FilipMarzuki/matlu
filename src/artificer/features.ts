@@ -387,7 +387,7 @@ export const FEATURES: readonly FeatureDef[] = [
     // terrain (directed-explore.ts `sightlinePlan`), and at camp too. A run from before it (absent:
     // false) sees as it did: every square within an hour's walk away from camp, none at camp.
     id: 'look-around-sightlines', name: 'Look around by sightlines', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 2029,
-    note: 'Looking around marks as seen the squares you can see from where you stand, at camp too: about two squares out (an hour on open ground), further looks further. In a wood the trees close in (the squares next to you); from high ground you see a square more. Hills higher than your line of sight hide what\'s behind them, and so do woods; lakes and low ground don\'t.',
+    note: 'Looking around marks as seen the squares you can see from where you stand, at camp too: about two squares out (an hour on open ground), further looks further. In a wood the trees close in (the squares next to you); from high ground you see a square more. Hills higher than your line of sight hide what\'s behind them, and so do woods; lakes and low ground don\'t. It builds on Explore in a direction (directed-explore), whose looking around where you stand it is.',
   },
   {
     // A rules feature (#1858, on #1823's scavengers): it guards the meat lying loose at a camp with

@@ -2038,7 +2038,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       }
       // Away from camp (or, before camp, from the start), looking around sees the land where you stand.
       if (way === 'here' && s.afield && directedOn(s)) return lookHere(s, r);
-      // At camp (#2029, `look-around-sightlines`): looking around close by notes what's in sight too.
+      // At camp (#2029, `look-around-sightlines`, on directed explore's looking around where you
+      // stand): looking around close by notes what's in sight too.
       if (way === 'here' && r === 1 && directedOn(s)) lookFromCamp(s);
       // Scout (#2018, `explore-grows`): one look round shows everything there, as a survey did.
       if (exploreTierOf(s) === 'scout') { s.explore = survey(s.explore, r); return `Scouted the land${where(r)} — you know now what's there, all of it.`; }
