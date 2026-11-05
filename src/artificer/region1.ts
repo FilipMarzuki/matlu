@@ -59,7 +59,7 @@ import { builtWarmth, builtWarmthOn, naturalRoof, siteShelterText } from './buil
 import { thermalOn, thermalNight, thermalEffects, sleeperEnvironment, type ThermalNight } from './thermal';
 import { ACTION_VISIBILITY, EXPLORE_GROWS, FOLDED_INTO_EXPLORE, LOOK_LOCK, TIER_LINE, exploreTier, tierRaised, subActionLock, newlyOpen, STONE_GATHERING, QUARRY_TECHNIQUE, QUARRY_UNLOCK, STONE_GATHER_FIND_NOTE } from './action-unlocks';
 import { ringWordsFor } from './distance-words';
-import { wayOf, wayOptions, isHeading, type Way, headOut, lookHere, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp, directedOn } from './directed-explore';
+import { wayOf, wayOptions, isHeading, type Way, headOut, lookHere, lookFromCamp, walksBackFirst, walkBackHours, walkBackLine, backAtCamp, awayFromCamp, directedOn } from './directed-explore';
 import { walkTrip, walkOn, legAt, noteWalk, tripLine, endWalk, pathHome, type Trip, type TrailDay } from './walk-the-map';
 import { withHeadingLock, wayLock, headingExtraHours, needleLock, needleGate, makeNeedleCompass, steerHeading, NEEDLE_HOURS, type NeedleCompass } from './compass-heading';
 import { experimentStep, inputWords, EXPERIMENT_HOURS, type ExperimentTarget } from './experiment';
@@ -2038,6 +2038,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       }
       // Away from camp (or, before camp, from the start), looking around sees the land where you stand.
       if (way === 'here' && s.afield && directedOn(s)) return lookHere(s, r);
+      // At camp (#2029, `look-around-sightlines`, on directed explore's looking around where you
+      // stand): looking around close by notes what's in sight too.
+      if (way === 'here' && r === 1 && directedOn(s)) lookFromCamp(s);
       // Scout (#2018, `explore-grows`): one look round shows everything there, as a survey did.
       if (exploreTierOf(s) === 'scout') { s.explore = survey(s.explore, r); return `Scouted the land${where(r)} — you know now what's there, all of it.`; }
       const first = !scouted(s.explore, r);

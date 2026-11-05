@@ -40,7 +40,7 @@ import { nightLineForAi, thermalOn } from '../artificer/thermal';
 import { featureOn } from '../artificer/features';
 import { HUNT_ODDS_WORDS, huntingGearOn, BOW_SINEW, SINEW_SMALL, SINEW_DEER } from '../artificer/hunting-gear';
 import { scavengersOn, lidOn, walledLarderOn, protectionWord, LONG_AWAY_HOURS, LID_COST, MICE_FREE_DAYS, bankedFireOn, BANK_FIREWOOD, BANK_HOURS, BANK_HOURS_PER_FIREWOOD, BANK_WORK_HOURS } from '../artificer/camp-scavengers';
-import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS } from '../artificer/directed-explore';
+import { directedOn, awayFromCamp, walkBackHours, HEAD_OUT_HOURS, LOOK_HOURS, LOOK_SQUARES, sightlinesOn } from '../artificer/directed-explore';
 import { walkOn, whereLine, WALK_RULES } from '../artificer/walk-the-map';
 import { headingLine, NEEDLE_PULL_DAYS } from '../artificer/compass-heading';
 import { distanceOn, measuredFromCamp, ringWordsFor, DISTANCE_AT } from '../artificer/distance-words';
@@ -512,7 +512,10 @@ export function observe(s: Region1State, notes: readonly string[] = [], found: r
   if (directedOn(s)) {
     const where = awayFromCamp(s) ? ` You are out on the land now, about ${Math.round(walkBackHours(s) * 2) / 2}h from camp: tonight you sleep out with no shelter, and any work but exploring or Make camp starts with the walk back.`
       : s.afield ? ' You are out on the land now, away from where you started: walks and directions are from here.' : '';
-    lines.push(`EXPLORING: "explore" takes option "way". "here" (the default) looks around: a little of the land in every direction, out to the distance you queue it at, and you stay where you are${s.campSpot ? ' ("camp" instead walks back to camp first and looks around there, when you\'re away from it)' : ''}. n, ne, e, se, s, sw, w, nw heads out that way: you see the land in that 45° slice (about ${HEAD_OUT_HOURS[1]}h out close by, ${HEAD_OUT_HOURS[2]}h at half a day, ${HEAD_OUT_HOURS[3]}h at a day), find the water, wood, stone and camp sites the map has there, learn nothing of the other directions, and end the day out there; the next day starts from there. Heading out needs no ground known first. Looking around once you have headed out sees about ${LOOK_HOURS[1]}/${LOOK_HOURS[2]}/${LOOK_HOURS[3]}h each way.${where}`);
+    lines.push(`EXPLORING: "explore" takes option "way". "here" (the default) looks around: a little of the land in every direction, out to the distance you queue it at, and you stay where you are${s.campSpot ? ' ("camp" instead walks back to camp first and looks around there, when you\'re away from it)' : ''}. n, ne, e, se, s, sw, w, nw heads out that way: you see the land in that 45° slice (about ${HEAD_OUT_HOURS[1]}h out close by, ${HEAD_OUT_HOURS[2]}h at half a day, ${HEAD_OUT_HOURS[3]}h at a day), find the water, wood, stone and camp sites the map has there, learn nothing of the other directions, and end the day out there; the next day starts from there. Heading out needs no ground known first. ${sightlinesOn(s)
+      // Looking around by sightlines (#2029): what it sees, and that it does at camp too.
+      ? `Looking around (at camp too, close by) sees the squares in sight from where you stand: about ${LOOK_SQUARES[1]} squares out close by, ${LOOK_SQUARES[2]} at half a day, ${LOOK_SQUARES[3]} at a day; in a wood only the squares next to you, from high ground one more; hills and woods hide what's behind them, lakes don't.`
+      : `Looking around once you have headed out sees about ${LOOK_HOURS[1]}/${LOOK_HOURS[2]}/${LOOK_HOURS[3]}h each way.`}${where}`);
     // Keeping a heading (#1868, `compass-heading`): what heading out needs, and what the Warden has.
     const heading = headingLine(s);
     if (heading) lines.push(heading);

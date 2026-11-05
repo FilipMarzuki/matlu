@@ -383,6 +383,13 @@ export const FEATURES: readonly FeatureDef[] = [
     note: 'One exploring action that grows with your Scouting. At first it\'s Look around: close by only, and no heading out. At Apprentice it\'s Explore: the farther land, and off in any of the eight directions. At Adept it\'s Scout: looking around a distance (when you\'re not out on the land) makes it all clear in one trip (what Survey did). Keen Eye counts a level up. Scout and Survey aren\'t separate actions, and what helped them (the map & compass, binoculars, Keen Eye, Landmarks) helps it.',
   },
   {
+    // A rules feature (#2029, on #1839's `directed-explore`): looking around sees by sightlines and
+    // terrain (directed-explore.ts `sightlinePlan`), and at camp too. A run from before it (absent:
+    // false) sees as it did: every square within an hour's walk away from camp, none at camp.
+    id: 'look-around-sightlines', name: 'Look around by sightlines', stage: 'experimental', kind: 'rules', default: true, absent: false, issue: 2029,
+    note: 'Looking around marks as seen the squares you can see from where you stand, at camp too: about two squares out (an hour on open ground), further looks further. In a wood the trees close in (the squares next to you); from high ground you see a square more. Hills higher than your line of sight hide what\'s behind them, and so do woods; lakes and low ground don\'t. It builds on Explore in a direction (directed-explore), whose looking around where you stand it is.',
+  },
+  {
     // A rules feature (#1858, on #1823's scavengers): it guards the meat lying loose at a camp with
     // walls and adds the first mice, drawn from streams of their own, so a run from before it
     // (absent: false) keeps its meat as it did, and replays the same. Needs `camp-scavengers`.
