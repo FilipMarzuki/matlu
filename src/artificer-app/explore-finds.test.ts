@@ -25,6 +25,13 @@ import {
 const en = makeT('en');
 const sv = makeT('sv');
 
+/**
+ * Looking around by sightlines (#2029) off: a first look at camp then marks no squares seen, so the
+ * finds are the chips and places alone, as these wordings were pinned. With it on (the default), the
+ * kinds of land in sight are found too (the test after the first).
+ */
+const NO_SIGHTLINES = { 'look-around-sightlines': false };
+
 /** A new Warden as the page makes one, with no chance in the day (no encounters, luck or weather), so the trips are the same every time. */
 function warden(id = 'w-b', features: Record<string, boolean> = {}): AppState {
   const a = makeWarden({ id }, undefined, features);
@@ -51,7 +58,7 @@ describe('#1869 finds as you explore', () => {
   beforeEach(() => resetTrips());
 
   it('a seeded explore that raised knowledge gives the expected find lines, in English and Swedish', () => {
-    const { play } = step(warden(), 'explore');
+    const { play } = step(warden('w-b', NO_SIGHTLINES), 'explore');
     const [f] = playFinds(play, true);
     expect(f?.trip).toEqual({ act: 'explore', ring: 1 });
     // The first look: a stream, then each domain close by, all suspected (one step less sure than plenty).
@@ -71,7 +78,7 @@ describe('#1869 finds as you explore', () => {
     expect(findsShown(6, FIND_MS * 100)).toBe(6);
     expect(timerLines(play, 1, false, [f], () => 2, en).filter(l => 'find' in l)).toEqual([{ find: 'Found a clear stream' }, { find: 'Found berries' }]);
     // A closer look, once the ground is observed: the same land, now a good source.
-    const a = step(warden(), 'explore').next;
+    const a = step(warden('w-b', NO_SIGHTLINES), 'explore').next;
     const half = { ...a.sim.explore, known: { ...a.sim.explore.known, 1: { ...a.sim.explore.known[1], forage: 1.5, timber: 1.5, stone: 1.5, water: 1.5, game: 1.5 } } };
     const closer = step({ ...a, sim: { ...a.sim, explore: half } }, 'explore');
     const g = playFinds(closer.play, true)[0]!;
@@ -79,6 +86,16 @@ describe('#1869 finds as you explore', () => {
     // …and observed ground shows where to camp (camp-sites.ts: a site's area observed or better).
     expect(findLines(g.finds, en)).toEqual(['A good source of berries', 'Found a good source of firewood', 'Found a good camp site up on a rise', 'Found a good camp site in the shelter of the trees']);
     expect(findLines(g.finds, sv)).toEqual(['Bra tillgång på bär', 'Hittade en bra vedkälla', 'Hittade en bra lägerplats uppe på en höjd', 'Hittade en bra lägerplats i lä under träden']);
+  });
+
+  it('looking around at camp by sightlines (#2029) also finds the kinds of land in sight', () => {
+    const on = playFinds(step(warden(), 'explore').play, true)[0]!;
+    const off = playFinds(step(warden('w-b', NO_SIGHTLINES), 'explore').play, true)[0]!;
+    // The same chips; and with sightlines, the meadow and the birches round camp, and where to camp among them.
+    expect(on.finds.filter(f => f.kind === 'chip')).toEqual(off.finds.filter(f => f.kind === 'chip'));
+    expect(findLines(on.finds, en)).toEqual(expect.arrayContaining(['Found a grassy meadow', 'Found birch trees']));
+    expect(findLines(off.finds, en)).not.toContain('Found a grassy meadow');
+    expect(on.finds.length).toBeGreaterThan(off.finds.length);
   });
 
   it('gives no find without a knowledge change, and a line for every new chip and place', () => {
@@ -104,8 +121,13 @@ describe('#1869 finds as you explore', () => {
           expect(chips).toEqual(up);
           const news = landNews(after, landSeen(before));
           const moved = JSON.stringify(before.afield) !== JSON.stringify(after.afield);
-          // Standing still, each new place is a kind of land found (heading out re-measures them all from the new spot).
-          if (!moved) expect(f.finds.filter(x => x.kind === 'land').length).toBe(news.places.size);
+          // Standing still, each new place is a kind of land found (heading out re-measures them all from
+          // the new spot). Looking around by sightlines (#2029) also sees squares while standing still,
+          // and says each new kind of land among them too: then every new place is said, and more.
+          const lands = f.finds.filter((x): x is Extract<Find, { kind: 'land' }> => x.kind === 'land');
+          const sawMore = (after.seenOut ?? []).length > (before.seenOut ?? []).length;
+          if (!moved && !sawMore) expect(lands.length).toBe(news.places.size);
+          if (!moved && sawMore) expect(lands.length).toBeGreaterThanOrEqual(Math.min(1, news.places.size));
           if (!up.length && !news.places.size && !(after.seenOut ?? []).length) expect(f.finds.filter(x => x.kind !== 'spot')).toEqual([]);
         }
         a = next;
@@ -150,7 +172,7 @@ describe('#1869 finds as you explore', () => {
 
   it('keeps one journal line per trip', () => {
     // A planned day of three land trips and a rest.
-    const start = warden();
+    const start = warden('w-b', NO_SIGHTLINES);
     const a: AppState = { ...start, sim: { ...start.sim, canPlan: true }, queue: ['explore', 'explore', 'rest', 'explore'] };
     const play = playDay(a);
     const finds = playFinds(play, true);
@@ -195,7 +217,7 @@ describe('#1869 finds as you explore', () => {
   });
 
   it('gives the AI a FOUND line after an explore', () => {
-    const a = warden();
+    const a = warden('w-b', NO_SIGHTLINES);
     const after = runAction(a.sim, 'explore');
     const line = foundLine(a.sim, after);
     expect(line).toBe('FOUND (what your trips out turned up): Found a clear stream; Found berries; Found firewood; Found smooth rocks; Found water; Found game trails.');

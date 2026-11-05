@@ -201,6 +201,114 @@ export function headOutPlan(r: Reach, from: At, dir: Dir, ring: Ring, compass = 
 /** Looking around away from camp (pure): every square within `LOOK_HOURS` of where you stand, in every direction. */
 export const lookAroundPlan = (r: Reach, from: At, ring: Ring): number[] => seenWithin(r, from, LOOK_HOURS[ring], () => true);
 
+// ── Sightlines (#2029, `look-around-sightlines`) ─────────────────────────────
+//
+// The owner: looking around should see "more like [about an hour's walk each way] but maybe depends
+// on sightlines and terrain". With the switch on, looking around sees the squares in sight of where
+// you stand: within a radius, by a straight line from your eyes that clears everything between.
+
+/** The rule switch (features.ts). */
+export const SIGHTLINES = 'look-around-sightlines';
+export const sightlinesOn = (s: Pick<Region1State, 'config'>): boolean => featureOn(s.config.world.features, SIGHTLINES);
+
+/** How far looking around sees, in squares, by the distance it's queued at: about two squares an hour on open ground (as `LOOK_HOURS`). */
+export const LOOK_SQUARES: Readonly<Record<Ring, number>> = { 1: 2, 2: 4, 3: 6 };
+/** How far above the ground your eyes are (the land's heights run 0 … 1; neighbours differ by ~0.02). */
+export const EYE = 0.005;
+/** How far a wood's crowns stand above its ground: about a usual step between neighbouring squares. */
+export const CANOPY = 0.03;
+/** Woods: they close in round you and block the view across them. */
+export const WOODS: readonly Biome[] = ['birch', 'pine'];
+/** High ground: from it you see a square further. */
+export const HIGH: readonly Biome[] = ['scree', 'fell', 'snow'];
+
+/**
+ * How far you see from `from`, looking around at a distance `ring` (pure): `LOOK_SQUARES`, but in a
+ * wood only the squares next to you, and on high ground (scree, fell, snowfield, or higher than
+ * every square round you) one square more.
+ */
+export function sightRadius(r: Reach, from: At, ring: Ring): number {
+  const here = r.cells[from.y * r.w + from.x];
+  if (WOODS.includes(here.biome)) return 1;
+  const round = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]
+    .map(([dx, dy]) => [from.x + dx, from.y + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < r.w && y < r.h)
+    .map(([x, y]) => r.cells[y * r.w + x].height);
+  const high = HIGH.includes(here.biome) || (round.length > 0 && round.every(h => here.height > h));
+  return LOOK_SQUARES[ring] + (high ? 1 : 0);
+}
+
+/**
+ * Whether `to` is in sight from `from` (pure): the straight line from your eyes (`EYE` above your
+ * square) to the ground of `to` clears every square it crosses on the way, each as high as its land,
+ * and a wood as high as its crowns (`CANOPY`). The squares themselves at each end don't block: you
+ * see the near edge of a hill or a wood, not past it. Lakes and low ground never rise above the line.
+ */
+export function inSight(r: Reach, from: At, to: At): boolean {
+  const h0 = r.cells[from.y * r.w + from.x].height + EYE;
+  const h1 = r.cells[to.y * r.w + to.x].height;
+  const dx = to.x - from.x, dy = to.y - from.y;
+  // Four looks a square along the line, each at the square it falls in (a fixed walk: no randomness).
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) * 4));
+  for (let k = 1; k < steps; k++) {
+    const t = k / steps;
+    const x = Math.round(from.x + dx * t), y = Math.round(from.y + dy * t);
+    if ((x === from.x && y === from.y) || (x === to.x && y === to.y)) continue;
+    const c = r.cells[y * r.w + x];
+    const top = c.height + (WOODS.includes(c.biome) ? CANOPY : 0);
+    if (top > h0 + (h1 - h0) * t + 1e-9) return false;
+  }
+  return true;
+}
+
+/**
+ * Looking around by sightlines (pure): every square within `sightRadius` of where you stand (as the
+ * crow flies) that's `inSight`, and the open water within it beside a square you see or beside you
+ * (a lake lies low, so its surface is seen from its shore, as `seenWithin` has it). Sorted Reach
+ * indices; `from` itself isn't one.
+ */
+export function sightlinePlan(r: Reach, from: At, ring: Ring): number[] {
+  const radius = sightRadius(r, from, ring);
+  const within: number[] = [];
+  for (let y = Math.max(0, from.y - radius); y <= Math.min(r.h - 1, from.y + radius); y++) {
+    for (let x = Math.max(0, from.x - radius); x <= Math.min(r.w - 1, from.x + radius); x++) {
+      if ((x === from.x && y === from.y) || Math.hypot(x - from.x, y - from.y) > radius + 0.5) continue;
+      within.push(y * r.w + x);
+    }
+  }
+  const seen = new Set(within.filter(i => inSight(r, from, { x: i % r.w, y: Math.floor(i / r.w) })));
+  const here = from.y * r.w + from.x;
+  // Open water from its shore, spreading across it (a wide lake is seen to its far side, within reach).
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const i of within) {
+      if (seen.has(i) || r.cells[i].biome !== 'lake') continue;
+      if (around(r, i).some(j => j === here || seen.has(j))) { seen.add(i); grew = true; }
+    }
+  }
+  return [...seen].sort((a, b) => a - b);
+}
+
+/**
+ * Note what looking around sees from where you stand (on an already-cloned state): by sightlines with
+ * the switch on (#2029), else every square within `LOOK_HOURS`. With `hex-world` on, on the land past
+ * the Reach's edge too.
+ */
+function noteLookAround(s: Region1State, ring: Ring): void {
+  const land = landOfRun(s);
+  const from = standingAt(s);
+  const seen = sightlinesOn(s) ? sightlinePlan(land, from, ring) : lookAroundPlan(land, from, ring);
+  if (hexWorldOn(s)) noteSeenCells(s, seen.map(i => toWorld(land, i % land.w, Math.floor(i / land.w))));
+  else s.seenOut = merged(s.seenOut, seen);
+}
+
+/**
+ * Looking around at camp, close by (#2029, on an already-cloned state): with sightlines on, what you
+ * can see from camp (or, before camp, from where you started) is noted as seen too. Off, nothing.
+ */
+export function lookFromCamp(s: Region1State): void {
+  if (sightlinesOn(s)) noteLookAround(s, 1);
+}
+
 // ── Where the Warden is ─────────────────────────────────────────────────────
 
 /**
@@ -374,11 +482,7 @@ export function headOut(s: Region1State, dir: Dir, ring: Ring): string[] {
  * direction, a little way out. With `hex-world` on, on the land past the Reach's edge too.
  */
 export function lookHere(s: Region1State, ring: Ring): string {
-  const land = landOfRun(s);
-  const from = standingAt(s);
-  const seen = lookAroundPlan(land, from, ring);
-  if (hexWorldOn(s)) noteSeenCells(s, seen.map(i => toWorld(land, i % land.w, Math.floor(i / land.w))));
-  else s.seenOut = merged(s.seenOut, seen);
+  noteLookAround(s, ring);
   return `Looked around where you stand, out to about ${hrs(LOOK_HOURS[ring])} hours each way.`;
 }
 

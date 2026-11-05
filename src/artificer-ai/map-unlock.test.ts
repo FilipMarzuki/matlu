@@ -114,4 +114,7 @@ const SCRIPTED_DAYS: (number | null)[] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 // as measured, random 6/12, median 5 (5–5), still in the target. Rules, explorer and scripted unchanged.
 // With `explore-grows` (#2018) the random player's draws among the legal actions change (no Scout or
 // Survey; Look around close by at first), and it lives longer on more seeds: random 10/12, median 5 (5–8).
-const RANDOM_DAYS: (number | null)[] = [5, 5, null, 6, 5, null, 5, 5, 5, 8, 5, 5];
+// With `look-around-sightlines` (#2029) looking around at camp marks the squares in sight as seen, so
+// the places the map needs turn up sooner: map-3 now opens on day 5, and map-4 and map-10 a day or three
+// sooner: random 11/12, median 5 (5–5). The explorer and the scripted baseline didn't move.
+const RANDOM_DAYS: (number | null)[] = [5, 5, 5, 5, 5, null, 5, 5, 5, 5, 5, 5];
