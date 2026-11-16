@@ -61,10 +61,10 @@
     "items:validate": "node scripts/validate-items.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.6.0",
-    "@capacitor/cli": "^8.6.0",
-    "@capacitor/core": "^8.6.0",
-    "@logtail/browser": "^0.6.0",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@logtail/browser": "^0.6.1",
     "@modelcontextprotocol/server": "^2.4.0",
     "@supabase/supabase-js": "^2.119.0",
     "@vercel/analytics": "^2.0.1",
@@ -72,7 +72,7 @@
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^1.6.0",
+    "@anthropic-ai/sdk": "^1.8.0",
     "@modelcontextprotocol/client": "^2.4.0",
     "@playwright/test": "^1.65.0",
     "@types/sharp": "^0.32.0",
@@ -81,7 +81,7 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "unzipper": "^0.12.5",
-    "vite": "^8.3.6",
+    "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.1.0",
     "zod": "^4.6.7"
