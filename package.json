@@ -66,15 +66,15 @@
     "@capacitor/core": "^8.6.2",
     "@logtail/browser": "^0.6.1",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@supabase/supabase-js": "^2.119.0",
+    "@supabase/supabase-js": "^2.119.2",
     "@vercel/analytics": "^2.0.1",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^1.8.0",
+    "@anthropic-ai/sdk": "^1.11.0",
     "@modelcontextprotocol/client": "^2.4.0",
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@types/sharp": "^0.32.0",
     "googleapis": "^190.0.0",
     "sharp": "^0.35.5",
@@ -83,7 +83,7 @@
     "unzipper": "^0.12.5",
     "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^5.1.0",
+    "vitest": "^5.1.1",
     "zod": "^4.6.7"
   }
 }
